@@ -3,7 +3,8 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-09-17 — the Layer 0 tree states the Earth/Water status icon as hidden while the Layers tab's "Show Land/Water Icon" setting is off.
+> **Updated:** 2026-09-21 — the inside-column clause became the clearance rule: every banner in the band clears the bottom-left zone tag column when one is drawn and the right control column always, an inside-column overlay adding no `end` reserve of its own; the outside-column branch stays, with its live users named; the banner family's rules moved to `docs/ui-component-guidelines.md` §5.7.
+> **Previous:** 2026-09-17 — the Layer 0 tree states the Earth/Water status icon as hidden while the Layers tab's "Show Land/Water Icon" setting is off.
 > **Previous:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
 
 ---
@@ -37,10 +38,9 @@ Layer 1 is a single composable call: [`OverlayLayer`](../app/src/main/java/ykws/
 
 **Key rule:** Layer 0 components must never be conditional. Dashboard, controls, and status icons are always present. Only Layer 1 surfaces appear/disappear.
 
-**Right-edge control column rule (paint-only):** the right-edge controls (zoom `+`/`−`, fan, add-zone) float over the map; the map itself always renders full-bleed and must never be padded by the control column. Every transient bottom overlay must stay clear of that column:
+**Right-edge control column rule (paint-only):** the right-edge controls (zoom `+`/`−`, fan, add-zone) float over the map; the map itself always renders full-bleed and must never be padded by the control column. An overlay drawn **outside** the map's left overlay column anchors `BottomStart` — never `BottomCenter`/`BottomEnd` — and reserves the column on the overlay itself via `end = RIGHT_CONTROL_COLUMN_INSET` (82dp: 12dp gap + 64dp button + 6dp end). Its live users are the undo snackbar stack ([`MapSnackbarHost`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt)), `LockBanner` and `MapStatusBanner`, all three drawn from full-width parents.
 
-- Overlays rendered inside the map's left overlay column (exit toast, loading/error) are already bounded by the column layout — align them `BottomStart`/`CenterStart` like the snackbar and do not add extra `end` padding.
-- Overlays rendered outside it (e.g. the undo snackbar stack) anchor `BottomStart` — never `BottomCenter`/`BottomEnd` — and reserve the column on the overlay itself via `end = RIGHT_CONTROL_COLUMN_INSET` (82dp: 12dp gap + 64dp button + 6dp end).
+**Bottom-band clearance rule:** every banner in the map's bottom band clears the bottom-left zone tag column whenever one is drawn — its start inset is `bannerStartInset(tagsDrawn)`, the band's gutter plus the tag column's width — and the right control column always; an overlay inside the left overlay column takes that second half from the column itself and adds no `end` reserve of its own, an overlay outside it from the rule above. The banner family's control, skin, clearance and each face's interior are written once, in `docs/ui-component-guidelines.md` §5.7.
 
 **Full-height landscape drawer rule:** drawers anchored to the left edge in landscape (Marker, TrackInfo, Wizard) are full-height and must clear the status bar — pass `statusBarsInset = true` to `DrawerScaffold` (or apply `windowInsetsPadding(WindowInsets.statusBars)` for drawers that don't use `DrawerScaffold`).
 

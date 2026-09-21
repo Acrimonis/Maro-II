@@ -94,7 +94,8 @@ touching the device, and stating a claim about the code with no file read behind
   WHEN a git `#`-command is invoked → the invocation is the go-ahead: execute it rather than asking
   again, asking the user to run it, or reading it as a request for one. `#commit`, `#push`, `#merge`
   and `#cherry` confirm the operation's scope and never re-litigate authorisation; `#new`, `#move`,
-  `#move new` and `#rename` ask nothing — save `#new`'s one question when its branch already exists.
+  `#move new` and `#rename` ask nothing — save `#new`'s one question when its branch already exists
+  and `#rename`'s one before it deletes a published old name.
   WHEN push, commit or deploy was not asked for → never ask, offer, list or remind, in any mode: no
   "want me to push?", no `apk-deploy.bat` or `apk-push.bat`, no note that commits are unpushed.
   When those happen is not the agent's concern: its delivery is complete when the work is, and it
@@ -104,8 +105,8 @@ touching the device, and stating a claim about the code with no file read behind
   the proposal has moved since the question was asked the gate is re-asked rather than assumed.
 
 - **🛑 PROTECTED BRANCHES: `develop` and `main` are never written to — by anyone, on any instruction.**
-  WHEN the target is `develop` or `main` → no push, force-push, revert, direct commit or local merge,
-  and the refusal is mechanical: `#push`, `#commit` and `#merge` decline rather than ask.
+  WHEN the target is `develop` or `main` → no push, force-push, revert, direct commit, local merge or
+  branch rename, and the refusal is mechanical: `#push`, `#commit`, `#merge` and `#rename` decline rather than ask.
   The user cannot lift it in conversation, because the branches are shared and a bad write lands on
   everyone else's base; integration happens through a pull request — and no `#`-command overrides it,
   the invocation that grants a git operation granting nothing against this rule.
@@ -205,13 +206,13 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#review [target]` | Independent review of the resolved target — walk item → plan in design → last `#implement` run's Target Files → live proposal (a challenge). Prints "Reviewing X because Y"; a target is fuzzy-resolved. Sweeps the session for the five covered action classes that ran without a verdict line, naming the gaps |
 | `#walk [source]` · `#next` · `#prev` · `#skip` | Cursor over an enumerated set, one item expanded at a time; exhaustion closes it; a level marked `Closed` is closed by decision, never a bar to resuming its parked point. State lives in the feature file's `## Walk` section; an open walk blocks `#bake`'s fold and `#archive`'s retirement |
 | `#brief` · `#full` | Output mode: subtract the contract's three optional parts (ELIJP, containment blocks, verification lists) or restore them, reporting the resulting mode. Session-lived — `#focus` resets to full |
-| `#new [branch]` | Create `feature/[branch]` from `origin/develop`. When that local branch already exists, report it and offer recreate (default), another name, or abort — the one case where this command asks |
-| `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Confirms the staged set and the message — a scope gate, never a permission one |
-| `#push` | Push current branch to origin. Fires only on explicit invocation — never proposed, never reminded. Confirms the branch and the remote — a scope gate, never a permission one. Refuses on `develop`/`main` |
+| `#new [branch]` | Create `feature/[branch]` from `origin/develop` with `--no-track`, so nothing tracks the base it was cut from until the first `#push` writes its own name. When that local branch already exists, report it and offer recreate (default), another name, or abort — the one case where this command asks, the recreate leaving no upstream and clearing any the branch carried |
+| `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Confirms the staged set and the message — a scope gate, never a permission one. Refuses on `develop`/`main` |
+| `#push` | Push the current branch to origin, setting its upstream to that name (`git push -u origin <branch>` — the flag is what writes it). Fires only on explicit invocation — never proposed, never reminded. Confirms the branch and the remote — a scope gate, never a permission one. Refuses on `develop`/`main` |
 | `#move [branch]` | Stash → switch → pop (existing branch); bare = list local branches newest first, then pick |
-| `#move new [branch]` | Stash → create `feature/[branch]` from `origin/develop` → pop; bare = prompt for the name, prefilled `feature/` |
-| `#cherry [target]` | Interactive cherry-pick of unpushed commits (alias: `#copy`) |
-| `#rename [branch]` | Rename current branch via `git branch -m` |
+| `#move new [branch]` | Stash → create `feature/[branch]` from `origin/develop` with `--no-track` → pop; bare = prompt for the name, prefilled `feature/` |
+| `#cherry [target]` | Interactive cherry-pick of unpushed commits (alias: `#copy`); confirms the picked set before it runs |
+| `#rename [topic]` | Rename the current branch to `feature/[topic]` via `git branch -m` — no stash, a ref move touching neither index nor worktree — then fix the upstream: one not naming the new branch is cleared, and when the old name is published the rename is carried to the origin (push the new name with `-u`, then delete the old remote branch on the one question, whose answer names that it closes any open pull request on it, then prune). Bare = report the current branch and the topic it implies, writing nothing. Refuses `develop`/`main` as the current branch, a target equal to the current name, a target that exists locally (its commits reported) or on origin, and a detached HEAD |
 
 Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. `docs/cmd_help.md` is a derived printed view of §7b.
 

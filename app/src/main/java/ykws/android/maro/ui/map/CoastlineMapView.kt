@@ -11,9 +11,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import android.graphics.Bitmap
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,12 +19,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,23 +52,27 @@ import org.osmdroid.views.MapView
 internal const val MAP_MIN_ZOOM = 11.0
 internal const val MAP_MAX_ZOOM = 20.0
 
+/**
+ * The card face of [MapBanner] for first-run generation: the banner family's container with this
+ * card's own interior — spinner, title, phase and the progress bar. Full width, the family's border
+ * colour and the band's clearance, all read from `docs/ui-component-guidelines.md` §5.7.
+ */
 @Composable
 internal fun LoadingOverlay(
     progress: GenerationProgress,
+    tagsDrawn: Boolean,
     modifier: Modifier = Modifier,
     title: String = stringResource(R.string.map_loading_coastline)
 ) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = ComposeColor(AppConfig.buttonActionBgColor),
-        shadowElevation = 8.dp,
+    MapBanner(
+        borderColor = ComposeColor(AppConfig.uiDashboardBackground),
+        tagsDrawn = tagsDrawn,
         modifier = modifier
-            .fillMaxWidth()
-            .border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
     ) {
-        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
-            Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             CircularProgressIndicator(
@@ -121,26 +120,29 @@ internal fun LoadingOverlay(
             }
         }
     }
-    }
 }
 
+/**
+ * The card face of [MapBanner] for a failed coastline load or a failed track-info populate: the
+ * family's container with this card's own interior — title, message and Retry. Full width, the danger
+ * border colour and the band's clearance, all read from `docs/ui-component-guidelines.md` §5.7.
+ */
 @Composable
 internal fun ErrorOverlay(
     message: String,
     onRetry: () -> Unit,
+    tagsDrawn: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = ComposeColor(AppConfig.buttonActionBgColor),
-        shadowElevation = 8.dp,
+    MapBanner(
+        borderColor = ComposeColor(AppConfig.uiDashboardZoneDanger),
+        tagsDrawn = tagsDrawn,
         modifier = modifier
-            .fillMaxWidth()
-            .border(2.dp, ComposeColor(AppConfig.uiDashboardZoneDanger), RoundedCornerShape(14.dp))
     ) {
-        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
-            Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -170,7 +172,6 @@ internal fun ErrorOverlay(
                 )
             }
         }
-    }
     }
 }
 

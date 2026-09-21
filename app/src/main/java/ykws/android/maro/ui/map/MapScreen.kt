@@ -80,7 +80,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -121,7 +120,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.border
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -138,7 +136,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1297,6 +1294,19 @@ fun MapScreen(
             )
             val mapCenterOffsetDp = (animatedFraction * visibleMapHeightDp.value * maxMapShift.toFloat()).dp
 
+            // ── The bottom-left tag stack's own set, and the band's one tag answer ─────────────────
+            // The raw zones filtered by boat size and per-category visibility: one home, because the
+            // band's banner clearance reads the very same answer, and the locked-screen banner is drawn
+            // outside MapContent — where it would otherwise have to filter a second time.
+            val tagRegulatedZones = remember(regulatedZones, appSettings) {
+                filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
+            }
+            // Whether that stack draws at all — the Boolean every banner in the band reads, derived here
+            // once from the set beside it rather than re-derived by each caller around `isNotEmpty()`.
+            val bandTagsDrawn = remember(tagRegulatedZones, mapCenter, markerInZone300) {
+                regulatedZoneTags(tagRegulatedZones, mapCenter, markerInZone300).isNotEmpty()
+            }
+
             // ── Inspect mode: arming, disarming and the quiet openers (plan §5, §6) ──
             // The offset in pixels is what the anchor needs: `mapView.mapCenter` is the *plain* screen
             // centre, so the geo point under the marker is read at `centre + offset` — the check behind
@@ -1871,6 +1881,8 @@ fun MapScreen(
                 distanceToShore = distanceToShore,
                 showCrosshair = showCrosshair,
                 regulatedZones = regulatedZones,
+                tagRegulatedZones = tagRegulatedZones,
+                bandTagsDrawn = bandTagsDrawn,
                 zone300 = zone300,
                 inZone300 = inZone300,
                 depthBitmap = depthRaster.effectiveDepthBitmap,
@@ -2953,6 +2965,7 @@ fun MapScreen(
             if (lockBanner != null) {
                 LockBanner(
                     locked = lockBanner == true,
+                    tagsDrawn = bandTagsDrawn,
                     modifier = Modifier.align(Alignment.BottomStart)
                 )
             }
@@ -2983,6 +2996,13 @@ private fun MapContent(
     zoomLevel: Double,
     distanceToShore: Double?,
     regulatedZones: RegulatedZoneSet?,
+    /** The bottom-left tag stack's own set — the raw zones filtered by the boat size and the
+     *  per-category visibility. Hoisted to the caller, which needs the same tag answer for the
+     *  locked-screen banner it draws outside this composable. */
+    tagRegulatedZones: RegulatedZoneSet?,
+    /** Whether that stack draws at least one tag — the band's one answer, derived by the caller beside
+     *  [tagRegulatedZones] and read by every banner here instead of being re-derived per caller. */
+    bandTagsDrawn: Boolean,
     zone300: Zone300Data?,
     inZone300: Boolean,
     depthBitmap: Bitmap?,
@@ -3089,11 +3109,8 @@ private fun MapContent(
                 if (nearby.isEmpty()) null else base.copy(zones = nearby)
             }
         } else null
-        // Tags follow the Zone categories settings and the marker point — never the layer's
-        // visibility, which gates the polygons above only.
-        val tagRegulatedZones = remember(regulatedZones, appSettings) {
-            filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
-        }
+        // The band's tag answer arrives from the caller — one derivation for the stack, the clearance
+        // and the locked-screen banner alike — so nothing here re-reads the tag list for `isNotEmpty()`.
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
         // Apply depth layer colour map + isobath contours visibility toggle
@@ -3268,25 +3285,28 @@ private fun MapContent(
                         }
                     }
 
-                    // Middle layer: loading/error overlay (conditional)
+                    // Middle layer: loading/error overlay (conditional). The cards take the band's own
+                    // clearance as MapBanner's start inset; only their matching end gap stays here.
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .padding(start = 6.dp, end = 6.dp),
+                            .padding(end = 6.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
                             val rp = rasterProgress!!
                             LoadingOverlay(
                                 progress = GenerationProgress(rp.phase, rp.globalProgress),
+                                tagsDrawn = bandTagsDrawn,
                                 title = stringResource(R.string.map_generating_layers)
                             )
                         }
                         if (state is CoastlineState.Error) {
                             ErrorOverlay(
                                 message = (state as CoastlineState.Error).message,
-                                onRetry = onRetry
+                                onRetry = onRetry,
+                                tagsDrawn = bandTagsDrawn
                             )
                         }
                         // Track info error (from populate-track-info)
@@ -3294,45 +3314,33 @@ private fun MapContent(
                         if (trackInfoError != null) {
                             ErrorOverlay(
                                 message = trackInfoError,
-                                onRetry = onClearTrackInfoError
+                                onRetry = onClearTrackInfoError,
+                                tagsDrawn = bandTagsDrawn
                             )
                         }
                     }
 
-                    // Top layer: exit toast (conditional)
+                    // Top layer: exit toast (conditional) — MapBanner's first caller. A child of the
+                    // map's left overlay column, so it adds no end reserve of its own: that column
+                    // already excludes the right control column, and the tag column's width is what the
+                    // band's start inset clears (docs/ui-drawer-guidelines.md §1).
                     if (showExitBanner) {
                         val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
                         val borderColor = if (isRecording)
                             ComposeColor(AppConfig.uiDashboardZoneDanger)
                         else
                             ComposeColor(AppConfig.uiDashboardBackground)
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .fillMaxWidth()
-                                .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET),
-                            contentAlignment = Alignment.Center
+                        MapBanner(
+                            borderColor = borderColor,
+                            tagsDrawn = bandTagsDrawn,
+                            modifier = Modifier.align(Alignment.BottomStart)
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = ComposeColor(AppConfig.buttonActionBgColor),
-                                shadowElevation = 8.dp,
-                                modifier = Modifier.border(2.dp, borderColor, RoundedCornerShape(14.dp))
-                            ) {
-                                Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
-                                    Text(
-                                    text = if (isRecording)
-                                        stringResource(R.string.exit_press_back_again_recording)
-                                    else
-                                        stringResource(R.string.exit_press_back_again),
-                                    color = ComposeColor(AppConfig.uiToastText),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.Start,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                                    )
-                                }
-                            }
+                            MapBannerText(
+                                text = if (isRecording)
+                                    stringResource(R.string.exit_press_back_again_recording)
+                                else
+                                    stringResource(R.string.exit_press_back_again)
+                            )
                         }
                     }
                 }
@@ -3474,7 +3482,7 @@ private fun MapContent(
 
         }
 
-        // ── Import feedback banner (bottom, centered left of the zoom column) ──
+        // ── Import feedback banner (bottom band, centred in the space the map leaves free) ──
         importBanner?.let { banner ->
             val message = when (banner) {
                 is ImportBannerState.Result ->
@@ -3493,6 +3501,7 @@ private fun MapContent(
             }
             MapStatusBanner(
                 message = message,
+                tagsDrawn = bandTagsDrawn,
                 modifier = Modifier.align(Alignment.BottomStart)
             )
         }
@@ -3501,6 +3510,7 @@ private fun MapContent(
         trackOpStatus?.let { message ->
             MapStatusBanner(
                 message = message,
+                tagsDrawn = bandTagsDrawn,
                 modifier = Modifier.align(Alignment.BottomStart)
             )
         }
