@@ -107,18 +107,19 @@ internal fun MapDepthRasterEffects(
                    appSettings.lowDepthStartWarningM, coastlineReady,
                    appSettings.emodnetShallowCutoffM) {
         val grid = depthGrid ?: return@LaunchedEffect
-        val key = RasterCache.Key(
-            gridTimestampMs = grid.metadata.fetchTimestampMs,
-            emodnetCutoffM = appSettings.emodnetShallowCutoffM,
-            lowDepthCrashDepthM = appSettings.lowDepthCrashDepthM,
-            lowDepthStartWarningM = appSettings.lowDepthStartWarningM,
-            nodataColor = AppConfig.mapDepthNodataColor,
-            colorsHash = AppConfig.rasterColorsHash
+        // Per step: each raster's key carries its own palette hash, so one layer's colour change
+        // never discards the other layer's cache file.
+        fun cached(step: RasterCache.Step): Boolean = RasterCache.has(
+            context, step,
+            RasterCache.keyFor(
+                step, grid, appSettings.emodnetShallowCutoffM,
+                appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM
+            )
         )
         val missing = mutableListOf<RasterCache.Step>()
-        if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))
+        if (!cached(RasterCache.Step.DEPTH_COLOUR))
             missing.add(RasterCache.Step.DEPTH_COLOUR)
-        if (coastlineReady && !RasterCache.has(context, RasterCache.Step.LOW_DEPTH_WARNING, key))
+        if (coastlineReady && !cached(RasterCache.Step.LOW_DEPTH_WARNING))
             missing.add(RasterCache.Step.LOW_DEPTH_WARNING)
         if (missing.isNotEmpty()) {
             val waterTest: (Double, Double) -> Boolean =

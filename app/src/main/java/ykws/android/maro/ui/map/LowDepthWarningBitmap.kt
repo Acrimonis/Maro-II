@@ -68,7 +68,7 @@ object LowDepthWarningBitmap {
     }
 
     /**
-     * Two-depth-graded ARGB from the configured [AppConfig.lowDepthWarningColor]:
+     * Two-depth-graded ARGB from the configured [AppConfig.overlayLowDepthColor]:
      * alpha 255 from the surface down to [crashDepthM], linear 255 → 0 between
      * [crashDepthM] and [startWarningM], and 0 at/beyond [startWarningM]. Only alpha
      * varies; hue is taken from the property file.
