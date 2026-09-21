@@ -32,6 +32,11 @@ class TrackPositionTest {
         )
     }
 
+    /**
+     * A summary carrying the counts a classifier would have written. The stored pair is biased by one
+     * (see [TrackSummary]), so the helper applies the same bias: the `-1` sentinel a caller passes for
+     * "not classified" lands on the stored `0` by itself, and a real count lands on `count + 1`.
+     */
     private fun summary(
         water: Int = TrackPositionCounts.UNCLASSIFIED,
         land: Int = TrackPositionCounts.UNCLASSIFIED
@@ -39,8 +44,8 @@ class TrackPositionTest {
         id = "t",
         name = "t",
         startTimeMs = 0L,
-        waterPointCount = water,
-        landPointCount = land
+        waterPointCount = water + 1,
+        landPointCount = land + 1
     )
 
     @Test

@@ -14,6 +14,9 @@ import ykws.android.maro.data.track.TrackSummary
  * eligibility, ranking + cap, focus override, session boost (+ reset invalidation), resume-backup
  * twin ordering, and the deliberate asymmetry between tracks (ranked + capped) and markers
  * (filter-only, no cap).
+ *
+ * Since 2026-09-21 the map filter is authoritative: only the highlighted id outranks it, while the
+ * session boost keeps the render cap alone as its override — the pair pinned in the boost cases below.
  */
 class MapSelectionPolicyTest {
 
@@ -109,35 +112,55 @@ class MapSelectionPolicyTest {
     }
 
     @Test
-    fun sessionBoost_includedEvenWhenFilterExcludes() {
-        val focus = MapRenderFocus().apply { markTouched("imported") }
+    fun sessionBoost_droppedByTheFilter_butStillDefeatsTheCap() {
+        // The map filter is authoritative since 2026-09-21 — this is the reported defect's fix, and the
+        // reason the menu's count can agree with the map: a boosted track the filter excludes is not
+        // drawn, so nothing rides along on the accessor that used to OR the two meanings together.
+        val filtered = MapRenderFocus().apply { markTouched("imported") }
         val items = listOf(
             summary("recent", startTimeMs = today),
-            // An imported track with an old startTimeMs must still render without selecting or pinning.
+            // An imported track outside LAST_7_DAYS no longer rides along.
             summary("imported", startTimeMs = today - 100 * dayMs)
         )
-        val selected = trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today)
-        assertEquals(listOf("imported", "recent"), selected.map { it.id })
+        assertEquals(
+            listOf("recent"),
+            trackPolicy.select(items, last7Days, cap = 10, focus = filtered, todayMidnightMs = today).map { it.id }
+        )
+
+        // The boost's own business is the render cap: an in-range boosted track still survives it, which
+        // is the promise the 2026-09-11 plan was written to keep.
+        val inRange = listOf(
+            summary("newest", startTimeMs = today),
+            summary("imported", startTimeMs = today - dayMs)
+        )
+        val capped = MapRenderFocus().apply { markTouched("imported") }
+        assertEquals(
+            listOf("imported"),
+            trackPolicy.select(inRange, last7Days, cap = 1, focus = capped, todayMidnightMs = today).map { it.id }
+        )
     }
 
     @Test
     fun trackFilterReset_clearsSessionBoost_highlightUnaffected() {
+        // Both ids sit inside the filter, so what this case observes is the boost's *rank* — which is
+        // exactly what the reset takes away; the filter's own authority over a boost is pinned above.
         val focus = MapRenderFocus().apply {
             markTouched("imported")
             highlight("viewed")
         }
         val items = listOf(
-            summary("imported", startTimeMs = today - 100 * dayMs),
-            summary("viewed", startTimeMs = today - 100 * dayMs)
+            summary("imported", startTimeMs = today - 2 * dayMs),
+            summary("viewed", startTimeMs = today - 3 * dayMs),
+            summary("plain", startTimeMs = today - dayMs)
         )
         assertEquals(
-            listOf("viewed", "imported"),
+            listOf("viewed", "imported", "plain"),
             trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today).map { it.id }
         )
         focus.clearBoost()
-        // Boost gone → the filtered-out imported track disappears; the highlighted one stays.
+        // Boost gone → the boosted one falls back to startTimeMs order; the highlighted one still leads.
         assertEquals(
-            listOf("viewed"),
+            listOf("viewed", "plain", "imported"),
             trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today).map { it.id }
         )
     }

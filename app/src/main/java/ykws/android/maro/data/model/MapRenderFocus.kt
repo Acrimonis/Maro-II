@@ -7,9 +7,11 @@ package ykws.android.maro.data.model
  *  - [highlightedId] — the track currently opened/viewed (single id);
  *  - [touchedIds]    — ids touched this session by import / record / merge / update.
  *
- * Both force an item into the rendered set even when the map filter excludes it or the render cap
- * would drop it. Neither overrides the master layer toggles (`tracksVisible`, `markerLayerState`) —
- * the shell applies those gates separately, after selection.
+ * The highlighted id outranks both the map filter and the render cap; the touched ids outrank the cap
+ * alone, the filter governing which tracks may be drawn at all since 2026-09-21 — see
+ * `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`. Neither overrides
+ * the master layer toggles (`tracksVisible`, `markerLayerState`) — the shell applies those gates
+ * separately, after selection.
  *
  * Bounded: only the [maxTouched] most-recently touched ids are kept (oldest evicted first).
  */
@@ -49,9 +51,6 @@ class MapRenderFocus(private val maxTouched: Int = MAX_TOUCHED) {
     fun isHighlighted(id: String): Boolean = id == highlightedId
 
     fun isBoosted(id: String): Boolean = id in touched
-
-    /** True when [id] must be force-included in the selection regardless of filter or cap. */
-    fun includes(id: String): Boolean = isHighlighted(id) || isBoosted(id)
 
     companion object {
         /** Session-boost bound: at most this many recently touched ids are remembered. */
