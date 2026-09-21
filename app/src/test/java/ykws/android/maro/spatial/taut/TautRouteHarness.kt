@@ -166,6 +166,13 @@ class TautRouteHarness {
      * cold — nothing was kept before it — so the pair is the reading §19.4 asks for rather than a second
      * reuse measured against a first. The lines are compared whole, so the fast answer is shown to be the
      * same answer.
+     *
+     * **And it carries the graph's half of the story** (§19.6): the graph's own phase and pair count on
+     * both searches, beside the harvest's and the wall clock's, because a keeping is only visible as a
+     * **pair** — a phase of null milliseconds with a cold build's pair count would be a machine that was
+     * merely fast, and the count is what tells the two apart without believing a stopwatch. The engine's
+     * own log line is printed last, since that is the format a device drag is read in and the two readings
+     * should be of one shape.
      */
     private fun reuseReading(
         world: TautWorld,
@@ -173,7 +180,8 @@ class TautRouteHarness {
         aim: RoutePoint,
         paceKn: Double
     ): String {
-        val engine = TautRouteEngine(world = world, prepareWorld = null, warn = {})
+        val lines = mutableListOf<String>()
+        val engine = TautRouteEngine(world = world, prepareWorld = null, warn = { lines.add(it) })
         fun ask(): Pair<RouteResult, Long> {
             val at = System.nanoTime()
             val answer = runBlocking { engine.route(start, aim, paceKn) }
@@ -185,12 +193,17 @@ class TautRouteHarness {
         val secondSuccess = second as? RouteResult.Success
         val firstDetails = firstSuccess?.details as? TautRouteDetails
         val secondDetails = secondSuccess?.details as? TautRouteDetails
-        return "the terrain kept across two searches — first: terrain reused " +
-            "${firstDetails?.terrainReused}, harvest ${firstDetails?.harvestMillis} ms, wall $firstMs ms · " +
-            "second: terrain reused ${secondDetails?.terrainReused}, harvest " +
-            "${secondDetails?.harvestMillis} ms, wall $secondMs ms · the same line " +
+        return "the terrain and the graph kept across two searches — first: terrain reused " +
+            "${firstDetails?.terrainReused}, graph kept ${firstDetails?.graphReused}, harvest " +
+            "${firstDetails?.harvestMillis} ms, graph " +
+            "${firstDetails?.graphMillis} ms over ${firstDetails?.candidatePairs} pair(s), wall " +
+            "$firstMs ms · second: terrain reused ${secondDetails?.terrainReused}, graph kept " +
+            "${secondDetails?.graphReused}, harvest " +
+            "${secondDetails?.harvestMillis} ms, graph ${secondDetails?.graphMillis} ms over " +
+            "${secondDetails?.candidatePairs} pair(s), wall $secondMs ms · the same line " +
             "${firstSuccess?.points == secondSuccess?.points} " +
-            "(${firstSuccess?.points?.size} against ${secondSuccess?.points?.size} vertices)"
+            "(${firstSuccess?.points?.size} against ${secondSuccess?.points?.size} vertices) · the " +
+            "second search's own line: ${lines.lastOrNull()?.substringAfter(": ") ?: "none"}"
     }
 
     /**

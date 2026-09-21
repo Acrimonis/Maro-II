@@ -2172,6 +2172,9 @@ fun MapScreen(
                         routeRefusalResId?.let { resId ->
                             MapStatusBanner(
                                 message = stringResource(resId),
+                                // The band's one answer to "is the tag column there", so this line
+                                // clears it the way every other banner in the band does.
+                                tagsDrawn = bandTagsDrawn,
                                 modifier = Modifier.align(Alignment.BottomStart)
                             )
                         }

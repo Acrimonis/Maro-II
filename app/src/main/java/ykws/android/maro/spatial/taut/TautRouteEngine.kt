@@ -108,6 +108,13 @@ internal enum class TautRefusal {
  * [TautWorld.generation] as well as the numbers that shaped it, and the reading that this happened is
  * `terrainReused` beside the harvest's milliseconds rather than anything a reader of the line can see.
  *
+ * **And the graph's own corner set is kept beside it** (§19.6). The build's pair loop reads only the pair
+ * and the pace enters once, in [`LegLimits`], so the corner-to-corner edges are a function of the terrain,
+ * the box, the zones and the pace and **never of the ends** — [TautGraphBase] holds them while
+ * [TautTerrain] holds the corridor, and a licensed reuse rebuilds the two ends' rows alone, O(N) where the
+ * build is O(N²). Where the licence fails — another terrain instance, another pace — the graph is rebuilt
+ * exactly as it was before this step, and the reused graph is the cold graph's own line.
+ *
  * What a reuse promises about the answer is **never narrower and never dearer**, not "unchanged": on a
  * reuse the graph is built over the kept box, so a moved aim searches a graph that is a superset of a cold
  * search's, and a taut line over a superset may differ while being no slower. Whether it does is a
@@ -160,6 +167,20 @@ class TautRouteEngine internal constructor(
      */
     @Volatile
     private var keptTerrain: TautTerrain? = null
+
+    /**
+     * **The one graph base kept beside that terrain** (§19.6) — the corridor's corners and the edges
+     * between them, with the two ends left out, for the terrain and the pace they were priced under.
+     *
+     * It is stored exactly where the terrain is and for the same reason: the corner set is a function of
+     * the terrain, the box, the zones and the pace and of nothing the caller asks for. The sharing rule is
+     * the terrain's own — everything it holds is a `val` or an array never written after construction, so a
+     * search and the cancelled predecessor it overlaps with may read one base — and
+     * [TautGraphBase.licenses] is what keeps a base from outliving any of the four numbers it was built
+     * under: a terrain harvested afresh or a pace that moved rebuilds the graph as if nothing were kept.
+     */
+    @Volatile
+    private var keptGraphBase: TautGraphBase? = null
 
     private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.NotReady)
 
@@ -322,10 +343,28 @@ class TautRouteEngine internal constructor(
                 }
 
                 val graphAt = System.nanoTime()
-                val graph = TautGraph.build(
-                    world, terrain, start, aim, cruiseSpeedKn,
-                    cancelCheck = { context.ensureActive() }
-                )
+                // **The graph's own licence, read the way the terrain's is** (§19.6): the corner set and
+                // its edges are a function of the terrain, the box, the zones and the pace — never of the
+                // ends — so a base kept for this very terrain and pace is answered by scanning the two
+                // ends' rows alone. The terrain's identity carries the box, the zones and the world's own
+                // generation, which is the licence's other three quarters; a pace that moved, or a terrain
+                // harvested afresh, rebuilds the graph exactly as it was built before this step.
+                val keptBase = keptGraphBase
+                val graph: TautGraph
+                val graphReused: Boolean
+                if (keptBase != null && keptBase.licenses(terrain, cruiseSpeedKn)) {
+                    graphReused = true
+                    graph = keptBase.over(
+                        world, start, aim, reused = true, cancelCheck = { context.ensureActive() }
+                    )
+                } else {
+                    graphReused = false
+                    val fresh = TautGraphBase.of(
+                        world, terrain, cruiseSpeedKn, cancelCheck = { context.ensureActive() }
+                    )
+                    keptGraphBase = fresh
+                    graph = fresh.over(world, start, aim, cancelCheck = { context.ensureActive() })
+                }
                 graphNanos += System.nanoTime() - graphAt
 
                 context.ensureActive()
@@ -352,7 +391,8 @@ class TautRouteEngine internal constructor(
                         searchNanos = searchNanos,
                         growth = growth,
                         expanded = expanded,
-                        reused = reusedHere
+                        reused = reusedHere,
+                        graphReused = graphReused
                     )
                 }
                 warn(
@@ -387,7 +427,9 @@ class TautRouteEngine internal constructor(
         searchNanos: Long,
         growth: Int,
         expanded: Boolean,
-        reused: Boolean
+        reused: Boolean,
+        /** Whether the graph's corner set was the one already kept, rather than built by this search. */
+        graphReused: Boolean
     ): RouteResult.Success {
         val details: RouteEngineDetails = TautRouteDetails(
             vertexCount = graph.vertices.size,
@@ -429,6 +471,7 @@ class TautRouteEngine internal constructor(
             corridorGrowth = growth,
             corridorExpanded = expanded,
             terrainReused = reused,
+            graphReused = graphReused,
             harvestMillis = harvestNanos / 1_000_000,
             graphMillis = graphNanos / 1_000_000,
             searchMillis = searchNanos / 1_000_000,
@@ -437,12 +480,16 @@ class TautRouteEngine internal constructor(
         // **The phase split, on the channel the refusals already use** (§19.2 item 3). A refusal says its
         // attempts; a *success* says nothing at all unless this line is here, and the counters are the only
         // witness of a cost that lives inside the run rather than around it — which is the whole reason the
-        // device reading needs them rather than the three phase figures alone.
+        // device reading needs them rather than the three phase figures alone. Both keepings are named
+        // beside their phases (§19.4's terrain, §19.6's graph), because a phase of null milliseconds has
+        // two possible causes and the pair count alone tells them apart only to a reader who knows the
+        // corridor's size.
         warn(
             "$TAG: route ${graph.vertices.size} vertex(es), ${graph.edgeCount} edge(s), " +
                 "${graph.candidatePairs} pair(s) — terrain " +
-                "${if (reused) "reused" else "harvested"}, harvest ${harvestNanos / 1_000_000} ms, graph " +
-                "${graphNanos / 1_000_000} ms, search ${searchNanos / 1_000_000} ms · fits " +
+                "${if (reused) "reused" else "harvested"}, graph " +
+                "${if (graphReused) "kept" else "rebuilt"}, harvest ${harvestNanos / 1_000_000} ms, " +
+                "graph ${graphNanos / 1_000_000} ms, search ${searchNanos / 1_000_000} ms · fits " +
                 "${outcome.fitsBuilt} (${outcome.fitMillis} ms) · clock ${outcome.clockCalls} call(s) " +
                 "(${outcome.clockMillis} ms) · candidates ${outcome.candidatesBuilt} (draw " +
                 "${outcome.candidateBuildMillis} ms, water ${outcome.candidateWaterMillis} ms) · judge " +

@@ -160,6 +160,18 @@ internal data class TautRouteDetails(
      */
     val terrainReused: Boolean = false,
 
+    /**
+     * **True when the graph's corner set and its edges were the ones already kept** (§19.6) — the graph's
+     * own keeping, and the counterpart of [terrainReused].
+     *
+     * It is the **answering attempt's** flag for the same reason [terrainReused] is (§19.5 C6), and it
+     * makes a pair with [candidatePairs] the way the terrain's makes one with [harvestMillis]: `true`
+     * beside the ends' rows alone (`2 · vertices − 3`) is a keep that really read those rows, where `true`
+     * beside a cold `N(N−1)/2` would be a base answering with a scan it should not have paid. Without the
+     * flag the keep had to be *inferred* from that count; with it the inference is a reading.
+     */
+    val graphReused: Boolean = false,
+
     /** The obstacle harvest's own wall clock (ms) — `TautTerrain.of` plus any re-harvest, 0 on a reuse. */
     val harvestMillis: Long = 0,
 

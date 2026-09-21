@@ -3,10 +3,8 @@ package ykws.android.maro.spatial.taut
 import java.util.PriorityQueue
 import kotlin.math.max
 import kotlin.math.min
-import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.spatial.RoutePlanTiming
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
@@ -322,10 +320,7 @@ internal class TautSearch(
     private fun heuristic(vertex: Int): Double {
         val aim = graph.vertices[graph.aimIndex]
         val point = graph.vertices[vertex]
-        val metres = SpatialOperations.haversine(
-            LatLng(point.latitude, point.longitude),
-            LatLng(aim.latitude, aim.longitude)
-        )
+        val metres = metresBetween(point, aim)
         return metres / (cruiseSpeedKn * Units.MPS_PER_KNOT)
     }
 
@@ -577,10 +572,7 @@ internal class TautSearch(
         var distance = 0.0
         var inBand = false
         for (i in 0 until points.size - 1) {
-            distance += SpatialOperations.haversine(
-                LatLng(points[i].latitude, points[i].longitude),
-                LatLng(points[i + 1].latitude, points[i + 1].longitude)
-            )
+            distance += metresBetween(points[i], points[i + 1])
             if (!inBand && inCoastalBand(world, points[i], points[i + 1])) inBand = true
         }
 

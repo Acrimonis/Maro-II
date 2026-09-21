@@ -10,7 +10,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.spatial.RoutePlanTiming
 import ykws.android.maro.spatial.RouteTurnGeometry
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
@@ -205,10 +204,10 @@ internal object TautEasing {
             lateralAccelMps2: Double,
             longitudinalAccelMps2: Double = 0.0,
             inPriceSec: Double = RoutePlanTiming.legSeconds(
-                metres(previous, vertex), Double.MAX_VALUE, cruiseSpeedKn
+                metresBetween(previous, vertex), Double.MAX_VALUE, cruiseSpeedKn
             ),
             outPriceSec: Double = RoutePlanTiming.legSeconds(
-                metres(vertex, next), Double.MAX_VALUE, cruiseSpeedKn
+                metresBetween(vertex, next), Double.MAX_VALUE, cruiseSpeedKn
             ),
             clock: (List<RoutePoint>, List<Double>) -> Double = { drawn, limits ->
                 RoutePlanTiming.drawnLegSeconds(drawn, limits, cruiseSpeedKn, lateralAccelMps2).sum()
@@ -290,8 +289,8 @@ internal object TautEasing {
             return sharp(vertex, limitKn, SharpCause.GUARD, speed, lateralAccelMps2)
         }
 
-        val legInM = metres(previous, vertex)
-        val legOutM = metres(vertex, next)
+        val legInM = metresBetween(previous, vertex)
+        val legOutM = metresBetween(vertex, next)
         val cutLimit = RouteTurnGeometry.cutLimitM(min(legInM, legOutM))
         // The boat arrives at the corner's own speed — the one in force at the vertex — so the radius
         // the ceiling implies is read from that speed alone: a corner is neither eased nor slowed by a
@@ -504,7 +503,7 @@ internal object TautEasing {
         var length = 0.0
         var sagitta = 0.0
         for (i in 0 until emitted.size - 1) {
-            val chord = metres(emitted[i], emitted[i + 1])
+            val chord = metresBetween(emitted[i], emitted[i + 1])
             length += chord
             val deflection = stepRad.getOrElse(i) { 0.0 }
             val chordSagitta = chord / 2.0 * tan(deflection / 4.0)
@@ -557,11 +556,6 @@ internal object TautEasing {
         for (value in breaks) if (value > s + 1e-12) return value
         return totalM
     }
-
-    private fun metres(from: RoutePoint, to: RoutePoint): Double = SpatialOperations.haversine(
-        LatLng(from.latitude, from.longitude),
-        LatLng(to.latitude, to.longitude)
-    )
 
     private fun abs(value: Double): Double = if (value < 0.0) -value else value
 

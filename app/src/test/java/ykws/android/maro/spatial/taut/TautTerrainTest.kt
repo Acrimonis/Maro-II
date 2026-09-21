@@ -21,7 +21,23 @@ import ykws.android.maro.data.model.RouteResult
  * **leaves** the kept box must harvest, and a world whose **generation moved** must harvest, each of them
  * asserted to answer exactly what a cold engine answers all the same.
  *
- * Each test names the revert it catches, in the way this feature's assertion set does.
+ * **And the graph kept beside that terrain** (§19.6), read the same way and with controls of its own: the
+ * second search's build examines the two ends' rows alone — `2 · vertices − 3` pairs against a cold
+ * build's `N(N−1)/2`, over the same edges — and answers a **cold** engine's own line. A pace the base was
+ * not priced at must rebuild it, a moved world must rebuild it with the terrain, and the licence itself is
+ * read at its own type. A last reading covers the one place the corner set depends on the ends at all: an
+ * aim resolved off the water onto a corner, which a cold build dedupes away and a reuse must too.
+ *
+ * The keep is read as a **flag** on the dossier ([`TautRouteDetails.graphReused`]) rather than inferred
+ * from the pair count, and `cornerCount` is the corners **standing as vertices** rather than the harvest's
+ * raw count — so the two can be read beside `vertexCount` instead of argued about. And the licence's own
+ * zone half — the zone an edge enters and the berth fraction it earns — needs a world that carries one:
+ * every other reading here stands on water with no zones in it, which is why the first test below the
+ * controls builds its own.
+ *
+ * Each test names the revert it catches, in the way this feature's assertion set does — and where a
+ * reading stands on one code path both entrances walk, it says what the reading cannot be moved by
+ * instead, that revert having been run and the test having stayed green on it.
  */
 class TautTerrainTest {
 
@@ -60,6 +76,27 @@ class TautTerrainTest {
         land = listOf(island),
         depthBox = BoundingBox(43.5200, 43.5800, 7.0800, 7.1600),
         coastalBandWidthM = 300.0
+    )
+
+    /**
+     * **A 5 kn harbour the island pair's aim stands inside** — the world the licence's zone half needs.
+     *
+     * It is the zone [TautSearchTest] reads the drawn clock on, at the same coordinates, so the pair is
+     * known to answer on run two with the crossing priced rather than forbidden.
+     */
+    private val harbour = TautZoneShape(
+        id = "harbour",
+        name = "Harbour 5 kn",
+        limitKn = 5.0,
+        outerRing = TautTestWorld.rect(43.5400, 7.1330, 43.5600, 7.1480)
+    )
+
+    /** The island pair's own water, with a priced zone on it — no other reuse reading here has one. */
+    private fun zoneWorld() = TautTestWorld(
+        land = listOf(island),
+        zones = listOf(harbour),
+        depthBox = BoundingBox(43.5200, 43.5800, 7.0800, 7.1600),
+        coastalBandWidthM = 0.0
     )
 
     /** The engine under test, its numbers pinned by the test rather than read from a live file. */
@@ -530,6 +567,341 @@ class TautTerrainTest {
             "and its arrival after an absence is an event",
             generation.observe(coastline, zones, Any()) > replaced
         )
+    }
+
+    /**
+     * **The graph's own reading: the rows alone, and the same line** (§19.6).
+     *
+     * The first search of a fresh engine builds the base — the corner harvest and the quadratic scan — and
+     * the second, on the same terrain and the same pace, examines the two ends' rows alone. The pair
+     * counts are the two halves of the step in one unit each: `N(N−1)/2` for the cold build and
+     * `2 · vertices − 3` for the reuse, with the same edges behind them, because a reuse that dropped a
+     * corner's edges would be a graph the search could not walk the way it walked the first.
+     *
+     * The line is compared to a **cold engine's** on the same aim and not only to the first search's, so a
+     * cache answering something slightly different could not pass on the strength of its own history.
+     *
+     * Revert it catches: ignoring the licence, where the second search pays the corner scan again and the
+     * pair count says so; and rebuilding the ends' rows without the corners, or the corners without them,
+     * where the edge count and the line both move.
+     */
+    @Test
+    fun `a kept graph serves the second search and answers the same line`() = runBlocking {
+        val testWorld = world()
+        val engine = engine(testWorld)
+
+        val first = success(engine.route(start, aim, cruiseKn))
+        val second = success(engine.route(start, aim, cruiseKn))
+        val firstDetails = details(first)
+        val secondDetails = details(second)
+        val vertices = firstDetails.vertexCount
+        println(
+            "kept graph · first search: $vertices vertex(es), ${firstDetails.edgeCount} edge(s), " +
+                "${firstDetails.candidatePairs} pair(s), ${firstDetails.cornerCount} corner(s), kept " +
+                "${firstDetails.graphReused}, graph ${firstDetails.graphMillis} ms · second search: " +
+                "${secondDetails.vertexCount} vertex(es), ${secondDetails.edgeCount} edge(s), " +
+                "${secondDetails.candidatePairs} pair(s), ${secondDetails.cornerCount} corner(s), kept " +
+                "${secondDetails.graphReused}, graph ${secondDetails.graphMillis} ms"
+        )
+        // The flag is the keep's own reading rather than something the pair count implies — a build that
+        // rebuilt and happened to examine the same rows would be caught here and not by the count alone.
+        assertTrue("the first search built its own graph", !firstDetails.graphReused)
+        assertTrue("and the second kept the graph the first built", secondDetails.graphReused)
+        // Exact on this pair, and the premise is the reading's own: neither end stands on a corner, so the
+        // base's scan is the whole of N(N−1)/2. An end that does stand on one is still scanned at the base
+        // — the base is built without knowing either end — and the cold figure stands a row above this.
+        assertEquals(
+            "the first search pays the quadratic scan",
+            vertices * (vertices - 1) / 2,
+            firstDetails.candidatePairs
+        )
+        assertEquals(
+            "the second examines the two ends' rows alone",
+            2 * vertices - 3,
+            secondDetails.candidatePairs
+        )
+        assertEquals(
+            "over the same edges, so nothing was dropped with the scan",
+            firstDetails.edgeCount,
+            secondDetails.edgeCount
+        )
+        assertEquals(
+            "and with no end standing on a corner every harvest corner is a vertex of its own",
+            vertices - 2,
+            secondDetails.cornerCount
+        )
+
+        val cold = success(engine(testWorld).route(start, aim, cruiseKn))
+        val coldDetails = details(cold)
+        assertTrue("a cold engine builds rather than reuses", !coldDetails.graphReused)
+        assertEquals("and keeps the same vertices", vertices, coldDetails.vertexCount)
+        assertEquals("and the same corner count", secondDetails.cornerCount, coldDetails.cornerCount)
+        assertEquals("draws the same line", cold.points, second.points)
+        assertEquals("at the same leg times", cold.legTimesSec, second.legTimesSec)
+        assertEquals("over the same distance", cold.distanceM, second.distanceM, 0.0)
+        assertEquals("and to the same second", cold.durationSec, second.durationSec, 0.0)
+        assertTrue("the line the comparison is made on really has a bend in it", second.points.size > 2)
+    }
+
+    /**
+     * **The licence's second half: the pace the edges were priced at** (§19.6).
+     *
+     * The terrain's key does **not** carry the pace — a corridor's obstacles and zones do not depend on
+     * how fast the boat goes — so a search at another pace is one whose terrain is reused and whose graph
+     * must not be: the kept edges' prices are **times**, and answering at the new pace with the old ones
+     * would hand the search seconds belonging to a boat that is not there. Read at both ends: the pair
+     * count is a cold build's own, and the line is a cold engine's at the new pace.
+     *
+     * Revert it catches: a licence that reads the terrain alone — the pair count falls to the rows, and the
+     * line is the old pace's arithmetic answered at the new one.
+     */
+    @Test
+    fun `a pace the base was not priced at rebuilds the kept graph`() = runBlocking {
+        val testWorld = world()
+        val engine = engine(testWorld)
+        engine.route(start, aim, cruiseKn)
+
+        val slowerKn = cruiseKn / 2.0
+        val atTheNewPace = success(engine.route(start, aim, slowerKn))
+        val graphDetails = details(atTheNewPace)
+        val vertices = graphDetails.vertexCount
+        assertTrue("the terrain itself is still the kept one", graphDetails.terrainReused)
+        assertTrue("and the graph is not, having been priced at another pace", !graphDetails.graphReused)
+        assertEquals(
+            "and the graph is rebuilt rather than answered at the old prices",
+            vertices * (vertices - 1) / 2,
+            graphDetails.candidatePairs
+        )
+        val cold = success(engine(testWorld).route(start, aim, slowerKn))
+        assertEquals("a cold engine at that pace draws the same line", cold.points, atTheNewPace.points)
+        assertEquals("at the same leg times", cold.legTimesSec, atTheNewPace.legTimesSec)
+        assertEquals("and to the same second", cold.durationSec, atTheNewPace.durationSec, 0.0)
+    }
+
+    /**
+     * **The invalidator reaches the graph too** (§19.6, on §19.4's own rule).
+     *
+     * A world that moved takes its terrain with it, and the graph rides the terrain's identity: the kept
+     * base was priced on corners harvested from a coastline that no longer stands, so the bumped
+     * generation must rebuild both. The pair count is what says the base was rebuilt rather than answered
+     * against the bump, and the line is a cold engine's all the same.
+     */
+    @Test
+    fun `a moved world rebuilds the kept graph with the terrain`() = runBlocking {
+        val testWorld = world()
+        val engine = engine(testWorld)
+        engine.route(start, aim, cruiseKn)
+
+        testWorld.generation += 1
+        val afterTheBump = success(engine.route(start, aim, cruiseKn))
+        val bumpedDetails = details(afterTheBump)
+        assertTrue("the bumped generation harvests the terrain afresh", !bumpedDetails.terrainReused)
+        assertTrue("and the graph is rebuilt with it rather than kept", !bumpedDetails.graphReused)
+        val vertices = bumpedDetails.vertexCount
+        assertEquals(
+            "and rebuilds the graph with it",
+            vertices * (vertices - 1) / 2,
+            bumpedDetails.candidatePairs
+        )
+        val cold = success(engine(testWorld).route(start, aim, cruiseKn))
+        assertEquals("with the line unmoved across the invalidation", cold.points, afterTheBump.points)
+    }
+
+    /**
+     * **The licence read at the store's own type** — what it compares, and what it refuses to.
+     *
+     * Identity on the terrain *is* the box, the zones and the world's generation, so a terrain harvested
+     * again for the same box at the same numbers is still a different answer and is refused; the pace is
+     * the second half because the edges' prices are times. Read here so the rule is a value rather than
+     * something a reader has to infer from a search's pair count.
+     */
+    @Test
+    fun `the graph licence matches on the terrain and the pace`() {
+        val testWorld = world()
+        val box = TautGraph.corridorBox(testWorld, start, aim, 0, berthM)
+        val terrain = TautTerrain.of(testWorld, box, berthM, shoreOffsetM)
+        val base = TautGraphBase.of(testWorld, terrain, cruiseKn)
+
+        assertTrue("the same terrain at the same pace is the licence", base.licenses(terrain, cruiseKn))
+        assertTrue(
+            "the same water harvested again for the same box is not the same terrain",
+            !base.licenses(TautTerrain.of(testWorld, box, berthM, shoreOffsetM), cruiseKn)
+        )
+        assertTrue(
+            "and neither is the same terrain at another pace",
+            !base.licenses(terrain, cruiseKn + 1.0)
+        )
+    }
+
+    /**
+     * **The one place the corner set depends on the ends** (§19.6): an aim off the water.
+     *
+     * The aim here stands on the island's own rock, so the pin's rule resolves it to the nearest corner
+     * the corridor's water allows — a corner of the obstacles, and therefore a corner the kept base holds
+     * too. A cold build adds its two ends first and dedupes against them, so that corner is **not** a
+     * vertex of its own; a reuse that kept it would answer with one vertex and one edge more than cold has.
+     *
+     * The pair is the shape a drag has — the same start, the aim pulled back inside the corridor already
+     * kept — so what licenses the reuse is the containment §19.5 C2 states rather than an accident of two
+     * ends landing on one box. The pair count is the reading that says so: the rows alone, where a cold
+     * build of this pair examines those rows *plus* the corner scan.
+     *
+     * Revert it catches — **measured 2026-09-21**: reporting the harvest's own raw `cornerCount`, the
+     * end-dedupe left on the count, fails the `vertexCount − 2` assertion below. What it does **not** catch
+     * is the end-dedupe itself: `over` is the one path both entrances walk, so a reuse that kept the corner
+     * would lose it to cold as well and the two graphs would still agree — which is why the count, and not
+     * the comparison, is where this reading bites.
+     */
+    @Test
+    fun `an aim resolved onto a kept corner is not a vertex of its own`() = runBlocking {
+        val testWorld = world()
+        val engine = engine(testWorld)
+        engine.route(start, aim, cruiseKn)
+
+        val offWaterAim = RoutePoint(43.5500, 7.1200)
+        val warmAnswer = success(engine.route(start, offWaterAim, cruiseKn))
+        val coldAnswer = success(engine(testWorld).route(start, offWaterAim, cruiseKn))
+        val warmDetails = details(warmAnswer)
+        val coldDetails = details(coldAnswer)
+        println(
+            "kept graph · off-water aim: warm ${warmDetails.vertexCount} vertex(es), " +
+                "${warmDetails.edgeCount} edge(s), ${warmDetails.candidatePairs} pair(s) · cold " +
+                "${coldDetails.vertexCount} vertex(es), ${coldDetails.edgeCount} edge(s), " +
+                "${coldDetails.candidatePairs} pair(s) · destination moved " +
+                "${warmAnswer.destinationMoved}"
+        )
+        assertTrue("the aim was resolved onto the water rather than kept", warmAnswer.destinationMoved)
+        assertTrue("and the corridor's terrain was the kept one", warmDetails.terrainReused)
+        assertTrue("and the graph itself was the kept one", warmDetails.graphReused)
+        assertEquals(
+            "the kept corner standing on the resolved aim is not a vertex of its own",
+            coldDetails.vertexCount,
+            warmDetails.vertexCount
+        )
+        assertEquals(
+            "so it is not counted among the graph's corners either — cold and warm agree",
+            coldDetails.cornerCount,
+            warmDetails.cornerCount
+        )
+        assertEquals(
+            "which is the harvest's own count minus the corner the end took its place from",
+            warmDetails.vertexCount - 2,
+            warmDetails.cornerCount
+        )
+        assertEquals("so the edges are the same edges", coldDetails.edgeCount, warmDetails.edgeCount)
+        assertEquals(
+            "and the kept graph answered the ends' rows alone",
+            2 * warmDetails.vertexCount - 3,
+            warmDetails.candidatePairs
+        )
+        assertEquals("drawing a cold engine's line", coldAnswer.points, warmAnswer.points)
+        assertEquals("to the same second", coldAnswer.durationSec, warmAnswer.durationSec, 0.0)
+    }
+
+    /**
+     * **The reused graph's zone half, read on water that carries a zone** (§19.6).
+     *
+     * Every other reuse reading in this file stands on a world with no zones in it, so the licence's zone
+     * half — the zone an edge enters and the berth fraction it earns — is pinned nowhere: the base copies
+     * those two fields from the edge it holds, and a copy that re-derived them, dropped them or copied one
+     * array and re-derived the other would move a figure no zone-free world can show. Here the aim stands
+     * **inside a 5 kn harbour**, so run two answers, an edge really enters the interior and an edge along
+     * the ring really earns a berth fraction.
+     *
+     * The reading is the graph rather than the line: the kept graph and a cold build over the **same
+     * terrain** are walked pair by pair, and every edge they share must carry the same zone, the same berth
+     * fraction, the same price and the same length. The two counts printed at the end are what say the
+     * comparison is not vacuous — a world where nothing entered and nothing earned would satisfy it
+     * trivially.
+     *
+     * **What it reads, and what it cannot** — measured 2026-09-21: with `over`'s kept-edge append made to
+     * carry `-1` and `0.0` in the zone's and the berth's place, this test stays **green**, the two counts
+     * below still supplied by the ends' rows. The copy is one path both entrances walk — `build` is `of`
+     * and `over` — so no revert inside it can move a comparison between them: what is pinned here is that
+     * a zone-carrying terrain reaches both entrances with the same zone, fraction, price and length, and
+     * not that a defect in the copy would be caught.
+     */
+    @Test
+    fun `a reused graph carries a cold build's zones and berth fractions`() {
+        val testWorld = zoneWorld()
+        val box = TautGraph.corridorBox(testWorld, start, aim, 0, berthM)
+        val terrain = TautTerrain.of(testWorld, box, berthM, shoreOffsetM)
+        val base = TautGraphBase.of(testWorld, terrain, cruiseKn)
+
+        val cold = TautGraph.build(testWorld, terrain, start, aim, cruiseKn)
+        val warm = base.over(testWorld, start, aim, reused = true)
+
+        assertEquals("the same vertices", cold.vertices, warm.vertices)
+        assertEquals("the same edge count", cold.edgeCount, warm.edgeCount)
+        assertEquals(
+            "and the kept graph read the ends' rows alone",
+            2 * warm.vertices.size - 3,
+            warm.candidatePairs
+        )
+
+        val vertexCount = warm.vertices.size
+        var zoneEdges = 0
+        var marginEdges = 0
+        for (a in 0 until vertexCount) {
+            for (b in a + 1 until vertexCount) {
+                val coldEdge = cold.edgeBetween(a, b)
+                val warmEdge = warm.edgeBetween(a, b)
+                assertTrue(
+                    "the pair ($a, $b) is an edge in both graphs or in neither",
+                    (coldEdge < 0) == (warmEdge < 0)
+                )
+                if (coldEdge < 0) continue
+                assertEquals("the zone the edge enters", cold.zoneOf(coldEdge), warm.zoneOf(warmEdge))
+                assertEquals(
+                    "its berth fraction",
+                    cold.berthFraction(coldEdge),
+                    warm.berthFraction(warmEdge),
+                    0.0
+                )
+                assertEquals("its price", cold.priceSec(coldEdge), warm.priceSec(warmEdge), 0.0)
+                assertEquals("its length", cold.lengthM(coldEdge), warm.lengthM(warmEdge), 0.0)
+                if (warm.zoneOf(warmEdge) >= 0) zoneEdges++
+                if (warm.berthFraction(warmEdge) > 0.0) marginEdges++
+            }
+        }
+        println(
+            "reused graph · zone-carrying world: $vertexCount vertex(es), ${warm.edgeCount} edge(s), " +
+                "$zoneEdges entering the zone, $marginEdges earning a berth fraction"
+        )
+        assertTrue("the world really carries a zone — an edge enters its interior", zoneEdges > 0)
+        assertTrue("and an edge really earns a berth fraction", marginEdges > 0)
+    }
+
+    /**
+     * **The ends' rows are cancellable between them, not only the scan before them** (§19.2 item 4).
+     *
+     * `over` promises a check **per row**; one check before its loops would leave the start's row, the
+     * aim's row and the kept edges' copy uninterruptible, which is the abort latency the promise exists to
+     * bound. The reader is the promise itself: a check that throws on its third ask must be reached, and a
+     * build that asked once and then assembled in full would never throw.
+     *
+     * Revert it catches — **measured 2026-09-21**: with the three checks moved back out of the loops the
+     * build asks once, `abandoned` is false and this test is red; with them in place it is green.
+     */
+    @Test
+    fun `the ends' rows are cancellable between them`() {
+        val testWorld = world()
+        val box = TautGraph.corridorBox(testWorld, start, aim, 0, berthM)
+        val terrain = TautTerrain.of(testWorld, box, berthM, shoreOffsetM)
+        val base = TautGraphBase.of(testWorld, terrain, cruiseKn)
+
+        var asks = 0
+        val abandoned = try {
+            base.over(testWorld, start, aim) {
+                asks++
+                if (asks >= 3) throw IllegalStateException("abandoned")
+            }
+            false
+        } catch (expected: IllegalStateException) {
+            true
+        }
+        assertTrue("the build asked the caller between its rows ($asks ask(s))", abandoned)
+        assertTrue("and asked more than the one check standing before its loops", asks >= 3)
     }
 
     private companion object {

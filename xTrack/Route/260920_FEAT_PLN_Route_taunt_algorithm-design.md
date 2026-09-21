@@ -1442,3 +1442,51 @@ land. That is the corruption §19.4's rule 2 names, left standing in the very ob
 
 **What is not decided here:** whether the cache may keep a line that differs from a cold search's. C3 measures the
 divergence, and the choice between accepting it and building the slice is the user's, because it is the line they see.
+
+### 19.6 The device reading, and what it re-prices — 2026-09-21, from the log line on the phone
+
+**What was read, and its provenance.** Item 3's one line per answered route (tag `MaroTautRoute`) was read twice on a
+Pixel 7, five answers in all, and **the build is a debug one**: `apk-build.bat` runs `gradlew assembleDebug`, and the
+module declares no release build type and no signing config, so every figure below is `app-debug.apk`'s and none of them
+may be read as the ship build's. A release reading is a build change of its own — a build type and a keystore — and not a
+step of this plan.
+
+**Step a closes as measured, and the phone is not the desktop's shape.** The acceptance pair's own corridor on the phone
+reads **425 vertices · 3 493 edges · 90 100 pairs → harvest 2 671 · graph 4 816 · search 56 079 ms**, against the
+desktop's 431 · **3 645** · 92 665 → 280 · 138 · 1 003, the 3 682 first written here being stale — the same world
+re-reading 3 645 on the rebuilt loop; the largest drag reads 857 · 18 637 · 366 796 → 6 782 · 19 167 ·
+57 951. So the ratio is not one number: the harvest ~10×, the graph ~35×, the search ~56×. The search's inside moves with
+it — `fits 10 341 (34 257 ms)`, `clock 10 341 (18 770 ms)`, and of the 14 415 candidates built, **water 32 625 ms against
+1 183 ms of drawing**, the desktop's 95 %-per-corner shape at ~54× the milliseconds. The memo is refused again on the
+phone: **35 %** of 217 111 questions answered on the acceptance-size pair and **8 %** of 484 357 on the largest drag,
+against the desktop's 9 %.
+
+**Row by row, what the reading re-prices.** §19.3's **b** claims the harvest *and* the graph for its 512 ms, and the phone
+splits the pair: the terrain cache does for the harvest exactly what it claims — a warm answer reads `harvest 0 ms` where
+the same corridor harvested at 561 ms — and **touches the graph not at all** (`graph 6 403 ms` warm against `5 495 ms`
+cold on a smaller box). So b's second half is where the phone's remaining phase lives, and the plan's item 3 takes it.
+Row **c** is unchanged as a lever and tripled as a magnitude: 601 ms of water judging on the desktop, **32 625 ms** on the
+phone, with a hit rate lower there than on the desktop. Rows **d–g** keep their prices and their guards, the search being
+the same shape at a bigger constant.
+
+**The graph's dependencies, read rather than assumed — and the decision taken.** `TautGraph.build(world, terrain, start,
+aim, cruiseSpeedKn)` lists its vertices as the two ends, then the traversable obstacle corners and the zone corners, and
+runs the **quadratic pair loop over every vertex**; its per-pair work (`allowed`, `zones.limitSpans`,
+`legLimits.priceOf`, `zones.berthFraction`) reads **only the pair**, while `cruiseSpeedKn` enters once, in `LegLimits`.
+The corner-to-corner edge set is therefore a function of the terrain, the box, the zones and the cruise speed — **not of
+the ends** — and a kept graph is reachable: keep the corner set and its edges, add the two end vertices and scan **their
+rows only**, which is O(N) where the build is O(N²), under a licence of terrain, box, zones and cruise speed unchanged in
+the same generation sense §19.4 gave the terrain. **Decided, the build owed:** the graph is kept beside the terrain with
+the ends' rows rebuilt per search, the same-line assertion as its guard, and a rebuild exactly as today wherever the
+licence fails.
+
+**Two readings this log gave that are not timings.** Three of the five answers came out degenerate — `search 0 ms ·
+fits 0 · candidates 0` — which is what `TautSearch.run()` returns the moment the settled vertex is the aim's own vertex,
+so they are answers for an aim that never left the start's corner and are set aside from any timing comparison. And the
+judge's tallies on a warm line belong to the **kept terrain** rather than to the search (`526 775 asked, 81 675 from the
+memo` beside a 0 ms search), which is why a degenerate answer can print a large one.
+
+**What stays the user's.** The phone's own target — how fast a route must answer on the phone, and whether the phone is
+the machine that target belongs to — which is the plan's first item and the only gate on the rest; and the metres between
+the warm line and the cold one, which this channel cannot carry, its line holding no length, C3's harness being where
+that reading lives.

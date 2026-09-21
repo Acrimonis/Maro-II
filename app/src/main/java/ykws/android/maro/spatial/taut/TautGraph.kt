@@ -455,12 +455,24 @@ internal class TautZoneSet(
  * A leg is allowed when the wall set does not cross it and its own midpoint stands on water the boat may
  * use. The midpoint is not decoration: two adjacent legs share a wall corner by construction, so the
  * crossing test is the strict interior one, and the open-water question has to be asked separately.
+ *
+ * **It is assembled by [`TautGraphBase.over`], which is the only builder** — the constructor being open to
+ * the module rather than private is that one fact, and a second builder would be a second answer to what a
+ * graph is.
  */
-internal class TautGraph private constructor(
+internal class TautGraph internal constructor(
     val vertices: List<RoutePoint>,
     val edgeCount: Int,
     val cornerCount: Int,
-    /** How many vertex pairs the visibility loop examined — the build's own cost, in pairs (§16 step 1). */
+    /**
+     * How many vertex pairs the visibility loop examined — the build's own cost, in pairs (§16 step 1).
+     *
+     * It is the pairs **this** build examined: `M(M−1)/2 + 2N − 3`, over the base's `M` corners and the
+     * graph's `N` vertices — which is `N(N−1)/2` where no corner stands on an end, and a corner's own row
+     * more where one does, the base being unable to know an end it was not built for. A kept base's own
+     * pairs were paid in the search that built it, so the reuse reads the rows alone (`2N − 3`) — which is
+     * the difference between a cold and a reused graph **measured** rather than asserted (§19.6).
+     */
     val candidatePairs: Int,
     val startIndex: Int,
     val aimIndex: Int,
@@ -496,13 +508,10 @@ internal class TautGraph private constructor(
     /**
      * The edge joining two vertices, or `-1` — the lookup the search needs because a state carries the
      * vertex it arrived from rather than the edge it arrived on, and a corner's price is read from the
-     * limits of **both** its legs.
+     * limits of **both** its legs. The two ends are handed to [pairKey] in whatever order the caller
+     * holds them, the ordering being that function's own.
      */
-    fun edgeBetween(a: Int, b: Int): Int {
-        val low = if (a < b) a else b
-        val high = if (a < b) b else a
-        return edgeByPair[(low.toLong() shl 32) or (high.toLong() and 0xFFFFFFFFL)] ?: -1
-    }
+    fun edgeBetween(a: Int, b: Int): Int = edgeByPair[pairKey(a, b)] ?: -1
 
     /** The edge indices leaving [vertex]. */
     fun edgesFrom(vertex: Int): IntArray {
@@ -728,6 +737,18 @@ internal class TautGraph private constructor(
          * which is the engine. What this function adds is the part that *is* the answer: the two ends, the
          * vertices, the visibility pairs and the prices.
          *
+         * **The build is two halves and the seam between them is the ends** (§19.6). Every corner a line
+         * may bend on, and every line between two of them the water allows, is [`TautGraphBase`] — a
+         * function of the terrain, the box, the zones and the pace, and never of the ends — so it is built
+         * once and kept. The two ends, the rows that leave them and the assembled graph are
+         * [`TautGraphBase.over`].
+         *
+         * **It is the readings' cold entrance and not the production path**: production builds
+         * [`TautGraphBase.of`] once and answers every search through [`TautGraphBase.over`], so only the
+         * tests and the harness call this. It is those two halves in sequence, so a caller with nothing
+         * kept gets exactly the graph it always got — paying the O(N²) scan *and* the assembly's O(V + E) —
+         * where a caller holding a base pays the ends' rows and that same assembly.
+         *
          * The vertex set is the **bends a taut line can take**: the start and the aim, then every corner
          * of every wall that protrudes into the water, every such corner of a zone's outer ring, and
          * every such corner of a **hole** — a hole is water, so threading one is legal and its corners
@@ -755,133 +776,23 @@ internal class TautGraph private constructor(
              */
             cancelCheck: () -> Unit = {}
         ): TautGraph {
-            val obstacles = terrain.obstacles
-            val box = terrain.box
-            val frame = obstacles.frame
-            val zones = terrain.zones
-
-            val resolvedAim = if (obstacles.traversable(aim.latitude, aim.longitude)) {
-                aim
-            } else {
-                nearestTraversable(obstacles, aim, box) ?: aim
-            }
-            val destinationMoved = resolvedAim != aim
-
-            // One node per distinct corner: two obstacles that meet at a point share it, and a shared
-            // corner counted twice would double the edges that leave it without adding a single bend.
-            val vertices = ArrayList<RoutePoint>(obstacles.corners.size + 8)
-            val seen = HashSet<Long>(obstacles.corners.size * 2)
-            vertices.add(start)
-            seen.add(vertexKey(start))
-            vertices.add(resolvedAim)
-            seen.add(vertexKey(resolvedAim))
-            var cornerCount = 0
-            for (corner in obstacles.corners) {
-                if (!obstacles.traversable(corner.latitude, corner.longitude)) continue
-                if (!seen.add(vertexKey(corner))) continue
-                vertices.add(corner)
-                cornerCount++
-            }
-            for (zone in zones.all()) {
-                for (corner in zone.corners) {
-                    if (!seen.add(vertexKey(corner))) continue
-                    vertices.add(corner)
-                }
-            }
-
-            // **The band's span source now rides in the terrain** (§19.4): the coastline segments within
-            // the band's reach of the box, indexed so a leg asks only about the coast near the cells it
-            // passes through — the answer is the world's own distance predicate, solved rather than
-            // sampled, and built off the **obstacles' own frame** so the corridor keeps one projection.
-            // Null when the band is switched off, which is the shape the tests take.
-            val band = terrain.band
-            val legLimits = LegLimits(world, zones, band, frame, cruiseSpeedKn)
-            // **The corner's own reading, taken once per vertex**: the limit in force where the vertex
-            // stands. It is not the dearest limit over either leg, which is what used to size a corner
-            // against a zone the leg merely clipped (item 2).
-            val vertexLimits = DoubleArray(vertices.size) { index ->
-                limitInForceAt(world, zones, vertices[index])
-            }
-            val from = ArrayList<Int>()
-            val to = ArrayList<Int>()
-            val lengths = ArrayList<Double>()
-            val prices = ArrayList<Double>()
-            val zoneOf = ArrayList<Int>()
-            val berthOf = ArrayList<Double>()
-
-            val starts = HashMap<Int, ArrayList<Int>>()
-            val aims = HashMap<Int, ArrayList<Int>>()
-            val byPair = HashMap<Long, Int>()
-            var candidatePairs = 0
-            for (i in vertices.indices) {
-                cancelCheck()
-                for (j in i + 1 until vertices.size) {
-                    val a = vertices[i]
-                    val b = vertices[j]
-                    candidatePairs++
-                    if (!allowed(obstacles, a, b)) continue
-                    // **One read of the zone's intervals per candidate pair** (item 5 of the level above):
-                    // the price, the rule's own entry test and the margin's exclusion all read this one
-                    // list, where the build used to compute the same intervals three times over.
-                    val pa = frame.pt(LatLng(a.latitude, a.longitude))
-                    val pb = frame.pt(LatLng(b.latitude, b.longitude))
-                    val zoneSpans = zones.limitSpans(pa, pb)
-                    val price = legLimits.priceOf(a, b, zoneSpans)
-                    val zone = if (zoneSpans.isEmpty()) -1 else zoneSpans.first().zone
-                    val berth = zones.berthFraction(pa, pb, metres(a, b), obstacles.berthM, zoneSpans)
-                    val edge = from.size
-                    from.add(i)
-                    to.add(j)
-                    lengths.add(metres(a, b))
-                    prices.add(price)
-                    zoneOf.add(zone)
-                    berthOf.add(berth)
-                    starts.getOrPut(i) { ArrayList(2) }.add(edge)
-                    aims.getOrPut(j) { ArrayList(2) }.add(edge)
-                    byPair[(i.toLong() shl 32) or (j.toLong() and 0xFFFFFFFFL)] = edge
-                }
-            }
-
-            val nodeOffset = IntArray(vertices.size + 1)
-            for (i in vertices.indices) {
-                nodeOffset[i + 1] = nodeOffset[i] + (starts[i]?.size ?: 0) + (aims[i]?.size ?: 0)
-            }
-            val nodeEdges = IntArray(nodeOffset[vertices.size])
-            for (i in vertices.indices) {
-                var cursor = nodeOffset[i]
-                starts[i]?.let { for (edge in it) nodeEdges[cursor++] = edge }
-                aims[i]?.let { for (edge in it) nodeEdges[cursor++] = edge }
-            }
-            return TautGraph(
-                vertices = vertices,
-                edgeCount = from.size,
-                cornerCount = cornerCount,
-                candidatePairs = candidatePairs,
-                startIndex = 0,
-                aimIndex = 1,
-                destinationMoved = destinationMoved,
-                zones = zones,
-                pricing = legLimits,
-                bandSegmentCount = band?.segmentCount ?: 0,
-                nodeOffset = nodeOffset,
-                nodeEdges = nodeEdges,
-                edgeFrom = IntArray(from.size) { from[it] },
-                edgeTo = IntArray(to.size) { to[it] },
-                edgeLengthM = DoubleArray(lengths.size) { lengths[it] },
-                edgePriceSec = DoubleArray(prices.size) { prices[it] },
-                vertexLimitKn = vertexLimits,
-                edgeZone = IntArray(zoneOf.size) { zoneOf[it] },
-                edgeBerthFraction = DoubleArray(berthOf.size) { berthOf[it] },
-                edgeByPair = byPair
-            )
+            val base = TautGraphBase.of(world, terrain, cruiseSpeedKn, cancelCheck)
+            // The base was built by **this** call, so the pairs it examined belong to this phase: the
+            // count a reuse leaves out is precisely the one that is paid here.
+            return base.over(world, start, aim, cancelCheck = cancelCheck)
         }
 
         /**
          * Whether the water lets the line `a → b` be drawn: no wall crosses it, and its own middle stands
          * on water the boat may use. The strict crossing test is deliberate — two legs of a taut line
          * share a wall corner, and a closed test would refuse every bend.
+         *
+         * **It has one reader since §19.6, and that is the point**: [`EdgeSink`] — the one home of what an
+         * edge is — admits every pair through it, so a kept corner-to-corner edge and an edge leaving an
+         * end are admitted by one rule rather than by two that could be compared and could disagree. The
+         * build reaches the rule through the sink; nothing in this file calls it directly.
          */
-        private fun allowed(obstacles: TautObstacles, a: RoutePoint, b: RoutePoint): Boolean {
+        internal fun allowed(obstacles: TautObstacles, a: RoutePoint, b: RoutePoint): Boolean {
             if (obstacles.crossesWall(a, b)) return false
             val midLat = (a.latitude + b.latitude) / 2.0
             val midLon = (a.longitude + b.longitude) / 2.0
@@ -906,7 +817,7 @@ internal class TautGraph private constructor(
                 if (corner.latitude !in box.latSouth..box.latNorth) continue
                 if (corner.longitude !in box.lonWest..box.lonEast) continue
                 if (!obstacles.traversable(corner.latitude, corner.longitude)) continue
-                val distance = metres(aim, corner)
+                val distance = metresBetween(aim, corner)
                 if (distance < bestDistance) {
                     bestDistance = distance
                     best = corner
@@ -1024,11 +935,6 @@ internal class TautGraph private constructor(
             }
         }
 
-        private fun metres(from: RoutePoint, to: RoutePoint): Double = SpatialOperations.haversine(
-            LatLng(from.latitude, from.longitude),
-            LatLng(to.latitude, to.longitude)
-        )
-
         /** The corridor's rough starting margin: one nautical mile, doubled once on an empty answer. */
         const val CORRIDOR_MARGIN_NM = 1.0
 
@@ -1043,8 +949,13 @@ internal class TautGraph private constructor(
     }
 }
 
-/** The geodesic metres between two drawn points — the same measure the drawn clock uses. */
-private fun metresBetween(from: RoutePoint, to: RoutePoint): Double = SpatialOperations.haversine(
+/**
+ * **The tracer's one home for the geodesic metres between two drawn points** — the same measure the
+ * drawn clock uses, and the only spelling of it in this package: the harvest, the easing's own legs and
+ * chords, the search's heuristic, its distance reading and its drawn clock all read this function rather
+ * than wrapping `haversine` a second time, so no two of them can drift apart.
+ */
+internal fun metresBetween(from: RoutePoint, to: RoutePoint): Double = SpatialOperations.haversine(
     LatLng(from.latitude, from.longitude),
     LatLng(to.latitude, to.longitude)
 )
