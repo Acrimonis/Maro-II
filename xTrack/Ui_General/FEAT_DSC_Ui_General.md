@@ -28,7 +28,24 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 #### Docs
 - `xTrack/Ui_General/260712_FEAT_PLN_Ui_General_multiselect-list-plan.md`
 
+### bottom banner
+
+The pills the map shows at the bottom of the band — the exit-press-back banner, the lock toggle's banner and the import/export status banner — and the space they occupy between the bottom-left regulated-zone tag column and the right control column. One control serves every instance and one guideline entry holds its rules; no instance is exempt, the two legacy progress and error cards included.
+
+#### Docs
+- `xTrack/Ui_General/260921_FEAT_PLN_Ui_General_bottom-banner-centring.md`
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the exit toast's box, the two banner call sites, the double-back guard
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `LockBanner` and `MapStatusBanner` today, one `MapBanner` holding the shared skin after the fix
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — `LoadingOverlay` and `ErrorOverlay`, which take that control
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — the tag stack, the info text, the pair derivation they share
+- `docs/ui-drawer-guidelines.md` §1 — the paint-only right-edge control column rule
+- `docs/ui-component-guidelines.md` §5 — the banner family entry, the only home for its rules
+
 ## Implemented
+
+- **bottom-banner (2026-09-21)** — the map's bottom band now has one banner control and one clearance rule. The exit-press-back banner sat at `W/2 − 79` because its box centred inside the left overlay column — already `W − 82dp` wide — and then reserved that same 82dp right control column a second time, with `TextAlign.Start` left-aligning the recording message it wraps. `MapBanner(borderColor, tagsDrawn, reservesControlColumn, modifier)` in `MapControls.kt` now owns the skin, the border colour and the clearance, and all five instances take it: the exit toast, `LockBanner`, `MapStatusBanner` and the two cards `LoadingOverlay` and `ErrorOverlay`, which keep their own interiors, full width and roles. The pill's line is one definition — `MapBannerText`, 16sp Medium, centred, uncapped wrap grown upward — the adaptive start inset is the pure tested `bannerStartInset(tagsDrawn)`, the tag Boolean is computed once at `MapScreen.kt:1306` and passed down as `bandTagsDrawn`, and the `(category, speedKn)` derivation collapsed into one `regulatedZoneTags` read by the strip, the info text and the inset. The rules live once in `docs/ui-component-guidelines.md` §5.7, with `docs/ui-drawer-guidelines.md` §1 pointing at it. `apk-build.bat` SUCCESS with no new warning; the scoped `ui.map` run green at 23 classes and 227 tests, the previously recorded reds not reproducing. The centring itself and the recording string's two-to-three-line wrap stay unproven until the device pass → `xTrack/Ui_General/260921_FEAT_PLN_Ui_General_bottom-banner-centring.md`
 - **string-extraction (2026-09-19)** — the standing rule that no user-facing text is a literal, applied in one pass: `FilterOptionSpec` / `FilterAxisSpec` gained `labelResId` (the `CustomSortField` shape) with all nineteen filter labels read through `stringResource`, the sort-group default followed as an id, and every other label, title, section caption, wizard line, notification line, compass letter and depth phase moved into both locale files — 84 new keys with the French written for each surface, 15 existing keys reused rather than duplicated, and the notification resolved through the service's own context; the rule itself now sits in `AGENTS.md` §1, and the six Previous/Next literals in `OverlayLayer` closed with it; `apk-build.bat` SUCCESS with the scoped run at 380 tests and only the known reds → `xTrack/Ui_General/260919_FEAT_PLN_Ui_General_string-extraction.md`
 
 - **dashboard-close-conditions** — the selected-item dashboard (marker detail, track detail) closes on exactly two conditions: a surface wanting its slot (the wizard, the other selected-item dashboard) or a change of the world its Prev/Next walks. The menu, settings and both lists keep the selection — the four detail slots stand down while a panel is open — the one-item guard lives inside the openers, and the ten referential callbacks close through two named helpers → `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`
