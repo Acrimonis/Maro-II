@@ -11,10 +11,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- largeHeap: the depth layer's cold path allocates over the default cap, so a cleared-data
+         start dies before the raster caches are written. Budget and stages:
+         xTrack/DepthMapping/260921_FEAT_PLN_DepthMapping_cold-start-heap.md -->
     <application
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="true"
+        android:largeHeap="true"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.MaroII"

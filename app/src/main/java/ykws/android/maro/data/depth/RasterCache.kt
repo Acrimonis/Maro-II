@@ -1,6 +1,7 @@
 
 package ykws.android.maro.data.depth
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.DepthGrid
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -37,15 +38,36 @@ object RasterCache {
      * Compound cache key: any change in these values invalidates the cache.
      * Hash-code based filename avoids embedding special characters.
      *
-     * When adding fields, also keep [AppConfig.rasterColorsHash] in sync.
+     * [colorsHash] is the hash of the colours **this step** is painted from, so a change to one
+     * raster's palette leaves the other's cache file alone. Build a key through [keyFor] rather
+     * than by hand, and keep a new colour on the step it belongs to in `AppConfig`.
      */
     data class Key(
         val gridTimestampMs: Long,
         val emodnetCutoffM: Float,
         val lowDepthCrashDepthM: Float,
         val lowDepthStartWarningM: Float,
-        val nodataColor: Int,
         val colorsHash: Int
+    )
+
+    /**
+     * The key for one raster [step] over [grid]. The two depth thresholds are fields because the
+     * warning overlay grades its alpha by them — inert for the colour map, carried for both so the
+     * two steps keep one shape.
+     */
+    fun keyFor(
+        step: Step,
+        grid: DepthGrid,
+        emodnetCutoffM: Float,
+        lowDepthCrashDepthM: Float,
+        lowDepthStartWarningM: Float
+    ): Key = Key(
+        gridTimestampMs = grid.metadata.fetchTimestampMs,
+        emodnetCutoffM = emodnetCutoffM,
+        lowDepthCrashDepthM = lowDepthCrashDepthM,
+        lowDepthStartWarningM = lowDepthStartWarningM,
+        colorsHash = if (step == Step.DEPTH_COLOUR) AppConfig.depthRasterColorsHash
+        else AppConfig.lowDepthRasterColorsHash
     )
 
     // ── Public API ──────────────────────────────────────────────────────────
