@@ -35,6 +35,7 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.regulation.RegulatedZone
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.ZoneDisplayCategory
 import ykws.android.maro.data.settings.AppSettings
@@ -58,18 +59,10 @@ val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
 /**
  * Bottom-left warning strip showing icons as a vertical stack.
  *
- * Icons are one `ui.map.toggle.square` square each, ordered from most
- * restrictive (SPEED_LIMIT at the bottom) to informational (INFORMATION at the
- * top). Deduplicates by
- * (displayCategory, speedLimitKn).
- *
- * When [inZone300] is true, the 300m zone is injected as a SPEED_LIMIT entry
- * at the highest priority (bottom of stack), and regulated SPEED_LIMIT icons
- * are suppressed to avoid duplicating speed limit info.
- *
- * The stack answers for [markerPosition], not for the boat: that point is the boat while the map
- * follows it and the viewpoint while the map has been moved, so a dragged map shows what the user
- * is looking at. The band's answer arrives as [inZone300], computed at the same point.
+ * Icons are one `ui.map.toggle.square` square each, ordered from most restrictive (SPEED_LIMIT at the
+ * bottom) to informational (INFORMATION at the top). Its content is [regulatedZoneTags]' — the one
+ * derivation this strip, [RegulatedZoneInfoText] and the bottom band's banner clearance all read — so
+ * the empty list is also the band's own answer: an empty stack reserves no space.
  */
 @Composable
 fun RegulatedZoneWarningStrip(
@@ -78,58 +71,86 @@ fun RegulatedZoneWarningStrip(
     inZone300: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val categories = remember(regulatedZones, markerPosition, inZone300) {
-        val base = if (regulatedZones != null && regulatedZones.zones.isNotEmpty()) {
-            val zones = if (markerPosition != null) {
-                regulatedZones.zones.filter { it.contains(markerPosition) }
-            } else {
-                regulatedZones.zones
-            }
-            if (zones.isEmpty()) {
-                emptyList()
-            } else {
-                zones
-                    .flatMap { zone ->
-                        val speed = zone.effectiveSpeedLimitKn()
-                            ?: parseSpeedFromDescription(zone.description)
-                        zone.displayCategories().map { cat -> cat to speed }
-                    }
-                    .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
-                    // When in 300m zone, suppress regulated speed limit icons (300m replaces them)
-                    .filter { (cat, _) -> !(inZone300 && cat == ZoneDisplayCategory.SPEED_LIMIT) }
-                    .distinct()
-            }
-        } else {
-            emptyList()
-        }
-
-        // When in the 300m zone, inject it as the highest-priority SPEED_LIMIT entry
-        val withZone300 = if (inZone300) {
-            val zoneSpeed = AppConfig.zoneRegulatorySpeedKn.toDouble()
-            base + (ZoneDisplayCategory.SPEED_LIMIT to zoneSpeed)
-        } else {
-            base
-        }
-
-        if (withZone300.isEmpty()) return@remember emptyList()
-
-        // Sort by priority — most restrictive first (bottom of stack)
-        withZone300.sortedBy { (cat, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+    val tags = remember(regulatedZones, markerPosition, inZone300) {
+        regulatedZoneTags(regulatedZones, markerPosition, inZone300)
     }
 
-    if (categories.isEmpty()) return
+    if (tags.isEmpty()) return
 
     // Vertical column: first item at bottom (most restrictive), last at top
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER),
     ) {
-        // Render in reverse so the first sorted item (most restrictive)
-        // appears at the bottom of the stack
-        categories.reversed().forEach { (category, speedKn) ->
-            RegulationZoneCategoryIcon(category = category, speedKn = speedKn)
+        // Render in reverse so the first sorted tag (most restrictive) appears at the bottom
+        tags.reversed().forEach { tag ->
+            RegulationZoneCategoryIcon(category = tag.category, speedKn = tag.speedKn)
         }
     }
+}
+
+/**
+ * One tag of the bottom-left stack: the (category, speedKn) pair its square draws, plus the zone the
+ * pair came from — `null` for the 300 m band's injected entry, which has no zone of its own.
+ */
+internal data class RegulatedZoneTag(
+    val category: ZoneDisplayCategory,
+    val speedKn: Double?,
+    val zone: RegulatedZone?
+)
+
+/**
+ * The bottom-left stack's whole content for [markerPosition]: one deduplicated [RegulatedZoneTag] per
+ * tag, sorted by [CATEGORY_PRIORITY] with the most restrictive first — the order the stack paints
+ * bottom-up. The stack answers for that point rather than for the boat: it is the boat while the map
+ * follows it and the viewpoint while the map has been moved, so a dragged map shows what the user is
+ * looking at.
+ *
+ * An empty list is the one answer the strip, the info text and the bottom band's banner clearance all
+ * share: it means no tag is drawn, so the space the stack would take is free for the banner.
+ *
+ * [inZone300] is that same point's band answer: while it is true the band is injected as the
+ * highest-priority SPEED_LIMIT entry and the regulated SPEED_LIMIT pairs are dropped, so the band
+ * replaces them rather than doubling them.
+ */
+internal fun regulatedZoneTags(
+    regulatedZones: RegulatedZoneSet?,
+    markerPosition: LatLng?,
+    inZone300: Boolean
+): List<RegulatedZoneTag> {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return emptyList()
+    val zones = if (markerPosition != null) {
+        regulatedZones.zones.filter { it.contains(markerPosition) }
+    } else {
+        regulatedZones.zones
+    }
+    if (zones.isEmpty()) return emptyList()
+
+    val base = zones
+        .flatMap { zone ->
+            // The override lives in the zone's own single home, so the stack and the info text
+            // price a zone the way the rest of the app does.
+            val speed = zone.effectiveSpeedLimitKn()
+                ?: parseSpeedFromDescription(zone.description)
+            zone.displayCategories().map { cat -> RegulatedZoneTag(cat, speed, zone) }
+        }
+        .filter { tag -> tag.category != ZoneDisplayCategory.SPEED_LIMIT || tag.speedKn != null }
+        // When in the 300 m zone, the regulated speed limits are the ones the band replaces.
+        .filter { tag -> !(inZone300 && tag.category == ZoneDisplayCategory.SPEED_LIMIT) }
+        .distinctBy { tag -> tag.category to tag.speedKn }
+
+    val withZone300 = if (inZone300) {
+        base + RegulatedZoneTag(
+            category = ZoneDisplayCategory.SPEED_LIMIT,
+            speedKn = AppConfig.zoneRegulatorySpeedKn.toDouble(),
+            zone = null
+        )
+    } else {
+        base
+    }
+
+    // The sort's key is the priority table's; the stack paints it bottom-up.
+    return withZone300.sortedBy { tag -> CATEGORY_PRIORITY[tag.category] ?: Int.MAX_VALUE }
 }
 
 /**
@@ -201,8 +222,8 @@ fun RegulationZoneCategoryIcon(
 /**
  * Zone info text panel — shows zone info text beside the vertical icon stack.
  *
- * Builds the same deduplicated category list as [RegulatedZoneWarningStrip] so
- * text lines match the icon stack exactly — same emoji, same priority order.
+ * Reads [regulatedZoneTags] — the same derivation as [RegulatedZoneWarningStrip] — so the lines match
+ * the icon stack exactly: same emoji, same priority order, same empty answer.
  *
  * Format per line: {category_emoji} {zone.name or fallback} — {speed or desc}
  * Ordered by [CATEGORY_PRIORITY] (most restrictive at bottom, matching icons).
@@ -215,44 +236,8 @@ fun RegulatedZoneInfoText(
     inZone300: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    // Derive the same deduplicated (category, speedKn) pairs as the warning strip
     val categoryLines = remember(regulatedZones, markerPosition, inZone300) {
-        val base = if (regulatedZones != null && regulatedZones.zones.isNotEmpty()) {
-            val zones = if (markerPosition != null) {
-                regulatedZones.zones.filter { it.contains(markerPosition) }
-            } else {
-                regulatedZones.zones
-            }
-            if (zones.isEmpty()) {
-                emptyList()
-            } else {
-                zones
-                    .flatMap { zone ->
-                        val speed = zone.effectiveSpeedLimitKn()
-                            ?: parseSpeedFromDescription(zone.description)
-                        // Pair each display category with the zone it came from
-                        zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
-                    }
-                    .filter { (cat, speed, _) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
-                    // When in 300m zone, suppress regulated speed limit info text (300m replaces it)
-                    .filter { (cat, _, _) -> !(inZone300 && cat == ZoneDisplayCategory.SPEED_LIMIT) }
-                    .distinctBy { (cat, speed, _) -> cat to speed }
-            }
-        } else {
-            emptyList()
-        }
-
-        // When in the 300m zone, inject it as the highest-priority SPEED_LIMIT info line
-        val withZone300 = if (inZone300) {
-            val zoneSpeed = AppConfig.zoneRegulatorySpeedKn.toDouble()
-            base + Triple(ZoneDisplayCategory.SPEED_LIMIT, zoneSpeed, null)
-        } else {
-            base
-        }
-
-        if (withZone300.isEmpty()) return@remember emptyList()
-
-        withZone300.sortedBy { (cat, _, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+        regulatedZoneTags(regulatedZones, markerPosition, inZone300)
     }
 
     if (categoryLines.isEmpty()) return

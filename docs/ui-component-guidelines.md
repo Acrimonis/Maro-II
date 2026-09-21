@@ -565,6 +565,82 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 
 ---
 
+### 5.7 Bottom-Band Banners — `MapBanner`
+
+The map's bottom band carries five banner instances — the exit toast (`Press back again to exit` /
+`Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay` and `ErrorOverlay`
+— and all five paint one skin through one control. This entry is the family's **only** home: the five
+paint sites used to carry the same block with two contradicting KDocs, so every instance reads these
+rules and none is exempt.
+
+Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt) (`MapBanner`,
+`MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
+[`CoastlineMapView.kt`](../app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt)
+(`LoadingOverlay`, `ErrorOverlay`), call sites in
+[`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt).
+
+**Contract**
+
+- **One control, caller-owned content.** `MapBanner(borderColor, tagsDrawn, modifier,
+  reservesControlColumn) { content }` owns the skin, the band clearance and the border colour; the
+  instance's content arrives as the slot — the pill passes one `MapBannerText`, while `LoadingOverlay`
+  and `ErrorOverlay` pass their own column and keep their own interiors (spinner, title, phase,
+  percentage; title, message, Retry) and roles.
+- **Skin — one definition, five users.** 14 dp corner, a 2 dp border in `borderColor` over
+  `ui.card.background`, `ui.button.background` as the fill and an 8 dp shadow. No face carries a copy.
+- **Border colour is the caller's**: `ui.dashboard.zone.danger` while recording and
+  `ui.dashboard.background` otherwise, for the exit toast; `ui.dashboard.background` for `LockBanner`
+  and `MapStatusBanner`; `ui.dashboard.zone.danger` for `ErrorOverlay`; `ui.dashboard.background` for
+  `LoadingOverlay`.
+- **Clearance, every instance.** A banner starts at `bannerStartInset(tagsDrawn)` and ends clear of the
+  right control column (82 dp, `RIGHT_CONTROL_COLUMN_INSET`). `tagsDrawn` is the bottom-left tag
+  stack's own answer, `regulatedZoneTags(...).isNotEmpty()`, derived once in `MapScreen` beside the set
+  the stack paints: with a tag drawn the inset adds the tag column, empty it adds nothing.
+- **The control owns the column reserve, not the caller.** `reservesControlColumn` carries the one fact
+  the control cannot read from its own box — is the banner's parent full width — and `MapBanner` turns
+  it into the `end` padding. True for `LockBanner` and `MapStatusBanner`, whose parent is the whole map
+  area and which therefore genuinely need the reserve; false for the exit toast and the two cards, whose
+  parent is the map's left overlay column and already ends where that column does
+  (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column either way.
+
+**Banner face — the pill**
+
+- **Wrap-content, centred in the band's free space.** The pill hugs its message and is centred in the
+  region the band leaves free, so a short message is a small centred pill and a long one fills the
+  region and wraps. No `fillMaxWidth` stretch, and `tagsDrawn` moves the centre by half the tag slot
+  (25 dp at defaults) — adaptive rather than stable, decided 2026-09-21.
+- **Text:** 16 sp Medium in `ui.toast.text`, **centred** (`MapBannerText`), on 16/10 padding — so a
+  wrapped message reads centred inside its centred pill.
+- **The wrap is uncapped:** no `maxLines`, no `ellipsis`. Both exit strings carry their instruction
+  late (`… press back again to stop and exit`), so an ellipsis would cut it; the pill is
+  bottom-anchored, so extra lines grow upward over the map.
+
+**The two card faces**
+
+- **Full width**, keeping the 6 dp end gap they always had, on the same clearance and skin as the pill —
+  the clearance rule binds them too, so a tag being drawn moves them 50 dp at defaults.
+- **Their interiors are their own** — `LoadingOverlay` shows the spinner, title, phase and percentage,
+  `ErrorOverlay` the title, message and Retry — and the family owns neither.
+
+**Numbers** (shipped defaults — this table is the only place they are written)
+
+| Quantity | Value | Home |
+|---|---|---|
+| Band gutter | 6 dp | `ui.map.toggle.gutter` |
+| Tag square (the tag column's width) | 44 dp | `ui.map.toggle.square` |
+| Gap between the tag column and the info text | 6 dp | `ui.map.overlay.gap` |
+| `bannerStartInset(tagsDrawn = true)` | 56 dp | 6 + 44 + 6 |
+| Card end gap | 6 dp | the band's gutter value (`ui.map.toggle.gutter`), held by the caller; equal to the card's own start inset only while no tag is drawn |
+| Right control column | 82 dp | `RIGHT_CONTROL_COLUMN_INSET`, reserved by the caller |
+
+At defaults on a 411 dp screen the pill centres at `W/2 − 13` (192.5 dp) with a tag up and `W/2 − 38`
+(167.5 dp) with none; before this pass it sat at `W/2 − 79` in both states, having reserved the control
+column twice. The centring has no Compose harness in this repo (`app/src` carries `main/` and `test/`
+only), so it is a device judgement; the inset arithmetic is covered by
+[`BannerStartInsetTest`](../app/src/test/java/ykws/android/maro/ui/map/BannerStartInsetTest.kt).
+
+---
+
 ## 6. Global Layout Rules
 
 ### 6.1 Screen Bottom Padding

@@ -49,6 +49,29 @@ internal val TOP_TOGGLE_SQUARE: Dp get() = AppConfig.uiMapToggleSquare.dp
 internal val TOP_TOGGLE_ICON_SIZE: TextUnit get() = AppConfig.uiMapToggleIconSize.sp
 
 /**
+ * Start inset (dp) of the bottom band's banner family: the band's own gutter, plus the width the
+ * bottom-left tag column takes — one `ui.map.toggle.square` and the `ui.map.overlay.gap` the info text
+ * sits at — while [tagsDrawn]. Callers read it wherever they place a banner, so the pill and the two
+ * cards clear that column the same way.
+ *
+ * The tag stack is a vertical `Column` one square wide (see `RegulatedZoneComponents.kt`), so its width
+ * is a constant per state rather than a measurement. The right control column is deliberately not part
+ * of it: [MapBanner] owns that half of the clearance, from the placement its `reservesControlColumn`
+ * states (docs/ui-drawer-guidelines.md §1).
+ */
+internal fun bannerStartInset(tagsDrawn: Boolean): Dp =
+    TOP_TOGGLE_GUTTER + (if (tagsDrawn) TOP_TOGGLE_SQUARE + AppConfig.uiMapOverlayGap.dp else 0.dp)
+
+/** Corner of the banner family — the pill and the two cards share it. */
+private val BANNER_CORNER = RoundedCornerShape(14.dp)
+
+/** Border width (dp) of the banner family, stroked in the caller's own colour. */
+private val BANNER_BORDER_WIDTH = 2.dp
+
+/** Shadow (dp) under every banner. */
+private val BANNER_SHADOW_ELEVATION = 8.dp
+
+/**
  * A 44×44 dp icon square showing either water (🌊) or earth (🏔️), painted by [MapToggleSquare] on the
  * shared [MapSurface].
  *
@@ -261,77 +284,123 @@ internal fun ZoomButton(
 }
 
 /**
- * Lock/unlock feedback banner — reuses the generic exit-toast style (rounded
- * Surface, 2dp border, card background) at the bottom-left of the map, left of
- * the right-edge control column. Non-interactive.
+ * The bottom band's one banner control — the three pills and the two cards' shared container.
+ *
+ * It owns the family's skin (a [BANNER_CORNER] corner, a [BANNER_BORDER_WIDTH] border in [borderColor]
+ * over [AppConfig.uiCardBackground], a [BANNER_SHADOW_ELEVATION] shadow and
+ * [AppConfig.buttonActionBgColor] as the fill) and the band's whole clearance — the full-width box that
+ * centres the face in the band's free space, `start = bannerStartInset(tagsDrawn)` and the right control
+ * column reserved while [reservesControlColumn]. The caller's own content arrives as [content]'s slot,
+ * and its modifier carries only what the placement still needs — the band's own 6 dp, an alignment. A
+ * face that wants the band's whole width states it in its own content, since the Surface wraps what it
+ * is given.
+ *
+ * The rules this family follows are written in `docs/ui-component-guidelines.md` §5.7 and nowhere
+ * else — this KDoc and the two call-site faces below point at it rather than restating it.
+ *
+ * @param borderColor the border's own colour, the one thing that distinguishes the faces: the
+ *        recording red or [AppConfig.uiDashboardBackground] for the exit banner, the fixed
+ *        [AppConfig.uiDashboardBackground] for the lock and status banners,
+ *        [AppConfig.uiDashboardZoneDanger] for the error card.
+ * @param tagsDrawn whether the bottom-left tag stack draws at least one tag — the band's one answer to
+ *        "is that column there", read through `regulatedZoneTags`.
+ * @param reservesControlColumn whether the banner's parent is full width, so nothing else keeps its face
+ *        off the right control column. True for [LockBanner] and [MapStatusBanner], whose parent is the
+ *        whole map area; false for the exit toast and the two cards, whose parent is the map's left
+ *        overlay column and already ends where that column does.
  */
 @Composable
-internal fun LockBanner(
-    locked: Boolean,
-    modifier: Modifier = Modifier
+internal fun MapBanner(
+    borderColor: ComposeColor,
+    tagsDrawn: Boolean,
+    modifier: Modifier = Modifier,
+    reservesControlColumn: Boolean = false,
+    content: @Composable () -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET, bottom = 6.dp),
+            .padding(
+                start = bannerStartInset(tagsDrawn),
+                end = if (reservesControlColumn) RIGHT_CONTROL_COLUMN_INSET else 0.dp
+            ),
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = BANNER_CORNER,
             color = ComposeColor(AppConfig.buttonActionBgColor),
-            shadowElevation = 8.dp,
-            modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
+            shadowElevation = BANNER_SHADOW_ELEVATION,
+            modifier = Modifier.border(BANNER_BORDER_WIDTH, borderColor, BANNER_CORNER)
         ) {
             Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
-                Text(
-                    text = stringResource(
-                        if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked
-                    ),
-                    color = ComposeColor(AppConfig.uiToastText),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                )
+                content()
             }
         }
     }
 }
 
 /**
- * Map status banner — generic transient toast-style banner reusing the
- * exit-toast / LockBanner style (14dp Surface, 2dp border, card background)
- * at the bottom of the map, centered in the space left of the right-edge
- * control column. Non-interactive. Used for import results and in-progress
- * track operations (export/import).
+ * The banner face's one line — what the three pills hand [MapBanner]'s slot: 16 sp Medium in
+ * [AppConfig.uiToastText], centred, on 16/10 padding, and with no `maxLines` and no ellipsis, so a long
+ * message wraps uncapped and the bottom-anchored pill grows upward rather than cutting its instruction.
+ */
+@Composable
+internal fun MapBannerText(text: String) {
+    Text(
+        text = text,
+        color = ComposeColor(AppConfig.uiToastText),
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Medium,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+    )
+}
+
+/**
+ * Lock/unlock feedback banner — the screen-lock face of [MapBanner]. Its parent is the whole map area,
+ * so it is the control that reserves the right control column (`reservesControlColumn = true`), and its
+ * pill centres in the band's free space: clear of the bottom-left tag column while one is drawn
+ * ([tagsDrawn]), and of the control column always. The border is the fixed
+ * [AppConfig.uiDashboardBackground]. Non-interactive.
+ */
+@Composable
+internal fun LockBanner(
+    locked: Boolean,
+    tagsDrawn: Boolean,
+    modifier: Modifier = Modifier
+) {
+    MapBanner(
+        borderColor = ComposeColor(AppConfig.uiDashboardBackground),
+        tagsDrawn = tagsDrawn,
+        modifier = modifier.padding(bottom = 6.dp),
+        reservesControlColumn = true
+    ) {
+        MapBannerText(
+            text = stringResource(
+                if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked
+            )
+        )
+    }
+}
+
+/**
+ * Map status banner — the import and in-progress track-operation face of [MapBanner]. Same fixed
+ * [AppConfig.uiDashboardBackground] border and the same full-size parent as [LockBanner], so it asks
+ * the control for the same right-control-column reserve and centres in the band's free space beside it.
+ * Non-interactive.
  */
 @Composable
 internal fun MapStatusBanner(
     message: String,
+    tagsDrawn: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET, bottom = 6.dp),
-        contentAlignment = Alignment.Center
+    MapBanner(
+        borderColor = ComposeColor(AppConfig.uiDashboardBackground),
+        tagsDrawn = tagsDrawn,
+        modifier = modifier.padding(bottom = 6.dp),
+        reservesControlColumn = true
     ) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = ComposeColor(AppConfig.buttonActionBgColor),
-            shadowElevation = 8.dp,
-            modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
-        ) {
-            Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
-                Text(
-                    text = message,
-                    color = ComposeColor(AppConfig.uiToastText),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                )
-            }
-        }
+        MapBannerText(text = message)
     }
 }

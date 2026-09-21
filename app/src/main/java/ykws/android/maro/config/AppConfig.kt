@@ -965,18 +965,23 @@ object AppConfig {
     var uiDividerGap: Float = 6f; private set
 
     /**
-     * Hash of all colour properties that affect cached rasters (depth colour map +
-     * low-depth warning overlay). Any colour change → different hash → cache miss on
-     * [RasterCache.Key]. Kept in sync with [RasterCache.colorsHash].
+     * Hash of the colours **one** raster step is painted from, folded into [RasterCache.Key] by
+     * `RasterCache.keyFor` — taken per step, so touching one raster's palette misses that raster
+     * and leaves the other cached. The colour map paints from the ramp (shallow → deep, plus the
+     * collision tint) at [mapDepthRampAlpha], and colours its NoData cells [mapDepthNodataColor];
+     * the warning overlay has a single hue, and grades it by its own two depth thresholds, which
+     * are [RasterCache.Key] fields of their own.
      */
-    val rasterColorsHash: Int get() = listOf(
-        mapDepthNodataColor,
-        overlayLowDepthColor,
+    val depthRasterColorsHash: Int get() = listOf(
         mapDepthRampShallowR, mapDepthRampShallowG, mapDepthRampShallowB,
         mapDepthRampDeepR, mapDepthRampDeepG, mapDepthRampDeepB,
         mapDepthRampWarningR, mapDepthRampWarningG, mapDepthRampWarningB,
         mapDepthRampAlpha,
+        mapDepthNodataColor,
     ).hashCode()
+
+    /** Hue of the low-depth warning overlay. Its alpha is graded per cell, so it is not a colour. */
+    val lowDepthRasterColorsHash: Int get() = listOf(overlayLowDepthColor).hashCode()
 
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault].
      *  Defaults are resolved from colors.properties (`map.isobar.*.color`) which may be overridden

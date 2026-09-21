@@ -62,8 +62,10 @@ internal fun mapSurfaceFaceActive(color: Color): MapSurfaceFace =
  * corner, draws the shared border and applies the shared padding, all from the `ui.map.surface.*` block.
  *
  * The family it covers is the row's status squares and the recenter square (through [MapToggleSquare]),
- * the collapsed legend square, the bottom-left regulated-zone tag column and both overlay cards. The only
- * boxes outside it are `ZoomButton`, `LockBanner` and `MapStatusBanner`, which paint their own faces.
+ * the collapsed legend square, the bottom-left regulated-zone tag column and both overlay cards. Two boxes
+ * outside it paint faces of their own: `ZoomButton`, on its own circle, and the bottom band's banner
+ * family through `MapBanner`, which holds the pill's and the two cards' skin itself
+ * (`docs/ui-component-guidelines.md` §5.7).
  *
  * The inactive fade lands on the **content**, never on the box: `Modifier.alpha` sits on the inner
  * wrapper, so an inactive face still paints its fill at the property's own weight and only the glyph

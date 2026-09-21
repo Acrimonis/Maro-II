@@ -23,5 +23,5 @@ Why `all` exists: the rulebook reaches a session once, so an edit made mid-conve
 until something reads the file. This is that read, made deliberately — and it answers with a verdict
 rather than a dump, the point being whether the session is stale, not what the file says.
 
-A printed tier re-anchors attention and does not enforce; the refusals inside `#push`, `#commit` and
-`#merge` are what bind.
+A printed tier re-anchors attention and does not enforce; the refusals inside `#push`, `#commit`,
+`#merge` and `#rename` are what bind.

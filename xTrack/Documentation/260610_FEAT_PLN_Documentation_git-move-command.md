@@ -29,10 +29,10 @@ Both variants operate on **uncommitted working-tree changes only** (stash-based)
 
 1. `git stash push -m "move-$(date +%s)"`
 2. `git fetch origin develop`
-3. `git checkout -b [branch] origin/develop`
+3. `git checkout --no-track -b [branch] origin/develop`
 4. `git stash pop`
 
-Always creates from remote `develop`, never from the current branch.
+Always creates from remote `develop`, never from the current branch. **Updated 2026-09-21:** the step above gained `--no-track` at every creation site, since a branch cut this way used to track `develop` itself; `#push` is what writes the branch's own upstream, and the expansion below predates that change.
 
 ## Edge cases
 
@@ -58,7 +58,7 @@ Always creates from remote `develop`, never from the current branch.
 #move new bar
   → git stash push -m "move-1712345678"
   → git fetch origin develop
-  → git checkout -b bar origin/develop
+  → git checkout --no-track -b bar origin/develop
   → git stash pop
 ```
 

@@ -149,19 +149,16 @@ class DepthViewModel(
 
             val cutoffM = settings.emodnetShallowCutoffM
             val nodataColor = AppConfig.mapDepthNodataColor
-            val key = RasterCache.Key(
-                gridTimestampMs = grid.metadata.fetchTimestampMs,
-                emodnetCutoffM = cutoffM,
-                lowDepthCrashDepthM = settings.lowDepthCrashDepthM,
-                lowDepthStartWarningM = settings.lowDepthStartWarningM,
-                nodataColor = nodataColor,
-                colorsHash = AppConfig.rasterColorsHash
-            )
 
             withContext(Dispatchers.Default) {
                 for (step in steps) {
                     stepIndex++
                     if (!silent) _generatingStep.value = step
+                    // Per step: each raster's key carries its own palette hash, so changing one
+                    // layer's colours no longer discards the other layer's cache file.
+                    val key = RasterCache.keyFor(
+                        step, grid, cutoffM, settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM
+                    )
 
                     when (step) {
                         RasterCache.Step.GRID -> {
@@ -211,13 +208,9 @@ class DepthViewModel(
     /** Best-effort cache read for a single raster step; returns the cached bitmap or null. */
     fun readCached(context: Context, step: RasterCache.Step, settings: AppSettings): Bitmap? {
         val grid = repository.getGrid() ?: return null
-        val key = RasterCache.Key(
-            gridTimestampMs = grid.metadata.fetchTimestampMs,
-            emodnetCutoffM = settings.emodnetShallowCutoffM,
-            lowDepthCrashDepthM = settings.lowDepthCrashDepthM,
-            lowDepthStartWarningM = settings.lowDepthStartWarningM,
-            nodataColor = AppConfig.mapDepthNodataColor,
-            colorsHash = AppConfig.rasterColorsHash
+        val key = RasterCache.keyFor(
+            step, grid, settings.emodnetShallowCutoffM,
+            settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM
         )
         return RasterCache.read(context, step, key)
     }

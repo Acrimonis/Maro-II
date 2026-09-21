@@ -73,6 +73,7 @@ Unify data prebaking across datasets (coastline, Zone300, depth): tagged JVM pre
 - **PrecisionTiers** — shoalest-wins ≤10 m (Litto3D) + finest-resolution 5–60 m; per-cell source/confidence
 - **Rendering** — hypsometric `DepthColorRamp` + `DepthBitmap`; isobaths via marching squares + DP simplify; depth-at-center dashboard readout
 - **emodnet-gate** — EMODnet shallow gate applied to colour map / warning overlay / isobaths; configurable `nodata.color` → `xTrack/DepthMapping/260609_FEAT_PLN_DepthMapping_emodnet-gate-nodata-color.md`
+- **cold-start-heap, part 1** — a colour edit no longer discards both raster caches: each step keys on its own palette through the one `RasterCache.keyFor()`, and `android:largeHeap` carries the cold path that killed a cleared-data start at the 256 MB cap. Stages 2–4 — single-array rasters, streamed cache I/O, contours off the load path, the grid off-heap — stay **in design** → `xTrack/DepthMapping/260921_FEAT_PLN_DepthMapping_cold-start-heap.md`
 
 ## Todos
 - [ ] **NEXT — On-device verify depth rendering** (orientation, isobaths at z≥13, z-order, dashboard readout)
