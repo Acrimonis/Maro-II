@@ -28,15 +28,15 @@ Session:  #bake                snapshot + consolidation (checkmarks, section fol
           #brief / #full       output mode — brief subtracts ELIJP, containment blocks, verification lists; #focus resets to full
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
           #go                  agree with the open question (re-asks if the proposal moved); #go impl = agree + run the pipeline
-Git:      🛑 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
-           #new [branch]        create `feature/[branch]` from origin/develop; if that branch exists locally, report it and offer recreate / another name / abort
+Git:      🛑 Rules single-sourced in `AGENTS.md` §7b; [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) holds the branch model.
+           #new [branch]        create `feature/[branch]` from origin/develop with --no-track, so nothing tracks the base until the first #push writes its own name; if that branch exists locally, report it and offer recreate / another name / abort, the recreate clearing any upstream it carried
            #commit              stage + commit; offers a bake first when the feature moved since its last bake. Confirms the staged set and the message. 🚫 refuses on develop/main.
-           #push                push current branch (user-invoked only — never proposed or reminded). Confirms the branch and the remote. 🚫 refuses on develop/main.
+           #push                push the current branch, setting its upstream to that name (`git push -u origin <branch>`; a bare push only refuses with the same suggestion). User-invoked only — never proposed or reminded. Confirms the branch and the remote. 🚫 refuses on develop/main.
            #move [branch]       stash → switch → pop (existing)
-           #move new [branch]   stash → create feature/[branch] from develop → pop
+           #move new [branch]   stash → create feature/[branch] from develop with --no-track → pop
            #cherry [target]     interactive cherry-pick unpushed commits
            #copy [target]       alias for #cherry
-           #rename [branch]     git branch -m
+           #rename [topic]      rename the current branch to feature/[topic] (git branch -m, no stash), clear an upstream that does not name the new branch, and carry a published rename to the origin (push -u the new name, then delete the old remote branch on an answer, then prune); bare = report the branch and its implied topic, writing nothing
            #merge               pre-flight → trivial/non-trivial → auto-select rebase/merge → confirm (yes=direct, #implement=pipeline). 🚫 refuses on develop/main.
 Health:   #doctor              lint xTrack and the rulebook for drift (checks a–s; flags active_subfeature/#sub remnants, registry divergence, retired-file drift, a rule bullet without a tier glyph)
           #doctor fix          auto-repair
