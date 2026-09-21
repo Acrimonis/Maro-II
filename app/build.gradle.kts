@@ -30,20 +30,31 @@ android {
         val regionId = project.findProperty("maro.region.id") as String? ?: "nice-frejus"
         buildConfigField("String", "REGION_ID", "\"$regionId\"")
 
-        // ── Layer default visibility from maro.properties ─────────────────
-        val maroProps = mutableMapOf<String, String>()
-        val maroFile = file("src/main/assets/maro.properties")
-        if (maroFile.exists()) {
-            maroFile.readLines().forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.isNotBlank() && !trimmed.startsWith("#")) {
-                    val eq = trimmed.indexOf('=')
-                    if (eq > 0) {
-                        maroProps[trimmed.substring(0, eq).trim()] = trimmed.substring(eq + 1).trim()
+        // ── Values from maro.properties ───────────────────────────────────
+        //
+        // Read through a **provider**, not a plain `File.readLines()`, so the read is a tracked input: the
+        // configuration cache records it and re-configures when the file changes, instead of Gradle having
+        // no idea the file was consulted at all. What it does **not** do is recompile Kotlin — only a value
+        // landing on a `buildConfigField` below can change `BuildConfig`, and the runtime keys (every
+        // `route.*` among them) are read by `AppConfig` from the packaged asset and never reach the compiler.
+        val maroProps = project.providers
+            .fileContents(project.layout.projectDirectory.file("src/main/assets/maro.properties"))
+            .asText
+            .orElse("")
+            .map { text ->
+                val map = mutableMapOf<String, String>()
+                text.lineSequence().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.isNotBlank() && !trimmed.startsWith("#")) {
+                        val eq = trimmed.indexOf('=')
+                        if (eq > 0) {
+                            map[trimmed.substring(0, eq).trim()] = trimmed.substring(eq + 1).trim()
+                        }
                     }
                 }
+                map
             }
-        }
+            .get()
         fun propBool(key: String, default: Boolean): Boolean =
             maroProps[key]?.lowercase()?.toBooleanStrictOrNull() ?: default
         fun propInt(key: String, default: Int): Int =

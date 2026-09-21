@@ -562,6 +562,7 @@
     <string name="route_action_save_only">Enregistrer seulement</string>
     <string name="route_pin_label">Épingler la trace</string>
     <string name="route_aim_hint">Déplacez la carte pour viser la route</string>
+    <string name="route_searching">Recherche d\'une route…</string>
     <string name="route_no_route">Aucune route navigable ici</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
@@ -575,6 +576,12 @@
     <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
          surface behind it may not be a mesh. -->
     <string name="route_unavailable_region_not_baked">Routage indisponible pour cette région</string>
+    <!-- Le refus propre au moteur de remplacement : les sondages sont ce qui tient une route à distance
+         du rivage, donc aucune route n\'est proposée avant le chargement de la grille de profondeur. -->
+    <string name="route_unavailable_depth_not_loaded">Routage en attente des données de profondeur</string>
+    <!-- L\'autre moitié de ce refus : la paroi est la terre dilatée par le franc-bord, donc une route
+         demandée avant le chargement de la côte tracerait une ligne sur le rivage. -->
+    <string name="route_unavailable_coastline_not_loaded">Routage en attente du trait de côte</string>
     <string name="settings_route_pace_label">Allure en eau libre</string>
     <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>

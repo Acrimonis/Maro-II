@@ -163,13 +163,14 @@ sealed interface RouteState {
 /**
  * All of the Route feature's runtime state, in one place and on `StateFlow`.
  *
- * The engine is prepared once and its readiness held for the life of the ViewModel; a preview search
- * is the search of the moment and cancels its predecessor, which is what makes a flung map drop the
- * search in flight rather than queueing one per frame. **One search is *started* at a time, never
- * one *running* at a time**: the predecessor's job is cancelled and not joined — the UI must never
- * wait on a search — so it can still be finishing the expansion it was in while the next one starts.
- * What makes that harmless is the engine's own scratch discipline, stated at
- * [`RouteEngine.route`].
+ * The engine is prepared once at construction, and **again whenever the toggle's own tap asks** — the
+ * gate recovers per interaction and never in a loop, because an engine still not ready after a completed
+ * preparation has said so. A drag is **coalesced rather than restarted per frame**: the newest aim is
+ * written into one slot and a single drain loop serves it, so a gesture pays for the searches it can
+ * finish and never for a queue of them, and **one search runs at a time** rather than being killed on the
+ * frame after it started — the work already paid for is the work that lands. The loop stops the moment
+ * the mode leaves the draft, so a confirmation or an exit leaves nothing running behind it; what makes
+ * the hand-off itself safe is the engine's own scratch discipline, stated at [`RouteEngine.route`].
  *
  * The pace is the trip figure's: the set free-water pace until the boat's own samples have
  * something to say, then [RoutePace]'s own reduction of them. Samples taken inside a regulated zone
@@ -200,8 +201,25 @@ class RouteViewModel(
     /** The pace the trip figure plans at (kn) — set pace, or the boat's own once it has evidence. */
     val paceKn: StateFlow<Double> = _paceKn.asStateFlow()
 
-    /** The last preview search, so a new aim cancels it instead of racing it. */
+    /** The drain loop that serves [pendingAim], one search per aim it takes up. */
     private var previewJob: Job? = null
+
+    /**
+     * **The drag's own slot: the newest aim no search has taken up yet.**
+     *
+     * A drag asks once per frame; the machine answers by overwriting this one field, so the aims a search
+     * cannot catch up with are *replaced* rather than queued — which is the whole difference between a
+     * flung map costing one search and it costing one per frame.
+     */
+    private var pendingAim: RoutePoint? = null
+
+    /**
+     * Whether [drain] is already running.
+     *
+     * The loop's own gate, read and set with **no suspension point between the two**, so "is one running"
+     * and "start one" can never interleave: every writer here is on the main thread.
+     */
+    private var draining = false
 
     /** The pace window: recent readings, oldest first, pruned to [RoutePace.WINDOW_MS]. */
     private val paceSamples = ArrayDeque<RoutePace.Sample>()
@@ -230,11 +248,14 @@ class RouteViewModel(
      *
      * The start is deliberately not a parameter: the machine already holds the position the mode
      * opened on, so a caller cannot hand it a fresher one and the search can only ever be asked from
-     * the anchor. The call is cheap and idempotent from the caller's side: it cancels whatever search
-     * is in flight and starts one.
+     * the anchor. The caller needs no throttle either, because this function does no search at all: it
+     * writes the aim into [pendingAim] — replacing whatever is there — and makes sure the drain loop is
+     * running. One frame, one write.
      */
     fun preview(aim: RoutePoint) {
-        val start = (_state.value as? RouteState.Draft)?.start ?: return
+        // A draft with no anchor yet — the mode armed before the first fix — refuses the preview rather
+        // than inventing a start, which is the same rule the edge that opened the mode follows.
+        if ((_state.value as? RouteState.Draft)?.start == null) return
         if (!engineState.value.ready) {
             // The first aim of a session can arrive before the engine is ready. One preparation is
             // asked for and the preview then restarts itself once — never in a loop, because an
@@ -245,29 +266,84 @@ class RouteViewModel(
             }
             return
         }
-        previewJob?.cancel()
+        pendingAim = aim
         (_state.value as? RouteState.Draft)?.let {
             _state.value = it.copy(searching = true, asked = true)
         }
+        drain()
+    }
+
+    /**
+     * **The one search loop: take the newest aim, search it, then take the newest again until the slot is
+     * empty** — so a drag pays for the searches it finishes rather than for one per frame, and the search
+     * in flight is never killed to start another.
+     *
+     * It ends when the slot is empty — the previews are up to date, and `searching` goes false with the
+     * last one — or the moment the mode leaves the draft, where the answer is dropped rather than written
+     * because only a draft accepts a preview. A newest aim that lands while the loop is winding down
+     * restarts it; that second look is the only reason the loop is not simply left to die, and it is why
+     * the searching flag is cleared *here* rather than by each landing.
+     */
+    private fun drain() {
+        if (draining) return
+        draining = true
         previewJob = viewModelScope.launch {
-            val result = engine.route(start, aim, paceKn.value)
-            // A search that lands after the route was confirmed or ended must not rewrite the mode:
-            // only a draft accepts a preview, which is the whole of the hand-off rule.
-            val current = _state.value
-            if (current !is RouteState.Draft) return@launch
-            _state.value = when (result) {
-                is RouteResult.Success -> RouteState.Draft(
-                    start = current.start,
-                    plan = RoutePlan.of(start, result, System.currentTimeMillis()),
-                    asked = true
-                )
-                // An aim with no route to it is a draft holding no preview, not an error: the mode
-                // stays armed and the next aim is asked again.
-                RouteResult.OutsideMesh, RouteResult.NoPath ->
-                    RouteState.Draft(start = current.start, plan = null, asked = true)
+            try {
+                while (true) {
+                    val aim = pendingAim ?: break
+                    pendingAim = null
+                    val current = _state.value as? RouteState.Draft ?: break
+                    val start = current.start ?: break
+                    val result = engine.route(start, aim, paceKn.value)
+                    // A search that lands after the route was confirmed or ended must not rewrite the
+                    // mode: only a draft accepts a preview, which is the whole of the hand-off rule.
+                    val still = _state.value as? RouteState.Draft ?: break
+                    _state.value = when (result) {
+                        is RouteResult.Success -> RouteState.Draft(
+                            start = still.start,
+                            plan = RoutePlan.of(start, result, System.currentTimeMillis()),
+                            searching = true,
+                            asked = true
+                        )
+                        // An aim with no route to it is a draft holding no preview, not an error: the
+                        // mode stays armed and the next aim is asked again.
+                        RouteResult.OutsideMesh, RouteResult.OutsideWater, RouteResult.NoPath ->
+                            RouteState.Draft(
+                                start = still.start,
+                                plan = null,
+                                searching = true,
+                                asked = true
+                            )
+                    }
+                }
+            } finally {
+                draining = false
+                if (pendingAim != null && _state.value is RouteState.Draft) {
+                    // An aim landed while this loop was finishing: the newest one is served by a fresh
+                    // loop rather than being left in the slot. The loop always empties the slot before it
+                    // reads the state, so this branch cannot spin — there is nothing left to serve.
+                    drain()
+                } else {
+                    (_state.value as? RouteState.Draft)?.let {
+                        if (it.searching) _state.value = it.copy(searching = false)
+                    }
+                }
             }
         }
     }
+
+    /**
+     * **One more preparation, asked by the toggle's own tap** (§17 item 3), and the state it reached.
+     *
+     * The preparation in `init` happens once, and it can land inside the coastline's own load window —
+     * the map's own load is usually in flight on a cold start — where the engine answers `Unavailable`.
+     * A gate that never re-asks then leaves a square that does nothing for the session, which is the
+     * live defect the walk names, so the tap is the user's own retry: one preparation, and its answer
+     * handed back. **One preparation per interaction and never a loop**: the caller shows the reason
+     * rather than asking again, an engine still not ready after a completed preparation having said so.
+     */
+    suspend fun prepareAgain(): RouteEngineState =
+        if (engineState.value.ready) engineState.value else engine.prepare()
 
     /**
      * The dialog's Route outcomes: the aimed route is locked, carrying the start the draft was
@@ -279,12 +355,14 @@ class RouteViewModel(
      */
     fun confirm() {
         val plan = (_state.value as? RouteState.Draft)?.plan ?: return
+        pendingAim = null
         previewJob?.cancel()
         _state.value = RouteState.Confirmed(plan)
     }
 
     /** The toggle's off, and every other exit: the route ends, the draft is cancelled. */
     fun end() {
+        pendingAim = null
         previewJob?.cancel()
         previewJob = null
         _state.value = RouteState.Idle
@@ -298,6 +376,9 @@ class RouteViewModel(
     fun recompute(start: RoutePoint) {
         val current = _state.value as? RouteState.Confirmed ?: return
         if (!engineState.value.ready) return
+        // The confirmation already left the draft, so a preview aim still in the slot is dead work: it is
+        // dropped before the cancel rather than served after it.
+        pendingAim = null
         previewJob?.cancel()
         previewJob = viewModelScope.launch {
             val result = engine.route(start, current.plan.destination, paceKn.value)
@@ -307,7 +388,8 @@ class RouteViewModel(
                 is RouteResult.Success -> RouteState.Confirmed(
                     RoutePlan.of(start, result, System.currentTimeMillis())
                 )
-                RouteResult.OutsideMesh, RouteResult.NoPath -> still.copy(stale = true)
+                RouteResult.OutsideMesh, RouteResult.OutsideWater, RouteResult.NoPath ->
+                    still.copy(stale = true)
             }
         }
     }

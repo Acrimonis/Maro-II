@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +57,12 @@ class RouteEngineSeamTest {
 
     /** A second position, for the recompute: the boat has moved while the route was followed. */
     private val boatLater = RoutePoint(43.5050, 7.0030)
+
+    /**
+     * A third position, for the drag: the coalescing is read on **which** aims a search was asked for, so
+     * the skipped one and the newest one have to be two different places.
+     */
+    private val aimLater = RoutePoint(43.5300, 7.0200)
 
     /**
      * `viewModelScope` is the main dispatcher, and a JVM test has none: the eager test dispatcher
@@ -296,6 +303,52 @@ class RouteEngineSeamTest {
         )
         assertNull("and the draft holds no plan", (viewModel.state.value as RouteState.Draft).plan)
     }
+
+    /**
+     * **A drag is coalesced: the search in flight holds the newest aim, and the aims it skips are never
+     * asked for.**
+     *
+     * The engine is gated on the first trip, so the search is genuinely *in flight* while two more aims
+     * arrive — the one state the behaviour is about, and one a synchronous engine can never show. The
+     * reads are then the two the behaviour is made of: **the engine is asked once** while a search runs,
+     * where a predecessor cancelled per frame would have asked three times, and when the gate opens it
+     * is asked for the **last** aim and never for the one in between, with the draft's `searching` false
+     * only once nothing is left in the slot. That is the difference the device complaint was about — a
+     * flung map costing one search per *completed* search rather than one per frame.
+     */
+    @Test
+    fun aDragInFlightHoldsTheNewestAimAndNeverAsksForTheOnesItSkips() {
+        val gate = CompletableDeferred<Unit>()
+        val engine = StraightLineEngine(beforeAnswer = { gate.await() })
+        val viewModel = RouteViewModel(engine)
+
+        viewModel.beginDraft(start)
+        viewModel.preview(aim)
+        assertEquals("the first aim is in flight", 1, engine.askedRoutes.size)
+        assertTrue(
+            "and the draft says so, which is what holds the refusal back",
+            (viewModel.state.value as RouteState.Draft).searching
+        )
+
+        viewModel.preview(boatLater)
+        viewModel.preview(aimLater)
+        assertEquals(
+            "two aims arrived while one search ran, and neither started a second search",
+            1,
+            engine.askedRoutes.size
+        )
+
+        gate.complete(Unit)
+
+        assertEquals(
+            "the newest aim is the next one asked, and the skipped one never is",
+            listOf(aim, aimLater),
+            engine.askedRoutes.map { it.second }
+        )
+        val landed = viewModel.state.value as RouteState.Draft
+        assertEquals("the plan is the newest aim's own", listOf(start, aimLater), landed.plan?.points)
+        assertFalse("and the slot being empty is what ends the searching flag", landed.searching)
+    }
 }
 
 /**
@@ -312,7 +365,12 @@ class RouteEngineSeamTest {
 private class StraightLineEngine(
     /** Called with the three answers the entry point takes, so a test can read what was asked. */
     private val onRoute: (RoutePoint, RoutePoint, Double) -> Unit = { _, _, _ -> },
-    private val prepareStates: List<RouteEngineState> = listOf(RouteEngineState.Ready)
+    private val prepareStates: List<RouteEngineState> = listOf(RouteEngineState.Ready),
+    /**
+     * Consulted inside `route`, before the answer is computed, so a test can hold a search **in flight**
+     * — the one state the coalescing is about, and the one a synchronous answer can never show.
+     */
+    private val beforeAnswer: suspend (RoutePoint) -> Unit = { }
 ) : RouteEngine {
 
     private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.NotReady)
@@ -340,6 +398,7 @@ private class StraightLineEngine(
     ): RouteResult {
         askedRoutes += Triple(start, aim, cruiseSpeedKn)
         onRoute(start, aim, cruiseSpeedKn)
+        beforeAnswer(aim)
         val distanceM = SpatialOperations.haversine(
             LatLng(start.latitude, start.longitude),
             LatLng(aim.latitude, aim.longitude)

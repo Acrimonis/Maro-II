@@ -80,6 +80,42 @@ object RoutePlanTiming {
     }
 
     /**
+     * **The brake-and-accelerate pair a corner costs, in seconds** — §12.3's term, in the one home of
+     * the clock.
+     *
+     * A corner is not only its arc: the boat must be at the corner's speed when it gets there, so it
+     * brakes along the incoming leg and accelerates again along the outgoing one, and the distance that
+     * costs is slower than the leg it stands on. The extra time is the difference between the time
+     * actually spent and the time the same distance would have taken at the leg's own speed, which for a
+     * constant deceleration `a` is `(v_in − v_corner)² / (2 · a · v_corner)` — and the same again on the
+     * way out. Nothing is charged where the corner is not slower than its leg: the geometry gives the
+     * speed, and this never invents a slowdown the corner does not force.
+     *
+     * It is the **second property the feature adds** (§12.3), read through
+     * `AppConfig.routeTurnLongitudinalAccelMps2`, and it lives beside the clock rather than beside the
+     * search because the ETA and the price must be the same number: a corner priced with it and timed
+     * without it is exactly the disagreement the design's own resolution forbids.
+     */
+    fun longitudinalSec(
+        inSpeedMps: Double,
+        cornerSpeedMps: Double,
+        outSpeedMps: Double,
+        longitudinalAccelMps2: Double
+    ): Double {
+        if (longitudinalAccelMps2 <= 0.0 || cornerSpeedMps <= 0.0) return 0.0
+        val braking = inSpeedMps - cornerSpeedMps
+        val accelerating = outSpeedMps - cornerSpeedMps
+        var seconds = 0.0
+        if (braking > 0.0) {
+            seconds += braking * braking / (2.0 * longitudinalAccelMps2 * cornerSpeedMps)
+        }
+        if (accelerating > 0.0) {
+            seconds += accelerating * accelerating / (2.0 * longitudinalAccelMps2 * cornerSpeedMps)
+        }
+        return seconds
+    }
+
+    /**
      * **What the drawn clock will charge for one filleted corner** — the arc's own length at the limit
      * it inherits, plus the turn its chords make, in the same file as the clock it models.
      *

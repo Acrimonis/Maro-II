@@ -563,6 +563,7 @@
     <string name="route_action_save_only">Save only</string>
     <string name="route_pin_label">Pin the track</string>
     <string name="route_aim_hint">Move the map to aim the route</string>
+    <string name="route_searching">Searching for a route…</string>
     <string name="route_no_route">No water route here</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
@@ -576,6 +577,12 @@
     <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
          surface behind it may not be a mesh. -->
     <string name="route_unavailable_region_not_baked">Routing unavailable for this region</string>
+    <!-- The replacement engine's own reason: the soundings are what hold a route off the shore, so no
+         route is offered until the depth grid has loaded. -->
+    <string name="route_unavailable_depth_not_loaded">Routing waits for the depth data</string>
+    <!-- The other half of that refusal: the wall is land dilated by the berth, so a route asked for
+         before the coastline lands would draw a line over the shore. -->
+    <string name="route_unavailable_coastline_not_loaded">Routing waits for the coastline</string>
     <string name="settings_route_pace_label">Free-water pace</string>
     <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>

@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the engine seam, and parking the taut-string alternative
 
-**Date:** 2026-09-20 · **Branch:** `feature/route` · **Status:** steps 1–6 shipped 2026-09-20 (the seam itself, its review closed); steps 7–8 open — §3's couplings 5–6 are what the contract still owes
+**Date:** 2026-09-20 · **Branch:** `feature/route` · **Status:** steps 1–7 shipped 2026-09-20 (the seam, its review closed, and the instrument now able to measure any engine); **step 8 taken 2026-09-20** — the word came: the mesh engine is **deactivated** and the taut engine becomes **the replacement**, its first cut the drawn line. §3's couplings 5–6 go with the deactivated engine, and step 7's instrument, its columns and every comparison reading are **parked until the user says otherwise**
 **Asked for:** abstract as much of the incumbent engine as possible so another one can replace it — the taut-string design of [`260920_FEAT_PLN_Route_taunt_algorithm-design.md`](260920_FEAT_PLN_Route_taunt_algorithm-design.md) being the candidate — while keeping the concept hydrated and documented, and parking that alternative for now.
 
 ## 1. What parking means here, in four lines
@@ -48,11 +48,11 @@ Every step is a **no-op refactor**: the acceptance for all of them is the same, 
 5. **Sort the properties by ownership.** One home each in `maro.properties` behind an `AppConfig` accessor, split into engine-neutral (`route.cruiseSpeedKn`, the comfort cap, `route.standoffM`, the line's appearance, the pin) and mesh-only (the berth, any bake tuning). **One duplicate must be resolved here:** the comfort cap exists twice under two names in two units — `route.turn.lateralAccelMps2` and the taut design's `route.maxLateralG` — and a second engine reading the other spelling would be the fifth instance of the same wound. Pick one unit, one key, one accessor.
 6. **Invert the drawn clock's limit supply.** `drawnLegSeconds(points, limitsPerLeg)`, with the *engine* producing `limitsPerLeg`; the mesh engine keeps producing them from its chain edges, and nothing else changes. Parts 1–6 are then a complete seam.
 7. **Turn the probe into the comparison instrument — the abstraction's whole payoff.** `RouteTrajectoryProbeTest` already derives its inshore pairs by rule and prints the six metrics; lift that block so it can measure **any** `RouteEngine` on the same pairs — adding nodes expanded and milliseconds, which the incumbent's 127.9 ms worst case already gives it a figure for. Without this step the abstraction buys a swap nobody can justify; with it, §14.5's comparison is a test run rather than a project.
-8. **Un-parking, when the word comes.** The taut engine as a second `RouteEngine`, the incumbent untouched, both measured by step 7's instrument. Its own §13 Stage 0 is the entry point, and its acceptance case is already named: Baie des Milliardaires → Port de la Salis.
+8. **Un-parking — taken 2026-09-20.** The taut engine as a second `RouteEngine`, the incumbent untouched, both measured by step 7's instrument; the first cut is scoped to **producing the drawn line**, the mesh engine being retired as the design of record and kept as the baseline. Its own §13 Stage 0 remains the entry point, and its acceptance case is already named: Baie des Milliardaires → Port de la Salis.
 
 ## 5. What this plan deliberately does not do
 
-- **No code from the taut design**, and no engine decision: the two engines' comparison stays the user's call, on step 7's numbers rather than on this document's prose.
+- **No code from the taut design** — still true, nothing from it is built — and the engine decision, which this line once left open, was **taken on 2026-09-20**: the mesh engine is retired as the design of record, and the tracer is what replaces its tracing.
 - **No deletion.** The mesh, its bake, its asset, `tools/bake-route.bat` and `apk-bake.bat`'s `:do_route` step all stay exactly as they are; the taut design's §13.2 drops them only *if* it is built.
 - **No fix to the line on the water.** Un-parking and fixing the incumbent compete for the same cycles, and that sequencing is the user's; this plan neither assumes nor forecloses it.
 - **No UI redesign.** Steps 1–6 change what the UI *reads*, never what it shows.

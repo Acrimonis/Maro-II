@@ -60,9 +60,24 @@ sealed interface RouteResult {
      * alone — further than the snap radius from any node. The destination is never reported this
      * way inside the box: it resolves into the boat's own stretch instead, however far that point
      * is, because a route's two ends must share one stretch.
+     *
+     * **A mesh engine's reading of "not covered"**, and named for its own machine. An engine with no
+     * mesh reports [OutsideWater] instead, so neither engine's refusals borrow the other's words.
      */
     data object OutsideMesh : RouteResult
 
-    /** Both ends resolved into the same stretch, but no path connects them. */
+    /**
+     * An end of the route is not on water the engine can see at all — **the engine-neutral reading of a
+     * refusal that no mesh is involved in**.
+     *
+     * The corridor tracer's case: the depth grid is not in, so the water the wall is drawn from has not
+     * landed and a search run now would price unsounded water as open sea and call the answer a route.
+     * The two are one outcome for the caller — an end is outside covered water — and two values for a
+     * reader, because which one it is decides whether the depth layer or the mesh is the thing to wait
+     * for.
+     */
+    data object OutsideWater : RouteResult
+
+    /** No path connects the two ends through the water the engine covers. */
     data object NoPath : RouteResult
 }

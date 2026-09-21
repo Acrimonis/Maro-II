@@ -90,10 +90,15 @@ internal fun RouteConfirmationPanel(
         Text(
             text = plan?.let { routeDetailText(context, draft.start, it) }
                 ?: stringResource(
-                    // "Not yet" and "no route to this aim" read identically from a null plan and
-                    // mean opposite things, so the refusal is held back until a search has landed.
-                    if (draft.asked && !draft.searching) R.string.route_no_route
-                    else R.string.route_aim_hint
+                    // Three states read as one null plan and mean different things: nothing asked yet, a
+                    // search in flight, and an aim the water has no route to. Only the last is a refusal,
+                    // and the middle one is what tells a slow search apart from an aim with no answer —
+                    // the feedback that matters now that a drag is served one search at a time.
+                    when {
+                        draft.searching -> R.string.route_searching
+                        draft.asked -> R.string.route_no_route
+                        else -> R.string.route_aim_hint
+                    }
                 ),
             color = Color(AppConfig.uiDashboardTextPrimary),
             fontSize = 13.sp,

@@ -6,7 +6,8 @@ import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
 import ykws.android.maro.spatial.RouteEngine
-import ykws.android.maro.spatial.mesh.MeshRouteEngine
+import ykws.android.maro.spatial.RouteEngineState
+import ykws.android.maro.spatial.taut.TautRouteEngine
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -575,19 +576,22 @@ fun MapScreen(
     // be mutually exclusive in one place.
     //
     // The engine is built **here, once**, from what this screen already holds — the app's own
-    // coastline and regulation instances, which is what makes a route price its edges from the live
-    // layers — and handed to the view model. That makes a second engine this one expression and
-    // nothing else in the feature: a swap is a change at this line alone.
+    // coastline, regulation and depth instances, which is what makes a route price its edges from the
+    // live layers and wall itself from the live soundings — and handed to the view model. That makes a
+    // second engine this one expression and nothing else in the feature: the swap to the corridor
+    // tracer **is this line**, and the mesh engine stays in the tree, wired to nothing.
     val routeEngineApp = LocalContext.current.applicationContext as Application
     val routeEngine: RouteEngine = remember(
         routeEngineApp,
         viewModel.routeCoastline,
-        viewModel.routeRegulatedZones
+        viewModel.routeRegulatedZones,
+        depthViewModel.depthRepository
     ) {
-        MeshRouteEngine.overBundle(
+        TautRouteEngine.overBundle(
             routeEngineApp,
             viewModel.routeCoastline,
-            viewModel.routeRegulatedZones
+            viewModel.routeRegulatedZones,
+            depthViewModel.depthRepository
         )
     }
     val routeViewModel: RouteViewModel =
@@ -603,6 +607,17 @@ fun MapScreen(
     // ready — is the engine's own answer; this reads the readiness and nothing else.
     val routeAvailable = routeEngineState.ready
     val routeSaveScope = rememberCoroutineScope()
+    // **The refusal, held as the id of the line a user reads** (§17 item 3): the engine's closed-set
+    // reason carries a `@StringRes`, and the surface that shows it resolves it — so no engine holds
+    // user-facing text and both locales carry the key. It is transient, like the import's own feedback,
+    // and clears itself so a second tap is never read against a stale sentence.
+    var routeRefusalResId by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(routeRefusalResId) {
+        if (routeRefusalResId != null) {
+            delay(2_000L)
+            routeRefusalResId = null
+        }
+    }
 
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
@@ -1589,11 +1604,30 @@ fun MapScreen(
              *
              * Off is the whole of the exit: ending the route and cancelling an unconfirmed draft are
              * one act, which is why this only turns the switch off and lets the ViewModel's own
-             * `end` follow from the edge. Entry is refused without a mesh, because a mode that cannot
-             * search has nothing to offer.
+             * `end` follow from the edge.
+             *
+             * **Entry is the engine's own gate, and a tap that finds it shut is the user's retry**
+             * (§17 item 3). The engine prepares once at construction, and that one preparation can land
+             * inside the coastline's own load — where it answers `Unavailable` and used to leave a square
+             * that did nothing for the rest of the session. A tap therefore asks for **one** more
+             * preparation, and an engine that still cannot arm has said so: its reason's own id is what
+             * the surface shows, and nothing is asked a third time.
              */
             fun armRouteMode() {
-                if (routeArmed || !routeAvailable) return
+                if (routeArmed) return
+                if (!routeAvailable) {
+                    routeSaveScope.launch {
+                        val reached = routeViewModel.prepareAgain()
+                        if (reached.ready) {
+                            if (inspectArmed) disarmInspectMode()
+                            routeArmed = true
+                        } else {
+                            routeRefusalResId =
+                                (reached as? RouteEngineState.Unavailable)?.reason?.labelResId
+                        }
+                    }
+                    return
+                }
                 if (inspectArmed) disarmInspectMode()
                 routeArmed = true
             }
@@ -2096,29 +2130,40 @@ fun MapScreen(
                 inspectEnabled = inspectAvailable,
                 onToggleInspect = { if (inspectArmed) disarmInspectMode() else armInspectMode() },
                 routeArmed = routeArmed,
-                routeEnabled = routeAvailable,
                 onToggleRoute = { if (routeArmed) endRouteMode() else armRouteMode() },
                 routeHost = {
-                    RouteHost(
-                        mapView = mapView,
-                        boatPosition = routeStart,
-                        state = routeState,
-                        armed = routeArmed,
-                        gpsMode = appSettings.gpsMode,
-                        speedKn = navigationState.speedKnots,
-                        // A reading taken inside a zone or the band measures the limit, not the
-                        // boat, and RoutePace drops it for that reason.
-                        positionRestricted = inZone300 || zoneSituation?.currentZone != null,
-                        setPaceKn = appSettings.routeFreeWaterPaceKn,
-                        mapCenterOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() },
-                        mapCenterOffsetDp = mapCenterOffsetDp,
-                        viewModel = routeViewModel,
-                        onEndRoute = { endRouteMode() },
-                        // The host fills the map area so its target is centred on it, and raises no
-                        // panel of its own: the route's confirmation is composed in the dashboard
-                        // slot below, from the same state the line and the pin are drawn from.
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        RouteHost(
+                            mapView = mapView,
+                            boatPosition = routeStart,
+                            state = routeState,
+                            armed = routeArmed,
+                            gpsMode = appSettings.gpsMode,
+                            speedKn = navigationState.speedKnots,
+                            // A reading taken inside a zone or the band measures the limit, not the
+                            // boat, and RoutePace drops it for that reason.
+                            positionRestricted = inZone300 || zoneSituation?.currentZone != null,
+                            setPaceKn = appSettings.routeFreeWaterPaceKn,
+                            mapCenterOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() },
+                            mapCenterOffsetDp = mapCenterOffsetDp,
+                            viewModel = routeViewModel,
+                            onEndRoute = { endRouteMode() },
+                            // The host fills the map area so its target is centred on it, and raises no
+                            // panel of its own: the route's confirmation is composed in the dashboard
+                            // slot below, from the same state the line and the pin are drawn from.
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // **Where the refusal is shown** (§17 item 3): the mode's own slot, at the map's
+                        // foot beside the import's feedback — the place a transient line already lives,
+                        // so a refusal costs no screen and no panel. The line is the id the engine's
+                        // closed set carries, resolved by the surface that reads it.
+                        routeRefusalResId?.let { resId ->
+                            MapStatusBanner(
+                                message = stringResource(resId),
+                                modifier = Modifier.align(Alignment.BottomStart)
+                            )
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxSize()
@@ -3247,8 +3292,6 @@ private fun MapContent(
     onToggleInspect: () -> Unit = {},
     /** True while the destination mode is aiming or following: the compass square's active face. */
     routeArmed: Boolean = false,
-    /** False while no mesh is decoded for the region — the square carries no tap. */
-    routeEnabled: Boolean = true,
     onToggleRoute: () -> Unit = {},
     /**
      * The route mode's own slot, composed by the shell so this file keeps **one** new parameter
@@ -3433,9 +3476,11 @@ private fun MapContent(
                         enabled = inspectEnabled,
                         onToggle = onToggleInspect
                     )
+                    // **Never dead** (§17 item 3): a tap while the engine is not ready asks for one more
+                    // preparation and the refusal is shown where the feature's own chrome lives, so this
+                    // square carries its tap always — there is no `enabled` to take it away.
                     RouteToggleButton(
                         armed = routeArmed,
-                        enabled = routeEnabled,
                         onToggle = onToggleRoute
                     )
                     LockScreenButton(

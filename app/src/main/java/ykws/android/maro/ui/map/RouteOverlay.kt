@@ -152,13 +152,19 @@ internal fun routeAgeText(ageSeconds: Long): String {
  *
  * It is the mode's **single control**, and it carries both edges: on aims and previews, off ends the
  * route and cancels an unconfirmed draft. Like the inspect square it stays tappable while it is on —
- * a gate must never trap the user in a mode they cannot switch off — so [enabled] only ever comes
- * from the disarmed-and-no-mesh gate.
+ * a gate must never trap the user in a mode they cannot switch off.
+ *
+ * **It stays tappable while the engine is not ready too, and that is the point.** Readiness is the
+ * mode's real gate, but it is the **engine's** answer and it arrives late — the coastline's own load is
+ * often in flight when a route is first armed — so a square that carried no pointer input until it was
+ * ready did *nothing at all* for the session, which is the defect the walk names (§17 item 3). The tap
+ * is the user's own retry: it asks for one more preparation and, when the engine still cannot arm, the
+ * refusal it answers with is shown where this feature's own chrome lives. The square is therefore
+ * **never dead**, and no `enabled` knob exists to make it so.
  */
 @Composable
 internal fun RouteToggleButton(
     armed: Boolean,
-    enabled: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -167,7 +173,7 @@ internal fun RouteToggleButton(
     val description = stringResource(R.string.cd_route_toggle)
     MapToggleSquare(
         face = face,
-        onClick = if (enabled || armed) onToggle else null,
+        onClick = onToggle,
         modifier = modifier,
         contentDescription = description
     ) {

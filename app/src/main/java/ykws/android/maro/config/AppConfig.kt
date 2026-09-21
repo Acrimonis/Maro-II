@@ -79,26 +79,23 @@ object AppConfig {
         private set
 
     /**
-     * The route's comfortable-turn cap: the lateral acceleration (m/s²) a smoothed turn may hold —
-     * `route.turn.lateralAccelMps2`, default 0.5.
+     * The route's lateral acceleration ceiling (m/s²) — the one home of how hard a turn may be —
+     * `route.turn.lateralAccelMps2`, default 2.94.
      *
-     * The cap is what fixes a turn's radius at a speed, `R = v² / a` — about 83 m at 15 kn and 415 m
-     * at 28 kn — so a fast route sweeps wider than a slow one by construction rather than by a rule
-     * that has to be told which speed it is at. It is read live, like every other route value, so
-     * changing it changes the next route and never a bake.
+     * It is read two ways and they are the same quantity: forwards it fixes a corner's radius at a
+     * speed (`R = v² / a`), and backwards it fixes the speed a corner of a given radius is driven at
+     * (`v = √(a·R)`). Read live, like every other route value, so changing it changes the next route
+     * and never a bake, and **the mesh engine's fillet and the taut engine's easing both read this one
+     * key** — no second spelling of the cap and no second unit for it.
      *
-     * **Shipped at 0.5 on the re-taken sweep of 2026-09-20, the first one on which the fillet drew
-     * anything.** The fillet places an arc at every corner of this mesh at every value the property
-     * accepts — 446 of 446 at 0.5, 1 of 444 sharp at 1.0, never one refused for leg room and none at
-     * all for want of an arc — so the cap now chooses how *wide* the arcs are, and the gentlest drawn
-     * line is at the clamp's own floor: the probe's long pair comes out at 2,138 vertices, 6,368° of
-     * total turn and a 33° worst corner at 0.5, against 1,766 / 6,931° / 42° at 1.0 and 956 / 7,258° /
-     * 55° at 4.0. What that costs is real but small — +0.11 % of length and +0.5 % of ETA against 1.0
-     * — and the vertex count rises because a wider ideal radius is *halved* until the cutback fits
-     * rather than refused, so more corners are drawn as arcs. Every row above 1.0 buys nothing back:
-     * the sharp fraction stays at 1 corner and the turning only rises.
+     * **Shipped at 0.3 g (2.94 m/s²) on the user's word of 2026-09-20**, written into `maro.properties`
+     * when the replacement engine was built and tweaked from there. The value the key used to carry,
+     * 0.5, needed 415 m at 28 kn and left nearly every inshore corner sharp; at 2.94 the derived radii
+     * are about 70 m at 28 kn, 56 m at 25 kn, 36 m at 20 kn, 20 m at 15 kn, 9 m at 10 kn and 2 m at
+     * 5 kn, so a cape rounded at the 25 m berth comes out near 17 kn — a real corner rather than a
+     * crawl, which is what keeps the "keep cruise at the corners" reading true on this coast.
      */
-    var routeTurnLateralAccelMps2 = 0.5f
+    var routeTurnLateralAccelMps2 = 2.94f
         private set
 
     /** Tightest comfortable-turn cap (m/s²) the loader accepts — beyond this the turn is a racing one. */
@@ -108,14 +105,41 @@ object AppConfig {
     const val ROUTE_TURN_LATERAL_ACCEL_MAX_MPS2 = 4f
 
     /**
+     * How hard the boat may **brake and accelerate** (m/s²) — the one home of §12.3's longitudinal
+     * limit, read live through `route.turn.longitudinalAccelMps2` and shipped at **1.96** (0.2 g).
+     *
+     * It is the second property the feature adds, and the reason it exists is a corner's own price: the
+     * arc a turn is drawn with is the small term, while the boat arriving at the corner's speed and
+     * leaving it again is the large one — from 25 kn to 13.6 kn and back at this value is roughly 8 s
+     * against a couple of seconds of arc. Without it the cheapest route would prefer the shorter, slower
+     * corner, which inverts the stated priority, so it is charged by the search and by the drawn clock
+     * alike, through [`ykws.android.maro.spatial.RoutePlanTiming.longitudinalSec`] — one arithmetic, one
+     * home.
+     *
+     * 0.5-4.0; the bounds live beside it here so the loader and any future row read one definition.
+     */
+    var routeTurnLongitudinalAccelMps2 = 1.96f
+        private set
+
+    /** Tightest brake-and-accelerate limit (m/s²) the loader accepts. */
+    const val ROUTE_TURN_LONGITUDINAL_ACCEL_MIN_MPS2 = 0.5f
+
+    /** Loosest brake-and-accelerate limit (m/s²) the loader accepts. */
+    const val ROUTE_TURN_LONGITUDINAL_ACCEL_MAX_MPS2 = 4f
+
+    /**
      * How far a route prefers to keep from a regulated zone's edge — `route.zoneBerthM`, shipped at
      * **25 m**, the distance the berth was asked for.
      *
-     * It is a **price, not a wall**, and the ceiling on the price is the search's own
-     * (`RouteSearch.BERTH_MAX_PRICE`), fading to nothing at the berth's edge: a zone stays crossable
-     * at its limit, a destination inside one stays reachable and a passage narrower than twice the
-     * berth stays open. The bake's own `Tuning.zoneClearanceM` stays at zero for exactly that
-     * reason — a berth pushed into the mesh deletes water instead of pricing it.
+     * It is a **price in seconds, not a wall**: a leg whose middle stands inside the berth — outside the
+     * zone — pays extra time rising as the boundary nears, at a ceiling of twice that leg's own time
+     * (`TautZoneSet.BERTH_MAX_PRICE`), fading to nothing at the berth's edge. A zone therefore stays
+     * crossable at its limit, a destination inside one stays reachable and a passage narrower than twice
+     * the berth stays open. **The traversal rule is separate and is a rule, not this price:** run one
+     * refuses a zone's *interior* — outer ring minus holes — while a way around exists, which is why the
+     * priced margin never walls the strip it prices. The deactivated mesh engine read this key
+     * differently, as a collar cut into the mesh; the tracer's reading is the one that stands, and
+     * `Tuning.zoneClearanceM` stays at zero so no bake deletes water a price is meant to meter.
      *
      * **Shipped at 25 m on a measurement, 2026-09-20.** Against no berth, the trajectory probe's
      * four pairs lose 2.5 % of their in-berth exposure on the long pair and 5.2 % / 6.8 % on two zone
@@ -138,6 +162,31 @@ object AppConfig {
 
     /** Highest zone berth (m) the loader accepts — beyond this it is a detour, not a courtesy. */
     const val ROUTE_ZONE_BERTH_MAX_M = 200f
+
+    /**
+     * Where the soundings stop, the coast supplies the wall: how far (m) off the coastline a route
+     * treats unsounded water as land — `route.shoreOffsetM`, shipped at **50 m**, the one key the
+     * replacement engine added.
+     *
+     * A point with no depth reading is neither walled nor open by itself; it is resolved by this
+     * distance, and it applies **only where the sounding cannot be trusted** — a cell with no data at
+     * all, or one whose source resolution is too coarse to trace a 2 m contour (`DepthConstants`
+     * `ISOBATH_FINE_MAX_RES_M`). Where the lidar reaches, the 2 m contour is the wall instead and this
+     * value is out of the argument, so a harbour channel ten metres off the quay stays open on a fine
+     * sounding and a never-sounded bay mouth closes.
+     *
+     * **It is the lever on how much silent sea stays reachable**, which is why it is a key rather than
+     * a constant: a small value keeps the rule to a thin ribbon along the coast, a large one walls a
+     * bay whose mouth has never been sounded. 0-500, read live, so a change needs no rebake.
+     */
+    var routeShoreOffsetM = 50f
+        private set
+
+    /** Lowest shore offset (m) the loader accepts — zero, which leaves unsounded water open. */
+    const val ROUTE_SHORE_OFFSET_MIN_M = 0f
+
+    /** Highest shore offset (m) the loader accepts — beyond this a bay mouth is walled outright. */
+    const val ROUTE_SHORE_OFFSET_MAX_M = 500f
 
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
@@ -1014,6 +1063,12 @@ object AppConfig {
             props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
+            props.getProperty("route.turn.longitudinalAccelMps2")?.toFloatOrNull()?.let {
+                routeTurnLongitudinalAccelMps2 = it.coerceIn(
+                    ROUTE_TURN_LONGITUDINAL_ACCEL_MIN_MPS2,
+                    ROUTE_TURN_LONGITUDINAL_ACCEL_MAX_MPS2
+                )
+            }
             props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
                 routeFreeWaterPaceKn =
                     it.coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
@@ -1026,6 +1081,9 @@ object AppConfig {
             }
             props.getProperty("route.zoneBerthM")?.toFloatOrNull()?.let {
                 routeZoneBerthM = it.coerceIn(ROUTE_ZONE_BERTH_MIN_M, ROUTE_ZONE_BERTH_MAX_M)
+            }
+            props.getProperty("route.shoreOffsetM")?.toFloatOrNull()?.let {
+                routeShoreOffsetM = it.coerceIn(ROUTE_SHORE_OFFSET_MIN_M, ROUTE_SHORE_OFFSET_MAX_M)
             }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
