@@ -101,6 +101,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/ColorManagement/260916_FEAT_PLN_ColorManagement_map-surface-normalization.md` — owned by ColorManagement: one painting path and one property block for every map surface, the legend card and the collapsed square included (D1–D6)
 
 - `xTrack/Tracks/260917_FEAT_PLN_Tracks_render-axes-split.md` — the render axes: the menu's three-way switch split into two independent chips, the lossless migration of the retired triple, the twin box and its four valid combinations
+- `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md` — owned by TracksImport: the map filter against the render focus, which is why tracks kept drawing under an active position filter (shipped 2026-09-21)
 
 ## Walk
 **Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 14 · **Closed:** 2026-09-14
