@@ -107,8 +107,9 @@ data class ListFilter(val axes: Map<String, String> = emptyMap())
 
 | Key | Options | Default |
 |-----|---------|---------|
-| `dateRange` | `ALL` / `THIS_YEAR` / `LAST_30_DAYS` / `LAST_7_DAYS` | `ALL` |
-| `pinned` | `ALL` / `PINNED` | `ALL` |
+| `dateRange` | `LAST_7_DAYS` / `LAST_14_DAYS` / `LAST_30_DAYS` / `LAST_2_MONTHS` / `LAST_3_MONTHS` / `LAST_6_MONTHS` / `ALL` | `ALL` |
+| `pinned` | `ALL` / `PINNED` / `UNPINNED` | `ALL` |
+| `position` | `ALL` / `WATER` / `LAND` | `ALL` |
 
 Live track always exempt from filter + always first.
 
@@ -116,11 +117,12 @@ Live track always exempt from filter + always first.
 
 | Key | Options | Default |
 |-----|---------|---------|
+| `icon` | `ALL` / `WITH_ICON` / `WITHOUT_ICON` | `ALL` |
 | `pinned` | `ALL` / `PINNED` / `UNPINNED` | `ALL` |
-| `geometry` | `ALL` / `PINS` / `ZONES` | `ALL` |
 | `origin` | `ALL` / `MANUAL` / `AUTO` | `ALL` |
 
-Cascade: `geometry=ZONES` → `origin` bypassed (zones always manual). UI: origin dropdown disabled.
+Neither set has an axis that gates another today, though `FilterAxisSpec.dependsOn` and
+`dependsOnValues` carry the mechanism for one that would.
 
 ### Date Range Semantics
 
@@ -139,12 +141,12 @@ Extension functions on `TrackSummary` and `UserMarker` in [`ListFilter.kt`](app/
 ```kotlin
 data class FilterAxisSpec(
     val key: String,
-    val label: String,
+    val labelResId: Int,
     val options: List<FilterOptionSpec>,
-    val dependsOn: String? = null,        // parent axis key
-    val dependsOnValue: String? = null     // disables this axis when parent = this value
+    val dependsOn: String? = null,            // parent axis key
+    val dependsOnValues: List<String>? = null // disables this axis when the parent holds one of these
 )
-data class FilterOptionSpec(val value: String, val label: String, val isDefault: Boolean = false)
+data class FilterOptionSpec(val value: String, val labelResId: Int, val isDefault: Boolean = false)
 ```
 
 ## Popup Menu Styling

@@ -23,6 +23,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -116,6 +118,20 @@ data class SavedScrollState(
     val scrollOffset: Int
 )
 
+/** Vertical space a list popup leaves for the window chrome and the header it hangs below. */
+private const val POPUP_VERTICAL_RESERVE_DP = 96f
+
+/** Degenerate-window guard — never reached on a real device. */
+private const val POPUP_MIN_HEIGHT_DP = 120f
+
+/**
+ * The tallest a list popup may grow: the window's own height less [POPUP_VERTICAL_RESERVE_DP].
+ * A popup wraps its content below that bound and scrolls above it, so the tail of a long axis
+ * set stays reachable in landscape instead of being clipped past the screen edge.
+ */
+internal fun popupMaxHeightDp(screenHeightDp: Int): Float =
+    (screenHeightDp - POPUP_VERTICAL_RESERVE_DP).coerceAtLeast(POPUP_MIN_HEIGHT_DP)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Sort dropdown — field selector (no direction arrow, no pinned grouping)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,6 +146,7 @@ private fun SortControl(
     var expanded by remember { mutableStateOf(false) }
     val isSortDefault = state.field == ListSortField.CREATED && state.customFieldKey == null && state.descending
     val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
+    val maxPopupHeight = popupMaxHeightDp(LocalConfiguration.current.screenHeightDp).dp
 
     Box {
         IconButton(
@@ -158,7 +175,13 @@ private fun SortControl(
                     shadowElevation = 8.dp,
                     modifier = Modifier.width(240.dp).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(12.dp))
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = maxPopupHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         // General section
                         Text(stringResource(R.string.filter_section_general),
                             color = Color(AppConfig.uiDashboardTextMuted),
@@ -252,6 +275,7 @@ internal fun FilterControl(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val hasActiveFilter = filterState.axes.isNotEmpty()
+    val maxPopupHeight = popupMaxHeightDp(LocalConfiguration.current.screenHeightDp).dp
 
     Box {
         IconButton(
@@ -278,7 +302,13 @@ internal fun FilterControl(
                     shadowElevation = 8.dp,
                     modifier = Modifier.width(240.dp).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(12.dp))
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = maxPopupHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         filterAxes.forEach { axis ->
                             val gatingValue = axis.dependsOn?.let { filterState.axes[it] }
                             val isDisabled = gatingValue != null && axis.dependsOnValues != null &&
