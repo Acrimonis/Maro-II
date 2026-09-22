@@ -1,6 +1,7 @@
 package ykws.android.maro.data.track
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.protobuf.ProtoNumber
 import ykws.android.maro.data.model.ListableItem
 
@@ -118,7 +119,15 @@ data class TrackSummary(
     override val description: String get() = comment
     override val createdAtEpochMs: Long get() = startTimeMs
     override val isPinned: Boolean get() = pinned
-    /** Mutable backing for [ListableItem.isLive] — set by ViewModel, never persisted. */
+    /**
+     * Mutable backing for [ListableItem.isLive] — set by the ViewModel, and kept off the wire.
+     *
+     * `@Transient` is load-bearing, not a note: the plugin numbers a body property by its position, and
+     * without it this one takes 18 — the number [landPointCount] already holds. A message whose land count
+     * occupied that field then decoded it as this boolean and refused the whole summary, which is how a
+     * land track lost its count on reload.
+     */
+    @Transient
     override var isLive: Boolean = false
 
     /**
