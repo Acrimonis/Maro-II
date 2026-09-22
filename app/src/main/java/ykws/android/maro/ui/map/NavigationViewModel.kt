@@ -243,14 +243,6 @@ class NavigationViewModel(
     private val regulatedZonesRepository: RegulatedZonesRepository = RegulatedZonesRepository()
 
     /**
-     * The two spatial sources the Route feature reads **read-only**, handed out so the route's
-     * `RouteSpatialAdapter` prices its edges from the very instances this ViewModel loaded rather
-     * than from two empty copies of them. Nothing is written through either reference here.
-     */
-    val routeCoastline: CoastlineRepository get() = repository
-    val routeRegulatedZones: RegulatedZonesRepository get() = regulatedZonesRepository
-
-    /**
      * True while the destination mode is aiming: demo's speed is derived from the map's pan, so
      * aiming would sail the boat and extend its trace — the mode suspends that derivation and the
      * dashboard's speed readout reads stationary. Set by `RouteHost` on the mode's two edges.

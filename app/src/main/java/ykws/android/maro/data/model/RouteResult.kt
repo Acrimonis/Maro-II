@@ -13,15 +13,15 @@ sealed interface RouteResult {
      * A route was found.
      *
      * Everything here is what **any** engine must answer, because it is what a reader of the plan
-     * needs: where the line goes, what each leg costs and what the whole of it came to. The readings
-     * an engine only has because of the machine it uses ride in [details] — a dossier the engine
-     * owns, which the trip figure, the panel and the save never read.
+     * needs: where the line goes, what each leg costs and what the whole of it came to. What an engine
+     * counts while it answers is **not** here: the two engines that carried dossiers were removed on
+     * 2026-09-22, so there is no instrumentation field and no engine-specific vocabulary left for a
+     * reader to depend on.
      *
      * @property points            the polyline, start first and the resolved destination last.
      * @property distanceM         total length in metres.
      * @property durationSec       **the drawn line's own seconds** — the plan's real time, read off the
      *                             polyline beside it at the limits in force over each of its legs.
-     * @property inBand            true when any leg lies inside the 300 m coastal band.
      * @property destinationMoved  true when the aimed destination resolved elsewhere — land, or
      *                             another stretch of water — and the route ends at the closest
      *                             point of the boat's own stretch instead.
@@ -30,9 +30,9 @@ sealed interface RouteResult {
      *                             name here says no way around was found and the crossing was priced
      *                             and taken. Empty on an ordinary route. Deliberately **not** a field
      *                             of any drawn or saved type: `Track.plannedCourse` is serialized and
-     *                             this is not, so nothing here reaches the proto.
-     * @property details           the answering engine's own readings, or null when it answered none —
-     *                             see [RouteEngineDetails].
+     *                             this is not, so nothing here reaches the proto. **Kept** although
+     *                             the dummy never fills it: the dashboard card and the confirmation
+     *                             panel both read it, so it is the shape a real engine fills.
      */
     data class Success(
         val points: List<RoutePoint>,
@@ -49,32 +49,16 @@ sealed interface RouteResult {
         val legTimesSec: List<Double> = emptyList(),
         val distanceM: Double,
         val durationSec: Double,
-        val inBand: Boolean,
         val destinationMoved: Boolean,
-        val forcedCrossingZoneNames: List<String> = emptyList(),
-        val details: RouteEngineDetails? = null
+        val forcedCrossingZoneNames: List<String> = emptyList()
     ) : RouteResult
 
     /**
-     * An end of the route is not on the covered water: outside the mesh's box, or — for the start
-     * alone — further than the snap radius from any node. The destination is never reported this
-     * way inside the box: it resolves into the boat's own stretch instead, however far that point
-     * is, because a route's two ends must share one stretch.
+     * An end of the route is not on water the engine can see at all, so no line was drawn from it.
      *
-     * **A mesh engine's reading of "not covered"**, and named for its own machine. An engine with no
-     * mesh reports [OutsideWater] instead, so neither engine's refusals borrow the other's words.
-     */
-    data object OutsideMesh : RouteResult
-
-    /**
-     * An end of the route is not on water the engine can see at all — **the engine-neutral reading of a
-     * refusal that no mesh is involved in**.
-     *
-     * The corridor tracer's case: the depth grid is not in, so the water the wall is drawn from has not
-     * landed and a search run now would price unsounded water as open sea and call the answer a route.
-     * The two are one outcome for the caller — an end is outside covered water — and two values for a
-     * reader, because which one it is decides whether the depth layer or the mesh is the thing to wait
-     * for.
+     * It is the engine-neutral refusal, and it is the only one of the two that survives the removal of
+     * 2026-09-22: the mesh-worded `OutsideMesh` went with the engine that could produce it, so the
+     * outcome a caller branches on — "an end is outside covered water" — now has exactly one value.
      */
     data object OutsideWater : RouteResult
 

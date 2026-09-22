@@ -7,7 +7,7 @@ import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineState
-import ykws.android.maro.spatial.taut.TautRouteEngine
+import ykws.android.maro.spatial.RouteDummyEngine
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -572,25 +572,13 @@ fun MapScreen(
     // what lives here is the mode's *switch* — the one flag the toggle writes — so the two modes can
     // be mutually exclusive in one place.
     //
-    // The engine is built **here, once**, from what this screen already holds — the app's own
-    // coastline, regulation and depth instances, which is what makes a route price its edges from the
-    // live layers and wall itself from the live soundings — and handed to the view model. That makes a
-    // second engine this one expression and nothing else in the feature: the swap to the corridor
-    // tracer **is this line**, and the mesh engine stays in the tree, wired to nothing.
-    val routeEngineApp = LocalContext.current.applicationContext as Application
-    val routeEngine: RouteEngine = remember(
-        routeEngineApp,
-        viewModel.routeCoastline,
-        viewModel.routeRegulatedZones,
-        depthViewModel.depthRepository
-    ) {
-        TautRouteEngine.overBundle(
-            routeEngineApp,
-            viewModel.routeCoastline,
-            viewModel.routeRegulatedZones,
-            depthViewModel.depthRepository
-        )
-    }
+    // The engine is built **here, once**, and handed to the view model. **It is the dummy** — one
+    // straight line from the frozen start to the aimed point, reading no coastline, no depth and no
+    // zone — because the two real engines were removed on 2026-09-22; what each of them was, and what
+    // it measured, is kept in `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` and
+    // `…_taut-tracer.md`. What matters at this line is the **seam**: a replacement engine is this one
+    // expression and nothing else in the feature.
+    val routeEngine: RouteEngine = remember { RouteDummyEngine() }
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
             factory = RouteViewModel.factory(routeEngine)

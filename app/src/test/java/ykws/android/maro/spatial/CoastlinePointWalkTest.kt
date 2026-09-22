@@ -10,7 +10,6 @@ import org.junit.Assume
 import org.junit.Test
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.route.PrebakedInputs
 
 /**
  * **The point walk's answers, pinned against an oracle that knows nothing about the walk** (walk item 12).
@@ -31,8 +30,8 @@ import ykws.android.maro.data.route.PrebakedInputs
  * inside an island ring reads as land. The counts are printed, so the reading says which branches were
  * exercised rather than implying all of them were.
  *
- * Gated by `-Dmaro.prebake=true` and skipping when the baked world is absent, exactly like the route
- * harness, so `gradlew test` never depends on a bake.
+ * Gated by `-Dmaro.prebake=true` and skipping when the baked coastline is absent, so `gradlew test`
+ * never depends on a bake.
  */
 class CoastlinePointWalkTest {
 
@@ -47,14 +46,14 @@ class CoastlinePointWalkTest {
         )
         val region = BuildConfig.REGION_ID
         val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
-        val missing = PrebakedInputs.paths(repoDir, region).filterNot { it.exists() }
+        val coastFile = PrebakedCoastline.path(repoDir, region)
         Assume.assumeTrue(
-            "guard skipped — no baked world to read: ${missing.joinToString { it.path }}",
-            missing.isEmpty()
+            "guard skipped — no baked coastline to read: ${coastFile.path}",
+            coastFile.exists()
         )
 
-        val inputs = PrebakedInputs.load(repoDir, region)
-        val index = CoastlineSpatialIndex(inputs.coast.allSegments)
+        val coast = PrebakedCoastline.load(repoDir, region).data
+        val index = CoastlineSpatialIndex(coast.allSegments)
 
         // Every segment the index holds, flattened for the oracle — the honest brute force.
         //
@@ -64,7 +63,7 @@ class CoastlinePointWalkTest {
         // *right* not to answer about — which is how this guard found that difference on its first run.
         // Reading `usableSegments` keeps the filter in its one home and makes the oracle ask exactly the
         // question the walk answers.
-        val mainlandSegment = inputs.coast.mainland
+        val mainlandSegment = coast.mainland
         val edges = ArrayList<Edge>()
         for (polyline in index.usableSegments) {
             for (i in 0 until polyline.points.size - 1) {

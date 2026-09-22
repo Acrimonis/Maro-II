@@ -9,7 +9,6 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
-import ykws.android.maro.spatial.mesh.RouteMeshDetails
 
 /**
  * The aim's two rules and the trip figure.
@@ -43,7 +42,6 @@ class RoutePlanTest {
         legTimesSec = listOf(120.0, 240.0),
         distanceM = d0 + d1,
         durationSec = 360.0,
-        inBand = false,
         computedAtMs = computedAt
     )
 
@@ -72,29 +70,21 @@ class RoutePlanTest {
     }
 
     /**
-     * **What is left of the route is measured in the clock the plan reports, and nothing else.**
+     * **What is left of the route is measured in the plan's own leg times, and nothing else.**
      *
-     * `remainingFrom` walks the plan's own `legTimesSec`, so the seconds the trip cell counts down are
-     * the seconds of the line on the screen — the drawn line's own, read off the polyline — and never
-     * the seconds the search accumulated on the chain it priced. On a plan whose two disagree (which
-     * is every plan a pass has touched) a remainder taken from the wrong list would count down to
-     * arrival at the wrong moment, and nothing pinned which list it reads.
+     * `remainingFrom` walks `legTimesSec`, so the seconds the trip cell counts down are the line's own —
+     * the per-leg times the engine answered with — and never the total it also carries. An engine that
+     * prices one line and answers another makes the two disagree, and a remainder taken from the wrong
+     * one would count down to arrival at the wrong moment; nothing pinned which of the two it reads.
      */
     @Test
-    fun whatIsLeftIsCountedInTheDrawnSecondsNotTheSearchedOnes() {
+    fun whatIsLeftIsCountedInTheLegTimesNotTheTotal() {
         val drawn = RouteResult.Success(
             points = listOf(p0, p1, p2),
             legTimesSec = listOf(120.0, 240.0),
             distanceM = d0 + d1,
             durationSec = 360.0,
-            inBand = false,
-            destinationMoved = false,
-            // The two clocks the case turns on: the drawn line's own 360 s, and the 300 s the mesh
-            // search accumulated on the chain behind it. The second is the engine's own reading now,
-            // which is exactly why a plan must be read from the first. Every counter this dossier
-            // does not name is the empty dossier's own zero — the rule's one home is
-            // `RouteMeshDetailsReadings`, in `spatial/mesh`.
-            details = RouteMeshDetails(pricedSec = 300.0)
+            destinationMoved = false
         )
 
         val plan = RoutePlan.of(start = p0, result = drawn, nowMs = computedAt)

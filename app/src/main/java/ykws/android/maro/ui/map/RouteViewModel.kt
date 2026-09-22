@@ -37,7 +37,6 @@ data class RoutePlan(
     val legTimesSec: List<Double>,
     val distanceM: Double,
     val durationSec: Double,
-    val inBand: Boolean,
     /**
      * The priced speed zones the route had to enter, by name — empty on an ordinary route.
      *
@@ -59,10 +58,10 @@ data class RoutePlan(
     /**
      * What is left of the route from [from] onward.
      *
-     * The position is snapped to its nearest vertex rather than projected onto the polyline: the
-     * mesh is dense (tens to a couple of hundred metres a leg), so the two agree to within a leg,
-     * and the sum still reaches zero at the destination — which is the one reading that must be
-     * exact, because arrival is the trip cell reading zero.
+     * The position is snapped to its **nearest vertex** rather than projected onto a leg, which is
+     * exact where a leg is long and a boat is between two of them rather than on one — and the dummy
+     * answers a single leg, so the two agree everywhere it matters. The sum reaches zero at the
+     * destination, which is the one reading that must be exact: arrival is the trip cell reading zero.
      */
     fun remainingFrom(from: RoutePoint): RouteRemainder {
         if (points.size < 2) return RouteRemainder(distanceM, durationSec)
@@ -102,7 +101,6 @@ data class RoutePlan(
                 legTimesSec = result.legTimesSec,
                 distanceM = result.distanceM,
                 durationSec = result.durationSec,
-                inBand = result.inBand,
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
                 computedAtMs = nowMs
             )
@@ -307,7 +305,7 @@ class RouteViewModel(
                         )
                         // An aim with no route to it is a draft holding no preview, not an error: the
                         // mode stays armed and the next aim is asked again.
-                        RouteResult.OutsideMesh, RouteResult.OutsideWater, RouteResult.NoPath ->
+                        RouteResult.OutsideWater, RouteResult.NoPath ->
                             RouteState.Draft(
                                 start = still.start,
                                 plan = null,
@@ -388,8 +386,7 @@ class RouteViewModel(
                 is RouteResult.Success -> RouteState.Confirmed(
                     RoutePlan.of(start, result, System.currentTimeMillis())
                 )
-                RouteResult.OutsideMesh, RouteResult.OutsideWater, RouteResult.NoPath ->
-                    still.copy(stale = true)
+                RouteResult.OutsideWater, RouteResult.NoPath -> still.copy(stale = true)
             }
         }
     }
@@ -413,10 +410,9 @@ class RouteViewModel(
         /**
          * Factory for [RouteViewModel].
          *
-         * The engine is handed in rather than chosen here, and that is the seam: the caller that
-         * already holds the app's own coastline and regulation builds the shipped engine from those
-         * instances — so a route prices its edges from the live layers rather than from two empty
-         * copies of them — and a second engine, or a test's own fake, is one argument at one site.
+         * The engine is handed in rather than chosen here, and that is the seam: the caller builds
+         * whichever engine ships — [`ykws.android.maro.spatial.RouteDummyEngine`] today — and a
+         * replacement, or a test's own fake, is one argument at one site.
          */
         fun factory(engine: RouteEngine): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {

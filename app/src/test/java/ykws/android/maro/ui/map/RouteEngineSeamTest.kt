@@ -17,7 +17,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.model.RouteEngineDetails
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.track.TrackFromCourse
@@ -409,12 +408,7 @@ private class StraightLineEngine(
             legTimesSec = listOf(seconds),
             distanceM = distanceM,
             durationSec = seconds,
-            inBand = false,
-            destinationMoved = false,
-            details = StraightLineDetails(nodesExpanded = 3)
+            destinationMoved = false
         )
     }
 }
-
-/** The foreign engine's own dossier — the base contract's one number, and nothing mesh-shaped. */
-private class StraightLineDetails(override val nodesExpanded: Int) : RouteEngineDetails

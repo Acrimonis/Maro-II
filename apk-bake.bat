@@ -16,7 +16,7 @@ echo ============================================
 echo   Bake selector
 echo ============================================
 echo   Run: apk-bake.bat all
-echo   Or:  apk-bake.bat coastline / emodnet / litto3d / depth / regulatedzones / route
+echo   Or:  apk-bake.bat coastline / emodnet / litto3d / depth / regulatedzones
 echo ============================================
 goto done
 
@@ -26,7 +26,6 @@ call :do_emodnet
 call :do_litto3d
 call :do_depth
 call :do_regulatedzones
-call :do_route
 exit /b 0
 
 :do_coastline
@@ -51,12 +50,6 @@ exit /b 0
 
 :do_regulatedzones
 call "tools\bake-regulated-zones.bat"
-exit /b 0
-
-REM Ordered last on purpose: the mesh reads the coastline, depth and zone .bin files, so it can only
-REM be baked once they exist -- and it must be re-baked whenever any of them changes.
-:do_route
-call "tools\bake-route.bat"
 exit /b 0
 
 :done
