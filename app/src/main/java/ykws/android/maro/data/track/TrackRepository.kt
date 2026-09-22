@@ -321,8 +321,10 @@ class TrackRepository(
                         updatedAtEpochMs = track.updatedAtEpochMs,
                         lastPointTimeMs = track.lastPointTimeMs.takeIf { it != 0L }
                             ?: (track.lastRealPointTimeMsOrNull() ?: 0L),
-                        waterPointCount = counts.water,
-                        landPointCount = counts.land
+                        // Both counts are stored biased by one (see TrackSummary), which makes an
+                        // unclassified sample — (-1, -1) — land on the sentinel (0, 0) by itself.
+                        waterPointCount = counts.water + 1,
+                        landPointCount = counts.land + 1
                     )
                 } catch (e: Exception) {
                     file.delete()
@@ -353,15 +355,18 @@ class TrackRepository(
      *
      * Carrying them is what keeps one save from re-sampling the whole library, the index being re-derived
      * from the track files on every mutation; and a sample the coastline cannot answer for is never
-     * cached, so a track keeps the unclassified sentinel rather than baking "no data yet" in as water.
+     * cached, so a track keeps its flag clear rather than baking "no data yet" in as water.
      */
     private fun classifyOrCarry(track: Track, previous: TrackSummary?): TrackPositionCounts {
         if (previous != null &&
             previous.updatedAtEpochMs == track.updatedAtEpochMs &&
-            previous.waterPointCount >= 0 &&
-            previous.landPointCount >= 0
+            previous.positionClassified
         ) {
-            return TrackPositionCounts(previous.waterPointCount, previous.landPointCount)
+            // Read back out of the stored bias, so the caller can bias the result again unchanged.
+            return TrackPositionCounts(
+                previous.waterPointCount - 1,
+                previous.landPointCount - 1
+            )
         }
         val test = positionClassifier ?: return TrackPositionCounts()
         val bounds = positionRegion ?: return TrackPositionCounts()
@@ -380,19 +385,23 @@ class TrackRepository(
         if (positionPassDone) return@withContext summaries
         val test = positionClassifier ?: return@withContext summaries
         val bounds = positionRegion ?: return@withContext summaries
-        if (summaries.none { it.waterPointCount < 0 || it.landPointCount < 0 }) {
+        if (summaries.all { it.positionClassified }) {
             positionPassDone = true
             return@withContext summaries
         }
 
         var changed = false
         val updated = summaries.map { summary ->
-            if (summary.waterPointCount >= 0 && summary.landPointCount >= 0) return@map summary
+            if (summary.positionClassified) return@map summary
             val track = load(summary.id) ?: return@map summary
             val counts = classifyTrackPosition(track.trackPoints, bounds, test)
             if (!counts.isClassified) return@map summary
             changed = true
-            summary.copy(waterPointCount = counts.water, landPointCount = counts.land)
+            // Stored biased, exactly as the rebuild path writes them.
+            summary.copy(
+                waterPointCount = counts.water + 1,
+                landPointCount = counts.land + 1
+            )
         }
         positionPassDone = true
         if (changed) writeIndex(updated)

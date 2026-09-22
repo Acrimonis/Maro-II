@@ -23,8 +23,14 @@ interface MapSelectionPolicy<T> {
 /**
  * Track selection — **ranked + capped**.
  *
- * Eligibility: matches the map filter **or** is focused (highlighted / session-boosted). Pinned
- * tracks are excluded here — they render through the dedicated pinned path (never capped).
+ * Eligibility: matches the map filter **or** is the highlighted track. Pinned tracks are excluded here
+ * — they render through the dedicated pinned path (never capped).
+ *
+ * The map filter is authoritative (2026-09-21): only the highlighted id, the one the user is looking
+ * at, outranks it. A session-boosted track — one recorded, imported, merged or edited in this session
+ * — keeps the rank term below, so it still defeats the render **cap**, but it no longer defeats the
+ * filter; see `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`. That is
+ * what stops the menu's count and the map disagreeing, the count being read off the painted set.
  *
  * Ranking: `focus → session-boosted → startTimeMs desc → lastPointTimeMs desc`, then `take(cap)`.
  * The highlighted track is always kept even when `cap == 0`.
@@ -40,7 +46,7 @@ class TrackSelectionPolicy : MapSelectionPolicy<TrackSummary> {
     ): List<TrackSummary> {
         val eligible = items.filter { candidate ->
             !candidate.pinned &&
-                (focus.includes(candidate.id) || candidate.matchesFilter(filter, todayMidnightMs))
+                (focus.isHighlighted(candidate.id) || candidate.matchesFilter(filter, todayMidnightMs))
         }
         val ranked = eligible.sortedWith(
             compareByDescending<TrackSummary> { focus.isHighlighted(it.id) }

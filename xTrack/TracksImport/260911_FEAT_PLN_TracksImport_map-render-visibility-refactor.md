@@ -137,7 +137,9 @@ Design intent: the **policy** owns "what the map draws"; shells only execute. Tr
 - empty filter + count < cap ⇒ all eligible drawn;
 - cap boundary ⇒ newest by `startTimeMs` kept; ties broken by `lastPointTimeMs`;
 - focus id overrides cap **and** filter;
-- session-boosted ids included even when the filter excludes them;
+- session-boosted ids included even when the filter excludes them — **amended 2026-09-21**: the boost
+  keeps the cap override alone and no longer bypasses the map filter, so the case now asserts the
+  opposite; see `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`;
 - **boost cleared** by the track-filter reset (map reset; list reset when `trackFilterLinked`);
 - pinned excluded from the capped history set (drawn by the pinned path);
 - `isLive` exempt from the date axis;
@@ -158,6 +160,7 @@ Design intent: the **policy** owns "what the map draws"; shells only execute. Tr
 
 - **D1 — DECIDED:** the cap ranks by **`startTimeMs` desc**, tie-break **`lastPointTimeMs` desc** (keeps filter + list sort + auto-name on one definition of a track's date). Rationale: filter uses `startTimeMs` (`ListFilter.kt:64-67`), list default sort `CREATED` ≡ `startTimeMs` (`ListSortOrder.kt:50`, `Track.kt:80`), auto-name is the start timestamp.
 - **D1a — DECIDED (addendum):** a **session boost** applies to `recentlyTouchedIds`, cleared when the **track-filter reset** is hit — the **map** reset, or the **list** reset when `trackFilterLinked` is true. Individual axis changes keep the boost. `highlightedTrackId` is unaffected by invalidation.
+  - **Amended 2026-09-21:** the boost keeps its ranking and the render cap as its only override — the **map filter is authoritative** for which tracks may be drawn at all, with the highlighted id alone outranking it. The clearing rule above is untouched and this records what changed beside it; see `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`.
 - **D2 — DECIDED:** no per-item hide. Hiding is **within the scope of filters**; no `hiddenTrackIds` preference and no per-item flag. A future "hide this specific track" affordance = a new **filter axis** (e.g. exclude-ids), keeping the entity pure. `pinned` remains the only per-item map-presence control.
 - **D3 — DECIDED:** keep `pinned` on the entities (`Track` and `UserMarker`) — legitimate object feature with UI and lifecycle.
 - **D5 — DECIDED:** reserve `Track.11` and `TrackSummary.8` **closed-forever** via comment + legacy decode test.

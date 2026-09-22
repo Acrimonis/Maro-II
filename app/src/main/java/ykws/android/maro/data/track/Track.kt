@@ -76,10 +76,16 @@ fun Track.lastRealPointTimeMsOrNull(): Long? =
  * Lightweight summary of a [Track] for list display — no polyline points.
  * Stored in the index file for fast listing without loading full tracks.
  *
- * [waterPointCount] and [landPointCount] are the sampled position counts the track filter reads:
- * `-1` on both means the track has never been classified, which is deliberately distinct from a
- * genuine zero. They live here rather than on the points because the list and the map both read
- * summaries, and because the index is a cache that may be rebuilt.
+ * [waterPointCount] and [landPointCount] are the sampled position counts the track filter reads, **each
+ * biased by one**. A count of zero is a legitimate count, protocol buffers drop a field equal to its
+ * type's default, and an unbiased zero therefore came back as `0` — which is also what an absent field
+ * means, so a wholly-land track read as never classified and the verdict turned it into water. Storing
+ * `count + 1` makes the two meanings disjoint: `0` is the sentinel, any stored value ≥ 1 is a real count,
+ * and the fields' own default (`0`) is the one value that is *correct* for an absent field — an index
+ * written before this bias decodes as never classified and is re-sampled rather than trusted.
+ * [sampledWaterPoints] and [sampledLandPoints] read the counts back out, and [positionClassified] is
+ * derived from the stored pair so it cannot drift from it. They live here rather than on the points
+ * because the list and the map both read summaries, and because the index is a cache that may be rebuilt.
  */
 @Serializable
 data class TrackSummary(
@@ -99,10 +105,14 @@ data class TrackSummary(
     @ProtoNumber(14) val idleDurationSec: Long = 0,
     @ProtoNumber(15) override val updatedAtEpochMs: Long = 0L,
     @ProtoNumber(16) val lastPointTimeMs: Long = 0L,
-    /** Sampled points that were on water, or -1 when the track has never been classified. */
-    @ProtoNumber(17) val waterPointCount: Int = TrackPositionCounts.UNCLASSIFIED,
-    /** Sampled points that were on land, or -1 when the track has never been classified. */
-    @ProtoNumber(18) val landPointCount: Int = TrackPositionCounts.UNCLASSIFIED
+    /**
+     * Sampled points that were on water, **biased by one** — `0` means never classified, any value ≥ 1
+     * means `value - 1` points. The bias is the whole reason this field can tell the two apart; see the
+     * class note.
+     */
+    @ProtoNumber(17) val waterPointCount: Int = 0,
+    /** Sampled points that were on land, biased by one exactly as [waterPointCount] is. */
+    @ProtoNumber(18) val landPointCount: Int = 0
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment
@@ -112,11 +122,25 @@ data class TrackSummary(
     override var isLive: Boolean = false
 
     /**
+     * Whether the two stored counts were ever filled. Derived from the pair rather than stored beside it,
+     * so no third field can drift from the two it describes.
+     */
+    val positionClassified: Boolean get() = waterPointCount > 0 && landPointCount > 0
+
+    /** Sampled points that were on water, or null when the track was never classified. */
+    val sampledWaterPoints: Int? get() = waterPointCount.takeIf { positionClassified }?.minus(1)
+
+    /** Sampled points that were on land, or null when the track was never classified. */
+    val sampledLandPoints: Int? get() = landPointCount.takeIf { positionClassified }?.minus(1)
+
+    /**
      * The position filter's reading of this track: water wins the tie, and a track nothing could be
-     * classified for — open sea beyond the baked region included — counts as water.
+     * classified for — open sea beyond the baked region included — counts as water. The bias leaves the
+     * comparison untouched, a uniform shift preserving the order, so the tie is read off the stored pair
+     * exactly as it always was.
      */
     val positionIsWater: Boolean
-        get() = waterPointCount < 0 || landPointCount < 0 || waterPointCount >= landPointCount
+        get() = !positionClassified || waterPointCount >= landPointCount
 }
 
 /**
