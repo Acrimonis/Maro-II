@@ -6,31 +6,32 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 
 /**
- * **The route's engine seam: one contract, and the slot the next engine fills.**
+ * **The route's engine seam: a session, and the slot the next engine fills.**
  *
- * An engine answers one question — *where does the water let a boat go from here to there, and what
- * does that line cost* — and it answers it in [RouteResult]. It takes the start the view model froze
- * when the mode was armed, the aim it is pointing at, and the pace the trip figure plans at; it takes
- * nothing else, because everything else is the world it reads for itself.
+ * An engine is told where each end of the route is and answers what the water allows between them —
+ * which is why this is a **session rather than a function**. It is told the origin once, when the mode
+ * is armed, and the destination as the user drags it; during the following phase the origin moves and
+ * the destination stands, and the reverse holds while the destination is being chosen. An engine that
+ * is told one end moved **holds the other**, which is where a cache may live — the one thing a
+ * `route(start, aim, pace)` signature could not offer, and the reason this interface replaced it.
  *
  * **What ships today is a placeholder.** [RouteDummyEngine] is the only implementation: one straight
- * line from the start to the aim, reading no coastline, no soundings and no zone. It exists so the
- * feature stays whole — the toggle, the aim, the confirmation and the save all work as they will over a
- * real answer — while the two engines that came before it were removed on 2026-09-22. Each of those is
- * written up where it went: [`ykws.android.maro.spatial`]'s neighbours are gone, and their flow, limits
- * and measurements live in `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` and
- * `…_taut-tracer.md`.
+ * line from the origin to the destination, reading no coastline, no soundings and no zone, and timed
+ * at a fiction of its own — 15 kn on every leg (R28) — so the app's own pace setting does not move a
+ * dummy route while the placeholder ships. It exists so the feature stays whole — the toggle, the aim,
+ * the phases, the refresh, the ladder, the save — while the two engines that came before it were
+ * removed on 2026-09-22. Each of those is written up where it went:
+ * `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` and `…_taut-tracer.md`.
  *
  * **Where the next engine slots in.** An engine implements this interface and is constructed in place
- * of the dummy; nothing else in the app changes. The toggle gates on [state], [RouteViewModel]'s two
- * callers hand [route] the three answers above, and everything downstream —
- * [`ykws.android.maro.ui.map.RoutePlan`], the trip figure, the save — reads [RouteResult] and that
- * plan, never an engine.
+ * of the dummy; nothing else in the app changes. The toggle gates on [state], and everything
+ * downstream — [`ykws.android.maro.ui.map.RoutePlan`], the trip figure, the save — reads the answer
+ * and that plan, never an engine.
  *
- * **Cancellation is the caller's.** [route] is a suspend function and an engine that searches checks
- * the calling job between its steps, so cancelling the coroutine drops a search in flight — which is
- * what makes a flung map ask for the route of the moment rather than queueing one per aim. The dummy
- * has nothing to interrupt and says so where it answers.
+ * **Cancellation is the caller's**, and it is load-bearing: the previous call is cancelled when a new
+ * one starts, so a flung map never queues behind a computation nobody wants any more. An engine that
+ * searches checks the calling job between its steps; the dummy has nothing to interrupt and says so
+ * where it answers.
  *
  * Coroutines and `StateFlow` only: an engine holds no thread of its own and its readiness is a value
  * the UI can collect.
@@ -53,7 +54,7 @@ interface RouteEngine {
      *
      * The caller asks once and reads the answer; an engine that is already ready returns immediately,
      * and one that cannot be is [RouteEngineState.Unavailable] rather than an exception. It is
-     * separate from [route] so that the gate — not a search — is what moves the state.
+     * separate from the two entry points so that the gate — not a search — is what moves the state.
      *
      * **What readiness does not promise.** [RouteEngineState.Ready] says the engine *can* answer; it
      * says nothing about how much of the world the engine has read for itself. An engine that prices
@@ -67,18 +68,47 @@ interface RouteEngine {
     suspend fun prepare(): RouteEngineState
 
     /**
-     * The route from [start] to [aim], at [cruiseSpeedKn].
+     * **The validity question — one point, one answer.** `null` when the point is usable water, or the
+     * id of the line a user reads when it is not, from the closed set [RouteRefusalReason].
      *
-     * @param start        where the boat is, read once when the mode was armed — never the aim, and
-     *                     never a fresher fix: the anchor is what a preview is asked from.
-     * @param aim          where the destination is being pointed, which the engine may resolve
-     *                     elsewhere — see [RouteResult.Success.destinationMoved].
-     * @param cruiseSpeedKn the pace the caller plans at (kn); it is the free-water pace until the
-     *                     boat's own samples have something to say.
-     * @return a [RouteResult.Success], or the named failure that says which end had no water or that
-     *         no path connects the two.
+     * Whether a point is usable water is the algorithm's judgement and the feature only reports what it
+     * is given: the caller paints the crosshair and shows the sentence, and it never guesses. The
+     * **destination** is judged as it moves; the **origin** is judged **once, when the mode is armed,
+     * and never on a refresh** (R7) — the boat's own position is not a target being placed, and
+     * re-judging it while a route is followed would refuse a route the user already accepted.
+     *
+     * The dummy judges nothing: it answers `null` for every point, which makes every refusal below
+     * unreachable while it is the installed engine.
      */
-    suspend fun route(start: RoutePoint, aim: RoutePoint, cruiseSpeedKn: Double): RouteResult
+    suspend fun validatePoint(point: RoutePoint): RouteRefusalReason?
+
+    /**
+     * The **origin** moved — the arming call and, later, the following mode's refresh (R9).
+     *
+     * An engine told this holds the destination it was last given; the answer is the route between the
+     * two, or `null` when it holds no destination yet, which is the arming call and nothing else: a
+     * position was *told*, and no route was asked for.
+     */
+    suspend fun onOriginPositionChanged(newPosition: RoutePoint): RouteResult?
+
+    /**
+     * The **destination** moved while it was being chosen (R8).
+     *
+     * An engine told this holds the origin it was last given; the answer is the route from that origin
+     * to [newPosition], or `null` when no origin is held — which cannot happen through the feature,
+     * the origin being told on the arming frame before any aim can be asked for.
+     */
+    suspend fun onDestinationPositionChanged(newPosition: RoutePoint): RouteResult?
+
+    /**
+     * **The refresh's veto, not its clock** (R11).
+     *
+     * The app owns when a refresh may be asked — its two thresholds are the app's own keys — and this
+     * answers only whether the engine can take the call. A `false` delays the refresh; it never
+     * triggers one, and it never fails a route: the standing line holds until a replacement arrives.
+     * The dummy is always ready to recompute, having nothing to wait for.
+     */
+    suspend fun isReadyToRecompute(): Boolean
 }
 
 /** What an engine can do right now — its readiness, as a value the toggle and the view model read. */
@@ -152,4 +182,33 @@ enum class RouteUnavailableReason(val labelResId: Int) {
      * and drawn a line over the shore as an ordinary route.
      */
     COASTLINE_NOT_LOADED(R.string.route_unavailable_coastline_not_loaded)
+}
+
+/**
+ * **Why a point is not usable water** — the closed set [RouteEngine.validatePoint] answers with.
+ *
+ * Shaped like [RouteUnavailableReason] and for the same reason: a reason is an id the surface resolves
+ * ([labelResId]), never a string an engine built, so both locales carry the key and no engine holds
+ * user-facing text. It answers about **one end**, and both ends read the same: a refused aim and a
+ * refused origin paint the same crosshair (R27).
+ *
+ * **Nothing produces one of these today** — the dummy judges nothing, so every entry is unreachable
+ * while it is the installed engine. They are kept because the ring's refused state, the panel's
+ * sentence and the strings in both locales are wired to this type, and because an engine that reads
+ * the water again will need exactly these sentences; each entry names what it meant to the engine that
+ * produced it, in the past tense.
+ */
+enum class RouteRefusalReason(val labelResId: Int) {
+
+    /**
+     * The point is not on water the engine can see: the removed corridor tracer raised this for either
+     * end before it built anything, because a line cannot be drawn from or to a place that is land.
+     */
+    OFF_WATER(R.string.route_refusal_off_water),
+
+    /**
+     * The point lies outside the region the engine has read — beyond the box the removed engines cut
+     * for themselves, where no soundings, no shoreline and no zone exist at all.
+     */
+    OUTSIDE_COVERAGE(R.string.route_refusal_outside_coverage)
 }

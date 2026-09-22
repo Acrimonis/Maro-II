@@ -12,8 +12,9 @@ needs and a book must not carry: **the files each step owns, the order they land
 - The placeholder engine at one expression in `MapScreen`, the toggle, the screen-centred aim with its live
   preview, the confirmation panel in the dashboard slot, the pin, the trip figure at the pace in force, and the
   save as an ordinary track — all whole, all untouched by this plan except where a step says otherwise.
-- The line and pin keys already live in `maro.properties` behind `AppConfig`; the six keys this plan adds join
-  them, and no literal decides a value the file holds.
+- The line and pin keys already live in `maro.properties` behind `AppConfig`; the **nine** keys this plan adds join
+  them — the two ask keys, the crosshair's three, the refresh gate's two and the ladder's two — and no literal
+  decides a value the file holds.
 - **The two engines that searched the water are already gone**, with their bake, their proto, their artifact and
   their tests, removed in this branch's earlier delivery and held in the two documents `xTrack/Route/` carries —
   so nothing here retires an algorithm, and the placeholder of step 3 is what that history left behind.
@@ -72,7 +73,7 @@ needs and a book must not carry: **the files each step owns, the order they land
 ## 3. What every step must respect
 
 - **No new dependency**, no new surface beyond the seams the isolation design names, and no literal where the
-  properties file holds the value — the six keys are the only values this work adds.
+  properties file holds the value — the nine keys above are the only values this work adds.
 - **Every user-facing line is a `@StringRes` id carried by both locales**, the action labels and the two phases'
   sentences included; brand names and log tags stay as they are.
 - **One home per fact:** the exit dialog is one dialog reached by two doors, the resume hold is one list, and the

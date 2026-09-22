@@ -78,6 +78,76 @@ object AppConfig {
     var routePinRingWidthDp: Float = 3f
         private set
 
+    /**
+     * Ground move (m) the aim must have made before it is worth a search — `route.ask.minTargetMoveM`,
+     * default 25.
+     *
+     * The number that already shipped as `RouteOverlay`'s own literal, moved home rather than changed:
+     * it is half of the ask policy, the settle beside it being the other half, and together they are
+     * what keeps a live drag from flooding the one worker.
+     */
+    var routeAskMinTargetMoveM: Double = 25.0
+        private set
+
+    /**
+     * Quiet time (ms) the drag must then stand still for before the search is asked —
+     * `route.ask.settleMs`, default 300.
+     *
+     * Load-bearing rather than a courtesy: with one computation at a time, this is what stops a live
+     * drag from flooding the worker, and it is why nothing is asked on the arming frame.
+     */
+    var routeAskSettleMs: Long = 300L
+        private set
+
+    /**
+     * The refused end's crosshair colour — `route.target.color`, default bold red spelled
+     * `#AARRGGBB` as the line's own key is.
+     *
+     * One colour for both ends: a refused aim and a refused origin read the same.
+     */
+    var routeTargetColor: Int = 0xFFD32F2F.toInt()
+        private set
+
+    /** Stroke width (dp) of the refused end's crosshair — `route.target.widthDp`. */
+    var routeTargetWidthDp: Float = 3f
+        private set
+
+    /** Pulse period (ms) of the refused crosshair's 1 -> 0.3 beat — `route.target.pulseMs`. */
+    var routeTargetPulseMs: Int = 800
+        private set
+
+    /**
+     * Seconds since the standing route was answered at which the following mode may ask again —
+     * `route.refresh.intervalSec`, default 30.
+     *
+     * One of the two thresholds the **app** owns; the engine's `isReadyToRecompute()` may only veto.
+     */
+    var routeRefreshIntervalSec: Int = 30
+        private set
+
+    /**
+     * Distance (m) the boat may stand off the standing route before the mode may ask again —
+     * `route.refresh.offRouteM`, default 100.
+     *
+     * The other threshold the app owns; either one alone opens the moment.
+     */
+    var routeRefreshOffRouteM: Double = 100.0
+        private set
+
+    /**
+     * How many of the **oldest** replaced routes the ladder keeps beside the standing one —
+     * `route.ladder.oldest.nb`, default 1.
+     *
+     * Stale means *replaced*: a failed refresh stales nothing, so the ladder only ever grows on a new
+     * answer arriving.
+     */
+    var routeLadderOldestNb: Int = 1
+        private set
+
+    /** How many of the **newest** replaced routes the ladder keeps — `route.ladder.latest.nb`, default 3. */
+    var routeLadderLatestNb: Int = 3
+        private set
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -1286,6 +1356,27 @@ object AppConfig {
                 ?.let { routePinColor = it }
             props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
                 ?.let { routePinRingWidthDp = it.coerceIn(0f, 12f) }
+            // ── The route's ask policy, its crosshair, its refresh gate and its ladder ───────
+            // Read here rather than beside the pace above: every one of them is a drawing or
+            // interaction value rather than a behaviour the spatial side reads.
+            props.getProperty("route.ask.minTargetMoveM")?.toDoubleOrNull()
+                ?.let { routeAskMinTargetMoveM = it.coerceIn(1.0, 500.0) }
+            props.getProperty("route.ask.settleMs")?.toLongOrNull()
+                ?.let { routeAskSettleMs = it.coerceIn(0L, 5_000L) }
+            props.getProperty("route.target.color")?.let { parseColorOrNull(it) }
+                ?.let { routeTargetColor = it }
+            props.getProperty("route.target.widthDp")?.toFloatOrNull()
+                ?.let { routeTargetWidthDp = it.coerceIn(1f / 3f, 12f) }
+            props.getProperty("route.target.pulseMs")?.toIntOrNull()
+                ?.let { routeTargetPulseMs = it.coerceIn(100, 5_000) }
+            props.getProperty("route.refresh.intervalSec")?.toIntOrNull()
+                ?.let { routeRefreshIntervalSec = it.coerceIn(1, 3_600) }
+            props.getProperty("route.refresh.offRouteM")?.toDoubleOrNull()
+                ?.let { routeRefreshOffRouteM = it.coerceIn(10.0, 10_000.0) }
+            props.getProperty("route.ladder.oldest.nb")?.toIntOrNull()
+                ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
+            props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
+                ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }

@@ -559,19 +559,44 @@
     <string name="route_label_distance">Distance</string>
     <string name="route_label_eta">ETA</string>
     <string name="route_action_route">Route</string>
-    <string name="route_action_save_route">Save and route</string>
-    <string name="route_action_save_only">Save only</string>
+    <string name="route_action_save_route">Save as Track and Route</string>
+    <string name="route_action_save_only">Save as Track and Exit</string>
+    <string name="route_action_save_track">Save as Track</string>
+    <string name="route_action_freeze">Freeze</string>
+    <string name="route_action_abort">Abort</string>
+    <string name="route_action_exit">Exit</string>
     <string name="route_pin_label">Pin the track</string>
-    <string name="route_aim_hint">Move the map to aim the route</string>
-    <string name="route_searching">Searching for a route…</string>
+    <string name="route_aim_hint">Drag the map to the destination</string>
+    <string name="route_searching">Computing Route…</string>
     <string name="route_no_route">No water route here</string>
+    <!-- The refused end's two sentences — one per end, and the crosshair is the same on both. -->
+    <string name="route_destination_invalid">Destination invalid: %1$s</string>
+    <string name="route_origin_invalid">Position invalid: %1$s</string>
+    <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
+    <string name="route_following_active">Routing active</string>
+    <string name="route_following_recomputing">Re-Computing Route…</string>
+    <string name="route_status_current">Up to date</string>
+    <string name="route_status_frozen">Frozen</string>
+    <!-- The one exit dialog, reached by the toggle and by the panel's Exit alike. -->
+    <string name="route_exit_title">Leave the route?</string>
+    <string name="route_exit_continue">Continue</string>
+    <string name="route_exit_end_no_save">End without saving</string>
+    <string name="route_exit_end_save">End and save</string>
+    <string name="route_exit_scope_all">Save every route of the session</string>
+    <!-- A refresh that could not answer: the standing line holds and this is what is said. -->
+    <string name="route_toast_refresh_failed">Route not refreshed: %1$s</string>
+    <string name="route_failure_outside_water">outside the covered water</string>
+    <string name="route_failure_no_path">no way through</string>
+    <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
+         "invalid" sentence above completes. Both ends read the same set. -->
+    <string name="route_refusal_off_water">no water here</string>
+    <string name="route_refusal_outside_coverage">outside the covered area</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
     <string name="route_trip_ago">%1$s ago</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
-    <string name="route_trip_stale">stale</string>
     <string name="route_trip_forced">forced: %1$s</string>
     <string name="route_forced_crossing">Forced crossing of %1$s</string>
     <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the

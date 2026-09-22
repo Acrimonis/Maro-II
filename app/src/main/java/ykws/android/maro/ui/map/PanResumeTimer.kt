@@ -36,13 +36,17 @@ internal enum class PanResumeAction {
  * @param inspectLoaned true while the centre is on loan to the frame the inspect mode's exit left.
  * @param inspectArmed true while the inspect mode is armed.
  * @param inspectCardOpen true while the card the inspect mode opened is still on screen.
+ * @param routeDraftArmed true while the route mode is **choosing its destination** — the phase's own
+ *   hold on the camera, and never the following one (R21).
  */
 internal fun panResumeOnDrawerChange(
     open: Boolean,
     autoFollowSuppressed: Boolean,
     inspectLoaned: Boolean,
     inspectArmed: Boolean,
-    inspectCardOpen: Boolean
+    inspectCardOpen: Boolean,
+    /** Defaults to no draft: a caller with no route mode in hand has nothing to hold. */
+    routeDraftArmed: Boolean = false
 ): PanResumeAction = when {
     // The hold: whatever deadline was live is stood down, and the close is what re-arms it.
     open -> PanResumeAction.HOLD
@@ -50,8 +54,11 @@ internal fun panResumeOnDrawerChange(
     // recentre on the card's close would undo the very frame the mode was armed on. A card still
     // standing keeps the hold instead, so this reads NONE.
     inspectLoaned && !inspectCardOpen -> PanResumeAction.RESTART
-    // A panned map outlives the drawer, and its delay restarts from the close. The inspect hold — the
-    // armed half or the card it opened — outranks the pan, so a close inside it resumes nothing.
-    autoFollowSuppressed && !(inspectArmed || inspectCardOpen) -> PanResumeAction.RESTART
+    // A panned map outlives the drawer, and its delay restarts from the close. The two holds — the
+    // inspect one (the armed half or the card it opened) and the route draft's — outrank the pan, so a
+    // close inside either resumes nothing: the frame the user is aiming across must not be handed back
+    // to the boat while the destination is still being placed.
+    autoFollowSuppressed && !(inspectArmed || inspectCardOpen || routeDraftArmed) ->
+        PanResumeAction.RESTART
     else -> PanResumeAction.NONE
 }

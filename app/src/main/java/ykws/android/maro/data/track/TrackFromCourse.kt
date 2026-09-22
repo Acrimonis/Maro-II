@@ -33,8 +33,12 @@ data class CourseLeg(
  * clear of the idle floor — so `withDerivedStats()` reproduces these same numbers instead of
  * becoming a second code path.
  *
- * Saving is explicit and one-way. The route keeps living, the track freezes, and saving again makes
- * a second track; nothing links the two.
+ * Saving is explicit and one-way **at this level**: the route keeps living and the track freezes, and
+ * this object links nothing — no field on the track points back at the route, deliberately, because a
+ * track is a stored journey and the route is the mode's own object. What links them is the **mode's
+ * session** (R25): `RouteViewModel` remembers which track each route of a session became, so a route
+ * already saved is **renamed into a set rather than written a second time**, and the link dies with
+ * the mode.
  */
 object TrackFromCourse {
 
@@ -45,14 +49,20 @@ object TrackFromCourse {
      * @param pinned     the pin state the save offers — the track's existing field, whose other
      *                   writer stays the track list's own control.
      * @param id         the track id; a fresh UUID unless a caller is rebuilding a known one.
-     * @param createdAtMs the instant the save happened, which dates and names the track.
+     * @param createdAtMs the instant the route was **generated and finalised**, which dates and names
+     *                   the track (R40) — **not** the instant the save happened. One value feeds the
+     *                   header and the name, so a route saved twice keeps one identity.
+     * @param name       the track's name; the Tracks feature's own auto-name by default, and a route
+     *                   hands in its own when several are written by one action and each carries its
+     *                   index ([routeTrackName]).
      */
     fun build(
         start: RoutePoint,
         legs: List<CourseLeg>,
         pinned: Boolean = false,
         id: String = UUID.randomUUID().toString(),
-        createdAtMs: Long = System.currentTimeMillis()
+        createdAtMs: Long = System.currentTimeMillis(),
+        name: String? = null
     ): Track {
         val distanceM = legs.sumOf { it.distanceM }
         val durationSec = legs.sumOf { it.durationSec }
@@ -81,7 +91,7 @@ object TrackFromCourse {
 
         return Track(
             id = id,
-            name = trackAutoName(createdAtMs),
+            name = name ?: trackAutoName(createdAtMs),
             startTimeMs = createdAtMs,
             endTimeMs = createdAtMs + durationMs,
             trackPoints = points,
@@ -126,4 +136,19 @@ object TrackFromCourse {
         ),
         durationSec = durationSec
     )
+
+    /**
+     * **The name a route's track takes** (R25): the Tracks feature's own auto-name with a `Route `
+     * prefix, and `· n/N` appended when one action writes several routes of a session, in creation
+     * order.
+     *
+     * Both the prefix and the suffix are **fixed tokens rather than localised strings** — a track's
+     * name is data, not UI text — and the base comes from [`trackAutoName`], so a route and a recorded
+     * journey are named by one function. [index] and [total] are both null for a single save, which is
+     * when the suffix has nothing to say.
+     */
+    fun routeTrackName(createdAtMs: Long, index: Int? = null, total: Int? = null): String {
+        val base = "Route ${trackAutoName(createdAtMs)}"
+        return if (index != null && total != null) "$base · $index/$total" else base
+    }
 }

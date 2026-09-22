@@ -240,10 +240,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * the menu entry and the Settings row: the write goes through this feature's **own repository**,
      * so what lands is an ordinary track in every respect — listed, exported, redrawn, replayed —
      * and `Track.plannedCourse` is the only thing that records its speeds as planned rather than
-     * measured.
+     * measured. The trace work renames that flag; until it lands, this name is what the code says.
      *
-     * Saving is explicit and one-way: nothing links the saved track back to the live route, and
-     * saving again makes a second track.
+     * Saving is explicit: nothing on the track points back at the route — the fields were deliberately
+     * left alone, a track being a stored journey — and the **mode's own session** keeps the link
+     * instead, so a route already saved is renamed into a set rather than written a second time.
      */
     suspend fun saveBuiltTrack(track: Track): String {
         repository.save(track)

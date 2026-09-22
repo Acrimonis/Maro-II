@@ -327,11 +327,15 @@ private fun distanceText(distanceM: Double): String {
 }
 
 /**
- * The trip card: the distance-to-shore cell's other face, worn while a route is confirmed.
+ * The trip card: the distance-to-shore cell's other face, worn while a route is followed.
  *
  * Distance to go, the ETA at the pace in force, and the plan's age — the age ticking on its own so a
- * route that is not being recomputed still reads as an old figure rather than as a fresh one. A
- * stale plan (the boat left the covered water) dulls the value and says so.
+ * route that is not being recomputed still reads as an old figure rather than as a fresh one.
+ *
+ * **There is no stale reading any more** (R13): a refresh that cannot answer changes nothing on the
+ * map — the standing line keeps its place and is not marked, because stale means *replaced* — and the
+ * failure is said by a toast instead, so the badge this card used to carry has gone with the reading
+ * behind it.
  */
 @Composable
 private fun RouteTripCard(
@@ -360,7 +364,6 @@ private fun RouteTripCard(
         } else {
             null
         },
-        if (trip.stale) stringResource(R.string.route_trip_stale) else null,
         routeAgeText(ageSeconds),
         if (onRecompute != null) ROUTE_RECOMPUTE_MARK else null
     ).joinToString(" \u00b7 ")
@@ -369,11 +372,7 @@ private fun RouteTripCard(
         title = stringResource(R.string.route_trip_title),
         value = stringResource(R.string.route_trip_distance_nm, trip.distanceNm),
         subtitle = subtitle,
-        valueColor = if (trip.stale) {
-            DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
-        } else {
-            DashboardColors.textPrimary
-        },
+        valueColor = DashboardColors.textPrimary,
         onClick = onRecompute,
         modifier = modifier
     )

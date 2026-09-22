@@ -104,6 +104,41 @@ class PanResumeTimerTest {
         )
     }
 
+    // ── The route draft's own hold ──────────────────────────────────────────
+
+    @Test
+    fun `the route draft's hold outranks the pan on a close`() {
+        // The destination is still being placed: the frame the user is aiming across must not be
+        // handed back to the boat, so a drawer's close inside the draft resumes nothing.
+        assertEquals(
+            PanResumeAction.NONE,
+            panResumeOnDrawerChange(
+                open = false,
+                autoFollowSuppressed = true,
+                inspectLoaned = false,
+                inspectArmed = false,
+                inspectCardOpen = false,
+                routeDraftArmed = true
+            )
+        )
+    }
+
+    @Test
+    fun `once the draft is released the pan resumes as it always did`() {
+        // Confirming a route leaves the phase, so the hold is off and the deadline is re-armed.
+        assertEquals(
+            PanResumeAction.RESTART,
+            panResumeOnDrawerChange(
+                open = false,
+                autoFollowSuppressed = true,
+                inspectLoaned = false,
+                inspectArmed = false,
+                inspectCardOpen = false,
+                routeDraftArmed = false
+            )
+        )
+    }
+
     @Test
     fun `the inspect hold outranks the pan on a close`() {
         // Either half of the mode's hold beats the pan: an in-frame recentre would yank the anchor the

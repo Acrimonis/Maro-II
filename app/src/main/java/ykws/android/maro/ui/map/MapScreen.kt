@@ -351,6 +351,15 @@ internal sealed class ActiveSnack(val id: String, val name: String) {
         val source: DrawerSource
     ) : ActiveSnack(id, name)
     class CreateUndo(id: String, name: String) : ActiveSnack(id, name)
+
+    /**
+     * **A route refresh that could not answer** (R13) — the engine's own reason, carried as a
+     * `@StringRes` id and resolved by the surface that shows it, so no engine holds user-facing text.
+     *
+     * It carries **no undo**: nothing happened. The standing line was left exactly as it was and the
+     * ladder was not touched, so there is nothing for a tap to reverse.
+     */
+    class RouteFailed(val reasonResId: Int) : ActiveSnack("route-refresh", "route")
 }
 
 @Composable
@@ -358,7 +367,9 @@ internal fun SnackRow(
     message: String,
     snackKey: Int,
     onUndo: () -> Unit,
-    onTimeout: () -> Unit
+    onTimeout: () -> Unit,
+    /** False for a message with nothing to reverse — a failure says what happened and no more. */
+    showUndo: Boolean = true
 ) {
     LaunchedEffect(snackKey) {
         kotlinx.coroutines.delay(4000L)
@@ -387,9 +398,11 @@ internal fun SnackRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.width(12.dp))
-            androidx.compose.material3.TextButton(onClick = onUndo) {
-                Text(stringResource(R.string.action_undo), color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            if (showUndo) {
+                Spacer(Modifier.width(12.dp))
+                androidx.compose.material3.TextButton(onClick = onUndo) {
+                    Text(stringResource(R.string.action_undo), color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -592,6 +605,18 @@ fun MapScreen(
     // ready — is the engine's own answer; this reads the readiness and nothing else.
     val routeAvailable = routeEngineState.ready
     val routeSaveScope = rememberCoroutineScope()
+    // The pin the saves start with, the one exit dialog's open flag and the scope its save carries.
+    // Held by the screen rather than by the panel because the dialog's **two doors** — the toggle's
+    // off and the panel's own Exit — reach them from outside the panel's own composition (R23), and
+    // one dialog reached by two doors needs one set of those values.
+    var routePinned by remember { mutableStateOf(false) }
+    var routeExitRequested by remember { mutableStateOf(false) }
+    var routeExitScopeAll by remember { mutableStateOf(false) }
+    // **The phase the mode is in**, as one value: the machine's own state while the mode is on, and
+    // IDLE the moment the switch is off. It is what the couplings key on (R20, R21) — the demo
+    // suspension, the camera's hold and the toggle's two on-phases all read this rather than the
+    // toggle, because the toggle cannot tell choosing from following.
+    val routePhase = if (routeArmed) routeState.phase else RoutePhase.IDLE
     // **The refusal, held as the id of the line a user reads** (§17 item 3): the engine's closed-set
     // reason carries a `@StringRes`, and the surface that shows it resolves it — so no engine holds
     // user-facing text and both locales carry the key. It is transient, like the import's own feedback,
@@ -716,6 +741,18 @@ fun MapScreen(
         }
     }
 
+    // **A failed refresh is said by a toast** (R13), on the app's own snackbar stack — the surface
+    // every other transient line already uses. The failure changed nothing on the map and staled
+    // nothing, so this line is the whole of what the user is told; the ViewModel's copy is a one-shot
+    // and is cleared as it is read.
+    val routeRefreshFailureResId by routeViewModel.refreshFailureResId.collectAsState()
+    LaunchedEffect(routeRefreshFailureResId) {
+        routeRefreshFailureResId?.let { resId ->
+            enqueueSnack(ActiveSnack.RouteFailed(resId))
+            routeViewModel.clearRefreshFailure()
+        }
+    }
+
     fun onSnackUndo(snack: ActiveSnack) {
         activeSnacks.remove(snack)
         when (snack) {
@@ -746,6 +783,7 @@ fun MapScreen(
                 markersViewModel.openEditDrawer(snack.selection, selectedId = snack.id, source = source)
             }
             is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
+            is ActiveSnack.RouteFailed -> {}
         }
         promoteQueued()
     }
@@ -762,6 +800,7 @@ fun MapScreen(
                 markersViewModel.deleteMarker(snack.id, closeDrawer = false)
             }
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
+            is ActiveSnack.RouteFailed -> {}
         }
         promoteQueued()
     }
@@ -1630,17 +1669,76 @@ fun MapScreen(
                 routeArmed = true
             }
 
+            /**
+             * The **silent** ending: the draft's Cancel, the back key while the destination is being
+             * chosen, and every other leaving that is not a followed route's. Leaving the draft asks
+             * nothing (R23) — the pin and the dialog's own state go with the mode.
+             */
             fun endRouteMode() {
                 if (!routeArmed) return
                 routeArmed = false
+                routePinned = false
+                routeExitScopeAll = false
+                routeExitRequested = false
             }
 
             /**
-             * Writes a confirmed route as an ordinary track, through `data/track`'s own repository.
-             * The vertices carry the plan's own pace and cumulative time, so distance, duration and
-             * both speed figures come out right with no second code path.
+             * **The one exit dialog** (R23), raised by its two doors: the toggle's off while a route
+             * is followed, and the panel's own **Exit**. Leaving the **draft** asks nothing, which is
+             * why nothing outside the following phase ever requests it.
              */
-            fun saveRouteTrack(plan: RoutePlan, pin: Boolean) {
+            fun requestRouteExit() {
+                if (!routeArmed) return
+                routeExitScopeAll = false
+                routeExitRequested = true
+            }
+
+            /** The mode's own escape, whatever its phase: silent while choosing, the dialog once followed. */
+            fun leaveRouteMode() {
+                if (routeState is RouteState.Following) requestRouteExit() else endRouteMode()
+            }
+
+            /**
+             * **Route**, and **Save as Track and Route** (R18): the phase turns to following and the
+             * draft's two couplings are released **in that same frame** — the camera is handed back,
+             * to the current fix in GPS mode and to the origin coordinate in demo mode, while the
+             * phase change is what ends the demo suspension and the draft's hold on the resume
+             * deadline.
+             */
+            fun followRoute() {
+                val origin = (routeState as? RouteState.Choosing)?.start
+                routeViewModel.confirm()
+                if (appSettings.gpsMode) {
+                    viewModel.recenterNow()
+                } else {
+                    origin?.let {
+                        mapView?.controller?.setCenter(GeoPoint(it.latitude, it.longitude))
+                    }
+                }
+            }
+
+            /** The trip card's own tap: one refresh, asked for now rather than waited for. */
+            fun refreshRouteNow() {
+                routeViewModel.refresh(
+                    RoutePoint(routeStart.latitude, routeStart.longitude),
+                    force = true
+                )
+            }
+
+            /**
+             * Writes **one** route as an ordinary track, through `data/track`'s own repository. The
+             * vertices carry the plan's own pace and cumulative time, so distance, duration and both
+             * speed figures come out right with no second code path.
+             *
+             * The instant handed to the builder is the route's **generation and finalisation**, not
+             * the save's (R40): one value dates the header and names the track. **Every save names
+             * it** (R25): the name defaults to the route's own [`RoutePlan.trackName`] — `Route
+             * <instant>`, the fixed prefix a name-as-data token rather than a localised string — and
+             * an all-scope write hands in the same base with `· n/N`. The track's id is remembered
+             * against the route, in the mode's own session, which is what lets a second save **rename**
+             * it instead of writing it again.
+             */
+            fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
                 val points = plan.points
                 if (points.size < 2) return
                 val legs = points.drop(1).mapIndexed { index, point ->
@@ -1653,9 +1751,51 @@ fun MapScreen(
                 val track = TrackFromCourse.build(
                     start = points.first(),
                     legs = legs,
-                    pinned = pin
+                    pinned = pin,
+                    createdAtMs = plan.computedAtMs,
+                    name = name ?: plan.trackName()
                 )
-                routeSaveScope.launch { trackViewModel.saveBuiltTrack(track) }
+                routeSaveScope.launch {
+                    val writtenId = trackViewModel.saveBuiltTrack(track)
+                    routeViewModel.noteRouteSaved(plan, writtenId)
+                }
+            }
+
+            /**
+             * **The exit dialog's save** (R25): the last route alone, or **every route of the
+             * session**.
+             *
+             * The all-scope writes one file per route, named `Route <creation> · n/N` in creation
+             * order, and a route already saved is **renamed into the set, never rewritten** — its
+             * track takes its index in the set, the rename unconditional and a track the user renamed
+             * by hand included — with the already-saved ones **pinned** as the set is saved, so the pin
+             * marks what is already stored and saving all twice writes nothing the second time.
+             *
+             * **The set is pinned before the caller ends the mode.** Ending clears the mode's session,
+             * so a route-to-track link read after it would come back null and an already-written route
+             * would be **rewritten** instead of renamed — the outcome turning on dispatch order rather
+             * than on the rule. [`RouteViewModel.sessionSnapshot`] takes the copy here, so both the
+             * rename decision and the set's own membership are fixed before the ending can run.
+             */
+            fun saveRouteSession(all: Boolean) {
+                val set = routeViewModel.sessionSnapshot()
+                if (set.isEmpty()) return
+                if (!all) {
+                    saveRouteTrack(set.last().plan, routePinned)
+                    return
+                }
+                routeSaveScope.launch {
+                    val total = set.size
+                    set.forEachIndexed { index, entry ->
+                        val name = entry.plan.trackName(index + 1, total)
+                        if (entry.trackId != null) {
+                            trackViewModel.updateTrack(id = entry.trackId, name = name)
+                            trackViewModel.setPinned(id = entry.trackId, pinned = true)
+                        } else {
+                            saveRouteTrack(entry.plan, pin = true, name = name)
+                        }
+                    }
+                }
             }
 
             /**
@@ -1936,8 +2076,10 @@ fun MapScreen(
             }
 
             // The demo sailing's suspension follows the route mode's own switch: while it is on, the
-            // pan-derived speed is derived no more and the dashboard's readout reads stationary.
-            LaunchedEffect(routeArmed) { viewModel.setRouteAiming(routeArmed) }
+            // pan-derived speed is derived no more and the dashboard's readout reads stationary. It is
+            // keyed on the **phase**, not the toggle (R20): the suspension belongs to the destination
+            // being placed, so following a route sails the map exactly as it does with no route at all.
+            LaunchedEffect(routePhase) { viewModel.setRouteAiming(routePhase) }
 
             // ── F2c: Freeze auto-follow when entering marker creation/editing wizard ──
             // The disarm comes first, because the wizard's freeze is the one that must survive: a
@@ -2130,7 +2272,8 @@ fun MapScreen(
                 inspectEnabled = inspectAvailable,
                 onToggleInspect = { if (inspectArmed) disarmInspectMode() else armInspectMode() },
                 routeArmed = routeArmed,
-                onToggleRoute = { if (routeArmed) endRouteMode() else armRouteMode() },
+                routeFollowing = routeState is RouteState.Following,
+                onToggleRoute = { if (routeArmed) leaveRouteMode() else armRouteMode() },
                 routeHost = {
                     Box(modifier = Modifier.fillMaxSize()) {
                         RouteHost(
@@ -2147,7 +2290,7 @@ fun MapScreen(
                             mapCenterOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() },
                             mapCenterOffsetDp = mapCenterOffsetDp,
                             viewModel = routeViewModel,
-                            onEndRoute = { endRouteMode() },
+                            onEndRoute = { leaveRouteMode() },
                             // The host fills the map area so its target is centred on it, and raises no
                             // panel of its own: the route's confirmation is composed in the dashboard
                             // slot below, from the same state the line and the pin are drawn from.
@@ -2178,38 +2321,44 @@ fun MapScreen(
         )
 
             // ── Dashboard (always rendered, Layer 0) ────────────────────────
-            // While a route is being aimed the slot belongs to the route: the confirmation is the
-            // panel the outcomes are taken from, so it needs no floating surface to be reached —
-            // and it tracks the aim through the very state the line and the pin are drawn from.
-            val routeIsDrafting = routeArmed && routeState is RouteState.Draft
-            val routeTrip = (routeState as? RouteState.Confirmed)?.let { confirmed ->
+            // While the mode is armed the slot belongs to the route, in **either** phase: the panel is
+            // where the outcomes are taken from, so it needs no floating surface to be reached — and it
+            // tracks the aim through the very state the lines and the pin are drawn from.
+            val routeOwnsSlot = routeArmed && routeState.phase != RoutePhase.IDLE
+            val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
-                    plan = confirmed.plan,
+                    plan = following.plan,
                     from = RoutePoint(routeStart.latitude, routeStart.longitude),
                     paceKn = routePaceKn,
-                    nowMs = System.currentTimeMillis(),
-                    stale = confirmed.stale
+                    nowMs = System.currentTimeMillis()
                 )
             }
             if (isLandscape) {
-                if (routeIsDrafting) {
+                if (routeOwnsSlot) {
                     RouteConfirmationPanel(
                         state = routeState,
-                        onRoute = { routeViewModel.confirm() },
-                        onSaveRoute = { plan, pin ->
-                            saveRouteTrack(plan, pin)
-                            routeViewModel.confirm()
+                        pinned = routePinned,
+                        onPinnedChange = { routePinned = it },
+                        onRoute = { followRoute() },
+                        onSaveRoute = {
+                            routeState.plan?.let { saveRouteTrack(it, routePinned) }
+                            followRoute()
                         },
-                        onSaveOnly = { plan, pin ->
-                            saveRouteTrack(plan, pin)
-                            // The camera returns to the frozen start, the same frame the mode's own
-                            // exit leaves, so the two endings look alike.
-                            mapView?.controller?.setCenter(
-                                GeoPoint(plan.start.latitude, plan.start.longitude)
-                            )
+                        onSaveOnly = {
+                            // Save as Track and Exit: the track is written and the mode's own silent
+                            // ending follows, so the two endings look alike.
+                            routeState.plan?.let { saveRouteTrack(it, routePinned) }
                             endRouteMode()
                         },
                         onCancel = { endRouteMode() },
+                        onFreezeResume = {
+                            (routeState as? RouteState.Following)?.let {
+                                routeViewModel.setFrozen(!it.frozen)
+                            }
+                        },
+                        onAbortRefresh = { routeViewModel.abortRefresh() },
+                        onSaveTrack = { routeState.plan?.let { saveRouteTrack(it, routePinned) } },
+                        onRequestExit = { requestRouteExit() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -2227,9 +2376,7 @@ fun MapScreen(
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
                         routeTrip = routeTrip,
-                        onRecomputeRoute = {
-                            routeViewModel.recompute(RoutePoint(routeStart.latitude, routeStart.longitude))
-                        },
+                        onRecomputeRoute = { refreshRouteNow() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -2238,24 +2385,29 @@ fun MapScreen(
                     )
                 }
             } else {
-                if (routeIsDrafting) {
+                if (routeOwnsSlot) {
                     RouteConfirmationPanel(
                         state = routeState,
-                        onRoute = { routeViewModel.confirm() },
-                        onSaveRoute = { plan, pin ->
-                            saveRouteTrack(plan, pin)
-                            routeViewModel.confirm()
+                        pinned = routePinned,
+                        onPinnedChange = { routePinned = it },
+                        onRoute = { followRoute() },
+                        onSaveRoute = {
+                            routeState.plan?.let { saveRouteTrack(it, routePinned) }
+                            followRoute()
                         },
-                        onSaveOnly = { plan, pin ->
-                            saveRouteTrack(plan, pin)
-                            // Save-only is the other ending: the camera returns to the start the
-                            // route was frozen from, and the mode goes with it.
-                            mapView?.controller?.setCenter(
-                                GeoPoint(plan.start.latitude, plan.start.longitude)
-                            )
+                        onSaveOnly = {
+                            routeState.plan?.let { saveRouteTrack(it, routePinned) }
                             endRouteMode()
                         },
                         onCancel = { endRouteMode() },
+                        onFreezeResume = {
+                            (routeState as? RouteState.Following)?.let {
+                                routeViewModel.setFrozen(!it.frozen)
+                            }
+                        },
+                        onAbortRefresh = { routeViewModel.abortRefresh() },
+                        onSaveTrack = { routeState.plan?.let { saveRouteTrack(it, routePinned) } },
+                        onRequestExit = { requestRouteExit() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -2272,9 +2424,7 @@ fun MapScreen(
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
                         routeTrip = routeTrip,
-                        onRecomputeRoute = {
-                            routeViewModel.recompute(RoutePoint(routeStart.latitude, routeStart.longitude))
-                        },
+                        onRecomputeRoute = { refreshRouteNow() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -3071,6 +3221,73 @@ fun MapScreen(
             showImportBanner = { b -> showImportBanner(b) }
         )
 
+        // ── The route's one exit dialog (R23) — hosted here, asked by two doors ──────────────────
+        // The toggle's off while a route is followed and the panel's own **Exit** raise this same
+        // dialog: Continue · End without saving · End and save, the save carrying a scope of the last
+        // route alone or every route of the session. Leaving the **draft** asks nothing, which is why
+        // nothing outside the following phase ever raises it.
+        if (routeExitRequested) {
+            // The all-scope option is offered only where there is a set to write: with one route the
+            // last-scope save already writes it (R25).
+            val routeSessionCount = routeViewModel.sessionRoutes().size
+            val allOffered = routeSessionCount >= 2
+            ConfirmDialog(
+                title = stringResource(R.string.route_exit_title),
+                visible = true,
+                onDismiss = { routeExitRequested = false },
+                options = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = routeExitScopeAll,
+                                enabled = allOffered,
+                                role = Role.Checkbox,
+                                onValueChange = { routeExitScopeAll = it }
+                            )
+                            .semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = routeExitScopeAll,
+                            onCheckedChange = null,
+                            enabled = allOffered,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = ComposeColor(AppConfig.uiAccent)
+                            )
+                        )
+                        Text(
+                            stringResource(R.string.route_exit_scope_all),
+                            color = ComposeColor(AppConfig.uiTextPrimary),
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                },
+                actions = listOf(
+                    ConfirmAction(
+                        stringResource(R.string.route_exit_continue),
+                        ConfirmActionRole.SECONDARY
+                    ) { routeExitRequested = false },
+                    ConfirmAction(
+                        stringResource(R.string.route_exit_end_no_save),
+                        ConfirmActionRole.DANGER
+                    ) {
+                        routeExitRequested = false
+                        endRouteMode()
+                    },
+                    ConfirmAction(
+                        stringResource(R.string.route_exit_end_save),
+                        ConfirmActionRole.PRIMARY
+                    ) {
+                        routeExitRequested = false
+                        saveRouteSession(all = routeExitScopeAll)
+                        endRouteMode()
+                    }
+                )
+            )
+        }
+
         // ── Resume confirmation dialog (optional backup) — hosted outside the drawers so closing the
         //    source surface cannot drop it. `resumeTarget` drives dismissal; the retained copy keeps
         //    the dialog mounted while it animates out. ──
@@ -3303,6 +3520,8 @@ private fun MapContent(
     onToggleInspect: () -> Unit = {},
     /** True while the destination mode is aiming or following: the compass square's active face. */
     routeArmed: Boolean = false,
+    /** True while a route is **followed** — the toggle's second on-phase carries the pulsing dot (R19). */
+    routeFollowing: Boolean = false,
     onToggleRoute: () -> Unit = {},
     /**
      * The route mode's own slot, composed by the shell so this file keeps **one** new parameter
@@ -3489,6 +3708,7 @@ private fun MapContent(
                     // square carries its tap always — there is no `enabled` to take it away.
                     RouteToggleButton(
                         armed = routeArmed,
+                        following = routeFollowing,
                         onToggle = onToggleRoute
                     )
                     LockScreenButton(

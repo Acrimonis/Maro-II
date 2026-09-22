@@ -558,19 +558,44 @@
     <string name="route_label_distance">Distance</string>
     <string name="route_label_eta">ETA</string>
     <string name="route_action_route">Router</string>
-    <string name="route_action_save_route">Enregistrer et router</string>
-    <string name="route_action_save_only">Enregistrer seulement</string>
+    <string name="route_action_save_route">Enregistrer la trace et router</string>
+    <string name="route_action_save_only">Enregistrer la trace et quitter</string>
+    <string name="route_action_save_track">Enregistrer la trace</string>
+    <string name="route_action_freeze">Geler</string>
+    <string name="route_action_abort">Interrompre</string>
+    <string name="route_action_exit">Quitter</string>
     <string name="route_pin_label">Épingler la trace</string>
-    <string name="route_aim_hint">Déplacez la carte pour viser la route</string>
-    <string name="route_searching">Recherche d\'une route…</string>
+    <string name="route_aim_hint">Faites glisser la carte vers la destination</string>
+    <string name="route_searching">Calcul de la route…</string>
     <string name="route_no_route">Aucune route navigable ici</string>
+    <!-- Les deux phrases d\'extrémité refusée — une par extrémité, et le réticule est le même. -->
+    <string name="route_destination_invalid">Destination invalide : %1$s</string>
+    <string name="route_origin_invalid">Position invalide : %1$s</string>
+    <!-- Les mots propres à la phase de suivi : sa phrase, ses trois statuts et ses actions. -->
+    <string name="route_following_active">Routage actif</string>
+    <string name="route_following_recomputing">Recalcul de la route…</string>
+    <string name="route_status_current">À jour</string>
+    <string name="route_status_frozen">Gelé</string>
+    <!-- Le dialogue de sortie unique, atteint par la bascule comme par Quitter. -->
+    <string name="route_exit_title">Quitter la route ?</string>
+    <string name="route_exit_continue">Continuer</string>
+    <string name="route_exit_end_no_save">Quitter sans enregistrer</string>
+    <string name="route_exit_end_save">Quitter et enregistrer</string>
+    <string name="route_exit_scope_all">Enregistrer toutes les routes de la session</string>
+    <!-- Un rafraîchissement sans réponse : la ligne en place tient, et c\'est ce qui est dit. -->
+    <string name="route_toast_refresh_failed">Route non actualisée : %1$s</string>
+    <string name="route_failure_outside_water">hors de l\'eau couverte</string>
+    <string name="route_failure_no_path">aucun passage</string>
+    <!-- Pourquoi un point n\'est pas de l\'eau navigable — une ligne par raison, en fragment que la
+         phrase « invalide » ci-dessus complète. Les deux extrémités lisent le même ensemble. -->
+    <string name="route_refusal_off_water">pas d\'eau ici</string>
+    <string name="route_refusal_outside_coverage">hors de la zone couverte</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
     <string name="route_trip_ago">il y a %1$s</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
-    <string name="route_trip_stale">périmé</string>
     <string name="route_trip_forced">forcé : %1$s</string>
     <string name="route_forced_crossing">Franchissement forcé de %1$s</string>
     <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
