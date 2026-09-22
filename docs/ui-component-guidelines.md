@@ -322,6 +322,15 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 
 All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) + `.alpha(activeAlpha/inactiveAlpha)` per [`FanIconComponents.kt`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt).
 
+**Overflow.** A popup wraps its own height and **scrolls** once its content exceeds the space it can
+occupy — a popup whose content fits stays exactly as tall as that content, and nothing is pushed past
+the screen edge. The bound is the window's own height less a reserve for the chrome the popup hangs
+below, never a fixed dp, which breaks across densities and rotation; [`popupMaxHeightDp()`](../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt)
+is that derivation, shared by the filter and sort popups, floored at `POPUP_MIN_HEIGHT_DP` so a window
+shorter than the reserve still yields a usable popup — the one case where the bound can exceed the
+window. The track filter's three axes — 13 rows, about 490dp — are the case that exposes a clip in
+landscape.
+
 ---
 
 ### 2.11 Settings Tab Strip
