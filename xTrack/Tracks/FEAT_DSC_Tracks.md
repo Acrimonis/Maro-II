@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-17 10:03
+modified: 2026-09-22 19:06
 ---
 
 # Feature: Tracks
@@ -82,6 +82,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Swipe-to-delete on TrackHistoryOverlay with snackbar undo.
 
 ## Docs
+- `xTrack/Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md` — **the trace a saved route becomes**: the build order for the flag, the All · Tracks · Traces filter, the colour pair, the opacity ladder, the count and the two gates, the card's three cells and its header, and the removals — its requirements living in the Route feature's master book as R29–R42
 - `xTrack/Tracks/260618_FEAT_PLN_Tracks_TrackList_Design.md` — track list UI requirements
 - `xTrack/Tracks/FEAT_DOC_Tracks_decisions.md` — comprehensive decisions record (7 categories, 40+ decisions)
 - `xTrack/Tracks/260620_FEAT_PLN_Tracks_gps-line-acquisition.md` — GPS point acquisition
@@ -329,6 +330,14 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - **Corrected 2026-09-15:** this level was rewritten by hand after an agent pass recorded closures nobody made — a device look marked done, the legend's chrome marked done, and the casing fixed at 18 against the 22 settled here — so those lines are gone, and the correction is recorded rather than quietly tidied.
 
 - Resolutions: the eye keeps its place in the drawer header and its business is the selected track alone — it flips that one track's rendering and leaves the mode that governs every other stored track untouched, so the menu switch stays the only writer of the mode. Dropped: retiring the eye, letting it land on Simple, and replacing it with the switch. One point is carried into item 13, since item 4 stopped reading the legacy key the eye used to write: the eye now needs a value of its own, and the plan must say where it lives and whether it persists.
+
+**Level 1 — Date:** 2026-09-22 · **Source:** the trace work's open points, in the order they block it — the field, the axis, the keys and the rendering written up in [`260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](260922_FEAT_PLN_Tracks_trace-flag-and-display.md) §9 · **Cursor:** — · **Closed:** 2026-09-22 — exhausted, four items settled
+- [x] 1 · **The axis's reach under a linked filter** — **resolved 2026-09-22:** the axis rides the link that already governs the track filter set, so the drawer's two filter controls and their toggle apply to it unchanged and no per-axis code is written. Linked, a list choice still writes the map's filter; unlinked, the list's choice is its own and the map keeps drawing what its own filter says — so the axis joins its four siblings and the list-only variant is dropped
+- [x] 2 · **The four inert `tracking.color.*` keys** — **resolved 2026-09-22 at the user's word: dead code is removed.** The four keys leave `maro.properties`; `trackingColorHistory`, `trackingColorHistoryEnd` and `trackingColorPinned` leave `AppSettings` with their `BuildConfig` fields and their prefs keys, nothing that draws having ever read them; and `tracking.color.active`'s key goes too, its field keeping the build script's literal default while the Settings row keeps owning the user's choice. Nothing a user sees changes
+- [x] 3 · **The trace render count's starting value** — **resolved 2026-09-22 at the user's word: consistency with the existing behaviour is the rule.** The count opens at **5**, the value `tracking.render.nb` already ships, is bounded and coerced at the same **0–20** as its sibling, rides the same file → `BuildConfig` → `AppSettings` chain, and takes a row worded like the one beside it — the value being the existing default rather than a new judgement, changeable from that row alone
+- [x] 4 · **The third-party round trip** — **resolved 2026-09-22 on the same rule: consistency with the existing behaviour.** The extension blob stays the only carrier, being how the app already moves its own data, and no GPX `<type>` element is written with a token of its own — so the flag survives every Maro export and import, and is knowingly lost where a file passes through another tool, the route coming back as an ordinary track with its name and its points intact
+
+- Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
 
