@@ -219,6 +219,18 @@ internal data class TautRouteDetails(
     val judgeAsked: Int = 0,
     val judgeMemoHits: Int = 0,
 
+    /**
+     * **The same pair split by kind** (§19.3's row c, walk item 5) — the point questions against the
+     * chord questions.
+     *
+     * They are counted apart because they are the two things a cheaper judge could be: the point oracle
+     * owns 92 % of the water's milliseconds, so a change on the chord side is read against a smaller
+     * share, and the early exit that was built is a *point* question count. They move with the sampling
+     * exactly as the pair above does, so they are read beside the six metrics rather than as a guard.
+     */
+    val pointsAsked: Int = 0,
+    val chordsAsked: Int = 0,
+
     /** The tracer's own A* count — see [`RouteEngineDetails.nodesExpanded`]. */
     override val nodesExpanded: Int = 0
 ) : RouteEngineDetails

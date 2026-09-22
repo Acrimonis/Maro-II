@@ -151,6 +151,19 @@ internal class TautObstacles private constructor(
     val judgeMemoHits: Int get() = waterMemoHits + chordMemoHits
 
     /**
+     * **The judge's two kinds, counted apart — the split §19.3's row c is chosen on** (walk item 5).
+     *
+     * The point query and the chord walk cost different things and answer different questions: the point
+     * is the coast index's own rule over the depth grid's sounding, the chord is one walk of the wall
+     * index's own cells. Priced apart on the acceptance pair they read ≈ 4.9 µs against ≈ 0.37 µs, and
+     * **92 % of the water's milliseconds are in the points** — so a lever on the chords is worth less than
+     * it looks, and the one that was built is reported as what it is: the point questions the early exit
+     * of [curveOnWater] stops asking, never a cheaper chord.
+     */
+    val pointsAsked: Int get() = waterAsked
+    val chordsAsked: Int get() = chordAsked
+
+    /**
      * Whether the field lets the boat stand here.
      *
      * The three-way rule of the class note, read at a point: land is out; a **trusted** sounding is out
@@ -171,7 +184,15 @@ internal class TautObstacles private constructor(
         return answer
     }
 
-    /** The field's own answer, unmemoised — see [traversable], which is the door every caller uses. */
+    /**
+     * The field's own answer, unmemoised — see [traversable], which is the door every caller uses.
+     *
+     * **The second coast question is the point walk's own, and that is where item 12's lever was taken**
+     * (§19.8): the capped radius question this branch once asked was priced, found **dearer** than the
+     * distance it replaced on the water where the mass of the questions sits, and refused — while the walk
+     * both branches go through was made to visit each grid cell once, which is the lever that landed. So
+     * the branch reads as it always did, and its cost is the index's own.
+     */
     private fun fieldLetsTheBoatStand(latitude: Double, longitude: Double): Boolean {
         if (!world.isWater(latitude, longitude)) return false
         val sounding = world.depthSampleAt(latitude, longitude)
@@ -217,13 +238,33 @@ internal class TautObstacles private constructor(
         return answer
     }
 
-    /** Whether every point of a candidate curve stands on water the boat may use. */
+    /**
+     * **Whether a candidate curve stands on water the boat may use — each point asked with the chord it
+     * leaves, so the first refusal ends the walk.**
+     *
+     * The two questions are an **AND**, so their order cannot change the answer: each is a pure function of
+     * the place (or the chord) and the world, and the memo behind it is exact-keyed, so a curve is refused
+     * by the same question whether the walk reaches it first or last. What the order decides is **how many
+     * questions a refused curve ever pays for**, and asking the chord with the point it leaves means a wall
+     * refuses at that chord rather than after the whole point walk — the places past it are never asked
+     * about. On the acceptance pair that is **18 819 point questions** — harvested **95 627 → 76 808** —
+     * against the price's **22 % · 15 % of the water's milliseconds** and **19 % · 11 % of the search**
+     * (§19.3's row c, priced as candidate **B** and built as walk item 5), with the six metrics and the
+     * drawn line identical to the digit — identical *by construction* rather than by measurement, which is
+     * what §19.3's guard on this row rests on. The chords move **the other way and far smaller**, +2 173:
+     * a chord is now asked *before* the point that would have ended the walk, and at a seventh of a point
+     * query's cost that trade is not close.
+     *
+     * The counters move with it — fewer point questions mean fewer memo entries — so [pointsAsked],
+     * [chordsAsked], [judgeAsked] and [judgeMemoHits] all ride the sampling and none of them can be what
+     * this change is accepted on: they **pre-screen** whether there is anything to measure, and the six
+     * metrics and the drawn line are the guard.
+     */
     fun curveOnWater(points: List<RoutePoint>): Boolean {
-        for (point in points) {
+        for (i in points.indices) {
+            val point = points[i]
             if (!traversable(point.latitude, point.longitude)) return false
-        }
-        for (i in 0 until points.size - 1) {
-            if (curveBlocked(points[i], points[i + 1])) return false
+            if (i < points.size - 1 && curveBlocked(point, points[i + 1])) return false
         }
         return true
     }

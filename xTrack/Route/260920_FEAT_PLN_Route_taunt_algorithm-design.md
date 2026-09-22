@@ -1302,13 +1302,15 @@ so a drag now costs the work of **one** search — 864 ms of search, 292 of harv
 stacking of many.
 
 **The order, re-priced on that.** A lever is worth taking where it moves the quantity the counters name, and every row
-carries the guard that says it did not quietly change the line.
+carries the guard that says it did not quietly change the line — and that guard is the **six metrics and the drawn line**,
+never the counters themselves: a lever that cuts the questions cuts the memo entries with them, so `judgeAsked` and
+`judgeMemoHits` move whenever the sampling does, and a counter pair cannot stand as the thing a line is accepted on.
 
 | step | what it touches | what it buys — a reading, or its own measurement | guard | whose |
 |---|---|---|---|---|
 | a · **the device reading** | nothing | the true split: 1 416 ms of wall clock = harvest 292 · graph 220 · search 864 on a desktop | none | the user's |
-| b · **the box kept across searches** (item 8's technical half) | the harvest and the graph — **512 ms of the 1 416** | a drag moves the corridor by metres, not by cells: one superset box serves the next aims until a corridor leaves it | the two inshore pairs, the grown-corridor probe, and an assertion that a reused graph answers the **same** line | the agent's, inside an item the device split still owns |
-| c · **a cheaper water question** | the 601 ms inside the fit — the point query and the per-chord wall walk | whatever the question's own cost falls by, on the **91 %** of questions that are new work | the six metrics, and the line unchanged | the agent's, on the metrics |
+| b · **the box kept across searches** (item 8's technical half) | the harvest and the graph — **512 ms of the 1 416** | a drag moves the corridor by metres, not by cells: one superset box serves the next aims until a corridor leaves it | the two inshore pairs, the grown-corridor probe, and an assertion that a reused answer is **never dearer** than a cold one — the divergence accepted 2026-09-21, §19.7 | the agent's, inside an item the device split still owns |
+| c · **a cheaper water question** | the 601 ms inside the fit — the point query and the per-chord wall walk | whatever the question's own cost falls by, on the **91 %** of questions that are new work | **the six metrics and the drawn line, never the counters** — a cheaper question cuts the memo entries with the questions, so the judge's own pair moves | the agent's, on the metrics |
 | d · **the corridor made narrower** (item 7) | the harvest **and** the graph — 512 ms — plus the pairs | pairs, walls and memory; **the search does not move** | **none as written**: the two refused pairs are refused by `START_OFF_WATER` *before* the corridor is built (§17 item 5), so a real guard — a pair whose only way round lies beyond the margin — has to be built first; and row **b reaches the same 512 ms without touching the containment guarantee** | the user's |
 | e · **candidate turns pruned by angle** (§19.2 row 3) | the state space, at 1.6 candidates a fit | little: the ladder is already lean | the line may change | the user's if it moves |
 | f · **the invented vertex prune** | the pair loop and the memory — **not** the search | priced below | the six metrics | the user's |
@@ -1332,8 +1334,11 @@ outside the corridor box, the box being convex, so no leg from that corner can e
 metres and cannot change the line, and buys so little that it is recorded only to say it was considered.
 
 **The measurement protocol, tightened by the instrument.** A lever that moves neither `candidatesBuilt` nor
-`candidateWaterMillis` cannot move the search, so it is judged on that pair **before** the wall clock is read; and the
-same code read 792 ms and 864 ms on two runs, so a wall-clock claim is a pair of runs or it is not made.
+`candidateWaterMillis` cannot move the search, so that pair is a **pre-screen and nothing more** — it says whether there is
+anything to measure, never whether the lever is safe, and it cannot be the guard its own item is accepted on. **That guard
+is the six metrics and the drawn line** (row c): fewer point questions mean fewer memo entries, so `judgeAsked` and
+`judgeMemoHits` move with the sampling itself. And the same code read 792 ms and 864 ms on two runs, so a wall-clock claim
+is a pair of runs or it is not made.
 
 ### 19.4 The terrain kept for a box — planned 2026-09-21 for the run on walk item 8
 
@@ -1490,3 +1495,151 @@ memo` beside a 0 ms search), which is why a degenerate answer can print a large 
 the machine that target belongs to — which is the plan's first item and the only gate on the rest; and the metres between
 the warm line and the cold one, which this channel cannot carry, its line holding no length, C3's harness being where
 that reading lives.
+
+### 19.7 The divergence accepted — 2026-09-21, the user's word on the measured numbers
+
+**The decision, and what it rests on.** The cache may keep a warm answer that differs from a cold one, provided it is
+**never dearer** for the same aim: the user's word of 2026-09-21, taken on walk item 6's reading — the warm line standing
+**0.00 m** from the cold one on four of the six aims and **19.42 m** on two, 340 m of line past the bound, against a
+**12.5 m** policy and its honest **25 m** analogue — and on §19.5's C3, which named the choice and its two ways out.
+**The slice is not built**, and nothing about the terrain or the graph cache moves: the licence stays the terrain's
+identity plus the pace, and the fallback stays today's rebuild.
+
+**The guard re-scoped, and the slack it carries.** Where the reuse guard asserted **identity** it now asserts **price**: a
+reused answer may differ from a cold build's for the same aim and must not be dearer, the slack being the reading's own
+band — **0.01 s absolute, ~6e-6 relative** — held in one home (`TautReuseGuard` in the harness), and the band's reason is
+that the quantity compared is a **clock**, whose seconds move by more than that between runs on identical code (§19.3's
+pair of runs). The licence's own KDoc, and `TautTerrain`'s, `TautGraphBase`'s and the engine's, now say the same thing:
+the **graph** is the cold graph field for field — which is why the boundary is not statistical — while the **answer** is
+judged by its price. Two of `TautTerrainTest`'s five readings changed shape to carry it (`… answers no dearer`, a gap of
+**0.000 s** against the 0.010 s band) while the ends' rows, the zone-carrying reading, the pace and moved-world rebuilds
+and the licence-at-its-own-type reading kept their claims; the guard is pinned **red** on a forced gap of the band +
+0.25 s and green on the real path.
+
+**The contradiction this pass found in its own record.** Re-read at three decimals, the drag's six aims carry
+**+0.008 · +0.006 · +0.015 · −0.962 · −0.094 s** against bands of 0.0102–0.0111 s, so the third of them stands **0.004 s
+past** the band, and the earlier "+0.01 s on three aims" was two-decimal rounding. The harness measures and does not gate,
+so the band and the acceptance stand exactly as the word set them — and the figure is recorded here rather than smoothed
+away.
+
+### 19.8 The cheaper point question — walk item 12 priced, and the walk that landed — 2026-09-22
+
+**What the point question is made of, read at last.** A test-only instrument — a counting wrapper around the harness's own
+world, deleted with the pass, nothing under `main/` touched to take the reading — split the point's own calls on the
+acceptance pair over two runs: the questions unchanged at **76 808 points**, 65 754 memo misses entering `isWater`, 65 970
+depth samples and 31 306 offset questions, of which **isWater 441 · 297 ms**, the **offset question 236 · 139 ms** and the
+**grid 13 · 9 ms**. So **97 % of the point's price is the coast index's walk** — twice over in the untrusted branch, which
+is **48 %** of the questions (trusted 34 185 · untrusted 31 785) — and the depth grid's bilinear sounding is 2–3 %. The
+offset walk's own answers say why it is dear: **937 within 50 m**, then 2 555 at 50–200, 11 847 at 200–500 and **16 574 at
+500–1 500 m** — thousands of ring expansions to settle a 50 m threshold. The index's two queries on their own, by distance
+to the coast: `isWater` ≈ 4.0–4.4 µs against `query`'s 3.9–4.1 near shore, 7.3 against 6.5 at 500–1 500 m.
+
+**The three candidates, each priced twice through that one instrument.**
+
+| candidate | what it is | its own price | verdict |
+|---|---|---|---|
+| **A · the offset asked at its own radius** | an `isWithinM` capped walk in the index, a defaulted seam member, one call changed in the field | offset question **236 · 139 → 174 · 147 ms** | **refused**: inside the spread, and dearer where the mass sits — 13.4 µs against 3.9 at 50–200 m, 11.0 against 3.9 at 200–500, because a witness exists on only 553 of 31 306 calls. Its answers were exact (28 004 points, 0 differences); its whole apparatus was reverted |
+| **B · each cell visited once per query** | the ring's own perimeter instead of the square's re-collection, and a per-query stamp instead of two `HashSet`s | **isWater 327 · 280 → 101 · 90 ms** · wall **1 312 · 758 → 543 · 540** · search 787 · 600 → 403 · 400 · water 513 · 461 → 271 · 264; on its own: 4.1 → 1.9 µs near shore, 7.1 → 1.8, 3.8 → 1.8, 6.4 → 2.6 | **built** |
+| **C · B plus a bounding-box prefilter** | a conservative lower bound taken at the largest latitude in play | wall **556 · 539** against B's 543 · 540, isWater 114 · 102 against 101 · 90 — and it **moved one answer** of 28 004 | **refused on both counts**: the bound's arithmetic costs more than the exact test it spares, and a cheaper question that answers differently is a defect |
+
+**And the one lever deliberately not priced.** Fusing the two coast answers into a single walk — the only way the untrusted
+branch stops asking the coast twice — would need a member returning two different winners, and B's price puts the whole
+second walk at roughly 60 ms of the pair's ~1 000; it is recorded as a lever of record with that ceiling rather than taken.
+
+**The shipped reading, in the harness's own currency — a pair of runs.** Acceptance pair **54 vertices · 307° · worst 30° ·
+5.44 km · 27.40 min**, the recorded line to the digit, map **431 · 3 645 · 92 665** unchanged, crossings 30 · in-margin
+0.17 km · berth 135.90 s; split **279 · 154 · 503 ms** (wall 993) and **293 · 166 · 544 ms** (wall 1 060) against §19.3's
+**335 · 212 · 817** (1 428) and **321 · 221 · 729** (1 315); and the fit's own inside, draw 20 · 23 ms against **water
+202 · 216 ms** where the same pair read **539 · 446** before. **The 444 · 460 ms ceiling is beaten** — the points' own share
+is now under 200 ms of it — with the six metrics, the map, the fits (6 274), the stations (3 871) and the question counts
+(144 405; points 76 808 · chords 67 597 · 11 416 from the memo) all unmoved, which is the shape a cheaper *answer* has.
+
+**Why the answer cannot move — structural first, measured beside it.** The cells a ring adds are exactly the perimeter of
+the clipped square, and the old walk's own dedupe meant each segment was first tested in row-major order over that
+perimeter, the order the new loop visits it in, so the strict `d < bestDist` tie-break sees the same candidates in the same
+sequence; the stop conditions, the `mainlandOnly` skip and the clip to the grid are unchanged. Measured: the instrument
+compared the two walks on **28 004 points** — a random spread of the corridor, ±30 m offsets off the coastline's own
+segments, its vertices, and the three pairs' ends — with **0 distance differences and 0 water differences**.
+
+**The guard, and what it found on its first run.** `CoastlinePointWalkTest` pins the walk's distance against a **brute-force
+minimum over every segment the index holds** — read from the index's own `usableSegments`, so the drop filter stays in its
+one home — and the water answer against the side test where the closest point is interior to its segment, with the island
+override counted where it fires: **1 600 points · 5 650 segments · worst distance gap 0.0e+00 m · mainland side 492 · island
+reads as land 22 · closest on a vertex 1 050 · water mismatches 0**. It ran **red first**, at **676.89 against 664.09 m**,
+and the gap was the oracle's own: brute-forcing the raw file demands a distance to the discarded 13 m sliver the index drops
+by design.
+
+**The control this lever can have is a price, not a red test, and that is stated rather than worked around.** The two walks
+answer **identically by construction**, so no assertion on an answer can tell them apart — a red-on-revert control would
+have to assert a *cost*, and a wall-clock gate is the one thing this plan refuses to make a gate (§19.3: the same code read
+792 and 864 ms on two runs). What catches the revert is therefore the **pair of water figures** the harness prints —
+539 · 446 ms before, 202 · 216 ms after — read beside counters that show the sampling never moved (points 76 808 · chords
+67 597). A lever of the *cheaper answer* kind has the line for its guard and the price for its control; the guard test's own
+job is the opposite one, the **equality** that says no answer moved.
+
+**What this is not, and the surface it touched.** No setting, no dependency and no experimental switch is left in the tree —
+the three-way switch the candidates were priced through is gone, and A's and C's code never shipped. `inCoastalBandAt` asks
+the same kind of capped question per vertex and per leg and now reads the cheaper walk with no line of its own changed. The
+edit itself is in **`CoastlineSpatialIndex`**, the coastline feature's file: a shared-surface edit beyond the route's own
+collision list, taken because the lever *is* that walk and because every reader of the index pays it — the map's
+distance-to-shore, the land/water icon and the zone builders among them — which is also why the guard is drawn over the
+region's own coastline and not over the corridor alone. Guards re-read after the edit: the two inshore pairs refused **by
+name** (`START_OFF_WATER`), the grown-corridor probe *only a priced crossing* (30 legs, 429 vertices), the reuse guard's
+price verdict unmoved (**never dearer true**, gap 0.000 s of 1 644.23 s against the 0.010 s band); **9 suites · 67 tests ·
+0 failures** under `-Dmaro.prebake=true`, the harness green, `apk-build.bat` green with no new warnings.
+
+### 19.9 The two levers priced last — the corridor and the vertex prune, both refused — 2026-09-22
+
+**What was priced, and how it was read.** Walk item 9's two >3 s levers, measured on the prebaked `nice-menton` world through a
+**temporary test-only instrument deleted with the pass**: the corridor built from a margin the probe passes in (its own box proved
+equal to `TautGraph.corridorBox` at the shipped 1 NM at both growths), the prune through a temporary `window` argument on
+`TautObstacles.harvest` — `null` in the shipped tree again — and **every millisecond read only after a warm-up run thrown away**,
+because the first pipeline in a JVM read a 535 ms search where the warm one reads ~300. That caution belongs at the head of a run
+as much as between two of them.
+
+**The corridor's guard, hunted rather than assumed.** The item's guard was vacuous, so one was built: coastal water points either
+side of a headland, chords over land ranked deepest-first, each run at the shipped margin and at every narrower one. On this water
+**3 of 3 candidates answered at 1.0 NM and 2 were LOST by a narrowing** — e.g. `[43.4291, 6.8676] → [43.5129, 6.9389]`, an
+11.0 km chord wholly over land, answering at 1.0 / 0.5 / 0.25 NM and refused *grown* at 0.0 — so the containment guarantee is
+**real and spent**, and a narrowing is not a blind one.
+
+**The corridor's price, as a pair of runs.** The acceptance pair, margin 1.0 → 0.5 → 0.25 → 0.0 NM: vertices **431 → 401 → 393 →
+380**, corners 381 → 351 → 343 → 330, edges 3 645 → 3 266 → 3 150 → 3 014, pairs **92 665 → 80 200 → 77 028 → 72 010**, harvest
+**45 · 49 → 26 · 23 ms** and graph **54 · 58 → 43 · 57 ms**, with the drawn line **the recorded one to the digit at every margin**
+(54 · 307° · worst 30° · 5.44 km · 27.40 min). So halving the *rough* margin buys **13.5 % of the pairs** and halving the
+**effective** corridor buys **22 % of the pairs and 12 % of the vertices** — because the corridor's width is
+`CORRIDOR_MARGIN_NM + OBSTACLE_REACH_NM` and the **reach is the sizing clamp the margin lever never touches**. Projected on
+§19.6's own phone ratios (harvest ~10×, graph ~35×) the lever is **≈ 0.2 s of harvest plus a graph figure that sits inside the
+run-to-run spread** — **≲ 0.7 s even read at its best, three to seven times short** of the −3 to −5 s it was taken on, with the
+**pairs its only deterministic witness**. *Walk item 9's own phrasing is corrected by this paragraph: "an order of magnitude short"
+states a 3–7× gap, and "≈ 0.7 s projected" is the best reading of a delta the spread swallows.*
+
+**The vertex prune's price, and the guard that refused it.** The rule read as a per-piece support vertex toward the two ends:
+vertices **431 → 169**, corner vertices 381 → 119, pairs **92 665 → 14 196** (−84.7 %), edges **3 645 → 697**, graph
+**56 · 58 → 13 · 11 ms** (deltas of 43 and 47, agreeing across the pair), harvest unchanged at **49 → 49 · 50 ms**. But the
+**line moves** — 54 · 307° · worst 30° · 5.44 km · 27.40 min becomes 49 · 193° · worst 18° · 6.81 km · 20.41 min, crossings
+30 → 32, in-margin 0.17 → 3.42 km and the berth's courtesy 135.90 → 724.45 s — so its own acceptance (**the same six metrics**)
+**fails**, and the search's fall (296 · 315 → 90 · 79 ms, stations 3 871 → 903) is the *line* moving rather than a pair-count lever
+cheapening a per-corner search. **Row f is corrected here:** its "the search does not move" holds *only while the line is held* —
+the same condition its own acceptance imposes — so the row cannot claim both a 93 %-per-corner search and a four-fifths pair cut
+without naming what the cut spends. Its own price, the pair loop and the memory, is **≈ 45 ms of graph, ≈ 1.6 s projected** —
+under the order's three — so it is **refused on both counts**.
+
+**Rows e and g, and the finding this pass carries rather than fixes.** Rows **e** (turns pruned by angle) and **g** (the weighted
+heuristic) were not priced: the harness's own split refuses **e** without a run — **6 274 fits and 9 798 candidates over 3 871
+stations, 1.6 of each a station** — and **g** is the trade of optimality for speed §19.1 names as *the user's to make and not this
+pass's to assume*. **One reading could not be attributed, and the cause is named:** the same guard candidate read **1023 vertices
+in one run and 971 in another** on the same coordinates, while three harvests of one box inside a run agreed to the digit (370 twice,
+401 twice, 971 three times) and the acceptance pair read 431 · 3 645 · 92 665 in every run. [`DepthIsobaths`](app/src/main/java/ykws/android/maro/data/depth/DepthIsobaths.kt:127)
+breaks a tie in a contour line's dominant source through `HashMap<DepthSource, Int>` iteration order — identity-hashed over an
+**enum** key, so it differs **between JVM runs** — which moves the 2 m contour's wall set and with it a route's own walls: a
+**wall set that is not reproducible across launches**, contradicting §16 step 9, §17 item 5 and §19.5's "the graph is the cold graph
+field for field". It is a fix in the **depth feature's own file**, needs the user's word, and is recorded for ordering rather than
+taken.
+
+**Nothing ships.** No production file is changed by this pass: the instrument is deleted, the harvest's `window` is reverted and no
+residue is left. Guards re-read on the reverted tree: acceptance pair **54 · 307° · worst 30° · 5.44 km · 27.40 min**, map
+**431 · 3 645 · 92 665**, crossings 30 · in-margin 0.17 km · berth 135.90 s; both inshore pairs refused **by name**
+(`START_OFF_WATER`); the grown-corridor probe **only a priced crossing** (30 legs, 429 vertices); the reuse guard **never dearer
+true** (0.000 s of 1 644.23 s against the 0.010 s band); **8 suites · 66 tests · 0 failures** and the harness green under
+`-Dmaro.prebake=true`; `apk-build.bat` green with no new warnings.

@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial
 
+import java.util.concurrent.atomic.AtomicInteger
 import ykws.android.maro.data.model.CoastlineDistanceResult
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.LatLng
@@ -130,6 +131,14 @@ class CoastlineSpatialIndex(
 
     /** `true` when the index has coastline data to query. */
     val hasData: Boolean get() = segmentRefs.isNotEmpty()
+
+    /**
+     * **One mark per segment, holding the stamp of the query that last saw it** — [nearestRef]'s own
+     * dedupe, which needs no `HashSet` and no allocation per query. Empty until `init` flattens the
+     * segments, and every query takes a stamp of its own, so a mark left by an earlier query is never
+     * equal to this one's and the segment is simply re-tested rather than wrongly skipped.
+     */
+    private var seen: IntArray = IntArray(0)
 
     // ── Coastline gap audit ──────────────────────────────────────────────────
 
@@ -304,6 +313,7 @@ class CoastlineSpatialIndex(
                 }
             }
             segmentRefs = refs
+            seen = IntArray(refs.size)
 
             // Cap longitude extent (combined span of all OPEN mainland-coast polylines).
             var mlMin = Double.MAX_VALUE; var mlMax = -Double.MAX_VALUE
@@ -667,7 +677,26 @@ class CoastlineSpatialIndex(
         return true
     }
 
-    /** Ring-expanding nearest-segment search used by [query]. */
+    /** One stamp per query, so the walk's own dedupe allocates nothing — the wall index's own idiom. */
+    private val stamp = AtomicInteger(0)
+
+    /**
+     * Ring-expanding nearest-segment search used by [query] and [isWater].
+     *
+     * **Each cell is visited once per query.** The walk used to collect the **whole** `(2r+1)²` square at
+     * every ring into a fresh `LinkedHashSet` and then dedupe it through a second `HashSet`, so a ring the
+     * walk had already left was scanned again at every ring after it — a stop at ring 4 read 165 cells
+     * where the new cells number 81 — and every query paid two set allocations and a hash per candidate.
+     * It now walks the ring's own perimeter and marks the segments it has seen with a per-query stamp,
+     * which is the idiom this class's `WallIndex` sibling has used since §17 item 7.
+     *
+     * **The answer cannot move, and that is structural rather than measured.** The cells a ring adds are
+     * exactly the perimeter of the clipped square, and the old walk's own dedupe meant each segment was
+     * first tested in row-major order over that perimeter — the order this loop visits it in — so the
+     * strict `d < bestDist` tie-break sees the same candidates in the same sequence and lands on the same
+     * segment rather than on an equally distant one. The stop conditions, the `mainlandOnly` skip and the
+     * clipping of the ring to the grid are all unchanged.
+     */
     private fun nearestRef(latitude: Double, longitude: Double, mainlandOnly: Boolean = false): SegmentRef? {
         if (!hasData) return null
 
@@ -675,20 +704,39 @@ class CoastlineSpatialIndex(
         val row = ((latitude  - minLat) / cellSizeLat).toInt()
         val col = ((longitude - minLon) / cellSizeLon).toInt()
         val maxRing = max(rowCount, colCount)
+        val query = stamp.incrementAndGet()
 
-        val processed = HashSet<Int>()
         var bestDist = Double.MAX_VALUE
         var bestSegIdx = -1
 
         for (ring in 0..maxRing) {
-            for (segIdx in collectRing(row, col, ring)) {
-                if (!processed.add(segIdx)) continue   // already evaluated in an inner box
-                val ref = segmentRefs[segIdx]
-                if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
-                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
-                if (d < bestDist) {
-                    bestDist = d
-                    bestSegIdx = segIdx
+            val rMin = (row - ring).coerceAtLeast(0)
+            val rMax = (row + ring).coerceAtMost(rowCount - 1)
+            val cMin = (col - ring).coerceAtLeast(0)
+            val cMax = (col + ring).coerceAtMost(colCount - 1)
+            for (r in rMin..rMax) {
+                // The ring's own perimeter: an interior cell was visited by an earlier ring, and the
+                // square's second visit to it is exactly what this walk removed.
+                val full = r == rMin || r == rMax
+                var c = cMin
+                while (c <= cMax) {
+                    if (full || c == cMin || c == cMax) {
+                        val bucket = grid[GridCell(r, c)]
+                        if (bucket != null) {
+                            for (segIdx in bucket) {
+                                if (seen[segIdx] == query) continue  // already evaluated in an inner ring
+                                seen[segIdx] = query
+                                val ref = segmentRefs[segIdx]
+                                if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
+                                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
+                                if (d < bestDist) {
+                                    bestDist = d
+                                    bestSegIdx = segIdx
+                                }
+                            }
+                        }
+                    }
+                    c++
                 }
             }
 
@@ -710,30 +758,6 @@ class CoastlineSpatialIndex(
         segmentId = "",
         isMainland = true
     )
-
-    // ── Grid helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * Collects all unique segment indices from the cells at the given
-     * [ring] distance from `(centerRow, centerCol)`.
-     *
-     * Ring 0 = just the centre cell. Ring 1 = centre + 8 neighbours (9 cells).
-     * Ring N = all cells within Manhattan-distance N of the centre.
-     */
-    private fun collectRing(centerRow: Int, centerCol: Int, ring: Int): Set<Int> {
-        val result = mutableSetOf<Int>()
-        val rMin = (centerRow - ring).coerceAtLeast(0)
-        val rMax = (centerRow + ring).coerceAtMost(rowCount - 1)
-        val cMin = (centerCol - ring).coerceAtLeast(0)
-        val cMax = (centerCol + ring).coerceAtMost(colCount - 1)
-
-        for (r in rMin..rMax) {
-            for (c in cMin..cMax) {
-                grid[GridCell(r, c)]?.let { result.addAll(it) }
-            }
-        }
-        return result
-    }
 
     private companion object {
         /** Degrees within which a projected closest point is treated as coincident with a vertex (~1 cm). */

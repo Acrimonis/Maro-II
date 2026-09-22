@@ -113,12 +113,17 @@ internal enum class TautRefusal {
  * the box, the zones and the pace and **never of the ends** — [TautGraphBase] holds them while
  * [TautTerrain] holds the corridor, and a licensed reuse rebuilds the two ends' rows alone, O(N) where the
  * build is O(N²). Where the licence fails — another terrain instance, another pace — the graph is rebuilt
- * exactly as it was before this step, and the reused graph is the cold graph's own line.
+ * exactly as it was before this step, cold in every part.
  *
  * What a reuse promises about the answer is **never narrower and never dearer**, not "unchanged": on a
  * reuse the graph is built over the kept box, so a moved aim searches a graph that is a superset of a cold
- * search's, and a taut line over a superset may differ while being no slower. Whether it does is a
- * measurement rather than an argument (§19.5 C3), which is why the moved-aim reading exists.
+ * search's, and a taut line over a superset may differ while being no slower. Whether it does was measured
+ * rather than argued, and §19.5 C3's drag reading is the measurement: the warm line stood 0.00 m from the
+ * cold one on four of the six aims and 19.42 m on two, dearer by **0.01 s** on three and cheaper on the two
+ * it diverges on — so **the divergence is accepted at the user's word (2026-09-21)**, and the guard on the
+ * answer is a **price** one: a reused answer may differ from a cold build's for the same aim and must not
+ * be dearer, within the reading's own band of 0.01 s absolute and ~6e-6 relative. Nothing about the cache's
+ * key changed — the licence is still the terrain's identity plus the pace.
  *
  * Cancellation is cooperative, checked between the steps of the build and of the search, so a flung map
  * drops the search in flight rather than queueing one per aim.
@@ -464,6 +469,8 @@ class TautRouteEngine internal constructor(
             candidateWaterMillis = outcome.candidateWaterMillis,
             judgeAsked = obstacles.judgeAsked,
             judgeMemoHits = obstacles.judgeMemoHits,
+            pointsAsked = obstacles.pointsAsked,
+            chordsAsked = obstacles.chordsAsked,
             largestTurnRadiusM = outcome.largestRadiusM,
             chordDeviationM = outcome.chordDeviationM,
             samplingSec = outcome.samplingSec,
@@ -493,7 +500,8 @@ class TautRouteEngine internal constructor(
                 "${outcome.fitsBuilt} (${outcome.fitMillis} ms) · clock ${outcome.clockCalls} call(s) " +
                 "(${outcome.clockMillis} ms) · candidates ${outcome.candidatesBuilt} (draw " +
                 "${outcome.candidateBuildMillis} ms, water ${outcome.candidateWaterMillis} ms) · judge " +
-                "${obstacles.judgeAsked} asked, ${obstacles.judgeMemoHits} from the memo"
+                "${obstacles.judgeAsked} asked (points ${obstacles.pointsAsked} · chords " +
+                "${obstacles.chordsAsked}), ${obstacles.judgeMemoHits} from the memo"
         )
         return RouteResult.Success(
             points = outcome.points,

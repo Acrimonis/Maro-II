@@ -70,8 +70,17 @@ internal data class TautTerrainKey(
  * what a **cold search could have built from it**, not merely inside the box that was kept (§19.5 C2,
  * [`TautGraph.coldBoundBox`]). It removes the harvest from every search after the first, and what it
  * promises about the answer is **never narrower and never dearer** rather than "no input changed": the
- * graph is built over the kept box, so a reused corridor is a superset of cold's, and the acceptance is
- * that the line does not move.
+ * graph is built over the kept box, so a reused corridor is a superset of cold's, and the guard on the
+ * answer is therefore a **price** one rather than an equality — a reused answer **may differ** from a cold
+ * build's for the same aim and must not be **dearer**.
+ *
+ * **§19.5 C3's drag reading is what re-scoped it**, taken as the decision at the user's word on 2026-09-21:
+ * the warm line stood **0.00 m** from the cold one on four of the six aims and **19.42 m** on two, dearer
+ * by **0.01 s** on three and cheaper on the two it diverges on, so "the same line" is not a promise this
+ * cache can make. The slack is the reading's own band — **0.01 s absolute, ~6e-6 relative** — and it exists
+ * because the quantity compared is a clock whose own seconds move by more than a hair between runs on
+ * identical code (§19.3's pair of runs), so a guard tighter than the reading would fail on the machine
+ * rather than on the code. The licence beside it is untouched: the terrain's identity plus the pace.
  *
  * **The band is built off the obstacles' own frame**, not off a frame of its own: the corridor keeps one
  * projection for every measurement in the search, and a second frame would make two pieces of arithmetic

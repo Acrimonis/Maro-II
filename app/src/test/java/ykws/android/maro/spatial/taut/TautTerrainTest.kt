@@ -15,15 +15,16 @@ import ykws.android.maro.data.model.RouteResult
  * **The terrain kept for a box, read where it can be read** (§19.4, b1).
  *
  * The change is deliberately invisible — it removes work, not geometry — so the assertions here are about
- * the **pair** §19.4 names: the dossier's `terrainReused` beside the work that was not done, with the line
- * compared to a cold engine's so that "the same answer" is a reading rather than a claim. Two controls
+ * the **pair** §19.4 names: the dossier's `terrainReused` beside the work that was not done, with the
+ * answer compared to a **cold** engine's **by price** — never dearer, within the reading's own band, the
+ * guard §19.5 C3's accepted divergence re-scoped from *the same line* to *never dearer*. Two controls
  * stand beside it, because a flag that is always true would satisfy the first test alone: a corridor that
  * **leaves** the kept box must harvest, and a world whose **generation moved** must harvest, each of them
  * asserted to answer exactly what a cold engine answers all the same.
  *
  * **And the graph kept beside that terrain** (§19.6), read the same way and with controls of its own: the
  * second search's build examines the two ends' rows alone — `2 · vertices − 3` pairs against a cold
- * build's `N(N−1)/2`, over the same edges — and answers a **cold** engine's own line. A pace the base was
+ * build's `N(N−1)/2`, over the same edges — and answers **no dearer** than a cold engine's line. A pace the base was
  * not priced at must rebuild it, a moved world must rebuild it with the terrain, and the licence itself is
  * read at its own type. A last reading covers the one place the corner set depends on the ends at all: an
  * aim resolved off the water onto a corner, which a cold build dedupes away and a reuse must too.
@@ -124,13 +125,35 @@ class TautTerrainTest {
         answer.details as? TautRouteDetails ?: error("the tracer's own dossier is missing")
 
     /**
+     * **The guard the reuse is read through since the divergence was accepted** (§19.5 C3, 2026-09-21): a
+     * reused answer **may differ** from a cold build's for the same aim and must not be **dearer**. The
+     * equality it replaced claimed the reused answer *is* the cold one, which C3's drag reading refuted —
+     * the warm line stood 19.42 m from the cold one on two of six aims and was dearer by 0.01 s on three.
+     *
+     * The slack is [TautReuseGuard]'s own band rather than a number chosen here, so the harness's moved-aim
+     * verdict and this assertion cannot drift apart; and the band is the reading's own size because the
+     * quantity compared is a clock, whose seconds move between runs on identical code.
+     */
+    private fun assertNoDearerThanCold(
+        what: String,
+        warm: RouteResult.Success,
+        cold: RouteResult.Success
+    ) {
+        assertTrue(
+            "$what is never dearer than a cold build's: ${warm.durationSec} s against " +
+                "${cold.durationSec} s (band ${TautReuseGuard.bandSec(cold.durationSec)} s)",
+            TautReuseGuard.neverDearer(warm.durationSec, cold.durationSec)
+        )
+    }
+
+    /**
      * **The pair §19.4 asks for: the flag, and the work that did not happen.**
      *
      * The first search of a fresh engine harvests (the flag is false, the world is asked for its coastline,
      * the harvest's milliseconds are spent); the second hand the same aim to the same engine reuses the
-     * terrain (`terrainReused` true, `landReads` unmoved, a harvest of milliseconds) and answers the **same
-     * line** — compared whole, and against a **cold** engine's on the same aim rather than only against the
-     * first search, so a cache that answered something slightly different could not pass.
+     * terrain (`terrainReused` true, `landReads` unmoved, a harvest of milliseconds) and answers **no
+     * dearer** than a **cold** engine's on the same aim — compared by price within the reading's band
+     * rather than by identity, so a cache that spent more seconds than a cold build could not pass.
      *
      * The same aim is the case §19.5 C2's licence holds by construction: a cold search rebuilds the very
      * box the terrain was harvested for, so the kept box holds it exactly, and this test is the cache's
@@ -141,7 +164,7 @@ class TautTerrainTest {
      * controls below rather than here.
      */
     @Test
-    fun `a kept terrain is reused by the second search and answers the same line`() = runBlocking {
+    fun `a kept terrain is reused by the second search and answers no dearer`() = runBlocking {
         val testWorld = world()
         val engine = engine(testWorld)
 
@@ -175,15 +198,20 @@ class TautTerrainTest {
             testWorld.landReads
         )
 
-        // The same line, on all three of the quantities a reader of the plan sees. The cold engine is a
-        // second engine over the same world, so its own first search is a genuinely independent harvest.
+        // **The re-scoped guard: price, not identity** (§19.5 C3, taken at the user's word 2026-09-21). The
+        // cold engine is a second engine over the same world, so its own first search is a genuinely
+        // independent harvest, and what the reuse owes is that its answer is **no dearer** — read on the
+        // plan's own clock and printed rather than left to the assertion.
         val cold = success(engine(testWorld).route(start, aim, cruiseKn))
-        assertEquals("a cold engine on the same aim draws the same vertices", cold.points, second.points)
-        assertEquals("at the same leg times", cold.legTimesSec, second.legTimesSec)
-        assertEquals("over the same distance", cold.distanceM, second.distanceM, 0.0)
-        assertEquals("and to the same second", cold.durationSec, second.durationSec, 0.0)
+        println(
+            "terrain reuse · the reuse's own answer against a cold build's: ${second.durationSec} s " +
+                "against ${cold.durationSec} s — gap " +
+                "${"%.3f".format(second.durationSec - cold.durationSec)} s, band " +
+                "${"%.3f".format(TautReuseGuard.bandSec(cold.durationSec))} s"
+        )
+        assertNoDearerThanCold("the reused terrain's answer", second, cold)
         assertTrue(
-            "the line the comparison is made on really has a bend in it",
+            "the line the price is read on really has a bend in it",
             second.points.size > 2
         )
     }
@@ -570,7 +598,7 @@ class TautTerrainTest {
     }
 
     /**
-     * **The graph's own reading: the rows alone, and the same line** (§19.6).
+     * **The graph's own reading: the rows alone, and no dearer than a cold build** (§19.6).
      *
      * The first search of a fresh engine builds the base — the corner harvest and the quadratic scan — and
      * the second, on the same terrain and the same pace, examines the two ends' rows alone. The pair
@@ -578,15 +606,16 @@ class TautTerrainTest {
      * `2 · vertices − 3` for the reuse, with the same edges behind them, because a reuse that dropped a
      * corner's edges would be a graph the search could not walk the way it walked the first.
      *
-     * The line is compared to a **cold engine's** on the same aim and not only to the first search's, so a
-     * cache answering something slightly different could not pass on the strength of its own history.
+     * The answer is compared to a **cold engine's** on the same aim and not only to the first search's, by
+     * price rather than by identity, so a cache spending more seconds than a cold build could not pass on
+     * the strength of its own history.
      *
      * Revert it catches: ignoring the licence, where the second search pays the corner scan again and the
      * pair count says so; and rebuilding the ends' rows without the corners, or the corners without them,
      * where the edge count and the line both move.
      */
     @Test
-    fun `a kept graph serves the second search and answers the same line`() = runBlocking {
+    fun `a kept graph serves the second search and answers no dearer`() = runBlocking {
         val testWorld = world()
         val engine = engine(testWorld)
 
@@ -636,11 +665,17 @@ class TautTerrainTest {
         assertTrue("a cold engine builds rather than reuses", !coldDetails.graphReused)
         assertEquals("and keeps the same vertices", vertices, coldDetails.vertexCount)
         assertEquals("and the same corner count", secondDetails.cornerCount, coldDetails.cornerCount)
-        assertEquals("draws the same line", cold.points, second.points)
-        assertEquals("at the same leg times", cold.legTimesSec, second.legTimesSec)
-        assertEquals("over the same distance", cold.distanceM, second.distanceM, 0.0)
-        assertEquals("and to the same second", cold.durationSec, second.durationSec, 0.0)
-        assertTrue("the line the comparison is made on really has a bend in it", second.points.size > 2)
+        // **The graph is the cold graph's; the answer is judged by price** (§19.5 C3). The two entrances
+        // agree vertex for vertex and edge for edge above — what a reuse may move is the line the search
+        // draws over the kept box, and it owes that it is no dearer than a cold build's.
+        println(
+            "kept graph · the reuse's own answer against a cold build's: ${second.durationSec} s " +
+                "against ${cold.durationSec} s — gap " +
+                "${"%.3f".format(second.durationSec - cold.durationSec)} s, band " +
+                "${"%.3f".format(TautReuseGuard.bandSec(cold.durationSec))} s"
+        )
+        assertNoDearerThanCold("the reused graph's answer", second, cold)
+        assertTrue("the line the price is read on really has a bend in it", second.points.size > 2)
     }
 
     /**
@@ -902,6 +937,50 @@ class TautTerrainTest {
         }
         assertTrue("the build asked the caller between its rows ($asks ask(s))", abandoned)
         assertTrue("and asked more than the one check standing before its loops", asks >= 3)
+    }
+
+    /**
+     * **The guard is not vacuous: a reused answer dearer than a cold build's beyond the band is refused**
+     * (§19.5 C3's re-scope, pinned rather than argued).
+     *
+     * The pair this file's own world gives cannot show the refusal — the kept box there is the cold bound
+     * to the digit, so a reuse answers the very line a cold build would and the gap is 0.000 s — so the
+     * forced case hands the guard an answer whose seconds stand beyond the band above the cold one, which
+     * is what a drag's warm line would be if it were dearer than the reading allows. The guard **refuses**
+     * it, and the same call reads green on the real reuse.
+     *
+     * Revert it catches: widening the band, or dropping the comparison's sign, makes the forced case pass
+     * and this test red — the reading is the guard's own arithmetic rather than a restatement of it.
+     */
+    @Test
+    fun `the guard refuses a reused answer dearer than a cold build's`() = runBlocking {
+        val testWorld = world()
+        val engine = engine(testWorld)
+        engine.route(start, aim, cruiseKn)
+        val reused = success(engine.route(start, aim, cruiseKn))
+        val cold = success(engine(testWorld).route(start, aim, cruiseKn))
+
+        val forcedGapSec = TautReuseGuard.bandSec(cold.durationSec) + 0.25
+        val dearer = reused.copy(durationSec = cold.durationSec + forcedGapSec)
+
+        assertTrue(
+            "the guard reads the real reuse as no dearer than the cold build",
+            TautReuseGuard.neverDearer(reused.durationSec, cold.durationSec)
+        )
+        assertTrue(
+            "and refuses one dearer by more than the band — ${forcedGapSec} s against " +
+                "${TautReuseGuard.bandSec(cold.durationSec)} s",
+            !TautReuseGuard.neverDearer(dearer.durationSec, cold.durationSec)
+        )
+        // **The very assertion the two reuse tests use, run for real on the forced answer** — so the
+        // refusal is a thrown AssertionError rather than a value nobody reads.
+        val thrown = try {
+            assertNoDearerThanCold("the forced reuse", dearer, cold)
+            false
+        } catch (expected: AssertionError) {
+            true
+        }
+        assertTrue("and the assertion it feeds really turns red on it", thrown)
     }
 
     private companion object {

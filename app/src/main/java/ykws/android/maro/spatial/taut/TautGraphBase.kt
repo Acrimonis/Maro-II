@@ -24,15 +24,22 @@ import ykws.android.maro.data.model.RoutePoint
  * the world's generation that the corners were harvested under, so a base kept for a terrain is a base
  * whose own answers are still the water's answers.
  *
- * **The reused graph is the cold graph, field for field**, and that is the whole reason the guard can be
- * an equality rather than a tolerance. The vertex list is the same because the ends are added first in
- * both and the corners follow in their own order — with the two corners that stand **on** an end dropped,
- * which is what the build's own dedupe does to them; the edge list is the same because the ends' rows are
- * scanned in the order a cold build scans them and the kept edges follow in the order they were created,
- * so an edge carries the index a cold build would have given it; and the numbers each edge carries were
- * computed from the pair alone, under this licence, by the very arithmetic both call sites share
- * ([EdgeSink]). A differing line would therefore be a defect in this class rather than a property of
- * keeping anything.
+ * **The reused graph is the cold graph, field for field**, and that is what lets the two entrances be
+ * compared at all — the comparison is on the graph, vertex by vertex and edge by edge. The vertex list is
+ * the same because the ends are added first in both and the corners follow in their own order — with the
+ * two corners that stand **on** an end dropped, which is what the build's own dedupe does to them; the
+ * edge list is the same because the ends' rows are scanned in the order a cold build scans them and the
+ * kept edges follow in the order they were created, so an edge carries the index a cold build would have
+ * given it; and the numbers each edge carries were computed from the pair alone, under this licence, by
+ * the very arithmetic both call sites share ([EdgeSink]).
+ *
+ * **The guard on the answer is a price one, not an equality** (§19.5 C3, taken as the decision at the
+ * user's word on 2026-09-21). That the two graphs agree edge for edge does not make the two *lines* the
+ * same: a reuse hands the graph the kept box, so a moved aim may search a superset of a cold build's and a
+ * taut line over a superset may bend elsewhere. C3's drag reading measured exactly that — the warm line
+ * stood 0.00 m from the cold one on four of six aims and 19.42 m on two, dearer by 0.01 s on three and
+ * cheaper on the two it diverges on. What must hold is that a reused answer is **never dearer** than a
+ * cold build's for the same aim, within the reading's own band (0.01 s absolute, ~6e-6 relative).
  *
  * **It is read by whoever is running**, like the terrain beside it (§19.4's rule 2): a search and the
  * cancelled, unjoined predecessor it overlaps with share the base, and every field here is a `val` or an
@@ -110,7 +117,9 @@ internal class TautGraphBase private constructor(
      *
      * @param reused whether this base was **kept** from an earlier search rather than built by the caller.
      *        It changes exactly one thing: the pair count the caller's phase reports, the base's own pairs
-     *        having been paid in the search that ran [of]. The geometry is the same either way.
+     *        having been paid in the search that ran [of]. The edges offered are the same either way; what
+     *        a reuse may move is the **line the search draws over the kept box**, and the guard on that is
+     *        the price one stated at this class's head rather than an equality.
      * @param cancelCheck asked **per row** — once for every pair offered from the start's row and from
      *        the aim's, and once for every kept edge copied — so an abandoned build stops inside the
      *        assembly rather than only before it.

@@ -2,7 +2,9 @@ package ykws.android.maro.spatial.taut
 
 import java.io.File
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume
@@ -164,8 +166,10 @@ class TautRouteHarness {
      *
      * A fresh engine rather than the one above on purpose: this engine's first search is therefore genuinely
      * cold — nothing was kept before it — so the pair is the reading §19.4 asks for rather than a second
-     * reuse measured against a first. The lines are compared whole, so the fast answer is shown to be the
-     * same answer.
+     * reuse measured against a first. **The reuse's own answer is compared with that first by price, not by
+     * identity** (§19.5 C3's re-scope, taken at the user's word on 2026-09-21): the second search must be
+     * **never dearer** than the first within the reading's own band ([TautReuseGuard]), and the two lines'
+     * vertex counts are printed beside the verdict.
      *
      * **And it carries the graph's half of the story** (§19.6): the graph's own phase and pair count on
      * both searches, beside the harvest's and the wall clock's, because a keeping is only visible as a
@@ -200,10 +204,26 @@ class TautRouteHarness {
             "$firstMs ms · second: terrain reused ${secondDetails?.terrainReused}, graph kept " +
             "${secondDetails?.graphReused}, harvest " +
             "${secondDetails?.harvestMillis} ms, graph ${secondDetails?.graphMillis} ms over " +
-            "${secondDetails?.candidatePairs} pair(s), wall $secondMs ms · the same line " +
-            "${firstSuccess?.points == secondSuccess?.points} " +
+            "${secondDetails?.candidatePairs} pair(s), wall $secondMs ms · the reuse's own answer " +
+            "against the cold one: ${reuseVerdict(firstSuccess, secondSuccess)} " +
             "(${firstSuccess?.points?.size} against ${secondSuccess?.points?.size} vertices) · the " +
             "second search's own line: ${lines.lastOrNull()?.substringAfter(": ") ?: "none"}"
+    }
+
+    /**
+     * **The reuse's own answer against the cold one, as a price verdict** (§19.5 C3's re-scope): the guard
+     * is that a reused answer is **never dearer** than a cold build's, within the reading's own band
+     * ([TautReuseGuard]), rather than that the two lines are the same — which the drag's own reading
+     * refuted, the warm line standing 19.42 m from the cold one on two of six aims and dearer by 0.01 s on
+     * three.
+     */
+    private fun reuseVerdict(cold: RouteResult.Success?, warm: RouteResult.Success?): String {
+        val coldSec = cold?.durationSec
+        val warmSec = warm?.durationSec
+        if (coldSec == null || warmSec == null) return "not comparable — one search did not answer"
+        return "never dearer ${TautReuseGuard.neverDearer(warmSec, coldSec)} (gap " +
+            "${"%.3f".format(warmSec - coldSec)} s of ${"%.2f".format(coldSec)} s, band " +
+            "${"%.3f".format(TautReuseGuard.bandSec(coldSec))} s)"
     }
 
     /**
@@ -353,17 +373,35 @@ class TautRouteHarness {
         // draw wants a cheaper curve, a dear judge wants a cheaper water test. The memo's own pair closes
         // it: **a hit rate near zero says the water's milliseconds are new work per candidate**, so the
         // lever is a cheaper question or a shorter ladder rather than a cache.
+        //
+        // **What this count carries that the candidate doors do not** (the revision's own should-fix):
+        // `judgeAsked` is the **obstacles instance's** total — every `traversable` and `curveBlocked` asked
+        // of it — so beside the search's candidate questions it also carries the **build's** own, asked
+        // before the search opens: one water question per harvested corner (the filter deciding which
+        // corners become vertices), the midpoint question behind every pair that survives the wall test, and
+        // the ends' own gates. Those are counted and never timed (the clock sits in the search), which is
+        // why `points + chords` falls short of this total by a constant the sampling levers cannot move.
+        //
+        // **The judge's own split, by kind** (walk item 5): the point questions against the chord
+        // questions, beside the water's own milliseconds. They are the counters the built lever is read
+        // through — the early exit on the first blocked chord is a *point* count, so a pair of runs that
+        // does not print the two apart cannot show it — and they are **not** what the change is accepted
+        // on: the guard is the six metrics and the drawn line, a cheaper walk cutting the memo entries
+        // with the questions.
         println(
             "route harness · $name: fit inside — ${details?.candidatesBuilt} candidate(s) built · " +
                 "draw ${details?.candidateBuildMillis} ms against water " +
-                "${details?.candidateWaterMillis} ms · judge ${details?.judgeAsked} question(s), " +
-                "${details?.judgeMemoHits} from the memo"
+                "${details?.candidateWaterMillis} ms · judge ${details?.judgeAsked} question(s) — " +
+                "points ${details?.pointsAsked} · chords ${details?.chordsAsked} — " +
+                "${details?.judgeMemoHits} from the memo (the judge is the instance's, so it carries the " +
+                "build's own corner, midpoint and end questions, counted but not timed)"
         )
         // §17 item 5's lever, both halves: what the abstraction buys (the seconds the build spends) and
         // what it costs (the water it deletes, and the line quality it leaves the user to judge).
-        val toleranceM = (AppConfig.routeZoneBerthM.toDouble() * TautObstacles.TOLERANCE_FRACTION)
+        // The tolerance is read from **one home** ([ABSTRACTION_TOLERANCE_M]) rather than from a product
+        // spelled again here, which is how two copies of it could drift apart.
         println(
-            "route harness · $name: tolerance ${"%.1f".format(toleranceM)} m " +
+            "route harness · $name: tolerance ${"%.1f".format(ABSTRACTION_TOLERANCE_M)} m " +
                 "(${TautObstacles.TOLERANCE_FRACTION} of the berth) — deletes " +
                 "${"%.2f".format((details?.deletedAreaM2 ?: 0.0) / 1_000_000.0)} km² of water and leaves " +
                 "${details?.sharpCorners} sharp corner(s) of " +
@@ -433,13 +471,15 @@ class TautRouteHarness {
      * harvests and every aim after it reuses the terrain that first search kept. The **cold** side is a
      * fresh engine per aim, so every search harvests its own corridor and builds its own graph. Each aim
      * prints both lines' `points`, `legTimesSec`, `distanceM`, `durationSec`, the probe's six figures and
-     * the reuse flag, beside the verdict the table is read for: the same line, the same leg times, and
-     * whether the warm line is dearer.
+     * the reuse flag, beside the verdict the table is read for: **whether the warm line is dearer than the
+     * cold one**, within the reading's own band ([TautReuseGuard]). The line and leg-time comparisons stay
+     * printed per aim as the observations they are rather than as the verdict.
      *
      * A warm line may be **never dearer and still different** — the graph behind it is a superset of cold's,
-     * so a taut line over it can bend elsewhere for no more seconds. That divergence is the user's to accept
-     * or to refuse (§19.5's closing note), so it is measured and printed here rather than streamlined away:
-     * the licence's own hit rate, the two lines' six figures, and the leg times are the whole of the answer.
+     * so a taut line over it can bend elsewhere for no more seconds. That divergence was **accepted at the
+     * user's word on 2026-09-21** (§19.5 C3's closing choice), which is what re-scoped the guard from *the
+     * same line* to *never dearer*; it is still measured and printed here rather than streamlined away: the
+     * licence's own hit rate, the two lines' six figures, and the leg times are the whole of the answer.
      */
     private fun movedAimReading(
         world: TautWorld,
@@ -453,6 +493,13 @@ class TautRouteHarness {
         var different = 0
         var legTimesDiffer = 0
         var dearer = 0
+        var dearestGapSec = 0.0
+        var worstApartM = 0.0
+        var worstApartAt = 0
+        var pastPolicy = 0
+        var pastAnalogue = 0
+        var worstBeyondM = 0.0
+        var worstBeyondAt = 0
         for (step in 0..MOVED_AIM_STEPS) {
             val fraction = 1.0 - step * MOVED_AIM_FRACTION
             val moved = RoutePoint(
@@ -482,14 +529,51 @@ class TautRouteHarness {
             val sameLegTimes = warmSuccess.legTimesSec == coldSuccess.legTimesSec
             if (!sameLegTimes) legTimesDiffer++
             val gapSec = warmSuccess.durationSec - coldSuccess.durationSec
-            if (gapSec > DEARER_SLACK_SEC) dearer++
+            if (gapSec > dearestGapSec) dearestGapSec = gapSec
+            // **Dearer means dearer than the band, not dearer than float noise** — the verdict stands on
+            // the same one home every other reading of the reuse guard uses (and it was 1e-6 before the
+            // re-scope, which counted the drag's own +0.01 s as a divergence). The gap the dearest aim
+            // carries is printed beside the count, since the count alone cannot say whether the band and
+            // the reading are at the same edge.
+            if (!TautReuseGuard.neverDearer(warmSuccess.durationSec, coldSuccess.durationSec)) dearer++
+            // **The number §19.5's C3 left open** — how far apart the two lines stand in **metres**, which
+            // is the quantity the choice between accepting the cache and building the slice turns on. The
+            // two lines are each read against the other's own polyline, so the figure is the far side of
+            // the divergence rather than a difference of two vertex counts, and the leg times' own gap is
+            // printed beside it for the same reason: two lines can differ in shape and still cost the same.
+            // **Its limit is stated where it is defined** ([lineApartM]): it samples each line's own
+            // vertices, so a leg whose ends sit on the model and whose middle bows away reads 0.00 m while
+            // its own seconds still move — which is what the leg-time gap beside it is there to catch.
+            val apart = lineApartM(warmSuccess.points, coldSuccess.points)
+            if (apart.first > worstApartM) {
+                worstApartM = apart.first
+                worstApartAt = step
+            }
+            // **The quantity a user comparing two drawn lines actually sees** (the revision's own
+            // should-fix): the *metres of line* standing past the bound, not the worst single offset. A
+            // hundred metres of a hundred-metre-wide excursion and one vertex a hundred metres off share a
+            // maximum and are a very different thing on the screen, so both are printed.
+            val beyondM = lineBeyondM(warmSuccess.points, coldSuccess.points, DIVERGENCE_POLICY_M)
+            if (beyondM > worstBeyondM) {
+                worstBeyondM = beyondM
+                worstBeyondAt = step
+            }
+            if (apart.first > DIVERGENCE_POLICY_M) pastPolicy++
+            if (apart.first > DIVERGENCE_ANALOGUE_M) pastAnalogue++
+            val legGapMs = legTimeGapMs(warmSuccess.legTimesSec, coldSuccess.legTimesSec)
             val where = "[${"%.4f".format(moved.latitude)}, ${"%.4f".format(moved.longitude)}]"
             println(
                 "route harness · moved aim $step/$MOVED_AIM_STEPS $where warm: " +
                     "${metricsOf(world, warmSuccess)} · ${warmSuccess.points.size} points · " +
                     "${warmSuccess.legTimesSec.size} leg time(s) · " +
                     "${"%.1f".format(warmSuccess.distanceM)} m · " +
-                    "${"%.2f".format(warmSuccess.durationSec)} s · reuse $warmReused"
+                    "${"%.2f".format(warmSuccess.durationSec)} s · reuse $warmReused · the lines stand " +
+                    "${"%.2f".format(apart.first)} m apart at most (mean ${"%.2f".format(apart.second)} m) · " +
+                    "${"%.0f".format(beyondM)} m of the warm line stand past the " +
+                    "${"%.1f".format(DIVERGENCE_POLICY_M)} m policy bound · " +
+                    "leg times " + (legGapMs?.let { "apart by at most ${"%.1f".format(it)} ms" }
+                    ?: "not comparable — the two lines carry different leg counts " +
+                        "(${warmSuccess.legTimesSec.size} against ${coldSuccess.legTimesSec.size})")
             )
             println(
                 "route harness · moved aim $step/$MOVED_AIM_STEPS $where cold: " +
@@ -497,14 +581,132 @@ class TautRouteHarness {
                     "${coldSuccess.legTimesSec.size} leg time(s) · " +
                     "${"%.1f".format(coldSuccess.distanceM)} m · " +
                     "${"%.2f".format(coldSuccess.durationSec)} s · reuse false · the same line $sameLine · " +
-                    "the same leg times $sameLegTimes · warm ${"%.2f".format(gapSec)} s against cold"
+                    "the same leg times $sameLegTimes · warm ${"%.3f".format(gapSec)} s against cold " +
+                    "(its own band ${"%.4f".format(TautReuseGuard.bandSec(coldSuccess.durationSec))} s)"
             )
         }
         println(
             "route harness · moved aim, the reading: $answered aim(s) answered · the licence held on " +
                 "$reuses · the lines differed on $different · the leg times differed on $legTimesDiffer · " +
-                "the warm line was dearer on $dearer (slack $DEARER_SLACK_SEC s)"
+                "the warm line was dearer on $dearer (band ${TautReuseGuard.BAND_SEC} s absolute, " +
+                "${TautReuseGuard.BAND_RELATIVE} of the cold line's own seconds) · the dearest warm line " +
+                "stood ${"%.3f".format(dearestGapSec)} s above its cold build"
         )
+        // **The divergence, stated with what each number is** (§19.5 C3's closing choice, corrected by the
+        // revision). The bound is **a policy chosen at one tolerance, not a claim about two lines**:
+        // `TOLERANCE_FRACTION` bounds **one** answer's offset from the truth, so two lines each inside it
+        // can stand **twice** it apart. The policy — the error a single drawn line is already allowed — and
+        // the honest analogue that twice gives are both printed, and the measured worst is reported against
+        // both, so a figure past one and inside the other is read as what it is rather than as a verdict.
+        println(
+            "route harness · moved aim, the two lines' own divergence: within " +
+                "${"%.2f".format(worstApartM)} m on every aim (worst at aim $worstApartAt of " +
+                "$MOVED_AIM_STEPS) · ${"%.0f".format(worstBeyondM)} m of line stand past the policy bound " +
+                "(most at aim $worstBeyondAt) · $pastPolicy aim(s) past the " +
+                "${"%.1f".format(DIVERGENCE_POLICY_M)} m policy bound (one tolerance — the error a " +
+                "single line is allowed) and $pastAnalogue past the honest analogue " +
+                "${"%.1f".format(DIVERGENCE_ANALOGUE_M)} m (two answers each within that tolerance) · " +
+                "inside the policy the cache stands as it is; the analogue is the real head-room of a " +
+                "comparison, so a figure between the two says what the number is rather than what it " +
+                "decides, and the choice past it stays the user's"
+        )
+    }
+
+    /**
+     * **How far apart two drawn lines stand, in metres — a vertex-sampled two-sided maximum, and no more
+     * than that.** The figure is the worst offset of the one line from the other, with the mean of both
+     * directions' own means beside it.
+     *
+     * Each line's **vertices** are read against the *other line's polyline* rather than against its vertex
+     * list, because the two lines need not share a vertex where they differ: a bend moved by a hundred
+     * metres would compare as a handful of near-coincident vertices and hide inside a vertex-to-vertex
+     * reading. Both directions are taken, since neither line's own vertices need sample the other's bend,
+     * and the larger of the two is what is reported.
+     *
+     * **Its limit, stated honestly: it samples points, so it can read zero while the lines differ.** A leg
+     * whose own ends sit on the other line while its middle bows away is invisible here — on the drag's six
+     * aims, aims 1–3 read **0.00 m** apart while their own leg times move by **4.4, 4.9 and 14.1 ms** — so
+     * the leg-time gap is printed beside this figure and the **metres of line standing past the bound**
+     * ([lineBeyondM]) are printed beside it too: a maximum offset answers "how far at worst", never "how
+     * much of the line", and those are different questions about two drawn lines.
+     */
+    private fun lineApartM(a: List<RoutePoint>, b: List<RoutePoint>): Pair<Double, Double> {
+        if (a.isEmpty() || b.isEmpty()) return 0.0 to 0.0
+        val ab = offsetsM(a, b)
+        val ba = offsetsM(b, a)
+        return max(ab.first, ba.first) to (ab.second + ba.second) / 2.0
+    }
+
+    /** One direction's own reading: `(worst offset, mean offset)` of [from]'s vertices against [to]. */
+    private fun offsetsM(from: List<RoutePoint>, to: List<RoutePoint>): Pair<Double, Double> {
+        var worst = 0.0
+        var sum = 0.0
+        for (point in from) {
+            val nearest = offsetToM(point.latitude, point.longitude, to)
+            if (nearest > worst) worst = nearest
+            sum += nearest
+        }
+        return worst to sum / from.size
+    }
+
+    /** One point's nearest distance to a polyline, or to its single point — the one home of that question. */
+    private fun offsetToM(latitude: Double, longitude: Double, to: List<RoutePoint>): Double {
+        if (to.size == 1) {
+            return SpatialOperations.haversine(
+                LatLng(latitude, longitude),
+                LatLng(to[0].latitude, to[0].longitude)
+            )
+        }
+        var nearest = Double.MAX_VALUE
+        for (i in 0 until to.size - 1) {
+            nearest = min(
+                nearest,
+                SpatialOperations.pointToSegmentDistance(
+                    LatLng(latitude, longitude),
+                    LatLng(to[i].latitude, to[i].longitude),
+                    LatLng(to[i + 1].latitude, to[i + 1].longitude)
+                )
+            )
+        }
+        return nearest
+    }
+
+    /**
+     * **How many metres of [a] stand further than [thresholdM] from [b]** — the length reading beside
+     * [lineApartM]'s worst offset, and the quantity a user comparing two drawn lines actually sees.
+     *
+     * [lineApartM] answers *how far, at worst*, by reading each line's own vertices; this answers *how much
+     * of it*, by walking [a]'s legs in steps of [PAST_BOUND_STEP_M] and adding a step wherever its own
+     * middle stands past the bound. The step is a sampling resolution like any other, and it is named with
+     * the reading rather than left implicit: 5 m against a 12.5 m bound resolves the excursion two orders
+     * of magnitude finer than the bound itself.
+     */
+    private fun lineBeyondM(a: List<RoutePoint>, b: List<RoutePoint>, thresholdM: Double): Double {
+        if (a.size < 2 || b.isEmpty()) return 0.0
+        var beyondM = 0.0
+        for (i in 0 until a.size - 1) {
+            val legM = SpatialOperations.haversine(
+                LatLng(a[i].latitude, a[i].longitude),
+                LatLng(a[i + 1].latitude, a[i + 1].longitude)
+            )
+            val steps = max(1, ceil(legM / PAST_BOUND_STEP_M).toInt())
+            val stepM = legM / steps
+            for (step in 0 until steps) {
+                val t = (step + 0.5) / steps
+                val lat = a[i].latitude + (a[i + 1].latitude - a[i].latitude) * t
+                val lon = a[i].longitude + (a[i + 1].longitude - a[i].longitude) * t
+                if (offsetToM(lat, lon, b) > thresholdM) beyondM += stepM
+            }
+        }
+        return beyondM
+    }
+
+    /** The two lines' leg times, as one gap in milliseconds — null when they carry different leg counts. */
+    private fun legTimeGapMs(a: List<Double>, b: List<Double>): Double? {
+        if (a.size != b.size) return null
+        var worst = 0.0
+        for (i in a.indices) worst = max(worst, abs(a[i] - b[i]) * 1000.0)
+        return worst
     }
 
     /**
@@ -590,9 +792,72 @@ class TautRouteHarness {
         const val MOVED_AIM_STEPS = 5
         const val MOVED_AIM_FRACTION = 0.05
 
-        /** A second of slack before a warm line is called dearer — float noise is not a difference. */
-        const val DEARER_SLACK_SEC = 1e-6
+        /** The step [lineBeyondM] walks a leg in — the resolution the "metres past the bound" reading has (m). */
+        private const val PAST_BOUND_STEP_M = 5.0
+
+        /**
+         * **The abstraction's own tolerance in metres — one product, one home** (`berth ×
+         * `TOLERANCE_FRACTION``).
+         *
+         * Both bounds below are read off this, so the product is spelled once inside this harness instead
+         * of twice, and neither bound can drift from the tolerance it is drawn from.
+         */
+        val ABSTRACTION_TOLERANCE_M: Double
+            get() = AppConfig.routeZoneBerthM * TautObstacles.TOLERANCE_FRACTION
+
+        /**
+         * **The policy bound the warm line is judged against** (§19.5 C3's closing choice) — **the
+         * abstraction's tolerance itself, taken as a policy chosen at one tolerance rather than derived
+         * from the quantity it judges.**
+         *
+         * **What it is, and what it is not.** It is *not* "the error every drawn corner is already allowed
+         * to spend", read as a claim about two lines: `TOLERANCE_FRACTION` bounds **one** answer's offset
+         * from the truth, and two answers each inside it can stand **twice** it apart — so a figure past
+         * this bound is not by itself a defect, and saying it were would decide the question the reading
+         * exists to leave open ([DIVERGENCE_ANALOGUE_M] is that twice, printed beside this one). It *is*
+         * the error the engine already accepts of a **single** drawn line, which is the honest reason to
+         * take it as the policy: a warm line inside it stands inside the error the engine has already spent
+         * on the line it drew, and the analogue printed beside it names the real head-room of a comparison.
+         */
+        val DIVERGENCE_POLICY_M: Double get() = ABSTRACTION_TOLERANCE_M
+
+        /**
+         * **The honest analogue: two drawn lines each within one tolerance of the truth can stand twice it
+         * apart.** Printed beside [DIVERGENCE_POLICY_M] on every run so neither number is read alone.
+         */
+        val DIVERGENCE_ANALOGUE_M: Double get() = 2.0 * ABSTRACTION_TOLERANCE_M
     }
+}
+
+/**
+ * **The band a reused answer is judged against** (§19.5 C3's decision, taken at the user's word on
+ * 2026-09-21) — **the reading's own band rather than a tolerance chosen to let a guard pass.**
+ *
+ * The guard on a reuse is a **price** one: a reused answer may differ from a cold build's for the same aim
+ * and must not be **dearer**. It replaced the equality — "the reused answer *is* the cold one" — when C3's
+ * drag reading showed the two lines standing 0.00 m apart on four of six aims and 19.42 m on two, with the
+ * warm line **dearer by 0.01 s on three** of them and cheaper on the two it diverges on.
+ *
+ * A band is needed at all because the quantity compared is a clock: the same code's own seconds move by
+ * more than a hair between runs (§19.3's pair of runs, the caution §19.6's device reading is stated with),
+ * so a guard of zero tolerance would fail on the machine rather than on the code. Its size is therefore the
+ * reading's own — **0.01 s absolute**, the +0.01 s the drag carries, and **~6e-6 relative**, that movement
+ * as a share of a route some 1 600 s long. It is **one home**: the harness's moved-aim verdict and the
+ * focused guard in `TautTerrainTest` both read it, so neither can drift from the other.
+ */
+internal object TautReuseGuard {
+
+    /** The absolute band: the +0.01 s the drag's own reading carries on the three aims it moves (s). */
+    const val BAND_SEC = 0.01
+
+    /** The relative band beside it: the same movement as a share of the cold line's own seconds. */
+    const val BAND_RELATIVE = 6e-6
+
+    /** The slack a cold line of [coldSec] seconds earns — the wider of the two bands. */
+    fun bandSec(coldSec: Double): Double = max(BAND_SEC, BAND_RELATIVE * coldSec)
+
+    /** Whether a reused answer's [warmSec] is no dearer than a cold build's [coldSec] within the band. */
+    fun neverDearer(warmSec: Double, coldSec: Double): Boolean = warmSec - coldSec <= bandSec(coldSec)
 }
 
 /**
