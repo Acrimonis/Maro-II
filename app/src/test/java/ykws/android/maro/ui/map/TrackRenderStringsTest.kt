@@ -79,4 +79,31 @@ class TrackRenderStringsTest {
             assertTrue("$locale lost the arrow density label", xml.contains("settings_tracks_direction_desc"))
         }
     }
+
+    @Test
+    fun bothLocalesCarryEveryTraceAndStartupLineTheWorkAdded() {
+        // The kind axis and its three options, the two estimated-cell labels, the trace colour row, the
+        // opacity row, the count row, the two gates and the start-time colour report: each is a
+        // locale-keyed line this work added, and each could lose one locale silently without this.
+        val expected = listOf(
+            "filter_axis_trace",
+            "filter_option_all",
+            "filter_option_tracks",
+            "filter_option_traces",
+            "track_stat_total_estimated",
+            "track_stat_avg_estimated",
+            "settings_color_trace_tracks",
+            "settings_trace_transparency_label",
+            "settings_traces_count_label",
+            "settings_traces_speed_color_label",
+            "settings_traces_arrows_label",
+            "startup_colour_value_unreadable"
+        )
+
+        bothLocales().forEach { (locale, xml) ->
+            expected.forEach { key ->
+                assertTrue("$key is missing from $locale", xml.contains("name=\"$key\""))
+            }
+        }
+    }
 }

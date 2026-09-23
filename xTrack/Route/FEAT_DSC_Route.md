@@ -72,12 +72,12 @@ Its state on 2026-09-22: the two engines that searched the water are **removed**
 - The write goes through `data/track/`'s own repository and factory, which is the fourth shared surface the isolation design accepts, after the MapScreen hook, the menu entry and the Settings row
 - The pin is the track's existing field: the save offers its initial value while the track list keeps its own control, so the field has one home and two ways to reach it
 - **The draft's outcomes, and their names** (2026-09-22, written): **Route** (follows without saving) · **Save as Track and Route** (writes the track, then follows) · **Save as Track and Exit** (writes it and ends the mode) · **Cancel**, with one pin checkbox governing the saves
-- **Each route of a session is its own track** (2026-09-22): a save with the "all routes" scope writes one track per route the session produced — several files from one action — and the flag marking them as planned is the **existing** `plannedCourse` field, no new field; a visible marker in the track list is a separate question the spec holds open
+- **Each route of a session is its own track** (2026-09-22): a save with the "all routes" scope writes one track per route the session produced — several files from one action — and the flag marking them as planned is the **existing** `trace` field, no new field; the list's marker that a track is a route is that flag's own face, the **All · Tracks · Traces** axis of the track filter (settled 2026-09-22 with the trace work)
 - **A saved route's name** (2026-09-22, written): the Tracks feature's own auto-name, the instant the route was generated and finalised, with a fixed `Route ` prefix on **every** save — the single ones included — and `· n/N` appended when one action writes several, in the order they were planned; the prefix is a fixed token and not a localised string, a track's name being data
 - **Both exits ask, and the dialog keeps the scope choice** (2026-09-22 at the user's word, reversing this rule's first reading): leaving by the toggle and leaving by the following panel's own **Exit** raise the same three-way dialog — **Continue** · **End without saving** · **End and save** — because that Exit could save only the front route where the dialog saves the session's; **leaving the draft asks nothing**
 - The save is an outcome and the pin is a state, so the buttons state outcomes and the one checkbox is the pin — which is also why the save itself gets no checkbox
 - The panel carrying those outcomes is the app's **one exception** to the dashboard's read-only habit: it carries action buttons because the outcomes have to sit where the details are, and the alternative — a floating dialog — cannot be aimed under. It rises with the mode, in the dashboard slot, rather than from a control of its own
-- The saved track takes the standard auto-name the Tracks feature already uses, with `plannedCourse` distinguishing it from a recorded journey (review 2026-09-19)
+- The saved track takes the standard auto-name the Tracks feature already uses, with `trace` distinguishing it from a recorded journey (review 2026-09-19)
 
 ## Isolation Design
 
@@ -141,6 +141,10 @@ Following → toggle off or the panel's Exit → the one dialog → Continue / E
 - Conversions come from one home: the pure-Kotlin units file beside the spatial helpers owns knots-to-metres and miles-to-metres, and Route declares no conversion constant of its own (agreed 2026-09-19)
 - **No baked artifact of its own and no dependency of its own**: the mesh's `.bin`, `route.proto`, `bake-route.bat` and the two test-only geometry libraries left with the engines on 2026-09-22, and an engine that needs a bake brings that question back as its own rather than inheriting one
 - **The zone and band values are the RegulatedZones layer's**, not the route's: a route that prices a limit reads the layer's own value through whatever world interface its engine declares, and the feature keeps no limit, no berth and no band width of its own
+
+## Todos
+- [ ] **The duplicate save** — pressing `Save as Track` twice writes two tracks for one route; the second press should recognise the one it has already written, and `RouteViewModel`'s own route-to-track map is the home that knows it. Raised by the correction hop on 2026-09-22 and left outside its scope.
+- [ ] **The pin's hiding flag** — the route pin is hidden with `isEnabled`, an idiom proven in this repo for `Polyline` only; should a device ever show a stale pin where no route stands, the pin's pre-refactor shape — created and added only when a plan exists — is the fallback. Named here so it is not rediscovered.
 
 ## Key Files
 

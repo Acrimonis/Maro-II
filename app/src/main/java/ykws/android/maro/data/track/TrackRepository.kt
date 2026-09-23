@@ -95,12 +95,21 @@ class TrackRepository(
         classifyUnclassified(readIndex())
     }
 
-    /** The index as it stands: read when present and readable, rebuilt from the track files otherwise. */
+    /**
+     * The index as it stands: read when present, readable **and written with this build's summary
+     * schema**, rebuilt from the track files otherwise.
+     *
+     * The version stamp is what makes the rebuild forced rather than hoped for: a summary field added
+     * since the index was written would otherwise decode as its own default for every track already
+     * stored — a missing bool reading `false` — and the filter reading it would answer nothing until
+     * something else happened to mutate the library.
+     */
     private suspend fun readIndex(): List<TrackSummary> = withContext(Dispatchers.IO) {
         val indexFile = indexFile()
         if (!indexFile.exists()) return@withContext rebuildIndex()
         try {
             val summaryList = proto.decodeFromByteArray(TrackSummaryList.serializer(), indexFile.readBytes())
+            if (summaryList.version != SUMMARY_INDEX_VERSION) return@withContext rebuildIndex()
             summaryList.tracks
         } catch (e: Exception) {
             indexFile.delete()
@@ -324,7 +333,11 @@ class TrackRepository(
                         // Both counts are stored biased by one (see TrackSummary), which makes an
                         // unclassified sample — (-1, -1) — land on the sentinel (0, 0) by itself.
                         waterPointCount = counts.water + 1,
-                        landPointCount = counts.land + 1
+                        landPointCount = counts.land + 1,
+                        // The flag rides the pass that is already reading the whole track, so the lists
+                        // and the map's action rules never need to load a track to know a route from a
+                        // recording.
+                        trace = track.trace
                     )
                 } catch (e: Exception) {
                     file.delete()
@@ -408,9 +421,12 @@ class TrackRepository(
         updated
     }
 
-    /** Write the index from a summary list. */
+    /** Write the index from a summary list, stamped with the schema it was written with. */
     private suspend fun writeIndex(summaries: List<TrackSummary>) = withContext(Dispatchers.IO) {
-        val indexData = proto.encodeToByteArray(TrackSummaryList.serializer(), TrackSummaryList(summaries))
+        val indexData = proto.encodeToByteArray(
+            TrackSummaryList.serializer(),
+            TrackSummaryList(summaries, SUMMARY_INDEX_VERSION)
+        )
         indexFile().writeBytes(indexData)
     }
 

@@ -222,6 +222,9 @@
     <string name="track_stat_avg">Moy</string>
     <string name="track_stat_dist">Dist</string>
     <string name="track_stat_idle">Arrêt</string>
+    <!-- A route's two estimated cells: the plan's allotted time and the pace it was priced with. -->
+    <string name="track_stat_total_estimated">Total (est.)</string>
+    <string name="track_stat_avg_estimated">Moy (est.)</string>
     <string name="track_stat_max">Max</string>
 
     <!-- Sort dropdown -->
@@ -356,6 +359,10 @@
     <string name="filter_option_last_6_months">6 derniers mois</string>
     <string name="filter_option_all">Tous</string>
     <string name="filter_option_unpinned">Non épinglé</string>
+    <!-- The kind axis: a recorded track against a saved route. -->
+    <string name="filter_axis_trace">Nature</string>
+    <string name="filter_option_tracks">Traces</string>
+    <string name="filter_option_traces">Itinéraires</string>
     <string name="filter_option_on_water">Sur l\'eau</string>
     <string name="filter_option_with_icon">Avec icône</string>
     <string name="filter_option_without_icon">Sans icône</string>
@@ -384,6 +391,8 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
+    <string name="settings_traces_count_label">Itinéraires à afficher</string>
+    <string name="settings_traces_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Un itinéraire épinglé s\'affiche toujours.</string>
     <string name="settings_transparency_label">Transparence des non épinglées</string>
     <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
@@ -391,6 +400,8 @@
     <string name="settings_transparency_border_fill_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_trace_transparency_label">Transparence des itinéraires</string>
+    <string name="settings_trace_transparency_desc" formatted="false">Dégradé sur les itinéraires affichés, du plus récent au plus ancien, indépendant des deux plages ci-dessus. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
     <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
@@ -543,6 +554,11 @@
     <string name="settings_color_active_track">Trace active</string>
     <string name="settings_color_past_tracks">Traces passées</string>
     <string name="settings_color_pinned_tracks">Traces épinglées</string>
+    <string name="settings_color_trace_tracks">Itinéraires</string>
+    <string name="settings_traces_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
+    <string name="settings_traces_arrows_label">Flèches sur les itinéraires</string>
+    <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->
+    <string name="startup_colour_value_unreadable">Valeur de couleur illisible dans maro.properties (%1$s) — la couleur par défaut a été utilisée.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->

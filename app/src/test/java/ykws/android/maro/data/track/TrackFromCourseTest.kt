@@ -64,10 +64,24 @@ class TrackFromCourseTest {
     }
 
     @Test
-    fun theFlagIsWhatMarksItPlannedAndThePinIsWhatWasOffered() {
-        assertTrue(build().plannedCourse)
+    fun theFlagIsWhatMarksItATraceAndThePinIsWhatWasOffered() {
+        assertTrue(build().trace)
         assertTrue(build(pinned = true).pinned)
         assertFalse(build().pinned)
+    }
+
+    /**
+     * R40's other half: the instant the route was generated and finalised is the one that **dates and
+     * names** it, so a route saved twice keeps one identity — and it is the card's own header stamp,
+     * the summary reading it as the track's start.
+     */
+    @Test
+    fun theCreationInstantDatesAndNamesTheSavedRoute() {
+        val track = build()
+
+        assertTrue(track.trace)
+        assertEquals(t0, track.startTimeMs)
+        assertEquals(trackAutoName(t0), track.name)
     }
 
     @Test

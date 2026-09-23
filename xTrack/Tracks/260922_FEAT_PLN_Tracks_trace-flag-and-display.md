@@ -10,7 +10,7 @@ against the code as it stands on 2026-09-22, with nothing left open in it.
 
 ## 1. What already exists, so the build does not rebuild it
 
-- **The fact has a home.** [`Track.plannedCourse`](../../app/src/main/java/ykws/android/maro/data/track/Track.kt:55) at
+- **The fact has a home.** [`Track.trace`](../../app/src/main/java/ykws/android/maro/data/track/Track.kt:58) at
   `@ProtoNumber(19)` is written by [`TrackFromCourse`](../../app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt:96) alone, and
   its own KDoc calls it "the only thing that distinguishes a saved route". A trace **is** that fact, so no new
   field is added and no new wire number is spent.

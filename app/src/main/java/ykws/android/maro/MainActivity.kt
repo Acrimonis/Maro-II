@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.WindowInsetsController
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -81,6 +82,11 @@ class MainActivity : ComponentActivity() {
 
         // Load zone gradient tunables from zone.properties before the UI composes.
         AppConfig.init(this)
+
+        // R42's report: the build could not read one of the app's #AARRGGBB colour keys and fell back
+        // to its sibling's default, so the app says so at start rather than leaving the fallback silent.
+        // The names arrive through BuildConfig — the build stays the one reader of maro.properties.
+        reportUnreadableColourKeys()
 
         setContent {
             // Use a factory because NavigationViewModel now extends AndroidViewModel
@@ -206,6 +212,20 @@ class MainActivity : ComponentActivity() {
         // Start the foreground service to keep the app alive when backgrounded.
         // The service shows a persistent "Maro II — Ready" notification.
         startForegroundService(Intent(this, ykws.android.maro.data.track.TrackRecordingService::class.java))
+    }
+
+    /**
+     * Reports the colour keys the build could not read, at start (R42). Empty — the ordinary case —
+     * shows nothing at all, so a correct `maro.properties` stays silent and a broken one does not.
+     */
+    private fun reportUnreadableColourKeys() {
+        val keys = BuildConfig.UNREADABLE_COLOUR_KEYS
+        if (keys.isBlank()) return
+        Toast.makeText(
+            this,
+            getString(R.string.startup_colour_value_unreadable, keys),
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     /**

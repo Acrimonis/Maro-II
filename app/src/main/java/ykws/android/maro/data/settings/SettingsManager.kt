@@ -260,12 +260,26 @@ data class AppSettings(
      */
     val trackArrows: Boolean = false,
     /**
-     * Whether stored tracks are painted from the speed ramp rather than from the default colours — the
-     * other render axis, and the one a fresh install opens on. It is the *fill* alone: while it is on,
-     * the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a stored track is
-     * drawn, and the chevrons stay [trackArrows]' business.
+     * Whether stored **recorded** tracks are painted from the speed ramp rather than from the default
+     * colours — the other render axis, and the one a fresh install opens on. It is the *fill* alone:
+     * while it is on, the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a
+     * recorded track is drawn, and the chevrons stay [trackArrows]' business. A **trace** is not one of
+     * them: it paints from its own pair whatever this says, banded only by its own colour gate
+     * ([traceSpeedColor]), so the chips never reach a route (R34, R37).
      */
     val trackColours: Boolean = true,
+    /**
+     * The trace-scoped speed-colour gate (R37): true lets a route be rendered with its speeds in
+     * colour, false — the shipped default — draws it in its own colour pair. For a trace it replaces
+     * the Colours chip's say-so rather than sitting beside it.
+     */
+    val traceSpeedColor: Boolean = BuildConfig.TRACKING_TRACE_ALLOW_SPEED_COLOR,
+    /**
+     * The trace-scoped arrow gate (R38): it can only veto — true leaves the drawer's own Arrows chip
+     * to decide, false means a route never shows chevrons, its direction being its origin to its
+     * destination rather than a bearing stored on a planned vertex.
+     */
+    val traceSpeedArrows: Boolean = BuildConfig.TRACKING_TRACE_ALLOW_SPEED_ARROWS,
     /**
      * The drawer eye's own value, held on the *selection* rather than on any track id, so it applies to
      * whichever track the drawer has open. Null means the key has never been written — the selection
@@ -285,14 +299,14 @@ data class AppSettings(
     val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
     /** Number of historical tracks to render on the map (0-20). */
     val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
+    /**
+     * Number of routes (traces) to render, non-pinned ones alone (0-20): a pinned trace is drawn
+     * whatever this says, the pin being what marks a route already saved. Its own count rather than
+     * [trackingRenderNb]'s, which goes on counting recorded tracks alone.
+     */
+    val traceRenderNb: Int = BuildConfig.TRACKING_TRACE_RENDER_NB,
     /** ARGB color for the active recording track. */
     val trackingColorActive: Int = BuildConfig.TRACKING_COLOR_ACTIVE,
-    /** ARGB color for historical tracks. */
-    val trackingColorHistory: Int = BuildConfig.TRACKING_COLOR_HISTORY,
-    /** ARGB end color for history track gradient (oldest track). */
-    val trackingColorHistoryEnd: Int = BuildConfig.TRACKING_COLOR_HISTORY_END,
-    /** ARGB color for pinned tracks (reserved for future use). */
-    val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED,
     /**
      * ARGB start color for past track gradient (newest track).
      * Interpolates toward [trackingColorPastTo] for older tracks.
@@ -303,6 +317,15 @@ data class AppSettings(
      * Interpolated from [trackingColorPastFrom] for newer tracks.
      */
     val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
+    /**
+     * ARGB start colour of the trace gradient — the newest route. The trace role's own pair, never
+     * the past or pinned one, the two drawing in a trace whatever its pin says. `from` is the newest
+     * and `to` the oldest, interpolated across the trace set exactly as the past pair is across the
+     * historical one.
+     */
+    val trackingColorTraceFrom: Int = BuildConfig.TRACKING_COLOR_TRACE_FROM,
+    /** ARGB end colour of the trace gradient — the oldest route. */
+    val trackingColorTraceTo: Int = BuildConfig.TRACKING_COLOR_TRACE_TO,
     /**
      * Transparency % (0-100) for the NEWEST past (history) track.
      * 0 = fully opaque, 100 = fully invisible.
@@ -325,6 +348,10 @@ data class AppSettings(
      * 0 = fully opaque, 100 = fully invisible.
      */
     val trackingTransparencyPinnedOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO,
+    /** Transparency % (0-100) for the NEWEST route drawn — the trace ladder's own range. */
+    val trackingTransparencyTraceNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_TRACE_FROM,
+    /** Transparency % (0-100) for the OLDEST route drawn. */
+    val trackingTransparencyTraceOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_TRACE_TO,
     /**
      * ARGB start color for pinned track gradient.
      */
@@ -401,6 +428,12 @@ class SettingsManager(
 
         prefs.edit()
             .remove("user_markers_visible")          // replaced by marker_layer_state (v3)
+            // The three stored preferences of the retired track-colour fields, cleaned off an install
+            // rather than left behind: nothing that draws ever read them, so there is nothing to
+            // migrate — only a key to forget.
+            .remove("tracking_color_history")
+            .remove("tracking_color_history_end")
+            .remove("tracking_color_pinned")
             .remove("zone300_autoshow_gps")          // approach re-display rework (v6)
             .remove("zone300_autoshow_demo")
             .remove("speed_zones_visible")
@@ -601,6 +634,8 @@ class SettingsManager(
         // then reads the flag that migration wrote, so the pair can never be read half-migrated.
         trackArrows = prefs.getBoolean(KEY_TRACK_ARROWS, migrateRenderAxes()?.let { it != "SIMPLE" } ?: false),
         trackColours = prefs.getBoolean(KEY_TRACK_COLOURS, true),
+        traceSpeedColor = prefs.getBoolean(KEY_TRACE_SPEED_COLOR, BuildConfig.TRACKING_TRACE_ALLOW_SPEED_COLOR),
+        traceSpeedArrows = prefs.getBoolean(KEY_TRACE_SPEED_ARROWS, BuildConfig.TRACKING_TRACE_ALLOW_SPEED_ARROWS),
         // Absent until the eye is first tapped, and `contains` is what tells that apart from a written
         // false: the default below can never stand in for "mirror the mode".
         trackSelectionBanded = if (prefs.contains(KEY_TRACK_SELECTION_BANDED)) {
@@ -615,18 +650,26 @@ class SettingsManager(
         trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
         trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
         trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
+        traceRenderNb = prefs.getInt(KEY_TRACKING_TRACE_RENDER_NB, BuildConfig.TRACKING_TRACE_RENDER_NB).coerceIn(0, 20),
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
-        trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
-        trackingColorHistoryEnd = prefs.getInt(KEY_TRACKING_COLOR_HISTORY_END, BuildConfig.TRACKING_COLOR_HISTORY_END),
-        trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED),
         trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, BuildConfig.TRACKING_COLOR_PAST_FROM),
         trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
+        trackingColorTraceFrom = prefs.getInt(KEY_TRACKING_COLOR_TRACE_FROM, BuildConfig.TRACKING_COLOR_TRACE_FROM),
+        trackingColorTraceTo = prefs.getInt(KEY_TRACKING_COLOR_TRACE_TO, BuildConfig.TRACKING_COLOR_TRACE_TO),
         trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
         trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
         trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM),
         trackingTransparencyPinnedOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO),
         trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, BuildConfig.TRACKING_COLOR_PINNED_FROM),
         trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO),
+        // The trace ladder is clamped on read like every other bounded pair: a stored value is never
+        // a promise about what the slider's span allows.
+        trackingTransparencyTraceNewest = prefs.getInt(
+            KEY_TRACKING_TRANSPARENCY_TRACE_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_TRACE_FROM
+        ).coerceIn(0, 100),
+        trackingTransparencyTraceOldest = prefs.getInt(
+            KEY_TRACKING_TRANSPARENCY_TRACE_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TRACE_TO
+        ).coerceIn(0, 100),
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
         trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
         trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble(),
@@ -763,19 +806,23 @@ class SettingsManager(
             .putFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, updated.trackDirectionSpeedCeilingKn)
             .putInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, updated.trackDirectionMinSpacingDp)
             .putInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, updated.trackDirectionMaxSpacingDp)
+            .putBoolean(KEY_TRACE_SPEED_COLOR, updated.traceSpeedColor)
+            .putBoolean(KEY_TRACE_SPEED_ARROWS, updated.traceSpeedArrows)
             .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
+            .putInt(KEY_TRACKING_TRACE_RENDER_NB, updated.traceRenderNb)
             .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
-            .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
-            .putInt(KEY_TRACKING_COLOR_HISTORY_END, updated.trackingColorHistoryEnd)
-            .putInt(KEY_TRACKING_COLOR_PINNED, updated.trackingColorPinned)
             .putInt(KEY_TRACKING_COLOR_PAST_FROM, updated.trackingColorPastFrom)
             .putInt(KEY_TRACKING_COLOR_PAST_TO, updated.trackingColorPastTo)
+            .putInt(KEY_TRACKING_COLOR_TRACE_FROM, updated.trackingColorTraceFrom)
+            .putInt(KEY_TRACKING_COLOR_TRACE_TO, updated.trackingColorTraceTo)
             .putInt(KEY_TRACKING_TRANSPARENCY_NEWEST, updated.trackingTransparencyNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_OLDEST, updated.trackingTransparencyOldest)
             .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, updated.trackingTransparencyPinnedNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, updated.trackingTransparencyPinnedOldest)
             .putInt(KEY_TRACKING_COLOR_PINNED_FROM, updated.trackingColorPinnedFrom)
             .putInt(KEY_TRACKING_COLOR_PINNED_TO, updated.trackingColorPinnedTo)
+            .putInt(KEY_TRACKING_TRANSPARENCY_TRACE_NEWEST, updated.trackingTransparencyTraceNewest)
+            .putInt(KEY_TRACKING_TRANSPARENCY_TRACE_OLDEST, updated.trackingTransparencyTraceOldest)
             .putBoolean(KEY_TRACK_SIMPLIFY_ENABLED, updated.trackSimplifyEnabled)
             .putFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, updated.trackSimplifyEpsilonM.toFloat())
             .putFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, updated.trackSimplifySpeedDeltaKn.toFloat())
@@ -930,18 +977,26 @@ class SettingsManager(
         private const val KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT = "marker_halo_unpinned_fill_transparency_pct"
         private const val KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT = "marker_halo_unpinned_border_transparency_pct"
         private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"
+        /** The trace count's own key: the sibling above counts recorded tracks alone. */
+        private const val KEY_TRACKING_TRACE_RENDER_NB = "tracking_trace_render_nb"
         private const val KEY_TRACKING_COLOR_ACTIVE = "tracking_color_active"
-        private const val KEY_TRACKING_COLOR_HISTORY = "tracking_color_history"
-        private const val KEY_TRACKING_COLOR_HISTORY_END = "tracking_color_history_end"
-        private const val KEY_TRACKING_COLOR_PINNED = "tracking_color_pinned"
         private const val KEY_TRACKING_COLOR_PAST_FROM = "tracking_color_past_from"
         private const val KEY_TRACKING_COLOR_PAST_TO = "tracking_color_past_to"
+        /** The trace colour pair's own keys, and the ladder's, beside their siblings'. */
+        private const val KEY_TRACKING_COLOR_TRACE_FROM = "tracking_color_trace_from"
+        private const val KEY_TRACKING_COLOR_TRACE_TO = "tracking_color_trace_to"
         private const val KEY_TRACKING_TRANSPARENCY_NEWEST = "tracking_transparency_newest"
         private const val KEY_TRACKING_TRANSPARENCY_OLDEST = "tracking_transparency_oldest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST = "tracking_transparency_pinned_newest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST = "tracking_transparency_pinned_oldest"
         private const val KEY_TRACKING_COLOR_PINNED_FROM = "tracking_color_pinned_from"
         private const val KEY_TRACKING_COLOR_PINNED_TO = "tracking_color_pinned_to"
+        /** The trace ladder's prefs keys; their defaults are the file's own injected pair. */
+        private const val KEY_TRACKING_TRANSPARENCY_TRACE_NEWEST = "tracking_transparency_trace_newest"
+        private const val KEY_TRACKING_TRANSPARENCY_TRACE_OLDEST = "tracking_transparency_trace_oldest"
+        /** The trace-scoped rendering gates, the trace-scoped twins of the two chips. */
+        private const val KEY_TRACE_SPEED_COLOR = "trace_speed_color"
+        private const val KEY_TRACE_SPEED_ARROWS = "trace_speed_arrows"
         private const val KEY_TRACK_SIMPLIFY_ENABLED = "track_simplify_enabled"
         private const val KEY_TRACK_SIMPLIFY_EPSILON_M = "track_simplify_epsilon_m"
         private const val KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN = "track_simplify_speed_delta_kn"

@@ -29,7 +29,7 @@ sealed interface RouteResult {
      *                             enter one: a crossing is forbidden while a way around exists, so a
      *                             name here says no way around was found and the crossing was priced
      *                             and taken. Empty on an ordinary route. Deliberately **not** a field
-     *                             of any drawn or saved type: `Track.plannedCourse` is serialized and
+     *                             of any drawn or saved type: `Track.trace` is serialized and
      *                             this is not, so nothing here reaches the proto. **Kept** although
      *                             the dummy never fills it: the dashboard card and the confirmation
      *                             panel both read it, so it is the shape a real engine fills.

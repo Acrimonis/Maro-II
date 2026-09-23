@@ -204,7 +204,7 @@ class RouteEngineSeamTest {
             track.navigatingDurationSec
         )
         assertEquals(plan.points.size, track.trackPoints.size)
-        assertTrue("a saved route is an ordinary planned course", track.plannedCourse)
+        assertTrue("a saved route is a trace", track.trace)
         assertEquals(
             "and the track is dated the route's own generation instant, not the save's",
             plan.computedAtMs,

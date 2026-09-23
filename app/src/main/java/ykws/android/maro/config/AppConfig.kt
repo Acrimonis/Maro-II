@@ -345,6 +345,11 @@ object AppConfig {
      *  reference). Set via `track.width.history`. */
     var trackWidthHistoryDp: Float = 8f / 3f
         private set
+    /** Stroke width (dp) of every route's line — a trace. It joins the same table and is taken
+     *  whatever the pin says, the trace role having its own stroke rather than the pinned or history
+     *  one. Default 2.6666667 (the 8 px of the 3× reference). Set via `track.width.trace`. */
+    var trackWidthTraceDp: Float = 8f / 3f
+        private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
      *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than
      *  the core it sits under.
@@ -1136,6 +1141,7 @@ object AppConfig {
             props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewestDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("track.width.trace")?.toFloatOrNull()?.let { trackWidthTraceDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.selected.casing")?.toFloatOrNull()?.let {
                 trackWidthSelectedCasingDp = it.coerceAtLeast(1f / 3f)
             }

@@ -2434,12 +2434,14 @@ fun MapScreen(
             }
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
-            // Drawn while the map carries a banded stroke: Colours paints every stored track from the
-            // ramp and the eye bands the selection in the other two modes. So the gate reads the ids the
-            // track effect actually painted — unselecting leaves the scale up in Colours, and a painted
-            // set holding no banded stroke takes it down — asking the same planner the map renders by
-            // for each of them. The selection policy is never rerun here: the effect owns it, and
-            // recomputing it inside composition would repeat a stateful mutation. Anchored below the
+            // Drawn while the map carries a banded stroke: Colours paints every recorded stored track
+            // from the ramp, a trace bands on its own colour gate alone (R37), and the eye bands the
+            // selection in the other modes. So the gate reads the ids the track effect actually painted
+            // — unselecting leaves the scale up in Colours, and a painted set holding no banded stroke
+            // takes it down — asking the same planner the map renders by for each of them, and telling
+            // it which of them are routes so a trace is not read as a recorded track. The selection
+            // policy is never rerun here: the effect owns it, and recomputing it inside composition
+            // would repeat a stateful mutation. Anchored below the
             // top-left toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
             // dashboard when there is one — and drawn as Compose chrome rather than an osmdroid
             // overlay, so no polyline can ever paint over it.
@@ -2454,7 +2456,12 @@ fun MapScreen(
                         trackColours = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
                         eyeOverride = appSettings.trackSelectionBanded,
-                        tracksVisible = appSettings.tracksVisible
+                        tracksVisible = appSettings.tracksVisible,
+                        // The painted routes, so the planner reads each of them as the role it is; read
+                        // inside the derived block, where the summaries state is a tracked input.
+                        traceIds = allTrackSummaries.filter { it.trace }.map { it.id }.toSet(),
+                        traceSpeedColour = appSettings.traceSpeedColor,
+                        traceSpeedArrows = appSettings.traceSpeedArrows
                     )
                 }
             }

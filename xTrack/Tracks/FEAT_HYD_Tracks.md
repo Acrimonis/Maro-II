@@ -1,43 +1,29 @@
-# Context Hydration — Tracks — 2026-09-17
+# Context Hydration — Tracks — 2026-09-23
 
-**Last Bake:** 2026-09-17 10:03 UTC — written by `#bake`; absence means never baked
-**Branch:** feature/twks-props, created from `origin/develop` at `2fef14e`
+**Last Bake:** 2026-09-23 06:50 UTC — written by `#bake`
+**Branch:** feature/route-dummy — the earlier `feature/twks-props` line is superseded; this branch has carried `origin/develop` since its merge of 2026-09-22
+
+**Directive trace:** no covered action stopped, and one attribution is named rather than glossed. No dependency was added, no machine-shaped data file was opened, and the device was the user's throughout — the crash log of 2026-09-22 was read only after their report, and no device was touched before that word. Every claim about the code came from a file read or a command's own output, the proto numbers among them verified against `Track.kt` rather than assumed. The one bend: the run's readings — 580 tests, the green build, the red-on-revert guards — are **the hops' reports**, re-read as reports rather than re-run by the Architect.
 
 ## State
 
-The menu's render control is two axes now, not one mode. `AppSettings.trackArrows` (`track_arrows`, default
-off) and `trackColours` (`track_colours`, default on) replace the retired `track_render_mode`, which
-`migrateRenderAxes()` reads once at cold start — only while neither new key exists — and erases in the same
-edit, so an install holding `SIMPLE`, `DIR_SPEED` or `HEATMAP` keeps exactly the look it had;
-`TrackRenderMode` and `menu_render_mode_*` left the tree outright, enum, key, parse, strings and both test
-names with them. The menu row is the twin box (`MultiSelectRow`, new, in `ui/components` beside a moved
-`SegmentedRow`) under the caption "Display Tracks with:", one callback per chip
-(`onTrackArrowsChange` / `onTrackColoursChange`), and `trackRenderPlan`, `selectionBandedAfterTap` and
-`legendVisibleFor` read the flags while the rebuild keys follow them. The same day's second pass put the
-standalone `Speed` vector on the drawer header's toggle — keeping the accent/inactive tint readout — and
-narrowed the legend gate to follow the open track's fill: flipping a selection gold hides the scale while
-other painted tracks stay banded, an eye-banded selection still raises it with `Colours` off, and with
-nothing selected the flag alone decides.
+**A saved route is a trace now, and it is filtered, drawn and read as one.** The eight steps of [`260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](260922_FEAT_PLN_Tracks_trace-flag-and-display.md) landed in one `#implement` Code hop against R29–R42 of the Route feature's master book: the flag renamed `plannedCourse` → **`trace`** with its KDocs and handed to `TrackFromCourse`, projected into `TrackSummary` at its own proto 19 beside the land count's 18, and the stored index **rebuilding once** through a version stamp rather than hoping, since a missing bool decodes false and every saved route would otherwise have read as a recording. The lists gained the third axis **All · Tracks · Traces** on the shipped `FilterAxisSpec` shape, the live track exempt and the linked map filter governing the map with no per-axis code. The trace joined the existing families rather than taking a subtree — `tracking.color.traceFrom`/`traceTo`, `tracking.transparency.traceFrom`/`traceTo`, `track.width.trace`, `tracking.trace.render.nb` — and took the only two names of its own, the gates `tracking.trace.allowSpeedColor=false` and `allowSpeedArrows=true`. The colour pair is injected through a new **`propColor`** because the family's `propInt` cannot carry ARGB, and with it the four `tracking.color.*` keys that could never apply left the file, along with the three unread settings fields, their BuildConfig fields and the preferences an installed app still held; an unreadable value is now **reported by the app at start** instead of falling back in silence. The map decides the **trace role before the pinned one**, so a trace takes its own pair, ladder, stroke and count whatever its pin says while a pinned trace escapes the count, and the legend reads the trace's own gate; the card shows **Dist · Total · Avg** with the two estimates labelled, its header carrying the route's **creation** instant and no end time, Resume refused through one predicate on the summary and merge refused as a candidacy, with "Follow again" recorded as a suggestion and deliberately left out.
 
-**Open and recorded:** the device pass is owed over the four combinations, the new glyph, the new gate, and
-a migrated install's two flags with the vanished old key. The migration's mapping is the one decision no
-test covers — its correctness rests on the constructor's argument order (`SettingsManager.kt:465`) — so
-lifting `legacy mode → (arrows, colours)` into a pure function and pinning the three tokens is the cheap
-close. One dead import (`selectableGroup`) is still in `MapScreenSettingsOverlay.kt`. The 2026-09-15 walk
-level stays open on items 12 and 13, which is what blocks this file's own fold: `#bake` folded no section
-this pass, every one of them still holding an open todo or a doc mapping.
+**The run's review held R29–R42 with no breach** and named one defect the change itself created — the legend gone blind to a trace banded by its own gate — beside four test gaps and three prose drifts that outran the code; all seven were closed in a correction hop, each new guard **shown red on the revert it catches**, and the suite stands at **580 tests with no failure**.
+
+**Open and recorded.** The **device pass over the trace work is owed** — a route's look on the map beside a recording, the card's three cells and its header, the filter's three values, and the count's effect on how many routes are drawn. Still owed from 2026-09-17 and untouched by this pass: the render axes' own device pass (the four chip combinations, the `Speed` glyph, the legend gate, a migrated install's two flags), the migration's pure mapping, which no test covers, and the dead `selectableGroup` import in `MapScreenSettingsOverlay.kt`. Named rather than lost, and now tracked globally: the surviving colour pairs (`tracking.color.pastFrom`/`pastTo`/`pinnedFrom`/`pinnedTo`) still read ARGB through `propInt` — the same trap R42 closed for the trace pair alone — and the trace plan's §8 still claims a bulk-resume path where one shared guard site is what exists. Nothing was folded this pass: every section still holds an open todo, a retained rule, a doc mapping or the open walk.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the two flags, their key constants and the one-edit migration
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — `trackRenderPlan`, `selectionBandedAfterTap`, `legendVisibleFor`, the rebuild keys
-- `app/src/main/java/ykws/android/maro/ui/components/MultiSelectRow.kt` — the twin box, with `SegmentedRow` beside it
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — the row, its caption and the two chip callbacks
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the drawer header's `Speed` toggle and the two `bandedOn` sites
-- `app/src/main/java/ykws/android/maro/ui/icons/speed.kt` — the standalone speedometer that toggle wears
+- `xTrack/Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md` — the run's build order, its pointer now in the epic's `## Implemented`, so it has left design
+- `xTrack/Tracks/FEAT_DSC_Tracks.md` — the epic: the trace entry landed at the foot of `## Implemented`, the `## Docs` pointer was already in place, the front matter dated 2026-09-23, and the trace's device pass joined the `### verification` backlog
+- `app/src/main/java/ykws/android/maro/data/track/Track.kt` — the renamed flag with its KDoc, and `TrackSummary.trace` at proto 19
+- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — the projection and the stamp-forced rebuild
+- `app/src/main/java/ykws/android/maro/data/model/ListFilter.kt` — the `trace` axis and its predicate branch
+- `app/src/android/../main/assets/maro.properties`, `app/build.gradle.kts`, `config/AppConfig.kt`, `data/settings/SettingsManager.kt` — the key family, `propColor`, and the four dead keys with their fields and stored preferences
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt`, `MapScreen.kt`, `MapScreenSettingsOverlay.kt`, `TrackHistoryOverlay.kt`, `OverlayLayer.kt` — the role, the legend, the rows, the card and the two refusals
+- The tests — `TrackTraceTest`, `TrackRepositoryTraceIndexTest`, `TrackTraceRoleTest`, with `TrackRenderFlagsPathTest`, `TrackRenderStringsTest`, `TrackOutlineTest`, `TrackFromCourseTest` and `RouteEngineSeamTest` retuned
 
 ## Next Step
 
-Run the owed device pass — the four chip combinations, the legend gate against the selection's fill, and
-the migrated flags on an install that held each retired value — then decide whether the migration's pure
-mapping and the dead import earn a short cleanup hop.
+Take the owed device pass over the trace work — the four readings the plan's §12 names — and let the two 2026-09-17 cleanups (the dead import, the migration's pure mapping) ride with the render axes' own device pass, which has been owed since that day.

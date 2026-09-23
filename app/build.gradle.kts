@@ -59,6 +59,40 @@ android {
             maroProps[key]?.lowercase()?.toBooleanStrictOrNull() ?: default
         fun propInt(key: String, default: Int): Int =
             maroProps[key]?.toIntOrNull()?.coerceIn(0, 100) ?: default
+        /**
+         * The colour keys [propColor] could not read, in the order it met them. Published through
+         * `UNREADABLE_COLOUR_KEYS` below so the **app** reports them at start: R42's subject is the app
+         * showing an error, and this helper stays the one reader of the key — the app reads the
+         * published names rather than parsing `maro.properties` again.
+         */
+        val unreadableColourKeys = mutableListOf<String>()
+        /**
+         * A colour key in the app's live `#AARRGGBB` spelling — what `route.line.color`,
+         * `map.navigation.line.color` and the trace pair below use, and what [propInt] cannot carry:
+         * its `toIntOrNull()` drops any ARGB value above `Int.MAX_VALUE` and its `coerceIn(0, 100)`
+         * would clamp one that fits, so an ARGB value read through it silently never applies.
+         *
+         * A value this cannot read falls back to the caller's literal — the sibling key's shipped
+         * value — and its name lands in [unreadableColourKeys], which the app reports at start; the
+         * build's own error line rides beside it, because a silent fallback is the trap this helper
+         * exists to close.
+         */
+        fun propColor(key: String, fallback: Int): Int {
+            val raw = maroProps[key] ?: return fallback
+            val hex = raw.trim().removePrefix("#").removePrefix("0x").removePrefix("0X")
+            val parsed = hex.takeIf { it.length == 6 || it.length == 8 }?.toLongOrNull(16)?.let { value ->
+                if (hex.length == 6) (0xFF000000L or value).toInt() else value.toInt()
+            }
+            if (parsed == null) {
+                unreadableColourKeys += key
+                logger.error(
+                    "maro.properties: '$key' = '$raw' is not an #AARRGGBB colour — " +
+                        "falling back to 0x${fallback.toUInt().toString(16).uppercase()}."
+                )
+                return fallback
+            }
+            return parsed
+        }
         fun propDouble(key: String, default: Double): Double =
             maroProps[key]?.toDoubleOrNull() ?: default
         fun propString(key: String, default: String): String =
@@ -102,10 +136,9 @@ android {
 
         // ── Track rendering defaults from maro.properties ──────────
         buildConfigField("int", "TRACKING_RENDER_NB", propInt("tracking.render.nb", 5).coerceIn(0, 20).toString())
-        buildConfigField("int", "TRACKING_COLOR_ACTIVE", propInt("tracking.color.active", 0xFF1565C0.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_HISTORY", propInt("tracking.color.history", 0xFF1565C0.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_HISTORY_END", propInt("tracking.color.historyEnd", 0xFF0000FF.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_PINNED", propInt("tracking.color.pinned", 0xFF1565C0.toInt()).toString())
+        // The active line's colour: its property key went with the three dead ones below, so the build
+        // script's literal is its only default — the Settings row owns the user's own choice.
+        buildConfigField("int", "TRACKING_COLOR_ACTIVE", 0xFF1565C0.toInt().toString())
         buildConfigField("int", "TRACKING_COLOR_PAST_FROM", propInt("tracking.color.pastFrom", 0xFF1565C0.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PAST_TO", propInt("tracking.color.pastTo", 0xFF0000FF.toInt()).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_FROM", propInt("tracking.transparency.from", 20).toString())
@@ -114,6 +147,27 @@ android {
         buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_TO", propInt("tracking.transparency.pinnedTo", 20).toString())
         buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propInt("tracking.color.pinnedFrom", 0xFFFF6F00.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propInt("tracking.color.pinnedTo", 0xFFFF8F00.toInt()).toString())
+
+        // ── The trace role's own values: its pair, its ladder, its count and its two gates ──
+        buildConfigField("int", "TRACKING_COLOR_TRACE_FROM",
+            propColor("tracking.color.traceFrom", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_TRACE_TO",
+            propColor("tracking.color.traceTo", 0xFF0000FF.toInt()).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_TRACE_FROM",
+            propInt("tracking.transparency.traceFrom", 20).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_TRACE_TO",
+            propInt("tracking.transparency.traceTo", 80).toString())
+        buildConfigField("int", "TRACKING_TRACE_RENDER_NB",
+            propInt("tracking.trace.render.nb", 5).coerceIn(0, 20).toString())
+        buildConfigField("boolean", "TRACKING_TRACE_ALLOW_SPEED_COLOR",
+            propBool("tracking.trace.allowSpeedColor", false).toString())
+        buildConfigField("boolean", "TRACKING_TRACE_ALLOW_SPEED_ARROWS",
+            propBool("tracking.trace.allowSpeedArrows", true).toString())
+        // R42's report channel: the colour keys [propColor] could not read, comma-joined and empty when
+        // it read them all, for the app to say at start. Declared after every propColor call above, so
+        // the list is complete before it is published.
+        buildConfigField("String", "UNREADABLE_COLOUR_KEYS",
+            "\"${unreadableColourKeys.joinToString(",")}\"")
 
         // ── Stop detection GPS dormant percent from maro.properties ──────
         buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
