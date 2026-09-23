@@ -173,6 +173,19 @@ reserved for **multi-colour** groups under one heading (e.g. Marker halo `Colors
 `SingleColorSubSection`: the tappable swatch is the whole control, and its `contentDescription` carries the row's own
 label so assistive readers still name it.
 
+**Tapping a swatch opens the shared preset grid, and the presets are one list.** The dialog is a 4-column
+`LazyVerticalGrid` of 48dp swatches read from
+[`MarkerColors.all`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt) — the same list the marker colour
+dialog offers — so no picker carries presets of its own and the hues change in one place, the current colour marked
+by a 3dp accent border. The two dialogs return different things on purpose: the settings picker
+([`ColorPickerDialog`](../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt)) emits an ARGB int,
+because `ColorRow` and `ColorPairRow` persist ARGB, while the marker picker
+([`MarkerColorPickerDialog`](../app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt)) emits a palette index,
+because a marker persists `colorIndex`. Since the settings rows keep raw ARGB, a stored colour that is not a palette
+member draws no selected swatch — expected, never patched with a fallback index. **The presets are not a free
+choice:** no surface adds a swatch or a hue of its own, because the sixteen satisfy constraints stated once with the
+palette in [`docs/color-scheme.md`](color-scheme.md) — map contrast, no hue near the water, and pair separation.
+
 **Expander state:** open state lives in `SettingsViewModel.expanderStates` — a `mutableStateMapOf<String, Boolean>` keyed by a stable per-expander id. Shared across the four tabs and preserved across rotation and settings reopen for the whole app session; cleared when the app exits, so every expander is collapsed on fresh launch. Never use local `remember`/`rememberSaveable` state for an expander.
 
 All expander content uses the **same `NestedCard` surface** — a single uniform container for every control type:
