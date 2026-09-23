@@ -8,6 +8,19 @@
 > Edit the `.properties` file, rebuild the APK — no code changes needed.
 >
 > 🎨 <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;margin:0 2px;border:1px solid rgba(255,255,255,0.2);"></span> Swatches show the actual colour.
+>
+> The **picker presets** are the one colour list that lives in code rather than a properties file:
+> [`MarkerColors.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt) holds the 16 hues that
+> both pickers offer — the marker colour dialog and the settings colour rows — so its values are deliberately
+> not restated here, and the list's own order is its index order.
+>
+> The palette is chosen for contrast over the sea and land of the MAPNIK tiles, and it holds no blue
+> because the depth overlay already owns the blues and a hue near the water reads as water. Its hues
+> stay vivid rather than muted and are spread across a wide lightness range, so two entries sharing a
+> hue sit a tier apart and any pair clears 40 degrees of hue or 0.10 of lightness.
+>
+> A value taken from the grid is fully opaque, whereas a stored colour may carry its own alpha; since
+> the picker compares by equality, an alpha-bearing value matches no swatch and shows no selection.
 
 ---
 

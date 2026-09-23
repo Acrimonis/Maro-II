@@ -1897,26 +1897,6 @@ private fun ColorPickerDialog(
     onColorSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val presets = remember {
-        listOf(
-            0xFF1565C0.toInt(), // Blue
-            0xFFD32F2F.toInt(), // Red
-            0xFF388E3C.toInt(), // Green
-            0xFFF57C00.toInt(), // Orange
-            0xFF7B1FA2.toInt(), // Purple
-            0xFF00796B.toInt(), // Teal
-            0xFF5D4037.toInt(), // Brown
-            0xFF000000.toInt(), // Black
-            0xFFFFFFFF.toInt(), // White
-            0xFFBDBDBD.toInt(), // Grey
-            0xFFFFF176.toInt(), // Yellow
-            0xFF4FC3F7.toInt(), // Light Blue
-            0xFF00BCD4.toInt(), // Cyan
-            0xFFCDDC39.toInt(), // Lime
-            0xFFE91E63.toInt(), // Pink
-            0xFF3F51B5.toInt()  // Indigo
-        )
-    }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.color_picker_title)) },
@@ -1928,7 +1908,7 @@ private fun ColorPickerDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(presets) { presetColor ->
+                    items(MarkerColors.all) { presetColor ->
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
