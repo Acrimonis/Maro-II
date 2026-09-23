@@ -46,7 +46,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -59,8 +58,6 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,10 +75,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -125,6 +119,8 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.OptionRow
+import ykws.android.maro.ui.components.StatCell
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -171,10 +167,10 @@ fun TrackHistoryOverlay(
     tracksVisible: Boolean = true,
     trackingRenderNb: Int = 20,
     /**
-     * The trace role's own count, which its accent strip previews: it bounds the non-pinned routes
+     * The route role's own count, which its accent strip previews: it bounds the non-pinned routes
      * alone, a pinned route being drawn whatever it says (R35). Its shipped default is the key's own.
      */
-    traceRenderNb: Int = BuildConfig.TRACKING_TRACE_RENDER_NB,
+    routeRenderNb: Int = BuildConfig.TRACKING_ROUTE_RENDER_NB,
     trackingTransparencyNewest: Int = 20,
     trackingTransparencyOldest: Int = 80,
     trackingColorPastFrom: Int = 0xFF1565C0.toInt(),
@@ -183,11 +179,11 @@ fun TrackHistoryOverlay(
     trackingTransparencyPinnedOldest: Int = 20,
     trackingColorPinnedFrom: Int = 0xFFFF6F00.toInt(),
     trackingColorPinnedTo: Int = 0xFFFF8F00.toInt(),
-    // The trace role's own four values, which its accent strip previews: its pair and its ladder.
-    trackingTransparencyTraceNewest: Int = 20,
-    trackingTransparencyTraceOldest: Int = 80,
-    trackingColorTraceFrom: Int = 0xFF1565C0.toInt(),
-    trackingColorTraceTo: Int = 0xFF0000FF.toInt()
+    // The route role's own four values, which its accent strip previews: its pair and its ladder.
+    trackingTransparencyRouteNewest: Int = 20,
+    trackingTransparencyRouteOldest: Int = 80,
+    trackingColorRouteFrom: Int = 0xFF1565C0.toInt(),
+    trackingColorRouteTo: Int = 0xFF0000FF.toInt()
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
@@ -200,17 +196,17 @@ fun TrackHistoryOverlay(
     }
 
     // Pre-compute accent bar colors — batch lambda for scaffold
-    val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb, traceRenderNb,
+    val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb, routeRenderNb,
         trackingTransparencyNewest, trackingTransparencyOldest,
         trackingColorPastFrom, trackingColorPastTo,
         trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
         trackingColorPinnedFrom, trackingColorPinnedTo,
-        trackingTransparencyTraceNewest, trackingTransparencyTraceOldest,
-        trackingColorTraceFrom, trackingColorTraceTo
+        trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
+        trackingColorRouteFrom, trackingColorRouteTo
     ) {
         val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
         // The recorded tracks only: a route's strip is its own pair, written last below.
-        val historySummaries = trackSummaries.filter { !it.pinned && !it.trace }.sortedByDescending { it.startTimeMs }
+        val historySummaries = trackSummaries.filter { !it.pinned && !it.route }.sortedByDescending { it.startTimeMs }
         val map = mutableMapOf<String, Color>()
         val greyColor = Color(AppConfig.uiTextMuted).copy(alpha = 0.15f)
         val pinnedTotal = pinnedSummaries.size
@@ -242,29 +238,29 @@ fun TrackHistoryOverlay(
             }
         }
         // The routes follow the policy the map paints by (R34, R35): the pin buys the escape from the
-        // count and nothing else — a pinned route keeps the trace pair, written last so it wins over the
-        // pinned group's amber above — while the unpinned ones are bounded by the trace count and greyed
+        // count and nothing else — a pinned route keeps the route pair, written last so it wins over the
+        // pinned group's amber above — while the unpinned ones are bounded by the route count and greyed
         // beyond it, exactly as the recorded ones above are.
-        val traceCount = traceRenderNb.coerceIn(0, 20)
-        val pinnedTraceSummaries = trackSummaries.filter { it.trace && it.pinned }.sortedByDescending { it.startTimeMs }
-        val openTraceSummaries = trackSummaries.filter { it.trace && !it.pinned }.sortedByDescending { it.startTimeMs }
-        val drawnTraces = openTraceSummaries.take(traceCount)
-        fun traceAccent(index: Int, total: Int): Color {
+        val routeCount = routeRenderNb.coerceIn(0, 20)
+        val pinnedRouteSummaries = trackSummaries.filter { it.route && it.pinned }.sortedByDescending { it.startTimeMs }
+        val openRouteSummaries = trackSummaries.filter { it.route && !it.pinned }.sortedByDescending { it.startTimeMs }
+        val drawnRoutes = openRouteSummaries.take(routeCount)
+        fun routeAccent(index: Int, total: Int): Color {
             val appearance = computeTrackPolylineAppearance(
                 index, total,
-                trackingTransparencyTraceNewest, trackingTransparencyTraceOldest,
-                trackingColorTraceFrom, trackingColorTraceTo,
-                AppConfig.trackWidthTraceDp
+                trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
+                trackingColorRouteFrom, trackingColorRouteTo,
+                AppConfig.trackWidthRouteDp
             )
             val a = appearance.argb
             return Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
         }
-        for ((index, summary) in drawnTraces.withIndex()) {
-            map[summary.id] = traceAccent(index, drawnTraces.size)
+        for ((index, summary) in drawnRoutes.withIndex()) {
+            map[summary.id] = routeAccent(index, drawnRoutes.size)
         }
-        openTraceSummaries.drop(drawnTraces.size).forEach { map[it.id] = greyColor }
-        for ((index, summary) in pinnedTraceSummaries.withIndex()) {
-            map[summary.id] = traceAccent(index, pinnedTraceSummaries.size)
+        openRouteSummaries.drop(drawnRoutes.size).forEach { map[it.id] = greyColor }
+        for ((index, summary) in pinnedRouteSummaries.withIndex()) {
+            map[summary.id] = routeAccent(index, pinnedRouteSummaries.size)
         }
         map
     }
@@ -338,8 +334,8 @@ fun TrackHistoryOverlay(
                 id = "merge",
                 label = mergeLabel,
                 icon = Icons.AutoMirrored.Filled.MergeType,
-                // The candidacy refuses a trace rather than the action (R41): a route is a line between
-                // two points, not a leg of a journey, so a selection left with fewer than two non-traces
+                // The candidacy refuses a route rather than the action (R41): a route is a line between
+                // two points, not a leg of a journey, so a selection left with fewer than two non-routes
                 // disables merge by itself.
                 enabled = { ids -> mergeCandidates(trackSummaries, ids).size >= 2 },
                 confirmRequest = { ids, onDismiss, onConfirm ->
@@ -454,31 +450,12 @@ private fun MergeDialogOptions(
         modifier = Modifier.fillMaxWidth()
     )
     Spacer(Modifier.height(8.dp))
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = state.keepOriginals,
-                role = Role.Checkbox,
-                onValueChange = { state.keepOriginals = it }
-            )
-            .semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(
-            checked = state.keepOriginals,
-            onCheckedChange = null,
-            colors = CheckboxDefaults.colors(
-                checkedColor = Color(AppConfig.uiAccent)
-            )
-        )
-        Text(
-            keepOriginalsLabel,
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = 14.sp,
-            modifier = Modifier.weight(1f)
-        )
-    }
+    OptionRow(
+        label = keepOriginalsLabel,
+        checked = state.keepOriginals,
+        onCheckedChange = { state.keepOriginals = it },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 /**
@@ -574,7 +551,7 @@ internal fun TrackCardContent(
         // A route's header carries the instant of its **generation and finalisation** — not of the
         // save, which is the stamp `TrackFromCourse` writes as its start — and **no end time** (R40),
         // so a route reads as one stamp rather than as a range.
-        val endTime = if (summary.trace) null else summary.endTimeMs?.let { finalizeMs ->
+        val endTime = if (summary.route) null else summary.endTimeMs?.let { finalizeMs ->
             val displayMs = summary.lastPointTimeMs.takeIf { it != 0L } ?: finalizeMs
             timeFormat.format(Date(displayMs))
         }
@@ -753,7 +730,7 @@ internal fun TrackCardContent(
             val endMs = summary.lastPointTimeMs.takeIf { it != 0L } ?: summary.endTimeMs!!
             (endMs - summary.startTimeMs) / 1000
         } else 0L
-        if (summary.trace) {
+        if (summary.route) {
             // A route keeps the grid's own three-column shape and shows three cells (R39): Dist is
             // measured off the line and needs no marker, while Total is the plan's allotted time and
             // Avg the pace it was priced with — each labelled as an estimate, the words carrying that
@@ -995,36 +972,6 @@ private fun LiveTrackCard(
 
 /** Which field is being edited — ensures mutual exclusion. */
 private enum class EditingField { NAME, COMMENT }
-
-/** Single cell in the 3-column stats grid: label (33%, right-aligned) + value (66%, left-aligned). */
-@Composable
-private fun StatCell(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "$label:",
-            color = Color(AppConfig.uiTextMuted),
-            fontSize = 11.sp,
-            lineHeight = 12.sp,
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            modifier = Modifier.weight(0.33f)
-        )
-        Spacer(Modifier.width(3.dp))
-        Text(
-            text = value,
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = 12.sp,
-            lineHeight = 13.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.weight(0.66f)
-        )
-    }
-}
 
 /** Human-readable duration: "2h 30m 0s" / "32m 0s" — matches drawer format. */
 private fun fmtDuration(totalSeconds: Long): String {

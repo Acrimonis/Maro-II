@@ -554,6 +554,14 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 - **Actions:** `ConfirmAction(label, role, onClick)` rendered in order, stacked full width.
   `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
   label; `SECONDARY` = `OutlinedButton` with a `uiAccent` label.
+- **A button's colour states its role, never its importance** (2026-09-23): the **accent** is the
+  surface's own outcome — the action the surface exists for, one per surface; the **red** is the action
+  that withholds the work; the **outline** is everything that neither writes nor loses, the door that
+  leaves a mode included. The order **affirmative → neutral → destructive** governs a surface's
+  **stacked** actions; where a requirement fixes a row's own order, that order stands — R17 pairs
+  `Freeze`/`Resume` beside `Save track`, the accent second, which is the requirement's own shape. The
+  recording exit dialog is what the whole family is read against — `Save track` accent ·
+  `Continue recording` outlined · `Discard track` red.
 - **Cancel is optional** and is just another action, passed **last** — where present it is the
   bottom-most button and calls `onDismiss`. Offer one only where dismissal unambiguously means
   "abort, nothing happens" (resume, import conflict, merge, batch delete). No Cancel where dismissing
@@ -563,6 +571,10 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   may carry a side effect and must be preserved verbatim.
 - **Hosts** own every string, the checkbox/field state and the side effects; they keep the component
   mounted with `visible = false` while it animates out.
+- **The options slot's checkbox row is `OptionRow`**
+  ([`ui/components/OptionRow.kt`](../app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt)) —
+  one checkbox and its label, the checkbox's own target inset serving as the gap, so every option row in
+  every dialog reads the same distance.
 
 **Tokens**
 
@@ -647,6 +659,32 @@ At defaults on a 411 dp screen the pill centres at `W/2 − 13` (192.5 dp) with 
 column twice. The centring has no Compose harness in this repo (`app/src` carries `main/` and `test/`
 only), so it is a device judgement; the inset arithmetic is covered by
 [`BannerStartInsetTest`](../app/src/test/java/ykws/android/maro/ui/map/BannerStartInsetTest.kt).
+
+---
+
+### 5.8 Route Panel — `RouteConfirmationPanel`
+
+The dashboard slot's content while a route is aimed or followed (`RouteConfirmPanel.kt`), in both
+orientations. It is **not a dialog and never becomes one** — it is the slot's own content, because a
+floating dialog cannot be aimed under. Its anatomy is the list card's (see §9 of
+[`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)):
+
+| Block | Font / token | Source |
+|---|---|---|
+| Header row | Title 15 sp SemiBold `uiDashboardTextPrimary` on the left; the phase's **status** 13 sp `uiDashboardTextPrimary` in the right corner | `Destination` · `Routing active` beside `Up to date` · `Re-Computing Route…` · `Frozen` — one reading that costs no line; the choosing phase carries no status |
+| Divider | 0.5 dp `uiDividerColor` | the card's own divider, on the panel's 6 dp stack rhythm; drawn only where a plan stands |
+| Data table | `StatCell`, **two columns × two rows** | `Start` beside `Destination`, then `Dist` beside `ETA`, each on a cell of the card's own shape and the rows touching — the tracks card's own grid at two columns; the coordinates print to **three decimals**, the precision that column's width allows |
+| Notes | 12 sp | under the table, each only where it is true: the engine's note that the route ends away from the aim, bracketed, and the forced crossing |
+| Second divider | 0.5 dp `uiDividerColor` | closes the table, above the controls and the actions |
+| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | the roles are §5.6's, the accent the phase's own outcome; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
+
+`StatCell` ([`ui/components/StatCell.kt`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt))
+is the app's **one** rendering of a reading — the track and route cards' grids and this panel read it,
+so what a figure the app shows twice shares is the **cell's typography**, not the figures' own wording:
+the card prints `4.20 nm` where the panel prints the dashboard's `4.2 NM`, each surface keeping its own
+print. The panel's 16 dp / 12 dp gutters and the choosing phase's 2×2 action grid are unchanged, so
+the portrait slot's height budget is untouched; its scroll now lives in the weighted content block,
+which is what anchors the actions to the panel's foot.
 
 ---
 

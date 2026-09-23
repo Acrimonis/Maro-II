@@ -8,7 +8,7 @@ modified: 2026-09-23 06:50
 # Feature: Tracks
 
 **Description:**
-Trace the boat's movement (position, speed) during active navigation. One trace = one 'track' (Port Salis → Port Salis). Point capture suspends when stationary via `isStill()` gate, but the recording state stays ON. Tracks persisted as protobuf binary and recallable — their polylines display on the map overlay.
+Track the boat's movement (position, speed) during active navigation. One recording = one track (Port Salis → Port Salis). Point capture suspends when stationary via `isStill()` gate, but the recording state stays ON. Tracks persisted as protobuf binary and recallable — their polylines display on the map overlay.
 
 ## Sections
 
@@ -16,10 +16,10 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Todos
 - [ ] Build + deploy to device
-- [ ] E2E: Enable tacking -> leave Port Salis -> verify auto-start + real-time map trace
+- [ ] E2E: Enable tacking -> leave Port Salis -> verify auto-start + real-time map track
 - [ ] E2E: Stop sailing -> verify pause -> sail again -> verify resume
 - [ ] E2E: Return to Port Salis + stop -> verify auto-finalize + appears in tack history
-- [ ] E2E: Open tack history -> tap tack -> verify trace renders on map
+- [ ] E2E: Open tack history -> tap tack -> verify track renders on map
 - [ ] E2E: Swipe-to-delete tack -> confirm dialog -> verify removed from list + file system
 - [ ] E2E: Manual Start/Stop from tack drawer -> verify state matches auto-detection
 - [ ] E2E: Export GPX -> copy to computer -> open in QGIS/Google Earth -> verify track/speed/course
@@ -28,7 +28,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - [ ] E2E resume-confirm-backup: sheet appears from list + both dashboard cards; checkbox checked by default; backup written only when ticked (new card, hidden on map, unpinned, no marker links); recording continues on the original; Cancel changes nothing
 - [ ] E2E ramp-step-recut: the 4–13 kn range holds its shade on a jittering fix; the 13–40 kn gradation reads smooth on a fast run; and family 9 paints above 32 kn, where the ramp used to stop
 - [ ] E2E track-position-filter: a mixed track under each of the three values; the tie reads as water; an offshore track beyond the baked region reads water; the live recording shows under every value
-- [ ] E2E trace-flag-and-display: a route's look on the map beside a recording; the card's three cells and its header; the filter's All · Tracks · Traces; the count's effect on how many routes are drawn
+- [ ] E2E trace-flag-and-display: a route's look on the map beside a recording; the card's three cells and its header; the filter's All · Tracks · Routes; the count's effect on how many routes are drawn
 
 ### track-list
 
@@ -83,7 +83,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Swipe-to-delete on TrackHistoryOverlay with snackbar undo.
 
 ## Docs
-- `xTrack/Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md` — **the trace a saved route becomes**: the build order for the flag, the All · Tracks · Traces filter, the colour pair, the opacity ladder, the count and the two gates, the card's three cells and its header, and the removals — its requirements living in the Route feature's master book as R29–R42
+- `xTrack/Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md` — **the flag a saved route carries**: the build order for the flag, the All · Tracks · Routes filter, the colour pair, the opacity ladder, the count and the two gates, the card's three cells and its header, and the removals — its requirements living in the Route feature's master book as R29–R42
 - `xTrack/Tracks/260618_FEAT_PLN_Tracks_TrackList_Design.md` — track list UI requirements
 - `xTrack/Tracks/FEAT_DOC_Tracks_decisions.md` — comprehensive decisions record (7 categories, 40+ decisions)
 - `xTrack/Tracks/260620_FEAT_PLN_Tracks_gps-line-acquisition.md` — GPS point acquisition
@@ -342,6 +342,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **Tracks — the saved line's word became Route (2026-09-23)** — the flag is `Track.route` and `TrackSummary.route`, `@ProtoNumber(19)` kept on both so the stored blobs and the summary index are wire-identical; the role family reads `TrackRenderPath.ROUTE` with `routeTrackRenderPlan` · `StoredTrackSets.routes` · `routeNb` · `routeIds` · `routeSpeedColour`/`routeSpeedArrows`; the settings and values carry `routeSpeedColor`/`routeSpeedArrows` · `routeRenderNb` · the route colour pair and its ladder · the five `maro.properties` keys · the eight `BuildConfig` fields · `AppConfig.trackWidthRouteDp`; the strings lost their EN `(traces)` parentheticals along with the resource names, and the Kind axis keys `route` with `TRACKS`/`ROUTES`, closing a shipped contradiction whose matcher had still read `TRACES`; three test classes were renamed with the prose around them. A stored Kind axis falls to All and the route display preferences reset once, both named in the plan → `xTrack/Tracks/260923_FEAT_PLN_Tracks_trace-word-to-route.md`
 
 - **Data model** — `Track`/`TrackPoint` protobuf, `TrackSummary` index, relative `timeOffsetSec`
 - **Recorder** — OFF⇄ON state machine, geofence auto-detect, speed gate, orphan recovery

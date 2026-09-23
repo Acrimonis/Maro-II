@@ -337,7 +337,7 @@ class TrackRepository(
                         // The flag rides the pass that is already reading the whole track, so the lists
                         // and the map's action rules never need to load a track to know a route from a
                         // recording.
-                        trace = track.trace
+                        route = track.route
                     )
                 } catch (e: Exception) {
                     file.delete()

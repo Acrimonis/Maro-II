@@ -64,8 +64,8 @@ class TrackFromCourseTest {
     }
 
     @Test
-    fun theFlagIsWhatMarksItATraceAndThePinIsWhatWasOffered() {
-        assertTrue(build().trace)
+    fun theFlagIsWhatMarksItARouteAndThePinIsWhatWasOffered() {
+        assertTrue(build().route)
         assertTrue(build(pinned = true).pinned)
         assertFalse(build().pinned)
     }
@@ -79,7 +79,7 @@ class TrackFromCourseTest {
     fun theCreationInstantDatesAndNamesTheSavedRoute() {
         val track = build()
 
-        assertTrue(track.trace)
+        assertTrue(track.route)
         assertEquals(t0, track.startTimeMs)
         assertEquals(trackAutoName(t0), track.name)
     }

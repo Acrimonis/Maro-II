@@ -239,7 +239,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * This is the fourth shared surface the Route isolation design accepts, after the MapScreen hook,
      * the menu entry and the Settings row: the write goes through this feature's **own repository**,
      * so what lands is an ordinary track in every respect — listed, exported, redrawn, replayed —
-     * and `Track.trace` is the only thing that records its speeds as planned rather than measured:
+     * and `Track.route` is the only thing that records its speeds as planned rather than measured:
      * the card's three cells, its creation stamp, its refused Resume and its merge candidacy all read
      * that one flag through `TrackSummary`.
      *

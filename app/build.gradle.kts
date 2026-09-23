@@ -68,7 +68,7 @@ android {
         val unreadableColourKeys = mutableListOf<String>()
         /**
          * A colour key in the app's live `#AARRGGBB` spelling — what `route.line.color`,
-         * `map.navigation.line.color` and the trace pair below use, and what [propInt] cannot carry:
+         * `map.navigation.line.color` and the route pair below use, and what [propInt] cannot carry:
          * its `toIntOrNull()` drops any ARGB value above `Int.MAX_VALUE` and its `coerceIn(0, 100)`
          * would clamp one that fits, so an ARGB value read through it silently never applies.
          *
@@ -148,21 +148,21 @@ android {
         buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propInt("tracking.color.pinnedFrom", 0xFFFF6F00.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propInt("tracking.color.pinnedTo", 0xFFFF8F00.toInt()).toString())
 
-        // ── The trace role's own values: its pair, its ladder, its count and its two gates ──
-        buildConfigField("int", "TRACKING_COLOR_TRACE_FROM",
-            propColor("tracking.color.traceFrom", 0xFF1565C0.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_TRACE_TO",
-            propColor("tracking.color.traceTo", 0xFF0000FF.toInt()).toString())
-        buildConfigField("int", "TRACKING_TRANSPARENCY_TRACE_FROM",
-            propInt("tracking.transparency.traceFrom", 20).toString())
-        buildConfigField("int", "TRACKING_TRANSPARENCY_TRACE_TO",
-            propInt("tracking.transparency.traceTo", 80).toString())
-        buildConfigField("int", "TRACKING_TRACE_RENDER_NB",
-            propInt("tracking.trace.render.nb", 5).coerceIn(0, 20).toString())
-        buildConfigField("boolean", "TRACKING_TRACE_ALLOW_SPEED_COLOR",
-            propBool("tracking.trace.allowSpeedColor", false).toString())
-        buildConfigField("boolean", "TRACKING_TRACE_ALLOW_SPEED_ARROWS",
-            propBool("tracking.trace.allowSpeedArrows", true).toString())
+        // ── The route role's own values: its pair, its ladder, its count and its two gates ──
+        buildConfigField("int", "TRACKING_COLOR_ROUTE_FROM",
+            propColor("tracking.color.routeFrom", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_ROUTE_TO",
+            propColor("tracking.color.routeTo", 0xFF0000FF.toInt()).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_ROUTE_FROM",
+            propInt("tracking.transparency.routeFrom", 20).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_ROUTE_TO",
+            propInt("tracking.transparency.routeTo", 80).toString())
+        buildConfigField("int", "TRACKING_ROUTE_RENDER_NB",
+            propInt("tracking.route.render.nb", 5).coerceIn(0, 20).toString())
+        buildConfigField("boolean", "TRACKING_ROUTE_ALLOW_SPEED_COLOR",
+            propBool("tracking.route.allowSpeedColor", false).toString())
+        buildConfigField("boolean", "TRACKING_ROUTE_ALLOW_SPEED_ARROWS",
+            propBool("tracking.route.allowSpeedArrows", true).toString())
         // R42's report channel: the colour keys [propColor] could not read, comma-joined and empty when
         // it read them all, for the app to say at start. Declared after every propColor call above, so
         // the list is complete before it is published.

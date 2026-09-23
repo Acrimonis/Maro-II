@@ -1,25 +1,14 @@
 package ykws.android.maro.ui.map
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Locale
 import kotlin.math.roundToInt
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
@@ -28,28 +17,17 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
+import ykws.android.maro.ui.components.OptionRow
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The aimed destination — the target, the two rules that decide the asks, and the trip figure
+// The route's own rules — the asks, the refresh gate, the ladder and the trip figure
 //
-// This file owns the route's own chrome and its arithmetic: the screen-centred target the user aims
-// with, the ask policy's rule, the following mode's refresh gate, the ladder's caps and their band,
-// and the trip figure the dashboard's distance cell reads while a route is followed. The map objects
-// — the lines and the pin — live in RouteHost.kt, which is the one file that touches osmdroid for
+// This file owns the route's own arithmetic and the sentences it prints: the ask policy's rule, the
+// following mode's refresh gate, the ladder's caps and their band, the failure lines, and the trip
+// figure the dashboard's distance cell reads while a route is followed. The map objects — the lines,
+// the pin and the aim ring — live in RouteHost.kt, which is the one file that touches osmdroid for
 // this feature.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Side (dp) of the tappable square the aim target is drawn in, centred on the map. */
-internal const val ROUTE_TARGET_SIZE_DP = 96f
-
-/** Radius (dp) of the target's outer ring. */
-internal const val ROUTE_TARGET_RADIUS_DP = 22f
-
-/** Radius (dp) of the target's inner mark — the exact point the aim resolves to. */
-internal const val ROUTE_TARGET_INNER_RADIUS_DP = 3f
-
-/** Stroke (dp) of the outer ring. */
-internal const val ROUTE_TARGET_STROKE_DP = 2f
 
 /** Opacity of the **oldest** line of the stale ladder (R14). */
 internal const val ROUTE_LADDER_ALPHA_OLDEST = 0.20f
@@ -243,6 +221,18 @@ internal fun routeDistanceOffRouteM(plan: RoutePlan, from: RoutePoint): Double {
     )
 }
 
+/**
+ * **One point as the panel prints it** — three decimals, with a dot decimal separator in every locale
+ * whatever the device says.
+ *
+ * Three rather than four because the panel prints the **pair on one row** beside its label: the row's
+ * own width sets the precision, and two four-decimal points would run past it once the destination's
+ * note is with them. One home, read by the panel's data table alone — a second print would drift with
+ * the locale.
+ */
+internal fun routeCoordinate(point: RoutePoint): String =
+    String.format(Locale.US, "%.3f, %.3f", point.latitude, point.longitude)
+
 /** Route age as a short read-out: seconds under a minute, whole minutes above it. */
 @Composable
 internal fun routeAgeText(ageSeconds: Long): String {
@@ -303,67 +293,6 @@ internal fun RouteToggleButton(
 }
 
 /**
- * The aim target: a screen-centred ring and dot the map is dragged and zoomed under, painted in the
- * pin's own colour so the target and the pin that replaces it read as one thing.
- *
- * **A refused aim paints the bold red crosshair over it** (R6) — the same treatment a refused origin
- * gets (R27) — from `route.target.color`, `route.target.widthDp` and `route.target.pulseMs`, beating
- * with the app's one pulse. A canvas reads those keys directly; only the geometry is this file's.
- *
- * It is a marker, not an affordance. The panel carries every outcome, so there is nothing left for a
- * tap here to raise — and the square holds no pointer input at all, which leaves every gesture that
- * starts on it to pan and zoom the map under it.
- */
-@Composable
-internal fun RouteAimTarget(refused: Boolean, modifier: Modifier = Modifier) {
-    val density = LocalDensity.current
-    val color = ComposeColor(AppConfig.routePinColor)
-    val crossColor = ComposeColor(AppConfig.routeTargetColor)
-    val outerRadiusPx = with(density) { ROUTE_TARGET_RADIUS_DP.dp.toPx() }
-    val innerRadiusPx = with(density) { ROUTE_TARGET_INNER_RADIUS_DP.dp.toPx() }
-    val strokePx = with(density) { ROUTE_TARGET_STROKE_DP.dp.toPx() }
-    val crossPx = with(density) { AppConfig.routeTargetWidthDp.dp.toPx() }
-    // The beat is only composed while there is something refused to beat: a target nobody refused
-    // carries no animation at all.
-    val crossAlpha = if (refused) {
-        rememberPulseAlpha(AppConfig.routeTargetPulseMs, label = "routeRefusedPulse")
-    } else {
-        1f
-    }
-
-    Box(
-        modifier = modifier.size(ROUTE_TARGET_SIZE_DP.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.size(ROUTE_TARGET_SIZE_DP.dp)) {
-            val centre = Offset(size.width / 2f, size.height / 2f)
-            drawCircle(
-                color = color,
-                radius = outerRadiusPx,
-                center = centre,
-                style = Stroke(width = strokePx)
-            )
-            drawCircle(color = color, radius = innerRadiusPx, center = centre)
-            if (refused) {
-                val cross = crossColor.copy(alpha = crossAlpha)
-                drawLine(
-                    color = cross,
-                    start = Offset(centre.x - outerRadiusPx, centre.y),
-                    end = Offset(centre.x + outerRadiusPx, centre.y),
-                    strokeWidth = crossPx
-                )
-                drawLine(
-                    color = cross,
-                    start = Offset(centre.x, centre.y - outerRadiusPx),
-                    end = Offset(centre.x, centre.y + outerRadiusPx),
-                    strokeWidth = crossPx
-                )
-            }
-        }
-    }
-}
-
-/**
  * The panel's one checkbox: the pin state the saved track starts with, default off.
  *
  * A checkbox for a state and buttons for outcomes is the epic's split, which is why the save actions
@@ -374,17 +303,11 @@ internal fun RoutePinOption(
     pinned: Boolean,
     onPinnedChange: (Boolean) -> Unit
 ) {
-    Row(
+    OptionRow(
+        label = stringResource(R.string.route_pin_label),
+        checked = pinned,
+        onCheckedChange = onPinnedChange,
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(checked = pinned, onCheckedChange = onPinnedChange)
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = stringResource(R.string.route_pin_label),
-            color = ComposeColor(AppConfig.uiTextPrimary),
-            fontSize = 15.sp,
-            modifier = Modifier.padding(vertical = 4.dp)
-        )
-    }
+        labelFontSize = 15.sp
+    )
 }

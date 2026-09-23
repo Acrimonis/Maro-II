@@ -509,7 +509,7 @@ internal fun OverlayLayer(
                         // The flag rides the hand-built summary too: both dashboard cards render the
                         // same card as the list, so a route opened on the map reads as a route — its
                         // three cells, its creation stamp and its refused Resume hang off this field.
-                        trace = track.trace
+                        route = track.route
                     )
                     DrawerScaffold(
                         title = track.name,
@@ -602,7 +602,7 @@ internal fun OverlayLayer(
                     // The flag rides the hand-built summary too: the two dashboard cards render the
                     // same card as the list, so a route opened there must read as a route — its three
                     // cells, its creation stamp and its refused Resume all hang off this one field.
-                    trace = it.trace
+                    route = it.route
                 )
             }
             var cardHeight by remember { mutableStateOf(0.dp) }
@@ -776,7 +776,7 @@ internal fun OverlayLayer(
                 onToggleLink = onToggleTrackLink,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
-                traceRenderNb = appSettings.traceRenderNb,
+                routeRenderNb = appSettings.routeRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
                 trackingTransparencyOldest = appSettings.trackingTransparencyOldest,
                 trackingColorPastFrom = appSettings.trackingColorPastFrom,
@@ -785,10 +785,10 @@ internal fun OverlayLayer(
                 trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
                 trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
-                trackingTransparencyTraceNewest = appSettings.trackingTransparencyTraceNewest,
-                trackingTransparencyTraceOldest = appSettings.trackingTransparencyTraceOldest,
-                trackingColorTraceFrom = appSettings.trackingColorTraceFrom,
-                trackingColorTraceTo = appSettings.trackingColorTraceTo,
+                trackingTransparencyRouteNewest = appSettings.trackingTransparencyRouteNewest,
+                trackingTransparencyRouteOldest = appSettings.trackingTransparencyRouteOldest,
+                trackingColorRouteFrom = appSettings.trackingColorRouteFrom,
+                trackingColorRouteTo = appSettings.trackingColorRouteTo,
                 lazyListState = trackListState
             )
         }

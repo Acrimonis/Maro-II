@@ -59,33 +59,33 @@ class TrackOutlineTest {
     fun theWidthATrackEarnsFollowsItsTypeNotTheLoopsPosition() {
         assertEquals(
             AppConfig.trackWidthSelectedDp,
-            storedTrackWidth(selected = true, trace = false, pinned = true, newest = false),
+            storedTrackWidth(selected = true, route = false, pinned = true, newest = false),
             0f
         )
         assertEquals(
             AppConfig.trackWidthSelectedDp,
-            storedTrackWidth(selected = true, trace = false, pinned = false, newest = true),
+            storedTrackWidth(selected = true, route = false, pinned = false, newest = true),
             0f
         )
         assertEquals(
             AppConfig.trackWidthPinnedDp,
-            storedTrackWidth(selected = false, trace = false, pinned = true, newest = false),
+            storedTrackWidth(selected = false, route = false, pinned = true, newest = false),
             0f
         )
         assertEquals(
             AppConfig.trackWidthNewestDp,
-            storedTrackWidth(selected = false, trace = false, pinned = false, newest = true),
+            storedTrackWidth(selected = false, route = false, pinned = false, newest = true),
             0f
         )
         assertEquals(
             AppConfig.trackWidthHistoryDp,
-            storedTrackWidth(selected = false, trace = false, pinned = false, newest = false),
+            storedTrackWidth(selected = false, route = false, pinned = false, newest = false),
             0f
         )
-        // The trace role's own stroke, taken ahead of the pinned and newest classes (R34).
+        // The route role's own stroke, taken ahead of the pinned and newest classes (R34).
         assertEquals(
-            AppConfig.trackWidthTraceDp,
-            storedTrackWidth(selected = false, trace = true, pinned = true, newest = true),
+            AppConfig.trackWidthRouteDp,
+            storedTrackWidth(selected = false, route = true, pinned = true, newest = true),
             0f
         )
     }
@@ -106,17 +106,17 @@ class TrackOutlineTest {
         assertEquals("newest", newestId)
         assertEquals(
             AppConfig.trackWidthSelectedDp,
-            storedTrackWidth(selected = true, trace = false, pinned = false, newest = selected.id == newestId),
+            storedTrackWidth(selected = true, route = false, pinned = false, newest = selected.id == newestId),
             0f
         )
         assertEquals(
             AppConfig.trackWidthNewestDp,
-            storedTrackWidth(selected = false, trace = false, pinned = false, newest = newest.id == newestId),
+            storedTrackWidth(selected = false, route = false, pinned = false, newest = newest.id == newestId),
             0f
         )
         assertEquals(
             AppConfig.trackWidthHistoryDp,
-            storedTrackWidth(selected = false, trace = false, pinned = false, newest = older.id == newestId),
+            storedTrackWidth(selected = false, route = false, pinned = false, newest = older.id == newestId),
             0f
         )
     }
@@ -181,7 +181,7 @@ class TrackOutlineTest {
      * between the two fails here rather than shipping silently, and the key set is asserted first
      * because a misspelled name would leave the default standing without a word. The file is the
      * source of truth, so it is the defaults that follow it — which is what the drift the strokes
-     * change left behind is settled by. `track.width.trace` joins them with the trace role.
+     * change left behind is settled by. `track.width.route` joins them with the route role.
      *
      * Every mismatch is collected and reported in one go: the file can disagree with the code in more
      * than one family, and asserting them one at a time reports only the first, hiding the rest
@@ -197,9 +197,9 @@ class TrackOutlineTest {
                 "track.width.live",
                 "track.width.newest",
                 "track.width.pinned",
+                "track.width.route",
                 "track.width.selected",
-                "track.width.selected.casing",
-                "track.width.trace"
+                "track.width.selected.casing"
             ),
             props.stringPropertyNames().filter { it.startsWith("track.width.") }.sorted()
         )
@@ -211,7 +211,7 @@ class TrackOutlineTest {
             "track.width.pinned" to AppConfig.trackWidthPinnedDp,
             "track.width.history" to AppConfig.trackWidthHistoryDp,
             "track.width.selected.casing" to AppConfig.trackWidthSelectedCasingDp,
-            "track.width.trace" to AppConfig.trackWidthTraceDp
+            "track.width.route" to AppConfig.trackWidthRouteDp
         ).mapNotNull { (key, default) ->
             val shipped = props.getProperty(key)?.toFloatOrNull()
             if (shipped == default) null else "$key: shipped $shipped, default $default"

@@ -257,10 +257,10 @@ private fun LayersSettings(
                     SectionDivider()
 
                     // Number of routes to render: its own row beside its sibling above, bounded the
-                    // same way, and bounding the trace set alone — a pinned route is drawn whatever
+                    // same way, and bounding the route set alone — a pinned route is drawn whatever
                     // this says, the pin being what marks a route already saved.
                     Text(
-                        text = stringResource(R.string.settings_traces_count_label),
+                        text = stringResource(R.string.settings_routes_count_label),
                         color = ComposeColor(AppConfig.uiTextPrimary),
                         fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
@@ -271,22 +271,22 @@ private fun LayersSettings(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = stringResource(R.string.settings_traces_count_desc),
+                            text = stringResource(R.string.settings_routes_count_desc),
                             color = ComposeColor(AppConfig.uiTextMuted),
                             fontSize = AppConfig.uiFontDescSize.sp,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "%d".format(settings.traceRenderNb),
+                            text = "%d".format(settings.routeRenderNb),
                             color = ComposeColor(AppConfig.uiValueText),
                             fontSize = AppConfig.uiFontValueSize.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Slider(
-                        value = settings.traceRenderNb.toFloat(),
+                        value = settings.routeRenderNb.toFloat(),
                         onValueChange = { v ->
-                            onUpdateSettings { it.copy(traceRenderNb = v.roundToInt().coerceIn(0, 20)) }
+                            onUpdateSettings { it.copy(routeRenderNb = v.roundToInt().coerceIn(0, 20)) }
                         },
                         valueRange = 0f..20f,
                         steps = 20,
@@ -347,25 +347,25 @@ private fun LayersSettings(
 
                     SectionDivider()
 
-                    // The trace ladder: the same control the pinned pair uses, writing the trace
+                    // The route ladder: the same control the pinned pair uses, writing the route
                     // role's own range — the ladders a recorded track takes are never applied here.
                     RangeSliderRow(
-                        label = stringResource(R.string.settings_trace_transparency_label),
-                        description = stringResource(R.string.settings_trace_transparency_desc),
+                        label = stringResource(R.string.settings_route_transparency_label),
+                        description = stringResource(R.string.settings_route_transparency_desc),
                         valueLabel = stringResource(
                             R.string.settings_transparency_value_fmt,
-                            settings.trackingTransparencyTraceNewest,
-                            settings.trackingTransparencyTraceOldest
+                            settings.trackingTransparencyRouteNewest,
+                            settings.trackingTransparencyRouteOldest
                         ),
-                        value = settings.trackingTransparencyTraceNewest.toFloat()
-                            ..settings.trackingTransparencyTraceOldest.toFloat(),
+                        value = settings.trackingTransparencyRouteNewest.toFloat()
+                            ..settings.trackingTransparencyRouteOldest.toFloat(),
                         valueRange = 0f..100f,
                         steps = 19,
                         onValueChange = { range ->
                             onUpdateSettings {
                                 it.copy(
-                                    trackingTransparencyTraceNewest = range.start.roundToInt(),
-                                    trackingTransparencyTraceOldest = range.endInclusive.roundToInt()
+                                    trackingTransparencyRouteNewest = range.start.roundToInt(),
+                                    trackingTransparencyRouteOldest = range.endInclusive.roundToInt()
                                 )
                             }
                         }
@@ -404,30 +404,30 @@ private fun LayersSettings(
                         onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
                         onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                     )
-                    // The trace pair joins the colour pairs, the tappable swatch being the whole
+                    // The route pair joins the colour pairs, the tappable swatch being the whole
                     // control on each side as it is on the three above.
                     ColorPairRow(
-                        label = stringResource(R.string.settings_color_trace_tracks),
-                        fromColor = settings.trackingColorTraceFrom,
-                        toColor = settings.trackingColorTraceTo,
-                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorTraceFrom = c) } },
-                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorTraceTo = c) } }
+                        label = stringResource(R.string.settings_color_routes),
+                        fromColor = settings.trackingColorRouteFrom,
+                        toColor = settings.trackingColorRouteTo,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteFrom = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteTo = c) } }
                     )
 
                     SectionDivider()
 
-                    // The trace's two rendering gates, the trace-scoped twins of the drawer's
-                    // Colours and Arrows chips: the colour one replaces the ramp for a trace, the
+                    // The route's two rendering gates, the route-scoped twins of the drawer's
+                    // Colours and Arrows chips: the colour one replaces the ramp for a route, the
                     // arrow one can only veto the chevrons.
                     ToggleRow(
-                        label = stringResource(R.string.settings_traces_speed_color_label),
-                        checked = settings.traceSpeedColor,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(traceSpeedColor = on) } }
+                        label = stringResource(R.string.settings_routes_speed_color_label),
+                        checked = settings.routeSpeedColor,
+                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedColor = on) } }
                     )
                     ToggleRow(
-                        label = stringResource(R.string.settings_traces_arrows_label),
-                        checked = settings.traceSpeedArrows,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(traceSpeedArrows = on) } }
+                        label = stringResource(R.string.settings_routes_arrows_label),
+                        checked = settings.routeSpeedArrows,
+                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
                     )
                 }
             }

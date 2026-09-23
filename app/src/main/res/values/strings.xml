@@ -360,10 +360,10 @@
     <string name="filter_option_last_6_months">Last 6 month</string>
     <string name="filter_option_all">All</string>
     <string name="filter_option_unpinned">Unpinned</string>
-    <!-- The kind axis: the trace field's own two words. -->
-    <string name="filter_axis_trace">Kind</string>
+    <!-- The kind axis: the route field's own two words. -->
+    <string name="filter_axis_kind">Kind</string>
     <string name="filter_option_tracks">Tracks</string>
-    <string name="filter_option_traces">Traces</string>
+    <string name="filter_option_routes">Routes</string>
     <string name="filter_option_on_water">On water</string>
     <string name="filter_option_with_icon">With icon</string>
     <string name="filter_option_without_icon">Without icon</string>
@@ -392,8 +392,8 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
     <string name="settings_tracks_count_label">Not-pinned tracks to render</string>
     <string name="settings_tracks_count_desc">This count limits non-pinned tracks only (0-20). Pinned tracks always render.</string>
-    <string name="settings_traces_count_label">Nb of routes to render</string>
-    <string name="settings_traces_count_desc">This count limits non-pinned routes (traces) only (0-20). A pinned route always renders.</string>
+    <string name="settings_routes_count_label">Nb of routes to render</string>
+    <string name="settings_routes_count_desc">This count limits non-pinned routes only (0-20). A pinned route always renders.</string>
     <string name="settings_transparency_label">Not-pinned transparency</string>
     <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
@@ -401,8 +401,8 @@
     <string name="settings_transparency_border_fill_value_fmt">Border %1$d%% · Fill %2$d%%</string>
     <string name="settings_pinned_transparency_label">Pinned transparency</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_trace_transparency_label">Routes (traces) transparency</string>
-    <string name="settings_trace_transparency_desc" formatted="false">Fade across the routes (traces) drawn, newest to oldest, independent of both ranges above. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_route_transparency_label">Routes transparency</string>
+    <string name="settings_route_transparency_desc" formatted="false">Fade across the routes drawn, newest to oldest, independent of both ranges above. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Default Colors</string>
     <string name="settings_colors_desc">The colours drawn while Colours is off. Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
@@ -555,9 +555,9 @@
     <string name="settings_color_active_track">Active track</string>
     <string name="settings_color_past_tracks">Past tracks</string>
     <string name="settings_color_pinned_tracks">Pinned tracks</string>
-    <string name="settings_color_trace_tracks">Routes (traces)</string>
-    <string name="settings_traces_speed_color_label">Speed colours on routes</string>
-    <string name="settings_traces_arrows_label">Arrows on routes</string>
+    <string name="settings_color_routes">Routes</string>
+    <string name="settings_routes_speed_color_label">Speed colours on routes</string>
+    <string name="settings_routes_arrows_label">Arrows on routes</string>
     <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->
     <string name="startup_colour_value_unreadable">Unreadable colour value in maro.properties (%1$s) — the default colour was used.</string>
     <string name="settings_language_french">Français</string>
@@ -570,14 +570,16 @@
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Route destination mode</string>
     <string name="route_dialog_title">Destination</string>
+    <!-- The data table's own labels: two columns, an end each, the figures below them. -->
     <string name="route_label_start">Start</string>
     <string name="route_label_destination">Destination</string>
-    <string name="route_label_distance">Distance</string>
     <string name="route_label_eta">ETA</string>
+    <!-- The ETA cell's bare value — the label above is what says "ETA", so it is not repeated. -->
+    <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
     <string name="route_action_route">Route</string>
-    <string name="route_action_save_route">Save as Track and Route</string>
-    <string name="route_action_save_only">Save as Track and Exit</string>
-    <string name="route_action_save_track">Save as Track</string>
+    <string name="route_action_save_route">Save track and Route</string>
+    <string name="route_action_save_only">Save track and Exit</string>
+    <string name="route_action_save_track">Save track</string>
     <string name="route_action_freeze">Freeze</string>
     <string name="route_action_abort">Abort</string>
     <string name="route_action_exit">Exit</string>
@@ -593,11 +595,12 @@
     <string name="route_following_recomputing">Re-Computing Route…</string>
     <string name="route_status_current">Up to date</string>
     <string name="route_status_frozen">Frozen</string>
-    <!-- The one exit dialog, reached by the toggle and by the panel's Exit alike. -->
+    <!-- The one exit dialog, reached by the toggle and by the panel's Exit alike. Its accent reuses
+         the draft's own save words (route_action_save_only), the scope above saying how many routes
+         that save writes. -->
     <string name="route_exit_title">Leave the route?</string>
     <string name="route_exit_continue">Continue</string>
-    <string name="route_exit_end_no_save">End without saving</string>
-    <string name="route_exit_end_save">End and save</string>
+    <string name="route_exit_discard">Discard route</string>
     <string name="route_exit_scope_all">Save every route of the session</string>
     <!-- A refresh that could not answer: the standing line holds and this is what is said. -->
     <string name="route_toast_refresh_failed">Route not refreshed: %1$s</string>

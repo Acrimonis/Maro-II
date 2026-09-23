@@ -249,7 +249,7 @@ class NavigationViewModel(
      * It carries the draft's **two couplings**, and it is the phase rather than the toggle that owns
      * them because the toggle cannot tell choosing from following. The suspension is here, because
      * demo's speed is derived from the map's pan and aiming *is* panning — letting it through would
-     * sail the boat and extend its trace. The camera's hold is read where the deadline is armed
+     * sail the boat and extend its track. The camera's hold is read where the deadline is armed
      * ([notifyUserInteraction]) and by the drawer rule handed [panResumeOnDrawerChange], because a pan
      * to aim must not be recentred on the boat. Both are released the moment the phase leaves
      * **choosing** — following a route is ordinary sailing.
@@ -1345,7 +1345,7 @@ class NavigationViewModel(
         // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
         // While the destination mode is **choosing** — and only then (R20) — the derivation is
         // suspended: aiming *is* panning, so letting it through would sail the boat and extend its
-        // trace, and the readout reads stationary. The observed pace stays a GPS-mode feature, so
+        // track, and the readout reads stationary. The observed pace stays a GPS-mode feature, so
         // nothing is sampled here.
         if (!settings.value.gpsMode) {
             if (routeChoosing) {

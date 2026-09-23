@@ -43,7 +43,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -89,8 +88,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -116,9 +113,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -197,6 +192,7 @@ import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
+import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.SpatialOperations
@@ -2287,14 +2283,15 @@ fun MapScreen(
                             // boat, and RoutePace drops it for that reason.
                             positionRestricted = inZone300 || zoneSituation?.currentZone != null,
                             setPaceKn = appSettings.routeFreeWaterPaceKn,
+                            // The aim's own offset, read once here: the host paints its ring at the
+                            // screen point this same value makes `inspectAnchor` read the aim with.
                             mapCenterOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() },
-                            mapCenterOffsetDp = mapCenterOffsetDp,
                             viewModel = routeViewModel,
-                            onEndRoute = { leaveRouteMode() },
-                            // The host fills the map area so its target is centred on it, and raises no
-                            // panel of its own: the route's confirmation is composed in the dashboard
-                            // slot below, from the same state the line and the pin are drawn from.
-                            modifier = Modifier.fillMaxSize()
+                            onEndRoute = { leaveRouteMode() }
+                            // The host composes nothing of its own and raises no panel: the aim ring is
+                            // an osmdroid overlay it owns, drawn in the track band under the markers,
+                            // so the boat paints over it; the route's confirmation is composed in the
+                            // dashboard slot below, from the same state the line and pin are drawn from.
                         )
                         // **Where the refusal is shown** (§17 item 3): the mode's own slot, at the map's
                         // foot beside the import's feedback — the place a transient line already lives,
@@ -2435,11 +2432,11 @@ fun MapScreen(
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
             // Drawn while the map carries a banded stroke: Colours paints every recorded stored track
-            // from the ramp, a trace bands on its own colour gate alone (R37), and the eye bands the
+            // from the ramp, a route bands on its own colour gate alone (R37), and the eye bands the
             // selection in the other modes. So the gate reads the ids the track effect actually painted
             // — unselecting leaves the scale up in Colours, and a painted set holding no banded stroke
             // takes it down — asking the same planner the map renders by for each of them, and telling
-            // it which of them are routes so a trace is not read as a recorded track. The selection
+            // it which of them are routes so a route is not read as a recorded track. The selection
             // policy is never rerun here: the effect owns it, and recomputing it inside composition
             // would repeat a stateful mutation. Anchored below the
             // top-left toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
@@ -2459,9 +2456,9 @@ fun MapScreen(
                         tracksVisible = appSettings.tracksVisible,
                         // The painted routes, so the planner reads each of them as the role it is; read
                         // inside the derived block, where the summaries state is a tracked input.
-                        traceIds = allTrackSummaries.filter { it.trace }.map { it.id }.toSet(),
-                        traceSpeedColour = appSettings.traceSpeedColor,
-                        traceSpeedArrows = appSettings.traceSpeedArrows
+                        routeIds = allTrackSummaries.filter { it.route }.map { it.id }.toSet(),
+                        routeSpeedColour = appSettings.routeSpeedColor,
+                        routeSpeedArrows = appSettings.routeSpeedArrows
                     )
                 }
             }
@@ -3230,9 +3227,11 @@ fun MapScreen(
 
         // ── The route's one exit dialog (R23) — hosted here, asked by two doors ──────────────────
         // The toggle's off while a route is followed and the panel's own **Exit** raise this same
-        // dialog: Continue · End without saving · End and save, the save carrying a scope of the last
-        // route alone or every route of the session. Leaving the **draft** asks nothing, which is why
-        // nothing outside the following phase ever raises it.
+        // dialog, and it reads in the order every action surface takes (ui-component-guidelines
+        // §5.6): the affirmative first, the neutral stay, the loss last — **Save track and Exit**,
+        // which carries the draft's own save words with the scope chose above saying how many routes
+        // it writes · **Continue** · **Discard route**. Leaving the **draft** asks nothing, which is
+        // why nothing outside the following phase ever raises it.
         if (routeExitRequested) {
             // The all-scope option is offered only where there is a set to write: with one route the
             // last-scope save already writes it (R25).
@@ -3243,52 +3242,35 @@ fun MapScreen(
                 visible = true,
                 onDismiss = { routeExitRequested = false },
                 options = {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = routeExitScopeAll,
-                                enabled = allOffered,
-                                role = Role.Checkbox,
-                                onValueChange = { routeExitScopeAll = it }
-                            )
-                            .semantics(mergeDescendants = true) {},
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = routeExitScopeAll,
-                            onCheckedChange = null,
-                            enabled = allOffered,
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = ComposeColor(AppConfig.uiAccent)
-                            )
-                        )
-                        Text(
-                            stringResource(R.string.route_exit_scope_all),
-                            color = ComposeColor(AppConfig.uiTextPrimary),
-                            fontSize = 14.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    OptionRow(
+                        label = stringResource(R.string.route_exit_scope_all),
+                        checked = routeExitScopeAll,
+                        onCheckedChange = { routeExitScopeAll = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = allOffered
+                    )
                 },
                 actions = listOf(
+                    // The accent is the dialog's own outcome: it writes the session's routes, the
+                    // scope chosen above saying how many — the same act, and so the same words, as
+                    // the draft's own save.
+                    ConfirmAction(
+                        stringResource(R.string.route_action_save_only),
+                        ConfirmActionRole.PRIMARY
+                    ) {
+                        routeExitRequested = false
+                        saveRouteSession(all = routeExitScopeAll)
+                        endRouteMode()
+                    },
                     ConfirmAction(
                         stringResource(R.string.route_exit_continue),
                         ConfirmActionRole.SECONDARY
                     ) { routeExitRequested = false },
                     ConfirmAction(
-                        stringResource(R.string.route_exit_end_no_save),
+                        stringResource(R.string.route_exit_discard),
                         ConfirmActionRole.DANGER
                     ) {
                         routeExitRequested = false
-                        endRouteMode()
-                    },
-                    ConfirmAction(
-                        stringResource(R.string.route_exit_end_save),
-                        ConfirmActionRole.PRIMARY
-                    ) {
-                        routeExitRequested = false
-                        saveRouteSession(all = routeExitScopeAll)
                         endRouteMode()
                     }
                 )
@@ -3312,31 +3294,12 @@ fun MapScreen(
                 onDismiss = { pendingResume = null },
                 message = stringResource(R.string.resume_confirm_message),
                 options = {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = backup,
-                                role = Role.Checkbox,
-                                onValueChange = { backup = it }
-                            )
-                            .semantics(mergeDescendants = true) {},
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = backup,
-                            onCheckedChange = null,
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = ComposeColor(AppConfig.uiAccent)
-                            )
-                        )
-                        Text(
-                            stringResource(R.string.resume_confirm_backup),
-                            color = ComposeColor(AppConfig.uiTextPrimary),
-                            fontSize = 14.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    OptionRow(
+                        label = stringResource(R.string.resume_confirm_backup),
+                        checked = backup,
+                        onCheckedChange = { backup = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 },
                 actions = listOf(
                     ConfirmAction(stringResource(R.string.action_resume), ConfirmActionRole.PRIMARY) {

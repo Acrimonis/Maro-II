@@ -45,7 +45,7 @@ data class Track(
     @ProtoNumber(17) val updatedAtEpochMs: Long = 0L,
     @ProtoNumber(18) val lastPointTimeMs: Long = 0L,
     /**
-     * True when this track is a **trace**: a route the app saved, whose vertices are a *plan* rather
+     * True when this track is a **route**: a route the app saved, whose vertices are a *plan* rather
      * than a recording — the speeds are the speeds the engine intended, taken at search time, and the
      * times are the times it allotted.
      *
@@ -57,7 +57,7 @@ data class Track(
      * reader that hand-builds one from a loaded track (`OverlayLayer`), and reading the flag off that
      * summary rather than off the track it copied it from.
      */
-    @ProtoNumber(19) val trace: Boolean = false
+    @ProtoNumber(19) val route: Boolean = false
 )
 
 /**
@@ -119,7 +119,7 @@ data class TrackSummary(
     /** Sampled points that were on land, biased by one exactly as [waterPointCount] is. */
     @ProtoNumber(18) val landPointCount: Int = 0,
     /**
-     * [Track.trace], projected in the index pass so a list, the map's rendering role and the card's
+     * [Track.route], projected in the index pass so a list, the map's rendering role and the card's
      * refusals can read it **without loading a track's points**: true when this summary describes a
      * route the app saved rather than a recorded journey.
      *
@@ -128,7 +128,7 @@ data class TrackSummary(
      * stamp that does not match rebuilds the index once, rather than leaving the filter answering
      * nothing for every route already stored.
      */
-    @ProtoNumber(19) val trace: Boolean = false
+    @ProtoNumber(19) val route: Boolean = false
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment
@@ -171,23 +171,23 @@ data class TrackSummary(
      * readers (R41): the row's own resume control and the surfaces that reach the same action by their
      * own path both ask this rather than each spelling the clause for itself.
      *
-     * A trace is a plan, not a measurement to continue, so it never resumes; the rest of the guard —
+     * A route is a plan, not a measurement to continue, so it never resumes; the rest of the guard —
      * that a recording is already running — is the screen's own state and stays with the caller.
      */
-    val resumeAllowed: Boolean get() = !trace && endTimeMs != null
+    val resumeAllowed: Boolean get() = !route && endTimeMs != null
 }
 
 /**
- * The merge's **candidate set**: the selected ids less every trace, newest-order irrelevant because the
+ * The merge's **candidate set**: the selected ids less every route, newest-order irrelevant because the
  * selection is a set.
  *
- * A trace is a line between two points, not a leg of a journey, and merging one with a recording would
+ * A route is a line between two points, not a leg of a journey, and merging one with a recording would
  * produce a track whose speeds are half plan and half measurement with nothing on screen saying so —
- * so the refusal is a **candidacy** and not an action: a trace is never offered to the merge, and a
+ * so the refusal is a **candidacy** and not an action: a route is never offered to the merge, and a
  * selection left with fewer than two candidates leaves the action disabled by itself.
  */
 fun mergeCandidates(summaries: List<TrackSummary>, selectedIds: Set<String>): Set<String> =
-    summaries.filter { it.id in selectedIds && !it.trace }.map { it.id }.toSet()
+    summaries.filter { it.id in selectedIds && !it.route }.map { it.id }.toSet()
 
 /**
  * The version [TrackRepository] writes the summary index with, and the one stamp that makes a rebuild

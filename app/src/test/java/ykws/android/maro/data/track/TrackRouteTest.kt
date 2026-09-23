@@ -9,16 +9,16 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.matchesFilter
 
 /**
- * The trace flag's own behaviours, read where they live on the summary: the filter axis both ways with
+ * The route flag's own behaviours, read where they live on the summary: the filter axis both ways with
  * the live recording exempt (R31), the Resume refusal the summary owns (R41), the merge candidacy that
- * drops a trace (R41), and the blob the exporter writes carrying the flag and a foreign track not
+ * drops a route (R41), and the blob the exporter writes carrying the flag and a foreign track not
  * (R29, R30).
  */
-class TrackTraceTest {
+class TrackRouteTest {
 
     private fun summary(
         id: String = "t1",
-        trace: Boolean = false,
+        route: Boolean = false,
         pinned: Boolean = false,
         live: Boolean = false,
         endTimeMs: Long? = 1_000L
@@ -28,49 +28,49 @@ class TrackTraceTest {
         startTimeMs = 0L,
         endTimeMs = endTimeMs,
         pinned = pinned,
-        trace = trace
+        route = route
     ).also { it.isLive = live }
 
-    private fun axis(value: String) = ListFilter(mapOf("trace" to value))
+    private fun axis(value: String) = ListFilter(mapOf("route" to value))
 
     @Test
     fun theAxisReadsBothSidesOfTheFlag() {
-        assertTrue(summary(trace = true).matchesFilter(axis("TRACES"), 0L))
-        assertFalse(summary(trace = true).matchesFilter(axis("TRACKS"), 0L))
-        assertTrue(summary(trace = false).matchesFilter(axis("TRACKS"), 0L))
-        assertFalse(summary(trace = false).matchesFilter(axis("TRACES"), 0L))
+        assertTrue(summary(route = true).matchesFilter(axis("ROUTES"), 0L))
+        assertFalse(summary(route = true).matchesFilter(axis("TRACKS"), 0L))
+        assertTrue(summary(route = false).matchesFilter(axis("TRACKS"), 0L))
+        assertFalse(summary(route = false).matchesFilter(axis("ROUTES"), 0L))
     }
 
     @Test
     fun allLeavesEverySummaryInWhateverItIs() {
-        assertTrue(summary(trace = true).matchesFilter(axis("ALL"), 0L))
-        assertTrue(summary(trace = false).matchesFilter(axis("ALL"), 0L))
+        assertTrue(summary(route = true).matchesFilter(axis("ALL"), 0L))
+        assertTrue(summary(route = false).matchesFilter(axis("ALL"), 0L))
     }
 
     @Test
     fun aLiveRecordingPassesWhateverTheAxisSays() {
-        val live = summary(trace = false, live = true)
+        val live = summary(route = false, live = true)
 
-        assertTrue(live.matchesFilter(axis("TRACES"), 0L))
+        assertTrue(live.matchesFilter(axis("ROUTES"), 0L))
         assertTrue(live.matchesFilter(axis("TRACKS"), 0L))
     }
 
     @Test
-    fun resumeIsRefusedForATraceAndAllowedForAFinishedRecording() {
-        assertFalse(summary(trace = true).resumeAllowed)
-        assertTrue(summary(trace = false).resumeAllowed)
+    fun resumeIsRefusedForARouteAndAllowedForAFinishedRecording() {
+        assertFalse(summary(route = true).resumeAllowed)
+        assertTrue(summary(route = false).resumeAllowed)
     }
 
     @Test
     fun resumeStaysRefusedForAnUnfinishedRecording() {
-        assertFalse(summary(trace = false, endTimeMs = null).resumeAllowed)
+        assertFalse(summary(route = false, endTimeMs = null).resumeAllowed)
     }
 
     @Test
-    fun theMergeCandidacyDropsATrace() {
+    fun theMergeCandidacyDropsARoute() {
         val summaries = listOf(
             summary(id = "a"),
-            summary(id = "b", trace = true),
+            summary(id = "b", route = true),
             summary(id = "c")
         )
 
@@ -86,7 +86,7 @@ class TrackTraceTest {
             name = "Route 2026-09-22 14:50",
             startTimeMs = 1_700_000_000_000L,
             endTimeMs = 1_700_000_360_000L,
-            trace = true
+            route = true
         )
 
         val decoded = ProtoBuf.Default.decodeFromByteArray(
@@ -94,7 +94,7 @@ class TrackTraceTest {
             ProtoBuf.Default.encodeToByteArray(Track.serializer(), track)
         )
 
-        assertTrue(decoded.trace)
+        assertTrue(decoded.route)
         assertEquals(track.id, decoded.id)
         assertEquals(track.name, decoded.name)
     }
@@ -108,6 +108,6 @@ class TrackTraceTest {
             ProtoBuf.Default.encodeToByteArray(Track.serializer(), foreign)
         )
 
-        assertFalse(decoded.trace)
+        assertFalse(decoded.route)
     }
 }

@@ -360,9 +360,9 @@
     <string name="filter_option_all">Tous</string>
     <string name="filter_option_unpinned">Non épinglé</string>
     <!-- The kind axis: a recorded track against a saved route. -->
-    <string name="filter_axis_trace">Nature</string>
+    <string name="filter_axis_kind">Nature</string>
     <string name="filter_option_tracks">Traces</string>
-    <string name="filter_option_traces">Itinéraires</string>
+    <string name="filter_option_routes">Itinéraires</string>
     <string name="filter_option_on_water">Sur l\'eau</string>
     <string name="filter_option_with_icon">Avec icône</string>
     <string name="filter_option_without_icon">Sans icône</string>
@@ -391,8 +391,8 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
-    <string name="settings_traces_count_label">Itinéraires à afficher</string>
-    <string name="settings_traces_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Un itinéraire épinglé s\'affiche toujours.</string>
+    <string name="settings_routes_count_label">Itinéraires à afficher</string>
+    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Un itinéraire épinglé s\'affiche toujours.</string>
     <string name="settings_transparency_label">Transparence des non épinglées</string>
     <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
@@ -400,8 +400,8 @@
     <string name="settings_transparency_border_fill_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_trace_transparency_label">Transparence des itinéraires</string>
-    <string name="settings_trace_transparency_desc" formatted="false">Dégradé sur les itinéraires affichés, du plus récent au plus ancien, indépendant des deux plages ci-dessus. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_route_transparency_label">Transparence des itinéraires</string>
+    <string name="settings_route_transparency_desc" formatted="false">Dégradé sur les itinéraires affichés, du plus récent au plus ancien, indépendant des deux plages ci-dessus. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
     <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
@@ -554,9 +554,9 @@
     <string name="settings_color_active_track">Trace active</string>
     <string name="settings_color_past_tracks">Traces passées</string>
     <string name="settings_color_pinned_tracks">Traces épinglées</string>
-    <string name="settings_color_trace_tracks">Itinéraires</string>
-    <string name="settings_traces_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
-    <string name="settings_traces_arrows_label">Flèches sur les itinéraires</string>
+    <string name="settings_color_routes">Itinéraires</string>
+    <string name="settings_routes_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
+    <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>
     <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->
     <string name="startup_colour_value_unreadable">Valeur de couleur illisible dans maro.properties (%1$s) — la couleur par défaut a été utilisée.</string>
     <string name="settings_language_french">Français</string>
@@ -569,10 +569,12 @@
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Mode destination de route</string>
     <string name="route_dialog_title">Destination</string>
+    <!-- Les étiquettes du tableau : deux colonnes, une extrémité chacune, les chiffres en dessous. -->
     <string name="route_label_start">Départ</string>
     <string name="route_label_destination">Destination</string>
-    <string name="route_label_distance">Distance</string>
     <string name="route_label_eta">ETA</string>
+    <!-- La valeur nue de la cellule ETA — l\'étiquette ci-dessus dit « ETA », elle n\'est pas répétée. -->
+    <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
     <string name="route_action_route">Router</string>
     <string name="route_action_save_route">Enregistrer la trace et router</string>
     <string name="route_action_save_only">Enregistrer la trace et quitter</string>
@@ -592,11 +594,12 @@
     <string name="route_following_recomputing">Recalcul de la route…</string>
     <string name="route_status_current">À jour</string>
     <string name="route_status_frozen">Gelé</string>
-    <!-- Le dialogue de sortie unique, atteint par la bascule comme par Quitter. -->
+    <!-- Le dialogue de sortie unique, atteint par la bascule comme par Quitter. Son bouton accentué
+         reprend les mots de la sauvegarde du brouillon (route_action_save_only), la portée ci-dessus
+         disant combien de routes cette sauvegarde écrit. -->
     <string name="route_exit_title">Quitter la route ?</string>
     <string name="route_exit_continue">Continuer</string>
-    <string name="route_exit_end_no_save">Quitter sans enregistrer</string>
-    <string name="route_exit_end_save">Quitter et enregistrer</string>
+    <string name="route_exit_discard">Abandonner la route</string>
     <string name="route_exit_scope_all">Enregistrer toutes les routes de la session</string>
     <!-- Un rafraîchissement sans réponse : la ligne en place tient, et c\'est ce qui est dit. -->
     <string name="route_toast_refresh_failed">Route non actualisée : %1$s</string>

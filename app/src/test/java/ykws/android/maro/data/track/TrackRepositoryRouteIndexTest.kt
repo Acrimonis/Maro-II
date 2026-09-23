@@ -10,7 +10,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The repository's half of the trace work (R29): the projection in the pass that already opens every
+ * The repository's half of the route work (R29): the projection in the pass that already opens every
  * track to write the summary index, and the rebuild the index's version stamp forces on an index
  * written before the field existed.
  *
@@ -18,37 +18,37 @@ import org.junit.rules.TemporaryFolder
  * that ever carried the flag, and every route already stored would decode `false` — a missing bool
  * reading as off — leaving the filter answering nothing.
  */
-class TrackRepositoryTraceIndexTest {
+class TrackRepositoryRouteIndexTest {
 
     @get:Rule
     val temp = TemporaryFolder()
 
     private val repo get() = TrackRepository(temp.root)
 
-    private fun track(id: String, trace: Boolean = false, pinned: Boolean = false) = Track(
+    private fun track(id: String, route: Boolean = false, pinned: Boolean = false) = Track(
         id = id,
         name = id,
         startTimeMs = 1_000L,
         endTimeMs = 2_000L,
         pinned = pinned,
-        trace = trace
+        route = route
     )
 
     @Test
     fun theSummaryCarriesTheFlagFromThePassThatWritesTheIndex() = runBlocking {
-        repo.save(track("route-1", trace = true))
+        repo.save(track("route-1", route = true))
         repo.save(track("recording-1"))
 
         val summaries = repo.listTracks().associateBy { it.id }
 
-        assertTrue(summaries.getValue("route-1").trace)
-        assertFalse(summaries.getValue("recording-1").trace)
+        assertTrue(summaries.getValue("route-1").route)
+        assertFalse(summaries.getValue("recording-1").route)
     }
 
     @Test
     fun anIndexStampedWithAnOlderSchemaIsRebuiltOnce() = runBlocking {
-        repo.save(track("route-1", trace = true))
-        // The index as the build before this one wrote it: no trace field, and the absent stamp.
+        repo.save(track("route-1", route = true))
+        // The index as the build before this one wrote it: no route field, and the absent stamp.
         val stale = TrackSummary(
             id = "route-1",
             name = "route-1",
@@ -70,7 +70,7 @@ class TrackRepositoryTraceIndexTest {
         val summaries = repo.listTracks()
 
         assertEquals(1, summaries.size)
-        assertTrue("a stale stamp rebuilds the index from the track files", summaries.first().trace)
+        assertTrue("a stale stamp rebuilds the index from the track files", summaries.first().route)
         // And the rebuild is **once**: the index it wrote carries the current stamp, so the next read
         // serves it rather than rebuilding the library again. Without this, a write leaving the stamp
         // stale would stay green while every list call re-read every track.

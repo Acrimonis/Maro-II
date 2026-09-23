@@ -103,8 +103,8 @@ object TrackFromCourse {
             lastPointTimeMs = createdAtMs + durationMs,
             averageSpeedMps = averageMps,
             fastestSpeedMps = fastestMps,
-            // The one thing that distinguishes a saved route from a recorded journey: it is a trace.
-            trace = true
+            // The one thing that distinguishes a saved route from a recorded journey: it is a route.
+            route = true
         )
     }
 
