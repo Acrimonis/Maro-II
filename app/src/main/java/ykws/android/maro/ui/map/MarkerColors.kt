@@ -2,25 +2,35 @@ package ykws.android.maro.ui.map
 
 import kotlin.random.Random
 
-/** 16-colour contrasting palette for user markers. Index 0-15. Returns ARGB int. */
+/**
+ * 16-colour contrasting palette for user markers. Index 0-15. Returns ARGB int.
+ *
+ * The hues are chosen for contrast against the pale sea and land of the MAPNIK tiles, and no blue
+ * slot is kept because the depth overlay already owns the blues — and because a hue near the water
+ * reads as water rather than as a mark. The list deliberately spreads lightness so that two entries
+ * sharing a hue — the greens, the cyans, the violets, the yellows — sit a wide tier apart, with the
+ * bright entries earning their place through the marker's own halo and outline over water. The hues
+ * stay vivid rather than muted, and any pair must clear either 40 degrees of hue or 0.10 of
+ * lightness, so no two swatches in the picker can read alike.
+ */
 object MarkerColors {
     private val palette = listOf(
-        0xFFE53935.toInt(), // red
-        0xFF1E88E5.toInt(), // blue
-        0xFF43A047.toInt(), // green
-        0xFFFB8C00.toInt(), // orange
-        0xFF8E24AA.toInt(), // purple
-        0xFF00ACC1.toInt(), // cyan
-        0xFFF4511E.toInt(), // deep orange
-        0xFF3949AB.toInt(), // indigo
-        0xFF7CB342.toInt(), // light green
-        0xFFFDD835.toInt(), // yellow
-        0xFFD81B60.toInt(), // pink
-        0xFF6D4C41.toInt(), // brown
-        0xFF00897B.toInt(), // teal
-        0xFF5E35B1.toInt(), // deep purple
-        0xFFC0CA33.toInt(), // lime
-        0xFF546E7A.toInt(), // blue grey
+        0xFF000000.toInt(), // Black
+        0xFFFFD700.toInt(), // Gold
+        0xFF2E7D32.toInt(), // Green
+        0xFFB39DDB.toInt(), // Light Violet
+        0xFFFF6500.toInt(), // Orange
+        0xFF616161.toInt(), // Grey
+        0xFF4A148C.toInt(), // Dark Violet
+        0xFFD50000.toInt(), // Red
+        0xFF827717.toInt(), // Olive
+        0xFFCD00CD.toInt(), // Purple
+        0xFF81C784.toInt(), // Light Green
+        0xFFFFAB00.toInt(), // Amber
+        0xFFF48FB1.toInt(), // Pink
+        0xFF00838F.toInt(), // Cyan
+        0xFF880E4F.toInt(), // Maroon
+        0xFFFFFFFF.toInt(), // White
     )
 
     /** Default colour used when [colorIndex] is null. */
@@ -28,13 +38,13 @@ object MarkerColors {
 
     /** Returns the colour for [colorIndex] (0-15), or [default] if null. */
     fun of(colorIndex: Int?): Int =
-        if (colorIndex != null && colorIndex in 0..15) palette[colorIndex] else default
+        if (colorIndex != null && colorIndex in palette.indices) palette[colorIndex] else default
 
     /** 16 colours for the picker grid. */
     val all: List<Int> get() = palette
 
     /** Returns a random index 0-15. */
-    fun randomIndex(): Int = Random.nextInt(16)
+    fun randomIndex(): Int = Random.nextInt(palette.size)
 
     /** Zone fill opacity (33% = ~84/255). */
     val ZONE_ALPHA: Int get() = (0.33 * 255).toInt()

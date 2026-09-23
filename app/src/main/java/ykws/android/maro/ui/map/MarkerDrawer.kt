@@ -560,7 +560,7 @@ fun MarkerColorPickerDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(16) { index ->
+                    items(colors.size) { index ->
                         val color = colors[index]
                         val isSelected = index == currentColorIndex
                         Box(
