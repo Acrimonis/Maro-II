@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-24 17:52
+modified: 2026-09-24 20:49
 ---
 
 # Feature: Route
@@ -145,6 +145,7 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 ## Todos
 - [ ] **The duplicate save** — pressing `Save as Track` twice writes two tracks for one route; the second press should recognise the one it has already written, and `RouteViewModel`'s own route-to-track map is the home that knows it. Raised by the correction hop on 2026-09-22 and left outside its scope.
 - [ ] **The pin's hiding flag** — the route pin is hidden with `isEnabled`, an idiom proven in this repo for `Polyline` only; should a device ever show a stale pin where no route stands, the pin's pre-refactor shape — created and added only when a plan exists — is the fallback. Named here so it is not rediscovered.
+- [ ] **The multi-route save, withdrawn 2026-09-24** — the route's exit dialog no longer offers to write the session's routes, so the set serves the drawing alone; resolve later whether a multi-route save comes back and, if it does, what names its files, the machinery having left with the option.
 
 ## Key Files
 
@@ -166,7 +167,8 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 - `app/src/test/java/ykws/android/maro/spatial/PrebakedCoastline.kt`, `CoastlinePointWalkTest.kt` — kept from the route work: the coastline fixture and the point walk's guard against a brute-force minimum over every segment the index holds
 
 ## Docs
-- `xTrack/Route/260924_FEAT_PLN_Route_avoid-land-stage.md` — **the avoid engine's stage-1 plan**: corridor-bounded grid A\* + clearance taut pull in three stages, in design and implementation-ready after two Ask reviews
+- `xTrack/Route/260924_FEAT_PLN_Route_acquisition-and-route-workflow.md` — **the workflow change, in design**: the two explicit phases, the removals, the anchor's lead, the action matrix, the disabled face and the landing order, with its eight walk items settled
+- `xTrack/Route/260924_FEAT_PLN_Route_avoid-land-stage.md` — **the avoid engine's stage-1 plan**: corridor-bounded grid A\* + clearance taut pull in three stages, shipped 2026-09-24 with its outcome in `## Implemented`
 - `xTrack/Route/260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md` — **the taut pull's rework**: the corner A*'s 7.3 s device reading, the greedy tangent walk that jittered, and the shipped grid A* + verified corner snap + pull, with the main-thread ANR fix
 - `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` — **the mesh engine as it was**: the bake and its artifact, repository → A\* → shortcut → fillet → drawn clock, then its limitations, its issues and its measured performance with provenance, and why it went
 - `xTrack/Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` — **the mode's interaction spec**: the requirement book (every requirement of 2026-09-22, each marked decided or open), the engine's interface, both phases state by state, what the map paints, the saving and naming rules, and the questions still open. **It is the source of the rules marked "stated and not yet written",** and where it and this epic disagree, it wins
@@ -175,6 +177,18 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 - Five plans are **archived** in `xTrack/Route/xxArchive/` with their digest floors — the removal pass itself, the mesh era's settled design, its trajectory study, the engine-seam plan and the tracer's design of record — and `#archive` is the only way into that folder
 
 ## Walk
+**Level 1 — Date:** 2026-09-24 · **Source:** the acquisition-and-route-workflow plan's own open points, in the order they block it, from [`260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md) §6 and §9 · **Cursor:** — · **Closed:** 2026-09-24 — exhausted, all eight items settled and the design ready to build
+- [x] 1 · The restart control — resolved 2026-09-24 by the user's word: a fourth action on the route panel, `New route`, which clears the destination and keeps the session set, so the earlier lines stay drawn on the ladder
+- [x] 2 · The ladder under reroute — resolved 2026-09-24: the stack is kept, a superseded line staying drawn inside the caps of one oldest plus three latest, and the session set survives every reroute and every new route, feeding the drawing alone; the exit dialog's all-scope save is **withdrawn** rather than drawn, the question of its return parked as a todo
+- [x] 3 · Freeze's fate — resolved 2026-09-24: both controls leave with the gate, the route panel's actions standing at `Save track` · `Reroute` · `New route` · `Exit` with the `Frozen` and re-computing status readings gone with them
+- [x] 4 · A fresh acquisition's doors — resolved 2026-09-24 on the wider reading: a line acquired and not yet confirmed counts as something held, so every door that would end the mode asks first, and only an acquisition standing on nothing leaves in silence
+- [x] 5 · Which line Save track writes inside an acquisition — resolved 2026-09-24: the **front line**, the newest answer the panel's table describes, so the button greys once that line has a track and returns with the next answer
+- [x] 6 · The copy in both locales — resolved 2026-09-24: accepted as proposed, title `Route acquisition`, the comment, two status words, five stages and the eight action labels, in English and French alike (`Recalculer` the drafted French for Reroute)
+- [x] 7 · The disabled action — resolved 2026-09-24: a family rule, `ConfirmActionButton` gaining `enabled` and §5.6 gaining the face, the outlined role with a `uiTextMuted` label and no accent surviving, both tokens already existing
+- [x] 8 · The duplicate-save todo — resolved 2026-09-24 by the user's word: it is **left standing** and resolved once the implementation has landed, rather than closed by this pass's disabled rule
+
+- Resolutions: eight points settled by the user's word on 2026-09-24 — the anchor re-read on each entry into acquisition from the boat's own position, led a flat 10 s with a live-fix fallback and no lead in demo; `New route` as a fourth route-panel action clearing the destination while the session set survives for the drawing; the stack kept inside its caps of one oldest plus three latest with the exit dialog's all-scope save **withdrawn** and its return parked as a todo; `Freeze/Resume` and `Abort` leaving with the gate so the route panel stands at four actions; every door asking wherever the mode would end holding an acquired or a followed line, and only an empty acquisition leaving silently; `Save track` writing the front line the panel's table describes; the copy accepted in both locales as thirteen new keys; and the disabled action becoming a **family rule** in §5.6 — the outlined role with a `uiTextMuted` label and no accent surviving, composed of tokens that already exist. Dropped: nothing. Kept standing: the duplicate-save todo, now to be resolved after the implementation lands.
+
 **Level 1 — Date:** 2026-09-24 · **Source:** the stage-1 build order of `260924_FEAT_PLN_Route_avoid-land-stage.md`, the pending set in ship order · **Cursor:** — · **Closed:** 2026-09-24 — exhausted by decision, all nine items settled and the build owed to implementation
 - [x] 1 · The four keys and the phone budget — locked at 25 / 50 / 1852 / 25, budget ≤ 500 ms (the user's word, 2026-09-24)
 - [x] 2 · `AvoidWorld` plus the adapter, `load()` and the land-ring classification query — option A: one read-only orientation query on the index
