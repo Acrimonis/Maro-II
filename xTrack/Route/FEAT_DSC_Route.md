@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-24 11:14
+modified: 2026-09-24 13:20
 ---
 
 # Feature: Route
@@ -166,6 +166,7 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 - `app/src/test/java/ykws/android/maro/spatial/PrebakedCoastline.kt`, `CoastlinePointWalkTest.kt` — kept from the route work: the coastline fixture and the point walk's guard against a brute-force minimum over every segment the index holds
 
 ## Docs
+- `xTrack/Route/260924_FEAT_PLN_Route_avoid-land-stage.md` — **the avoid engine's stage-1 plan**: corridor-bounded grid A\* + clearance taut pull in three stages, in design and implementation-ready after two Ask reviews
 - `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` — **the mesh engine as it was**: the bake and its artifact, repository → A\* → shortcut → fillet → drawn clock, then its limitations, its issues and its measured performance with provenance, and why it went
 - `xTrack/Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` — **the mode's interaction spec**: the requirement book (every requirement of 2026-09-22, each marked decided or open), the engine's interface, both phases state by state, what the map paints, the saving and naming rules, and the questions still open. **It is the source of the rules marked "stated and not yet written",** and where it and this epic disagree, it wins
 - `xTrack/Route/260922_FEAT_PLN_Route_interaction-build.md` — **the build order for everything this epic states**: eleven steps, each naming the files it owns, over the requirement book the same day rewrote — the Route work landing before the trace work that renames the flag
@@ -173,6 +174,19 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 - Five plans are **archived** in `xTrack/Route/xxArchive/` with their digest floors — the removal pass itself, the mesh era's settled design, its trajectory study, the engine-seam plan and the tracer's design of record — and `#archive` is the only way into that folder
 
 ## Walk
+**Level 1 — Date:** 2026-09-24 · **Source:** the stage-1 build order of `260924_FEAT_PLN_Route_avoid-land-stage.md`, the pending set in ship order · **Cursor:** — · **Closed:** 2026-09-24 — exhausted by decision, all nine items settled and the build owed to implementation
+- [x] 1 · The four keys and the phone budget — locked at 25 / 50 / 1852 / 25, budget ≤ 500 ms (the user's word, 2026-09-24)
+- [x] 2 · `AvoidWorld` plus the adapter, `load()` and the land-ring classification query — option A: one read-only orientation query on the index
+- [x] 3 · The tagged, costed grid and the rasterizer — cell-centre-to-edge distance, land-ring fill, half-diagonal closure
+- [x] 4 · The A\* — metres-equivalent cost, haversine heuristic, deterministic tie-break, cancellation
+- [x] 5 · The taut pull — source-parameterized, two-pointer, sample ≤ margin/2, end-disc exemption
+- [x] 6 · The seam mapping — force-free ends, `OutsideWater`, raw-aim endpoints, `validatePoint`
+- [x] 7 · The harness edit — factory plus world provider in `MapScreen`
+- [x] 8 · Stage-1 tests
+- [x] 9 · Stage-1 measurement on the acceptance pair
+
+- Resolutions: nine items settled by decision — the four keys locked at 25 / 50 / 1852 / 25 with a ≤ 500 ms budget; the world interface and the land-ring classification as one read-only orientation query on the index; the tagged costed grid with cell-centre-to-edge rasterization, land-ring fill and half-diagonal closure; the A\* with metres-equivalent cost; the source-parameterized two-pointer pull; the seam mapping; the factory widening in `MapScreen`; the stage-1 tests; and the acceptance-pair measurement. Dropped: nothing. The build is owed to implementation — the level is exhausted by decision.
+
 **Level 1 — Date:** 2026-09-19 · **Source:** the ten challenge items of `260919_FEAT_PLN_Route_registration-and-drift.md` §14, plus the depth question tagged as item 11 · **Closed:** 2026-09-19 — exhausted, ten items resolved and the depth gate parked
 - [x] 1 · C1 wire shape — resolved 2026-09-19 by the user's instruction: the mesh follows the coastline and depth mechanism — packed primitive arrays with CSR offsets under javalite, schema in a `.proto` beside `coastline.proto` and `depth.proto`, hand-built like their serializers — so one set of numbers is both the file and what the search reads while running, and the builder's objects never reach the wire
 - [x] 2 · C2 limits — resolved 2026-09-19: a speed limit does not belong in the route data file at all; it belongs to the 300 m band and to the regulated zones, whose values are centralised and built to change; and per plan §15 the band's **shape** is baked while its number stays live — its boundary respected by the triangulation and an in-band mark on each edge

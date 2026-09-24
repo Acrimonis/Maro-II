@@ -1,24 +1,22 @@
 # Context Hydration — Route — 2026-09-24
 
-**Last Bake:** 2026-09-24 11:14 UTC — written by `#bake`
+**Last Bake:** 2026-09-24 13:20 UTC — written by `#bake`
 
-**Directive trace:** no covered action stopped since the last bake — no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code came from a file read, a hop's report or a subtask's own output. One delegation is named rather than glossed: the Architect tools in this session carry no shell, so the git moves (`#new`, the re-cut, the closing commit and push) and the bake's two long-line `GLOBAL_CONTEXT` edits ran through Code subtasks on the user's explicit `#`-invocations.
+**Directive trace:** no covered action stopped since the last bake — no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code came from a file read or an Ask hop's output. Two delegations are named: the two Ask reviews ran through `new_task(ask)` subtasks, and the plan edits landed in Architect (`.md`-only).
 
 ## State
 
-The harness shipped on `feature/route-avoid` (cut from `origin/develop` `85ef085`, re-cut from `feature/route-dummy` `13bc023`): `RouteEngineChoice` beside the seam with `dummy` and `avoid` rows, `route.engine.id=dummy` seeded into `AppSettings.routeEngineId` with an unclaimed id falling back and reported at startup, the System-tab section between Language and Screen, and `RouteAvoidEngine` drawing the same straight line priced at the live set pace. The ViewModel's engine became a selection flow that captures the session engine on the Idle→Choosing edge and releases it on Idle, so the choice applies at the next arming and a live route keeps the engine that drew it. The Ask hop returned **revise** once — the avoid engine priced at the static property default — and a second Code hop closed it, the dropdown showing the resolved id and its label dropped so the section header is the one label; two should-fixes were declined by decision, the section-description wording (user-facing, left for the user's eye) and the dummy/avoid duplication (the two placeholders diverge next). Build green under `apk-build.bat`.
+The avoid engine's stage-1 design is decided end to end and implementation-ready — nothing is coded yet. The shape: a corridor-bounded grid A* plus a clearance taut pull, three stages over one rasterizer (avoid land, then the 300 m band, then regulated speed zones); the seam (`RouteEngine`) and the shipped harness stay as they are until the work lands. Two Ask reviews passed: a feasibility review (feasible-with-named-changes), then an implementation-grade review that grounded the ≤ 500 ms budget on the Lérins-to-Salis corridor (~120–250 ms realistic, ~350–450 ms pessimistic) and settled the five ambiguities. The walk then closed by decision — all nine items settled: the four keys locked at 25 / 50 / 1852 / 25 with the ≤ 500 ms budget, the land-ring classification as one read-only orientation query on the index (option A), and the grid, rasterizer, A*, pull, seam mapping, harness edit, tests and measurement all specified. The build is owed to implementation.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt` — the registry
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the second engine
-- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the selection flow and the session engine
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the lookup and the pace-provider wiring
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — the new System-tab section
-- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the dropdown row
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` · `config/AppConfig.kt` · `MainActivity.kt` · `maro.properties` — the persisted id and its report
-- `xTrack/Route/260924_FEAT_PLN_Route_algorithm-harness.md` — the plan, with its Outcome
+- `xTrack/Route/260924_FEAT_PLN_Route_avoid-land-stage.md` — the stage-1 plan, decided and implementation-ready
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the engine to rewrite in stage 1
+- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` · `RouteEngineChoice.kt` — the seam (untouched) and the factory to widen
+- `app/src/main/java/ykws/android/maro/spatial/avoid/` — the new package (world, grid, search, pull)
+- `app/src/main/java/ykws/android/maro/data/coastline/CoastlineRepository.kt` — the read-only land-ring orientation query
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the world-provider wiring
 
 ## Next Step
 
-The device pass over the new Settings section and the engine switch; the section-description wording awaits the user's eye.
+Implement stage 1 per the plan — the `#implement` pipeline.
