@@ -52,6 +52,16 @@ object AppConfig {
     const val ROUTE_FREE_WATER_PACE_MAX_KN = 40f
 
     /**
+     * The route engine id the harness ships as its default — `route.engine.id`, default `dummy`.
+     *
+     * The registry resolves a stored id through this value, so an id nothing claims falls back to
+     * whichever row this names. One home for the value: the property is parsed here and the
+     * `AppSettings.routeEngineId` preference is seeded from it.
+     */
+    var routeEngineId: String = "dummy"
+        private set
+
+    /**
      * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
      * against both the blue water and the amber tracks.
      *
@@ -1036,6 +1046,9 @@ object AppConfig {
             props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
                 routeFreeWaterPaceKn =
                     it.coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+            }
+            props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                routeEngineId = it
             }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)

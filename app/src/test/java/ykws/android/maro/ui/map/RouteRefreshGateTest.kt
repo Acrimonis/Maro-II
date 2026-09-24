@@ -65,7 +65,7 @@ class RouteRefreshGateTest {
 
     /** Drives the machine to a followed route, the way the map does: arm, aim, confirm. */
     private suspend fun following(engine: RouteEngine): RouteViewModel {
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.beginDraft(origin)
         viewModel.preview(aim)
         viewModel.confirm()

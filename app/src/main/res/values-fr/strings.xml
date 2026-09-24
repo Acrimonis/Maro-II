@@ -559,6 +559,8 @@
     <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>
     <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->
     <string name="startup_colour_value_unreadable">Valeur de couleur illisible dans maro.properties (%1$s) — la couleur par défaut a été utilisée.</string>
+    <!-- D4 : un identifiant de moteur de route qu\'aucune ligne ne revendique est retombé sur le défaut. -->
+    <string name="startup_route_engine_id_unclaimed">Moteur de route %1$s inconnu — le moteur par défaut a été utilisé.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->
@@ -629,6 +631,11 @@
     <string name="settings_route_pace_label">Allure en eau libre</string>
     <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
+    <string name="settings_section_route_algorithm">Algorithme de route</string>
+    <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
+    <string name="route_engine_dummy">Ligne droite</string>
+    <string name="route_engine_avoid">Évitement</string>
     <string name="menu_route_destination">Destination</string>
     <string name="menu_route_destination_desc">Tracer une route navigable vers un point</string>
 </resources>

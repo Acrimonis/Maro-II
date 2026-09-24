@@ -20,6 +20,7 @@ New setting?
   │   └─ Sub controls (any type) → NestedCard                     (§2.4)
   ├─ Exclusive 2–3 choice?        → SegmentedRow                   (§2.7)
   ├─ Independent on/off choices?  → MultiSelectRow                 (§2.7b)
+  ├─ Choice list that may grow?   → DropdownRow                    (§2.12)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
 ```
@@ -361,6 +362,24 @@ The Settings overlay tab bar is Material 3's **`SecondaryScrollableTabRow`** —
 
 Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum width, which wrapped the "Navigation" label and left side gaps, and `PrimaryTabRow`'s default indicator is a fixed ~24dp stub. Cells sized to their label keep the whole strip visible on a 360dp screen, with horizontal scrolling acting only as the safety net for large accessibility font scale.
 
+### 2.12 Dropdown Row — `DropdownRow`
+
+For a single choice whose option list may grow past the two or three segments a `SegmentedRow` fits
+(e.g. the route algorithm list): `DropdownRow(label, options, selected, onSelect, description = null)`.
+
+- **Same row model as §2.1/§2.2** — label (16sp Medium `uiTextPrimary`), optional description (13sp
+  `uiTextMuted`), and the control on the right; **no surface of its own**, so the call site supplies the
+  `CardArea`/`NestedCard` (§2.0) and the row pads vertically only.
+- **Control** — the selected option's label in `uiValueText` Bold (`${ui.font.value.size}`) with a
+  `KeyboardArrowDown` arrow in `uiAccent`; tapping the row opens a `DropdownMenu` listing every option.
+- **Options** — `List<Pair<T, String>>`, the `CustomSortField` shape: the generic `T` is the value the
+  caller persists and the strings are already-resolved labels, so the row never holds user-facing text.
+- **The row is the target** — the whole row is one tap that opens the menu, the same single-target rule
+  `OptionRow` follows.
+
+**Do not hand-roll a label + tap-to-open `DropdownMenu`** — use this control, and do not paint a surface
+on it.
+
 ---
 
 ## 3. Spacing Quick Reference
@@ -392,6 +411,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ Hand-rolled `RangeSlider` blocks — use `RangeSliderRow` (§2.8); its value line is mandatory
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ Hand-rolled two-`Text` toggle rows (use `SegmentedRow`, §2.7)
+- ❌ Hand-rolled label + tap-to-open `DropdownMenu` rows (use `DropdownRow`, §2.12)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
 - ❌ Nesting deeper than `CardArea → Expander → NestedCard` (§2.4)
 - ❌ Local `remember`/`rememberSaveable` state for expander open state (use `SettingsViewModel.expanderStates`, §2.4)

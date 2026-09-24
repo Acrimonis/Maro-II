@@ -151,6 +151,12 @@ data class AppSettings(
      * replaces it. Seeded from `route.freeWaterPaceKn`, so the property stays the value's one home.
      */
     val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
+    /**
+     * The route algorithm the harness arms with — the id the registry resolves, seeded from
+     * `route.engine.id`, so the property stays the value's one home and the user's choice persists
+     * here. An id nothing claims falls back to the registry's default and is reported at startup.
+     */
+    val routeEngineId: String = ykws.android.maro.config.AppConfig.routeEngineId,
     /** Regenerate: reload depth grid from assets. */
     val regenGrid: Boolean = true,
     /** Regenerate: re-derive isobath contours. */
@@ -558,6 +564,10 @@ class SettingsManager(
             ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN,
             ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN
         ),
+        routeEngineId = prefs.getString(
+            KEY_ROUTE_ENGINE_ID,
+            ykws.android.maro.config.AppConfig.routeEngineId
+        ) ?: ykws.android.maro.config.AppConfig.routeEngineId,
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
@@ -739,6 +749,7 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
+            .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
@@ -924,6 +935,8 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
         private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
+        /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
+        private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
         private const val KEY_REGEN_GRID = "regen_grid"
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"

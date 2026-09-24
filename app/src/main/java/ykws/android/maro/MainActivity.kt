@@ -48,6 +48,7 @@ import ykws.android.maro.ui.map.NavigationViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.spatial.RouteEngineChoice
 
 class MainActivity : ComponentActivity() {
 
@@ -96,6 +97,12 @@ class MainActivity : ComponentActivity() {
             )
             val depthViewModel: DepthViewModel = viewModel()
             val appSettings by viewModel.settings.collectAsState()
+
+            // D4's report: a persisted route-engine id nothing claims fell back to the registry's
+            // default, and the app says so at start rather than leaving the fallback silent.
+            LaunchedEffect(Unit) {
+                this@MainActivity.reportUnclaimedRouteEngineId(appSettings.routeEngineId)
+            }
 
             // Feed the keeper. It owns the decision; the Activity only supplies what only the UI
             // can see — the persisted settings, the live speed, and (below) the touch stream.
@@ -224,6 +231,19 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(
             this,
             getString(R.string.startup_colour_value_unreadable, keys),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    /**
+     * Reports a persisted route-engine id no registry row claims, at start (D4). A claimed id — the
+     * ordinary case — shows nothing, so a correct choice stays silent and a stale one does not.
+     */
+    private fun reportUnclaimedRouteEngineId(id: String) {
+        if (RouteEngineChoice.all.any { it.id == id }) return
+        Toast.makeText(
+            this,
+            getString(R.string.startup_route_engine_id_unclaimed, id),
             Toast.LENGTH_LONG
         ).show()
     }

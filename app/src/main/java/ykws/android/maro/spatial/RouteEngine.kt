@@ -15,18 +15,20 @@ import ykws.android.maro.data.model.RouteResult
  * is told one end moved **holds the other**, which is where a cache may live — the one thing a
  * `route(start, aim, pace)` signature could not offer, and the reason this interface replaced it.
  *
- * **What ships today is a placeholder.** [RouteDummyEngine] is the only implementation: one straight
- * line from the origin to the destination, reading no coastline, no soundings and no zone, and timed
- * at a fiction of its own — 15 kn on every leg (R28) — so the app's own pace setting does not move a
- * dummy route while the placeholder ships. It exists so the feature stays whole — the toggle, the aim,
- * the phases, the refresh, the ladder, the save — while the two engines that came before it were
- * removed on 2026-09-22. Each of those is written up where it went:
+ * **What ships today are two placeholders.** [RouteDummyEngine] and [RouteAvoidEngine] both answer
+ * one straight line from the origin to the destination, reading no coastline, no soundings and no
+ * zone; they differ only in the pace they time that line at. The dummy prices at a fiction of its own
+ * — 15 kn on every leg (R28) — so the app's own pace setting does not move a dummy route, while the
+ * avoid engine prices at the pace in force. They exist so the feature stays whole — the toggle, the
+ * aim, the phases, the refresh, the ladder, the save — while the two engines that came before them
+ * were removed on 2026-09-22. Each of those is written up where it went:
  * `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` and `…_taut-tracer.md`.
  *
- * **Where the next engine slots in.** An engine implements this interface and is constructed in place
- * of the dummy; nothing else in the app changes. The toggle gates on [state], and everything
- * downstream — [`ykws.android.maro.ui.map.RoutePlan`], the trip figure, the save — reads the answer
- * and that plan, never an engine.
+ * **Where the next engine slots in.** An engine implements this interface and becomes one row of
+ * [RouteEngineChoice]; the chosen id selects which one the app arms with, and nothing else in the app
+ * changes. The toggle gates on [state], and everything downstream —
+ * [`ykws.android.maro.ui.map.RoutePlan`], the trip figure, the save — reads the answer and that plan,
+ * never an engine.
  *
  * **Cancellation is the caller's**, and it is load-bearing: the previous call is cancelled when a new
  * one starts, so a flung map never queues behind a computation nobody wants any more. An engine that

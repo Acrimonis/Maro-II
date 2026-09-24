@@ -2,10 +2,12 @@
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.depth.RasterCache
+import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.SegmentedRow
 import android.provider.Settings
 import android.graphics.Color
 import ykws.android.maro.R
+import ykws.android.maro.spatial.RouteEngineChoice
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -1508,6 +1510,21 @@ private fun SystemSettings(
                 ),
                 selected = settings.languageCode,
                 onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Route algorithm ──────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_route_algorithm))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            CardDescription(stringResource(R.string.settings_route_algorithm_desc))
+            DropdownRow(
+                label = null,
+                options = RouteEngineChoice.all.map { it.id to stringResource(it.labelResId) },
+                selected = RouteEngineChoice.resolve(settings.routeEngineId).id,
+                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } }
             )
         }
 

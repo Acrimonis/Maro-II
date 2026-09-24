@@ -560,6 +560,8 @@
     <string name="settings_routes_arrows_label">Arrows on routes</string>
     <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->
     <string name="startup_colour_value_unreadable">Unreadable colour value in maro.properties (%1$s) — the default colour was used.</string>
+    <!-- D4: a persisted route-engine id nothing claims fell back to the default, and the app says so at start. -->
+    <string name="startup_route_engine_id_unclaimed">Route engine %1$s is unknown — the default was used.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->
@@ -630,6 +632,11 @@
     <string name="settings_route_pace_label">Free-water pace</string>
     <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
+    <string name="settings_section_route_algorithm">Route algorithm</string>
+    <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
+    <string name="route_engine_dummy">Straight line</string>
+    <string name="route_engine_avoid">Avoidance</string>
     <string name="menu_route_destination">Destination</string>
     <string name="menu_route_destination_desc">Plot a water route to a point</string>
 </resources>

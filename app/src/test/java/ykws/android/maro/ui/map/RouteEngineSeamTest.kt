@@ -22,6 +22,8 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.track.TrackFromCourse
+import ykws.android.maro.spatial.RouteAvoidEngine
+import ykws.android.maro.spatial.RouteDummyEngine
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.RouteRefusalReason
@@ -90,18 +92,20 @@ class RouteEngineSeamTest {
      */
     @Test
     fun theGateIsTheEnginesOwnReadinessAndTheViewModelHoldsIt() {
-        val ready = RouteViewModel(StraightLineEngine())
+        val ready = RouteViewModel(selectionOf(StraightLineEngine()))
         assertTrue("a ready engine opens the mode", ready.engineState.value.ready)
         assertEquals("and the state is the engine's own", RouteEngineState.Ready, ready.engineState.value)
 
-        val unprepared = RouteViewModel(StraightLineEngine(prepareStates = listOf(RouteEngineState.NotReady)))
+        val unprepared = RouteViewModel(selectionOf(StraightLineEngine(prepareStates = listOf(RouteEngineState.NotReady))))
         assertFalse("one that has not been prepared does not", unprepared.engineState.value.ready)
         assertEquals("and it says so in the state, not in prose", RouteEngineState.NotReady, unprepared.engineState.value)
 
         val unanswerable = RouteViewModel(
-            StraightLineEngine(
-                prepareStates = listOf(
-                    RouteEngineState.Unavailable(RouteUnavailableReason.REGION_NOT_BAKED)
+            selectionOf(
+                StraightLineEngine(
+                    prepareStates = listOf(
+                        RouteEngineState.Unavailable(RouteUnavailableReason.REGION_NOT_BAKED)
+                    )
                 )
             )
         )
@@ -121,7 +125,7 @@ class RouteEngineSeamTest {
     @Test
     fun aPreviewSearchesThroughTheForeignEngineAndItsAnswerReachesThePlanAndTheTripFigure() = runTest {
         val engine = StraightLineEngine()
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -167,7 +171,7 @@ class RouteEngineSeamTest {
      */
     @Test
     fun aConfirmedForeignRouteIsTheTrackTheMapSaves() = runTest {
-        val viewModel = RouteViewModel(StraightLineEngine())
+        val viewModel = RouteViewModel(selectionOf(StraightLineEngine()))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -220,7 +224,7 @@ class RouteEngineSeamTest {
     @Test
     fun aRefreshAsksTheEnginesOriginEntryPointAndTheReplacedRouteJoinsTheLadder() = runTest {
         val engine = StraightLineEngine()
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -253,7 +257,7 @@ class RouteEngineSeamTest {
         val engine = StraightLineEngine(
             prepareStates = listOf(RouteEngineState.NotReady, RouteEngineState.Ready)
         )
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         assertEquals(
             "the gate is still shut after the engine's own first answer",
@@ -278,7 +282,7 @@ class RouteEngineSeamTest {
     @Test
     fun aPreviewRefusedByAnEngineThatNeverBecomesReadyIsNotAskedTwiceForOneAim() = runTest {
         val engine = StraightLineEngine(prepareStates = listOf(RouteEngineState.NotReady))
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -309,7 +313,7 @@ class RouteEngineSeamTest {
         // The **second** aim is the one held, so the first answer has landed a plan by the time the
         // abort happens — which is the whole point of reading the standing line through an abort.
         val engine = StraightLineEngine(gateAfter = boatLater, gate = gate)
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -360,7 +364,7 @@ class RouteEngineSeamTest {
     @Test
     fun theOriginIsJudgedOnceAtArmingAndNeverOnARefresh() = runTest {
         val engine = StraightLineEngine()
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -390,7 +394,7 @@ class RouteEngineSeamTest {
     @Test
     fun aRefusedAimIsCarriedAsAReasonAndAsksForNoRoute() = runTest {
         val engine = StraightLineEngine(refuse = aim)
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -412,7 +416,7 @@ class RouteEngineSeamTest {
     @Test
     fun aRefusedAimDropsTheStandingPlanSoTheOutcomesAreHidden() = runTest {
         val engine = StraightLineEngine(refuse = boatLater)
-        val viewModel = RouteViewModel(engine)
+        val viewModel = RouteViewModel(selectionOf(engine))
 
         viewModel.beginDraft(start)
         viewModel.preview(aim)
@@ -427,7 +431,96 @@ class RouteEngineSeamTest {
         assertEquals(RouteRefusalReason.OFF_WATER, refused.refusal)
         assertNull("the refused aim's state holds no plan, so the outcomes are hidden", refused.plan)
     }
+
+    /**
+     * **The selection reaches the view model at arm time and not before** (D5).
+     *
+     * While the mode is idle the gate follows whichever engine is selected; the Idle → Choosing edge
+     * then captures that one for the session, so a selection changed mid-mode cannot move the gate, and
+     * the return to Idle releases it — the gate follows the newly selected engine again.
+     */
+    @Test
+    fun theSelectionReachesTheViewModelAtArmTimeAndNotBefore() = runTest {
+        val first = StraightLineEngine()
+        val second = StraightLineEngine(prepareStates = listOf(RouteEngineState.NotReady))
+        val selection = MutableStateFlow<RouteEngine>(first)
+        val viewModel = RouteViewModel(selection)
+
+        assertTrue("while idle the gate reads the selected engine", viewModel.engineState.value.ready)
+
+        viewModel.beginDraft(start)
+        selection.value = second
+        assertTrue(
+            "the session engine is the one the mode was armed with, not the new selection",
+            viewModel.engineState.value.ready
+        )
+        viewModel.preview(aim)
+        assertEquals(
+            "and the armed engine drew the preview",
+            listOf(start, aim),
+            (viewModel.state.value as RouteState.Choosing).plan?.points
+        )
+
+        viewModel.end()
+        assertFalse(
+            "released on Idle, the gate follows the newly selected engine again",
+            viewModel.engineState.value.ready
+        )
+    }
+
+    /**
+     * **A selection changed while a route runs leaves the standing line untouched** (D5).
+     *
+     * The refresh goes through the engine the route was armed with — the newly selected one is never
+     * told a thing — so the line the armed engine drew keeps its own pace and the ladder it grew.
+     */
+    @Test
+    fun aSelectionChangedWhileARouteRunsLeavesTheStandingLineUntouched() = runTest {
+        val first = StraightLineEngine(paceKn = 9.0)
+        val second = StraightLineEngine(paceKn = 18.0)
+        val selection = MutableStateFlow<RouteEngine>(first)
+        val viewModel = RouteViewModel(selection)
+
+        viewModel.beginDraft(start)
+        viewModel.preview(aim)
+        viewModel.confirm()
+        val locked = (viewModel.state.value as RouteState.Following).plan
+
+        selection.value = second
+        viewModel.refresh(boatLater)
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals("the standing destination holds", locked.destination, following.plan.destination)
+        assertEquals(
+            "the refresh went through the armed engine, at the armed engine's pace",
+            secondsFor(distanceM(boatLater, locked.destination), 9.0),
+            following.plan.durationSec,
+            1e-6
+        )
+        assertEquals(
+            "the newly selected engine was never told a thing",
+            emptyList<RoutePoint>(),
+            second.toldOrigins
+        )
+    }
+
+    /** **The seam runs through both shipped engines**: each draws its own straight line end to end. */
+    @Test
+    fun theSeamRunsThroughBothShippedEngines() = runTest {
+        for (engine in listOf(RouteDummyEngine(), RouteAvoidEngine(paceKn = { 28.0 }))) {
+            val viewModel = RouteViewModel(selectionOf(engine))
+            viewModel.beginDraft(start)
+            viewModel.preview(aim)
+            val plan = (viewModel.state.value as RouteState.Choosing).plan
+                ?: error("a shipped engine answers a route, so the phase must hold a plan")
+            assertEquals("the shipped engine drew its straight line", listOf(start, aim), plan.points)
+            assertEquals("and its length is the great-circle distance", distanceM(start, aim), plan.distanceM, 1e-6)
+        }
+    }
 }
+
+/** The selection form the view model now takes: one engine behind a [StateFlow]. */
+private fun selectionOf(engine: RouteEngine): StateFlow<RouteEngine> = MutableStateFlow(engine)
 
 /**
  * **A second engine: the same contract, and none of the shipped one's machinery.**
@@ -448,7 +541,9 @@ private class StraightLineEngine(
     private val gateAfter: RoutePoint? = null,
     private val gate: CompletableDeferred<Unit>? = null,
     /** The one point this engine judges unusable, or null for an engine that judges nothing. */
-    private val refuse: RoutePoint? = null
+    private val refuse: RoutePoint? = null,
+    /** The pace this instance prices at, so two instances can be told apart by their answer. */
+    private val paceKn: Double = FIXTURE_PACE_KN
 ) : RouteEngine {
 
     private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.NotReady)
@@ -506,7 +601,7 @@ private class StraightLineEngine(
             LatLng(from.latitude, from.longitude),
             LatLng(to.latitude, to.longitude)
         )
-        val seconds = distanceM / Units.knotsToMps(FIXTURE_PACE_KN)
+        val seconds = distanceM / Units.knotsToMps(paceKn)
         return RouteResult.Success(
             points = listOf(from, to),
             legTimesSec = listOf(seconds),

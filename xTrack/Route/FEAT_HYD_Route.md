@@ -1,26 +1,24 @@
-# Context Hydration — Route — 2026-09-22
+# Context Hydration — Route — 2026-09-24
 
-**Last Bake:** 2026-09-22 20:10 UTC — written by `#bake`
+**Last Bake:** 2026-09-24 11:14 UTC — written by `#bake`
 
-**Directive trace:** no covered action stopped, and one claim is named rather than glossed. The device was the user's: the crash they reported is what authorised reading `adb logcat -d -b crash`, and no device was touched before that word. No dependency was added, no machine-shaped data file was opened, and every claim about the code came from a file read, a command's own output or a hop's diff. The session's git state was readable because `#commit` and `#push` were invoked; before that, the read-only checks (`status`, `log`, `diff`) were run by the Debug hop and by the Code task. The one bend is attribution: the run's own readings — the 554-test baseline, the per-suite counts after the correction, the green build — are **the hops' reports**, re-read as reports rather than re-run by the Architect, and the working tree's git state was taken from a `git status` a subtask ran, not from a reading of my own.
+**Directive trace:** no covered action stopped since the last bake — no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code came from a file read, a hop's report or a subtask's own output. One delegation is named rather than glossed: the Architect tools in this session carry no shell, so the git moves (`#new`, the re-cut, the closing commit and push) and the bake's two long-line `GLOBAL_CONTEXT` edits ran through Code subtasks on the user's explicit `#`-invocations.
 
 ## State
 
-**The mode's interaction is built, reviewed and green; the plan has left design.** The eleven-step build order of [`260922_FEAT_PLN_Route_interaction-build.md`](260922_FEAT_PLN_Route_interaction-build.md) landed in one `#implement` Code hop against R1–R42 of the requirement book, and the Ask hop returned **revise** — two blocking findings (the refresh asking from the position the phase opened on rather than the boat's live reading; the all-scope save free to rewrite rather than rename, its outcome resting on dispatch order) and four should-fix — all six closed in a second Code hop, each pinned by an assertion that fails on its revert. The build plan's own stale *six keys* was corrected to the **nine** it and the book both name.
-
-**Then the device answered.** The first launch of the built mode crashed, the same fatal twice fifteen seconds apart, and `adb logcat -d -b crash` named it: `NullPointerException ... GeoPoint.clone() on a null object reference`, at `Marker.setPosition` ← `RouteHost.kt:344`, where the pin's empty branch set `position = null` and osmdroid clones what it is given. The tree's own diff attributed it to this session's attach-once refactor, exonerated the `origin/develop` merge, and found no second instance of the `TrackSummary.isLive` field-number class anywhere on the startup path. The fix hides the overlay with its own `isEnabled` flag — the idiom `CoastlineMapView` already uses — and the whole build is green after it.
-
-**The device answered, and the mode holds.** The user took the owed pass the same evening and reported *seems ok on the phone*, so the four readings the plan named — the aim under a dragging finger, the fling's cancellation, the panel in the dashboard slot and the saved course appearing in the list as a route — are reported rather than owed, and only the finer points of the interaction stay theirs to revisit. **What remains open, named rather than implied:** the flag rename the trace work owns, `plannedCourse` still its name here until that work lands; the cleanup needs now listed in the epic's own `## Todos` and in the global list; and two pre-existing startup crashes in the device's crash buffer (`DepthSerializer`/`DepthProtos` from 09-18 to 09-21, `SettingsManager.load` from 09-17) which carry no Route frame and belong to whichever feature owns those loads.
+The harness shipped on `feature/route-avoid` (cut from `origin/develop` `85ef085`, re-cut from `feature/route-dummy` `13bc023`): `RouteEngineChoice` beside the seam with `dummy` and `avoid` rows, `route.engine.id=dummy` seeded into `AppSettings.routeEngineId` with an unclaimed id falling back and reported at startup, the System-tab section between Language and Screen, and `RouteAvoidEngine` drawing the same straight line priced at the live set pace. The ViewModel's engine became a selection flow that captures the session engine on the Idle→Choosing edge and releases it on Idle, so the choice applies at the next arming and a live route keeps the engine that drew it. The Ask hop returned **revise** once — the avoid engine priced at the static property default — and a second Code hop closed it, the dropdown showing the resolved id and its label dropped so the section header is the one label; two should-fixes were declined by decision, the section-description wording (user-facing, left for the user's eye) and the dummy/avoid duplication (the two placeholders diverge next). Build green under `apk-build.bat`.
 
 ## Target Files
 
-- `xTrack/Route/260922_FEAT_PLN_Route_interaction-build.md` — the eleven-step build order, now shipped and pointed at from the epic's `## Implemented`
-- `xTrack/Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` — the master requirement book, R1–R42, and the source of the nine keys
-- `xTrack/Route/FEAT_DSC_Route.md` — the epic: eight rules moved from *stated and not yet written* to *written*, the key files corrected to the shapes that shipped (the seam as a session, the one worker, the attach-once host, both phases' panel, the new `MapPulseDot.kt`), the state flow redrawn, and two `## Implemented` entries — the build with its review, the crash with its fix
-- `app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt` — the crash's fix, and the live origin the refresh gate reads
-- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt` · `RouteViewModel.kt` · `RouteConfirmPanel.kt` · `MapScreen.kt` — the corrected findings' homes
-- `xTrack/Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md` — the trace work's build order, untouched by this session
+- `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt` — the registry
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the second engine
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the selection flow and the session engine
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the lookup and the pace-provider wiring
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — the new System-tab section
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the dropdown row
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` · `config/AppConfig.kt` · `MainActivity.kt` · `maro.properties` — the persisted id and its report
+- `xTrack/Route/260924_FEAT_PLN_Route_algorithm-harness.md` — the plan, with its Outcome
 
 ## Next Step
 
-**The trace work's eight steps**, written up in [`../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md) — the flag's rename from `plannedCourse`, the axis, the key family with its dead keys removed, the rendering role, the Settings rows, the card and its two refusals — ordered after this one because the save it renames is what landed here, and running as the second `#implement` pass.
+The device pass over the new Settings section and the engine switch; the section-description wording awaits the user's eye.

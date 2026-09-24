@@ -5,9 +5,8 @@ import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
-import ykws.android.maro.spatial.RouteEngine
+import ykws.android.maro.spatial.RouteEngineChoice
 import ykws.android.maro.spatial.RouteEngineState
-import ykws.android.maro.spatial.RouteDummyEngine
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -163,6 +162,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
@@ -581,16 +581,25 @@ fun MapScreen(
     // what lives here is the mode's *switch* — the one flag the toggle writes — so the two modes can
     // be mutually exclusive in one place.
     //
-    // The engine is built **here, once**, and handed to the view model. **It is the dummy** — one
-    // straight line from the frozen start to the aimed point, reading no coastline, no depth and no
-    // zone — because the two real engines were removed on 2026-09-22; what each of them was, and what
-    // it measured, is kept in `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` and
-    // `…_taut-tracer.md`. What matters at this line is the **seam**: a replacement engine is this one
-    // expression and nothing else in the feature.
-    val routeEngine: RouteEngine = remember { RouteDummyEngine() }
+    // The **selection** is built here from the setting and the registry: one live engine instance for
+    // the chosen id, rebuilt whenever the setting moves. The ViewModel resolves it at arm time (D5), so
+    // a change to the setting while a route runs cannot touch the line already drawn. What matters at
+    // this line is the **seam**: a new algorithm is one row in the registry and nothing else in the
+    // feature.
+    val routeEngineSelection = remember {
+        MutableStateFlow(
+            RouteEngineChoice.resolve(appSettings.routeEngineId)
+                .factory { appSettings.routeFreeWaterPaceKn.toDouble() }
+        )
+    }
+    LaunchedEffect(appSettings.routeEngineId) {
+        routeEngineSelection.value =
+            RouteEngineChoice.resolve(appSettings.routeEngineId)
+                .factory { appSettings.routeFreeWaterPaceKn.toDouble() }
+    }
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
-            factory = RouteViewModel.factory(routeEngine)
+            factory = RouteViewModel.factory(routeEngineSelection)
         )
     val routeState by routeViewModel.state.collectAsState()
     val routeEngineState by routeViewModel.engineState.collectAsState()

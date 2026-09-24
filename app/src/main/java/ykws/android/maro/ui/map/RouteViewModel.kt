@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -273,24 +276,61 @@ data class SessionRoute(val plan: RoutePlan, val trackId: String? = null)
  * The pace is the trip figure's: the set free-water pace until the boat's own samples have something
  * to say, then [RoutePace]'s own reduction of them. Samples taken inside a regulated zone or the band
  * are marked restricted by the caller and dropped there, so a limit is never mistaken for the boat's
- * pace. **The engine is not told the pace** — the placeholder times its own legs (R28) and a real
- * engine prices from the water it reads.
+ * pace. **The engine is not told the pace** — the dummy times its own legs at a fixed fiction (R28)
+ * and the avoid engine reads the pace in force itself, so no engine takes it as an input.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class RouteViewModel(
 
     /**
-     * The engine every search of this feature runs on, handed in by whoever builds the view model.
+     * The **selection** every search of this feature may run on: a stream of the engine the chosen
+     * algorithm builds, handed in by whoever builds the view model.
      *
-     * It is a **parameter and not a construction**, and that is the seam: the caller already holds
-     * what the shipped engine needs, so a second engine is one expression at that one site rather
-     * than an edit inside this file, and a test can hand in a foreign engine and read what the
+     * It is a **selection, not an instance**, and that is the seam: the caller already holds the
+     * setting and the registry, so a second algorithm is one row and one expression at that one site
+     * rather than an edit inside this file, and a test can hand in a foreign engine and read what the
      * feature made of its answer. Nothing here names a particular engine.
+     *
+     * The selection is resolved **when the mode arms** (D5): while no route runs the view model reads
+     * the selected engine's readiness — the toggle's gate — and on the move into `Choosing` it captures
+     * [StateFlow.value] as the session engine, held for the whole mode and released on the return to
+     * `Idle`. A selection changed mid-route therefore cannot reach the line already drawn.
      */
-    private val engine: RouteEngine
+    private val selection: StateFlow<RouteEngine>
 ) : ViewModel() {
 
-    /** What the engine can do right now — the toggle's gate reads it. */
-    val engineState: StateFlow<RouteEngineState> = engine.state
+    /**
+     * The engine the running session was armed with, or null while the mode is idle.
+     *
+     * It is set on the Idle → Choosing edge from [selection]'s current value and cleared on the return
+     * to `Idle`, which is what freezes a live line against a settings change: every engine call below
+     * goes through [engine], so a selection changed mid-route can never touch the route already drawn.
+     */
+    private val _sessionEngine = MutableStateFlow<RouteEngine?>(null)
+
+    /** The engine the feature calls right now — the session's own while one runs, else the selected. */
+    private fun engine(): RouteEngine = _sessionEngine.value ?: selection.value
+
+    /**
+     * What the engine in force can do right now — the toggle's gate reads it.
+     *
+     * While no route runs this follows the **selected** engine, so a chosen algorithm that is not ready
+     * keeps the toggle closed; once a session engine is captured it follows that one for the whole mode.
+     */
+    private val _engineState = MutableStateFlow<RouteEngineState>(RouteEngineState.NotReady)
+
+    val engineState: StateFlow<RouteEngineState> = _engineState.asStateFlow()
+
+    /**
+     * One preparation of the engine in force, published to the gate **synchronously** — the preview's
+     * retry re-reads [engineState] in the same frame, so the answer must land there before the recursive
+     * preview runs rather than wait on the collector's next emission.
+     */
+    private suspend fun prepareCurrent(): RouteEngineState {
+        val state = engine().prepare()
+        _engineState.value = state
+        return state
+    }
 
     private val _state = MutableStateFlow<RouteState>(RouteState.Idle)
     val state: StateFlow<RouteState> = _state.asStateFlow()
@@ -341,7 +381,14 @@ class RouteViewModel(
     private val paceSamples = ArrayDeque<RoutePace.Sample>()
 
     init {
-        viewModelScope.launch { engine.prepare() }
+        // Follow the engine in force's readiness: the collector handles selection and session switches,
+        // while [prepareCurrent] publishes an engine's own answer synchronously for the retry below.
+        viewModelScope.launch {
+            combine(selection, _sessionEngine) { selected, session -> session ?: selected }
+                .flatMapLatest { it.state }
+                .collect { _engineState.value = it }
+        }
+        viewModelScope.launch { prepareCurrent() }
     }
 
     /**
@@ -362,12 +409,15 @@ class RouteViewModel(
     suspend fun beginDraft(start: RoutePoint?) {
         if (_state.value !is RouteState.Idle) return
         session.clear()
+        // The Idle → Choosing edge resolves the selection once (D5): the engine chosen at this instant
+        // draws every line of the session, and a setting changed later cannot reach it.
+        _sessionEngine.value = selection.value
         if (start == null) {
             _state.value = RouteState.Choosing(start = null, plan = null)
             return
         }
-        val refusal = engine.validatePoint(start)
-        if (refusal == null) engine.onOriginPositionChanged(start)
+        val refusal = engine().validatePoint(start)
+        if (refusal == null) engine().onOriginPositionChanged(start)
         _state.value = RouteState.Choosing(start = start, plan = null, originRefusal = refusal)
     }
 
@@ -391,7 +441,7 @@ class RouteViewModel(
             // engine that is still not ready after a completed preparation has said so, and the
             // toggle's gate has already reported it.
             if (engineState.value is RouteEngineState.NotReady) {
-                viewModelScope.launch { if (engine.prepare().ready) preview(aim) }
+                viewModelScope.launch { if (prepareCurrent().ready) preview(aim) }
             }
             return
         }
@@ -421,8 +471,8 @@ class RouteViewModel(
                 val start = choosing.start ?: break
                 // The destination is judged as it moves (R6): a refused aim paints the crosshair and
                 // says why, and no route is asked for it.
-                val refusal = engine.validatePoint(aim)
-                val answer = if (refusal == null) engine.onDestinationPositionChanged(aim) else null
+                val refusal = engine().validatePoint(aim)
+                val answer = if (refusal == null) engine().onDestinationPositionChanged(aim) else null
                 // An answer that lands after the route was confirmed or ended must not rewrite the
                 // mode: only a choosing phase accepts a preview, which is the whole hand-off rule.
                 val still = _state.value as? RouteState.Choosing ?: break
@@ -466,7 +516,7 @@ class RouteViewModel(
      * still not ready after a completed preparation having said so.
      */
     suspend fun prepareAgain(): RouteEngineState =
-        if (engineState.value.ready) engineState.value else engine.prepare()
+        if (engineState.value.ready) engineState.value else prepareCurrent()
 
     /**
      * The choices that **follow** the aimed route: **Route**, and **Save as Track and Route** once its
@@ -496,6 +546,9 @@ class RouteViewModel(
         session.clear()
         _refreshFailureResId.value = null
         _state.value = RouteState.Idle
+        // The return to Idle releases the session engine (D5): the next arming resolves the selection
+        // again, so the engine that drew the finished route is no longer held.
+        _sessionEngine.value = null
     }
 
     /**
@@ -520,14 +573,14 @@ class RouteViewModel(
         askJob?.cancel()
         _state.value = following.copy(refresh = RouteRefresh.RUNNING)
         askJob = viewModelScope.launch {
-            if (!engine.isReadyToRecompute()) {
+            if (!engine().isReadyToRecompute()) {
                 // The veto only delays: the standing line is untouched and nothing is said.
                 (_state.value as? RouteState.Following)?.let {
                     if (it.refresh == RouteRefresh.RUNNING) _state.value = it.copy(refresh = RouteRefresh.IDLE)
                 }
                 return@launch
             }
-            val answer = engine.onOriginPositionChanged(start)
+            val answer = engine().onOriginPositionChanged(start)
             // The mode may have ended, or the route been replaced, while the call was in flight.
             val still = _state.value as? RouteState.Following ?: return@launch
             when (answer) {
@@ -600,20 +653,20 @@ class RouteViewModel(
 
     companion object {
 
-        /**
-         * Factory for [RouteViewModel].
-         *
-         * The engine is handed in rather than chosen here, and that is the seam: the caller builds
-         * whichever engine ships — [`ykws.android.maro.spatial.RouteDummyEngine`] today — and a
-         * replacement, or a test's own fake, is one argument at one site.
-         */
-        fun factory(engine: RouteEngine): ViewModelProvider.Factory =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(
-                    modelClass: Class<T>,
-                    extras: CreationExtras
-                ): T = RouteViewModel(engine) as T
-            }
-    }
+    /**
+     * Factory for [RouteViewModel].
+     *
+     * The selection is handed in rather than chosen here, and that is the seam: the caller builds
+     * the flow the registry and the setting resolve to — a live engine for the chosen id — and a
+     * replacement, or a test's own fake, is one argument at one site.
+     */
+    fun factory(selection: StateFlow<RouteEngine>): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(
+                modelClass: Class<T>,
+                extras: CreationExtras
+            ): T = RouteViewModel(selection) as T
+        }
+}
 }
