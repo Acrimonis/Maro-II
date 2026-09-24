@@ -1,22 +1,21 @@
 # Context Hydration — Route — 2026-09-24
 
-**Last Bake:** 2026-09-24 13:20 UTC — written by `#bake`
+**Last Bake:** 2026-09-24 17:52 UTC — written by `#bake`
 
-**Directive trace:** no covered action stopped since the last bake — no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code came from a file read or an Ask hop's output. Two delegations are named: the two Ask reviews ran through `new_task(ask)` subtasks, and the plan edits landed in Architect (`.md`-only).
+**Directive trace:** no dependency added, no machine-shaped data file opened, and nothing deployed — the device was only read (`adb logcat`, `adb devices`, `pidof`); every build stayed on this machine and the device pass stayed the user's. The work was ordered throughout: the prototype, the adoption and the refinement each followed the user's word, and the git write is the `#commit` the user invoked.
 
 ## State
 
-The avoid engine's stage-1 design is decided end to end and implementation-ready — nothing is coded yet. The shape: a corridor-bounded grid A* plus a clearance taut pull, three stages over one rasterizer (avoid land, then the 300 m band, then regulated speed zones); the seam (`RouteEngine`) and the shipped harness stay as they are until the work lands. Two Ask reviews passed: a feasibility review (feasible-with-named-changes), then an implementation-grade review that grounded the ≤ 500 ms budget on the Lérins-to-Salis corridor (~120–250 ms realistic, ~350–450 ms pessimistic) and settled the five ambiguities. The walk then closed by decision — all nine items settled: the four keys locked at 25 / 50 / 1852 / 25 with the ≤ 500 ms budget, the land-ring classification as one read-only orientation query on the index (option A), and the grid, rasterizer, A*, pull, seam mapping, harness edit, tests and measurement all specified. The build is owed to implementation.
+Stage 1 ships, and its taut pull settled twice on device evidence. The avoid engine routes around land through a corridor-bounded grid A* plus a taut pull; the first taut pass — a corner-graph A* — measured 7.3 s on the phone over 191 corners, its greedy tangent-walk replacement then drew a jittery line the user's route export exposed, and the shipped pull is now grid A* → grid pull → verified corner snap → pull: a bend moves onto its nearest tangent corner only when both neighbouring legs stay clear, so a sharp headland gets its true corners while a smooth island keeps its grid line. The ANR that opened the session — the pipeline ran on the main thread — is closed by `withContext(Dispatchers.Default)` around `RouteAvoidEngine.search()`.
 
 ## Target Files
 
-- `xTrack/Route/260924_FEAT_PLN_Route_avoid-land-stage.md` — the stage-1 plan, decided and implementation-ready
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the engine to rewrite in stage 1
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` · `RouteEngineChoice.kt` — the seam (untouched) and the factory to widen
-- `app/src/main/java/ykws/android/maro/spatial/avoid/` — the new package (world, grid, search, pull)
-- `app/src/main/java/ykws/android/maro/data/coastline/CoastlineRepository.kt` — the read-only land-ring orientation query
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the world-provider wiring
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the off-loaded pipeline, the corner snap
+- `app/src/main/java/ykws/android/maro/spatial/avoid/TangentCorners.kt` — the convex offset corners
+- `app/src/main/java/ykws/android/maro/spatial/avoid/AvoidPull.kt` — `legClear` now `internal` for the snap's verification
+- `app/src/test/java/ykws/android/maro/spatial/avoid/TangentCornersTest.kt` · `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt` — the corner and pipeline tests
+- `xTrack/Route/260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md` — the plan of record
 
 ## Next Step
 
-Implement stage 1 per the plan — the `#implement` pipeline.
+The real-corridor device measurement of the new line — the user's.

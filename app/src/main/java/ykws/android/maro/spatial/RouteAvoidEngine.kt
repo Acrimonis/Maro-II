@@ -1,8 +1,10 @@
 package ykws.android.maro.spatial
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
@@ -11,6 +13,7 @@ import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.avoid.AvoidPull
 import ykws.android.maro.spatial.avoid.AvoidSearch
 import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.TangentCorners
 import ykws.android.maro.spatial.avoid.rasterize
 import kotlin.math.PI
 import kotlin.math.cos
@@ -98,16 +101,21 @@ class RouteAvoidEngine(
         return search(world, from, to)
     }
 
-    /** The corridor-bounded search, retried once with the corridor reach doubled before [RouteResult.NoPath]. */
-    private suspend fun search(world: AvoidWorld, from: RoutePoint, to: RoutePoint): RouteResult {
-        val reach = AppConfig.routeAvoidCorridorReachM
-        val first = searchOnce(world, from, to, reach)
-        if (first != null) return first
-        val second = searchOnce(world, from, to, reach * 2.0)
-        return second ?: RouteResult.NoPath
-    }
+    /**
+     * The corridor-bounded search, retried once with the corridor reach doubled before
+     * [RouteResult.NoPath]. The pipeline is compute-only, so it runs on [Dispatchers.Default] — a
+     * slow corridor never blocks the main thread, and the caller's state writes resume on Main.
+     */
+    private suspend fun search(world: AvoidWorld, from: RoutePoint, to: RoutePoint): RouteResult =
+        withContext(Dispatchers.Default) {
+            val reach = AppConfig.routeAvoidCorridorReachM
+            val first = searchOnce(world, from, to, reach)
+            if (first != null) return@withContext first
+            val second = searchOnce(world, from, to, reach * 2.0)
+            second ?: RouteResult.NoPath
+        }
 
-    /** One pass of the pipeline: corridor → harvest → rasterize → A* → taut pull → answer. */
+    /** One pass of the pipeline: corridor → harvest → rasterize → A* → taut pull → corner snap → pull. */
     private suspend fun searchOnce(
         world: AvoidWorld,
         from: RoutePoint,
@@ -126,12 +134,49 @@ class RouteAvoidEngine(
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
         val path = AvoidSearch.search(grid, startCell, aimCell) ?: return null
+        val start = from.toLatLng()
+        val aim = to.toLatLng()
         val coarse = path.map { grid.center(it.row, it.col) }
-        val full = listOf(from.toLatLng()) + coarse + listOf(to.toLatLng())
-        val waypoints = AvoidPull.pull(full, from.toLatLng(), to.toLatLng(), marginM) { p ->
-            world.distanceToCoastM(p.latitude, p.longitude)
+        val full = listOf(start) + coarse + listOf(aim)
+        val clearance: (LatLng) -> Double = { p -> world.distanceToCoastM(p.latitude, p.longitude) }
+        // The grid A* owns the order, the tangent corners own the exact points: pull the cell path
+        // taut, then move each bend onto its nearest corner when both neighbouring legs stay clear.
+        val pulled = AvoidPull.pull(full, start, aim, marginM, clearance)
+        val corners = TangentCorners.corners(edges, openCoast, marginM)
+        val snapped = snapToCorners(pulled, corners, cellM * 2.0, marginM, clearance, start, aim)
+        return success(AvoidPull.pull(snapped, start, aim, marginM, clearance))
+    }
+
+    /** Moves a bend onto its nearest tangent corner (within [radiusM]) only when both legs stay clear; open water keeps the bend. */
+    private fun snapToCorners(
+        path: List<LatLng>,
+        corners: List<LatLng>,
+        radiusM: Double,
+        marginM: Double,
+        clearanceM: (LatLng) -> Double,
+        start: LatLng,
+        aim: LatLng
+    ): List<LatLng> {
+        if (corners.isEmpty()) return path
+        val out = path.toMutableList()
+        for (i in 1 until path.size - 1) {
+            var nearest: LatLng? = null
+            var nearestDist = radiusM
+            for (c in corners) {
+                val d = SpatialOperations.haversine(path[i], c)
+                if (d < nearestDist) {
+                    nearest = c
+                    nearestDist = d
+                }
+            }
+            val corner = nearest ?: continue
+            if (AvoidPull.legClear(out[i - 1], corner, marginM, clearanceM, start, aim) &&
+                AvoidPull.legClear(corner, path[i + 1], marginM, clearanceM, start, aim)
+            ) {
+                out[i] = corner
+            }
         }
-        return success(waypoints)
+        return out
     }
 
     private fun success(waypoints: List<LatLng>): RouteResult.Success {

@@ -215,6 +215,80 @@ class RouteAvoidEngineTest {
         )
     }
 
+    /**
+     * The fix: a convex headland must bend at exactly the two offset tangent corners, not hug the
+     * coastline's digitized in-and-out — the regression the Cap d'Antibes route exposed. The route
+     * from either side settles on the two offset tip corners and nothing else.
+     */
+    @Test
+    fun aConvexHeadlandBendsAtTheTwoOffsetTangentCornersBothWays() = runTest {
+        val coast = listOf(
+            LatLng(43.51, 7.00),
+            LatLng(43.51, 7.02),
+            LatLng(43.49, 7.02),
+            LatLng(43.49, 7.04),
+            LatLng(43.51, 7.04),
+            LatLng(43.51, 7.06)
+        )
+        val world = FakeWorld(openCoast = mutableListOf(coast))
+        val west = RoutePoint(43.50, 7.00)
+        val east = RoutePoint(43.50, 7.06)
+
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(43.49))
+        val dLat = marginM / mPerDegLat
+        val dLon = marginM / mPerDegLon
+        // The two convex tip corners, offset by the margin on the water side.
+        val sw = LatLng(43.49 - dLat, 7.02 - dLon)
+        val se = LatLng(43.49 - dLat, 7.04 + dLon)
+
+        assertHeadlandBend(newEngine { world }, world, west, east, sw, se)
+        assertHeadlandBend(newEngine { world }, world, east, west, se, sw)
+    }
+
+    private suspend fun assertHeadlandBend(
+        engine: RouteAvoidEngine,
+        world: FakeWorld,
+        from: RoutePoint,
+        to: RoutePoint,
+        firstCorner: LatLng,
+        secondCorner: LatLng
+    ) {
+        engine.onOriginPositionChanged(from)
+        val route = success(engine.onDestinationPositionChanged(to))
+
+        assertEquals("the two ends plus exactly the two offset tangent corners", 4, route.points.size)
+        assertEquals(from, route.points.first())
+        assertEquals(to, route.points.last())
+        assertTrue(
+            "the first bend stands on the first offset tangent corner",
+            SpatialOperations.haversine(route.points[1].toLatLng(), firstCorner) < 1.0
+        )
+        assertTrue(
+            "the second bend stands on the second offset tangent corner",
+            SpatialOperations.haversine(route.points[2].toLatLng(), secondCorner) < 1.0
+        )
+        for (i in 0 until route.points.size - 1) {
+            val a = route.points[i].toLatLng()
+            val b = route.points[i + 1].toLatLng()
+            val dist = SpatialOperations.haversine(a, b)
+            val steps = max(2, ceil(dist / (marginM / 2.0)).toInt())
+            for (s in 1 until steps) {
+                val t = s.toDouble() / steps
+                val p = LatLng(
+                    a.latitude + (b.latitude - a.latitude) * t,
+                    a.longitude + (b.longitude - a.longitude) * t
+                )
+                if (SpatialOperations.haversine(p, from.toLatLng()) < marginM) continue
+                if (SpatialOperations.haversine(p, to.toLatLng()) < marginM) continue
+                assertTrue(
+                    "every segment interior stays at least the margin off the headland",
+                    world.distanceToCoastM(p.latitude, p.longitude) >= marginM - 1e-6
+                )
+            }
+        }
+    }
+
     /** The clearance binds every point of an emitted segment, not just the waypoint vertices. */
     @Test
     fun everyPulledSegmentInteriorKeepsTheMargin() = runTest {
@@ -243,6 +317,26 @@ class RouteAvoidEngineTest {
                     world.distanceToCoastM(p.latitude, p.longitude) >= marginM - 1e-6
                 )
             }
+        }
+    }
+
+    /** A digitized coast with many small convex teeth must not become a zigzag: the snap + pull leaves a clean taut line. */
+    @Test
+    fun aDigitizedCoastProducesACleanTautLineNotAZigzag() = runTest {
+        val teeth = 40
+        val coast = sawtoothCoast(teeth)
+        val world = FakeWorld(openCoast = mutableListOf(coast))
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(RoutePoint(43.48, 6.999))
+
+        val route = success(engine.onDestinationPositionChanged(RoutePoint(43.48, 7.081)))
+
+        assertTrue("the 40-tooth coast collapses to a clean line, not a per-tooth zigzag", route.points.size <= 8)
+        for (point in route.points) {
+            assertTrue(
+                "every waypoint keeps the clearance off the teeth",
+                world.distanceToCoastM(point.latitude, point.longitude) >= marginM - 1e-6
+            )
         }
     }
 
@@ -296,6 +390,11 @@ class RouteAvoidEngineTest {
             for (edge in edges) {
                 best = min(best, SpatialOperations.pointToSegmentDistance(p, edge.a, edge.b))
             }
+            for (polyline in openCoast) {
+                for (i in 0 until polyline.size - 1) {
+                    best = min(best, SpatialOperations.pointToSegmentDistance(p, polyline[i], polyline[i + 1]))
+                }
+            }
             return best
         }
 
@@ -309,6 +408,24 @@ class RouteAvoidEngineTest {
     private fun polygonRing(points: List<LatLng>): List<AvoidEdge> =
         points.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +
             AvoidEdge(points.last(), points.first(), LandRingOrientation.CCW_RING)
+
+    /** A horizontal coast at 43.51 with [teeth] downward triangles; land is the north side. */
+    private fun sawtoothCoast(teeth: Int): List<LatLng> {
+        val topLat = 43.51
+        val tipLat = 43.45
+        val x0 = 7.00
+        val width = 0.002
+        val pts = ArrayList<LatLng>()
+        pts.add(LatLng(topLat, x0))
+        for (k in 0 until teeth) {
+            val a = x0 + k * width
+            val b = a + width / 2.0
+            val c = a + width
+            pts.add(LatLng(tipLat, b))
+            pts.add(LatLng(topLat, c))
+        }
+        return pts
+    }
 
     private fun circleRing(center: LatLng, radiusM: Double, n: Int = 32): List<AvoidEdge> {
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0

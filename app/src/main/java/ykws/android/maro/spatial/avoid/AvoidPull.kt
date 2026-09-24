@@ -58,7 +58,7 @@ object AvoidPull {
         return result
     }
 
-    private fun legClear(
+    internal fun legClear(
         a: LatLng,
         b: LatLng,
         marginM: Double,
