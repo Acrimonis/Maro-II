@@ -7,6 +7,8 @@ import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
 import ykws.android.maro.spatial.RouteEngineChoice
 import ykws.android.maro.spatial.RouteEngineState
+import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.CoastlineAvoidWorld
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -586,16 +588,21 @@ fun MapScreen(
     // a change to the setting while a route runs cannot touch the line already drawn. What matters at
     // this line is the **seam**: a new algorithm is one row in the registry and nothing else in the
     // feature.
+    // The avoid engine's world provider, built over the repository the map already holds — the same
+    // instance the water and band reads go through. It always answers a live world over that repository.
+    val avoidWorldProvider: () -> AvoidWorld = {
+        CoastlineAvoidWorld(viewModel.coastlineRepository)
+    }
     val routeEngineSelection = remember {
         MutableStateFlow(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory { appSettings.routeFreeWaterPaceKn.toDouble() }
+                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
         )
     }
     LaunchedEffect(appSettings.routeEngineId) {
         routeEngineSelection.value =
             RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory { appSettings.routeFreeWaterPaceKn.toDouble() }
+                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
     }
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(

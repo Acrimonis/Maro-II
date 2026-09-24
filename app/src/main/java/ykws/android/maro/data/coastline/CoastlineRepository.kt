@@ -17,6 +17,7 @@ import ykws.android.maro.data.model.RegionBounds
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.Units
+import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.Zone300Builder
 import java.io.File
 
@@ -351,6 +352,14 @@ class CoastlineRepository(
      */
     fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
         spatialIndex?.isWater(latitude, longitude)
+
+    /**
+     * The land-ring classification of one coastline polyline — `open coast / CCW-ring / CW-basin` —
+     * the shared read surface the avoid adapter consumes to read land edges with their orientation.
+     * Delegates to the index's classification; an unloaded coastline reads as open coast.
+     */
+    fun landRingOrientation(polylineIdx: Int): LandRingOrientation =
+        spatialIndex?.landRingOrientation(polylineIdx) ?: LandRingOrientation.OPEN_COAST
 
     /** The bounds of the region this coastline can answer for, or null before it is loaded. */
     val regionBounds: RegionBounds?

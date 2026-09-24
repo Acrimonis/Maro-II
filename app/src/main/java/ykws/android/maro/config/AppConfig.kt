@@ -158,6 +158,22 @@ object AppConfig {
     var routeLadderLatestNb: Int = 3
         private set
 
+    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacleMarginM`, default 25. */
+    var routeAvoidObstacleMarginM: Double = 25.0
+        private set
+
+    /** Side (m) of one corridor-grid cell — `route.avoid.gridCellM`, default 50. */
+    var routeAvoidGridCellM: Double = 50.0
+        private set
+
+    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridorReachM`, default 1852 (1 NM). */
+    var routeAvoidCorridorReachM: Double = 1852.0
+        private set
+
+    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300MarginM`, default 25. */
+    var routeAvoidZone300MarginM: Double = 25.0
+        private set
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -1396,6 +1412,19 @@ object AppConfig {
                 ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
             props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
                 ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
+            // ── The avoid engine's four keys (stage 1 reads the first three; zone300MarginM waits for stage 2) ──
+            props.getProperty("route.avoid.obstacleMarginM")?.toDoubleOrNull()?.let {
+                routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
+            }
+            props.getProperty("route.avoid.gridCellM")?.toDoubleOrNull()?.let {
+                routeAvoidGridCellM = it.coerceIn(10.0, 500.0)
+            }
+            props.getProperty("route.avoid.corridorReachM")?.toDoubleOrNull()?.let {
+                routeAvoidCorridorReachM = it.coerceIn(100.0, 20_000.0)
+            }
+            props.getProperty("route.avoid.zone300MarginM")?.toDoubleOrNull()?.let {
+                routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }

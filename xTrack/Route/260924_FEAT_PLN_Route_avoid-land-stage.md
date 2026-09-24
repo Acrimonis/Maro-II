@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — avoid engine, stage 1: avoid land
 
-**Created:** 2026-09-24 · **Branch:** `feature/route-avoid` · **Status:** in design — implementation-ready after two Ask reviews
+**Created:** 2026-09-24 · **Branch:** `feature/route-avoid` · **Status:** shipped 2026-09-24
 
 ## What this is for
 
@@ -72,7 +72,7 @@ The adapter is the single importer: it holds the `CoastlineRepository` and its i
 
 ## The harness edit
 
-The shipped factory is `(paceKn: () -> Double) -> RouteEngine`. Stage 1 needs the world, so the `avoid` row's factory becomes `(paceKn, world: () -> AvoidWorld?) -> RouteEngine` — the provider answering `null` until the coastline is ready. `MapScreen` supplies the provider from the `CoastlineRepository` instance it already holds (the same holder that already calls `isOnWater`), and the `dummy` row ignores the second argument exactly as it ignores pace. This widens the shared `factory` field type for every row and brings `AvoidWorld` into the registry's imports, so the registry's own "one row plus one class, nothing else changes" note is revised beside it. It revises D3 of [`260924_FEAT_PLN_Route_algorithm-harness.md`](260924_FEAT_PLN_Route_algorithm-harness.md) — the `RouteEngine` seam itself stays untouched.
+The shipped factory is `(paceKn: () -> Double) -> RouteEngine`. Stage 1 needs the world, so the `avoid` row's factory becomes `(paceKn, world: () -> AvoidWorld) -> RouteEngine` — the provider answering the live world, readiness riding `coastlineReady`. `MapScreen` supplies the provider from the `CoastlineRepository` instance it already holds (the same holder that already calls `isOnWater`), and the `dummy` row ignores the second argument exactly as it ignores pace. This widens the shared `factory` field type for every row and brings `AvoidWorld` into the registry's imports, so the registry's own "one row plus one class, nothing else changes" note is revised beside it. It revises D3 of [`260924_FEAT_PLN_Route_algorithm-harness.md`](260924_FEAT_PLN_Route_algorithm-harness.md) — the `RouteEngine` seam itself stays untouched.
 
 ## Performance — east of the Îles de Lérins to Port de la Salis
 
@@ -102,3 +102,7 @@ The 300 m band (stage 2), regulated speed zones (stage 3), any Settings row, any
 ## Open points
 
 - Whether the corridor reach grows once or more on `NoPath` is a policy the user may settle.
+
+## Outcome
+
+Shipped 2026-09-24 in two Code hops: the avoid engine now routes around land, islands and hazard rings — `AvoidWorld` with `load()` and the read-only land-ring orientation query, `AvoidGrid` (tagged costed cells with the cell-centre-to-edge margin rule, CCW-ring fill, CW-basin water, half-diagonal closure), `AvoidSearch` (8-neighbour A\*, metres-equivalent cost, deterministic tie-break), `AvoidPull` (source-parameterized two-pointer, ≤ margin/2 sampling, end-disc exemption), the rewritten `RouteAvoidEngine` and the widened harness factory. The Ask hop returned one blocking finding — the performance ceiling unpinned — and a second Code hop closed it and the should-fixes: the perf-ceiling and budget tests, the touching-rings, concave-bay and segment-interior clearance tests, the `margin/2` sampling pin, the dead nullable-provider path dropped, and `LandRingOrientation` relocated to the index layer. Build green under `apk-build.bat`, the focused route suites green. Deviation: the provider is non-null `() -> AvoidWorld` (readiness rides `coastlineReady`), and `AvoidWorld` gained `regionBounds` for the corridor clamp.

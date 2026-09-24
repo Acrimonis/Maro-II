@@ -21,6 +21,7 @@ import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.RouteAvoidEngine
 import ykws.android.maro.spatial.RouteDummyEngine
@@ -30,6 +31,8 @@ import ykws.android.maro.spatial.RouteRefusalReason
 import ykws.android.maro.spatial.RouteUnavailableReason
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
+import ykws.android.maro.spatial.avoid.AvoidEdge
+import ykws.android.maro.spatial.avoid.AvoidWorld
 
 /**
  * **The seam, exercised through the feature by an engine that is not the shipped one.**
@@ -507,7 +510,7 @@ class RouteEngineSeamTest {
     /** **The seam runs through both shipped engines**: each draws its own straight line end to end. */
     @Test
     fun theSeamRunsThroughBothShippedEngines() = runTest {
-        for (engine in listOf(RouteDummyEngine(), RouteAvoidEngine(paceKn = { 28.0 }))) {
+        for (engine in listOf(RouteDummyEngine(), RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { EmptyAvoidWorld() }))) {
             val viewModel = RouteViewModel(selectionOf(engine))
             viewModel.beginDraft(start)
             viewModel.preview(aim)
@@ -521,6 +524,17 @@ class RouteEngineSeamTest {
 
 /** The selection form the view model now takes: one engine behind a [StateFlow]. */
 private fun selectionOf(engine: RouteEngine): StateFlow<RouteEngine> = MutableStateFlow(engine)
+
+/** An empty, ready world — water everywhere and no land, so the avoid engine draws its straight line. */
+private class EmptyAvoidWorld : AvoidWorld {
+    override val coastlineReady: Boolean get() = true
+    override val regionBounds: BBox? get() = null
+    override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
+    override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
+    override fun isWater(latitude: Double, longitude: Double): Boolean = true
+    override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+    override suspend fun load(): RouteEngineState = RouteEngineState.Ready
+}
 
 /**
  * **A second engine: the same contract, and none of the shipped one's machinery.**

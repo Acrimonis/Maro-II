@@ -4,6 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.spatial.avoid.AvoidEdge
+import ykws.android.maro.spatial.avoid.AvoidWorld
 
 /**
  * The registry's own contract: every shipped id resolves to its own row, each row builds the engine it
@@ -25,8 +29,14 @@ class RouteEngineChoiceTest {
 
     @Test
     fun eachRowBuildsTheEngineItNames() {
-        assertTrue("the dummy row builds the dummy", RouteEngineChoice.resolve("dummy").factory { 15.0 } is RouteDummyEngine)
-        assertTrue("the avoid row builds the avoid engine", RouteEngineChoice.resolve("avoid").factory { 28.0 } is RouteAvoidEngine)
+        assertTrue(
+            "the dummy row builds the dummy, ignoring both providers",
+            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { ChoiceWorld() }) is RouteDummyEngine
+        )
+        assertTrue(
+            "the avoid row builds the avoid engine",
+            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { ChoiceWorld() }) is RouteAvoidEngine
+        )
     }
 
     @Test
@@ -45,4 +55,15 @@ class RouteEngineChoiceTest {
             RouteEngineChoice.all.any { it.id == AppConfig.routeEngineId }
         )
     }
+}
+
+/** A ready, water-everywhere world — the factory never invokes it at build time, only stores it. */
+private class ChoiceWorld : AvoidWorld {
+    override val coastlineReady: Boolean get() = true
+    override val regionBounds: BBox? get() = null
+    override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
+    override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
+    override fun isWater(latitude: Double, longitude: Double): Boolean = true
+    override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+    override suspend fun load(): RouteEngineState = RouteEngineState.Ready
 }

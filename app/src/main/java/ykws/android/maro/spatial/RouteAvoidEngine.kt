@@ -3,49 +3,54 @@ package ykws.android.maro.spatial
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.spatial.avoid.AvoidPull
+import ykws.android.maro.spatial.avoid.AvoidSearch
+import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.rasterize
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
 
 /**
- * **The avoidance algorithm's stand-in: the same straight line as the dummy, priced at the pace in
- * force.**
+ * **The avoid engine, stage 1: avoid land, islands and hazard rings.**
  *
- * It is a placeholder and it says so. It reads **no layer at all** — not the coastline, not the depth
- * grid, not the zones — so it promises no water, no zone and no berth, exactly like [RouteDummyEngine].
- * What tells the two apart is the pace: the dummy times its line at a fixed fiction of its own (R28),
- * while this engine times the same line at the pace its injected provider answers — the pace the app
- * already plans the trip figure at. The harness is the deliverable and the avoidance search is not; this
- * engine exists so the registry can be exercised with a second row before any search exists.
+ * A session like the contract: it holds the origin told at arming and the destination told with
+ * each aim, and answers the collision-free route between them — from the origin to the destination,
+ * so the polyline's own direction is the direction of travel — or `null` while the other end is not
+ * held. The pipeline is corridor-bounded grid A* plus a clearance taut pull, run on the
+ * [AvoidWorld] the injected provider supplies; every stage below reads that world and the four
+ * `route.avoid.*` keys, so the 300 m band (stage 2) and the regulated speed zones (stage 3) land as
+ * additive sources over the same rasterizer, A* and pull.
  *
- * **It is a session, like the contract.** It holds both ends as it is told them: the origin arrives on
- * the arming frame, the destination with each aim, and during the following phase the origin moves
- * while the destination stands. Each entry point answers the line between the two ends it holds — from
- * the origin to the destination, so the polyline's own direction is the direction of travel — and
- * `null` while the other end is not held yet.
+ * **Readiness.** [prepare] fires the world's `load()` on a miss and latches
+ * [RouteEngineState.Ready] once `coastlineReady`; a world that cannot become ready answers
+ * [RouteEngineState.Unavailable] with [RouteUnavailableReason.COASTLINE_NOT_LOADED].
+ * [isReadyToRecompute] stays `true` — stage 1 reads nothing that expires between asks.
  *
- * **Readiness is immediate, and that is a property of this engine, not of the contract.** [prepare]
- * answers [RouteEngineState.Ready] the first time it is asked because there is nothing to wait for, so
- * the toggle is never disabled while this engine is the one installed. It judges nothing either —
- * [validatePoint] answers `null` for every point — and it is always [isReadyToRecompute], having
- * nothing to wait for.
+ * **What the answer means.** The emitted polyline starts at the raw start and ends at the raw aim
+ * (`destinationMoved = false`, the pin stands on the aim); the snapped cells are only the search's
+ * anchor. An end off the water the engine sees answers [RouteResult.OutsideWater], and an exhausted
+ * search answers [RouteResult.NoPath] — retried once with the corridor reach doubled. Each leg is
+ * timed at the pace in force, asked fresh per answer.
  *
- * **What the answer means.** The polyline is the two ends, `distanceM` is the great-circle distance
- * between them, and the time is that distance at the pace in force — the trip figure's own pace, asked
- * of the injected provider at the moment the answer is asked, so the pace setting moves this route and
- * the dummy's fixed fiction stays the dummy's alone. Nothing else is answered: there is no destination
- * to resolve, no band to be in and no zone to cross.
- *
- * Coroutines and `StateFlow` only, like the contract's other implementations: no thread of its own and
- * a readiness the UI can collect.
+ * Coroutines and `StateFlow` only: no thread of its own, and the search checks the calling job
+ * between its expansions so a flung map never queues behind a computation nobody wants any more.
  */
 class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
-    private val paceKn: () -> Double
+    private val paceKn: () -> Double,
+    /** The world provider — the map always holds the coastline it wraps, so it answers a live world. */
+    private val worldProvider: () -> AvoidWorld
 ) : RouteEngine {
 
-    /** It cannot be anything but ready — see the class note on what that does and does not promise. */
-    private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.Ready)
+    /** Starts [RouteEngineState.NotReady]; only [prepare] moves it, as the contract reserves. */
+    private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.NotReady)
 
     override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
 
@@ -56,53 +61,121 @@ class RouteAvoidEngine(
     private var destination: RoutePoint? = null
 
     override suspend fun prepare(): RouteEngineState {
-        _state.value = RouteEngineState.Ready
-        return RouteEngineState.Ready
+        val world = worldProvider()
+        val next = if (world.coastlineReady) RouteEngineState.Ready else world.load()
+        _state.value = next
+        return next
     }
 
-    /**
-     * A straight line runs over land, over shallows and through a zone alike — so it has nothing to
-     * refuse, and every point is usable water as far as this engine can tell. See the class note.
-     */
-    override suspend fun validatePoint(point: RoutePoint): RouteRefusalReason? = null
+    /** A point is usable water exactly when the world says it is water, else [RouteRefusalReason.OFF_WATER]. */
+    override suspend fun validatePoint(point: RoutePoint): RouteRefusalReason? {
+        val world = worldProvider()
+        return if (world.isWater(point.latitude, point.longitude)) null
+        else RouteRefusalReason.OFF_WATER
+    }
 
-    /** Holds the origin; answers the line to the destination it holds, or `null` while it holds none. */
+    /** Holds the origin; answers the route to the destination it holds, or `null` while it holds none. */
     override suspend fun onOriginPositionChanged(newPosition: RoutePoint): RouteResult? {
         origin = newPosition
-        return lineBetween(origin, destination)
+        return routeBetween(origin, destination)
     }
 
-    /** Holds the destination; answers the line from the origin it holds, or `null` while it holds none. */
+    /** Holds the destination; answers the route from the origin it holds, or `null` while it holds none. */
     override suspend fun onDestinationPositionChanged(newPosition: RoutePoint): RouteResult? {
         destination = newPosition
-        return lineBetween(origin, destination)
+        return routeBetween(origin, destination)
     }
 
-    /** Nothing to wait for: a straight line is answered in the frame it is asked for. */
+    /** Stage 1 reads nothing that expires between asks. */
     override suspend fun isReadyToRecompute(): Boolean = true
 
-    /**
-     * The straight line between the two ends, timed at the pace in force and nothing else.
-     *
-     * `null` while either end is missing, which is the arming call — the origin told before any aim
-     * exists — and never a moment the feature can ask a route in.
-     */
-    private fun lineBetween(from: RoutePoint?, to: RoutePoint?): RouteResult? {
+    /** Both ends held and both on water → the pipeline; one end off water → [RouteResult.OutsideWater]. */
+    private suspend fun routeBetween(from: RoutePoint?, to: RoutePoint?): RouteResult? {
         if (from == null || to == null) return null
-        val metres = SpatialOperations.haversine(
-            LatLng(from.latitude, from.longitude),
-            LatLng(to.latitude, to.longitude)
-        )
-        val seconds = metres / Units.knotsToMps(paceKn())
+        val world = worldProvider()
+        if (!world.isWater(from.latitude, from.longitude)) return RouteResult.OutsideWater
+        if (!world.isWater(to.latitude, to.longitude)) return RouteResult.OutsideWater
+        return search(world, from, to)
+    }
+
+    /** The corridor-bounded search, retried once with the corridor reach doubled before [RouteResult.NoPath]. */
+    private suspend fun search(world: AvoidWorld, from: RoutePoint, to: RoutePoint): RouteResult {
+        val reach = AppConfig.routeAvoidCorridorReachM
+        val first = searchOnce(world, from, to, reach)
+        if (first != null) return first
+        val second = searchOnce(world, from, to, reach * 2.0)
+        return second ?: RouteResult.NoPath
+    }
+
+    /** One pass of the pipeline: corridor → harvest → rasterize → A* → taut pull → answer. */
+    private suspend fun searchOnce(
+        world: AvoidWorld,
+        from: RoutePoint,
+        to: RoutePoint,
+        reach: Double
+    ): RouteResult.Success? {
+        val box = corridorBox(from, to, world.regionBounds, reach) ?: return null
+        val edges = world.segmentsIn(box)
+        val openCoast = world.openCoastIn(box)
+        val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
+        val cellM = AppConfig.routeAvoidGridCellM
+        val marginM = AppConfig.routeAvoidObstacleMarginM
+        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth)
+        grid.forceFree(from.latitude, from.longitude)
+        grid.forceFree(to.latitude, to.longitude)
+        val startCell = grid.cellOf(from.latitude, from.longitude)
+        val aimCell = grid.cellOf(to.latitude, to.longitude)
+        val path = AvoidSearch.search(grid, startCell, aimCell) ?: return null
+        val coarse = path.map { grid.center(it.row, it.col) }
+        val full = listOf(from.toLatLng()) + coarse + listOf(to.toLatLng())
+        val waypoints = AvoidPull.pull(full, from.toLatLng(), to.toLatLng(), marginM) { p ->
+            world.distanceToCoastM(p.latitude, p.longitude)
+        }
+        return success(waypoints)
+    }
+
+    private fun success(waypoints: List<LatLng>): RouteResult.Success {
+        val points = waypoints.map { RoutePoint.of(it) }
+        val legTimesSec = ArrayList<Double>(max(0, points.size - 1))
+        var distanceM = 0.0
+        for (i in 0 until points.size - 1) {
+            val legM = SpatialOperations.haversine(points[i].toLatLng(), points[i + 1].toLatLng())
+            distanceM += legM
+            legTimesSec.add(legM / Units.knotsToMps(paceKn()))
+        }
         return RouteResult.Success(
-            points = listOf(from, to),
-            legTimesSec = listOf(seconds),
-            distanceM = metres,
-            durationSec = seconds,
-            // Nothing was resolved, nothing crosses and the aim is where the line ends: the destination
-            // is the aimed point itself, so the pin is drawn where the user dragged. `destinationMoved`
-            // is the only reading left to answer, and a straight line resolves nothing.
-            destinationMoved = false
+            points = points,
+            legTimesSec = legTimesSec,
+            distanceM = distanceM,
+            durationSec = legTimesSec.sum(),
+            // The emitted polyline ends at the raw aim, never a resolved node: the pin stands where
+            // the user dragged, and the snapped cell is only the search's anchor.
+            destinationMoved = false,
+            forcedCrossingZoneNames = emptyList()
         )
+    }
+
+    /** The start-aim bounding box inflated by [reach], clamped to the region's bounds — a truncated box is accepted. */
+    private fun corridorBox(from: RoutePoint, to: RoutePoint, bounds: BBox?, reach: Double): BBox? {
+        val midLat = (from.latitude + to.latitude) / 2.0
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+        val dLat = reach / mPerDegLat
+        val dLon = reach / mPerDegLon
+        val raw = BBox(
+            min(from.latitude, to.latitude) - dLat,
+            max(from.latitude, to.latitude) + dLat,
+            min(from.longitude, to.longitude) - dLon,
+            max(from.longitude, to.longitude) + dLon
+        )
+        val box = bounds?.let {
+            BBox(
+                max(raw.latSouth, it.latSouth),
+                min(raw.latNorth, it.latNorth),
+                max(raw.lonWest, it.lonWest),
+                min(raw.lonEast, it.lonEast)
+            )
+        } ?: raw
+        return if (box.latSouth >= box.latNorth || box.lonWest >= box.lonEast) null else box
     }
 }

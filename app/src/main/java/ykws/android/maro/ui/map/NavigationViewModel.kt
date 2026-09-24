@@ -107,6 +107,9 @@ class NavigationViewModel(
     /** Exposed for MarkerMatcher land-blocking — the spatial index built from coastline data. */
     val spatialIndex: CoastlineSpatialIndex? get() = repository.spatialIndex
 
+    /** The coastline repository backing this view model — the same instance the map reads its water and band from. */
+    val coastlineRepository: CoastlineRepository get() = repository
+
     /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
     private val settingsManager: SettingsManager =
         SettingsManager(application, AppConfig.zoneAutoRevealDistanceM, AppConfig.zoneAutoRevealTimeS)

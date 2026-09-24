@@ -1,0 +1,85 @@
+package ykws.android.maro.spatial.avoid
+
+import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.ceil
+
+/**
+ * The clearance taut pull: collapses the coarse cell path into straight waypoints that stay clear
+ * of land. The classic two-pointer string-pull — the anchor stands while the probe advances, and on
+ * a failed extension the probe's predecessor becomes the new anchor — walked over a
+ * **source-parameterized clearance predicate**: the distance to the nearest obstacle source in
+ * metres, injected so stages 2–3 pass band and zone sources without touching this walk.
+ *
+ * A chord is clear when every sample along it stands at least [marginM] from land, sampled at
+ * `≤ marginM / 2` so the margin is a guarantee rather than an approximation. The clearance is
+ * **exempt within a margin-radius disc around each forced-free end** (the raw start and aim), which
+ * is how the first and last legs reconcile with the margin predicate. A rejected chord is re-walked
+ * once from its predecessor's predecessor — the concave-coast retry, bounded rather than looped.
+ */
+object AvoidPull {
+
+    /**
+     * Pulls [path] (raw start first, raw aim last) taut into the ordered waypoint list, as direct as
+     * the margin allows and independent of grid orientation.
+     *
+     * @param clearanceM distance in metres to the nearest obstacle source at a point.
+     */
+    fun pull(
+        path: List<LatLng>,
+        start: LatLng,
+        aim: LatLng,
+        marginM: Double,
+        clearanceM: (LatLng) -> Double
+    ): List<LatLng> {
+        if (path.size <= 2) return path
+        val result = ArrayList<LatLng>(path.size)
+        result.add(path.first())
+        var anchor = 0
+        var probe = 1
+        while (probe < path.size) {
+            when {
+                legClear(path[anchor], path[probe], marginM, clearanceM, start, aim) -> probe++
+                // The immediate step grazes land in a corner: it cannot be pulled, so it is accepted
+                // once and the walk moves on — the bounded form of the concave re-walk.
+                probe == anchor + 1 -> {
+                    result.add(path[probe])
+                    anchor = probe
+                    probe++
+                }
+                else -> {
+                    result.add(path[probe - 1])
+                    anchor = probe - 1
+                    // probe stands; the loop re-walks the chord from the new anchor exactly once.
+                }
+            }
+        }
+        if (result.last() != path.last()) result.add(path.last())
+        return result
+    }
+
+    private fun legClear(
+        a: LatLng,
+        b: LatLng,
+        marginM: Double,
+        clearanceM: (LatLng) -> Double,
+        start: LatLng,
+        aim: LatLng
+    ): Boolean {
+        val dist = SpatialOperations.haversine(a, b)
+        val sampleStep = marginM / 2.0
+        val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
+        for (i in 1 until steps) {
+            val t = i.toDouble() / steps
+            val p = LatLng(
+                a.latitude + (b.latitude - a.latitude) * t,
+                a.longitude + (b.longitude - a.longitude) * t
+            )
+            // End-disc exemption: the margin binds the path, not the forced-free ends themselves.
+            if (SpatialOperations.haversine(p, start) < marginM) continue
+            if (SpatialOperations.haversine(p, aim) < marginM) continue
+            if (clearanceM(p) < marginM) return false
+        }
+        return true
+    }
+}

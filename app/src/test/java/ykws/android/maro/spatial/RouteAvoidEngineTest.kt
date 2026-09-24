@@ -6,154 +6,334 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.spatial.avoid.AvoidEdge
+import ykws.android.maro.spatial.avoid.AvoidWorld
+import kotlin.math.PI
+import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
 
 /**
- * The avoidance stand-in's own contract, pinned — because it is the second row of the harness and the
- * one thing that tells it apart from the dummy is the pace its straight line is timed at.
- *
- * What is asserted is deliberately small and exact: the line is the two ends it was told, in the
- * direction of travel, its length is the great-circle distance between them, and its time is that length
- * at the pace the test injects — a value of the test's own choosing, not the dummy's fixed 15 kn fiction
- * and not the app property the defect once read — so the assertion pins the injected behaviour. Nothing
- * was resolved and nothing crosses, and no point is ever refused.
+ * The avoid engine's own contract, pinned over a fake world: readiness latching, the water refusal,
+ * the off-water end, the corridor search and the taut pull, the grow-once `NoPath` retry, and legs
+ * timed at the injected pace.
  */
 class RouteAvoidEngineTest {
 
     private val origin = RoutePoint(43.5000, 7.0000)
-    private val aim = RoutePoint(43.5100, 7.0500)
+    private val aim = RoutePoint(43.5000, 7.0600)
 
     /** The pace the test injects, chosen on purpose: the expectation derives from this, never from a property. */
     private val paceKn = 12.0
 
-    private val metres = SpatialOperations.haversine(
-        LatLng(origin.latitude, origin.longitude),
-        LatLng(aim.latitude, aim.longitude)
-    )
+    private val marginM = AppConfig.routeAvoidObstacleMarginM
 
-    /** A fresh avoid engine priced at the injected pace, so no test constructs the engine any other way. */
-    private fun newEngine() = RouteAvoidEngine(paceKn = { paceKn })
+    private fun newEngine(world: () -> AvoidWorld = { FakeWorld() }) =
+        RouteAvoidEngine(paceKn = { paceKn }, worldProvider = world)
 
     private fun success(result: RouteResult?): RouteResult.Success {
-        assertTrue("the avoid engine answers a route, never a refusal", result is RouteResult.Success)
+        assertTrue("the engine answers a route", result is RouteResult.Success)
         return result as RouteResult.Success
     }
 
-    /** Ready before anything is asked, exactly like the dummy: no world is read at all. */
+    // ── Readiness ─────────────────────────────────────────────────────────────
+
     @Test
-    fun theStateIsReadyTheMomentItIsBuilt() {
-        assertTrue(newEngine().state.value.ready)
+    fun theStateIsNotReadyUntilPrepared() {
+        assertFalse(newEngine().state.value.ready)
     }
 
     @Test
-    fun prepareAnswersReadyToo() = runTest {
-        val engine = newEngine()
+    fun prepareLatchesReadyOnceTheWorldIsReady() = runTest {
+        val engine = newEngine { FakeWorld(ready = true) }
 
         assertEquals(RouteEngineState.Ready, engine.prepare())
-        assertFalse(
-            "and it never becomes an engine that refuses",
-            engine.state.value is RouteEngineState.Unavailable
+        assertTrue(engine.state.value.ready)
+    }
+
+    @Test
+    fun prepareLoadsAMissingWorldAndLatchesReady() = runTest {
+        val world = FakeWorld(ready = false, loadAnswers = mutableListOf(RouteEngineState.Ready))
+        val engine = newEngine { world }
+
+        assertEquals(RouteEngineState.Ready, engine.prepare())
+        assertTrue(engine.state.value.ready)
+    }
+
+    // ── The water refusal and the off-water end ────────────────────────────────
+
+    @Test
+    fun validatePointRefusesOffWater() = runTest {
+        val engine = newEngine { FakeWorld(water = { lat, _ -> lat < 43.60 }) }
+
+        assertNull(engine.validatePoint(origin))
+        assertEquals(RouteRefusalReason.OFF_WATER, engine.validatePoint(RoutePoint(43.70, 7.00)))
+    }
+
+    @Test
+    fun anOffWaterEndAnswersOutsideWater() = runTest {
+        val engine = newEngine { FakeWorld(water = { lat, _ -> lat < 43.60 }) }
+        engine.onOriginPositionChanged(origin)
+
+        assertEquals(
+            RouteResult.OutsideWater,
+            engine.onDestinationPositionChanged(RoutePoint(43.70, 7.06))
         )
     }
 
-    /** It judges nothing: every point is usable water as far as a straight line can tell. */
+    // ── The session shape ──────────────────────────────────────────────────────
+
     @Test
-    fun noPointIsEverRefused() = runTest {
+    fun theArmingCallAnswersNoRouteBecauseNoDestinationIsHeldYet() = runTest {
         val engine = newEngine()
 
-        assertNull(engine.validatePoint(origin))
-        assertNull(engine.validatePoint(aim))
+        assertNull(engine.onOriginPositionChanged(origin))
+        assertNull("a destination with no origin is not a route either", newEngine().onDestinationPositionChanged(aim))
     }
 
-    /** Nothing to wait for, so the refresh's veto never fires while this engine is installed. */
+    /** Nothing to wait for between asks: stage 1 reads nothing that expires. */
     @Test
     fun itIsAlwaysReadyToRecompute() = runTest {
         assertTrue(newEngine().isReadyToRecompute())
     }
 
-    /** The session's own shape: an end told alone answers nothing. */
-    @Test
-    fun theArmingCallAnswersNoRouteBecauseNoDestinationIsHeldYet() = runTest {
-        val engine = newEngine()
+    // ── The pipeline ──────────────────────────────────────────────────────────
 
-        assertNull("the origin alone is not a route", engine.onOriginPositionChanged(origin))
-        assertNull("and a destination with no origin is not one either", newEngine().onDestinationPositionChanged(aim))
-    }
-
+    /** Over empty water the pull collapses the corridor to the straight line, and the pin stands on the aim. */
     @Test
-    fun theLineIsExactlyTheTwoEndsItWasTold() = runTest {
+    fun aClearCrossingAnswersTheRawEndsUntouched() = runTest {
         val engine = newEngine()
         engine.onOriginPositionChanged(origin)
 
         val route = success(engine.onDestinationPositionChanged(aim))
 
         assertEquals(listOf(origin, aim), route.points)
-    }
-
-    /** A later aim moves the destination and holds the origin: the session the seam is made of. */
-    @Test
-    fun theOriginIsHeldWhileTheDestinationMoves() = runTest {
-        val engine = newEngine()
-        engine.onOriginPositionChanged(origin)
-        engine.onDestinationPositionChanged(aim)
-
-        val moved = success(engine.onDestinationPositionChanged(origin))
-
-        assertEquals(listOf(origin, origin), moved.points)
-        assertEquals(0.0, moved.distanceM, 1e-9)
-    }
-
-    /** And the reverse holds while the following phase moves the origin: the destination stands. */
-    @Test
-    fun theDestinationIsHeldWhileTheOriginMoves() = runTest {
-        val engine = newEngine()
-        engine.onOriginPositionChanged(origin)
-        engine.onDestinationPositionChanged(aim)
-
-        val later = RoutePoint(43.5050, 7.0030)
-        val route = success(engine.onOriginPositionChanged(later))
-
-        assertEquals(listOf(later, aim), route.points)
+        assertFalse(route.destinationMoved)
+        assertTrue(route.forcedCrossingZoneNames.isEmpty())
+        val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+        assertEquals(straight, route.distanceM, 1e-6)
     }
 
     @Test
-    fun theDistanceIsTheGreatCircleBetweenThem() = runTest {
-        val engine = newEngine()
+    fun theRouteAvoidsAnIslandAndKeepsTheMargin() = runTest {
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 400.0)
+        val world = FakeWorld(edges = island.toMutableList())
+        val engine = newEngine { world }
         engine.onOriginPositionChanged(origin)
 
-        assertEquals(metres, success(engine.onDestinationPositionChanged(aim)).distanceM, 1e-9)
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals("the line starts at the raw start", origin, route.points.first())
+        assertEquals("and ends at the raw aim", aim, route.points.last())
+        assertFalse(route.destinationMoved)
+        for (point in route.points) {
+            assertTrue(
+                "every waypoint keeps the clearance off the island",
+                world.distanceToCoastM(point.latitude, point.longitude) >= marginM - 1e-6
+            )
+        }
+        val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+        assertTrue("the detour is longer than the straight line", route.distanceM > straight)
     }
 
-    /**
-     * **The injected pace, not the dummy's fiction**: every leg is timed at the provider the test handed
-     * in, so a changed pace reaches the answer and the dummy's constant stays the dummy's alone.
-     */
+    /** A land wall crossing the corridor exhausts A*, retries once with the doubled reach, then refuses by name. */
     @Test
-    fun theTimeIsThatDistanceAtThePaceInForce() = runTest {
+    fun exhaustionAnswersNoPathAndRetriesWithDoubledReach() = runTest {
+        val wall = polygonRing(
+            listOf(
+                LatLng(43.45, 7.02),
+                LatLng(43.45, 7.04),
+                LatLng(43.55, 7.04),
+                LatLng(43.55, 7.02)
+            )
+        )
+        val world = FakeWorld(edges = wall.toMutableList())
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(origin)
+
+        val result = engine.onDestinationPositionChanged(aim)
+
+        assertEquals(RouteResult.NoPath, result)
+        assertEquals("one pass plus one doubled-reach retry", 2, world.boxes.size)
+        val firstSpan = world.boxes[0].latNorth - world.boxes[0].latSouth
+        val retrySpan = world.boxes[1].latNorth - world.boxes[1].latSouth
+        assertTrue("the retry's corridor reach is doubled", retrySpan > firstSpan)
+    }
+
+    @Test
+    fun legsAreTimedAtTheInjectedPace() = runTest {
         val engine = newEngine()
         engine.onOriginPositionChanged(origin)
 
         val route = success(engine.onDestinationPositionChanged(aim))
 
-        val seconds = metres / Units.knotsToMps(paceKn)
+        val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+        val seconds = straight / Units.knotsToMps(paceKn)
         assertEquals(listOf(seconds), route.legTimesSec)
         assertEquals(seconds, route.durationSec, 1e-9)
-        assertEquals("the total is the legs' own sum", route.legTimesSec.sum(), route.durationSec, 1e-9)
     }
 
+    /** A concave bay: a peninsula jutting south from the north coast; the line must round its tip. */
     @Test
-    fun nothingWasResolvedAndNothingCrosses() = runTest {
-        val engine = newEngine()
+    fun aConcaveBayWithAPeninsulaRoutesAroundTheTip() = runTest {
+        val coast = listOf(
+            LatLng(43.51, 6.98),
+            LatLng(43.51, 7.08)
+        )
+        val peninsula = polygonRing(
+            listOf(
+                LatLng(43.51, 7.025),
+                LatLng(43.51, 7.035),
+                LatLng(43.485, 7.035),
+                LatLng(43.485, 7.025)
+            )
+        )
+        val world = FakeWorld(edges = peninsula.toMutableList(), openCoast = mutableListOf(coast))
+        val engine = newEngine { world }
         engine.onOriginPositionChanged(origin)
 
         val route = success(engine.onDestinationPositionChanged(aim))
 
-        assertFalse("the aim is where the line ends, so the pin is where the user dragged", route.destinationMoved)
+        val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+        assertTrue("the detour around the peninsula is longer than the straight line", route.distanceM > straight)
+        for (point in route.points) {
+            assertTrue(
+                "every waypoint keeps the clearance off the peninsula",
+                world.distanceToCoastM(point.latitude, point.longitude) >= marginM - 1e-6
+            )
+        }
         assertTrue(
-            "a straight line enters nothing, so no crossing is reported",
-            route.forcedCrossingZoneNames.isEmpty()
+            "the route passes south of the peninsula tip rather than across it",
+            route.points.minOf { it.latitude } < 43.485
         )
+    }
+
+    /** The clearance binds every point of an emitted segment, not just the waypoint vertices. */
+    @Test
+    fun everyPulledSegmentInteriorKeepsTheMargin() = runTest {
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 400.0)
+        val world = FakeWorld(edges = island.toMutableList())
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        for (i in 0 until route.points.size - 1) {
+            val a = route.points[i].toLatLng()
+            val b = route.points[i + 1].toLatLng()
+            val dist = SpatialOperations.haversine(a, b)
+            val steps = max(2, ceil(dist / (marginM / 2.0)).toInt())
+            for (s in 1 until steps) {
+                val t = s.toDouble() / steps
+                val p = LatLng(
+                    a.latitude + (b.latitude - a.latitude) * t,
+                    a.longitude + (b.longitude - a.longitude) * t
+                )
+                if (SpatialOperations.haversine(p, origin.toLatLng()) < marginM) continue
+                if (SpatialOperations.haversine(p, aim.toLatLng()) < marginM) continue
+                assertTrue(
+                    "every pulled segment's interior stands at least the margin off land",
+                    world.distanceToCoastM(p.latitude, p.longitude) >= marginM - 1e-6
+                )
+            }
+        }
+    }
+
+    /** The Lérins-to-Salis-shaped corridor answers under the 500 ms wall the plan pins. */
+    @Test
+    fun theLerinsToSalisShapedCorridorAnswersUnderTheBudget() = runTest {
+        val engine = newEngine { lerinsToSalisWorld() }
+        engine.onOriginPositionChanged(RoutePoint(43.508, 7.065))
+
+        val start = System.nanoTime()
+        val route = engine.onDestinationPositionChanged(RoutePoint(43.572, 7.114))
+        val elapsedMs = (System.nanoTime() - start) / 1_000_000
+
+        success(route)
+        assertTrue("the corridor answers in $elapsedMs ms, under the 500 ms wall", elapsedMs <= 500)
+    }
+
+    // ── The fake world ─────────────────────────────────────────────────────────
+
+    private class FakeWorld(
+        private var ready: Boolean = true,
+        private val edges: MutableList<AvoidEdge> = mutableListOf(),
+        private val openCoast: MutableList<List<LatLng>> = mutableListOf(),
+        private val water: (Double, Double) -> Boolean = { _, _ -> true },
+        private val loadAnswers: MutableList<RouteEngineState> = mutableListOf()
+    ) : AvoidWorld {
+        val boxes = mutableListOf<BBox>()
+
+        override val coastlineReady: Boolean get() = ready
+        override val regionBounds: BBox? get() = null
+
+        override fun segmentsIn(box: BBox): List<AvoidEdge> {
+            boxes.add(box)
+            return edges.filter { edge ->
+                val minLat = min(edge.a.latitude, edge.b.latitude)
+                val maxLat = max(edge.a.latitude, edge.b.latitude)
+                val minLon = min(edge.a.longitude, edge.b.longitude)
+                val maxLon = max(edge.a.longitude, edge.b.longitude)
+                minLat <= box.latNorth && maxLat >= box.latSouth &&
+                    minLon <= box.lonEast && maxLon >= box.lonWest
+            }
+        }
+
+        override fun openCoastIn(box: BBox): List<List<LatLng>> = openCoast
+
+        override fun isWater(latitude: Double, longitude: Double): Boolean = water(latitude, longitude)
+
+        override fun distanceToCoastM(latitude: Double, longitude: Double): Double {
+            var best = Double.MAX_VALUE
+            val p = LatLng(latitude, longitude)
+            for (edge in edges) {
+                best = min(best, SpatialOperations.pointToSegmentDistance(p, edge.a, edge.b))
+            }
+            return best
+        }
+
+        override suspend fun load(): RouteEngineState {
+            val state = if (loadAnswers.isNotEmpty()) loadAnswers.removeAt(0) else RouteEngineState.Ready
+            ready = state.ready
+            return state
+        }
+    }
+
+    private fun polygonRing(points: List<LatLng>): List<AvoidEdge> =
+        points.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +
+            AvoidEdge(points.last(), points.first(), LandRingOrientation.CCW_RING)
+
+    private fun circleRing(center: LatLng, radiusM: Double, n: Int = 32): List<AvoidEdge> {
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(center.latitude))
+        val polygon = (0 until n).map { i ->
+            val theta = 2.0 * PI * i / n
+            LatLng(
+                center.latitude + radiusM * sin(theta) / mPerDegLat,
+                center.longitude + radiusM * cos(theta) / mPerDegLon
+            )
+        }
+        return polygonRing(polygon)
+    }
+
+    /** A synthetic Lérins-to-Salis corridor: a mainland coast with a string of island rings between the ends. */
+    private fun lerinsToSalisWorld(): FakeWorld {
+        val coast = listOf(
+            LatLng(43.58, 7.00),
+            LatLng(43.58, 7.06),
+            LatLng(43.58, 7.12)
+        )
+        val islands = circleRing(LatLng(43.512, 7.072), radiusM = 500.0, n = 24) +
+            circleRing(LatLng(43.520, 7.088), radiusM = 650.0, n = 24) +
+            circleRing(LatLng(43.535, 7.102), radiusM = 420.0, n = 24) +
+            circleRing(LatLng(43.550, 7.095), radiusM = 360.0, n = 24)
+        return FakeWorld(edges = islands.toMutableList(), openCoast = mutableListOf(coast))
     }
 }
