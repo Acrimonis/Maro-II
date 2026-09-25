@@ -183,8 +183,9 @@ class AvoidStage1Test {
         val start = LatLng(43.50, 7.00)
         val aim = LatLng(43.50, 7.02)
         val path = listOf(start, LatLng(43.505, 7.005), LatLng(43.503, 7.012), aim)
+        val openWater = RouteCostField.ofHard { Double.MAX_VALUE }
 
-        val waypoints = AvoidPull.pull(path, start, aim, 25.0) { Double.MAX_VALUE }
+        val waypoints = AvoidPull.pull(path, start, aim, 25.0, openWater)
 
         assertEquals(listOf(start, aim), waypoints)
     }
@@ -197,10 +198,9 @@ class AvoidStage1Test {
         val bulge = LatLng(43.505, 7.01)
         val path = listOf(start, bulge, aim)
         val margin = 25.0
+        val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, obstacle) }
 
-        val waypoints = AvoidPull.pull(path, start, aim, margin) { p ->
-            SpatialOperations.haversine(p, obstacle)
-        }
+        val waypoints = AvoidPull.pull(path, start, aim, margin, field)
 
         assertEquals("the bulge is kept because the straight chord grazes the obstacle", listOf(start, bulge, aim), waypoints)
         for (waypoint in waypoints) {
@@ -223,10 +223,9 @@ class AvoidStage1Test {
         // between two samples of a margin-sized step (which would miss it) and on a sample of the
         // margin/2 step (which must catch it and keep the midpoint).
         val obstacle = LatLng(43.50 - 22.5 / mPerDegLat, 7.01)
+        val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, obstacle) }
 
-        val waypoints = AvoidPull.pull(listOf(start, mid, aim), start, aim, margin) { p ->
-            SpatialOperations.haversine(p, obstacle)
-        }
+        val waypoints = AvoidPull.pull(listOf(start, mid, aim), start, aim, margin, field)
 
         assertEquals("the chord is rejected and the midpoint kept", listOf(start, mid, aim), waypoints)
     }

@@ -18,7 +18,7 @@ import kotlin.math.sqrt
  *   travel, water on the right, so a convex land corner is a negative cross product of the two
  *   vertex-to-neighbour vectors. Concave vertices produce nothing — the string never bends at them.
  * - **Offset by the margin.** Each corner is pushed along its interior-angle bisector to the distance
- *   that stands [marginM] off both incident edges.
+ *   that stands [offsetM] off both incident edges.
  * - **Rings and open coast alike.** Ring vertices are rebuilt from the flat CCW edge set — one
  *   incoming and one outgoing edge per vertex — while a CW basin keeps its interior water, so its
  *   wall corners carry no tangent.
@@ -29,22 +29,27 @@ object TangentCorners {
      *  `< marginM` sampling comparison through floating-point noise. */
     private const val OFFSET_EPSILON = 1e-6
 
-    /** Collinearity and half-angle guards, in metres and radians. */
+    /** Collinearity and half-angle guards, in metres and radians. A corner flatter than
+     *  [MIN_SIN_HALF] is not a corner, so notch noise never reaches the snap. */
     private const val MIN_EDGE_M = 1e-9
-    private const val MIN_SIN_HALF = 1e-6
+    private const val MIN_SIN_HALF = 0.05
+
+    /** The furthest an offset corner may stand from its vertex before the corner is dropped — a
+     *  shallow cape must not push a corner kilometres out. */
+    private const val MAX_OFFSET_M = 2000.0
 
     private data class Key(val lat: Long, val lon: Long)
 
-    /** Every convex corner of [openCoast] and of the CCW rings in [edges], offset by [marginM]. */
+    /** Every convex corner of [openCoast] and of the CCW rings in [edges], offset by [offsetM]. */
     fun corners(
         edges: List<AvoidEdge>,
         openCoast: List<List<LatLng>>,
-        marginM: Double
+        offsetM: Double
     ): List<LatLng> {
         val out = ArrayList<LatLng>()
         for (polyline in openCoast) {
             for (i in 1 until polyline.size - 1) {
-                addTangent(polyline[i - 1], polyline[i], polyline[i + 1], marginM, out)
+                addTangent(polyline[i - 1], polyline[i], polyline[i + 1], offsetM, out)
             }
         }
 
@@ -64,7 +69,7 @@ object TangentCorners {
         for ((key, inEdge) in incoming) {
             if (key in ambiguous) continue
             val outEdge = outgoing[key] ?: continue
-            addTangent(inEdge.a, inEdge.b, outEdge.b, marginM, out)
+            addTangent(inEdge.a, inEdge.b, outEdge.b, offsetM, out)
         }
         return out
     }
@@ -76,7 +81,7 @@ object TangentCorners {
         prev: LatLng,
         vertex: LatLng,
         next: LatLng,
-        marginM: Double,
+        offsetM: Double,
         out: MutableList<LatLng>
     ) {
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -107,7 +112,9 @@ object TangentCorners {
         if (bl < MIN_EDGE_M) return
         bx /= bl
         by /= bl
-        val d = marginM * (1.0 + OFFSET_EPSILON) / sinHalf
+        val offsetDistance = offsetM / sinHalf
+        if (offsetDistance > MAX_OFFSET_M) return
+        val d = offsetDistance * (1.0 + OFFSET_EPSILON)
         out.add(
             LatLng(
                 vertex.latitude - d * by / mPerDegLat,

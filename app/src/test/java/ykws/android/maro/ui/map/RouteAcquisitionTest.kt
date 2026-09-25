@@ -19,6 +19,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
@@ -390,11 +391,14 @@ class RouteAcquisitionTest {
 /** An open, ready world: water everywhere and no land, so the avoid pipeline runs to its answer. */
 private class OpenWaterWorld : AvoidWorld {
     override val coastlineReady: Boolean get() = true
+    override val depthReady: Boolean get() = true
+    override val bandWidthM: Double get() = 0.0
     override val regionBounds: BBox? get() = null
     override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
     override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
     override fun isWater(latitude: Double, longitude: Double): Boolean = true
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+    override fun depthAt(latitude: Double, longitude: Double): DepthSample = DepthSample.NONE
     override suspend fun load(): RouteEngineState = RouteEngineState.Ready
 }
 

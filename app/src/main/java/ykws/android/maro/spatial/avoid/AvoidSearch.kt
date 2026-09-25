@@ -8,9 +8,9 @@ import kotlin.math.sqrt
 
 /**
  * Corridor-bounded A* over [AvoidGrid]: eight neighbours, diagonal cost `√2 × gridCellM`, and a
- * g-cost that reads each cell's source cost in metres-equivalent so the haversine heuristic stays
- * admissible when stages 2–3 add band and zone costs. Stage 1's costs are all equal, [LAND]
- * impassable.
+ * g-cost that reads each cell's source cost in metres-equivalent — the base cost the rasterizer
+ * always writes plus whatever the [RouteCostField]'s prices add — so the haversine heuristic stays
+ * admissible however dear a cell becomes. [LAND] is impassable; everything else is priced.
  *
  * Ties break by shorter g-so-far, then by a deterministic row-major cell order — never by heap
  * insertion order — so the same grid always yields the same path. [checkCancelled] is consulted

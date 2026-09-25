@@ -37,6 +37,28 @@ class TangentCornersTest {
         assertTrue("one tip corner is east", corners.any { it.longitude > 7.03 })
     }
 
+    /** The offset clamp: a shallow cape offset by the band's reach would push its corner kilometres
+     *  out, so it yields no corner — while the same cape at the obstacle margin stays a corner. */
+    @Test
+    fun aShallowCapeBeyondTheOffsetCapYieldsNoCorner() {
+        val cape = listOf(
+            LatLng(43.50, 7.00),
+            LatLng(43.40, 7.01),
+            LatLng(43.50, 7.02)
+        )
+
+        assertEquals(
+            "a shallow cape at the band's reach is dropped by the offset clamp",
+            emptyList<LatLng>(),
+            TangentCorners.corners(emptyList(), listOf(cape), 325.0)
+        )
+        assertEquals(
+            "the same cape at the obstacle margin stays a corner",
+            1,
+            TangentCorners.corners(emptyList(), listOf(cape), 25.0).size
+        )
+    }
+
     @Test
     fun aCcwRingYieldsAllFourCorners() {
         val southWest = LatLng(43.498, 7.024)

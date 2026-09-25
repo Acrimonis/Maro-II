@@ -136,20 +136,95 @@ object AppConfig {
     var routeLadderLatestNb: Int = 3
         private set
 
-    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacleMarginM`, default 25. */
+    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
     var routeAvoidObstacleMarginM: Double = 25.0
         private set
 
-    /** Side (m) of one corridor-grid cell — `route.avoid.gridCellM`, default 50. */
+    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 50. */
     var routeAvoidGridCellM: Double = 50.0
         private set
 
-    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridorReachM`, default 1852 (1 NM). */
+    /**
+     * The fine pass's cell as a ratio of the coarse cell — `route.avoid.fine.cellRatio`, default 0.40,
+     * clamped [ROUTE_AVOID_FINE_CELL_RATIO_MIN]..[ROUTE_AVOID_FINE_CELL_RATIO_MAX].
+     *
+     * The ratio is the home for the relationship the user set — 40 % of the coarse cell — so the size is
+     * written once, in `route.avoid.grid.cellM`: at today's 50 m the fine cell is 20 m, and no metres key
+     * is kept beside it for the two to drift apart.
+     *
+     * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
+     * unused, as `route.avoid.zone300.marginM` did before the band.
+     */
+    var routeAvoidFineCellRatio: Double = 0.40
+        private set
+
+    /** Lowest fine-cell ratio the load accepts — the one home for that end of the span. */
+    const val ROUTE_AVOID_FINE_CELL_RATIO_MIN = 0.05
+
+    /**
+     * Highest fine-cell ratio the load accepts — 1.0 makes the fine cell the coarse one, so the pass
+     * subdivides nothing and stays inert.
+     */
+    const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
+
+    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`, default 1852 (1 NM). */
     var routeAvoidCorridorReachM: Double = 1852.0
         private set
 
-    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300MarginM`, default 25. */
+    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300.marginM`, default 25. */
     var routeAvoidZone300MarginM: Double = 25.0
+        private set
+
+    /**
+     * Depth (m) below which a corridor cell is excluded from the route — `route.avoid.depthGate.minM`,
+     * default 3.0, read only while `route.avoid.depthGate.enabled` is true. The gate is a coarse
+     * guard on the route being written, not a fine sounding: a known depth under this number paints
+     * the cell land, and everything at or above it — whatever its source or confidence — is ignored.
+     */
+    var routeAvoidDepthGateMinM: Double = 3.0
+        private set
+
+    /**
+     * Whether the 3 m depth gate is armed — `route.avoid.depthGate.enabled`, default true. False runs
+     * the avoid engine on the coastline alone: no depth grid is loaded and no corridor cell is
+     * excluded on a sounding.
+     */
+    var routeAvoidDepthGateEnabled: Boolean = true
+        private set
+
+    /**
+     * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.zone300.softCostAversion`,
+     * a cost multiplier clamped 1.0..5.0. 1.0 prices the band as open water; the excess over 1.0 is the extra
+     * cost per metre inside it.
+     */
+    var routeAvoidZone300SoftCostAversion: Double = 1.5
+        private set
+
+    /**
+     * Whether the 300 m band is priced — `route.avoid.zone300.enabled`, default true. False prices the
+     * band as open water and writes no BAND tag, so `route.avoid.zone300.softCostAversion` stays the value
+     * that says how dear the band is when it is on.
+     */
+    var routeAvoidZone300Enabled: Boolean = true
+        private set
+
+    /**
+     * Whether the speed zones are priced — `route.avoid.speedZone.enabled`, default false. False prices
+     * every zone as open water: the search does not bend around one, the trip clock reads the pace alone,
+     * and no forced crossing is reported. The counterpart of `route.avoid.zone300.enabled`.
+     */
+    var routeAvoidSpeedZoneEnabled: Boolean = false
+        private set
+
+    /**
+     * The speed-zone price cursor — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
+     * 0.0..5.0. A zone cell costs its base plus `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its
+     * true travel time and the search minimises real time — bending around a slow zone when the way around
+     * is faster — while at 0.0 the zone is priced as open water, reproducing the pre-phase-4 no-zone line,
+     * and a value above 1.0 bends harder. The cursor chooses the line and never touches the ETA — the clock
+     * stays physics.
+     */
+    var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
 
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
@@ -1384,18 +1459,44 @@ object AppConfig {
                 ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
             props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
                 ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
-            // ── The avoid engine's four keys (stage 1 reads the first three; zone300MarginM waits for stage 2) ──
-            props.getProperty("route.avoid.obstacleMarginM")?.toDoubleOrNull()?.let {
+            // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
+            //    and the fine ratio Change 4 will read) ──
+            props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
             }
-            props.getProperty("route.avoid.gridCellM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.grid.cellM")?.toDoubleOrNull()?.let {
                 routeAvoidGridCellM = it.coerceIn(10.0, 500.0)
             }
-            props.getProperty("route.avoid.corridorReachM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.corridor.reachM")?.toDoubleOrNull()?.let {
                 routeAvoidCorridorReachM = it.coerceIn(100.0, 20_000.0)
             }
-            props.getProperty("route.avoid.zone300MarginM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.zone300.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            }
+            // Parsed and left unread until Change 4's fine band reads it.
+            props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
+                routeAvoidFineCellRatio = it.coerceIn(
+                    ROUTE_AVOID_FINE_CELL_RATIO_MIN,
+                    ROUTE_AVOID_FINE_CELL_RATIO_MAX
+                )
+            }
+            props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
+                routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
+            }
+            props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidDepthGateEnabled = it
+            }
+            props.getProperty("route.avoid.zone300.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidZone300SoftCostAversion = it.coerceIn(1.0, 5.0)
+            }
+            props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidZone300Enabled = it
+            }
+            props.getProperty("route.avoid.speedZone.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneSoftCostAversion = it.coerceIn(0.0, 5.0)
+            }
+            props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidSpeedZoneEnabled = it
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

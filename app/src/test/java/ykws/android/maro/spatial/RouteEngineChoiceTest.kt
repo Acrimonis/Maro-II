@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.avoid.AvoidEdge
@@ -60,10 +61,13 @@ class RouteEngineChoiceTest {
 /** A ready, water-everywhere world — the factory never invokes it at build time, only stores it. */
 private class ChoiceWorld : AvoidWorld {
     override val coastlineReady: Boolean get() = true
+    override val depthReady: Boolean get() = true
+    override val bandWidthM: Double get() = 0.0
     override val regionBounds: BBox? get() = null
     override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
     override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
     override fun isWater(latitude: Double, longitude: Double): Boolean = true
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+    override fun depthAt(latitude: Double, longitude: Double): DepthSample = DepthSample.NONE
     override suspend fun load(): RouteEngineState = RouteEngineState.Ready
 }
