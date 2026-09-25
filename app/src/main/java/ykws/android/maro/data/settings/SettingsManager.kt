@@ -157,6 +157,12 @@ data class AppSettings(
      * here. An id nothing claims falls back to the registry's default and is reported at startup.
      */
     val routeEngineId: String = ykws.android.maro.config.AppConfig.routeEngineId,
+    /**
+     * The speed-zone ids the user has excluded from route planning, default empty. Persisted so an
+     * exclusion survives a restart; the avoid engine drops these ids before the fill, the ETA and the
+     * forced-crossing report alike.
+     */
+    val excludedSpeedZoneIds: Set<String> = emptySet(),
     /** Regenerate: reload depth grid from assets. */
     val regenGrid: Boolean = true,
     /** Regenerate: re-derive isobath contours. */
@@ -568,6 +574,8 @@ class SettingsManager(
             KEY_ROUTE_ENGINE_ID,
             ykws.android.maro.config.AppConfig.routeEngineId
         ) ?: ykws.android.maro.config.AppConfig.routeEngineId,
+        excludedSpeedZoneIds = prefs.getStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, emptySet())?.toSet()
+            ?: emptySet(),
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
@@ -750,6 +758,7 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
+            .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
@@ -937,6 +946,8 @@ class SettingsManager(
         private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
         private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
+        /** The persisted set of speed-zone ids the user excluded from route planning. */
+        private const val KEY_EXCLUDED_SPEED_ZONE_IDS = "excluded_speed_zone_ids"
         private const val KEY_REGEN_GRID = "regen_grid"
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"

@@ -592,7 +592,12 @@ fun MapScreen(
     // instances the water, band and depth reads go through. It always answers a live world over them,
     // so a layer that lands after the engine is built is read on the next search.
     val avoidWorldProvider: () -> AvoidWorld = {
-        LiveAvoidWorld(viewModel.coastlineRepository, depthViewModel.depthRepository)
+        LiveAvoidWorld(
+            viewModel.coastlineRepository,
+            depthViewModel.depthRepository,
+            zonesProvider = { viewModel.speedZones.value },
+            excludedZoneIds = { appSettings.excludedSpeedZoneIds }
+        )
     }
     val routeEngineSelection = remember {
         MutableStateFlow(

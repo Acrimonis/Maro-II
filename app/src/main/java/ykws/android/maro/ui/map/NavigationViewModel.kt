@@ -276,6 +276,9 @@ class NavigationViewModel(
 
     /** Speed zone spatial index — built once when both data sources are ready. */
     private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
+    /** The built speed-zone list — the same objects the index above was built from, exposed for the avoid engine. */
+    private val _speedZones = MutableStateFlow<List<SpeedZone>>(emptyList())
+    val speedZones: StateFlow<List<SpeedZone>> = _speedZones.asStateFlow()
     /** Non-speed regulated zone index — for the REGULATED re-display proximity. */
     private val _nonSpeedIndex = MutableStateFlow<ykws.android.maro.spatial.NonSpeedZoneIndex?>(null)
 
@@ -1081,6 +1084,7 @@ class NavigationViewModel(
                 .distinctUntilChanged()
         ) { zoneSet, _ ->
             val zones = SpeedZoneBuilder.build(zoneSet)
+            _speedZones.value = zones
             val zoneCount = zoneSet?.zones?.size ?: 0
             val speedCount = zones.size
             Log.d(TAG, "SpeedZoneIndex: zoneSet has $zoneCount total zones, $speedCount speed zones")

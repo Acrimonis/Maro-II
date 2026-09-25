@@ -33,7 +33,7 @@ flowchart LR
 
 ## Phase 2 — depth gate, hard wall at 3 m
 
-- **Mechanism.** New key `route.avoid.minDepthM=3.0` (default 3, the user's number), read through `AppConfig` with a clamp. `AvoidWorld` gains `depthAt(lat, lon): DepthSample` and `depthReady: Boolean`; the live adapter takes a `DepthRepository` reference — the same seam widening stage 1 did for the coastline.
+- **Mechanism.** New key `route.avoid.depthGate.minM=3.0` (default 3, the user's number), read through `AppConfig` with a clamp. `AvoidWorld` gains `depthAt(lat, lon): DepthSample` and `depthReady: Boolean`; the live adapter takes a `DepthRepository` reference — the same seam widening stage 1 did for the coastline.
 - **The gate.** One bilinear [`depthAt`](../../app/src/main/java/ykws/android/maro/data/model/DepthGrid.kt:117) per cell centre: a known depth `< minDepthM` paints the cell `LAND`. Everything not below the threshold is ignored — deeper water, coarse sources and NoData alike, with no confidence floor and no penalty (decided 2026-09-24: the gate is a coarse guard on the route being written, not a fine sounding).
 - **Linked with the water.** The gate is ANDed with the coastline's `isWater`, so a NoData cell the depth mask erased on the land side is still blocked as land rather than passed as unsurveyed.
 - **Readiness.** `DEPTH_NOT_LOADED` joins `COASTLINE_NOT_LOADED` as a `RouteUnavailableReason`, so a route armed before the depth grid lands is refused by name; with no grid loaded every cell reads unsurveyed and the gate would otherwise be silently inert.
@@ -43,14 +43,14 @@ flowchart LR
 
 - **Mechanism.** Soft source, never a wall: the boat may enter, it should spend as little time as possible. Cost in metres-equivalent while `distanceToCoastM <= 300 + margin`, reusing the land pass's cell-centre-to-segment distance — the distance is already computed for the margin band, so the band cost is a second write in the same loop, not a second pass.
 - **Forced crossing.** A start or aim already inside the band, a marina basin, or a corridor with no way out is accepted and named in `forcedCrossingZoneNames` — never refused and never sent on an absurd detour.
-- **Penalty magnitude (decided).** One shared multiplier, `route.avoid.softCostAversion` (default 1.5), scales the time spent in the band and in a priced zone alike — big enough to bend the line out of a 50 m strip, small enough not to send it kilometres around.
+- **Penalty magnitude (decided).** One shared multiplier, `route.avoid.zone300.softCostAversion` (default 1.5), scales the time spent in the band and in a priced zone alike — big enough to bend the line out of a 50 m strip, small enough not to send it kilometres around.
 - **Perf cost.** Folds into the existing distance pass — negligible extra. **Difficulty: low-medium** — it is the first soft source through the field → rasterizer → A* → pull chain, so it proves the soft-cost path end to end before the heavier sources ride on it.
 
 ## Phase 4 — speed-limit zones, priced and excludable
 
 - **Mechanism.** `AvoidWorld` gains `speedZonesIn(box)` returning zone polygons (outer ring, holes, `limitKn`, id) so the rasterizer even-odd-fills them — holes stay water, overlapping zones keep the strictest limit. No per-cell `SpeedZoneIndex.query`: the inside test scans every ring ([`PolygonIndexBase.status`](../../app/src/main/java/ykws/android/maro/spatial/PolygonIndexBase.kt:178)), so 33 k point queries is the exact explosion the stage-1 budget forbids.
 - **Cost.** The zone's own time at its limit is the base price (decided 2026-09-24): a slower leg costs more metres-equivalent, which is what makes the line spend less time in a zone, while the band keeps the `softCostAversion` multiplier alone.
-- **Cursor.** One key, `route.avoid.zoneTimePriceK` (default 1.0), scales the time a leg spends in a zone inside the routing cost: K = 1 is pure fastest and reproduces today's "no zone restriction", K rising bends the line out of zones even when the way around is longer. The cursor chooses the line and **never touches the ETA** — the clock stays physics, or the trip figure lies.
+- **Cursor.** One key, `route.avoid.speedZone.softCostAversion` (default 1.0), scales the time a leg spends in a zone inside the routing cost: K = 1 is pure fastest and reproduces today's "no zone restriction", K rising bends the line out of zones even when the way around is longer. The cursor chooses the line and **never touches the ETA** — the clock stays physics, or the trip figure lies.
 - **ETA.** No zone restriction term: outside a zone the boat accelerates gradually to the configured speed, inside one it obeys that zone's limit, and `success()` splits each leg where the limit in force changes so the trip figure reads what the boat must really do. A boundary crossing adds a vertex, so the drawn line gains a point there.
 - **Saved speeds.** The computed per-leg speeds are **saved with the track** (decided 2026-09-24), so a saved route carries the planned speeds rather than a re-derived figure.
 - **Exclusion (decided).** A persisted set of excluded zone ids, default empty, dropped before the fill, the ETA and the report alike.
@@ -84,10 +84,10 @@ The order above is the technical dependency order: the unified field first, the 
 
 | Key | Default | Meaning |
 |---|---|---|
-| `route.avoid.minDepthM` | 3.0 | depth below which a cell is excluded |
+| `route.avoid.depthGate.minM` | 3.0 | depth below which a cell is excluded |
 | `route.turn.lateralAccelMps2` | 2.94 | turn-rounding lateral-acceleration ceiling |
-| `route.avoid.softCostAversion` | 1.5 | multiplier on time spent in the 300 m band |
-| `route.avoid.zoneTimePriceK` | 1.0 | cursor: a second in a speed zone counts as K seconds for routing |
+| `route.avoid.zone300.softCostAversion` | 1.5 | multiplier on time spent in the 300 m band |
+| `route.avoid.speedZone.softCostAversion` | 1.0 | cursor: a second in a speed zone counts as K seconds for routing |
 
 All read through `AppConfig` with a clamp, one home each — no Settings row until one is asked for.
 
@@ -101,9 +101,9 @@ Budget stays ≤ 500 ms wall, re-priced per stage. The invariant the tests pin: 
 - Speed-zone exclusion — a persisted set of excluded zone ids, default empty.
 - The smoothed curve is the navigated route — ETA, distance and off-route checks follow the chorded arcs.
 - Depth — block a known depth below the threshold and ignore everything else, ANDed with the coastline's water test.
-- Band aversion — one `route.avoid.softCostAversion`, default 1.5.
+- Band aversion — one `route.avoid.zone300.softCostAversion`, default 1.5.
 - ETA — obey the zone limit in force and accelerate gradually to the configured speed outside one; the computed speeds are saved with the track.
-- Zone-avoidance cursor — the route bends away from zones by `route.avoid.zoneTimePriceK`, default 1 (no bending); the cursor chooses the line and never the ETA.
+- Zone-avoidance cursor — the route bends away from zones by `route.avoid.speedZone.softCostAversion`, default 1 (no bending); the cursor chooses the line and never the ETA.
 
 ## Amendments (2026-09-25) — folded from the 2026-09-25 plan
 

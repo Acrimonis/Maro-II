@@ -10,17 +10,24 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.avoid.AvoidPull
 import ykws.android.maro.spatial.avoid.AvoidSearch
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.AvoidCellState
+import ykws.android.maro.spatial.avoid.AvoidEdge
+import ykws.android.maro.spatial.avoid.CellIndex
+import ykws.android.maro.spatial.avoid.PricedZone
 import ykws.android.maro.spatial.avoid.RouteCostField
 import ykws.android.maro.spatial.avoid.RouteCostSource
 import ykws.android.maro.spatial.avoid.TangentCorners
 import ykws.android.maro.spatial.avoid.bandPriceM
 import ykws.android.maro.spatial.avoid.bandReachM
 import ykws.android.maro.spatial.avoid.depthGateSource
+import ykws.android.maro.spatial.avoid.forcedCrossingZoneNames
 import ykws.android.maro.spatial.avoid.rasterize
+import ykws.android.maro.spatial.avoid.timeLineWithLimits
+import ykws.android.maro.spatial.avoid.zonePriceM
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
@@ -50,7 +57,7 @@ import kotlin.math.min
  * by `route.avoid.zone300.enabled`.
  *
  * **The depth gate.** A bilinear depth read per cell centre: a known depth below
- * `route.avoid.minDepthM` paints the cell land, ANDed with the coastline's own water through the
+ * `route.avoid.depthGate.minM` paints the cell land, ANDed with the coastline's own water through the
  * cell's passability, and everything not below the threshold — deeper water, coarse sources, NoData
  * alike — is ignored, with no confidence floor and no penalty. It is a coarse guard on the route being
  * written, not a fine sounding.
@@ -161,7 +168,13 @@ class RouteAvoidEngine(
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val field = costField(world)
-        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field)
+        // The zones arrive pre-filtered by the world (excluded ids dropped); each is priced once from
+        // the live pace, then rastered as a zone tag whose cost is the strictest limit in force.
+        val zones = world.speedZonesIn(box)
+        val zoneK = AppConfig.routeAvoidSpeedZoneSoftCostAversion
+        val pace = paceKn()
+        val priced = zones.map { z -> PricedZone(z.outerRing, z.holes, zonePriceM(cellM, pace, z.speedLimitKn, zoneK)) }
+        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field, priced)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val startCell = grid.cellOf(from.latitude, from.longitude)
@@ -183,7 +196,12 @@ class RouteAvoidEngine(
             sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), bandOffsetM))
         }
         val snapped = snapToCorners(pulled, sets, marginM, field, start, aim)
-        return success(AvoidPull.pull(snapped, start, aim, marginM, field))
+        val waypoints = AvoidPull.pull(snapped, start, aim, marginM, field)
+        val forced = forcedCrossingNames(
+            box, cellM, marginM, edges, openCoast, capLatNorth, field, priced, zones,
+            from, to, startCell, aimCell, waypoints
+        )
+        return success(waypoints, world, forced)
     }
 
     /**
@@ -201,7 +219,7 @@ class RouteAvoidEngine(
         sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
         if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
             sources.add(
-                depthGateSource(AppConfig.routeAvoidMinDepthM) { p ->
+                depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p ->
                     val sample = world.depthAt(p.latitude, p.longitude)
                     if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
                 }
@@ -268,24 +286,58 @@ class RouteAvoidEngine(
         return out
     }
 
-    private fun success(waypoints: List<LatLng>): RouteResult.Success {
-        val points = waypoints.map { RoutePoint.of(it) }
-        val legTimesSec = ArrayList<Double>(max(0, points.size - 1))
+    /**
+     * Whether the route was forced through a priced zone: with every restrictive zone blocked the
+     * corridor has no avoiding path, and the names reported are the restrictive zones the drawn line
+     * enters. An ordinary priced crossing — a way around exists — reports nothing.
+     */
+    private suspend fun forcedCrossingNames(
+        box: BBox,
+        cellM: Double,
+        marginM: Double,
+        edges: List<AvoidEdge>,
+        openCoast: List<List<LatLng>>,
+        capLatNorth: Double,
+        field: RouteCostField,
+        priced: List<PricedZone>,
+        zones: List<SpeedZone>,
+        from: RoutePoint,
+        to: RoutePoint,
+        startCell: CellIndex,
+        aimCell: CellIndex,
+        waypoints: List<LatLng>
+    ): List<String> {
+        val restrictive = priced.filter { it.costM > 0.0 }
+        if (restrictive.isEmpty()) return emptyList()
+        val blocked = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field, restrictive, blockZones = true)
+        blocked.forceFree(from.latitude, from.longitude)
+        blocked.forceFree(to.latitude, to.longitude)
+        val avoiding = AvoidSearch.search(blocked, startCell, aimCell) != null
+        val restrictiveZones = zones.zip(priced).filter { (_, p) -> p.costM > 0.0 }.map { (z, _) -> z }
+        return forcedCrossingZoneNames(waypoints, restrictiveZones, avoiding)
+    }
+
+    /** Times the drawn line under the limits in force: legs split at limit changes, zone limits obeyed. */
+    private fun success(
+        waypoints: List<LatLng>,
+        world: AvoidWorld,
+        forcedCrossingZoneNames: List<String>
+    ): RouteResult.Success {
+        val timed = timeLineWithLimits(waypoints, paceKn()) { p -> world.zoneLimitKnAt(p.latitude, p.longitude) }
+        val points = timed.points.map { RoutePoint.of(it) }
         var distanceM = 0.0
-        for (i in 0 until points.size - 1) {
-            val legM = SpatialOperations.haversine(points[i].toLatLng(), points[i + 1].toLatLng())
-            distanceM += legM
-            legTimesSec.add(legM / Units.knotsToMps(paceKn()))
+        for (i in 0 until timed.points.size - 1) {
+            distanceM += SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
         }
         return RouteResult.Success(
             points = points,
-            legTimesSec = legTimesSec,
+            legTimesSec = timed.legTimesSec,
             distanceM = distanceM,
-            durationSec = legTimesSec.sum(),
+            durationSec = timed.durationSec,
             // The emitted polyline ends at the raw aim, never a resolved node: the pin stands where
             // the user dragged, and the snapped cell is only the search's anchor.
             destinationMoved = false,
-            forcedCrossingZoneNames = emptyList()
+            forcedCrossingZoneNames = forcedCrossingZoneNames
         )
     }
 

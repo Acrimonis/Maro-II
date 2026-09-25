@@ -158,29 +158,29 @@ object AppConfig {
     var routeLadderLatestNb: Int = 3
         private set
 
-    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacleMarginM`, default 25. */
+    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
     var routeAvoidObstacleMarginM: Double = 25.0
         private set
 
-    /** Side (m) of one corridor-grid cell — `route.avoid.gridCellM`, default 50. */
+    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 50. */
     var routeAvoidGridCellM: Double = 50.0
         private set
 
-    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridorReachM`, default 1852 (1 NM). */
+    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`, default 1852 (1 NM). */
     var routeAvoidCorridorReachM: Double = 1852.0
         private set
 
-    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300MarginM`, default 25. */
+    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300.marginM`, default 25. */
     var routeAvoidZone300MarginM: Double = 25.0
         private set
 
     /**
-     * Depth (m) below which a corridor cell is excluded from the route — `route.avoid.minDepthM`,
+     * Depth (m) below which a corridor cell is excluded from the route — `route.avoid.depthGate.minM`,
      * default 3.0, read only while `route.avoid.depthGate.enabled` is true. The gate is a coarse
      * guard on the route being written, not a fine sounding: a known depth under this number paints
      * the cell land, and everything at or above it — whatever its source or confidence — is ignored.
      */
-    var routeAvoidMinDepthM: Double = 3.0
+    var routeAvoidDepthGateMinM: Double = 3.0
         private set
 
     /**
@@ -205,6 +205,16 @@ object AppConfig {
      * that says how dear the band is when it is on.
      */
     var routeAvoidZone300Enabled: Boolean = true
+        private set
+
+    /**
+     * The speed-zone price cursor — `route.avoid.speedZone.softCostAversion`, default 1.0, clamped 0.0..5.0.
+     * A second spent inside a speed zone counts as this many seconds for the routing cost:
+     * 1.0 is pure fastest and reproduces today's no-zone behaviour, and a higher value bends the
+     * line out of zones even when the way around is longer. The cursor chooses the line and never
+     * touches the ETA — the clock stays physics.
+     */
+    var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
 
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
@@ -1446,20 +1456,20 @@ object AppConfig {
             props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
                 ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, and stage 2's band margin) ──
-            props.getProperty("route.avoid.obstacleMarginM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
             }
-            props.getProperty("route.avoid.gridCellM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.grid.cellM")?.toDoubleOrNull()?.let {
                 routeAvoidGridCellM = it.coerceIn(10.0, 500.0)
             }
-            props.getProperty("route.avoid.corridorReachM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.corridor.reachM")?.toDoubleOrNull()?.let {
                 routeAvoidCorridorReachM = it.coerceIn(100.0, 20_000.0)
             }
-            props.getProperty("route.avoid.zone300MarginM")?.toDoubleOrNull()?.let {
+            props.getProperty("route.avoid.zone300.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
             }
-            props.getProperty("route.avoid.minDepthM")?.toDoubleOrNull()?.let {
-                routeAvoidMinDepthM = it.coerceIn(0.5, 50.0)
+            props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
+                routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
             }
             props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidDepthGateEnabled = it
@@ -1469,6 +1479,9 @@ object AppConfig {
             }
             props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidZone300Enabled = it
+            }
+            props.getProperty("route.avoid.speedZone.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneSoftCostAversion = it.coerceIn(0.0, 5.0)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

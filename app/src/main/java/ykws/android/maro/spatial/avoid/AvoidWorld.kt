@@ -9,6 +9,7 @@ import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.RouteUnavailableReason
@@ -69,6 +70,19 @@ interface AvoidWorld {
     val bandWidthM: Double
 
     /**
+     * Every speed zone whose bounding box overlaps [box], with the excluded ids already dropped. The
+     * rasterizer even-odd-fills these polygons once per zone — never a per-cell index query, which is
+     * the explosion the stage-1 budget forbids.
+     */
+    fun speedZonesIn(box: BBox): List<SpeedZone> = emptyList()
+
+    /**
+     * The strictest limit (lowest kn) in force at a point across the non-excluded zones containing it,
+     * or `null` outside all of them — the ETA's point read, taken along the emitted line.
+     */
+    fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? = null
+
+    /**
      * Makes the layers the armed gates need ready if they can be, and reports what the engine
      * reached. Fired by `prepare()` on a miss: an idle repository is loaded, a loading one is
      * awaited, and the answer is [RouteEngineState.Ready] once the index — and, while
@@ -82,14 +96,16 @@ interface AvoidWorld {
 }
 
 /**
- * The live adapter over [CoastlineRepository] and [DepthRepository] — the one file in the feature that
- * imports either, translating the first's index into [AvoidEdge]s and both repositories' readiness into
- * this world's. It holds no data of its own: every query reads the repositories' current index and
- * grid, so a load completed after construction is picked up on the next call.
+ * The live adapter over [CoastlineRepository], [DepthRepository] and the speed-zone list — the one file
+ * in the feature that imports them, translating the first's index into [AvoidEdge]s and the three
+ * layers' readiness into this world's. It holds no data of its own: every query reads the layers'
+ * current state, so a load completed after construction is picked up on the next call.
  */
 class LiveAvoidWorld(
     private val coastline: CoastlineRepository,
-    private val depth: DepthRepository
+    private val depth: DepthRepository,
+    private val zonesProvider: () -> List<SpeedZone> = { emptyList() },
+    private val excludedZoneIds: () -> Set<String> = { emptySet() }
 ) : AvoidWorld {
 
     override val coastlineReady: Boolean
@@ -126,6 +142,12 @@ class LiveAvoidWorld(
 
     override fun depthAt(latitude: Double, longitude: Double): DepthSample =
         depth.depthAt(latitude, longitude)
+
+    override fun speedZonesIn(box: BBox): List<SpeedZone> =
+        speedZonesInBox(zonesProvider(), box, excludedZoneIds())
+
+    override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
+        strictestLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
 
     override suspend fun load(): RouteEngineState {
         loadCoastline()

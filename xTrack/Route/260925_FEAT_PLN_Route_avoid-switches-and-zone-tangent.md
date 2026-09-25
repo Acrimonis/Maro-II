@@ -20,7 +20,7 @@ Two changes remain, asked at the user's word and corrected by two independent re
 ## Change 3 — an identical tangent look-ahead for the 300 m zone
 
 - The band's tangent corners are the same coastline convex corners offset by `bandReachM(bandWidthM, zone300MarginM)` rather than by `obstacleMarginM`; `TangentCorners.corners(...)` gains an `offsetM`. The offset and the clearance margin read the same `zone300MarginM`.
-- **Three corrections from the review:** clamp the offset — `offsetM / sinHalf` explodes for near-collinear corners, so cap the offset distance and drop the corner when it exceeds the cap; use **per-set selection radii** — a land bend snaps within ~50 m and a band bend within its own reach, never one radius for both; and the band margin reads `route.avoid.zone300MarginM` (today parsed but unused), not `obstacleMarginM`.
+- **Three corrections from the review:** clamp the offset — `offsetM / sinHalf` explodes for near-collinear corners, so cap the offset distance and drop the corner when it exceeds the cap; use **per-set selection radii** — a land bend snaps within ~50 m and a band bend within its own reach, never one radius for both; and the band margin reads `route.avoid.zone300.marginM` (today parsed but unused), not `obstacleMarginM`.
 - **Price honesty** now holds because Change 2 keeps the pull's chord guard alive: an edge is accepted only when it clears the land and is no dearer than the cell path over the span it replaces.
 
 ## Change 4 — coarse-to-fine precision, not a corner graph

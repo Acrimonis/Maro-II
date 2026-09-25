@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.avoid
 
 import ykws.android.maro.data.model.LatLng
+import kotlin.math.max
 
 /**
  * **One world source on the corridor grid, as the unified cost field reads it.**
@@ -93,6 +94,17 @@ data class RouteCostAtPoint(
  * chord guard can never disagree about what a metre in the band is worth.
  */
 fun bandPriceM(cellM: Double, softCostAversion: Double): Double = cellM * (softCostAversion - 1.0)
+
+/**
+ * The price of standing in one speed-zone cell, in metres-equivalent: the base cell plus the cell's
+ * time excess over the limit, scaled by [k]. At `k = 1` and a limit equal to the pace the price is 0 —
+ * pure fastest, no bending; a slower limit or a higher [k] makes the cell dearer. Clamped at 0 so a
+ * zone can only make the sea dearer, never cheaper.
+ */
+fun zonePriceM(cellM: Double, paceKn: Double, limitKn: Double, k: Double): Double {
+    val excess = paceKn / limitKn - 1.0
+    return max(0.0, cellM * excess * k)
+}
 
 /**
  * How far off the coast the band's price reaches: the band's own width plus the clearance margin, so
