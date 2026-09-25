@@ -16,6 +16,7 @@ import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.bandReachM
 import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -517,6 +518,71 @@ class RouteAvoidEngineTest {
         val route = success(engine.onDestinationPositionChanged(aim))
 
         assertEquals("a priced band is a price, never a wall", listOf(origin, aim), route.points)
+    }
+
+    /**
+     * Change 3's regression: the band's own tangent corners snap a bend at the band's reach, so the
+     * route chords the water between the coastline's convex corners — the headland's two tips, whose
+     * flanks are the concave bays — instead of hugging the coast. With the zone off the band is open
+     * water and the same bends dive in at the obstacle margin.
+     */
+    @Test
+    fun aConcaveBayChordsItsMouthWithTheZoneOnAndDivesInWithItOff() = runTest {
+        val coast = listOf(
+            LatLng(43.51, 7.00),
+            LatLng(43.51, 7.02),
+            LatLng(43.49, 7.02),
+            LatLng(43.49, 7.04),
+            LatLng(43.51, 7.04),
+            LatLng(43.51, 7.06)
+        )
+        val start = RoutePoint(43.50, 7.00)
+        val aim = RoutePoint(43.50, 7.06)
+
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(43.49))
+        val bandReach = bandReachM(300.0, AppConfig.routeAvoidZone300MarginM)
+        val bandDLat = bandReach / mPerDegLat
+        val bandDLon = bandReach / mPerDegLon
+        val swBandCorner = LatLng(43.49 - bandDLat, 7.02 - bandDLon)
+        val seBandCorner = LatLng(43.49 - bandDLat, 7.04 + bandDLon)
+        val margin = AppConfig.routeAvoidObstacleMarginM
+        val landDLat = margin / mPerDegLat
+        val landDLon = margin / mPerDegLon
+        val swLandCorner = LatLng(43.49 - landDLat, 7.02 - landDLon)
+        val seLandCorner = LatLng(43.49 - landDLat, 7.04 + landDLon)
+
+        setAvoidSwitch("routeAvoidZone300Enabled", true)
+        val on = newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }
+        on.onOriginPositionChanged(start)
+        val chorded = success(on.onDestinationPositionChanged(aim))
+
+        assertTrue(
+            "the chorded line bends at the west tip's band-offset corner",
+            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), swBandCorner) < 1.0 }
+        )
+        assertTrue(
+            "and at the east tip's band-offset corner",
+            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), seBandCorner) < 1.0 }
+        )
+
+        setAvoidSwitch("routeAvoidZone300Enabled", false)
+        val off = newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }
+        off.onOriginPositionChanged(start)
+        val dived = success(off.onDestinationPositionChanged(aim))
+
+        assertTrue(
+            "the diving line bends at the west tip's obstacle-margin corner",
+            dived.points.any { SpatialOperations.haversine(it.toLatLng(), swLandCorner) < 1.0 }
+        )
+        assertTrue(
+            "and at the east tip's obstacle-margin corner",
+            dived.points.any { SpatialOperations.haversine(it.toLatLng(), seLandCorner) < 1.0 }
+        )
+        assertTrue(
+            "the chorded line stands further off the tips than the diving line",
+            chorded.points.minOf { it.latitude } < dived.points.minOf { it.latitude } - 1e-7
+        )
     }
 
     // ── The fake world ─────────────────────────────────────────────────────────

@@ -172,10 +172,17 @@ class RouteAvoidEngine(
         val coarse = path.map { grid.center(it.row, it.col) }
         val full = listOf(start) + coarse + listOf(aim)
         // The grid A* owns the order, the tangent corners own the exact points: pull the cell path
-        // taut, then move each bend onto its nearest corner when both neighbouring legs stay clear.
+        // taut, then move each bend onto its nearest corner whose own set radius contains it, when
+        // both neighbouring legs stay clear. The land set snaps within a cell's reach; the band set,
+        // armed with the zone, snaps at the band's own reach so a concave band is chorded.
         val pulled = AvoidPull.pull(full, start, aim, marginM, field)
-        val corners = TangentCorners.corners(edges, openCoast, marginM)
-        val snapped = snapToCorners(pulled, corners, cellM * 2.0, marginM, field, start, aim)
+        val sets = ArrayList<CornerSet>(2)
+        sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), cellM * 2.0))
+        if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
+            val bandOffsetM = bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300MarginM)
+            sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), bandOffsetM))
+        }
+        val snapped = snapToCorners(pulled, sets, marginM, field, start, aim)
         return success(AvoidPull.pull(snapped, start, aim, marginM, field))
     }
 
@@ -204,7 +211,7 @@ class RouteAvoidEngine(
             val bandM = world.bandWidthM
             val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidZone300SoftCostAversion)
             if (bandM > 0.0 && bandPriceM > 0.0) {
-                val reachM = bandReachM(bandM, AppConfig.routeAvoidObstacleMarginM)
+                val reachM = bandReachM(bandM, AppConfig.routeAvoidZone300MarginM)
                 sources.add(
                     RouteCostSource.Soft(
                         priceM = { p ->
@@ -218,32 +225,43 @@ class RouteAvoidEngine(
         return RouteCostField(sources)
     }
 
-    /** Moves a bend onto its nearest tangent corner (within [radiusM]) only when both legs stay clear; open water keeps the bend. */
+    /** One tangent corner set: the offset points and the radius within which they may move a bend. */
+    private data class CornerSet(val points: List<LatLng>, val radiusM: Double)
+
+    /** Moves a bend onto its nearest tangent corner — the nearest corner whose own set radius
+     *  contains it, across all sets — only when both legs stay clear; open water keeps the bend. */
     private fun snapToCorners(
         path: List<LatLng>,
-        corners: List<LatLng>,
-        radiusM: Double,
+        sets: List<CornerSet>,
         marginM: Double,
         field: RouteCostField,
         start: LatLng,
         aim: LatLng
     ): List<LatLng> {
-        if (corners.isEmpty()) return path
+        if (sets.all { it.points.isEmpty() }) return path
         val out = path.toMutableList()
         for (i in 1 until path.size - 1) {
             var nearest: LatLng? = null
-            var nearestDist = radiusM
-            for (c in corners) {
-                val d = SpatialOperations.haversine(path[i], c)
-                if (d < nearestDist) {
-                    nearest = c
-                    nearestDist = d
+            var nearestDist = Double.MAX_VALUE
+            for (set in sets) {
+                for (c in set.points) {
+                    val d = SpatialOperations.haversine(path[i], c)
+                    if (d < set.radiusM && d < nearestDist) {
+                        nearest = c
+                        nearestDist = d
+                    }
                 }
             }
             val corner = nearest ?: continue
-            if (AvoidPull.legClear(out[i - 1], corner, marginM, field, start, aim) &&
+            // A snap onto a band corner must not make the line cut through another priced band: the
+            // two new legs may cost no more than the span they replace, or the bend stays on the path.
+            val hardClear = AvoidPull.legClear(out[i - 1], corner, marginM, field, start, aim) &&
                 AvoidPull.legClear(corner, path[i + 1], marginM, field, start, aim)
-            ) {
+            val replacedPrice = AvoidPull.softPriceM(out[i - 1], path[i], marginM, field) +
+                AvoidPull.softPriceM(path[i], path[i + 1], marginM, field)
+            val snappedPrice = AvoidPull.softPriceM(out[i - 1], corner, marginM, field) +
+                AvoidPull.softPriceM(corner, path[i + 1], marginM, field)
+            if (hardClear && snappedPrice <= replacedPrice) {
                 out[i] = corner
             }
         }

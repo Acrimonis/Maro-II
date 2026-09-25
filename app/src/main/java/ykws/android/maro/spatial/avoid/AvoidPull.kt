@@ -104,7 +104,7 @@ object AvoidPull {
      * than the cell path it replaces and no line would ever be pulled taut. A field with no price
      * reads 0 and the guard is inert.
      */
-    private fun softPriceM(a: LatLng, b: LatLng, marginM: Double, field: RouteCostField): Double {
+    internal fun softPriceM(a: LatLng, b: LatLng, marginM: Double, field: RouteCostField): Double {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = marginM / 2.0
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(1)
