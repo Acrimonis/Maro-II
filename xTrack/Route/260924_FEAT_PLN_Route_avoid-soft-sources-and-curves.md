@@ -105,6 +105,23 @@ Budget stays ≤ 500 ms wall, re-priced per stage. The invariant the tests pin: 
 - ETA — obey the zone limit in force and accelerate gradually to the configured speed outside one; the computed speeds are saved with the track.
 - Zone-avoidance cursor — the route bends away from zones by `route.avoid.zoneTimePriceK`, default 1 (no bending); the cursor chooses the line and never the ETA.
 
+## Amendments (2026-09-25) — folded from the 2026-09-25 plan
+
+Four changes designed after three independent reviews, folded here so the feature keeps one plan:
+
+- **Phase 2 amendment — a switch for the depth gate.** `route.avoid.depthGate.enabled=true` (default) gates the depth source; with it off, `AvoidWorld.load()` becomes coastline-only and `prepare()` never calls `loadDepth()`, so arming succeeds on `coastlineReady` alone; a mid-session toggle applies at the next arming.
+- **Phase 3 amendment — a switch for the band, one home for its price, and a tangent look-ahead.** `route.avoid.zone300.enabled=true` gates the band; the band price lives in the field's one soft source (the rasterize sweep's band args removed, so the pull's chord guard stays alive); and the band gains the coastline's tangent look-ahead — its convex corners offset by `bandReachM(bandWidthM, zone300MarginM)`, clamped, with per-set snap radii, so a concave band is chorded rather than dived.
+- **A new precision phase — coarse-to-fine.** After the coarse grid A\* fixes the homotopy, a finer grid subdivides only the coarse path's own cells (each inheriting its coarse passability, so the side cannot flip) and a second A\* re-walks it; the pull then emits a near-smooth line with a collinearity merge, widened only on no-path. This replaces the corner-graph A\* that measured 7.3 s and sharpens the grid-A\* + corner-snap the taut pull settled on.
+
+## Challenge findings (2026-09-25) — the corner fix and the budget, challenged
+
+An adversarial challenge found the two sharpest holes and ten more, against the shipped code:
+
+- **Corner fix.** `addTangent`'s miter is unbounded (`margin/sinHalf`) while the snap ball is fixed at 100 m, so a sharp cape's true corner is never reached; two neighbouring snapped corners are never leg-tested, so a sub-margin leg can ship; a concave coast yields no corner and stays grid-quantized; the second pull drops the cosmetic snaps; `MIN_SIN_HALF = 1e-6` admits notch noise; and a corridor-edge corner is dropped as ambiguous.
+- **Performance.** The band is priced twice (sweep plus the field) and re-read live per cell (~33k `distanceToCoastM` reads); the double price breaks the pull's priced guarantee (the A\* pays 2×, the pull reads once); the snap is an unindexed O(P×C) scan; each pull sample is two live index reads; the worst case (widen plus the reach×2 retry) runs ~4 rasterize + 4 A\* passes at ~81k cells; and the 500 ms gate is an assertion, not a wall-time bound.
+
+**Consequences folded in.** The coarse-to-fine pass and the collinearity merge become the primary corner mechanism, and the snap is retired or rebuilt — a clamped miter, a between-snaps leg test, a noise floor, and an indexed or dropped scan; the band price keeps its one home; and the budget gains a real wall-time gate with a measured worst case.
+
 ## Out of scope
 
 Any Settings row, any bake or artifact, any new dependency, and any change to the `RouteEngine` seam itself — the sources arrive through `AvoidWorld`, exactly as stage 1's coastline did.

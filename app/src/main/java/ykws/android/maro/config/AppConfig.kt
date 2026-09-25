@@ -183,6 +183,14 @@ object AppConfig {
     var routeAvoidMinDepthM: Double = 3.0
         private set
 
+    /**
+     * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.softCostAversion`,
+     * default 1.5. 1.0 prices the band as open water; the excess over 1.0 is the price a metre inside it
+     * carries, so 1.5 makes every metre in the band cost half a metre more.
+     */
+    var routeAvoidSoftCostAversion: Double = 1.5
+        private set
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -1436,6 +1444,9 @@ object AppConfig {
             }
             props.getProperty("route.avoid.minDepthM")?.toDoubleOrNull()?.let {
                 routeAvoidMinDepthM = it.coerceIn(0.5, 50.0)
+            }
+            props.getProperty("route.avoid.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidSoftCostAversion = it.coerceIn(1.0, 5.0)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

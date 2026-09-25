@@ -133,7 +133,11 @@ fun rasterize(
     edges: List<AvoidEdge>,
     openCoast: List<List<LatLng>>,
     capLatNorth: Double,
-    field: RouteCostField = RouteCostField.EMPTY
+    field: RouteCostField = RouteCostField.EMPTY,
+    /** The priced band's width (m) off the coast, the zone layer's own value; 0 prices no band. */
+    bandM: Double = 0.0,
+    /** The metres-equivalent a cell inside that band adds — [bandPriceM]; 0 prices no band. */
+    bandPriceM: Double = 0.0
 ): AvoidGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -144,14 +148,27 @@ fun rasterize(
     val rows = ceil((box.latNorth - box.latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
     val grid = AvoidGrid(box.latSouth, box.lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM)
 
-    // 1. Margin band over every edge — CCW ring and CW basin — and every open-coast segment.
+    // 1. One sweep per edge — CCW ring and CW basin — and per open-coast segment, reaching as far as the
+    //    band does where one is priced. The cell-centre-to-segment distance decides both writes: a cell
+    //    inside the margin is land, a cell inside the band is priced, and neither costs a second pass.
+    val reachM = if (bandPriceM > 0.0) bandReachM(bandM, marginM) else marginM
     for (edge in edges) {
-        forEachCellNear(grid, edge, marginM, mPerDegLat, mPerDegLon) { r, c -> grid.markLand(r, c) }
+        forEachCellNear(grid, edge, reachM, mPerDegLat, mPerDegLon) { r, c, distanceM ->
+            when {
+                distanceM <= marginM -> grid.markLand(r, c)
+                bandPriceM > 0.0 -> grid.addSourceCost(r, c, bandPriceM, AvoidCellState.BAND)
+            }
+        }
     }
     for (polyline in openCoast) {
         for (i in 0 until polyline.size - 1) {
             val edge = AvoidEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST)
-            forEachCellNear(grid, edge, marginM, mPerDegLat, mPerDegLon) { r, c -> grid.markLand(r, c) }
+            forEachCellNear(grid, edge, reachM, mPerDegLat, mPerDegLon) { r, c, distanceM ->
+                when {
+                    distanceM <= marginM -> grid.markLand(r, c)
+                    bandPriceM > 0.0 -> grid.addSourceCost(r, c, bandPriceM, AvoidCellState.BAND)
+                }
+            }
         }
     }
 
@@ -185,14 +202,18 @@ fun rasterize(
     return grid
 }
 
-/** Walks the cells whose centre is within [radiusM] of [edge], in metres, via a degrees-expanded bbox. */
+/**
+ * Walks the cells whose centre is within [radiusM] of [edge], in metres, via a degrees-expanded bbox,
+ * handing [action] the cell-centre-to-segment distance it computed — the one reading the margin band
+ * and the priced band both decide on.
+ */
 private fun forEachCellNear(
     grid: AvoidGrid,
     edge: AvoidEdge,
     radiusM: Double,
     mPerDegLat: Double,
     mPerDegLon: Double,
-    action: (row: Int, col: Int) -> Unit
+    action: (row: Int, col: Int, distanceM: Double) -> Unit
 ) {
     val degLat = radiusM / mPerDegLat
     val degLon = radiusM / mPerDegLon
@@ -207,8 +228,9 @@ private fun forEachCellNear(
     for (r in rMin..rMax) {
         for (c in cMin..cMax) {
             val centre = grid.center(r, c)
-            if (SpatialOperations.pointToSegmentDistance(centre, edge.a, edge.b) <= radiusM) {
-                action(r, c)
+            val distanceM = SpatialOperations.pointToSegmentDistance(centre, edge.a, edge.b)
+            if (distanceM <= radiusM) {
+                action(r, c, distanceM)
             }
         }
     }

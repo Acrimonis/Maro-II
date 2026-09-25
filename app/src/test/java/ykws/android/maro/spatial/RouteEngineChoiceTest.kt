@@ -62,6 +62,7 @@ class RouteEngineChoiceTest {
 private class ChoiceWorld : AvoidWorld {
     override val coastlineReady: Boolean get() = true
     override val depthReady: Boolean get() = true
+    override val bandWidthM: Double get() = 0.0
     override val regionBounds: BBox? get() = null
     override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
     override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()

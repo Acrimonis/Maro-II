@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-25 10:13
+modified: 2026-09-25 13:40
 ---
 
 # Feature: Route
@@ -168,6 +168,7 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 ## Docs
 - `xTrack/Route/260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md` — **the avoid engine's phases 2–6, implementation-ready**: one cost field with an always-set base, the 3 m depth gate ANDed with the water test, the 300 m band priced, the speed zones with the `zoneTimePriceK` cursor and their speeds saved, the avoid-only marker dial, and the curve smoothing and rounding — seven walk items settled 2026-09-24
 - `xTrack/Route/260924_FEAT_PLN_Route_avoid-land-stage.md` — **the avoid engine's stage-1 plan**: corridor-bounded grid A\* + clearance taut pull in three stages, in design and implementation-ready after two Ask reviews
+- `xTrack/Route/260925_FEAT_PLN_Route_avoid-switches-and-zone-tangent.md` — **the follow-on plan**: the depth and zone switches, the zone tangent and the coarse-to-fine precision, in design and implementation-ready after three reviews
 - `xTrack/Route/260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md` — **the taut pull's rework**: the corner A*'s 7.3 s device reading, the greedy tangent walk that jittered, and the shipped grid A* + verified corner snap + pull, with the main-thread ANR fix
 - `xTrack/Route/260924_FEAT_DOC_Route_avoid-algorithm-phase1.md` — **the avoidance algorithm phase 1**: the shipped pipeline — corridor → harvest → rasterize → grid A* → taut pull → verified corner snap → pull — its world interface, keys, the taut pull's three-attempt device history, and what phases 2–3 add
 - `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` — **the mesh engine as it was**: the bake and its artifact, repository → A\* → shortcut → fillet → drawn clock, then its limitations, its issues and its measured performance with provenance, and why it went
@@ -177,6 +178,17 @@ Following → toggle off or the panel's Exit → the one dialog → Save track a
 - Five plans are **archived** in `xTrack/Route/xxArchive/` with their digest floors — the removal pass itself, the mesh era's settled design, its trajectory study, the engine-seam plan and the tracer's design of record — and `#archive` is the only way into that folder
 
 ## Walk
+**Level 1 — Date:** 2026-09-25 · **Source:** the four changes of `260925_FEAT_PLN_Route_avoid-switches-and-zone-tangent.md`, the pending set in ship order · **Cursor:** — · **Closed:** 2026-09-25 — exhausted by decision, all seven items settled and the build owed to implementation
+- [x] 1 · Change 1 — the depth gate's on/off and its gate-aware readiness
+- [x] 2 · Change 2 — the zone's on/off and the one-home band price
+- [x] 3 · Change 3 — the band tangent look-ahead
+- [x] 4 · Change 4 — the coarse-to-fine fine band
+- [x] 5 · The harness wall-time measurement
+- [x] 6 · The regressions
+- [x] 7 · The acceptance-pair and longest-route measurement
+
+- Resolutions: seven items settled by decision — the depth gate's switch with a gate-aware world and `prepare`; the zone's switch with the band price in one field source and the sweep args removed; the band tangent look-ahead with a clamp, per-set radii and `zone300MarginM`; the coarse-to-fine fine band pinned to the coarse side and widened only on no-path; the wall-time measurement; the regressions; and the acceptance-plus-longest-route measurement. Dropped: nothing. The build is owed to implementation — the level is exhausted by decision.
+
 **Level 1 — Date:** 2026-09-24 · **Source:** the stage-1 build order of `260924_FEAT_PLN_Route_avoid-land-stage.md`, the pending set in ship order · **Cursor:** — · **Closed:** 2026-09-24 — exhausted by decision, all nine items settled and the build owed to implementation
 - [x] 1 · The four keys and the phone budget — locked at 25 / 50 / 1852 / 25, budget ≤ 500 ms (the user's word, 2026-09-24)
 - [x] 2 · `AvoidWorld` plus the adapter, `load()` and the land-ring classification query — option A: one read-only orientation query on the index

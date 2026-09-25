@@ -422,11 +422,32 @@ class RouteAvoidEngineTest {
     private fun shallowPatch(latitude: Double, longitude: Double): Boolean =
         latitude in 43.4995..43.5005 && longitude in 7.0210..7.0260
 
+    // ── The 300 m band ─────────────────────────────────────────────────────────
+
+    /**
+     * A start already inside the band is **priced, never refused**: with the band reaching the whole
+     * corridor every cell is dearer and the answer is still the straight line — the marina-basin case,
+     * where refusing the band would refuse the water the boat is already on.
+     */
+    @Test
+    fun aStartInsideTheBandIsPricedNotRefused() = runTest {
+        val coast = listOf(LatLng(43.52, 6.98), LatLng(43.52, 7.08))
+        val world = FakeWorld(band = 10_000.0, openCoast = mutableListOf(coast))
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals("a priced band is a price, never a wall", listOf(origin, aim), route.points)
+    }
+
     // ── The fake world ─────────────────────────────────────────────────────────
 
     private class FakeWorld(
         private var ready: Boolean = true,
         private var depthLoaded: Boolean = true,
+        /** The priced band's width (m) — 0 by default, so a test that is not about the band pays none. */
+        private val band: Double = 0.0,
         private val edges: MutableList<AvoidEdge> = mutableListOf(),
         private val openCoast: MutableList<List<LatLng>> = mutableListOf(),
         private val water: (Double, Double) -> Boolean = { _, _ -> true },
@@ -438,6 +459,7 @@ class RouteAvoidEngineTest {
 
         override val coastlineReady: Boolean get() = ready
         override val depthReady: Boolean get() = depthLoaded
+        override val bandWidthM: Double get() = band
         override val regionBounds: BBox? get() = null
 
         override fun segmentsIn(box: BBox): List<AvoidEdge> {

@@ -86,6 +86,21 @@ data class RouteCostAtPoint(
  * The clearance it declares is 0 m where it blocks and nothing everywhere else, so the pull refuses a
  * chord through a shallow cell while the rest of the field's clearance stays the coastline's own.
  */
+/**
+ * **The priced band's per-cell price** — the metres a cell of open water costs, scaled by how much
+ * dearer the time spent inside the band is ([softCostAversion]; 1.0 prices it as open water). One home,
+ * read by the rasterizer's band sweep and by the pull's own band source alike, so the grid and the
+ * chord guard can never disagree about what a metre in the band is worth.
+ */
+fun bandPriceM(cellM: Double, softCostAversion: Double): Double = cellM * (softCostAversion - 1.0)
+
+/**
+ * How far off the coast the band's price reaches: the band's own width plus the clearance margin, so
+ * the priced strip covers the margin land already took. One home, read by the rasterizer's sweep and
+ * by the pull's own band source.
+ */
+fun bandReachM(bandWidthM: Double, marginM: Double): Double = bandWidthM + marginM
+
 fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostSource.Hard {
     val belowGate: (LatLng) -> Boolean = { p ->
         val depthM = depthMAt(p)

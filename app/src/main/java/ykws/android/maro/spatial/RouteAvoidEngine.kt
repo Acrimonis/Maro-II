@@ -13,9 +13,12 @@ import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.avoid.AvoidPull
 import ykws.android.maro.spatial.avoid.AvoidSearch
 import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.AvoidCellState
 import ykws.android.maro.spatial.avoid.RouteCostField
 import ykws.android.maro.spatial.avoid.RouteCostSource
 import ykws.android.maro.spatial.avoid.TangentCorners
+import ykws.android.maro.spatial.avoid.bandPriceM
+import ykws.android.maro.spatial.avoid.bandReachM
 import ykws.android.maro.spatial.avoid.depthGateSource
 import ykws.android.maro.spatial.avoid.rasterize
 import kotlin.math.PI
@@ -36,8 +39,15 @@ import kotlin.math.min
  * **One cost field, every source through it.** The sources are read as a [RouteCostField] — a `HARD`
  * wall the route may never cross, a `SOFT` price it may pay — and the rasterizer writes each cell once
  * with a base cost to which a source may only add. Stage 1's land is the field's first hard wall,
- * materialized by the geometry sweep; the 3 m depth gate is the second, rastered cell by cell; the
- * 300 m band (stage 2) and the regulated speed zones (stage 3) land as soft prices on the same chain.
+ * materialized by the geometry sweep; the 3 m depth gate is the second, rastered cell by cell; and the
+ * 300 m band (phase 3) is the first **price** — a soft source the route may pay, never a wall — with
+ * the regulated speed zones (phase 4) to land as prices on the same chain.
+ *
+ * **The band.** The layer's own width off the coast, priced at `route.avoid.softCostAversion`: the
+ * rasterizer's single sweep at the band's reach writes the price from the cell-centre-to-segment
+ * distance it already computed, and the pull refuses a chord whose own price exceeds the cell path's
+ * over the span it would replace. A start or aim already inside the band is accepted, so a berth in a
+ * marina basin is priced rather than refused.
  *
  * **The depth gate.** A bilinear depth read per cell centre: a known depth below
  * `route.avoid.minDepthM` paints the cell land, ANDed with the coastline's own water through the
@@ -145,7 +155,10 @@ class RouteAvoidEngine(
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val field = costField(world)
-        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field)
+        val bandPriceM = bandPriceM(cellM, AppConfig.routeAvoidSoftCostAversion)
+        val grid = rasterize(
+            box, cellM, marginM, edges, openCoast, capLatNorth, field, world.bandWidthM, bandPriceM
+        )
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val startCell = grid.cellOf(from.latitude, from.longitude)
@@ -174,7 +187,7 @@ class RouteAvoidEngine(
      * answer a route.
      */
     private fun costField(world: AvoidWorld): RouteCostField {
-        val sources = ArrayList<RouteCostSource>(2)
+        val sources = ArrayList<RouteCostSource>(3)
         sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
         if (world.depthReady) {
             sources.add(
@@ -182,6 +195,19 @@ class RouteAvoidEngine(
                     val sample = world.depthAt(p.latitude, p.longitude)
                     if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
                 }
+            )
+        }
+        val bandM = world.bandWidthM
+        val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidSoftCostAversion)
+        if (bandM > 0.0 && bandPriceM > 0.0) {
+            val reachM = bandReachM(bandM, AppConfig.routeAvoidObstacleMarginM)
+            sources.add(
+                RouteCostSource.Soft(
+                    priceM = { p ->
+                        if (world.distanceToCoastM(p.latitude, p.longitude) <= reachM) bandPriceM else 0.0
+                    },
+                    tag = AvoidCellState.BAND
+                )
             )
         }
         return RouteCostField(sources)

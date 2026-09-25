@@ -61,6 +61,13 @@ interface AvoidWorld {
     fun depthAt(latitude: Double, longitude: Double): DepthSample
 
     /**
+     * The **priced band's** width (m) off the coast — the zone layer's own value, never one the route
+     * declares: the feature keeps no band width of its own and prices whatever the layer calls the
+     * band. The band's speed limit, where a later phase prices it too, is the layer's value as well.
+     */
+    val bandWidthM: Double
+
+    /**
      * Makes **both layers** ready if they can be, and reports what the engine reached. Fired by
      * `prepare()` on a miss: an idle repository is loaded, a loading one is awaited, and the answer is
      * [RouteEngineState.Ready] once the index and the grid both exist, else
@@ -87,6 +94,9 @@ class LiveAvoidWorld(
 
     override val depthReady: Boolean
         get() = depth.isLoaded()
+
+    override val bandWidthM: Double
+        get() = CoastlineRepository.ZONE_DISTANCE_M
 
     override val regionBounds: BBox?
         get() = coastline.regionBounds?.let {
