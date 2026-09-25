@@ -5,10 +5,15 @@ import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
+import ykws.android.maro.spatial.RouteEngineChoice
+import ykws.android.maro.spatial.RouteEngineState
+import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.LiveAvoidWorld
 
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -39,7 +44,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -85,8 +89,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -112,9 +114,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -164,7 +164,9 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.BoundingBox
@@ -193,6 +195,9 @@ import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
+import ykws.android.maro.ui.components.OptionRow
+import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
@@ -352,7 +357,9 @@ internal fun SnackRow(
     message: String,
     snackKey: Int,
     onUndo: () -> Unit,
-    onTimeout: () -> Unit
+    onTimeout: () -> Unit,
+    /** False for a message with nothing to reverse — a failure says what happened and no more. */
+    showUndo: Boolean = true
 ) {
     LaunchedEffect(snackKey) {
         kotlinx.coroutines.delay(4000L)
@@ -381,9 +388,11 @@ internal fun SnackRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.width(12.dp))
-            androidx.compose.material3.TextButton(onClick = onUndo) {
-                Text(stringResource(R.string.action_undo), color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            if (showUndo) {
+                Spacer(Modifier.width(12.dp))
+                androidx.compose.material3.TextButton(onClick = onUndo) {
+                    Text(stringResource(R.string.action_undo), color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -560,6 +569,82 @@ fun MapScreen(
     // Bumped at the end of every canonical track-rebuild pass: the mode re-stacks its own candidate
     // overlay on each bump, because a rebuild can float other tracks above it.
     val trackRebuildGeneration = remember { mutableStateOf(0) }
+
+    // ── Route destination mode (FEAT_DSC_Route, destination-ui) ──────────────
+    // Session-lived like inspect's own state. The ViewModel owns every piece of route runtime state;
+    // what lives here is the mode's *switch* — the one flag the toggle writes — so the two modes can
+    // be mutually exclusive in one place.
+    //
+    // The **selection** is built here from the setting and the registry: one live engine instance for
+    // the chosen id, rebuilt whenever the setting moves. The ViewModel resolves it at arm time (D5), so
+    // a change to the setting while a route runs cannot touch the line already drawn. What matters at
+    // this line is the **seam**: a new algorithm is one row in the registry and nothing else in the
+    // feature.
+    // The avoid engine's world provider, built over the repositories the map already holds — the same
+    // instances the water, band and depth reads go through. It always answers a live world over them,
+    // so a layer that lands after the engine is built is read on the next search.
+    val avoidWorldProvider: () -> AvoidWorld = {
+        LiveAvoidWorld(
+            viewModel.coastlineRepository,
+            depthViewModel.depthRepository,
+            zonesProvider = { viewModel.speedZones.value },
+            excludedZoneIds = { appSettings.excludedSpeedZoneIds }
+        )
+    }
+    val routeEngineSelection = remember {
+        MutableStateFlow(
+            RouteEngineChoice.resolve(appSettings.routeEngineId)
+                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
+        )
+    }
+    LaunchedEffect(appSettings.routeEngineId) {
+        routeEngineSelection.value =
+            RouteEngineChoice.resolve(appSettings.routeEngineId)
+                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
+    }
+    val routeViewModel: RouteViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(
+            factory = RouteViewModel.factory(routeEngineSelection)
+        )
+    val routeState by routeViewModel.state.collectAsState()
+    val routeEngineState by routeViewModel.engineState.collectAsState()
+    val routePaceKn by routeViewModel.paceKn.collectAsState()
+    var routeArmed by rememberSaveable { mutableStateOf(false) }
+    // The toggle's gate: the mode exists only where the route engine is ready, exactly as inspect's
+    // square exists only where something is inspectable. Which engine that is — and what makes it
+    // ready — is the engine's own answer; this reads the readiness and nothing else.
+    val routeAvailable = routeEngineState.ready
+    val routeSaveScope = rememberCoroutineScope()
+    // The pin the saves start with and the one exit dialog's open flag. Held by the screen rather than
+    // by the panel because the dialog's **three doors** — the toggle's off, the panel's own Exit and
+    // the back key — all reach them from outside the panel's own composition (R23), and one dialog
+    // reached by three doors needs one set of those values.
+    var routePinned by remember { mutableStateOf(false) }
+    var routeExitRequested by remember { mutableStateOf(false) }
+    // **The session's link table and the running stage**, read reactively: the first is the one fact
+    // both `Save track` actions grey themselves on (R16, R17) and the second is the acquisition's own
+    // progress (R15).
+    val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
+    val routeStage by routeViewModel.stage.collectAsState()
+    // **Is the front route already written?** — the one fact both `Save track` actions grey themselves
+    // on (R16, R17). Read through the link table rather than a null check at each call site.
+    val routeFrontSaved = routeState.plan?.let { routeSessionLinks[it] != null } == true
+    // **The phase the mode is in**, as one value: the machine's own state while the mode is on, and
+    // IDLE the moment the switch is off. It is what the couplings key on (R20, R21) — the demo
+    // suspension, the camera's hold and the toggle's two on-phases all read this rather than the
+    // toggle, because the toggle cannot tell choosing from following.
+    val routePhase = if (routeArmed) routeState.phase else RoutePhase.IDLE
+    // **The refusal, held as the id of the line a user reads** (§17 item 3): the engine's closed-set
+    // reason carries a `@StringRes`, and the surface that shows it resolves it — so no engine holds
+    // user-facing text and both locales carry the key. It is transient, like the import's own feedback,
+    // and clears itself so a second tap is never read against a stale sentence.
+    var routeRefusalResId by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(routeRefusalResId) {
+        if (routeRefusalResId != null) {
+            delay(2_000L)
+            routeRefusalResId = null
+        }
+    }
 
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
@@ -758,6 +843,30 @@ fun MapScreen(
     val navigationState by viewModel.navigationState.collectAsState()
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val gpsStale by viewModel.gpsStale.collectAsState()
+    /**
+     * The position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — and
+     * therefore the route's start. It is deliberately not the map centre: that is the aim, and a
+     * route measured from it would have the boat chasing the point it is trying to choose.
+     */
+    val routeStart = dashboardPositionFor(mapCenter, gpsPosition, appSettings.gpsMode)
+
+    /**
+     * **The anchor's own reading** (R3): the boat's position with the course and speed the lead is
+     * projected from, or **null wherever they cannot be trusted**.
+     *
+     * This is the freshness gate the plan leaves to the surface that owns the fix, and it carries
+     * demo mode's exclusion with it: a demo position is the map centre and its pan-derived speed is
+     * suspended while aiming, so there is no boat to project and no lead to take. A null here is read
+     * as "the live fix and no lead" by the host and by the two acquisitions the panel opens, all of
+     * which fall back rather than inventing a start.
+     */
+    val routeLeadFix: RouteFix? = if (appSettings.gpsMode && !gpsStale) {
+        RouteFix(
+            position = RoutePoint(routeStart.latitude, routeStart.longitude),
+            courseDeg = navigationState.bearingDeg.toDouble(),
+            speedKn = navigationState.speedKnots?.toDouble()
+        )
+    } else null
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
     val isEstimating by viewModel.isEstimating.collectAsState()
     val boatIsWater by viewModel.boatIsWater.collectAsState()
@@ -1501,6 +1610,8 @@ fun MapScreen(
             /** Arms the mode. Demo's captured centre is the map's own, i.e. the point under the marker. */
             fun armInspectMode() {
                 if (inspectArmed) return
+                // The two modes are mutually exclusive: entering one leaves the other.
+                if (routeArmed) routeArmed = false
                 inspectMapMovedByUser = false
                 inspectCapturedDemoCenter = if (appSettings.gpsMode) null else {
                     mapView?.let { mv ->
@@ -1545,6 +1656,219 @@ fun MapScreen(
                     applyInspectDemoExit()
                 }
             }
+
+            /**
+             * The route mode's two edges, beside inspect's own.
+             *
+             * Off is the whole of the exit: ending the route and cancelling an unconfirmed draft are
+             * one act, which is why this only turns the switch off and lets the ViewModel's own
+             * `end` follow from the edge.
+             *
+             * **Entry is the engine's own gate, and a tap that finds it shut is the user's retry**
+             * (§17 item 3). The engine prepares once at construction, and that one preparation can land
+             * inside the coastline's own load — where it answers `Unavailable` and used to leave a square
+             * that did nothing for the rest of the session. A tap therefore asks for **one** more
+             * preparation, and an engine that still cannot arm has said so: its reason's own id is what
+             * the surface shows, and nothing is asked a third time.
+             */
+            fun armRouteMode() {
+                if (routeArmed) return
+                // **The selection leaves before the mode arms** — the brief's own first item, and the
+                // dashboard slot's R1 rule: the route panel wants the slot, so whatever selected-item
+                // card held it stands down first rather than being raced by the panel's composition.
+                fun arm() {
+                    closeSelectedItemDashboards()
+                    if (inspectArmed) disarmInspectMode()
+                    routeArmed = true
+                }
+                if (!routeAvailable) {
+                    routeSaveScope.launch {
+                        val reached = routeViewModel.prepareAgain()
+                        if (reached.ready) {
+                            arm()
+                        } else {
+                            routeRefusalResId =
+                                (reached as? RouteEngineState.Unavailable)?.reason?.labelResId
+                        }
+                    }
+                    return
+                }
+                arm()
+            }
+
+            /**
+             * The **silent** ending: the draft's Cancel, the back key while the destination is being
+             * chosen, and every other leaving that is not a followed route's. Leaving the draft asks
+             * nothing (R23) — the pin and the dialog's own state go with the mode.
+             */
+            fun endRouteMode() {
+                if (!routeArmed) return
+                routeArmed = false
+                routePinned = false
+                routeExitRequested = false
+            }
+
+            /**
+             * **The one exit dialog** (R23), raised by each of its three doors: the toggle's off, the
+             * panel's own **Exit** while a route is followed, and the back key.
+             */
+            fun requestRouteExit() {
+                if (!routeArmed) return
+                routeExitRequested = true
+            }
+
+            /**
+             * **The panel's Exit and the back key: one rule, one meaning** (R23).
+             *
+             * While a route is followed this is the dialog. Inside the acquisition it is a **phase
+             * move** — back to the route that stood behind it, which the machine restores — and only
+             * when the acquisition stands on nothing is it an ending. Back and the panel's Exit cannot
+             * diverge, which is why both come through here.
+             */
+            fun leaveRouteMode() {
+                val choosing = routeState as? RouteState.Choosing
+                when {
+                    choosing == null -> requestRouteExit()
+                    choosing.enteredFromRoute -> routeViewModel.exitAcquisition()
+                    else -> endRouteMode()
+                }
+            }
+
+            /**
+             * **The toggle's own door** (R23). It is not the panel's Exit: turning the toggle off would
+             * *end* the mode, so wherever a route stands behind the acquisition or a line has been
+             * acquired and not yet confirmed, it asks the same dialog first — nothing a door would lose
+             * goes silently. An acquisition standing on nothing ends on the spot.
+             */
+            fun toggleRouteOff() {
+                val choosing = routeState as? RouteState.Choosing
+                val holdsSomething = choosing == null || choosing.enteredFromRoute || choosing.plan != null
+                if (holdsSomething) requestRouteExit() else endRouteMode()
+            }
+
+            /**
+             * **Route**, and **Save as Track and Route** (R18): the phase turns to following and the
+             * draft's two couplings are released **in that same frame** — the camera is handed back,
+             * to the current fix in GPS mode and to the origin coordinate in demo mode, while the
+             * phase change is what ends the demo suspension and the draft's hold on the resume
+             * deadline.
+             */
+            fun followRoute() {
+                val origin = (routeState as? RouteState.Choosing)?.start
+                routeViewModel.confirm()
+                if (appSettings.gpsMode) {
+                    viewModel.recenterNow()
+                } else {
+                    origin?.let {
+                        mapView?.controller?.setCenter(GeoPoint(it.latitude, it.longitude))
+                    }
+                }
+            }
+
+            /**
+             * **Acquire route** — one acquisition from the aim **at that instant**, which is the screen
+             * centre the ring is drawn at (R2).
+             *
+             * Nothing throttles it: the button is never disabled, a second press asks again, and the
+             * newer answer becomes the front line. The aim is read here rather than held by the host,
+             * because a drag no longer means anything to the machine.
+             */
+            fun routeAcquireAim() {
+                val mv = mapView ?: return
+                val anchor = inspectAnchor(mv, inspectOffsetPx) ?: return
+                routeViewModel.acquire(RoutePoint(anchor.latitude, anchor.longitude))
+            }
+
+            /**
+             * **Reroute** (R17): back into the acquisition from a **fresh anchor** and to the **same
+             * destination**, with one acquisition fired at once so the line lands without a second
+             * press. The session set survives, so the line being replaced stays drawn on the ladder.
+             */
+            fun rerouteRoute() {
+                routeSaveScope.launch { routeViewModel.reroute(routeLeadFix) }
+            }
+
+            /**
+             * **New route** (R17): the same move with the destination **cleared**, computing nothing
+             * until `Acquire route` is pressed. The session set survives, so the earlier lines stay
+             * drawn and stay offered.
+             */
+            fun newRoute() {
+                routeSaveScope.launch { routeViewModel.newRoute(routeLeadFix) }
+            }
+
+            /**
+             * **RouteTo** — the menu's forward action: route to the aim at that instant, arming the
+             * mode if it is off and re-entering the acquisition if a route is followed. The aim is the
+             * screen centre the ring is drawn at, read here exactly as the panel's Acquire route reads
+             * it (R2).
+             */
+            fun routeToAction() {
+                val mv = mapView ?: return
+                val anchor = inspectAnchor(mv, inspectOffsetPx) ?: return
+                val aim = RoutePoint(anchor.latitude, anchor.longitude)
+                when (routeState) {
+                    is RouteState.Idle -> {
+                        armRouteMode()
+                        routeSaveScope.launch {
+                            routeViewModel.state.first { it is RouteState.Choosing }
+                            routeViewModel.acquire(aim)
+                        }
+                    }
+                    is RouteState.Choosing -> routeViewModel.acquire(aim)
+                    is RouteState.Following -> routeSaveScope.launch {
+                        routeViewModel.newRoute(routeLeadFix)
+                        routeViewModel.acquire(aim)
+                    }
+                }
+            }
+
+            /** **RouteFrom** — the menu's recompute: the panel's own Reroute, surfaced in the drawer. */
+            fun routeFromAction() {
+                rerouteRoute()
+            }
+
+            /**
+             * Writes **one** route as an ordinary track, through `data/track`'s own repository. The
+             * vertices carry the plan's own pace and cumulative time, so distance, duration and both
+             * speed figures come out right with no second code path.
+             *
+             * The instant handed to the builder is the route's **generation and finalisation**, not
+             * the save's (R40): one value dates the header and names the track. **Every save names
+             * it** (R25): the name defaults to the route's own [`RoutePlan.trackName`] — `Route
+             * <instant>`, the fixed prefix a name-as-data token rather than a localised string — and
+             * an all-scope write hands in the same base with `· n/N`. The track's id is remembered
+             * against the route, in the mode's own session, which is what lets a second save **rename**
+             * it instead of writing it again.
+             */
+            fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
+                val points = plan.points
+                if (points.size < 2) return
+                val legs = points.drop(1).mapIndexed { index, point ->
+                    TrackFromCourse.legBetween(
+                        from = points[index],
+                        to = point,
+                        durationSec = plan.legTimesSec.getOrElse(index) { 0.0 }
+                    )
+                }
+                val track = TrackFromCourse.build(
+                    start = points.first(),
+                    legs = legs,
+                    pinned = pin,
+                    createdAtMs = plan.computedAtMs,
+                    name = name ?: plan.trackName()
+                )
+                routeSaveScope.launch {
+                    val writtenId = trackViewModel.saveBuiltTrack(track)
+                    routeViewModel.noteRouteSaved(plan, writtenId)
+                }
+            }
+
+            /** **SaveRoute** — the menu's save: writes the front route, like the panel's Save track. */
+            fun saveRouteAction() {
+                routeState.plan?.let { saveRouteTrack(it, routePinned) }
+            }
+
 
             /**
              * Opens or steps a card the inspect way (plan §5): the one selected-item opener, with the
@@ -1823,6 +2147,12 @@ fun MapScreen(
                 if (inspectArmed && !viewModel.inspectModeArmed) viewModel.armInspect()
             }
 
+            // The demo sailing's suspension follows the route mode's own switch: while it is on, the
+            // pan-derived speed is derived no more and the dashboard's readout reads stationary. It is
+            // keyed on the **phase**, not the toggle (R20): the suspension belongs to the destination
+            // being placed, so following a route sails the map exactly as it does with no route at all.
+            LaunchedEffect(routePhase) { viewModel.setRouteAiming(routePhase) }
+
             // ── F2c: Freeze auto-follow when entering marker creation/editing wizard ──
             // The disarm comes first, because the wizard's freeze is the one that must survive: a
             // disarm from a following map clears the suppression to recentre, and that clear would
@@ -2013,6 +2343,49 @@ fun MapScreen(
                 inspectArmed = inspectArmed,
                 inspectEnabled = inspectAvailable,
                 onToggleInspect = { if (inspectArmed) disarmInspectMode() else armInspectMode() },
+                routeArmed = routeArmed,
+                routeFollowing = routeState is RouteState.Following,
+                onToggleRoute = { if (routeArmed) toggleRouteOff() else armRouteMode() },
+                routeHost = {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        RouteHost(
+                            mapView = mapView,
+                            boatPosition = routeStart,
+                            leadFix = routeLeadFix,
+                            state = routeState,
+                            armed = routeArmed,
+                            gpsMode = appSettings.gpsMode,
+                            speedKn = navigationState.speedKnots,
+                            // A reading taken inside a zone or the band measures the limit, not the
+                            // boat, and RoutePace drops it for that reason.
+                            positionRestricted = inZone300 || zoneSituation?.currentZone != null,
+                            setPaceKn = appSettings.routeFreeWaterPaceKn,
+                            // The aim's own offset — **the same value** `inspectAnchor` reads the aim
+                            // with, so the ring the host paints and the point the press asks from
+                            // cannot drift apart. One conversion, one home.
+                            mapCenterOffsetPx = inspectOffsetPx,
+                            viewModel = routeViewModel,
+                            onEndRoute = { leaveRouteMode() }
+                            // The host composes nothing of its own and raises no panel: the aim ring is
+                            // an osmdroid overlay it owns, drawn in the track band under the markers,
+                            // so the boat paints over it; the route's confirmation is composed in the
+                            // dashboard slot below, from the same state the line and pin are drawn from.
+                        )
+                        // **Where the refusal is shown** (§17 item 3): the mode's own slot, at the map's
+                        // foot beside the import's feedback — the place a transient line already lives,
+                        // so a refusal costs no screen and no panel. The line is the id the engine's
+                        // closed set carries, resolved by the surface that reads it.
+                        routeRefusalResId?.let { resId ->
+                            MapStatusBanner(
+                                message = stringResource(resId),
+                                // The band's one answer to "is the tag column there", so this line
+                                // clears it the way every other banner in the band does.
+                                tagsDrawn = bandTagsDrawn,
+                                modifier = Modifier.align(Alignment.BottomStart)
+                            )
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -2023,46 +2396,103 @@ fun MapScreen(
         )
 
             // ── Dashboard (always rendered, Layer 0) ────────────────────────
+            // While the mode is armed the slot belongs to the route, in **either** phase: the panel is
+            // where the outcomes are taken from, so it needs no floating surface to be reached — and it
+            // tracks the aim through the very state the lines and the pin are drawn from.
+            val routeOwnsSlot = routeArmed && routeState.phase != RoutePhase.IDLE
+            val routeTrip = (routeState as? RouteState.Following)?.let { following ->
+                routeTripFigure(
+                    plan = following.plan,
+                    from = RoutePoint(routeStart.latitude, routeStart.longitude),
+                    paceKn = routePaceKn,
+                    nowMs = System.currentTimeMillis()
+                )
+            }
             if (isLandscape) {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    depthSample = depthRaster.depthReadout,
-                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                    zoneSituation = zoneSituation,
-                    autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
-                    autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .width(landscapeDashboardWidth)
-                        .fillMaxHeight()
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                )
+                if (routeOwnsSlot) {
+                    RouteConfirmationPanel(
+                        state = routeState,
+                        stage = routeStage,
+                        pinned = routePinned,
+                        frontSaved = routeFrontSaved,
+                        onPinnedChange = { routePinned = it },
+                        onAcquire = { routeAcquireAim() },
+                        onConfirm = { followRoute() },
+                        onSaveTrack = { routeState.plan?.let { saveRouteTrack(it, routePinned) } },
+                        onReroute = { rerouteRoute() },
+                        onNewRoute = { newRoute() },
+                        onExit = { leaveRouteMode() },
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(landscapeDashboardWidth)
+                            .fillMaxHeight()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                    )
+                } else {
+                    DashboardPanel(
+                        state = state,
+                        isWater = isWater,
+                        distanceToShore = distanceToShore,
+                        depthSample = depthRaster.depthReadout,
+                        speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        zoneSituation = zoneSituation,
+                        autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                        autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                        routeTrip = routeTrip,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(landscapeDashboardWidth)
+                            .fillMaxHeight()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                    )
+                }
             } else {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    depthSample = depthRaster.depthReadout,
-                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                    zoneSituation = zoneSituation,
-                    autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
-                    autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(portraitDashboardHeight)
-                )
+                if (routeOwnsSlot) {
+                    RouteConfirmationPanel(
+                        state = routeState,
+                        stage = routeStage,
+                        pinned = routePinned,
+                        frontSaved = routeFrontSaved,
+                        onPinnedChange = { routePinned = it },
+                        onAcquire = { routeAcquireAim() },
+                        onConfirm = { followRoute() },
+                        onSaveTrack = { routeState.plan?.let { saveRouteTrack(it, routePinned) } },
+                        onReroute = { rerouteRoute() },
+                        onNewRoute = { newRoute() },
+                        onExit = { leaveRouteMode() },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(portraitDashboardHeight)
+                    )
+                } else {
+                    DashboardPanel(
+                        state = state,
+                        isWater = isWater,
+                        distanceToShore = distanceToShore,
+                        depthSample = depthRaster.depthReadout,
+                        speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        zoneSituation = zoneSituation,
+                        autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                        autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                        routeTrip = routeTrip,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(portraitDashboardHeight)
+                    )
+                }
             }
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
-            // Drawn while the map carries a banded stroke: Colours paints every stored track from the
-            // ramp and the eye bands the selection in the other two modes. So the gate reads the ids the
-            // track effect actually painted — unselecting leaves the scale up in Colours, and a painted
-            // set holding no banded stroke takes it down — asking the same planner the map renders by
-            // for each of them. The selection policy is never rerun here: the effect owns it, and
-            // recomputing it inside composition would repeat a stateful mutation. Anchored below the
+            // Drawn while the map carries a banded stroke: Colours paints every recorded stored track
+            // from the ramp, a route bands on its own colour gate alone (R37), and the eye bands the
+            // selection in the other modes. So the gate reads the ids the track effect actually painted
+            // — unselecting leaves the scale up in Colours, and a painted set holding no banded stroke
+            // takes it down — asking the same planner the map renders by for each of them, and telling
+            // it which of them are routes so a route is not read as a recorded track. The selection
+            // policy is never rerun here: the effect owns it, and recomputing it inside composition
+            // would repeat a stateful mutation. Anchored below the
             // top-left toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
             // dashboard when there is one — and drawn as Compose chrome rather than an osmdroid
             // overlay, so no polyline can ever paint over it.
@@ -2077,7 +2507,12 @@ fun MapScreen(
                         trackColours = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
                         eyeOverride = appSettings.trackSelectionBanded,
-                        tracksVisible = appSettings.tracksVisible
+                        tracksVisible = appSettings.tracksVisible,
+                        // The painted routes, so the planner reads each of them as the role it is; read
+                        // inside the derived block, where the summaries state is a tracked input.
+                        routeIds = allTrackSummaries.filter { it.route }.map { it.id }.toSet(),
+                        routeSpeedColour = appSettings.routeSpeedColor,
+                        routeSpeedArrows = appSettings.routeSpeedArrows
                     )
                 }
             }
@@ -2375,8 +2810,9 @@ fun MapScreen(
                 wizardStep = wizardStep,
                 drawerState = drawerState,
                 // Suppress the ladder scrim while any ConfirmDialog is up (its own scrim wins), so
-                // the two dim layers never stack. Includes the hoisted merge / batch-delete host.
-                dialogScrimActive = anyConfirmDialogOpen || confirmDialogHost.request != null,
+                // the two dim layers never stack. The route's confirmation is not one of these: it
+                // lives in the dashboard slot, so it paints no scrim and blocks nothing.
+                dialogScrimActive = anyConfirmDialogOpen,
             ),
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
@@ -2532,6 +2968,16 @@ fun MapScreen(
                 depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
             },
             boatPosition = gpsPosition ?: mapCenter,
+            route = RouteOverlayData(
+                active = routeArmed,
+                confirmed = routeState is RouteState.Following,
+                frontSaved = routeFrontSaved,
+                aimOffBoat = !appSettings.gpsMode ||
+                    gpsPosition?.let { SpatialOperations.haversine(mapCenter, it) > 25.0 } == true,
+                onRouteTo = { routeToAction() },
+                onRouteFrom = { routeFromAction() },
+                onSaveRoute = { saveRouteAction() }
+            ),
             markerList = MarkerListOverlayData(
                 markers = mgmtMarkers,
                 markerSortState = appSettings.markerListSort,
@@ -2838,6 +3284,49 @@ fun MapScreen(
             showImportBanner = { b -> showImportBanner(b) }
         )
 
+        // ── The route's one exit dialog (R23) — hosted here, asked by its three doors ─────────────
+        // The toggle's off, the panel's own **Exit** and the back key all raise this same dialog, and
+        // it reads in the order every action surface takes (ui-component-guidelines §5.6): the
+        // affirmative first, the neutral stay, the loss last — **Save track and Exit** · **Continue** ·
+        // **Discard route**. Its save writes the **front route** and is **disabled when nothing is
+        // unwritten**; the all-scope option it used to carry is withdrawn, so one save path and one
+        // name remain.
+        if (routeExitRequested) {
+            val front = routeState.plan
+            val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front)
+            ConfirmDialog(
+                title = stringResource(R.string.route_exit_title),
+                visible = true,
+                onDismiss = { routeExitRequested = false },
+                message = null,
+                options = null,
+                actions = listOf(
+                    // The accent is the dialog's own outcome: it writes the front route — the one the
+                    // panel's own table describes, save what you see.
+                    ConfirmAction(
+                        label = stringResource(R.string.route_action_save_only),
+                        role = ConfirmActionRole.PRIMARY,
+                        enabled = frontUnwritten
+                    ) {
+                        routeExitRequested = false
+                        if (front != null) saveRouteTrack(front, routePinned)
+                        endRouteMode()
+                    },
+                    ConfirmAction(
+                        label = stringResource(R.string.route_exit_continue),
+                        role = ConfirmActionRole.SECONDARY
+                    ) { routeExitRequested = false },
+                    ConfirmAction(
+                        label = stringResource(R.string.route_exit_discard),
+                        role = ConfirmActionRole.DANGER
+                    ) {
+                        routeExitRequested = false
+                        endRouteMode()
+                    }
+                )
+            )
+        }
+
         // ── Resume confirmation dialog (optional backup) — hosted outside the drawers so closing the
         //    source surface cannot drop it. `resumeTarget` drives dismissal; the retained copy keeps
         //    the dialog mounted while it animates out. ──
@@ -2855,31 +3344,12 @@ fun MapScreen(
                 onDismiss = { pendingResume = null },
                 message = stringResource(R.string.resume_confirm_message),
                 options = {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = backup,
-                                role = Role.Checkbox,
-                                onValueChange = { backup = it }
-                            )
-                            .semantics(mergeDescendants = true) {},
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = backup,
-                            onCheckedChange = null,
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = ComposeColor(AppConfig.uiAccent)
-                            )
-                        )
-                        Text(
-                            stringResource(R.string.resume_confirm_backup),
-                            color = ComposeColor(AppConfig.uiTextPrimary),
-                            fontSize = 14.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    OptionRow(
+                        label = stringResource(R.string.resume_confirm_backup),
+                        checked = backup,
+                        onCheckedChange = { backup = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 },
                 actions = listOf(
                     ConfirmAction(stringResource(R.string.action_resume), ConfirmActionRole.PRIMARY) {
@@ -3068,6 +3538,18 @@ private fun MapContent(
     /** False while the mode is disarmed and nothing is inspectable — the square carries no tap. */
     inspectEnabled: Boolean = true,
     onToggleInspect: () -> Unit = {},
+    /** True while the destination mode is aiming or following: the compass square's active face. */
+    routeArmed: Boolean = false,
+    /** True while a route is **followed** — the toggle's second on-phase carries the pulsing dot (R19). */
+    routeFollowing: Boolean = false,
+    onToggleRoute: () -> Unit = {},
+    /**
+     * The route mode's own slot, composed by the shell so this file keeps **one** new parameter
+     * rather than a dozen: the single `RouteHost(mapView, boatPosition)` call lives in the shell,
+     * which is the seam the isolation design names, and everything the host needs is already in
+     * scope there.
+     */
+    routeHost: (@Composable () -> Unit)? = null,
 ) {
     Box(modifier = modifier.clipToBounds()) {
         // ── Top inset: one home for the arithmetic, so the toggle row, the lock button and the
@@ -3203,6 +3685,9 @@ private fun MapContent(
             centerOffsetYDp = mapCenterOffsetDp
         )
 
+        // ── The route mode's own chrome and map objects, in the shell's one call ──
+        routeHost?.invoke()
+
         // ── Layer 1: 2-column overlay row (left fills, right content-sized) ──
         Row(modifier = Modifier.fillMaxSize()) {
 
@@ -3237,6 +3722,14 @@ private fun MapContent(
                         armed = inspectArmed,
                         enabled = inspectEnabled,
                         onToggle = onToggleInspect
+                    )
+                    // **Never dead** (§17 item 3): a tap while the engine is not ready asks for one more
+                    // preparation and the refusal is shown where the feature's own chrome lives, so this
+                    // square carries its tap always — there is no `enabled` to take it away.
+                    RouteToggleButton(
+                        armed = routeArmed,
+                        following = routeFollowing,
+                        onToggle = onToggleRoute
                     )
                     LockScreenButton(
                         locked = screenLocked,

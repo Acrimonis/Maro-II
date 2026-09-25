@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.track.TrackRecordingService
+import ykws.android.maro.spatial.Units
 
 /**
  * Service intents orchestration effects (extracted from MapScreen):
@@ -74,7 +75,7 @@ internal fun MapServiceEffects(
             val isGps = appSettings.gpsMode
             val pos = gpsPos ?: center
             val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
-            val speedMs = speedKn?.let { it * 0.514444f }
+            val speedMs = speedKn?.let { Units.knotsToMps(it.toDouble()).toFloat() }
             val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
             ykws.android.maro.data.track.TrackSample(
                 position = pos,

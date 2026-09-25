@@ -1,6 +1,8 @@
 package ykws.android.maro.spatial
 
+import java.util.concurrent.atomic.AtomicInteger
 import ykws.android.maro.data.model.CoastlineDistanceResult
+import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
@@ -114,6 +116,13 @@ class CoastlineSpatialIndex(
     private val isRingPoly: BooleanArray
 
     /**
+     * Per-polyline usable flag, indexed by `polylineIdx` — the same drop filter the flattening
+     * step applied (degenerate rings, tiny open fragments). Promoted from a build-time local so
+     * [openCoastPolylinesIn] can skip exactly the polylines the index itself dropped.
+     */
+    private val polyUsable: BooleanArray
+
+    /**
      * Precomputed **real island** rings (closed, non-degenerate, CCW = interior land), each with its
      * point list and bounding box, for fast point-in-island containment ([insideRealIsland]). Marina
      * basins (CW) and degenerate slivers are excluded — they must not turn open water into land.
@@ -130,6 +139,14 @@ class CoastlineSpatialIndex(
 
     /** `true` when the index has coastline data to query. */
     val hasData: Boolean get() = segmentRefs.isNotEmpty()
+
+    /**
+     * **One mark per segment, holding the stamp of the query that last saw it** — [nearestRef]'s own
+     * dedupe, which needs no `HashSet` and no allocation per query. Empty until `init` flattens the
+     * segments, and every query takes a stamp of its own, so a mark left by an earlier query is never
+     * equal to this one's and the segment is simply re-tested rather than wrongly skipped.
+     */
+    private var seen: IntArray = IntArray(0)
 
     // ── Coastline gap audit ──────────────────────────────────────────────────
 
@@ -204,6 +221,7 @@ class CoastlineSpatialIndex(
             rowCount = 0; colCount = 0
             mainlandLonMin = 1.0; mainlandLonMax = -1.0   // empty range ⇒ no cap
             isRingPoly = BooleanArray(0)
+            polyUsable = BooleanArray(0)
             islandRings = emptyList()
             usableSegments = emptyList()
         } else {
@@ -253,7 +271,7 @@ class CoastlineSpatialIndex(
                     abs(pts.first().lat - pts.last().lat) < RING_CLOSE_EPS_DEG &&
                     abs(pts.first().lon - pts.last().lon) < RING_CLOSE_EPS_DEG
             }
-            val polyUsable = BooleanArray(segments.size) { polyIdx ->
+            polyUsable = BooleanArray(segments.size) { polyIdx ->
                 val pts = segments[polyIdx].points
                 if (isRingPoly[polyIdx]) {
                     // Ring: keep only non-degenerate polygons (≥3 distinct vertices + real area).
@@ -304,6 +322,7 @@ class CoastlineSpatialIndex(
                 }
             }
             segmentRefs = refs
+            seen = IntArray(refs.size)
 
             // Cap longitude extent (combined span of all OPEN mainland-coast polylines).
             var mlMin = Double.MAX_VALUE; var mlMax = -Double.MAX_VALUE
@@ -494,6 +513,120 @@ class CoastlineSpatialIndex(
     }
 
     /**
+     * Returns every **open mainland coast** polyline whose vertices fall in or cross [bbox], as an
+     * ordered vertex list — the ordered form the avoid rasterizer needs to close the coast into a
+     * land polygon. Each returned list is one contiguous run of the polyline inside the box, with
+     * boundary crossing points added, so the rasterizer can close it against the landward cap.
+     *
+     * Rings and basins are excluded: they arrive as edges through [segmentsInBbox], and their
+     * orientation decides the fill. The polylines the index dropped at build time are skipped too,
+     * so the open coast this returns is exactly the cleaned coastline the index itself uses.
+     */
+    fun openCoastPolylinesIn(bbox: BBox): List<List<LatLng>> {
+        if (!hasData) return emptyList()
+        val result = mutableListOf<List<LatLng>>()
+        for (polyIdx in segmentsById.indices) {
+            if (isRingPoly[polyIdx] || !polyUsable[polyIdx]) continue
+            result.addAll(clipPolylineToBox(segmentsById[polyIdx].points, bbox))
+        }
+        return result
+    }
+
+    /** True when a WGS84 point lies inside the inclusive [box]. */
+    private fun insideBox(p: LatLng, box: BBox): Boolean =
+        p.latitude >= box.latSouth && p.latitude <= box.latNorth &&
+            p.longitude >= box.lonWest && p.longitude <= box.lonEast
+
+    /**
+     * Clips one ordered polyline to [box], returning each contiguous inside run with boundary
+     * crossing points added. The polyline is dense enough that the corridor box always contains
+     * vertices, so the wholly-outside pass-through case only ever appears as a run with both
+     * endpoints on the box boundary.
+     */
+    private fun clipPolylineToBox(points: List<CoastlinePoint>, box: BBox): List<List<LatLng>> {
+        if (points.size < 2) return emptyList()
+        val runs = mutableListOf<MutableList<LatLng>>()
+        var current: MutableList<LatLng>? = null
+        for (i in 0 until points.size - 1) {
+            val a = LatLng(points[i].lat.toDouble(), points[i].lon.toDouble())
+            val b = LatLng(points[i + 1].lat.toDouble(), points[i + 1].lon.toDouble())
+            val visible = clipSegmentToBox(a, b, box)
+            if (visible.size == 2) {
+                if (current == null) current = mutableListOf(visible[0], visible[1])
+                else current.add(visible[1])
+            }
+            if (current != null && !insideBox(b, box)) {
+                // The segment left the box: close the run. The next inside point starts a new one.
+                runs.add(current)
+                current = null
+            }
+        }
+        if (current != null && current.size >= 2) runs.add(current)
+        return runs.filter { it.size >= 2 }
+    }
+
+    /** Liang–Barsky clip of segment a→b to [box]: empty, the tangent point, or the inside portion. */
+    private fun clipSegmentToBox(a: LatLng, b: LatLng, box: BBox): List<LatLng> {
+        var t0 = 0.0
+        var t1 = 1.0
+        val dx = b.longitude - a.longitude
+        val dy = b.latitude - a.latitude
+        val p = doubleArrayOf(-dx, dx, -dy, dy)
+        val q = doubleArrayOf(
+            a.longitude - box.lonWest,
+            box.lonEast - a.longitude,
+            a.latitude - box.latSouth,
+            box.latNorth - a.latitude
+        )
+        for (i in 0 until 4) {
+            if (p[i] == 0.0) {
+                if (q[i] < 0.0) return emptyList()
+            } else {
+                val r = q[i] / p[i]
+                if (p[i] < 0.0) {
+                    if (r > t1) return emptyList()
+                    if (r > t0) t0 = r
+                } else {
+                    if (r < t0) return emptyList()
+                    if (r < t1) t1 = r
+                }
+            }
+        }
+        return if (t0 == t1) {
+            listOf(LatLng(a.latitude + t0 * dy, a.longitude + t0 * dx))
+        } else {
+            listOf(
+                LatLng(a.latitude + t0 * dy, a.longitude + t0 * dx),
+                LatLng(a.latitude + t1 * dy, a.longitude + t1 * dx)
+            )
+        }
+    }
+
+    /**
+     * Classifies one coastline polyline by its land-ring orientation, for the avoid engine's
+     * adapter: an **open coast** (not a geometric ring), a **CCW ring** whose interior is land
+     * (ordinary islands and hazard rings alike), or a **CW ring** whose interior is a water basin
+     * (marina breakwaters). Degenerate or unknown polylines read as open coast so they can never
+     * turn open water into land.
+     */
+    fun landRingOrientation(polylineIdx: Int): LandRingOrientation {
+        if (polylineIdx !in isRingPoly.indices || !isRingPoly[polylineIdx]) {
+            return LandRingOrientation.OPEN_COAST
+        }
+        val pts = segmentsById[polylineIdx].points
+        var area2 = 0.0
+        for (i in 0 until pts.size - 1) {
+            area2 += pts[i].lon.toDouble() * pts[i + 1].lat.toDouble() -
+                pts[i + 1].lon.toDouble() * pts[i].lat.toDouble()
+        }
+        return when {
+            area2 > 0.0 -> LandRingOrientation.CCW_RING
+            area2 < 0.0 -> LandRingOrientation.CW_BASIN
+            else -> LandRingOrientation.OPEN_COAST
+        }
+    }
+
+    /**
      * Tests whether segment A→B intersects any land edge, using the spatial index
      * to only check edges near the segment. Applies 10 m grazing tolerance: an
      * intersection within 10 m of both edge vertices is treated as grazing (peninsula
@@ -667,7 +800,26 @@ class CoastlineSpatialIndex(
         return true
     }
 
-    /** Ring-expanding nearest-segment search used by [query]. */
+    /** One stamp per query, so the walk's own dedupe allocates nothing — the wall index's own idiom. */
+    private val stamp = AtomicInteger(0)
+
+    /**
+     * Ring-expanding nearest-segment search used by [query] and [isWater].
+     *
+     * **Each cell is visited once per query.** The walk used to collect the **whole** `(2r+1)²` square at
+     * every ring into a fresh `LinkedHashSet` and then dedupe it through a second `HashSet`, so a ring the
+     * walk had already left was scanned again at every ring after it — a stop at ring 4 read 165 cells
+     * where the new cells number 81 — and every query paid two set allocations and a hash per candidate.
+     * It now walks the ring's own perimeter and marks the segments it has seen with a per-query stamp,
+     * which is the idiom this class's `WallIndex` sibling has used since §17 item 7.
+     *
+     * **The answer cannot move, and that is structural rather than measured.** The cells a ring adds are
+     * exactly the perimeter of the clipped square, and the old walk's own dedupe meant each segment was
+     * first tested in row-major order over that perimeter — the order this loop visits it in — so the
+     * strict `d < bestDist` tie-break sees the same candidates in the same sequence and lands on the same
+     * segment rather than on an equally distant one. The stop conditions, the `mainlandOnly` skip and the
+     * clipping of the ring to the grid are all unchanged.
+     */
     private fun nearestRef(latitude: Double, longitude: Double, mainlandOnly: Boolean = false): SegmentRef? {
         if (!hasData) return null
 
@@ -675,20 +827,39 @@ class CoastlineSpatialIndex(
         val row = ((latitude  - minLat) / cellSizeLat).toInt()
         val col = ((longitude - minLon) / cellSizeLon).toInt()
         val maxRing = max(rowCount, colCount)
+        val query = stamp.incrementAndGet()
 
-        val processed = HashSet<Int>()
         var bestDist = Double.MAX_VALUE
         var bestSegIdx = -1
 
         for (ring in 0..maxRing) {
-            for (segIdx in collectRing(row, col, ring)) {
-                if (!processed.add(segIdx)) continue   // already evaluated in an inner box
-                val ref = segmentRefs[segIdx]
-                if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
-                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
-                if (d < bestDist) {
-                    bestDist = d
-                    bestSegIdx = segIdx
+            val rMin = (row - ring).coerceAtLeast(0)
+            val rMax = (row + ring).coerceAtMost(rowCount - 1)
+            val cMin = (col - ring).coerceAtLeast(0)
+            val cMax = (col + ring).coerceAtMost(colCount - 1)
+            for (r in rMin..rMax) {
+                // The ring's own perimeter: an interior cell was visited by an earlier ring, and the
+                // square's second visit to it is exactly what this walk removed.
+                val full = r == rMin || r == rMax
+                var c = cMin
+                while (c <= cMax) {
+                    if (full || c == cMin || c == cMax) {
+                        val bucket = grid[GridCell(r, c)]
+                        if (bucket != null) {
+                            for (segIdx in bucket) {
+                                if (seen[segIdx] == query) continue  // already evaluated in an inner ring
+                                seen[segIdx] = query
+                                val ref = segmentRefs[segIdx]
+                                if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
+                                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
+                                if (d < bestDist) {
+                                    bestDist = d
+                                    bestSegIdx = segIdx
+                                }
+                            }
+                        }
+                    }
+                    c++
                 }
             }
 
@@ -710,30 +881,6 @@ class CoastlineSpatialIndex(
         segmentId = "",
         isMainland = true
     )
-
-    // ── Grid helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * Collects all unique segment indices from the cells at the given
-     * [ring] distance from `(centerRow, centerCol)`.
-     *
-     * Ring 0 = just the centre cell. Ring 1 = centre + 8 neighbours (9 cells).
-     * Ring N = all cells within Manhattan-distance N of the centre.
-     */
-    private fun collectRing(centerRow: Int, centerCol: Int, ring: Int): Set<Int> {
-        val result = mutableSetOf<Int>()
-        val rMin = (centerRow - ring).coerceAtLeast(0)
-        val rMax = (centerRow + ring).coerceAtMost(rowCount - 1)
-        val cMin = (centerCol - ring).coerceAtLeast(0)
-        val cMax = (centerCol + ring).coerceAtMost(colCount - 1)
-
-        for (r in rMin..rMax) {
-            for (c in cMin..cMax) {
-                grid[GridCell(r, c)]?.let { result.addAll(it) }
-            }
-        }
-        return result
-    }
 
     private companion object {
         /** Degrees within which a projected closest point is treated as coincident with a vertex (~1 cm). */

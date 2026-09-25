@@ -1,6 +1,7 @@
 package ykws.android.maro.data.regulation
 
 import ykws.android.maro.BuildConfig
+import ykws.android.maro.config.AppConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 import ykws.android.maro.data.model.LatLng
@@ -182,6 +183,22 @@ data class RegulatedZone(
         }
         return true
     }
+}
+
+/**
+ * The effective speed limit (kn) this zone imposes, after the app's own overrides.
+ *
+ * SHOM lists the Lérins "outside channel" rule at 3 kn, but the app reads it as the
+ * 300 m coastal band's own limit so the two agree at the boundary. This function is the
+ * single home for that mapping — [SpeedZoneBuilder] and the zone components all read it,
+ * and the band's value stays [AppConfig.zoneRegulatorySpeedKn] rather than a literal.
+ *
+ * @return the effective limit in knots, or `null` when the zone carries none.
+ */
+fun RegulatedZone.effectiveSpeedLimitKn(): Double? = when {
+    description.contains("outside channel", ignoreCase = true) ||
+        (name == "other" && speedLimitKn == 3.0) -> AppConfig.zoneRegulatorySpeedKn.toDouble()
+    else -> speedLimitKn
 }
 
 /**

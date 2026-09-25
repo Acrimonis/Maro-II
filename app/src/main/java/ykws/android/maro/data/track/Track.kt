@@ -1,6 +1,7 @@
 package ykws.android.maro.data.track
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.protobuf.ProtoNumber
 import ykws.android.maro.data.model.ListableItem
 
@@ -42,8 +43,32 @@ data class Track(
     @ProtoNumber(15) val idleDurationSec: Long = 0,
     @ProtoNumber(16) val boatMarkers: List<BoatMarker> = emptyList(),
     @ProtoNumber(17) val updatedAtEpochMs: Long = 0L,
-    @ProtoNumber(18) val lastPointTimeMs: Long = 0L
+    @ProtoNumber(18) val lastPointTimeMs: Long = 0L,
+    /**
+     * True when this track is a **route**: a route the app saved, whose vertices are a *plan* rather
+     * than a recording — the speeds are the speeds the engine intended, taken at search time, and the
+     * times are the times it allotted.
+     *
+     * A fresh number with a default, so an old blob reads unchanged and an older build still reads a
+     * new one — which is why the flag lives here rather than as a new `PointType`, where an older
+     * reader would refuse the whole file. It is the only thing that distinguishes a saved route, and
+     * every reader that decides what to draw or what to offer reaches it through [TrackSummary],
+     * because the lists and the map's action rules work from summaries — the drawer being the one
+     * reader that hand-builds one from a loaded track (`OverlayLayer`), and reading the flag off that
+     * summary rather than off the track it copied it from.
+     */
+    @ProtoNumber(19) val route: Boolean = false
 )
+
+/**
+ * The Tracks feature's standard auto-name for a newly saved track — `yyyy-MM-dd HH:mm`, US locale.
+ *
+ * One home for it: the recorder names a new recording with this and `TrackFromCourse` names a saved
+ * route with it, so the two kinds of track sort and read alike in the list.
+ */
+fun trackAutoName(epochMs: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+        .format(java.util.Date(epochMs))
 
 /**
  * Absolute epoch millis of the last real (non-GAP) track point, or null if there are none.
@@ -92,13 +117,32 @@ data class TrackSummary(
      */
     @ProtoNumber(17) val waterPointCount: Int = 0,
     /** Sampled points that were on land, biased by one exactly as [waterPointCount] is. */
-    @ProtoNumber(18) val landPointCount: Int = 0
+    @ProtoNumber(18) val landPointCount: Int = 0,
+    /**
+     * [Track.route], projected in the index pass so a list, the map's rendering role and the card's
+     * refusals can read it **without loading a track's points**: true when this summary describes a
+     * route the app saved rather than a recorded journey.
+     *
+     * An index written before the field existed decodes it `false` — a missing bool reads as off —
+     * which is exactly why [TrackSummaryList] carries a version and its introduction bumps it: a
+     * stamp that does not match rebuilds the index once, rather than leaving the filter answering
+     * nothing for every route already stored.
+     */
+    @ProtoNumber(19) val route: Boolean = false
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment
     override val createdAtEpochMs: Long get() = startTimeMs
     override val isPinned: Boolean get() = pinned
-    /** Mutable backing for [ListableItem.isLive] — set by ViewModel, never persisted. */
+    /**
+     * Mutable backing for [ListableItem.isLive] — set by the ViewModel, and kept off the wire.
+     *
+     * `@Transient` is load-bearing, not a note: the plugin numbers a body property by its position, and
+     * without it this one takes 18 — the number [landPointCount] already holds. A message whose land count
+     * occupied that field then decoded it as this boolean and refused the whole summary, which is how a
+     * land track lost its count on reload.
+     */
+    @Transient
     override var isLive: Boolean = false
 
     /**
@@ -121,12 +165,45 @@ data class TrackSummary(
      */
     val positionIsWater: Boolean
         get() = !positionClassified || waterPointCount >= landPointCount
+
+    /**
+     * Whether the **Resume** action applies to this summary — the one home of a refusal that has two
+     * readers (R41): the row's own resume control and the surfaces that reach the same action by their
+     * own path both ask this rather than each spelling the clause for itself.
+     *
+     * A route is a plan, not a measurement to continue, so it never resumes; the rest of the guard —
+     * that a recording is already running — is the screen's own state and stays with the caller.
+     */
+    val resumeAllowed: Boolean get() = !route && endTimeMs != null
 }
 
 /**
- * Wrapper for the index file — a list of [TrackSummary] entries.
+ * The merge's **candidate set**: the selected ids less every route, newest-order irrelevant because the
+ * selection is a set.
+ *
+ * A route is a line between two points, not a leg of a journey, and merging one with a recording would
+ * produce a track whose speeds are half plan and half measurement with nothing on screen saying so —
+ * so the refusal is a **candidacy** and not an action: a route is never offered to the merge, and a
+ * selection left with fewer than two candidates leaves the action disabled by itself.
+ */
+fun mergeCandidates(summaries: List<TrackSummary>, selectedIds: Set<String>): Set<String> =
+    summaries.filter { it.id in selectedIds && !it.route }.map { it.id }.toSet()
+
+/**
+ * The version [TrackRepository] writes the summary index with, and the one stamp that makes a rebuild
+ * **forced rather than hoped for**: an index whose stamp is not this one predates a field the summary
+ * now carries, so the next read rebuilds it once instead of serving a missing bool as `false`.
+ */
+const val SUMMARY_INDEX_VERSION = 1
+
+/**
+ * Wrapper for the index file — a list of [TrackSummary] entries and the schema they were written with.
+ *
+ * The version is the message's own field rather than a separate file so the two can never disagree: a
+ * message predating it decodes it `0`, which no written version matches, and the index is rebuilt.
  */
 @Serializable
 data class TrackSummaryList(
-    @ProtoNumber(1) val tracks: List<TrackSummary>
+    @ProtoNumber(1) val tracks: List<TrackSummary>,
+    @ProtoNumber(2) val version: Int = 0
 )

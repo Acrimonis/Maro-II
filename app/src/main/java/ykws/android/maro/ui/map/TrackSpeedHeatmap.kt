@@ -4,6 +4,7 @@ import ykws.android.maro.config.HeatmapRamp
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
 import ykws.android.maro.data.track.deriveSpeedMps
+import ykws.android.maro.spatial.Units
 import kotlin.math.roundToInt
 
 /**
@@ -26,8 +27,8 @@ internal fun resolveSpeeds(points: List<TrackPoint>): List<Float?> = points.mapI
     when {
         // A GAP marker is a discontinuity, not a short gap: the seam reads neutral.
         point.type == PointType.GAP -> null
-        else -> point.speedMps?.let { it * KNOTS_PER_MPS }
-            ?: deriveSpeedMps(points, i)?.let { it * KNOTS_PER_MPS }
+        else -> point.speedMps?.let { Units.mpsToKnots(it.toDouble()).toFloat() }
+            ?: deriveSpeedMps(points, i)?.let { Units.mpsToKnots(it.toDouble()).toFloat() }
     }
 }
 

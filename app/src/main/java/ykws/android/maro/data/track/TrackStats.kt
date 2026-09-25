@@ -2,6 +2,7 @@ package ykws.android.maro.data.track
 
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 
 /** Implied-speed ceiling (m/s, ~1 kn) for the reconciled-idle classifier. */
 const val IDLE_MAX_SPEED_MPS = 0.5
@@ -54,7 +55,7 @@ fun Track.withDerivedStats(): Track {
     val idle = timelineIdleSec(trackPoints)
     val nav = ((lastPointTimeMs - startTimeMs) / 1000 - idle).coerceAtLeast(0)
     return copy(
-        distanceNm = (distanceM / 1852.0).toFloat(),
+        distanceNm = Units.metresToNauticalMiles(distanceM).toFloat(),
         averageSpeedMps = if (speedCount > 0) (speedSum / speedCount).toFloat() else 0f,
         idleDurationSec = idle,
         navigatingDurationSec = nav,

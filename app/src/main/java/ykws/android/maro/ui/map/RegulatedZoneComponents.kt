@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.regulation.displayCategories
+import ykws.android.maro.data.regulation.effectiveSpeedLimitKn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -127,12 +128,10 @@ internal fun regulatedZoneTags(
 
     val base = zones
         .flatMap { zone ->
-            val speed = when {
-                zone.description.contains("outside channel", ignoreCase = true) ||
-                    (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
-                else -> zone.speedLimitKn
-                    ?: parseSpeedFromDescription(zone.description)
-            }
+            // The override lives in the zone's own single home, so the stack and the info text
+            // price a zone the way the rest of the app does.
+            val speed = zone.effectiveSpeedLimitKn()
+                ?: parseSpeedFromDescription(zone.description)
             zone.displayCategories().map { cat -> RegulatedZoneTag(cat, speed, zone) }
         }
         .filter { tag -> tag.category != ZoneDisplayCategory.SPEED_LIMIT || tag.speedKn != null }

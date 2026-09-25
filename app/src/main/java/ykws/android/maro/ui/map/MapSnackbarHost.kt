@@ -9,8 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ykws.android.maro.R
 
 /**
  * Render-only snackbar stack (extracted from MapScreen). Owns NO state — the queue
@@ -47,6 +49,7 @@ internal fun MapSnackbarHost(
                             is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
                         },
                         snackKey = snack.uid,
+                        showUndo = true,
                         onUndo = { onUndo(snack) },
                         onTimeout = { onTimeout(snack) }
                     )

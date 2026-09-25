@@ -148,10 +148,18 @@ fun MarkerOverlay(
 
     // Helper to remove all marker overlays
     fun removeAllMarkerOverlays() {
+        // **This pass owns `marker_*` — except the route's destination pin.** That pin wears the prefix
+        // only to ride the same band (`OverlayZOrder.isMarkerOverlay`) while its object belongs to
+        // `RouteHost`; sweeping it left the route's lines undrawn, because the host's repaint asked for
+        // the pin and bailed once it was gone (the device's own log, 2026-09-23). A title another home
+        // owns is not this pass's to remove.
         val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
-            (overlay as? Polygon)?.title?.startsWith(OVERLAY_PREFIX) == true ||
-            (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
+            val ownedByThisPass = (overlay as? Marker)?.title != ROUTE_PIN_TITLE
+            ownedByThisPass && (
+                (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
+                    (overlay as? Polygon)?.title?.startsWith(OVERLAY_PREFIX) == true ||
+                    (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
+                )
         }
         mv.overlays.removeAll(toRemove)
     }

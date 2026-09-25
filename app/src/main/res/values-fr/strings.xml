@@ -23,8 +23,8 @@
     <string name="settings_back">Retour</string>
     <string name="settings_section_language">Langue</string>
     <string name="settings_language_system">Système</string>
-    <string name="settings_section_position">Mode de position</string>
-    <string name="settings_redisplay_label">Réaffichage des zones</string>
+    <string name="settings_section_position">Navigation</string>
+    <string name="settings_redisplay_label">Zones de vitesse auto</string>
     <string name="settings_redisplay_enable_gps">Activer en mode GPS</string>
     <string name="settings_redisplay_enable_demo">Activer en mode démo</string>
     <string name="settings_redisplay_zone300">Zone 300 m</string>
@@ -84,7 +84,7 @@
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
-    <string name="settings_zone300_opacity_desc">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
+    <string name="settings_zone300_opacity_desc" formatted="false">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone des 300 m</string>
     <string name="settings_zone300_boundary_width_desc">Épaisseur du trait de limite de la bande des 300 m (dp)</string>
     <string name="settings_regulated_zones_outline_width_desc">Épaisseur des contours des zones réglementées (dp)</string>
@@ -222,6 +222,9 @@
     <string name="track_stat_avg">Moy</string>
     <string name="track_stat_dist">Dist</string>
     <string name="track_stat_idle">Arrêt</string>
+    <!-- A route's two estimated cells: the plan's allotted time and the pace it was priced with. -->
+    <string name="track_stat_total_estimated">Total (est.)</string>
+    <string name="track_stat_avg_estimated">Moy (est.)</string>
     <string name="track_stat_max">Max</string>
 
     <!-- Sort dropdown -->
@@ -356,6 +359,10 @@
     <string name="filter_option_last_6_months">6 derniers mois</string>
     <string name="filter_option_all">Tous</string>
     <string name="filter_option_unpinned">Non épinglé</string>
+    <!-- The kind axis: a recorded track against a saved route. -->
+    <string name="filter_axis_kind">Nature</string>
+    <string name="filter_option_tracks">Traces</string>
+    <string name="filter_option_routes">Itinéraires</string>
     <string name="filter_option_on_water">Sur l\'eau</string>
     <string name="filter_option_with_icon">Avec icône</string>
     <string name="filter_option_without_icon">Sans icône</string>
@@ -387,6 +394,8 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
+    <string name="settings_routes_count_label">Itinéraires à afficher</string>
+    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Un itinéraire épinglé s\'affiche toujours.</string>
     <string name="settings_transparency_label">Transparence des non épinglées</string>
     <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
@@ -394,6 +403,8 @@
     <string name="settings_transparency_border_fill_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_route_transparency_label">Transparence des itinéraires</string>
+    <string name="settings_route_transparency_desc" formatted="false">Dégradé sur les itinéraires affichés, du plus récent au plus ancien, indépendant des deux plages ci-dessus. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
     <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
@@ -549,10 +560,94 @@
     <string name="settings_color_active_track">Trace active</string>
     <string name="settings_color_past_tracks">Traces passées</string>
     <string name="settings_color_pinned_tracks">Traces épinglées</string>
+    <string name="settings_color_routes">Itinéraires</string>
+    <string name="settings_routes_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
+    <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>
+    <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->
+    <string name="startup_colour_value_unreadable">Valeur de couleur illisible dans maro.properties (%1$s) — la couleur par défaut a été utilisée.</string>
+    <!-- D4 : un identifiant de moteur de route qu\'aucune ligne ne revendique est retombé sur le défaut. -->
+    <string name="startup_route_engine_id_unclaimed">Moteur de route %1$s inconnu — le moteur par défaut a été utilisé.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">« %s » supprimé</string>
     <string name="action_undo">Annuler</string>
+
+    <!-- Route destination mode -->
+    <string name="cd_route_toggle">Mode destination de route</string>
+    <!-- Le titre et le commentaire de l'acquisition : le nom de la phase, puis une ligne de ce qu'elle demande. -->
+    <string name="route_acq_title">Acquisition d\'itinéraire</string>
+    <string name="route_acq_comment">Placez la destination, puis acquérez la route</string>
+    <!-- Les étiquettes du tableau : deux colonnes, une extrémité chacune, les chiffres en dessous. -->
+    <string name="route_label_start">Départ</string>
+    <string name="route_label_destination">Destination</string>
+    <string name="route_label_eta">ETA</string>
+    <!-- La valeur nue de la cellule ETA — l\'étiquette ci-dessus dit « ETA », elle n\'est pas répétée. -->
+    <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
+    <string name="route_action_acquire">Acquérir la route</string>
+    <string name="route_action_confirm">Confirmer</string>
+    <string name="route_action_reroute">Recalculer</string>
+    <string name="route_action_new">Nouvel itinéraire</string>
+    <string name="route_action_save_only">Enregistrer la trace et quitter</string>
+    <string name="route_action_save_track">Enregistrer la trace</string>
+    <string name="route_action_exit">Quitter</string>
+    <string name="route_pin_label">Épingler la trace</string>
+    <string name="route_searching">Calcul de la route…</string>
+    <string name="route_no_route">Aucune route navigable ici</string>
+    <!-- Les deux phrases d\'extrémité refusée — une par extrémité, et le réticule est le même. -->
+    <string name="route_destination_invalid">Destination invalide : %1$s</string>
+    <string name="route_origin_invalid">Position invalide : %1$s</string>
+    <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
+    <string name="route_following_active">Routage actif</string>
+    <string name="route_status_acquiring">Acquisition…</string>
+    <string name="route_status_active">Route active</string>
+    <!-- L\'étape de l\'acquisition, telle que l\'ensemble fermé du moteur la publie : un mot par
+         frontière traversée, dans l\'ordre où elles le sont. -->
+    <string name="route_stage_corridor">Corridor</string>
+    <string name="route_stage_grid">Grille</string>
+    <string name="route_stage_search">Recherche</string>
+    <string name="route_stage_pull">Trait</string>
+    <string name="route_stage_snap">Coins</string>
+    <!-- Le dialogue de sortie unique, atteint par la bascule comme par Quitter. Son bouton accentué
+         reprend les mots de la sauvegarde du brouillon (route_action_save_only), la portée ci-dessus
+         disant combien de routes cette sauvegarde écrit. -->
+    <string name="route_exit_title">Quitter la route ?</string>
+    <string name="route_exit_continue">Continuer</string>
+    <string name="route_exit_discard">Abandonner la route</string>
+    <!-- Pourquoi un point n\'est pas de l\'eau navigable — une ligne par raison, en fragment que la
+         phrase « invalide » ci-dessus complète. Les deux extrémités lisent le même ensemble. -->
+    <string name="route_refusal_off_water">pas d\'eau ici</string>
+    <string name="route_refusal_outside_coverage">hors de la zone couverte</string>
+    <string name="route_destination_moved">Point d\'eau le plus proche</string>
+    <string name="route_trip_title">Route</string>
+    <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_trip_ago">il y a %1$s</string>
+    <string name="route_age_sec">%1$d s</string>
+    <string name="route_age_min">%1$d min</string>
+    <string name="route_trip_forced">forcé : %1$s</string>
+    <string name="route_forced_crossing">Franchissement forcé de %1$s</string>
+    <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
+         surface behind it may not be a mesh. -->
+    <string name="route_unavailable_region_not_baked">Routage indisponible pour cette région</string>
+    <!-- Le refus propre au moteur de remplacement : les sondages sont ce qui tient une route à distance
+         du rivage, donc aucune route n\'est proposée avant le chargement de la grille de profondeur. -->
+    <string name="route_unavailable_depth_not_loaded">Routage en attente des données de profondeur</string>
+    <!-- L\'autre moitié de ce refus : la paroi est la terre dilatée par le franc-bord, donc une route
+         demandée avant le chargement de la côte tracerait une ligne sur le rivage. -->
+    <string name="route_unavailable_coastline_not_loaded">Routage en attente du trait de côte</string>
+    <string name="settings_route_pace_label">Allure en eau libre</string>
+    <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
+    <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
+    <string name="settings_section_route_algorithm">Algorithme de route</string>
+    <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
+    <string name="route_engine_dummy">Ligne droite</string>
+    <string name="route_engine_avoid">Évitement</string>
+    <!-- Le groupe d\'actions de route : un titre, un commentaire, trois pilules étiquetées. -->
+    <string name="menu_route_title">Route</string>
+    <string name="menu_route_comment">Tracer, recalculer ou enregistrer une route navigable</string>
+    <string name="menu_route_to">Vers</string>
+    <string name="menu_route_from">Depuis</string>
+    <string name="menu_route_save">Enregistrer</string>
 </resources>

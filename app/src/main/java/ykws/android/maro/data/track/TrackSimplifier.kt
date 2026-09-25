@@ -3,6 +3,7 @@ package ykws.android.maro.data.track
 import android.util.Log
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 import kotlin.math.abs
 
 /**
@@ -66,7 +67,7 @@ object TrackSimplifier {
         var sumKn = 0.0
         var count = 0
         for (i in points.indices) {
-            val kn = (points[i].speedMps ?: 0f) * 1.94384
+            val kn = (points[i].speedMps ?: 0f).toDouble() * Units.KNOTS_PER_MPS
             sumKn += kn
             count++
         }
@@ -84,7 +85,7 @@ object TrackSimplifier {
             val spatialImportance = spatialDist / epsilonM
 
             // Speed importance: how much does speed deviate from segment average?
-            val kn = (p.speedMps ?: 0f) * 1.94384
+            val kn = (p.speedMps ?: 0f).toDouble() * Units.KNOTS_PER_MPS
             val speedImportance = abs(kn - avgKn) / speedDeltaKn
 
             // Additive importance: spatial + speed contributions sum.

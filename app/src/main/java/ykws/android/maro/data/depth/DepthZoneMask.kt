@@ -5,6 +5,7 @@ import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.MutableDepthGrid
 import ykws.android.maro.spatial.CoastlineSpatialIndex
+import ykws.android.maro.spatial.Units
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.IntStream
 import kotlin.math.PI
@@ -29,8 +30,8 @@ import kotlin.math.cos
  */
 object DepthZoneMask {
 
-    /** 6 NM in metres — the navigable-zone radius around the coast. 1 NM = 1852 m. */
-    const val SIX_NM_M: Double = 6.0 * 1852.0
+    /** 6 NM in metres — the navigable-zone radius around the coast, from the shared units home. */
+    const val SIX_NM_M: Double = 6.0 * Units.METRES_PER_NAUTICAL_MILE
 
     /**
      * The axis-aligned grid envelope for the zone: [coastBbox] dilated by [marginM] (default 6 NM) on

@@ -30,7 +30,11 @@ internal object OverlayZOrder {
         "track_arrow_",
         // Inspect mode's own candidate line: it must land in the track band, or its unrecognised
         // title would drop it below every track and break the selection-above-all invariant.
-        "track_inspect_"
+        "track_inspect_",
+        // The route's own line. It is added after the tracks and the band preserves append order, so
+        // the route lands above every track and still below the markers — the route's stated order,
+        // read off the one rule that already places things.
+        "route_"
     )
 
     /** Identifies overlays that belong to the track band. */

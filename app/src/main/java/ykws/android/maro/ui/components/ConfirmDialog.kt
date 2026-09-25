@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -62,11 +63,17 @@ enum class ConfirmActionRole { PRIMARY, SECONDARY, DANGER }
  * @param label   Button label (localized by the caller).
  * @param role    [ConfirmActionRole.PRIMARY] = accent filled, [ConfirmActionRole.DANGER] =
  *                danger filled, [ConfirmActionRole.SECONDARY] = outlined accent label.
+ * @param enabled Whether the action can be taken yet — **the family's one disabled state** (R16, R17).
+ *                A disabled action reads as the outlined role with its label in `uiTextMuted` and
+ *                **no accent**, which is what keeps the accent meaning *the surface's own outcome*
+ *                rather than being dimmed into ambiguity. Compose announces `enabled = false` natively,
+ *                so nothing custom rides accessibility.
  * @param onClick Fired on tap. The caller owns every side effect.
  */
 data class ConfirmAction(
     val label: String,
     val role: ConfirmActionRole = ConfirmActionRole.PRIMARY,
+    val enabled: Boolean = true,
     val onClick: () -> Unit
 )
 
@@ -299,14 +306,37 @@ fun ConfirmDialog(
     }
 }
 
-/** One stacked full-width action button, styled by its [ConfirmActionRole]. */
+/**
+ * One action button, styled by its [ConfirmActionRole] — **the app's only rendering of a
+ * [ConfirmAction]**, shared by the ladder's confirmation panel and by any surface that hosts the
+ * same outcomes in a slot of its own, the route's dashboard panel being that case.
+ *
+ * **A disabled action is the same control with a different face** (§5.6): the outlined role, its
+ * outline in `uiDividerColor` and its label in `uiTextMuted`, with **no accent surviving it**. The
+ * tokens are the ones §2.7's unselected segments already use, so the rule adds no palette entry.
+ *
+ * [modifier] is what lets such a host place it: stacked full width by default, or weighted inside a
+ * [Row] where the slot is short.
+ */
 @Composable
-private fun ConfirmActionButton(action: ConfirmAction) {
+internal fun ConfirmActionButton(action: ConfirmAction, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(12.dp)
+    if (!action.enabled) {
+        OutlinedButton(
+            onClick = action.onClick,
+            enabled = false,
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            border = BorderStroke(1.dp, Color(AppConfig.uiDividerColor))
+        ) {
+            Text(action.label, color = Color(AppConfig.uiTextMuted))
+        }
+        return
+    }
     when (action.role) {
         ConfirmActionRole.PRIMARY -> Button(
             onClick = action.onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.uiAccent)),
             shape = shape
         ) {
@@ -314,7 +344,7 @@ private fun ConfirmActionButton(action: ConfirmAction) {
         }
         ConfirmActionRole.DANGER -> Button(
             onClick = action.onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.semanticDanger)),
             shape = shape
         ) {
@@ -322,7 +352,7 @@ private fun ConfirmActionButton(action: ConfirmAction) {
         }
         ConfirmActionRole.SECONDARY -> OutlinedButton(
             onClick = action.onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             shape = shape
         ) {
             Text(action.label, color = Color(AppConfig.uiAccent))

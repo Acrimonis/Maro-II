@@ -20,6 +20,7 @@ New setting?
   │   └─ Sub controls (any type) → NestedCard                     (§2.4)
   ├─ Exclusive 2–3 choice?        → SegmentedRow                   (§2.7)
   ├─ Independent on/off choices?  → MultiSelectRow                 (§2.7b)
+  ├─ Choice list that may grow?   → DropdownRow                    (§2.12)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
 ```
@@ -365,6 +366,24 @@ The Settings overlay tab bar is Material 3's **`SecondaryScrollableTabRow`** —
 
 Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum width, which wrapped the "Navigation" label and left side gaps, and `PrimaryTabRow`'s default indicator is a fixed ~24dp stub. Cells sized to their label keep the whole strip visible on a 360dp screen, with horizontal scrolling acting only as the safety net for large accessibility font scale.
 
+### 2.12 Dropdown Row — `DropdownRow`
+
+For a single choice whose option list may grow past the two or three segments a `SegmentedRow` fits
+(e.g. the route algorithm list): `DropdownRow(label, options, selected, onSelect, description = null)`.
+
+- **Same row model as §2.1/§2.2** — label (16sp Medium `uiTextPrimary`), optional description (13sp
+  `uiTextMuted`), and the control on the right; **no surface of its own**, so the call site supplies the
+  `CardArea`/`NestedCard` (§2.0) and the row pads vertically only.
+- **Control** — the selected option's label in `uiValueText` Bold (`${ui.font.value.size}`) with a
+  `KeyboardArrowDown` arrow in `uiAccent`; tapping the row opens a `DropdownMenu` listing every option.
+- **Options** — `List<Pair<T, String>>`, the `CustomSortField` shape: the generic `T` is the value the
+  caller persists and the strings are already-resolved labels, so the row never holds user-facing text.
+- **The row is the target** — the whole row is one tap that opens the menu, the same single-target rule
+  `OptionRow` follows.
+
+**Do not hand-roll a label + tap-to-open `DropdownMenu`** — use this control, and do not paint a surface
+on it.
+
 ---
 
 ## 3. Spacing Quick Reference
@@ -396,6 +415,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ Hand-rolled `RangeSlider` blocks — use `RangeSliderRow` (§2.8); its value line is mandatory
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ Hand-rolled two-`Text` toggle rows (use `SegmentedRow`, §2.7)
+- ❌ Hand-rolled label + tap-to-open `DropdownMenu` rows (use `DropdownRow`, §2.12)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
 - ❌ Nesting deeper than `CardArea → Expander → NestedCard` (§2.4)
 - ❌ Local `remember`/`rememberSaveable` state for expander open state (use `SettingsViewModel.expanderStates`, §2.4)
@@ -568,9 +588,26 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   scrim is a **hard on/off toggle** (no fade) and does not share the panel's window. While the dialog
   is visible the ladder scrim yields to it, so dims never stack; every other `DrawerSlot` caller keeps
   its own timings.
-- **Actions:** `ConfirmAction(label, role, onClick)` rendered in order, stacked full width.
+- **Actions:** `ConfirmAction(label, role, enabled, onClick)` rendered in order, stacked full width.
   `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
   label; `SECONDARY` = `OutlinedButton` with a `uiAccent` label.
+- **A disabled action is the same control with a different face** (2026-09-24): a `ConfirmAction` with
+  `enabled = false` reads as the **outlined role, its label in `uiTextMuted` and its outline in
+  `uiDividerColor`, and no accent surviving it** — which is what keeps the accent meaning *the
+  surface's own outcome* rather than being dimmed into ambiguity. The two tokens are §2.7's own
+  unselected-segment ones, so the face adds no palette entry, and Compose announces `enabled = false`
+  natively, so nothing custom rides accessibility. A greyed button promises nothing, saying only *not
+  yet*.
+- **A button's colour states its role, never its importance** (2026-09-23): the **accent** is the
+  surface's own outcome — the action the surface exists for, one per surface; the **red** is the action
+  that withholds the work; the **outline** is everything that neither writes nor loses, the door that
+  leaves a mode included. The order **affirmative → neutral → destructive** governs a surface's
+  **stacked** actions; where a requirement fixes a row's own order, that order stands — the route
+  panel's two grids fix theirs, `Acquire route` · `Confirm` · `Save track` · `Exit` in the acquisition
+  and `Save track` · `Reroute` · `New route` · `Exit` while followed, each drawn as two rows of two
+  with the accent on the **one enabled forward action** at every instant (R16, R17). The recording exit
+  dialog is what the whole family is read against — `Save track` accent · `Continue recording` outlined
+  · `Discard track` red.
 - **Cancel is optional** and is just another action, passed **last** — where present it is the
   bottom-most button and calls `onDismiss`. Offer one only where dismissal unambiguously means
   "abort, nothing happens" (resume, import conflict, merge, batch delete). No Cancel where dismissing
@@ -580,6 +617,10 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   may carry a side effect and must be preserved verbatim.
 - **Hosts** own every string, the checkbox/field state and the side effects; they keep the component
   mounted with `visible = false` while it animates out.
+- **The options slot's checkbox row is `OptionRow`**
+  ([`ui/components/OptionRow.kt`](../app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt)) —
+  one checkbox and its label, the checkbox's own target inset serving as the gap, so every option row in
+  every dialog reads the same distance.
 
 **Tokens**
 
@@ -664,6 +705,34 @@ At defaults on a 411 dp screen the pill centres at `W/2 − 13` (192.5 dp) with 
 column twice. The centring has no Compose harness in this repo (`app/src` carries `main/` and `test/`
 only), so it is a device judgement; the inset arithmetic is covered by
 [`BannerStartInsetTest`](../app/src/test/java/ykws/android/maro/ui/map/BannerStartInsetTest.kt).
+
+---
+
+### 5.8 Route Panel — `RouteConfirmationPanel`
+
+The dashboard slot's content while a route is aimed or followed (`RouteConfirmPanel.kt`), in both
+orientations. It is **not a dialog and never becomes one** — it is the slot's own content, because a
+floating dialog cannot be aimed under. Its anatomy is the list card's (see §9 of
+[`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)):
+
+| Block | Font / token | Source |
+|---|---|---|
+| Header row | Title 15 sp SemiBold `uiDashboardTextPrimary` on the left; the phase's **status** 13 sp `uiDashboardTextPrimary` in the right corner | `Route acquisition` beside `Acquiring…` while an acquisition runs, `Routing active` beside `Route active` while a route is followed — one reading that costs no line, and the acquisition carries no status when nothing is running |
+| Comment | 13 sp `uiDashboardTextPrimary` | the acquisition's own static line — `Place the destination, then acquire the route` — drawn under the header, one line of what the phase asks of the user |
+| Stage · sentence | 13 sp `uiDashboardTextPrimary` | the live line's own slot, under a divider: the **stage** the engine publishes while an acquisition runs (`Corridor` · `Grid` · `Search` · `Pull` · `Snap`), else the refusal's sentence, else the plain searching word — never together with the comment above, the two slots being mutually exclusive (R15) |
+| Divider | 0.5 dp `uiDividerColor` | the card's own divider, on the panel's 6 dp stack rhythm; drawn where a plan stands and where the live sentence has something to say |
+| Data table | `StatCell`, **two columns × two rows** | `Start` beside `Destination`, then `Dist` beside `ETA`, each on a cell of the card's own shape and the rows touching — the tracks card's own grid at two columns; the coordinates print to **three decimals**, the precision that column's width allows |
+| Notes | 12 sp | under the table, each only where it is true: the engine's note that the route ends away from the aim, bracketed, and the forced crossing |
+| Second divider | 0.5 dp `uiDividerColor` | closes the table, above the controls and the actions |
+| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | the roles are §5.6's, the accent the phase's own **one enabled forward action**; each phase draws a fixed grid of four — `Acquire route` · `Confirm` · `Save track` · `Exit`, and `Save track` · `Reroute` · `New route` · `Exit` — with only the enabled set changing, so a disabled `Save track` wears §5.6's disabled face rather than vanishing; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
+
+`StatCell` ([`ui/components/StatCell.kt`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt))
+is the app's **one** rendering of a reading — the track and route cards' grids and this panel read it,
+so what a figure the app shows twice shares is the **cell's typography**, not the figures' own wording:
+the card prints `4.20 nm` where the panel prints the dashboard's `4.2 NM`, each surface keeping its own
+print. The panel's 16 dp / 12 dp gutters and the choosing phase's 2×2 action grid are unchanged, so
+the portrait slot's height budget is untouched; its scroll now lives in the weighted content block,
+which is what anchors the actions to the panel's foot.
 
 ---
 

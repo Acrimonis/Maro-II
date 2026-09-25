@@ -64,8 +64,9 @@ fun dateInRange(startTimeMs: Long, range: String, todayMidnightMs: Long): Boolea
 
 /**
  * Live tracks are exempt from the axes whose subject a recording cannot answer for: the date range,
- * whose `isLive` arm is the original case, and the position, whose classification would otherwise move
- * under the user's eyes as the track grows.
+ * whose `isLive` arm is the original case, the position, whose classification would otherwise move
+ * under the user's eyes as the track grows, and the kind, because a recording in progress is not a
+ * route and must not vanish from the list mid-journey.
  */
 fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
     f.axes.all { (key, value) ->
@@ -79,6 +80,13 @@ fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
             "position" -> isLive || when (value) {
                 "WATER" -> positionIsWater
                 "LAND" -> !positionIsWater
+                else -> true
+            }
+            // The field's own two words: a route is a track the app saved, everything else is a
+            // recorded track. A live recording passes whatever the flag says (see the note above).
+            "route" -> isLive || when (value) {
+                "TRACKS" -> !route
+                "ROUTES" -> route
                 else -> true
             }
             else -> true
@@ -138,13 +146,13 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
         key = "dateRange",
         labelResId = R.string.filter_axis_date_range,
         options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("LAST_7_DAYS", R.string.filter_option_last_week),
             FilterOptionSpec("LAST_14_DAYS", R.string.filter_option_last_2_weeks),
             FilterOptionSpec("LAST_30_DAYS", R.string.filter_option_last_month),
             FilterOptionSpec("LAST_2_MONTHS", R.string.filter_option_last_2_months),
             FilterOptionSpec("LAST_3_MONTHS", R.string.filter_option_last_3_months),
-            FilterOptionSpec("LAST_6_MONTHS", R.string.filter_option_last_6_months),
-            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true)
+            FilterOptionSpec("LAST_6_MONTHS", R.string.filter_option_last_6_months)
         )
     ),
     FilterAxisSpec(
@@ -163,6 +171,15 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("WATER", R.string.filter_option_on_water),
             FilterOptionSpec("LAND", R.string.dash_not_at_sea)
+        )
+    ),
+    FilterAxisSpec(
+        key = "route",
+        labelResId = R.string.filter_axis_kind,
+        options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("TRACKS", R.string.filter_option_tracks),
+            FilterOptionSpec("ROUTES", R.string.filter_option_routes)
         )
     )
 )

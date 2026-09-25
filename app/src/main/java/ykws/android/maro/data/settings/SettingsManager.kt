@@ -146,6 +146,23 @@ data class AppSettings(
     /** EMODnet shallow cutoff (m): EMODnet point readings shallower than this are coarse
      *  (115 m cell over rocks/coast) and unreliable → presented as no-data. 0 disables the gate. */
     val emodnetShallowCutoffM: Float = 2.0f,
+    /**
+     * Free-water pace (kn, 3–40) a route's trip figure plans at until the boat's own observed pace
+     * replaces it. Seeded from `route.freeWaterPaceKn`, so the property stays the value's one home.
+     */
+    val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
+    /**
+     * The route algorithm the harness arms with — the id the registry resolves, seeded from
+     * `route.engine.id`, so the property stays the value's one home and the user's choice persists
+     * here. An id nothing claims falls back to the registry's default and is reported at startup.
+     */
+    val routeEngineId: String = ykws.android.maro.config.AppConfig.routeEngineId,
+    /**
+     * The speed-zone ids the user has excluded from route planning, default empty. Persisted so an
+     * exclusion survives a restart; the avoid engine drops these ids before the fill, the ETA and the
+     * forced-crossing report alike.
+     */
+    val excludedSpeedZoneIds: Set<String> = emptySet(),
     /** Regenerate: reload depth grid from assets. */
     val regenGrid: Boolean = true,
     /** Regenerate: re-derive isobath contours. */
@@ -255,12 +272,26 @@ data class AppSettings(
      */
     val trackArrows: Boolean = false,
     /**
-     * Whether stored tracks are painted from the speed ramp rather than from the default colours — the
-     * other render axis, and the one a fresh install opens on. It is the *fill* alone: while it is on,
-     * the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a stored track is
-     * drawn, and the chevrons stay [trackArrows]' business.
+     * Whether stored **recorded** tracks are painted from the speed ramp rather than from the default
+     * colours — the other render axis, and the one a fresh install opens on. It is the *fill* alone:
+     * while it is on, the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a
+     * recorded track is drawn, and the chevrons stay [trackArrows]' business. A **route** is not one of
+     * them: it paints from its own pair whatever this says, banded only by its own colour gate
+     * ([routeSpeedColor]), so the chips never reach a route (R34, R37).
      */
     val trackColours: Boolean = true,
+    /**
+     * The route-scoped speed-colour gate (R37): true lets a route be rendered with its speeds in
+     * colour, false — the shipped default — draws it in its own colour pair. For a route it replaces
+     * the Colours chip's say-so rather than sitting beside it.
+     */
+    val routeSpeedColor: Boolean = BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_COLOR,
+    /**
+     * The route-scoped arrow gate (R38): it can only veto — true leaves the drawer's own Arrows chip
+     * to decide, false means a route never shows chevrons, its direction being its origin to its
+     * destination rather than a bearing stored on a planned vertex.
+     */
+    val routeSpeedArrows: Boolean = BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_ARROWS,
     /**
      * The drawer eye's own value, held on the *selection* rather than on any track id, so it applies to
      * whichever track the drawer has open. Null means the key has never been written — the selection
@@ -280,14 +311,14 @@ data class AppSettings(
     val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
     /** Number of historical tracks to render on the map (0-20). */
     val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
+    /**
+     * Number of routes to render, non-pinned ones alone (0-20): a pinned route is drawn
+     * whatever this says, the pin being what marks a route already saved. Its own count rather than
+     * [trackingRenderNb]'s, which goes on counting recorded tracks alone.
+     */
+    val routeRenderNb: Int = BuildConfig.TRACKING_ROUTE_RENDER_NB,
     /** ARGB color for the active recording track. */
     val trackingColorActive: Int = BuildConfig.TRACKING_COLOR_ACTIVE,
-    /** ARGB color for historical tracks. */
-    val trackingColorHistory: Int = BuildConfig.TRACKING_COLOR_HISTORY,
-    /** ARGB end color for history track gradient (oldest track). */
-    val trackingColorHistoryEnd: Int = BuildConfig.TRACKING_COLOR_HISTORY_END,
-    /** ARGB color for pinned tracks (reserved for future use). */
-    val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED,
     /**
      * ARGB start color for past track gradient (newest track).
      * Interpolates toward [trackingColorPastTo] for older tracks.
@@ -298,6 +329,15 @@ data class AppSettings(
      * Interpolated from [trackingColorPastFrom] for newer tracks.
      */
     val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
+    /**
+     * ARGB start colour of the route gradient — the newest route. The route role's own pair, never
+     * the past or pinned one, the two drawing in a route whatever its pin says. `from` is the newest
+     * and `to` the oldest, interpolated across the route set exactly as the past pair is across the
+     * historical one.
+     */
+    val trackingColorRouteFrom: Int = BuildConfig.TRACKING_COLOR_ROUTE_FROM,
+    /** ARGB end colour of the route gradient — the oldest route. */
+    val trackingColorRouteTo: Int = BuildConfig.TRACKING_COLOR_ROUTE_TO,
     /**
      * Transparency % (0-100) for the NEWEST past (history) track.
      * 0 = fully opaque, 100 = fully invisible.
@@ -320,6 +360,10 @@ data class AppSettings(
      * 0 = fully opaque, 100 = fully invisible.
      */
     val trackingTransparencyPinnedOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO,
+    /** Transparency % (0-100) for the NEWEST route drawn — the route ladder's own range. */
+    val trackingTransparencyRouteNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_ROUTE_FROM,
+    /** Transparency % (0-100) for the OLDEST route drawn. */
+    val trackingTransparencyRouteOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_ROUTE_TO,
     /**
      * ARGB start color for pinned track gradient.
      */
@@ -396,6 +440,12 @@ class SettingsManager(
 
         prefs.edit()
             .remove("user_markers_visible")          // replaced by marker_layer_state (v3)
+            // The three stored preferences of the retired track-colour fields, cleaned off an install
+            // rather than left behind: nothing that draws ever read them, so there is nothing to
+            // migrate — only a key to forget.
+            .remove("tracking_color_history")
+            .remove("tracking_color_history_end")
+            .remove("tracking_color_pinned")
             .remove("zone300_autoshow_gps")          // approach re-display rework (v6)
             .remove("zone300_autoshow_demo")
             .remove("speed_zones_visible")
@@ -512,6 +562,20 @@ class SettingsManager(
         boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
         boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
         emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f),
+        // Clamped on read like every other bounded slider: a stored value is never a promise.
+        routeFreeWaterPaceKn = prefs.getFloat(
+            KEY_ROUTE_FREE_WATER_PACE_KN,
+            ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN,
+            ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN
+        ),
+        routeEngineId = prefs.getString(
+            KEY_ROUTE_ENGINE_ID,
+            ykws.android.maro.config.AppConfig.routeEngineId
+        ) ?: ykws.android.maro.config.AppConfig.routeEngineId,
+        excludedSpeedZoneIds = prefs.getStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, emptySet())?.toSet()
+            ?: emptySet(),
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
@@ -588,6 +652,8 @@ class SettingsManager(
         // then reads the flag that migration wrote, so the pair can never be read half-migrated.
         trackArrows = prefs.getBoolean(KEY_TRACK_ARROWS, migrateRenderAxes()?.let { it != "SIMPLE" } ?: false),
         trackColours = prefs.getBoolean(KEY_TRACK_COLOURS, true),
+        routeSpeedColor = prefs.getBoolean(KEY_ROUTE_SPEED_COLOR, BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_COLOR),
+        routeSpeedArrows = prefs.getBoolean(KEY_ROUTE_SPEED_ARROWS, BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_ARROWS),
         // Absent until the eye is first tapped, and `contains` is what tells that apart from a written
         // false: the default below can never stand in for "mirror the mode".
         trackSelectionBanded = if (prefs.contains(KEY_TRACK_SELECTION_BANDED)) {
@@ -602,18 +668,26 @@ class SettingsManager(
         trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
         trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
         trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
+        routeRenderNb = prefs.getInt(KEY_TRACKING_ROUTE_RENDER_NB, BuildConfig.TRACKING_ROUTE_RENDER_NB).coerceIn(0, 20),
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
-        trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
-        trackingColorHistoryEnd = prefs.getInt(KEY_TRACKING_COLOR_HISTORY_END, BuildConfig.TRACKING_COLOR_HISTORY_END),
-        trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED),
         trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, BuildConfig.TRACKING_COLOR_PAST_FROM),
         trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
+        trackingColorRouteFrom = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_FROM, BuildConfig.TRACKING_COLOR_ROUTE_FROM),
+        trackingColorRouteTo = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_TO, BuildConfig.TRACKING_COLOR_ROUTE_TO),
         trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
         trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
         trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM),
         trackingTransparencyPinnedOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO),
         trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, BuildConfig.TRACKING_COLOR_PINNED_FROM),
         trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO),
+        // The route ladder is clamped on read like every other bounded pair: a stored value is never
+        // a promise about what the slider's span allows.
+        trackingTransparencyRouteNewest = prefs.getInt(
+            KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_ROUTE_FROM
+        ).coerceIn(0, 100),
+        trackingTransparencyRouteOldest = prefs.getInt(
+            KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_ROUTE_TO
+        ).coerceIn(0, 100),
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
         trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
         trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble(),
@@ -682,6 +756,9 @@ class SettingsManager(
             .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
+            .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
+            .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
+            .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
@@ -749,19 +826,23 @@ class SettingsManager(
             .putFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, updated.trackDirectionSpeedCeilingKn)
             .putInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, updated.trackDirectionMinSpacingDp)
             .putInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, updated.trackDirectionMaxSpacingDp)
+            .putBoolean(KEY_ROUTE_SPEED_COLOR, updated.routeSpeedColor)
+            .putBoolean(KEY_ROUTE_SPEED_ARROWS, updated.routeSpeedArrows)
             .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
+            .putInt(KEY_TRACKING_ROUTE_RENDER_NB, updated.routeRenderNb)
             .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
-            .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
-            .putInt(KEY_TRACKING_COLOR_HISTORY_END, updated.trackingColorHistoryEnd)
-            .putInt(KEY_TRACKING_COLOR_PINNED, updated.trackingColorPinned)
             .putInt(KEY_TRACKING_COLOR_PAST_FROM, updated.trackingColorPastFrom)
             .putInt(KEY_TRACKING_COLOR_PAST_TO, updated.trackingColorPastTo)
+            .putInt(KEY_TRACKING_COLOR_ROUTE_FROM, updated.trackingColorRouteFrom)
+            .putInt(KEY_TRACKING_COLOR_ROUTE_TO, updated.trackingColorRouteTo)
             .putInt(KEY_TRACKING_TRANSPARENCY_NEWEST, updated.trackingTransparencyNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_OLDEST, updated.trackingTransparencyOldest)
             .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, updated.trackingTransparencyPinnedNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, updated.trackingTransparencyPinnedOldest)
             .putInt(KEY_TRACKING_COLOR_PINNED_FROM, updated.trackingColorPinnedFrom)
             .putInt(KEY_TRACKING_COLOR_PINNED_TO, updated.trackingColorPinnedTo)
+            .putInt(KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST, updated.trackingTransparencyRouteNewest)
+            .putInt(KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST, updated.trackingTransparencyRouteOldest)
             .putBoolean(KEY_TRACK_SIMPLIFY_ENABLED, updated.trackSimplifyEnabled)
             .putFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, updated.trackSimplifyEpsilonM.toFloat())
             .putFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, updated.trackSimplifySpeedDeltaKn.toFloat())
@@ -862,6 +943,11 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_MIN_DURATION_S = "boat_marker_auto_min_duration_s"
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
+        private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
+        /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
+        private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
+        /** The persisted set of speed-zone ids the user excluded from route planning. */
+        private const val KEY_EXCLUDED_SPEED_ZONE_IDS = "excluded_speed_zone_ids"
         private const val KEY_REGEN_GRID = "regen_grid"
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"
@@ -915,18 +1001,26 @@ class SettingsManager(
         private const val KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT = "marker_halo_unpinned_fill_transparency_pct"
         private const val KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT = "marker_halo_unpinned_border_transparency_pct"
         private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"
+        /** The route count's own key: the sibling above counts recorded tracks alone. */
+        private const val KEY_TRACKING_ROUTE_RENDER_NB = "tracking_route_render_nb"
         private const val KEY_TRACKING_COLOR_ACTIVE = "tracking_color_active"
-        private const val KEY_TRACKING_COLOR_HISTORY = "tracking_color_history"
-        private const val KEY_TRACKING_COLOR_HISTORY_END = "tracking_color_history_end"
-        private const val KEY_TRACKING_COLOR_PINNED = "tracking_color_pinned"
         private const val KEY_TRACKING_COLOR_PAST_FROM = "tracking_color_past_from"
         private const val KEY_TRACKING_COLOR_PAST_TO = "tracking_color_past_to"
+        /** The route colour pair's own keys, and the ladder's, beside their siblings'. */
+        private const val KEY_TRACKING_COLOR_ROUTE_FROM = "tracking_color_route_from"
+        private const val KEY_TRACKING_COLOR_ROUTE_TO = "tracking_color_route_to"
         private const val KEY_TRACKING_TRANSPARENCY_NEWEST = "tracking_transparency_newest"
         private const val KEY_TRACKING_TRANSPARENCY_OLDEST = "tracking_transparency_oldest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST = "tracking_transparency_pinned_newest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST = "tracking_transparency_pinned_oldest"
         private const val KEY_TRACKING_COLOR_PINNED_FROM = "tracking_color_pinned_from"
         private const val KEY_TRACKING_COLOR_PINNED_TO = "tracking_color_pinned_to"
+        /** The route ladder's prefs keys; their defaults are the file's own injected pair. */
+        private const val KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST = "tracking_transparency_route_newest"
+        private const val KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST = "tracking_transparency_route_oldest"
+        /** The route-scoped rendering gates, the route-scoped twins of the two chips. */
+        private const val KEY_ROUTE_SPEED_COLOR = "route_speed_color"
+        private const val KEY_ROUTE_SPEED_ARROWS = "route_speed_arrows"
         private const val KEY_TRACK_SIMPLIFY_ENABLED = "track_simplify_enabled"
         private const val KEY_TRACK_SIMPLIFY_EPSILON_M = "track_simplify_epsilon_m"
         private const val KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN = "track_simplify_speed_delta_kn"

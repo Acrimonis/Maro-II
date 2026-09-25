@@ -25,13 +25,8 @@ object SpeedZoneBuilder {
             .map { zone ->
                 // Compute effective speed before name — the name fallback
                 // uses the speed value, so it must reflect any overrides.
-                val effectiveKn = when {
-                    // Lérins "outside channel" zone: SHOM says 3 kn,
-                    // but treated as 5 kn for consistency with the 300m band.
-                    zone.description.contains("outside channel", ignoreCase = true) ||
-                        (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
-                    else -> zone.speedLimitKn!!
-                }
+                // The override itself lives in the zone's own single home.
+                val effectiveKn = zone.effectiveSpeedLimitKn()!!
                 SpeedZone(
                     id = zone.sourceRef.ifBlank { zone.name },
                     // Filter SHOM's literal "null" string (unnamed zones) so the

@@ -16,6 +16,8 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RegionBounds
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.spatial.CoastlineSpatialIndex
+import ykws.android.maro.spatial.Units
+import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.Zone300Builder
 import java.io.File
 
@@ -351,6 +353,14 @@ class CoastlineRepository(
     fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
         spatialIndex?.isWater(latitude, longitude)
 
+    /**
+     * The land-ring classification of one coastline polyline — `open coast / CCW-ring / CW-basin` —
+     * the shared read surface the avoid adapter consumes to read land edges with their orientation.
+     * Delegates to the index's classification; an unloaded coastline reads as open coast.
+     */
+    fun landRingOrientation(polylineIdx: Int): LandRingOrientation =
+        spatialIndex?.landRingOrientation(polylineIdx) ?: LandRingOrientation.OPEN_COAST
+
     /** The bounds of the region this coastline can answer for, or null before it is loaded. */
     val regionBounds: RegionBounds?
         get() = coastlineData?.boundingBox?.let {
@@ -363,8 +373,8 @@ class CoastlineRepository(
         }
 
     companion object {
-        /** 6 nautical miles in metres (1 NM = 1,852 m exactly). */
-        private const val SIX_NM_METERS = 6.0 * 1852.0  // = 11,112.0
+        /** 6 nautical miles in metres — the radius the navigable envelope dilates the coast by. */
+        private const val SIX_NM_METERS = 6.0 * Units.METRES_PER_NAUTICAL_MILE
 
         /** Half-width of the regulatory 300 m band (5-knot speed limit). */
         const val ZONE_DISTANCE_M = 300.0

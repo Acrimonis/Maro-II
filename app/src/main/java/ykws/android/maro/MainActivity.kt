@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.WindowInsetsController
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -47,6 +48,7 @@ import ykws.android.maro.ui.map.NavigationViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.spatial.RouteEngineChoice
 
 class MainActivity : ComponentActivity() {
 
@@ -82,6 +84,11 @@ class MainActivity : ComponentActivity() {
         // Load zone gradient tunables from zone.properties before the UI composes.
         AppConfig.init(this)
 
+        // R42's report: the build could not read one of the app's #AARRGGBB colour keys and fell back
+        // to its sibling's default, so the app says so at start rather than leaving the fallback silent.
+        // The names arrive through BuildConfig — the build stays the one reader of maro.properties.
+        reportUnreadableColourKeys()
+
         setContent {
             // Use a factory because NavigationViewModel now extends AndroidViewModel
             // with a multi-param constructor that AndroidViewModelFactory can't match.
@@ -90,6 +97,12 @@ class MainActivity : ComponentActivity() {
             )
             val depthViewModel: DepthViewModel = viewModel()
             val appSettings by viewModel.settings.collectAsState()
+
+            // D4's report: a persisted route-engine id nothing claims fell back to the registry's
+            // default, and the app says so at start rather than leaving the fallback silent.
+            LaunchedEffect(Unit) {
+                this@MainActivity.reportUnclaimedRouteEngineId(appSettings.routeEngineId)
+            }
 
             // Feed the keeper. It owns the decision; the Activity only supplies what only the UI
             // can see — the persisted settings, the live speed, and (below) the touch stream.
@@ -206,6 +219,33 @@ class MainActivity : ComponentActivity() {
         // Start the foreground service to keep the app alive when backgrounded.
         // The service shows a persistent "Maro II — Ready" notification.
         startForegroundService(Intent(this, ykws.android.maro.data.track.TrackRecordingService::class.java))
+    }
+
+    /**
+     * Reports the colour keys the build could not read, at start (R42). Empty — the ordinary case —
+     * shows nothing at all, so a correct `maro.properties` stays silent and a broken one does not.
+     */
+    private fun reportUnreadableColourKeys() {
+        val keys = BuildConfig.UNREADABLE_COLOUR_KEYS
+        if (keys.isBlank()) return
+        Toast.makeText(
+            this,
+            getString(R.string.startup_colour_value_unreadable, keys),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    /**
+     * Reports a persisted route-engine id no registry row claims, at start (D4). A claimed id — the
+     * ordinary case — shows nothing, so a correct choice stays silent and a stale one does not.
+     */
+    private fun reportUnclaimedRouteEngineId(id: String) {
+        if (RouteEngineChoice.all.any { it.id == id }) return
+        Toast.makeText(
+            this,
+            getString(R.string.startup_route_engine_id_unclaimed, id),
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     /**

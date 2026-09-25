@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-17 14:27
+modified: 2026-09-23 20:57
 ---
 
 # Feature: Ui_General
@@ -43,7 +43,29 @@ The pills the map shows at the bottom of the band — the exit-press-back banner
 - `docs/ui-drawer-guidelines.md` §1 — the paint-only right-edge control column rule
 - `docs/ui-component-guidelines.md` §5 — the banner family entry, the only home for its rules
 
+### route-dialogs
+
+The route's panel — the dashboard slot's own content — and the one exit dialog, with the shared row and cell they read. The anatomy and the naming are settled and shipped; what is open is the device pass and the diagnostic logs the last fix left in place.
+
+#### Todos
+- [ ] Take the device pass over the panel, the exit dialog and the aim ring: the line drawn from the boat with the ring under it, the destination dot surviving the marker pass, and the panel reading title · status · table · rule · pin with its actions at the foot.
+- [ ] Remove the three diagnostic log lines from `RouteHost` once that pass has answered.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt` — the panel's anatomy and the action roles
+- `app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt` — the map objects, the ring overlay and the three log lines to remove
+- `app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt` · `StatCell.kt` — the shared checkbox row and the shared reading cell
+
+#### Docs
+- `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_route-dialog-alignment.md` — the panel, the doctrine and its revisions
+- `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_dialog-option-row.md` — the option row and its gap
+- `docs/ui-component-guidelines.md` §5.6 · §5.8 — the two homes both rules live in
+
 ## Implemented
+
+- **dialog-option-row (2026-09-23)** — the app's checkbox-and-label row became one control: `ui/components/OptionRow.kt` carries the `toggleable(Role.Checkbox)` and the merged semantics, tints the box `uiAccent` and gives the label a weight, and **states no gap of its own** — the checkbox's target inset is the gap, so the distance between a box and its label is one fact wherever it is drawn. The three dialog rows (the route exit's session scope, the resume backup, the GPX import's keep-originals) and the route panel's pin all read it; the pin's own `Spacer(4.dp)` went with them. The rule lives in `docs/ui-component-guidelines.md` §5.6, with §5.8's pin row pointing at it → `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_dialog-option-row.md`
+
+- **route-dialog-alignment (2026-09-23)** — the route's two surfaces now read like the recording exit dialog. The doctrine is one bullet in `docs/ui-component-guidelines.md` §5.6: a button's colour states its role — the **accent** is the surface's own outcome, the **red** is the action that withholds the work, the **outline** is everything that neither writes nor loses — and a stacked surface reads affirmative → neutral → destructive, that order scoped to a stack so a requirement's own row order (R17's `Freeze`/`Resume` beside `Save track`) stands. The panel ([`RouteConfirmPanel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt:1)) was rebuilt on the list card's lines and then folded: **one header row** — the phase's title left, the two ends right-aligned at 11 sp `uiTextMuted`, the coordinates never truncated and the title what yields — the 0.5 dp rule drawn only where a plan stands, the panel's state line under it, then `Dist · ETA` on the shared `StatCell`, the crossing line, the pin and the actions; the choosing phase with no plan keeps the title, the sentence and the single `Exit`. Its outcomes were re-roled and renamed — `Route` accent · `Save track and Route` · `Save track and End` · `Exit`, the generic `Cancel` specialized to the mode's own door, `Save track` taking the following panel's accent — and the exit dialog re-ordered to `Save track and End` · `Continue` · `Discard route`, its accent reading the draft's own save key so one act carries one key. `StatCell` left `TrackHistoryOverlay.kt` for `ui/components` as one cell for both readers, the ends print through `routeCoordinate` / `routeDestinationText` pinned by `RouteEndsTextTest`, the panel's anatomy has its own §5.8, and R16 · R17 · R23 with the epic's five repeats moved onto the new words. `apk-build.bat` SUCCESS, the `ui.map` suite green at 28 classes with no failure, and the Ask hop's five should-fixes closed → `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_route-dialog-alignment.md`
 
 - **filter-popup-scroll (2026-09-22)** — both list popups bound their own height and scroll past it, so the track filter's thirteen rows stay reachable in landscape instead of being clipped off the screen edge; one `popupMaxHeightDp` derivation — the window's height less a 96dp reserve, floored for a degenerate window — feeds the filter and the sort popup, pinned by `ListPopupHeightTest`, with the rule written into `docs/ui-component-guidelines.md` §2.10 and the stale filter tables in `docs/ui-lists-guidelines.md` corrected with it → `xTrack/Ui_General/260922_FEAT_PLN_Ui_General_filter-popup-scroll.md`
 

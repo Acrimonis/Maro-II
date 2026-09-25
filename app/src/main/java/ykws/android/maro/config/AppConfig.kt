@@ -35,6 +35,198 @@ object AppConfig {
     var zoneRegulatorySpeedKn = 5f
         private set
 
+    /**
+     * Free-water pace (kn) a route's trip figure plans at until the boat's own observed pace has
+     * something to say — `route.freeWaterPaceKn`, default 28.
+     *
+     * The span's bounds live beside it so the properties loader, the settings clamp and the Settings
+     * row all read one definition rather than each spelling 3 and 40 for itself.
+     */
+    var routeFreeWaterPaceKn = 28f
+        private set
+
+    /** Lowest free-water pace (kn) the setting accepts. */
+    const val ROUTE_FREE_WATER_PACE_MIN_KN = 3f
+
+    /** Highest free-water pace (kn) the setting accepts. */
+    const val ROUTE_FREE_WATER_PACE_MAX_KN = 40f
+
+    /**
+     * The route engine id the harness ships as its default — `route.engine.id`, default `dummy`.
+     *
+     * The registry resolves a stored id through this value, so an id nothing claims falls back to
+     * whichever row this names. One home for the value: the property is parsed here and the
+     * `AppSettings.routeEngineId` preference is seeded from it.
+     */
+    var routeEngineId: String = "dummy"
+        private set
+
+    /**
+     * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
+     * against both the blue water and the amber tracks.
+     *
+     * The line's three drawing values live here and in `maro.properties` alone, following the rule
+     * that every drawing value has one home: the overlay reads these and gains no Settings row until
+     * one is asked for.
+     */
+    var routeLineColor: Int = 0xFF2ECC71.toInt()
+        private set
+
+    /** The route line's transparency (0 = opaque, 100 = invisible) — `route.line.transparencyPct`. */
+    var routeLineTransparencyPct: Int = 15
+        private set
+
+    /** The route line's stroke width (dp) — `route.line.widthDp`. */
+    var routeLineWidthDp: Float = 6f
+        private set
+
+    /** The destination pin's fill colour — `route.pin.color`. */
+    var routePinColor: Int = 0xFF2ECC71.toInt()
+        private set
+
+    /** The ring drawn around the destination pin (dp) — `route.pin.ringWidthDp`. */
+    var routePinRingWidthDp: Float = 3f
+        private set
+
+    /**
+     * Horizon (s) the acquisition's anchor is led by — `route.anchor.leadSec`, default 10.
+     *
+     * Every entry into acquisition reads the boat's own position and projects it forward by this
+     * amount along its own course and speed, so a reroute measures from where the boat *will be*
+     * rather than from where it stood when the session began. It is a **horizon, not a latency
+     * budget**: it does not absorb the search's own compute time, which would make the value
+     * engine-dependent. `0` is the plain live fix, and a device that answers no course or speed
+     * reads as 0; demo mode takes no lead at all, its position being the map centre.
+     *
+     * The prediction is best-effort and never binding: a predicted point that is not water falls
+     * back to the live fix, and the acquisition proceeds.
+     */
+    var routeAnchorLeadSec: Int = 10
+        private set
+
+    /**
+     * The refused end's crosshair colour — `route.target.color`, default bold red spelled
+     * `#AARRGGBB` as the line's own key is.
+     *
+     * One colour for both ends: a refused aim and a refused origin read the same.
+     */
+    var routeTargetColor: Int = 0xFFD32F2F.toInt()
+        private set
+
+    /** Stroke width (dp) of the refused end's crosshair — `route.target.widthDp`. */
+    var routeTargetWidthDp: Float = 3f
+        private set
+
+    /** Pulse period (ms) of the refused crosshair's 1 -> 0.3 beat — `route.target.pulseMs`. */
+    var routeTargetPulseMs: Int = 800
+        private set
+
+
+    /**
+     * How many of the **oldest** replaced routes the ladder keeps beside the standing one —
+     * `route.ladder.oldest.nb`, default 1.
+     *
+     * Stale means *replaced*: a failed refresh stales nothing, so the ladder only ever grows on a new
+     * answer arriving.
+     */
+    var routeLadderOldestNb: Int = 1
+        private set
+
+    /** How many of the **newest** replaced routes the ladder keeps — `route.ladder.latest.nb`, default 3. */
+    var routeLadderLatestNb: Int = 3
+        private set
+
+    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
+    var routeAvoidObstacleMarginM: Double = 25.0
+        private set
+
+    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 50. */
+    var routeAvoidGridCellM: Double = 50.0
+        private set
+
+    /**
+     * The fine pass's cell as a ratio of the coarse cell — `route.avoid.fine.cellRatio`, default 0.40,
+     * clamped [ROUTE_AVOID_FINE_CELL_RATIO_MIN]..[ROUTE_AVOID_FINE_CELL_RATIO_MAX].
+     *
+     * The ratio is the home for the relationship the user set — 40 % of the coarse cell — so the size is
+     * written once, in `route.avoid.grid.cellM`: at today's 50 m the fine cell is 20 m, and no metres key
+     * is kept beside it for the two to drift apart.
+     *
+     * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
+     * unused, as `route.avoid.zone300.marginM` did before the band.
+     */
+    var routeAvoidFineCellRatio: Double = 0.40
+        private set
+
+    /** Lowest fine-cell ratio the load accepts — the one home for that end of the span. */
+    const val ROUTE_AVOID_FINE_CELL_RATIO_MIN = 0.05
+
+    /**
+     * Highest fine-cell ratio the load accepts — 1.0 makes the fine cell the coarse one, so the pass
+     * subdivides nothing and stays inert.
+     */
+    const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
+
+    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`, default 1852 (1 NM). */
+    var routeAvoidCorridorReachM: Double = 1852.0
+        private set
+
+    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300.marginM`, default 25. */
+    var routeAvoidZone300MarginM: Double = 25.0
+        private set
+
+    /**
+     * Depth (m) below which a corridor cell is excluded from the route — `route.avoid.depthGate.minM`,
+     * default 3.0, read only while `route.avoid.depthGate.enabled` is true. The gate is a coarse
+     * guard on the route being written, not a fine sounding: a known depth under this number paints
+     * the cell land, and everything at or above it — whatever its source or confidence — is ignored.
+     */
+    var routeAvoidDepthGateMinM: Double = 3.0
+        private set
+
+    /**
+     * Whether the 3 m depth gate is armed — `route.avoid.depthGate.enabled`, default true. False runs
+     * the avoid engine on the coastline alone: no depth grid is loaded and no corridor cell is
+     * excluded on a sounding.
+     */
+    var routeAvoidDepthGateEnabled: Boolean = true
+        private set
+
+    /**
+     * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.zone300.softCostAversion`,
+     * a cost multiplier clamped 1.0..5.0. 1.0 prices the band as open water; the excess over 1.0 is the extra
+     * cost per metre inside it.
+     */
+    var routeAvoidZone300SoftCostAversion: Double = 1.5
+        private set
+
+    /**
+     * Whether the 300 m band is priced — `route.avoid.zone300.enabled`, default true. False prices the
+     * band as open water and writes no BAND tag, so `route.avoid.zone300.softCostAversion` stays the value
+     * that says how dear the band is when it is on.
+     */
+    var routeAvoidZone300Enabled: Boolean = true
+        private set
+
+    /**
+     * Whether the speed zones are priced — `route.avoid.speedZone.enabled`, default false. False prices
+     * every zone as open water: the search does not bend around one, the trip clock reads the pace alone,
+     * and no forced crossing is reported. The counterpart of `route.avoid.zone300.enabled`.
+     */
+    var routeAvoidSpeedZoneEnabled: Boolean = false
+        private set
+
+    /**
+     * The speed-zone price cursor — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
+     * 0.0..5.0. A zone cell costs its base plus `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its
+     * true travel time and the search minimises real time — bending around a slow zone when the way around
+     * is faster — while at 0.0 the zone is priced as open water, reproducing the pre-phase-4 no-zone line,
+     * and a value above 1.0 bends harder. The cursor chooses the line and never touches the ETA — the clock
+     * stays physics.
+     */
+    var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
+        private set
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -231,6 +423,11 @@ object AppConfig {
     /** Stroke width (dp) of every other history track. Default 2.6666667 (the 8 px of the 3×
      *  reference). Set via `track.width.history`. */
     var trackWidthHistoryDp: Float = 8f / 3f
+        private set
+    /** Stroke width (dp) of every route's line — a route. It joins the same table and is taken
+     *  whatever the pin says, the route role having its own stroke rather than the pinned or history
+     *  one. Default 2.6666667 (the 8 px of the 3× reference). Set via `track.width.route`. */
+    var trackWidthRouteDp: Float = 8f / 3f
         private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
      *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than
@@ -915,6 +1112,13 @@ object AppConfig {
             props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
+            props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
+                routeFreeWaterPaceKn =
+                    it.coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+            }
+            props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                routeEngineId = it
+            }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
             }
@@ -1019,6 +1223,7 @@ object AppConfig {
             props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewestDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("track.width.route")?.toFloatOrNull()?.let { trackWidthRouteDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.selected.casing")?.toFloatOrNull()?.let {
                 trackWidthSelectedCasingDp = it.coerceAtLeast(1f / 3f)
             }
@@ -1228,6 +1433,71 @@ object AppConfig {
             props.getProperty("ui.text.muted")?.let { parseColorOrNull(it) }?.let { uiTextMuted = it }
             props.getProperty("ui.text.secondary")?.let { parseColorOrNull(it) }?.let { uiTextSecondary = it }
             props.getProperty("ui.accent")?.let { parseColorOrNull(it) }?.let { uiAccent = it }
+            // ── The route line and pin (maro.properties, not the palette) ───────
+            props.getProperty("route.line.color")?.let { parseColorOrNull(it) }
+                ?.let { routeLineColor = it }
+            props.getProperty("route.line.transparencyPct")?.toIntOrNull()
+                ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
+            props.getProperty("route.line.widthDp")?.toFloatOrNull()
+                ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
+            props.getProperty("route.pin.color")?.let { parseColorOrNull(it) }
+                ?.let { routePinColor = it }
+            props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
+                ?.let { routePinRingWidthDp = it.coerceIn(0f, 12f) }
+            // ── The route's anchor, its crosshair and its ladder ───────
+            // Read here rather than beside the pace above: every one of them is a drawing or
+            // interaction value rather than a behaviour the spatial side reads.
+            props.getProperty("route.anchor.leadSec")?.toIntOrNull()
+                ?.let { routeAnchorLeadSec = it.coerceIn(0, 60) }
+            props.getProperty("route.target.color")?.let { parseColorOrNull(it) }
+                ?.let { routeTargetColor = it }
+            props.getProperty("route.target.widthDp")?.toFloatOrNull()
+                ?.let { routeTargetWidthDp = it.coerceIn(1f / 3f, 12f) }
+            props.getProperty("route.target.pulseMs")?.toIntOrNull()
+                ?.let { routeTargetPulseMs = it.coerceIn(100, 5_000) }
+            props.getProperty("route.ladder.oldest.nb")?.toIntOrNull()
+                ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
+            props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
+                ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
+            // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
+            //    and the fine ratio Change 4 will read) ──
+            props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
+                routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
+            }
+            props.getProperty("route.avoid.grid.cellM")?.toDoubleOrNull()?.let {
+                routeAvoidGridCellM = it.coerceIn(10.0, 500.0)
+            }
+            props.getProperty("route.avoid.corridor.reachM")?.toDoubleOrNull()?.let {
+                routeAvoidCorridorReachM = it.coerceIn(100.0, 20_000.0)
+            }
+            props.getProperty("route.avoid.zone300.marginM")?.toDoubleOrNull()?.let {
+                routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            }
+            // Parsed and left unread until Change 4's fine band reads it.
+            props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
+                routeAvoidFineCellRatio = it.coerceIn(
+                    ROUTE_AVOID_FINE_CELL_RATIO_MIN,
+                    ROUTE_AVOID_FINE_CELL_RATIO_MAX
+                )
+            }
+            props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
+                routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
+            }
+            props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidDepthGateEnabled = it
+            }
+            props.getProperty("route.avoid.zone300.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidZone300SoftCostAversion = it.coerceIn(1.0, 5.0)
+            }
+            props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidZone300Enabled = it
+            }
+            props.getProperty("route.avoid.speedZone.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneSoftCostAversion = it.coerceIn(0.0, 5.0)
+            }
+            props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidSpeedZoneEnabled = it
+            }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }

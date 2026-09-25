@@ -1,33 +1,18 @@
-# Hydration: Ui_General
+# Context Hydration — Ui_General — 2026-09-23
 
-**Session:** dashboard-close-conditions — the selected-item dashboard's autoclose was re-assessed and
-replaced by two rules. Shipped, reviewed in both directions, build SUCCESS, uncommitted.
+**Last Bake:** 2026-09-23 20:57 UTC — written by `#bake`; absence means never baked
+
+**Directive trace:** all five covered action classes were met this session and none stopped — no dependency was added, no machine-shaped file was opened, every write followed an order, the device was touched only for a read-only logcat after the user's own deploy, and every claim about the code rests on a file read in the session.
 
 ## State
-- **The rule set.** The marker/track detail drawer closes on exactly two conditions: a surface wanting
-  the dashboard's own slot (the marker/track wizard, the other selected-item dashboard), or a change of
-  the world the open item's Prev/Next walks. Everything else keeps it.
-- **The keep.** The menu, settings and both lists are panels over the map: `panelOwnsRegion` in
-  `OverlayLayer` hides the four detail slots while one is open, so the panel wins the region and the
-  selection returns on close. The menu no longer closes anything.
-- **The seams.** One `closeSelectedItemDashboards()` for the slot rule; the one-item guard lives inside
-  `openTrackDetail`/`openMarkerDetail`; the ten referential callbacks close through
-  `closeDashboardsForScopeChange`; `scopeClosed()` in `MarkersViewModel` is the pure core, covered by
-  `DashboardScopeClosedTest`.
-- The device report that started it — a control closing the dashboard — traced to the menu button one
-  slot above the fan anchor; the fan never closed it.
+The route's two surfaces and the app's own vocabulary were reworked together. The panel that owns the dashboard slot now reads like the list card — a header row carrying the phase's title with its **status in the right corner**, the card's rule, a **two-column table** (`Start` · `Destination`, then `Dist` · `ETA`) on the shared `StatCell`, a second rule, the pin, and the actions **bottom-anchored** — while the exit dialog took the doctrine's order and words and the five hand-built checkbox rows became the one `OptionRow`. The saved line's word became **Route** everywhere (the flag, the role family, the keys, the labels and the living docs), so the pair now reads a **Track** (a recording) against a **Route** (a line the mode saved). The aim ring left Compose for a `RouteHost`-owned osmdroid overlay in the track band, and the device's own log then named a long-standing defect: the marker pass swept the route's destination pin, so the line was never fed — the sweep now spares it and the lines no longer depend on it. `apk-build.bat` and the unit suites are green; nothing is committed, and three diagnostic log lines still stand in `RouteHost` pending the verifying run.
 
-## Target files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`,
-  `MarkersViewModel.kt`
-- `app/src/test/java/ykws/android/maro/ui/map/DashboardScopeClosedTest.kt`
+## Target Files
+- `app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt` — the panel's anatomy and the doctrine's action roles
+- `app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt` — the map objects, the ring overlay, and the three diagnostic log lines to remove
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — the marker pass's sweep, which now spares the route's pin
+- `app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt` · `StatCell.kt` — the shared checkbox row and the shared reading cell
+- `docs/ui-component-guidelines.md` §5.6 · §5.8 — the button-role doctrine and the route panel's anatomy
 
-## Plans
-- `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md` (status: shipped)
-
-## Next
-Device pass owed: the panel stacking in both orientations, the two three-stripe icons tapped with a
-track open, and the action matrix (displays keep, list filter/sort closes, `+` replaces). Optional
-`#bake` items: the feature summary and this file are current; nothing else queued.
-
-**Last Bake:** 2026-09-17 14:27 UTC
+## Next Step
+Deploy the current build and take the device pass the work owes: aim a route and follow it (the line draws from the boat with the ring under it, the destination dot survives the marker pass, the panel reads header · table · rule · pin with the actions at its foot), then remove the three diagnostic log lines from `RouteHost`.

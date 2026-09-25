@@ -30,6 +30,7 @@ import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
 import ykws.android.maro.spatial.NoOpWhereAmIDebugger
+import ykws.android.maro.spatial.Units
 import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
@@ -1140,8 +1141,8 @@ fun WhereAmIMatch.toMarkerSnapshot(): ykws.android.maro.data.track.MarkerSnapsho
         else -> 0.0
     }
     val (distNm, bearingDeg) = when (this) {
-        is WhereAmIMatch.ZoneMatch -> distanceToCenterM / 1852.0 to bearingDeg
-        is WhereAmIMatch.LineOfSightMatch -> seaDistanceM / 1852.0 to bearingDeg
+        is WhereAmIMatch.ZoneMatch -> Units.metresToNauticalMiles(distanceToCenterM) to bearingDeg
+        is WhereAmIMatch.LineOfSightMatch -> Units.metresToNauticalMiles(seaDistanceM) to bearingDeg
     }
     return ykws.android.maro.data.track.MarkerSnapshot(
         markerId = m.id,

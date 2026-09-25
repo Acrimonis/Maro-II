@@ -341,7 +341,7 @@ Row(
 |--------|-------|--------|
 | Accent color source | `computeTrackPolylineAppearance()` → ARGB int | `MarkerColors.of(colorIndex)` |
 | Header metadata | `dateLabel  startTime→endTime` + `pts` | `coordinateHeader()`: `[lat,lon]` (Pin/Circle) or `[lat,lon]→[lat,lon]` (Corridor) |
-| Detail text | 3-col × 2-row stats grid | `markerFormatText()`: `📌 - 200m prox` / `⭕ - 200m r - 200m prox` / `📏 - 100m w - 200m prox` |
+| Detail text | 3-col × 2-row stats grid, each cell the shared `StatCell` (`ui/components/StatCell.kt`) | `markerFormatText()`: `📌 - 200m prox` / `⭕ - 200m r - 200m prox` / `📏 - 100m w - 200m prox` |
 | Action icons | Pin toggle + Export GPX | Edit only |
 | Accent bar when hidden | Always real color | Always marker color |
 

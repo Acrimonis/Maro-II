@@ -48,6 +48,13 @@ class DepthViewModel(
     private val repository: DepthRepository = DepthRepository()
 ) : ViewModel() {
 
+    /**
+     * The depth grid's own reader, so a consumer that needs the grid reads **the one the app loaded**
+     * rather than decoding a second copy of it — the route tracer's own need, which is triggered by the
+     * tracer's readiness rather than by this screen.
+     */
+    val depthRepository: DepthRepository get() = repository
+
     /** Initialise the cache dir and start the one-time lazy load (cache → else bake from assets). */
     fun initCache(context: Context) {
         repository.setCacheDir(context)

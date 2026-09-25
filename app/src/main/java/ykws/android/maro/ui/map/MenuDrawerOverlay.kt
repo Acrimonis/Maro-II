@@ -48,9 +48,42 @@ import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
+import ykws.android.maro.ui.icons.route
 
 /** The two render axes the Tracks rendering row toggles, in the order the twin box draws them (D5). */
 private enum class TrackAxis { ARROWS, COLOURS }
+
+/**
+ * One route action pill: a label beside the shared `route` glyph, mirroring the menu's Import/Export
+ * pair. A disabled pill dims its label and icon and refuses the tap, like the old destination row's
+ * unavailable face.
+ */
+@Composable
+private fun RoutePill(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .heightIn(min = 48.dp)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = label,
+            color = Color(AppConfig.uiTextPrimary).copy(alpha = if (enabled) 1f else 0.35f),
+            fontSize = AppConfig.uiFontToggleSize.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Icon(
+            imageVector = route,
+            contentDescription = null,
+            tint = Color(AppConfig.uiTextMuted),
+            modifier = Modifier.size(24.dp).alpha(if (enabled) 1f else 0.35f)
+        )
+    }
+}
 
 /**
  * Menu slide panel — pure content composable.
@@ -93,6 +126,18 @@ fun MenuDrawerOverlay(
     onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    /**
+     * The route actions' own state, read from the route bundle: [routeActive] gates the From pill
+     * while the mode is on, [routeConfirmed] gates the Save pill while a route is followed, and
+     * [routeAimOffBoat] gates the To pill once the aim has left the boat.
+     */
+    routeActive: Boolean = false,
+    routeConfirmed: Boolean = false,
+    routeFrontSaved: Boolean = false,
+    routeAimOffBoat: Boolean = false,
+    onRouteTo: () -> Unit = {},
+    onRouteFrom: () -> Unit = {},
+    onSaveRoute: () -> Unit = {},
     modifier: Modifier = Modifier,
     // ── Filter state ──────────────────────────────────────────────────
     trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
@@ -157,6 +202,50 @@ fun MenuDrawerOverlay(
                     label = stringResource(R.string.settings_autoshow_master_label),
                     checked = autoShowMasterOverride,
                     onCheckedChange = onAutoShowMasterChange
+                )
+            }
+
+            // ── The route actions: one title, one comment, three labeled pills ──
+            // The mode's own switch stays the map control stack's square; these are the three forward
+            // actions — route to the aim, recompute from the boat, save — each gated on its own state.
+            SectionDivider()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.menu_route_title),
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = AppConfig.uiFontToggleSize.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = stringResource(R.string.menu_route_comment),
+                    color = Color(AppConfig.uiTextMuted),
+                    fontSize = AppConfig.uiFontDescSize.sp
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                RoutePill(
+                    label = stringResource(R.string.menu_route_to),
+                    enabled = routeAimOffBoat,
+                    onClick = onRouteTo
+                )
+                RoutePill(
+                    label = stringResource(R.string.menu_route_from),
+                    enabled = routeActive,
+                    onClick = onRouteFrom
+                )
+                RoutePill(
+                    label = stringResource(R.string.menu_route_save),
+                    enabled = routeConfirmed && !routeFrontSaved,
+                    onClick = onSaveRoute
                 )
             }
         }

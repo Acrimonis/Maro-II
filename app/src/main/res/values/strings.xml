@@ -24,8 +24,8 @@
     <string name="settings_back">Back</string>
     <string name="settings_section_language">Language</string>
     <string name="settings_language_system">System</string>
-    <string name="settings_section_position">Position mode</string>
-    <string name="settings_redisplay_label">Auto-show zones</string>
+    <string name="settings_section_position">Navigation</string>
+    <string name="settings_redisplay_label">Auto-show Speed Zones</string> 
     <string name="settings_redisplay_enable_gps">Enable in GPS mode</string>
     <string name="settings_redisplay_enable_demo">Enable in demo mode</string>
     <string name="settings_redisplay_zone300">300 m zone</string>
@@ -85,7 +85,7 @@
     <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
     <string name="settings_zone300_color_label">Zone color</string>
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
-    <string name="settings_zone300_opacity_desc">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_zone300_opacity_desc" formatted="false">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">300m Zone Appearance</string>
     <string name="settings_zone300_boundary_width_desc">Width of the 300 m band boundary line (dp)</string>
     <string name="settings_regulated_zones_outline_width_desc">Width of the regulated zone outlines (dp)</string>
@@ -223,6 +223,9 @@
     <string name="track_stat_avg">Avg</string>
     <string name="track_stat_dist">Dist</string>
     <string name="track_stat_idle">Idle</string>
+    <!-- A route's two estimated cells: the plan's allotted time and the pace it was priced with. -->
+    <string name="track_stat_total_estimated">Total (est.)</string>
+    <string name="track_stat_avg_estimated">Avg (est.)</string>
     <string name="track_stat_max">Max</string>
 
     <!-- Sort dropdown -->
@@ -357,6 +360,10 @@
     <string name="filter_option_last_6_months">Last 6 month</string>
     <string name="filter_option_all">All</string>
     <string name="filter_option_unpinned">Unpinned</string>
+    <!-- The kind axis: the route field's own two words. -->
+    <string name="filter_axis_kind">Kind</string>
+    <string name="filter_option_tracks">Tracks</string>
+    <string name="filter_option_routes">Routes</string>
     <string name="filter_option_on_water">On water</string>
     <string name="filter_option_with_icon">With icon</string>
     <string name="filter_option_without_icon">Without icon</string>
@@ -388,6 +395,8 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
     <string name="settings_tracks_count_label">Not-pinned tracks to render</string>
     <string name="settings_tracks_count_desc">This count limits non-pinned tracks only (0-20). Pinned tracks always render.</string>
+    <string name="settings_routes_count_label">Nb of routes to render</string>
+    <string name="settings_routes_count_desc">This count limits non-pinned routes only (0-20). A pinned route always renders.</string>
     <string name="settings_transparency_label">Not-pinned transparency</string>
     <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
@@ -395,6 +404,8 @@
     <string name="settings_transparency_border_fill_value_fmt">Border %1$d%% · Fill %2$d%%</string>
     <string name="settings_pinned_transparency_label">Pinned transparency</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_route_transparency_label">Routes transparency</string>
+    <string name="settings_route_transparency_desc" formatted="false">Fade across the routes drawn, newest to oldest, independent of both ranges above. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Default Colors</string>
     <string name="settings_colors_desc">The colours drawn while Colours is off. Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
@@ -550,10 +561,94 @@
     <string name="settings_color_active_track">Active track</string>
     <string name="settings_color_past_tracks">Past tracks</string>
     <string name="settings_color_pinned_tracks">Pinned tracks</string>
+    <string name="settings_color_routes">Routes</string>
+    <string name="settings_routes_speed_color_label">Speed colours on routes</string>
+    <string name="settings_routes_arrows_label">Arrows on routes</string>
+    <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->
+    <string name="startup_colour_value_unreadable">Unreadable colour value in maro.properties (%1$s) — the default colour was used.</string>
+    <!-- D4: a persisted route-engine id nothing claims fell back to the default, and the app says so at start. -->
+    <string name="startup_route_engine_id_unclaimed">Route engine %1$s is unknown — the default was used.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">\"%s\" deleted</string>
     <string name="action_undo">Undo</string>
+
+    <!-- Route destination mode -->
+    <string name="cd_route_toggle">Route destination mode</string>
+    <!-- The acquisition's own title and comment: the phase's name, then one line of what it asks. -->
+    <string name="route_acq_title">Route acquisition</string>
+    <string name="route_acq_comment">Place the destination, then acquire the route</string>
+    <!-- The data table's own labels: two columns, an end each, the figures below them. -->
+    <string name="route_label_start">Start</string>
+    <string name="route_label_destination">Destination</string>
+    <string name="route_label_eta">ETA</string>
+    <!-- The ETA cell's bare value — the label above is what says "ETA", so it is not repeated. -->
+    <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
+    <string name="route_action_acquire">Acquire route</string>
+    <string name="route_action_confirm">Confirm</string>
+    <string name="route_action_reroute">Reroute</string>
+    <string name="route_action_new">New route</string>
+    <string name="route_action_save_only">Save track and Exit</string>
+    <string name="route_action_save_track">Save track</string>
+    <string name="route_action_exit">Exit</string>
+    <string name="route_pin_label">Pin the track</string>
+    <string name="route_searching">Computing Route…</string>
+    <string name="route_no_route">No water route here</string>
+    <!-- The refused end's two sentences — one per end, and the crosshair is the same on both. -->
+    <string name="route_destination_invalid">Destination invalid: %1$s</string>
+    <string name="route_origin_invalid">Position invalid: %1$s</string>
+    <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
+    <string name="route_following_active">Routing active</string>
+    <string name="route_status_acquiring">Acquiring…</string>
+    <string name="route_status_active">Route active</string>
+    <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
+         search crosses, in the order it crosses them. -->
+    <string name="route_stage_corridor">Corridor</string>
+    <string name="route_stage_grid">Grid</string>
+    <string name="route_stage_search">Search</string>
+    <string name="route_stage_pull">Pull</string>
+    <string name="route_stage_snap">Snap</string>
+    <!-- The one exit dialog, reached by the toggle and by the panel's Exit alike. Its accent reuses
+         the draft's own save words (route_action_save_only), the scope above saying how many routes
+         that save writes. -->
+    <string name="route_exit_title">Leave the route?</string>
+    <string name="route_exit_continue">Continue</string>
+    <string name="route_exit_discard">Discard route</string>
+    <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
+         "invalid" sentence above completes. Both ends read the same set. -->
+    <string name="route_refusal_off_water">no water here</string>
+    <string name="route_refusal_outside_coverage">outside the covered area</string>
+    <string name="route_destination_moved">Nearest water point</string>
+    <string name="route_trip_title">Route</string>
+    <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_trip_ago">%1$s ago</string>
+    <string name="route_age_sec">%1$d s</string>
+    <string name="route_age_min">%1$d min</string>
+    <string name="route_trip_forced">forced: %1$s</string>
+    <string name="route_forced_crossing">Forced crossing of %1$s</string>
+    <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
+         surface behind it may not be a mesh. -->
+    <string name="route_unavailable_region_not_baked">Routing unavailable for this region</string>
+    <!-- The replacement engine's own reason: the soundings are what hold a route off the shore, so no
+         route is offered until the depth grid has loaded. -->
+    <string name="route_unavailable_depth_not_loaded">Routing waits for the depth data</string>
+    <!-- The other half of that refusal: the wall is land dilated by the berth, so a route asked for
+         before the coastline lands would draw a line over the shore. -->
+    <string name="route_unavailable_coastline_not_loaded">Routing waits for the coastline</string>
+    <string name="settings_route_pace_label">Free-water pace</string>
+    <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
+    <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
+    <string name="settings_section_route_algorithm">Route algorithm</string>
+    <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
+    <string name="route_engine_dummy">Straight line</string>
+    <string name="route_engine_avoid">Avoidance</string>
+    <!-- The route actions group: one title, one comment, three labeled pills. -->
+    <string name="menu_route_title">Route</string>
+    <string name="menu_route_comment">Plot, recompute or save a water route</string>
+    <string name="menu_route_to">To</string>
+    <string name="menu_route_from">From</string>
+    <string name="menu_route_save">Save</string>
 </resources>

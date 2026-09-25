@@ -231,6 +231,40 @@ class TrackRenderFlagsPathTest {
         }
     }
 
+    @Test
+    fun theLegendSeesARouteBandedByItsOwnGate() {
+        // R37: a route bands on its own colour gate alone, so the ramp can be on the map while both
+        // chips are off. Read through the same entry point the composition calls, with the painted id
+        // named as the route it is — without that the gate asks the planner about it as a recorded
+        // track, answers "no banded stroke" and hides the scale from the fill it keys.
+        fun gate(
+            routeSpeedColour: Boolean,
+            selectedId: String? = null
+        ): Boolean = legendVisibleForState(
+            paintedIds = setOf("route"),
+            trackArrows = false,
+            trackColours = false,
+            highlightedTrackId = selectedId,
+            eyeOverride = null,
+            tracksVisible = true,
+            routeIds = setOf("route"),
+            routeSpeedColour = routeSpeedColour
+        )
+
+        assertTrue(
+            "a route banded by its own gate carries the ramp, chips off and nothing open",
+            gate(routeSpeedColour = true)
+        )
+        assertFalse(
+            "and with the gate off the route paints from its pair: no ramp, no scale",
+            gate(routeSpeedColour = false)
+        )
+        // The open track's fill decides the same way when it is a route: its own gate answers where the
+        // chips and the eye never reach it.
+        assertTrue(gate(routeSpeedColour = true, selectedId = "route"))
+        assertFalse(gate(routeSpeedColour = false, selectedId = "route"))
+    }
+
     // ── The eye's persisted value: what a tap writes ─────────────────────
 
     @Test

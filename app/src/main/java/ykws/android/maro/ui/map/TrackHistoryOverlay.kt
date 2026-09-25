@@ -46,7 +46,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -59,8 +58,6 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,10 +75,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -109,6 +103,7 @@ import ykws.android.maro.ui.components.ConfirmDialog
 import ykws.android.maro.ui.components.ConfirmRequest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ykws.android.maro.BuildConfig
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.CustomSortField
@@ -122,7 +117,10 @@ import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
+import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.OptionRow
+import ykws.android.maro.ui.components.StatCell
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -168,6 +166,11 @@ fun TrackHistoryOverlay(
     // ── Render preview settings ───────────────────────────────────────
     tracksVisible: Boolean = true,
     trackingRenderNb: Int = 20,
+    /**
+     * The route role's own count, which its accent strip previews: it bounds the non-pinned routes
+     * alone, a pinned route being drawn whatever it says (R35). Its shipped default is the key's own.
+     */
+    routeRenderNb: Int = BuildConfig.TRACKING_ROUTE_RENDER_NB,
     trackingTransparencyNewest: Int = 20,
     trackingTransparencyOldest: Int = 80,
     trackingColorPastFrom: Int = 0xFF1565C0.toInt(),
@@ -175,7 +178,12 @@ fun TrackHistoryOverlay(
     trackingTransparencyPinnedNewest: Int = 0,
     trackingTransparencyPinnedOldest: Int = 20,
     trackingColorPinnedFrom: Int = 0xFFFF6F00.toInt(),
-    trackingColorPinnedTo: Int = 0xFFFF8F00.toInt()
+    trackingColorPinnedTo: Int = 0xFFFF8F00.toInt(),
+    // The route role's own four values, which its accent strip previews: its pair and its ladder.
+    trackingTransparencyRouteNewest: Int = 20,
+    trackingTransparencyRouteOldest: Int = 80,
+    trackingColorRouteFrom: Int = 0xFF1565C0.toInt(),
+    trackingColorRouteTo: Int = 0xFF0000FF.toInt()
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
@@ -188,14 +196,17 @@ fun TrackHistoryOverlay(
     }
 
     // Pre-compute accent bar colors — batch lambda for scaffold
-    val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb,
+    val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb, routeRenderNb,
         trackingTransparencyNewest, trackingTransparencyOldest,
         trackingColorPastFrom, trackingColorPastTo,
         trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
-        trackingColorPinnedFrom, trackingColorPinnedTo
+        trackingColorPinnedFrom, trackingColorPinnedTo,
+        trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
+        trackingColorRouteFrom, trackingColorRouteTo
     ) {
         val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
-        val historySummaries = trackSummaries.filter { !it.pinned }.sortedByDescending { it.startTimeMs }
+        // The recorded tracks only: a route's strip is its own pair, written last below.
+        val historySummaries = trackSummaries.filter { !it.pinned && !it.route }.sortedByDescending { it.startTimeMs }
         val map = mutableMapOf<String, Color>()
         val greyColor = Color(AppConfig.uiTextMuted).copy(alpha = 0.15f)
         val pinnedTotal = pinnedSummaries.size
@@ -225,6 +236,31 @@ fun TrackHistoryOverlay(
             } else {
                 map[summary.id] = greyColor
             }
+        }
+        // The routes follow the policy the map paints by (R34, R35): the pin buys the escape from the
+        // count and nothing else — a pinned route keeps the route pair, written last so it wins over the
+        // pinned group's amber above — while the unpinned ones are bounded by the route count and greyed
+        // beyond it, exactly as the recorded ones above are.
+        val routeCount = routeRenderNb.coerceIn(0, 20)
+        val pinnedRouteSummaries = trackSummaries.filter { it.route && it.pinned }.sortedByDescending { it.startTimeMs }
+        val openRouteSummaries = trackSummaries.filter { it.route && !it.pinned }.sortedByDescending { it.startTimeMs }
+        val drawnRoutes = openRouteSummaries.take(routeCount)
+        fun routeAccent(index: Int, total: Int): Color {
+            val appearance = computeTrackPolylineAppearance(
+                index, total,
+                trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
+                trackingColorRouteFrom, trackingColorRouteTo,
+                AppConfig.trackWidthRouteDp
+            )
+            val a = appearance.argb
+            return Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
+        }
+        for ((index, summary) in drawnRoutes.withIndex()) {
+            map[summary.id] = routeAccent(index, drawnRoutes.size)
+        }
+        openRouteSummaries.drop(drawnRoutes.size).forEach { map[it.id] = greyColor }
+        for ((index, summary) in pinnedRouteSummaries.withIndex()) {
+            map[summary.id] = routeAccent(index, pinnedRouteSummaries.size)
         }
         map
     }
@@ -298,17 +334,21 @@ fun TrackHistoryOverlay(
                 id = "merge",
                 label = mergeLabel,
                 icon = Icons.AutoMirrored.Filled.MergeType,
-                enabled = { ids -> ids.size >= 2 },
+                // The candidacy refuses a route rather than the action (R41): a route is a line between
+                // two points, not a leg of a journey, so a selection left with fewer than two non-routes
+                // disables merge by itself.
+                enabled = { ids -> mergeCandidates(trackSummaries, ids).size >= 2 },
                 confirmRequest = { ids, onDismiss, onConfirm ->
+                    val candidates = mergeCandidates(trackSummaries, ids)
                     val nameById = trackSummaries
-                        .filter { it.id in ids }
+                        .filter { it.id in candidates }
                         .sortedBy { it.startTimeMs }
                         .map { it.name }
                     val defaultName = if (nameById.size == 2) "${nameById[0]} + ${nameById[1]}"
                         else "${nameById.first()} ... ${nameById.last()}"
                     val state = MergeDialogState(defaultName)
                     ConfirmRequest(
-                        title = context.getString(R.string.track_merge_title, ids.size),
+                        title = context.getString(R.string.track_merge_title, candidates.size),
                         message = mergeNameHint,
                         options = {
                             MergeDialogOptions(
@@ -319,7 +359,7 @@ fun TrackHistoryOverlay(
                         actions = listOf(
                             ConfirmAction(mergeLabel, ConfirmActionRole.PRIMARY) {
                                 onMergeTracks?.invoke(
-                                    ids,
+                                    candidates,
                                     state.name.ifBlank { mergeDefaultName },
                                     state.keepOriginals
                                 )
@@ -410,31 +450,12 @@ private fun MergeDialogOptions(
         modifier = Modifier.fillMaxWidth()
     )
     Spacer(Modifier.height(8.dp))
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = state.keepOriginals,
-                role = Role.Checkbox,
-                onValueChange = { state.keepOriginals = it }
-            )
-            .semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(
-            checked = state.keepOriginals,
-            onCheckedChange = null,
-            colors = CheckboxDefaults.colors(
-                checkedColor = Color(AppConfig.uiAccent)
-            )
-        )
-        Text(
-            keepOriginalsLabel,
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = 14.sp,
-            modifier = Modifier.weight(1f)
-        )
-    }
+    OptionRow(
+        label = keepOriginalsLabel,
+        checked = state.keepOriginals,
+        onCheckedChange = { state.keepOriginals = it },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 /**
@@ -527,7 +548,10 @@ internal fun TrackCardContent(
         val startTime = remember(summary.id) {
             timeFormat.format(Date(summary.startTimeMs))
         }
-        val endTime = summary.endTimeMs?.let { finalizeMs ->
+        // A route's header carries the instant of its **generation and finalisation** — not of the
+        // save, which is the stamp `TrackFromCourse` writes as its start — and **no end time** (R40),
+        // so a route reads as one stamp rather than as a range.
+        val endTime = if (summary.route) null else summary.endTimeMs?.let { finalizeMs ->
             val displayMs = summary.lastPointTimeMs.takeIf { it != 0L } ?: finalizeMs
             timeFormat.format(Date(displayMs))
         }
@@ -558,7 +582,9 @@ internal fun TrackCardContent(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-                if (summary.endTimeMs != null && !isRecording && onResumeTrack != null) {
+                // One predicate on the summary, shared by every surface that offers Resume: a route
+                // never resumes (R41), and the recording guard beside it is the screen's own state.
+                if (summary.resumeAllowed && !isRecording && onResumeTrack != null) {
                     IconButton(
                         onClick = { onResumeTrack(summary.id) },
                         modifier = Modifier.size(36.dp)
@@ -699,20 +725,32 @@ internal fun TrackCardContent(
         )
         Spacer(Modifier.height(1.dp))
 
-        // ── Stats grid: 3-column × 2-row ───────────────────────────
+        // ── Stats grid: 3-column × 2-row for a recording, one 3-column row for a route ───────────
         val totalSec = if (summary.endTimeMs != null) {
             val endMs = summary.lastPointTimeMs.takeIf { it != 0L } ?: summary.endTimeMs!!
             (endMs - summary.startTimeMs) / 1000
         } else 0L
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(totalSec)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(summary.navigatingDurationSec)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg), fmtKnFromMps(summary.averageSpeedMps)) }
-        }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(summary.distanceNm)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.idleDurationSec)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
+        if (summary.route) {
+            // A route keeps the grid's own three-column shape and shows three cells (R39): Dist is
+            // measured off the line and needs no marker, while Total is the plan's allotted time and
+            // Avg the pace it was priced with — each labelled as an estimate, the words carrying that
+            // rather than the arithmetic.
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(summary.distanceNm)) }
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total_estimated), fmtDuration(totalSec)) }
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg_estimated), fmtKnFromMps(summary.averageSpeedMps)) }
+            }
+        } else {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(totalSec)) }
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(summary.navigatingDurationSec)) }
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg), fmtKnFromMps(summary.averageSpeedMps)) }
+            }
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(summary.distanceNm)) }
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.idleDurationSec)) }
+                Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
+            }
         }
     }
     }
@@ -935,36 +973,6 @@ private fun LiveTrackCard(
 /** Which field is being edited — ensures mutual exclusion. */
 private enum class EditingField { NAME, COMMENT }
 
-/** Single cell in the 3-column stats grid: label (33%, right-aligned) + value (66%, left-aligned). */
-@Composable
-private fun StatCell(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "$label:",
-            color = Color(AppConfig.uiTextMuted),
-            fontSize = 11.sp,
-            lineHeight = 12.sp,
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            modifier = Modifier.weight(0.33f)
-        )
-        Spacer(Modifier.width(3.dp))
-        Text(
-            text = value,
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = 12.sp,
-            lineHeight = 13.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.weight(0.66f)
-        )
-    }
-}
-
 /** Human-readable duration: "2h 30m 0s" / "32m 0s" — matches drawer format. */
 private fun fmtDuration(totalSeconds: Long): String {
     val hours = totalSeconds / 3600
@@ -979,7 +987,7 @@ private fun fmtDuration(totalSeconds: Long): String {
 
 /** Speed from mps in knots with 1 decimal: "5.1 kn" — matches drawer format. */
 private fun fmtKnFromMps(speedMps: Float): String {
-    val kn = speedMps * 1.94384f
+    val kn = speedMps * ykws.android.maro.spatial.Units.KNOTS_PER_MPS.toFloat()
     return java.lang.String.format(java.util.Locale.US, "%.1f kn", kn)
 }
 
