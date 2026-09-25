@@ -23,6 +23,7 @@ import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.MarkerSelectionPolicy
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.CoastlineSpatialIndex
@@ -115,6 +116,7 @@ sealed class WizardStep {
     data object Proximity : WizardStep()       // All types
     data object Title : WizardStep()           // All types
     data object Description : WizardStep()     // All types
+    data object RoutingCost : WizardStep()     // All types; last, optional
 }
 
 /**
@@ -132,7 +134,8 @@ data class CreateFormState(
     val colorIndex: Int = 0,
     val icon: String? = null,            // POI emoji/unicode icon, null = no icon
     // Corridor 2nd-point
-    val corridorP2: LatLng? = null
+    val corridorP2: LatLng? = null,
+    val routingCost: Int? = null         // null = unset; 1–9 when set (wheel's 0 stop = unset)
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -419,7 +422,8 @@ class MarkersViewModel(
             description = marker.description,
             colorIndex = colorIndex,
             icon = marker.icon,
-            corridorP2 = corridorP2
+            corridorP2 = corridorP2,
+            routingCost = validRoutingCost(marker.routingCost)
         )
         setDrawerState(MarkerDrawerState.Viewing)
     }
@@ -547,16 +551,17 @@ class MarkersViewModel(
     private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
         MarkerType.PIN -> listOf(
             WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.Proximity, WizardStep.Title, WizardStep.Description
+            WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
         )
         MarkerType.CIRCLE -> listOf(
             WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.Radius, WizardStep.Proximity, WizardStep.Title, WizardStep.Description
+            WizardStep.Radius, WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title,
+            WizardStep.Description
         )
         MarkerType.CORRIDOR -> listOf(
             WizardStep.TypeSelect, WizardStep.Position,
             WizardStep.PositionP2, WizardStep.Radius,
-            WizardStep.Proximity, WizardStep.Title, WizardStep.Description
+            WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
         )
     }
 
@@ -607,7 +612,8 @@ class MarkersViewModel(
             position = initialPos,
             name = defaultName,
             description = dateTimeFormat.get()!!.format(now),
-            colorIndex = colorIdx
+            colorIndex = colorIdx,
+            routingCost = null
         )
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
@@ -643,7 +649,8 @@ class MarkersViewModel(
                 description = marker.description,
                 colorIndex = marker.colorIndex ?: 0,
                 icon = marker.icon,
-                corridorP2 = corridorP2
+                corridorP2 = corridorP2,
+                routingCost = validRoutingCost(marker.routingCost)
             )
         }
         wizardForward = true
@@ -761,7 +768,8 @@ class MarkersViewModel(
             confirmed = true,
             colorIndex = form.colorIndex,
             icon = form.icon,
-            createdAtEpochMs = System.currentTimeMillis()
+            createdAtEpochMs = System.currentTimeMillis(),
+            routingCost = validRoutingCost(form.routingCost)
         )
 
         viewModelScope.launch {
@@ -802,12 +810,15 @@ class MarkersViewModel(
                 MarkerType.CORRIDOR -> form.widthM * AppConfig.markerProximityZoneMultiplier
             }
 
+        // The copy takes the form's routingCost, so a Finish pressed early on the last step means the
+        // same thing for an edit as for a fresh marker.
         val updated = existing.copy(
             name = form.name.ifBlank { existing.name },
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
-            icon = form.icon
+            icon = form.icon,
+            routingCost = validRoutingCost(form.routingCost)
         )
 
         viewModelScope.launch {

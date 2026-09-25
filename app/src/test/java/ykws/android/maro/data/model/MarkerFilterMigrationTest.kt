@@ -25,14 +25,16 @@ class MarkerFilterMigrationTest {
         id: String,
         icon: String? = null,
         pinned: Boolean = false,
-        origin: MarkerOrigin = MarkerOrigin.USER
+        origin: MarkerOrigin = MarkerOrigin.USER,
+        routingCost: Int? = null
     ): UserMarker = UserMarker(
         id = id,
         name = id,
         geometry = MarkerGeometry.Pin(LatLng(43.0, 7.0)),
         icon = icon,
         pinned = pinned,
-        origin = origin
+        origin = origin,
+        routingCost = routingCost
     )
 
     private fun filter(vararg entries: Pair<String, String>): ListFilter =
@@ -100,6 +102,36 @@ class MarkerFilterMigrationTest {
 
         assertTrue(pinned.matchesFilter(f))
         assertTrue(unpinned.matchesFilter(f))
+    }
+
+    @Test
+    fun `routeCost axis WITH_COST matches only markers with a valid cost`() {
+        val withCost = marker("a", routingCost = 3)
+        val withoutCost = marker("b", routingCost = null)
+        val f = filter("routeCost" to "WITH_COST")
+
+        assertTrue(withCost.matchesFilter(f))
+        assertFalse(withoutCost.matchesFilter(f))
+    }
+
+    @Test
+    fun `routeCost axis WITHOUT_COST matches only markers without a valid cost`() {
+        val withCost = marker("a", routingCost = 3)
+        val withoutCost = marker("b", routingCost = null)
+        val f = filter("routeCost" to "WITHOUT_COST")
+
+        assertFalse(withCost.matchesFilter(f))
+        assertTrue(withoutCost.matchesFilter(f))
+    }
+
+    @Test
+    fun `routeCost axis ALL matches regardless of cost`() {
+        val withCost = marker("a", routingCost = 3)
+        val withoutCost = marker("b", routingCost = null)
+        val f = filter("routeCost" to "ALL")
+
+        assertTrue(withCost.matchesFilter(f))
+        assertTrue(withoutCost.matchesFilter(f))
     }
 
     @Test
