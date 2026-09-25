@@ -60,16 +60,17 @@ import ykws.android.maro.ui.icons.Speed
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
     MarkerType.PIN -> listOf(
         WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.Proximity, WizardStep.Title, WizardStep.Description
+        WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
     )
     MarkerType.CIRCLE -> listOf(
         WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.Radius, WizardStep.Proximity, WizardStep.Title, WizardStep.Description
+        WizardStep.Radius, WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title,
+        WizardStep.Description
     )
     MarkerType.CORRIDOR -> listOf(
         WizardStep.TypeSelect, WizardStep.Position,
         WizardStep.PositionP2, WizardStep.Radius,
-        WizardStep.Proximity, WizardStep.Title, WizardStep.Description
+        WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
     )
 }
 

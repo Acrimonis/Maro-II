@@ -3,6 +3,7 @@ package ykws.android.maro.data.model
 import ykws.android.maro.R
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.data.track.TrackSummary
 import java.util.Calendar
 
@@ -102,6 +103,9 @@ fun UserMarker.matchesFilter(f: ListFilter): Boolean =
                 (value == "PINNED" && this.pinned) ||
                 (value == "UNPINNED" && !this.pinned)
             "origin" -> value == "ALL" || originMatches(this.origin, value)
+            "routeCost" -> value == "ALL" ||
+                (value == "WITH_COST" && validRoutingCost(this.routingCost) != null) ||
+                (value == "WITHOUT_COST" && validRoutingCost(this.routingCost) == null)
             else -> true
         }
     }
@@ -207,6 +211,15 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("MANUAL", R.string.filter_option_manual),
             FilterOptionSpec("AUTO", R.string.filter_option_auto)
+        )
+    ),
+    FilterAxisSpec(
+        key = "routeCost",
+        labelResId = R.string.filter_axis_route_cost,
+        options = listOf(
+            FilterOptionSpec("WITH_COST", R.string.filter_option_route_cost),
+            FilterOptionSpec("WITHOUT_COST", R.string.filter_option_no_route_cost),
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true)
         )
     )
 )
