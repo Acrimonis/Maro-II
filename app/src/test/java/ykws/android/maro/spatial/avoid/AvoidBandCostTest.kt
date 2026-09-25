@@ -7,11 +7,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.min
 
 /**
- * The 300 m band as the first **price** through the field: the rasterizer's single sweep prices the
+ * The 300 m band as the first **price** through the field: the field's own soft source prices the
  * cells inside the band's reach and tags them, a wall inside the margin is never priced, and both the
  * A* and the pull are steered by the price — which is the whole of what a soft source promises.
+ *
+ * The band price reaches the grid through the same soft source `RouteAvoidEngine.costField()` builds,
+ * never through a rasterize sweep argument.
  */
 class AvoidBandCostTest {
 
@@ -27,8 +32,7 @@ class AvoidBandCostTest {
     @Test
     fun theBandPricesTheWaterInsideItsReachAndTagsIt() {
         val grid = rasterize(
-            box, cellM, marginM, emptyList(), listOf(coast), box.latNorth,
-            RouteCostField.EMPTY, bandM, priceM
+            box, cellM, marginM, emptyList(), listOf(coast), box.latNorth, bandField(priceM)
         )
 
         val inBand = grid.cellOf(43.510 - 200.0 / mPerDegLat(), 7.010)
@@ -58,8 +62,7 @@ class AvoidBandCostTest {
     @Test
     fun theMarginStaysLandAndIsNeverPriced() {
         val grid = rasterize(
-            box, cellM, marginM, emptyList(), listOf(coast), box.latNorth,
-            RouteCostField.EMPTY, bandM, priceM
+            box, cellM, marginM, emptyList(), listOf(coast), box.latNorth, bandField(priceM)
         )
 
         val land = grid.cellOf(43.510 + 35.0 / mPerDegLat(), 7.010)
@@ -69,8 +72,7 @@ class AvoidBandCostTest {
     @Test
     fun theBandTurnsOnOnlyWithAPrice() {
         val unpriced = rasterize(
-            box, cellM, marginM, emptyList(), listOf(coast), box.latNorth,
-            RouteCostField.EMPTY, bandM, 0.0
+            box, cellM, marginM, emptyList(), listOf(coast), box.latNorth, bandField(0.0)
         )
 
         val inBand = unpriced.cellOf(43.510 - 200.0 / mPerDegLat(), 7.010)
@@ -131,6 +133,22 @@ class AvoidBandCostTest {
         assertEquals(listOf(start, aim), pulled)
     }
 
+    /**
+     * The band as `RouteAvoidEngine.costField()` builds it: a single soft source priced [priceM]
+     * inside the band's reach off the coast and 0 beyond — the shape the rasterize sweep used to write.
+     */
+    private fun bandField(priceM: Double): RouteCostField {
+        val reachM = bandReachM(bandM, marginM)
+        return RouteCostField(
+            listOf(
+                RouteCostSource.Soft(
+                    priceM = { p -> if (distanceToCoastM(p) <= reachM) priceM else 0.0 },
+                    tag = AvoidCellState.BAND
+                )
+            )
+        )
+    }
+
     /** A band of priced cells in column 5, leaving the top and bottom rows open. */
     private fun bandedGrid(price: Double): AvoidGrid {
         val grid = AvoidGrid(box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM)
@@ -140,5 +158,13 @@ class AvoidBandCostTest {
 
     private fun pricedCell(cell: CellIndex): Boolean = cell.col == 5 && cell.row in 1..9
 
-    private fun mPerDegLat(): Double = ykws.android.maro.spatial.SpatialOperations.EARTH_RADIUS_M * Math.PI / 180.0
+    private fun distanceToCoastM(p: LatLng): Double {
+        var best = Double.MAX_VALUE
+        for (i in 0 until coast.size - 1) {
+            best = min(best, SpatialOperations.pointToSegmentDistance(p, coast[i], coast[i + 1]))
+        }
+        return best
+    }
+
+    private fun mPerDegLat(): Double = SpatialOperations.EARTH_RADIUS_M * Math.PI / 180.0
 }

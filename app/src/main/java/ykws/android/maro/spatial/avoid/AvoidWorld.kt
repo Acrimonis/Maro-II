@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.avoid
 
 import kotlinx.coroutines.flow.first
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.coastline.CoastlineRepository
 import ykws.android.maro.data.depth.DepthRepository
 import ykws.android.maro.data.model.CoastlineState
@@ -68,12 +69,14 @@ interface AvoidWorld {
     val bandWidthM: Double
 
     /**
-     * Makes **both layers** ready if they can be, and reports what the engine reached. Fired by
-     * `prepare()` on a miss: an idle repository is loaded, a loading one is awaited, and the answer is
-     * [RouteEngineState.Ready] once the index and the grid both exist, else
+     * Makes the layers the armed gates need ready if they can be, and reports what the engine
+     * reached. Fired by `prepare()` on a miss: an idle repository is loaded, a loading one is
+     * awaited, and the answer is [RouteEngineState.Ready] once the index — and, while
+     * `route.avoid.depthGate.enabled` is true, the grid — both exist, else
      * [RouteEngineState.Unavailable] with [RouteUnavailableReason.COASTLINE_NOT_LOADED] or
      * [RouteUnavailableReason.DEPTH_NOT_LOADED] — the coastline's name winning when neither is in,
-     * it being the layer everything else is read against.
+     * it being the layer everything else is read against. With the depth gate off the grid is neither
+     * loaded nor refused: the coastline alone makes the world ready.
      */
     suspend fun load(): RouteEngineState
 }
@@ -126,6 +129,10 @@ class LiveAvoidWorld(
 
     override suspend fun load(): RouteEngineState {
         loadCoastline()
+        if (!AppConfig.routeAvoidDepthGateEnabled) {
+            return if (coastlineReady) RouteEngineState.Ready
+            else RouteEngineState.Unavailable(RouteUnavailableReason.COASTLINE_NOT_LOADED)
+        }
         loadDepth()
         return when {
             !coastlineReady ->

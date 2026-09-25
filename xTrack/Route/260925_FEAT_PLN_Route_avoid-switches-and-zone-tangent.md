@@ -1,30 +1,21 @@
 <!-- scope: feature -->
-# Route — avoid engine: switches, a zone tangent, and coarse-to-fine precision
+# Route — avoid engine: a zone tangent and coarse-to-fine precision
 
-**Folded 2026-09-25** into [`260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md`](260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md) — this plan's four changes are that plan's `## Amendments` section; the detail below stays as the record.
+**Folded 2026-09-25** into [`260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md`](260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md) — this plan's four changes are that plan's `## Amendments` section; Changes 1 & 2 (the switches) shipped 2026-09-25 and are folded below, while 3 & 4 stay in design.
 
-**Created:** 2026-09-25 · **Branch:** `feature/route-avoid` · **Status:** in design — revised after two reviews
+**Created:** 2026-09-25 · **Branch:** `feature/route-avoid` · **Status:** in design — Changes 1 & 2 shipped 2026-09-25, 3 & 4 remain
 
 ## What this is for
 
-Four changes, asked at the user's word and corrected by two independent reviews. **Performance is the first requirement**, so Change 4 keeps the fast route-derived path and the exact aim-independent graph is dropped.
+Two changes remain, asked at the user's word and corrected by two independent reviews. **Performance is the first requirement**, so Change 4 keeps the fast route-derived path and the exact aim-independent graph is dropped.
 
-1. A dedicated on/off for **depth avoidance**.
-2. A dedicated on/off for the **300 m zone**.
-3. An **identical tangent look-ahead for the 300 m zone**.
-4. **Coarse-to-fine precision** — a fine grid only around the coarse path — instead of the corner graph.
+1. An **identical tangent look-ahead for the 300 m zone**.
+2. **Coarse-to-fine precision** — a fine grid only around the coarse path — instead of the corner graph.
 
-## Change 1 — depth avoidance on/off
+## Implemented (2026-09-25)
 
-- Key `route.avoid.depthGate.enabled=true`, parsed as `routeAvoidDepthGateEnabled` (default `true`).
-- `costField()` adds the `depthGateSource` only when `routeAvoidDepthGateEnabled && world.depthReady`.
-- **Readiness, closed at both doors:** [`AvoidWorld.load()`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidWorld.kt:127) becomes **gate-aware** — a coastline-only load when the gate is off — **and** [`RouteAvoidEngine.prepare()`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:92) becomes gate-aware so it never calls `loadDepth()` when the gate is off; arming then succeeds on `coastlineReady` alone. **A gate turned on mid-session applies at the next arming, like the engine selection**, so the latched `Ready` never disagrees with the live `depthReady`.
-
-## Change 2 — 300 m zone on/off
-
-- Key `route.avoid.zone300.enabled=true`, parsed as `routeAvoidZone300Enabled` (default `true`).
-- **One home, chosen: the field's soft source.** The band price is a `RouteCostSource.Soft` in `costField()`; the rasterize sweep's own `bandM`/`bandPriceM` arguments are removed so the price is written once, and the pull keeps reading the field's `softPriceM` — its chord guard stays alive. The switch gates that one source: off means no `BAND` tag and no price.
-- `softCostAversion` stays the value that says how dear the band is when on; the enabled key is the explicit switch.
+- **Change 1 — depth avoidance on/off.** `route.avoid.depthGate.enabled=true` (default) gates the depth source; with it off, [`AvoidWorld.load()`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidWorld.kt:127) loads the coastline only and [`RouteAvoidEngine.prepare()`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:92) arms on `coastlineReady` alone.
+- **Change 2 — 300 m zone on/off.** `route.avoid.zone300.enabled=true` (default) gates the band's one soft source; the rasterize sweep's `bandM`/`bandPriceM` arguments are removed so the field writes the price once and the pull's chord guard stays alive.
 
 ## Change 3 — an identical tangent look-ahead for the 300 m zone
 
@@ -53,16 +44,13 @@ Four changes, asked at the user's word and corrected by two independent reviews.
 
 ## Tests
 
-- `depthGate.enabled=false`: arming succeeds with the depth grid absent, no depth load fires, no gate-painted cell.
-- `zone300.enabled=false`: no cell keeps the `BAND` tag, a route through the band costs the same as open water.
-- Both switches default `true`; shipped behaviour unchanged with them unset.
 - The concave-zone regression: a bay-shaped band chording its mouth with the zone on, diving in with it off.
 - The fine-band regressions: the fine path stays within the band and reuses the coarse side; the pull emits no grid-kink corner — every emitted corner has a deflection ≥ a stated threshold, a collinearity merge dropping the rest; and the same start+aim reproduces the same line.
 - A band-dearer chord is refused, and a wall-time guard covers the fine pass.
 
 ## Review findings (2026-09-25) — folded in
 
-Two independent reviews returned **revise**. The first: the world's single both-layer entry, the sweep-side band price and its double count, the 100 m snap radius and the price-blind snap, and the naive corner graph's 7.3 s. The second: the window can cut a needed long chord; the cross-aim determinism claim is unsatisfiable; the band price's home was unchosen; the ~80 ms was an early-rejection bound; `prepare()` must be gate-aware too; `addTangent` explodes at `offsetM/sinHalf`; and `zone300MarginM` is parsed but unused. All are folded into the changes above. The stale "the gate is always on" sentence in `maro.properties` and the `AppConfig` KDoc are corrected with Change 1.
+Two independent reviews returned **revise**. The first: the world's single both-layer entry, the sweep-side band price and its double count, the 100 m snap radius and the price-blind snap, and the naive corner graph's 7.3 s. The second: the window can cut a needed long chord; the cross-aim determinism claim is unsatisfiable; the band price's home was unchosen; the ~80 ms was an early-rejection bound; `prepare()` must be gate-aware too; `addTangent` explodes at `offsetM/sinHalf`; and `zone300MarginM` is parsed but unused. All are folded into the changes above. The stale "the gate is always on" sentence in `maro.properties` and the `AppConfig` KDoc were corrected with Change 1.
 
 ## Open decision
 

@@ -176,11 +176,19 @@ object AppConfig {
 
     /**
      * Depth (m) below which a corridor cell is excluded from the route — `route.avoid.minDepthM`,
-     * default 3.0. The gate is a coarse guard on the route being written, not a fine sounding: a
-     * known depth under this number paints the cell land, and everything at or above it — whatever
-     * its source or confidence — is ignored.
+     * default 3.0, read only while `route.avoid.depthGate.enabled` is true. The gate is a coarse
+     * guard on the route being written, not a fine sounding: a known depth under this number paints
+     * the cell land, and everything at or above it — whatever its source or confidence — is ignored.
      */
     var routeAvoidMinDepthM: Double = 3.0
+        private set
+
+    /**
+     * Whether the 3 m depth gate is armed — `route.avoid.depthGate.enabled`, default true. False runs
+     * the avoid engine on the coastline alone: no depth grid is loaded and no corridor cell is
+     * excluded on a sounding.
+     */
+    var routeAvoidDepthGateEnabled: Boolean = true
         private set
 
     /**
@@ -189,6 +197,14 @@ object AppConfig {
      * carries, so 1.5 makes every metre in the band cost half a metre more.
      */
     var routeAvoidSoftCostAversion: Double = 1.5
+        private set
+
+    /**
+     * Whether the 300 m band is priced — `route.avoid.zone300.enabled`, default true. False prices the
+     * band as open water and writes no BAND tag, so `route.avoid.softCostAversion` stays the value
+     * that says how dear the band is when it is on.
+     */
+    var routeAvoidZone300Enabled: Boolean = true
         private set
 
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
@@ -1445,8 +1461,14 @@ object AppConfig {
             props.getProperty("route.avoid.minDepthM")?.toDoubleOrNull()?.let {
                 routeAvoidMinDepthM = it.coerceIn(0.5, 50.0)
             }
+            props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidDepthGateEnabled = it
+            }
             props.getProperty("route.avoid.softCostAversion")?.toDoubleOrNull()?.let {
                 routeAvoidSoftCostAversion = it.coerceIn(1.0, 5.0)
+            }
+            props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidZone300Enabled = it
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

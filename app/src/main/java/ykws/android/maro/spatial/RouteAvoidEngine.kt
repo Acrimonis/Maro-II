@@ -44,10 +44,10 @@ import kotlin.math.min
  * the regulated speed zones (phase 4) to land as prices on the same chain.
  *
  * **The band.** The layer's own width off the coast, priced at `route.avoid.softCostAversion`: the
- * rasterizer's single sweep at the band's reach writes the price from the cell-centre-to-segment
- * distance it already computed, and the pull refuses a chord whose own price exceeds the cell path's
- * over the span it would replace. A start or aim already inside the band is accepted, so a berth in a
- * marina basin is priced rather than refused.
+ * field's own soft source writes the price once, and the pull refuses a chord whose own price
+ * exceeds the cell path's over the span it would replace. A start or aim already inside the band is
+ * accepted, so a berth in a marina basin is priced rather than refused. The whole band is switched
+ * by `route.avoid.zone300.enabled`.
  *
  * **The depth gate.** A bilinear depth read per cell centre: a known depth below
  * `route.avoid.minDepthM` paints the cell land, ANDed with the coastline's own water through the
@@ -55,12 +55,13 @@ import kotlin.math.min
  * alike — is ignored, with no confidence floor and no penalty. It is a coarse guard on the route being
  * written, not a fine sounding.
  *
- * **Readiness.** [prepare] fires the world's `load()` on a miss and latches
- * [RouteEngineState.Ready] once **both** layers are in; a world that cannot become ready answers
- * [RouteEngineState.Unavailable] with [RouteUnavailableReason.COASTLINE_NOT_LOADED] or
- * [RouteUnavailableReason.DEPTH_NOT_LOADED]. The depth refusal is not decoration: with no grid every
- * cell reads unsurveyed and the gate would be silently inert.
- * [isReadyToRecompute] stays `true` — the engine reads nothing that expires between asks.
+ * **Readiness.** [prepare] fires the world's `load()` on a miss and latches [RouteEngineState.Ready]
+ * once the coastline is in — plus the depth grid while `route.avoid.depthGate.enabled` is true; a
+ * world that cannot become ready answers [RouteEngineState.Unavailable] with
+ * [RouteUnavailableReason.COASTLINE_NOT_LOADED] or [RouteUnavailableReason.DEPTH_NOT_LOADED]. The
+ * depth refusal is not decoration: with the gate on and no grid every cell reads unsurveyed and the
+ * gate would be silently inert. [isReadyToRecompute] stays `true` — the engine reads nothing that
+ * expires between asks.
  *
  * **What the answer means.** The emitted polyline starts at the raw start and ends at the raw aim
  * (`destinationMoved = false`, the pin stands on the aim); the snapped cells are only the search's
@@ -91,7 +92,12 @@ class RouteAvoidEngine(
 
     override suspend fun prepare(): RouteEngineState {
         val world = worldProvider()
-        val next = if (world.coastlineReady && world.depthReady) RouteEngineState.Ready else world.load()
+        val ready = if (AppConfig.routeAvoidDepthGateEnabled) {
+            world.coastlineReady && world.depthReady
+        } else {
+            world.coastlineReady
+        }
+        val next = if (ready) RouteEngineState.Ready else world.load()
         _state.value = next
         return next
     }
@@ -155,10 +161,7 @@ class RouteAvoidEngine(
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val field = costField(world)
-        val bandPriceM = bandPriceM(cellM, AppConfig.routeAvoidSoftCostAversion)
-        val grid = rasterize(
-            box, cellM, marginM, edges, openCoast, capLatNorth, field, world.bandWidthM, bandPriceM
-        )
+        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val startCell = grid.cellOf(from.latitude, from.longitude)
@@ -179,17 +182,17 @@ class RouteAvoidEngine(
     /**
      * The unified cost field for one search, built fresh so a layer that landed since the last answer
      * is read: the coastline's wall — materialized by the rasterizer's geometry sweep, and answering
-     * the clearance the pull's margin reads — and the depth gate when the grid is in, which the
-     * rasterizer paints cell by cell.
+     * the clearance the pull's margin reads — and the depth gate when it is enabled and the grid is
+     * in, which the rasterizer paints cell by cell.
      *
-     * The gate is omitted entirely while the grid is out, and the refusal in [prepare] is what makes
-     * that state unreachable: an ungated search would price unsounded water as open sea and call the
-     * answer a route.
+     * The gate is omitted while `route.avoid.depthGate.enabled` is false or the grid is out. The
+     * refusal in [prepare] is what makes the grid-out state unreachable while it is enabled: an
+     * ungated search would price unsounded water as open sea and call the answer a route.
      */
     private fun costField(world: AvoidWorld): RouteCostField {
         val sources = ArrayList<RouteCostSource>(3)
         sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
-        if (world.depthReady) {
+        if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
             sources.add(
                 depthGateSource(AppConfig.routeAvoidMinDepthM) { p ->
                     val sample = world.depthAt(p.latitude, p.longitude)
@@ -197,18 +200,20 @@ class RouteAvoidEngine(
                 }
             )
         }
-        val bandM = world.bandWidthM
-        val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidSoftCostAversion)
-        if (bandM > 0.0 && bandPriceM > 0.0) {
-            val reachM = bandReachM(bandM, AppConfig.routeAvoidObstacleMarginM)
-            sources.add(
-                RouteCostSource.Soft(
-                    priceM = { p ->
-                        if (world.distanceToCoastM(p.latitude, p.longitude) <= reachM) bandPriceM else 0.0
-                    },
-                    tag = AvoidCellState.BAND
+        if (AppConfig.routeAvoidZone300Enabled) {
+            val bandM = world.bandWidthM
+            val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidSoftCostAversion)
+            if (bandM > 0.0 && bandPriceM > 0.0) {
+                val reachM = bandReachM(bandM, AppConfig.routeAvoidObstacleMarginM)
+                sources.add(
+                    RouteCostSource.Soft(
+                        priceM = { p ->
+                            if (world.distanceToCoastM(p.latitude, p.longitude) <= reachM) bandPriceM else 0.0
+                        },
+                        tag = AvoidCellState.BAND
+                    )
                 )
-            )
+            }
         }
         return RouteCostField(sources)
     }

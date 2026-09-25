@@ -107,10 +107,10 @@ Budget stays ≤ 500 ms wall, re-priced per stage. The invariant the tests pin: 
 
 ## Amendments (2026-09-25) — folded from the 2026-09-25 plan
 
-Four changes designed after three independent reviews, folded here so the feature keeps one plan:
+Four changes designed after three independent reviews, folded here so the feature keeps one plan; the two switches shipped 2026-09-25, the tangent look-ahead and the coarse-to-fine phase remain:
 
-- **Phase 2 amendment — a switch for the depth gate.** `route.avoid.depthGate.enabled=true` (default) gates the depth source; with it off, `AvoidWorld.load()` becomes coastline-only and `prepare()` never calls `loadDepth()`, so arming succeeds on `coastlineReady` alone; a mid-session toggle applies at the next arming.
-- **Phase 3 amendment — a switch for the band, one home for its price, and a tangent look-ahead.** `route.avoid.zone300.enabled=true` gates the band; the band price lives in the field's one soft source (the rasterize sweep's band args removed, so the pull's chord guard stays alive); and the band gains the coastline's tangent look-ahead — its convex corners offset by `bandReachM(bandWidthM, zone300MarginM)`, clamped, with per-set snap radii, so a concave band is chorded rather than dived.
+- **Phase 2 amendment — a switch for the depth gate.** `route.avoid.depthGate.enabled=true` (default) gates the depth source; with it off, `AvoidWorld.load()` becomes coastline-only and `prepare()` never calls `loadDepth()`, so arming succeeds on `coastlineReady` alone; a mid-session toggle applies at the next arming. **Shipped 2026-09-25.**
+- **Phase 3 amendment — a switch for the band, one home for its price, and a tangent look-ahead.** `route.avoid.zone300.enabled=true` gates the band; the band price lives in the field's one soft source (the rasterize sweep's band args removed, so the pull's chord guard stays alive); and the band gains the coastline's tangent look-ahead — its convex corners offset by `bandReachM(bandWidthM, zone300MarginM)`, clamped, with per-set snap radii, so a concave band is chorded rather than dived. **Switch and price home shipped 2026-09-25; the tangent look-ahead remains.**
 - **A new precision phase — coarse-to-fine.** After the coarse grid A\* fixes the homotopy, a finer grid subdivides only the coarse path's own cells (each inheriting its coarse passability, so the side cannot flip) and a second A\* re-walks it; the pull then emits a near-smooth line with a collinearity merge, widened only on no-path. This replaces the corner-graph A\* that measured 7.3 s and sharpens the grid-A\* + corner-snap the taut pull settled on.
 
 ## Challenge findings (2026-09-25) — the corner fix and the budget, challenged

@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
@@ -43,6 +44,23 @@ class RouteAvoidEngineTest {
     private fun success(result: RouteResult?): RouteResult.Success {
         assertTrue("the engine answers a route", result is RouteResult.Success)
         return result as RouteResult.Success
+    }
+
+    @After
+    fun restoreAvoidSwitches() {
+        setAvoidSwitch("routeAvoidDepthGateEnabled", true)
+        setAvoidSwitch("routeAvoidZone300Enabled", true)
+    }
+
+    /**
+     * Flips an [AppConfig] avoid switch for one test. The fields ship `private set` — by design the
+     * values change only through the properties load — so a test that must turn one off reaches the
+     * backing field directly and [restoreAvoidSwitches] puts it back.
+     */
+    private fun setAvoidSwitch(name: String, value: Boolean) {
+        val field = AppConfig::class.java.getDeclaredField(name)
+        field.isAccessible = true
+        field.setBoolean(AppConfig, value)
     }
 
     // ── Readiness ─────────────────────────────────────────────────────────────
@@ -422,6 +440,66 @@ class RouteAvoidEngineTest {
     private fun shallowPatch(latitude: Double, longitude: Double): Boolean =
         latitude in 43.4995..43.5005 && longitude in 7.0210..7.0260
 
+    // ── The two switches ───────────────────────────────────────────────────────
+
+    @Test
+    fun theAvoidSwitchesDefaultOn() {
+        assertTrue("the depth gate ships armed", AppConfig.routeAvoidDepthGateEnabled)
+        assertTrue("the 300 m band ships armed", AppConfig.routeAvoidZone300Enabled)
+    }
+
+    /**
+     * Depth gate off: the coastline alone makes the engine ready, so arming succeeds with the depth
+     * grid absent and `load()` is never fired.
+     */
+    @Test
+    fun depthGateOffArmsWithTheDepthGridAbsentAndNoLoadFires() = runTest {
+        setAvoidSwitch("routeAvoidDepthGateEnabled", false)
+        val world = FakeWorld(ready = true, depthLoaded = false)
+        val engine = newEngine { world }
+
+        assertEquals(RouteEngineState.Ready, engine.prepare())
+        assertTrue(engine.state.value.ready)
+        assertEquals("no depth load fires when the gate is off", 0, world.loadCalls)
+    }
+
+    /** Depth gate off: a shallow patch is not gated, so the line stays straight through it. */
+    @Test
+    fun depthGateOffPaintsNoGateCell() = runTest {
+        setAvoidSwitch("routeAvoidDepthGateEnabled", false)
+        val world = FakeWorld(depth = { lat, lon -> if (shallowPatch(lat, lon)) 2.0 else 20.0 })
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals("the gate off prices the shallow patch as open water", listOf(origin, aim), route.points)
+    }
+
+    /** Zone300 off: the band is priced as open water, so the line through it is the straight chord. */
+    @Test
+    fun zone300OffRoutesThroughTheBandAtOpenWaterCost() = runTest {
+        val coast = listOf(LatLng(43.52, 6.98), LatLng(43.52, 7.08))
+        val start = RoutePoint(43.518, 7.00)
+        val aim = RoutePoint(43.518, 7.06)
+        val straight = SpatialOperations.haversine(start.toLatLng(), aim.toLatLng())
+
+        setAvoidSwitch("routeAvoidZone300Enabled", true)
+        val on = newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }
+        on.onOriginPositionChanged(start)
+        assertTrue(
+            "the priced band bends the line offshore",
+            success(on.onDestinationPositionChanged(aim)).distanceM > straight + 10.0
+        )
+
+        setAvoidSwitch("routeAvoidZone300Enabled", false)
+        val off = newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }
+        off.onOriginPositionChanged(start)
+        val flat = success(off.onDestinationPositionChanged(aim))
+        assertEquals("the band off prices the water as open sea", listOf(start, aim), flat.points)
+        assertEquals(straight, flat.distanceM, 1e-6)
+    }
+
     // ── The 300 m band ─────────────────────────────────────────────────────────
 
     /**
@@ -456,6 +534,8 @@ class RouteAvoidEngineTest {
         private val loadAnswers: MutableList<RouteEngineState> = mutableListOf()
     ) : AvoidWorld {
         val boxes = mutableListOf<BBox>()
+        var loadCalls = 0
+            private set
 
         override val coastlineReady: Boolean get() = ready
         override val depthReady: Boolean get() = depthLoaded
@@ -499,6 +579,7 @@ class RouteAvoidEngineTest {
         }
 
         override suspend fun load(): RouteEngineState {
+            loadCalls++
             val state = if (loadAnswers.isNotEmpty()) loadAnswers.removeAt(0) else RouteEngineState.Ready
             ready = state.ready
             depthLoaded = state.ready
