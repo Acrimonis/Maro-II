@@ -70,6 +70,7 @@ import ykws.android.maro.data.model.MultiActionSubSpec
 import ykws.android.maro.data.model.markerFilterAxes
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.ui.components.ListOverlayScaffold
 
 /**
@@ -496,15 +497,20 @@ internal fun MarkerCardContent(
     }
 }
 
-private fun coordinateHeader(marker: UserMarker): String {
+/**
+ * The card header line: the geometry's coordinates and glyph, plus the 🧭 compass while the marker
+ * carries a valid routing cost. Pure, so the glyph rule is asserted in a JVM test.
+ */
+internal fun coordinateHeader(marker: UserMarker): String {
     val icon = MarkerGeometry.iconFor(marker.geometry)
     fun fmt(ll: ykws.android.maro.data.model.LatLng) =
         "%.4f, %.4f".format(ll.latitude, ll.longitude)
-    return when (val g = marker.geometry) {
+    val line = when (val g = marker.geometry) {
         is MarkerGeometry.Pin -> "[${fmt(g.position)}] $icon"
         is MarkerGeometry.Circle -> "[${fmt(g.center)}] $icon"
         is MarkerGeometry.Corridor -> "[${fmt(g.p1)}] \u2192 [${fmt(g.p2)}] $icon"
     }
+    return if (validRoutingCost(marker.routingCost) != null) "$line \uD83E\uDDED" else line
 }
 
 @Composable

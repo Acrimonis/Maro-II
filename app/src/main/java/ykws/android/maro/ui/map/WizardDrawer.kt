@@ -48,6 +48,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.markers.wizard.WizardButtonRow
 import ykws.android.maro.ui.markers.wizard.WizardTopBar
 import ykws.android.maro.ui.markers.wizard.steps.PositionStep
+import ykws.android.maro.ui.markers.wizard.steps.RoutingCostStep
 import ykws.android.maro.ui.markers.wizard.steps.SliderStep
 import ykws.android.maro.ui.markers.wizard.steps.TextInputStep
 import ykws.android.maro.ui.markers.wizard.steps.TypeSelectStep
@@ -229,6 +230,7 @@ private fun WizardStepContent(
             onValueChange = { v -> viewModel.updateForm { it.copy(description = v) } },
             isLandscape = isLandscape
         )
+        is WizardStep.RoutingCost -> RoutingCostStep(viewModel)
     }
 }
 

@@ -118,6 +118,10 @@ Examples in Settings: Marker halo size and Point/icon zoom (Layers → Markers),
 
 Row padding: **vertical only** — like every row it carries **no horizontal padding** of its own; the container owns the inset (§2.0). Label-left / value-right share one line; for a **two-thumb** slider use `RangeSliderRow` (§2.8).
 
+**Wizard slider steps carry the same composition.** `SliderStep` — the Radius, Proximity and Routing cost steps of the marker wizard — keeps its card surface (16×4dp inner padding, 12dp radius, `uiCardBackground`) instead of a `CardArea`, and inside it follows the recipe above: 16sp Medium `uiTextPrimary` label, 13sp `uiTextMuted` description, the 14sp Bold `ui.value.text` value on the label's line, `${ui.spacing.label.control}` before the control, and `uiAccent` / `uiSwitchTrackInactive` on the slider. Its end labels — the low and high value printed under the track — are 13sp `uiTextMuted`.
+
+**The card owns the horizontal inset.** `SliderStep` pads its own content horizontally by `${ui.padding.card.horizontal}` (16dp) — the same inset a `CardArea` supplies (§2.0) — so the label, the description, the value, the track and both end labels all sit at the settings inset; no child row adds horizontal padding of its own. The earlier row-owned-inset exception is withdrawn: the tight wizard card is the container, and it owns the inset exactly as §2.0 requires.
+
 ### 2.3 Card = rows + sections — `CardArea`, `SectionDivider`, `Expander`
 
 A **`CardArea`** is one surface (20% white, 12dp radius, `${ui.padding.card.horizontal}` = 16dp horizontal + `${ui.padding.card.vertical}` = 8dp vertical padding) holding **1..N control rows**. The rows are the content; the card is the box (§2.1, §2.2) and it owns the horizontal inset for every child inside it (§2.0). The shared stencils (`CardArea`, `ToggleRow`, `SectionHeader`, `SectionDivider`) live in `ui/components` — non-Settings surfaces (e.g. the Menu drawer) reuse them rather than re-implementing.
