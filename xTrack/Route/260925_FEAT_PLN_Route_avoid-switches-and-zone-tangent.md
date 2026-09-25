@@ -1,13 +1,13 @@
 <!-- scope: feature -->
 # Route — avoid engine: a zone tangent and coarse-to-fine precision
 
-**Folded 2026-09-25** into [`260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md`](260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md) — this plan's four changes are that plan's `## Amendments` section; Changes 1 & 2 (the switches) shipped 2026-09-25 and are folded below, while 3 & 4 stay in design.
+**Folded 2026-09-25** into [`260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md`](260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md) — this plan's four changes are that plan's `## Amendments` section; Changes 1–3 shipped 2026-09-25 and are folded below, while 4 stays in design with its fine cell settled at 40 % of the coarse cell.
 
-**Created:** 2026-09-25 · **Branch:** `feature/route-avoid` · **Status:** in design — Changes 1 & 2 shipped 2026-09-25, 3 & 4 remain
+**Created:** 2026-09-25 · **Branch:** `feature/route-avoid` · **Status:** in design — Changes 1–3 shipped 2026-09-25, Change 4 remains, its fine cell set by the user at 40 % of the coarse cell
 
 ## What this is for
 
-Two changes remain, asked at the user's word and corrected by two independent reviews. **Performance is the first requirement**, so Change 4 keeps the fast route-derived path and the exact aim-independent graph is dropped.
+Change 4 remains of the two asked at the user's word, both corrected by two independent reviews. **Performance is the first requirement**, so Change 4 keeps the fast route-derived path and the exact aim-independent graph is dropped.
 
 1. An **identical tangent look-ahead for the 300 m zone**.
 2. **Coarse-to-fine precision** — a fine grid only around the coarse path — instead of the corner graph.
@@ -30,7 +30,7 @@ Two changes remain, asked at the user's word and corrected by two independent re
 **The mechanism.**
 
 1. **Coarse pass, unchanged.** The 50 m grid A\* fixes the homotopy (which side of each obstacle, the corridor).
-2. **A fine band that pins the homotopy.** A finer grid (25 m, tunable) subdivides **only the coarse path's cells** (plus one ring), and each fine cell inherits its coarse cell's passability; the second A\* walks that subdivided corridor. Because a fine cell is passable only where its coarse parent was, the fine pass cannot route around the other side of any obstacle — the coarse pass fixes the side by construction.
+2. **A fine band that pins the homotopy.** A finer grid — `route.avoid.grid.cellM` × `route.avoid.fine.cellRatio`, **40 % of the coarse cell**, hence 20 m at today's 50 m — subdivides **only the coarse path's cells** (plus one ring), and each fine cell inherits its coarse cell's passability; the second A\* walks that subdivided corridor. Because a fine cell is passable only where its coarse parent was, the fine pass cannot route around the other side of any obstacle — the coarse pass fixes the side by construction.
 3. **Pull, then a light snap.** The fine path is pulled taut; the existing corner snap becomes a small cleanup, no longer the thing that invents the corners.
 4. **Widen on no-path, not on edge-touch.** The fine band widens once only when the fine search finds **no path** (unreachable start or aim inside the band) — the corridor's own exhaustion policy — because a path cut off by a narrow band never touches an edge, and a path that does touch may be optimal and unwidenable.
 5. **Determinism is per-route and per-process**, not per-corner: the same start and aim give the same line in one process; the cross-aim claim is dropped, since every fast variant derives its order from the route — and `TangentCorners.corners()` inherits ring order from the index, so this is scoped to a single build, not across launches.
@@ -38,9 +38,10 @@ Two changes remain, asked at the user's word and corrected by two independent re
 **Performance, priced.**
 
 - Coarse A\*: ~33k cells, ~5–15 ms (unchanged).
-- Fine band: ~8 km path × ~1 km band ≈ 8 km²; at 25 m cells ≈ 13 000 cells, at 12.5 m ≈ 51 000 — a fine A\* and its near-coast raster of **~15–80 ms extra**. The figure assumes the fine grid covers **only the band** (outside-band cells are masked land, never a full-box rasterize, which would ~4× the cells). The widen and the corridor retry each add another fine pass, so the gate also carries a **longest-route** wall-time reading, not just the acceptance pair.
+- Fine band: ~8 km path × ~1 km band ≈ 8 km²; at the settled **20 m** cell ≈ 20 000 cells, against ~13 000 at 25 m and ~51 000 at 12.5 m — a fine A\* and its near-coast raster of **~23–125 ms extra**, the linear read of the 15–80 ms the 25 m figure gave. The figure assumes the fine grid covers **only the band** (outside-band cells are masked land, never a full-box rasterize, which would ~4× the cells). The widen and the corridor retry each add another fine pass, so the gate also carries a **longest-route** wall-time reading, not just the acceptance pair.
+- The lattice and the checks stay in step: the pull, the price summation, the ETA splitter and the zone entry test all read every 25 m (`marginM / 2`, `BOUNDARY_SAMPLE_M`), so a 20 m cell is finer than what verifies it rather than coarser.
 - Pull + snap: unchanged, a few ms.
-- **A wall-time reading on the acceptance pair** is the gate — a measurement, not an assertion — and the band width and fine cell size are its two levers.
+- **A wall-time reading on the acceptance pair** is the gate — a measurement, not an assertion — and the **band's width** is the lever left, the cell size having been settled at 40 %.
 
 ## Tests
 
@@ -54,4 +55,4 @@ Two independent reviews returned **revise**. The first: the world's single both-
 
 ## Open decision
 
-The fine band's width and its cell size are starting values, set by the harness measurement on the acceptance pair. The user's call remains whether Change 4 ships as the fine band or the snap is corrected in place instead.
+**The fine cell is settled, the width is not.** `route.avoid.fine.cellRatio` = **0.40** by the user's word of 2026-09-25, so the fine grid is 20 m at today's 50 m `route.avoid.grid.cellM`; the **band's width** stays a starting value for the harness measurement. The user's call also remains whether Change 4 ships as the fine band or the snap is corrected in place instead.

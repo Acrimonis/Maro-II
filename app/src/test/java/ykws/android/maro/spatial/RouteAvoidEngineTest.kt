@@ -3,10 +3,14 @@ package ykws.android.maro.spatial
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.After
 import org.junit.Test
+import java.io.File
+import java.util.Properties
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
@@ -48,6 +52,17 @@ class RouteAvoidEngineTest {
     private fun success(result: RouteResult?): RouteResult.Success {
         assertTrue("the engine answers a route", result is RouteResult.Success)
         return result as RouteResult.Success
+    }
+
+    /** The shipped `maro.properties`: the `app` module's CWD by default, `maro.repoDir` honoured first. */
+    private val propertiesFile: File = System.getProperty("maro.repoDir")
+        ?.let { File(it, "app/src/main/assets/maro.properties") }
+        ?.takeIf { it.isFile }
+        ?: File("src/main/assets/maro.properties")
+
+    private fun shippedProperties(): Properties {
+        assumeTrue("maro.properties not found", propertiesFile.isFile)
+        return Properties().apply { propertiesFile.inputStream().use { load(it) } }
     }
 
     @After
@@ -458,6 +473,45 @@ class RouteAvoidEngineTest {
     @Test
     fun theSpeedZoneSwitchShipsDisarmed() {
         assertFalse("the speed-zone source ships disarmed", AppConfig.routeAvoidSpeedZoneEnabled)
+    }
+
+    // ── The fine-cell ratio, shipped and unread until Change 4 ───────────────────
+
+    /**
+     * The user's 40 % decision, carried by the key and the code as one value: a key misspelled on either
+     * side would leave the code's default standing, and the load's clamp is checked to leave the shipped
+     * ratio where the file puts it — a bound tightened under 0.40 would price a finer band than the file
+     * states without the file changing. Nothing reads the value until Change 4 lands, so this is all of
+     * its contract today.
+     */
+    @Test
+    fun theFineCellRatioShipsAtFortyPercentOfTheCoarseCell() {
+        val raw = shippedProperties().getProperty("route.avoid.fine.cellRatio")
+        assertNotNull("maro.properties must carry route.avoid.fine.cellRatio", raw)
+        val shipped = raw!!.trim().toDouble()
+
+        assertEquals(
+            "the file and the code carry one value",
+            AppConfig.routeAvoidFineCellRatio,
+            shipped,
+            1e-9
+        )
+        assertEquals("the user's 40 % of the coarse cell", 0.40, shipped, 1e-9)
+        assertEquals(
+            "and a 20 m fine cell at today's 50 m coarse cell",
+            20.0,
+            AppConfig.routeAvoidGridCellM * shipped,
+            1e-9
+        )
+        assertEquals(
+            "the load's clamp leaves the shipped ratio untouched",
+            shipped,
+            shipped.coerceIn(
+                AppConfig.ROUTE_AVOID_FINE_CELL_RATIO_MIN,
+                AppConfig.ROUTE_AVOID_FINE_CELL_RATIO_MAX
+            ),
+            1e-9
+        )
     }
 
     /**

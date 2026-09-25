@@ -166,6 +166,29 @@ object AppConfig {
     var routeAvoidGridCellM: Double = 50.0
         private set
 
+    /**
+     * The fine pass's cell as a ratio of the coarse cell — `route.avoid.fine.cellRatio`, default 0.40,
+     * clamped [ROUTE_AVOID_FINE_CELL_RATIO_MIN]..[ROUTE_AVOID_FINE_CELL_RATIO_MAX].
+     *
+     * The ratio is the home for the relationship the user set — 40 % of the coarse cell — so the size is
+     * written once, in `route.avoid.grid.cellM`: at today's 50 m the fine cell is 20 m, and no metres key
+     * is kept beside it for the two to drift apart.
+     *
+     * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
+     * unused, as `route.avoid.zone300.marginM` did before the band.
+     */
+    var routeAvoidFineCellRatio: Double = 0.40
+        private set
+
+    /** Lowest fine-cell ratio the load accepts — the one home for that end of the span. */
+    const val ROUTE_AVOID_FINE_CELL_RATIO_MIN = 0.05
+
+    /**
+     * Highest fine-cell ratio the load accepts — 1.0 makes the fine cell the coarse one, so the pass
+     * subdivides nothing and stays inert.
+     */
+    const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
+
     /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`, default 1852 (1 NM). */
     var routeAvoidCorridorReachM: Double = 1852.0
         private set
@@ -1464,7 +1487,8 @@ object AppConfig {
                 ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
             props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
                 ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
-            // ── The avoid engine's keys (the four stage-1 values, the depth gate, and stage 2's band margin) ──
+            // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
+            //    and the fine ratio Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
             }
@@ -1476,6 +1500,13 @@ object AppConfig {
             }
             props.getProperty("route.avoid.zone300.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            }
+            // Parsed and left unread until Change 4's fine band reads it.
+            props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
+                routeAvoidFineCellRatio = it.coerceIn(
+                    ROUTE_AVOID_FINE_CELL_RATIO_MIN,
+                    ROUTE_AVOID_FINE_CELL_RATIO_MAX
+                )
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
