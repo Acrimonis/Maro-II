@@ -208,11 +208,20 @@ object AppConfig {
         private set
 
     /**
-     * The speed-zone price cursor — `route.avoid.speedZone.softCostAversion`, default 1.0, clamped 0.0..5.0.
-     * A second spent inside a speed zone counts as this many seconds for the routing cost:
-     * 1.0 is pure fastest and reproduces today's no-zone behaviour, and a higher value bends the
-     * line out of zones even when the way around is longer. The cursor chooses the line and never
-     * touches the ETA — the clock stays physics.
+     * Whether the speed zones are priced — `route.avoid.speedZone.enabled`, default false. False prices
+     * every zone as open water: the search does not bend around one, the trip clock reads the pace alone,
+     * and no forced crossing is reported. The counterpart of `route.avoid.zone300.enabled`.
+     */
+    var routeAvoidSpeedZoneEnabled: Boolean = false
+        private set
+
+    /**
+     * The speed-zone price cursor — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
+     * 0.0..5.0. A zone cell costs its base plus `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its
+     * true travel time and the search minimises real time — bending around a slow zone when the way around
+     * is faster — while at 0.0 the zone is priced as open water, reproducing the pre-phase-4 no-zone line,
+     * and a value above 1.0 bends harder. The cursor chooses the line and never touches the ETA — the clock
+     * stays physics.
      */
     var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
@@ -1482,6 +1491,9 @@ object AppConfig {
             }
             props.getProperty("route.avoid.speedZone.softCostAversion")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneSoftCostAversion = it.coerceIn(0.0, 5.0)
+            }
+            props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
+                routeAvoidSpeedZoneEnabled = it
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

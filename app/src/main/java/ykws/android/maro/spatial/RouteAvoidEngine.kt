@@ -170,7 +170,9 @@ class RouteAvoidEngine(
         val field = costField(world)
         // The zones arrive pre-filtered by the world (excluded ids dropped); each is priced once from
         // the live pace, then rastered as a zone tag whose cost is the strictest limit in force.
-        val zones = world.speedZonesIn(box)
+        // The zones are priced only while the feature is armed; with it off the corridor is coastline,
+        // depth and band alone, and every zone cell is open water.
+        val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val zoneK = AppConfig.routeAvoidSpeedZoneSoftCostAversion
         val pace = paceKn()
         val priced = zones.map { z -> PricedZone(z.outerRing, z.holes, zonePriceM(cellM, pace, z.speedLimitKn, zoneK)) }
@@ -323,7 +325,12 @@ class RouteAvoidEngine(
         world: AvoidWorld,
         forcedCrossingZoneNames: List<String>
     ): RouteResult.Success {
-        val timed = timeLineWithLimits(waypoints, paceKn()) { p -> world.zoneLimitKnAt(p.latitude, p.longitude) }
+        // The switch turns the whole source off: the price and the limit read go together, so with the
+        // zones off the clock reads the pace alone.
+        val limitAt: (LatLng) -> Double? =
+            if (AppConfig.routeAvoidSpeedZoneEnabled) { p -> world.zoneLimitKnAt(p.latitude, p.longitude) }
+            else { { _ -> null } }
+        val timed = timeLineWithLimits(waypoints, paceKn(), limitAt)
         val points = timed.points.map { RoutePoint.of(it) }
         var distanceM = 0.0
         for (i in 0 until timed.points.size - 1) {

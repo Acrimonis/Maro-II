@@ -1,10 +1,12 @@
 package ykws.android.maro.spatial.avoid
 
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
@@ -77,6 +79,37 @@ class RouteZonePhase4Test {
         grid.markLand(5, 5)
         grid.applyZoneCost(5, 5, 25.0)
         assertEquals("a wall is never priced", AvoidCellState.LAND, grid.cell(5, 5).state)
+    }
+
+    @Test
+    fun theFillAndThePointReadAgreeOnEveryCellCentre() {
+        val outer = squareRing(43.5, 7.03, 0.02)
+        val zone = SpeedZone("z", "Cap", 5.0, outer)
+        val box = BBox(43.47, 43.53, 7.00, 7.06)
+        val grid = rasterize(
+            box, cellM = 50.0, marginM = 25.0,
+            edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.53,
+            field = RouteCostField.EMPTY,
+            zones = listOf(PricedZone(outer, emptyList(), 10.0))
+        )
+
+        // The rasterizer's scanline fill and `SpeedZone.contains` both use the same half-open latitude
+        // rule, so a boundary vertex must fall the same way for the grid and the point read — this is
+        // the fill's own cell centres checked against the predicate the ETA and the report read.
+        var tagged = 0
+        for (r in 0 until grid.rows) {
+            for (c in 0 until grid.cols) {
+                val centre = grid.center(r, c)
+                val filled = grid.cell(r, c).state == AvoidCellState.ZONE
+                val inside = zone.contains(centre.latitude, centre.longitude)
+                assertEquals(
+                    "cell ($r,$c) at ${centre.latitude}, ${centre.longitude}: fill and point read must agree",
+                    inside, filled
+                )
+                if (filled) tagged++
+            }
+        }
+        assertTrue("the zone must actually cover some cell centres", tagged > 0)
     }
 
     // ── The price cursor ──────────────────────────────────────────────────────
@@ -152,6 +185,7 @@ class RouteZonePhase4Test {
 
     @Test
     fun aZoneBlockingTheWholeCorridorIsReportedAsAForcedCrossing() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
@@ -163,6 +197,22 @@ class RouteZonePhase4Test {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    @After
+    fun restoreTheSpeedZoneSwitch() {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
+    }
+
+    /**
+     * Flips an [AppConfig] avoid switch for one test. The fields ship `private set` — by design the values
+     * change only through the properties load — so a test that must arm one reaches the backing field
+     * directly and [restoreTheSpeedZoneSwitch] puts it back.
+     */
+    private fun setAvoidSwitch(name: String, value: Boolean) {
+        val field = AppConfig::class.java.getDeclaredField(name)
+        field.isAccessible = true
+        field.setBoolean(AppConfig, value)
+    }
 
     private fun squareRing(centerLat: Double, centerLon: Double, half: Double): List<LatLng> = listOf(
         LatLng(centerLat - half, centerLon - half),

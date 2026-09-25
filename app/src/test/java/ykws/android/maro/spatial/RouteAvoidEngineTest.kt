@@ -14,9 +14,12 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.bandReachM
+import ykws.android.maro.spatial.avoid.speedZonesInBox
+import ykws.android.maro.spatial.avoid.strictestLimitKnAt
 import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -51,6 +54,8 @@ class RouteAvoidEngineTest {
     fun restoreAvoidSwitches() {
         setAvoidSwitch("routeAvoidDepthGateEnabled", true)
         setAvoidSwitch("routeAvoidZone300Enabled", true)
+        // The speed-zone switch ships disarmed, so its shipped default is the one restored.
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
     }
 
     /**
@@ -441,12 +446,18 @@ class RouteAvoidEngineTest {
     private fun shallowPatch(latitude: Double, longitude: Double): Boolean =
         latitude in 43.4995..43.5005 && longitude in 7.0210..7.0260
 
-    // ── The two switches ───────────────────────────────────────────────────────
+    // ── The avoid switches ─────────────────────────────────────────────────────
 
     @Test
     fun theAvoidSwitchesDefaultOn() {
         assertTrue("the depth gate ships armed", AppConfig.routeAvoidDepthGateEnabled)
         assertTrue("the 300 m band ships armed", AppConfig.routeAvoidZone300Enabled)
+    }
+
+    /** The speed-zone switch is the third of the trio and ships the other way — disarmed while the source is validated. */
+    @Test
+    fun theSpeedZoneSwitchShipsDisarmed() {
+        assertFalse("the speed-zone source ships disarmed", AppConfig.routeAvoidSpeedZoneEnabled)
     }
 
     /**
@@ -499,6 +510,41 @@ class RouteAvoidEngineTest {
         val flat = success(off.onDestinationPositionChanged(aim))
         assertEquals("the band off prices the water as open sea", listOf(start, aim), flat.points)
         assertEquals(straight, flat.distanceM, 1e-6)
+    }
+
+    /**
+     * The speed-zone switch is the exact counterpart of the depth and band pair: off, a zone spanning the
+     * whole corridor is open water — the straight line, no crossing named and the clock on the pace alone;
+     * armed, the same world prices the zone and names the forced crossing.
+     */
+    @Test
+    fun speedZoneOffPricesTheZoneAsOpenWaterAndItsArmedControlDoesNot() = runTest {
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
+        val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
+        val off = newEngine { FakeWorld(zones = listOf(zone)) }
+        off.onOriginPositionChanged(origin)
+        val flat = success(off.onDestinationPositionChanged(aim))
+
+        assertEquals("the switch off prices the zone as open water", listOf(origin, aim), flat.points)
+        assertTrue("and names no forced crossing", flat.forcedCrossingZoneNames.isEmpty())
+        assertEquals(
+            "and the clock reads the pace alone",
+            listOf(straight / Units.knotsToMps(paceKn)),
+            flat.legTimesSec
+        )
+
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val on = newEngine { FakeWorld(zones = listOf(zone)) }
+        on.onOriginPositionChanged(origin)
+        val armed = success(on.onDestinationPositionChanged(aim))
+
+        assertEquals(
+            "the same world armed prices the zone and names the crossing",
+            listOf("Cap"),
+            armed.forcedCrossingZoneNames
+        )
     }
 
     // ── The 300 m band ─────────────────────────────────────────────────────────
@@ -597,7 +643,9 @@ class RouteAvoidEngineTest {
         private val water: (Double, Double) -> Boolean = { _, _ -> true },
         /** The sounding (m) the depth layer answers, or `NaN` for an unsurveyed point. */
         private val depth: (Double, Double) -> Double = { _, _ -> Double.NaN },
-        private val loadAnswers: MutableList<RouteEngineState> = mutableListOf()
+        private val loadAnswers: MutableList<RouteEngineState> = mutableListOf(),
+        /** The speed zones the world answers, priced only while the engine's switch is armed. */
+        private val zones: List<SpeedZone> = emptyList()
     ) : AvoidWorld {
         val boxes = mutableListOf<BBox>()
         var loadCalls = 0
@@ -621,6 +669,11 @@ class RouteAvoidEngineTest {
         }
 
         override fun openCoastIn(box: BBox): List<List<LatLng>> = openCoast
+
+        override fun speedZonesIn(box: BBox): List<SpeedZone> = speedZonesInBox(zones, box, emptySet())
+
+        override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
+            strictestLimitKnAt(zones, emptySet(), latitude, longitude)
 
         override fun isWater(latitude: Double, longitude: Double): Boolean = water(latitude, longitude)
 
@@ -652,6 +705,20 @@ class RouteAvoidEngineTest {
             return state
         }
     }
+
+    /** A closed rectangle ring over `[latSouth, latNorth]` × `[lonWest, lonEast]`. */
+    private fun rectRing(
+        latSouth: Double,
+        latNorth: Double,
+        lonWest: Double,
+        lonEast: Double
+    ): List<LatLng> = listOf(
+        LatLng(latSouth, lonWest),
+        LatLng(latSouth, lonEast),
+        LatLng(latNorth, lonEast),
+        LatLng(latNorth, lonWest),
+        LatLng(latSouth, lonWest)
+    )
 
     private fun polygonRing(points: List<LatLng>): List<AvoidEdge> =
         points.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +

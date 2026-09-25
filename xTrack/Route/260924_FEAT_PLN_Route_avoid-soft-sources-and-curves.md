@@ -49,13 +49,14 @@ flowchart LR
 ## Phase 4 — speed-limit zones, priced and excludable
 
 - **Mechanism.** `AvoidWorld` gains `speedZonesIn(box)` returning zone polygons (outer ring, holes, `limitKn`, id) so the rasterizer even-odd-fills them — holes stay water, overlapping zones keep the strictest limit. No per-cell `SpeedZoneIndex.query`: the inside test scans every ring ([`PolygonIndexBase.status`](../../app/src/main/java/ykws/android/maro/spatial/PolygonIndexBase.kt:178)), so 33 k point queries is the exact explosion the stage-1 budget forbids.
+- **Armed (2026-09-25).** One key, `route.avoid.speedZone.enabled` (shipped **false**), gates the whole source on the depth-gate and band pattern: with it off the search reads no zone (no fill, no price), the clock reads the pace alone and no forced crossing is reported.
 - **Cost.** The zone's own time at its limit is the base price (decided 2026-09-24): a slower leg costs more metres-equivalent, which is what makes the line spend less time in a zone, while the band keeps the `softCostAversion` multiplier alone.
-- **Cursor.** One key, `route.avoid.speedZone.softCostAversion` (default 1.0), scales the time a leg spends in a zone inside the routing cost: K = 1 is pure fastest and reproduces today's "no zone restriction", K rising bends the line out of zones even when the way around is longer. The cursor chooses the line and **never touches the ETA** — the clock stays physics, or the trip figure lies.
+- **Cursor.** One key, `route.avoid.speedZone.softCostAversion` (default 1.0), scales the time a leg spends in a zone inside the routing cost — a zone cell costs its base plus `(pace/limit − 1) × K` of that cell: K = 1 makes it cost its **true travel time**, so the search minimises real time and bends around a slow zone when the way around is faster; K = 0 prices the zone as open water and reproduces today's "no zone restriction"; K above 1 bends harder than real time warrants. The cursor chooses the line and **never touches the ETA** — the clock stays physics, or the trip figure lies.
 - **ETA.** No zone restriction term: outside a zone the boat accelerates gradually to the configured speed, inside one it obeys that zone's limit, and `success()` splits each leg where the limit in force changes so the trip figure reads what the boat must really do. A boundary crossing adds a vertex, so the drawn line gains a point there.
 - **Saved speeds.** The computed per-leg speeds are **saved with the track** (decided 2026-09-24), so a saved route carries the planned speeds rather than a re-derived figure.
 - **Exclusion (decided).** A persisted set of excluded zone ids, default empty, dropped before the fill, the ETA and the report alike.
 - **Forced crossing.** No way around → the crossing is taken and reported by zone name.
-- **Perf cost.** Polygon fill is cheap; leg splitting is O(waypoints × zones touching the leg). **Difficulty: medium-high** — the ETA integration and the exclusion filter are the real work.
+- **Perf cost.** Polygon fill is cheap; the ETA's leg splitting walks every non-excluded zone ring per sample along the drawn line — no bbox prefilter — so it is O(waypoints × zones × ring vertices), and when a priced zone stands in the corridor the forced-crossing probe **re-rasterizes and re-runs the search once with the restrictive zones blocked**, a second A\* pass. **Difficulty: medium-high** — the ETA integration and the exclusion filter are the real work.
 
 ## Phase 5 — marker-zone weights, avoid-only 0 to +10
 
@@ -87,7 +88,8 @@ The order above is the technical dependency order: the unified field first, the 
 | `route.avoid.depthGate.minM` | 3.0 | depth below which a cell is excluded |
 | `route.turn.lateralAccelMps2` | 2.94 | turn-rounding lateral-acceleration ceiling |
 | `route.avoid.zone300.softCostAversion` | 1.5 | multiplier on time spent in the 300 m band |
-| `route.avoid.speedZone.softCostAversion` | 1.0 | cursor: a second in a speed zone counts as K seconds for routing |
+| `route.avoid.speedZone.softCostAversion` | 1.0 | cursor on a zone cell's time-excess: 1 = true travel time, 0 = no zone pricing |
+| `route.avoid.speedZone.enabled` | false | switch: false prices every speed zone as open water |
 
 All read through `AppConfig` with a clamp, one home each — no Settings row until one is asked for.
 
@@ -103,7 +105,7 @@ Budget stays ≤ 500 ms wall, re-priced per stage. The invariant the tests pin: 
 - Depth — block a known depth below the threshold and ignore everything else, ANDed with the coastline's water test.
 - Band aversion — one `route.avoid.zone300.softCostAversion`, default 1.5.
 - ETA — obey the zone limit in force and accelerate gradually to the configured speed outside one; the computed speeds are saved with the track.
-- Zone-avoidance cursor — the route bends away from zones by `route.avoid.speedZone.softCostAversion`, default 1 (no bending); the cursor chooses the line and never the ETA.
+- Zone-avoidance cursor — the route bends away from zones by `route.avoid.speedZone.softCostAversion`, default 1 (a zone cell costed at its true travel time, so the search minimises real time; 0 is the no-zone-price line); the cursor chooses the line and never the ETA.
 
 ## Amendments (2026-09-25) — folded from the 2026-09-25 plan
 
