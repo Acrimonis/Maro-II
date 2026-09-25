@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-09-18 22:00
+modified: 2026-09-25 07:03
 ---
 
 # Feature: Markers
@@ -47,6 +47,10 @@ Static settings-driven halo ring differentiates pinned (white, strong) from unpi
 - [ ] 12 · Proximity of date points — rays hit and test all of them (pre-existing, outside the plan above)
 
 ## Implemented
+
+- **marker-tile-header-rhythm (2026-09-25, `feature/marker-tile`)** — the geometry glyph reads after the coordinates and the header row's icon-to-coordinate gap becomes the card's own 2dp rhythm: the leading icon action's box is now the glyph's width (`Modifier.size(width = 24.dp, height = 36.dp)`), so the inset offset and `MARKER_HEADER_ICON_INSET` are deleted and a measured 14dp gap — 6dp the glyph's centring inset, 6dp the slot the offset vacated, 2dp the constant — collapses to `MARKER_HEADER_ICON_GAP` alone. The emoji branch gained `maxLines = 1` so a wide glyph cannot wrap and double the row height; the accepted cost is a 24x36dp touch target for that one control. `apk-build.bat` SUCCESSFUL → `xTrack/Markers/260925_FEAT_PLN_Markers_marker-tile-header-layout-discussion.md`
+
+- **marker-tile-header (2026-09-25, `feature/marker-tile`)** — the marker tile's POI icon action moves from the middle of the action cluster to the leading position of the header row, so it reads as the marker's face instead of a third action between pin and edit; the geometry glyph stays an inline prefix of `coordinateHeader()` and the coordinate `Text` keeps `weight(1f)` + ellipsis behind a new 6dp `MARKER_HEADER_ICON_GAP`, while the trailing cluster reduces to pin + edit at 36dp and the chevron is untouched. `showIconPicker` is hoisted beside `editingField` under the same `remember(marker.id)` key and `IconPickerDialog` renders once as a sibling of the card row, which also keeps the toggle out of the `Row`'s read scope so a picker open no longer invalidates it. One composable serves both surfaces — the marker list overlay and the detail drawer — so neither call site changed and the drawer inherits the layout with its `onSetIcon` already wired. Row height stays 36dp-driven; `apk-build.bat` SUCCESSFUL with no new warning → `xTrack/Markers/260925_FEAT_PLN_Markers_marker-tile-header-layout-discussion.md`
 
 - **palette-vibrancy-pass (2026-09-23, `feature/color-picker`)** — the sixteen slots re-hexed for vibrancy, superseding the palette carried by the `palette-vibrancy` entry below: Orange `0xFFF57C00` → `0xFFFF6500`, Gold `0xFFF9A825` → `0xFFFFD700`, Purple `0xFF4A148C` → `0xFFCD00CD` and Red `0xFFF44336` → `0xFFD50000`, with two slots swapped out altogether — the water-close Light Cyan `0xFF00BCD4`, at 1.4 against the pale sea the closest entry to the water colour, gave way to Dark Violet `0xFF4A148C`, and the muddy Dark Brown `0xFF4E342E`, which sat 0.018 of lightness from Maroon `0xFF880E4F`, gave way to the vivid Amber `0xFFFFAB00`, leaving Maroon the single dark warm. The red was deepened rather than kept because the brighter orange at lightness 0.31 would otherwise have sat 0.07 from `0xFFF44336`, the proximity flagged twice in review — the gap is now 0.16 — and the cost of the brightening is stated rather than hidden: orange lands at 1.8 over the pale sea, joining the bright tier that leans on the marker's own halo. Two rules are written down rather than re-derived — no hue near the water, and any pair clearing 40° of hue or 0.10 of lightness — in the palette KDoc and in [`docs/color-scheme.md`](docs/color-scheme.md:17). [`colorName()`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:578) reads Dark Violet, Red and Amber for slots 6, 7 and 11, a stored marker keeps its `colorIndex` and changes hex only, and no user-facing string is involved
 
@@ -93,6 +97,7 @@ Static settings-driven halo ring differentiates pinned (white, strong) from unpi
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt`
 
 ## Docs
+- `xTrack/Markers/260925_FEAT_PLN_Markers_marker-tile-header-layout-discussion.md` — marker tile header layout: the icon-action relocation, the locked decisions and the residuals
 - `xTrack/Markers/260918_FEAT_PLN_Markers_focus-zoom-fractions.md` — focus zoom framing: the share rule, the value keys, the pure helper and the camera wiring
 - `xTrack/Markers/260625_FEAT_PLN_Markers_wizard-drawerslot-separation.md` — wizard step extraction + DrawerSlot abstraction design
 - `xTrack/Markers/260905_FEAT_PLN_Markers_pin-halo-rendering.md` — pin halo rendering plan (implemented)

@@ -254,6 +254,7 @@ private val MARKER_HEADER_FONT_SIZE = 11.sp
 private val MARKER_TITLE_FONT_SIZE = 15.sp
 private val MARKER_GEOMETRY_FONT_SIZE = 14.sp
 private val MARKER_DESC_FONT_SIZE = 13.sp
+private val MARKER_HEADER_ICON_GAP = 4.dp
 
 @Composable
 internal fun MarkerCardContent(
@@ -269,6 +270,7 @@ internal fun MarkerCardContent(
     showChevron: Boolean = true
 ) {
     var editingField by remember(marker.id) { mutableStateOf<String?>(null) }
+    var showIconPicker by remember(marker.id) { mutableStateOf(false) }
     var nameText by remember(marker.id) { mutableStateOf(marker.name) }
     var descText by remember(marker.id) { mutableStateOf(marker.description) }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -305,6 +307,21 @@ internal fun MarkerCardContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = { showIconPicker = true },
+                        modifier = Modifier.size(width = 24.dp, height = 36.dp)
+                    ) {
+                        if (marker.icon != null) {
+                            Text(marker.icon!!, fontSize = 20.sp, maxLines = 1)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOff,
+                                contentDescription = stringResource(R.string.cd_set_icon),
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                     Text(
                         text = coordinateHeader(marker),
                         color = Color(AppConfig.uiTextMuted),
@@ -312,7 +329,7 @@ internal fun MarkerCardContent(
                         lineHeight = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).padding(start = MARKER_HEADER_ICON_GAP)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         IconButton(
@@ -324,32 +341,6 @@ internal fun MarkerCardContent(
                                 contentDescription = if (marker.pinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
                                 tint = ButtonColors.icon,
                                 modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        var showIconPicker by remember { mutableStateOf(false) }
-                        IconButton(
-                            onClick = { showIconPicker = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            if (marker.icon != null) {
-                                Text(marker.icon!!, fontSize = 20.sp)
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Outlined.LocationOff,
-                                    contentDescription = stringResource(R.string.cd_set_icon),
-                                    tint = ButtonColors.icon,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                        if (showIconPicker) {
-                            IconPickerDialog(
-                                currentIcon = marker.icon,
-                                onIconSelected = { icon ->
-                                    onSetIcon(marker.id, icon)
-                                    showIconPicker = false
-                                },
-                                onDismiss = { showIconPicker = false }
                             )
                         }
                         IconButton(
@@ -491,6 +482,17 @@ internal fun MarkerCardContent(
                 }
             }
         }
+
+        if (showIconPicker) {
+            IconPickerDialog(
+                currentIcon = marker.icon,
+                onIconSelected = { icon ->
+                    onSetIcon(marker.id, icon)
+                    showIconPicker = false
+                },
+                onDismiss = { showIconPicker = false }
+            )
+        }
     }
 }
 
@@ -499,9 +501,9 @@ private fun coordinateHeader(marker: UserMarker): String {
     fun fmt(ll: ykws.android.maro.data.model.LatLng) =
         "%.4f, %.4f".format(ll.latitude, ll.longitude)
     return when (val g = marker.geometry) {
-        is MarkerGeometry.Pin -> "$icon [${fmt(g.position)}]"
-        is MarkerGeometry.Circle -> "$icon [${fmt(g.center)}]"
-        is MarkerGeometry.Corridor -> "$icon [${fmt(g.p1)}] \u2192 [${fmt(g.p2)}]"
+        is MarkerGeometry.Pin -> "[${fmt(g.position)}] $icon"
+        is MarkerGeometry.Circle -> "[${fmt(g.center)}] $icon"
+        is MarkerGeometry.Corridor -> "[${fmt(g.p1)}] \u2192 [${fmt(g.p2)}] $icon"
     }
 }
 
