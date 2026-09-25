@@ -192,16 +192,16 @@ object AppConfig {
         private set
 
     /**
-     * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.softCostAversion`,
-     * default 1.5. 1.0 prices the band as open water; the excess over 1.0 is the price a metre inside it
-     * carries, so 1.5 makes every metre in the band cost half a metre more.
+     * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.zone300.softCostAversion`,
+     * a cost multiplier clamped 1.0..5.0. 1.0 prices the band as open water; the excess over 1.0 is the extra
+     * cost per metre inside it.
      */
-    var routeAvoidSoftCostAversion: Double = 1.5
+    var routeAvoidZone300SoftCostAversion: Double = 1.5
         private set
 
     /**
      * Whether the 300 m band is priced — `route.avoid.zone300.enabled`, default true. False prices the
-     * band as open water and writes no BAND tag, so `route.avoid.softCostAversion` stays the value
+     * band as open water and writes no BAND tag, so `route.avoid.zone300.softCostAversion` stays the value
      * that says how dear the band is when it is on.
      */
     var routeAvoidZone300Enabled: Boolean = true
@@ -1464,8 +1464,8 @@ object AppConfig {
             props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidDepthGateEnabled = it
             }
-            props.getProperty("route.avoid.softCostAversion")?.toDoubleOrNull()?.let {
-                routeAvoidSoftCostAversion = it.coerceIn(1.0, 5.0)
+            props.getProperty("route.avoid.zone300.softCostAversion")?.toDoubleOrNull()?.let {
+                routeAvoidZone300SoftCostAversion = it.coerceIn(1.0, 5.0)
             }
             props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidZone300Enabled = it

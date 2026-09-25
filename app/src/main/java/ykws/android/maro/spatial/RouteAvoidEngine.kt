@@ -43,7 +43,7 @@ import kotlin.math.min
  * 300 m band (phase 3) is the first **price** — a soft source the route may pay, never a wall — with
  * the regulated speed zones (phase 4) to land as prices on the same chain.
  *
- * **The band.** The layer's own width off the coast, priced at `route.avoid.softCostAversion`: the
+ * **The band.** The layer's own width off the coast, priced at `route.avoid.zone300.softCostAversion`: the
  * field's own soft source writes the price once, and the pull refuses a chord whose own price
  * exceeds the cell path's over the span it would replace. A start or aim already inside the band is
  * accepted, so a berth in a marina basin is priced rather than refused. The whole band is switched
@@ -202,7 +202,7 @@ class RouteAvoidEngine(
         }
         if (AppConfig.routeAvoidZone300Enabled) {
             val bandM = world.bandWidthM
-            val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidSoftCostAversion)
+            val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidZone300SoftCostAversion)
             if (bandM > 0.0 && bandPriceM > 0.0) {
                 val reachM = bandReachM(bandM, AppConfig.routeAvoidObstacleMarginM)
                 sources.add(
