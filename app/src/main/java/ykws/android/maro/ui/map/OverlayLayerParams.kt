@@ -159,19 +159,27 @@ data class MarkerListOverlayData(
  * `RouteOverlayData` — the read-only route state that crosses into the overlay ladder.
  *
  * A bundle rather than a new parameter on `OverlayLayer`, which is the shape this file exists for:
- * the destination mode's entry lives in the menu drawer, and the drawer is a ladder surface, so what
- * it needs to draw that entry rides here. Everything the mode state itself is (the draft, the
- * preview, the confirmed route) stays in `RouteViewModel`, and nothing of it is duplicated into a
- * composable's parameters.
+ * the route actions live in the menu drawer, and the drawer is a ladder surface, so what it needs to
+ * draw those pills rides here. Everything the mode state itself is (the draft, the preview, the
+ * confirmed route) stays in `RouteViewModel`, and nothing of it is duplicated into a composable's
+ * parameters.
  *
  * Contract: all fields are `val`, like every bundle beside it.
  */
 @Immutable
 data class RouteOverlayData(
-    /** True while the mode is aiming or following — the menu entry's own active marker. */
+    /** True while the mode is aiming or following — the From pill's own gate. */
     val active: Boolean = false,
-    /** True once the bundled navigation mesh is decoded; false makes the entry inert. */
-    val available: Boolean = false,
-    /** Opens the destination mode, wired to the very toggle the control stack carries. */
-    val onOpenDestination: () -> Unit = {},
+    /** True while a route is followed — the Save pill's own gate. */
+    val confirmed: Boolean = false,
+    /** True while the front route is already written — greys the Save pill. */
+    val frontSaved: Boolean = false,
+    /** True while the aim has left the boat — the To pill's own gate. */
+    val aimOffBoat: Boolean = false,
+    /** Routes to the map centre, arming the mode when it is off. */
+    val onRouteTo: () -> Unit = {},
+    /** Recomputes from the led anchor to the current destination. */
+    val onRouteFrom: () -> Unit = {},
+    /** Writes the front route as a track. */
+    val onSaveRoute: () -> Unit = {},
 )

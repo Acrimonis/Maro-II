@@ -638,6 +638,10 @@
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
-    <string name="menu_route_destination">Destination</string>
-    <string name="menu_route_destination_desc">Tracer une route navigable vers un point</string>
+    <!-- Le groupe d\'actions de route : un titre, un commentaire, trois pilules étiquetées. -->
+    <string name="menu_route_title">Route</string>
+    <string name="menu_route_comment">Tracer, recalculer ou enregistrer une route navigable</string>
+    <string name="menu_route_to">Vers</string>
+    <string name="menu_route_from">Depuis</string>
+    <string name="menu_route_save">Enregistrer</string>
 </resources>

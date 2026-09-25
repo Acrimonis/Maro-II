@@ -166,6 +166,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.BoundingBox
@@ -1791,6 +1792,37 @@ fun MapScreen(
             }
 
             /**
+             * **RouteTo** — the menu's forward action: route to the aim at that instant, arming the
+             * mode if it is off and re-entering the acquisition if a route is followed. The aim is the
+             * screen centre the ring is drawn at, read here exactly as the panel's Acquire route reads
+             * it (R2).
+             */
+            fun routeToAction() {
+                val mv = mapView ?: return
+                val anchor = inspectAnchor(mv, inspectOffsetPx) ?: return
+                val aim = RoutePoint(anchor.latitude, anchor.longitude)
+                when (routeState) {
+                    is RouteState.Idle -> {
+                        armRouteMode()
+                        routeSaveScope.launch {
+                            routeViewModel.state.first { it is RouteState.Choosing }
+                            routeViewModel.acquire(aim)
+                        }
+                    }
+                    is RouteState.Choosing -> routeViewModel.acquire(aim)
+                    is RouteState.Following -> routeSaveScope.launch {
+                        routeViewModel.newRoute(routeLeadFix)
+                        routeViewModel.acquire(aim)
+                    }
+                }
+            }
+
+            /** **RouteFrom** — the menu's recompute: the panel's own Reroute, surfaced in the drawer. */
+            fun routeFromAction() {
+                rerouteRoute()
+            }
+
+            /**
              * Writes **one** route as an ordinary track, through `data/track`'s own repository. The
              * vertices carry the plan's own pace and cumulative time, so distance, duration and both
              * speed figures come out right with no second code path.
@@ -1824,6 +1856,11 @@ fun MapScreen(
                     val writtenId = trackViewModel.saveBuiltTrack(track)
                     routeViewModel.noteRouteSaved(plan, writtenId)
                 }
+            }
+
+            /** **SaveRoute** — the menu's save: writes the front route, like the panel's Save track. */
+            fun saveRouteAction() {
+                routeState.plan?.let { saveRouteTrack(it, routePinned) }
             }
 
 
@@ -2927,8 +2964,13 @@ fun MapScreen(
             boatPosition = gpsPosition ?: mapCenter,
             route = RouteOverlayData(
                 active = routeArmed,
-                available = routeAvailable,
-                onOpenDestination = { armRouteMode() }
+                confirmed = routeState is RouteState.Following,
+                frontSaved = routeFrontSaved,
+                aimOffBoat = !appSettings.gpsMode ||
+                    gpsPosition?.let { SpatialOperations.haversine(mapCenter, it) > 25.0 } == true,
+                onRouteTo = { routeToAction() },
+                onRouteFrom = { routeFromAction() },
+                onSaveRoute = { saveRouteAction() }
             ),
             markerList = MarkerListOverlayData(
                 markers = mgmtMarkers,

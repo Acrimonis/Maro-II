@@ -639,6 +639,10 @@
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
-    <string name="menu_route_destination">Destination</string>
-    <string name="menu_route_destination_desc">Plot a water route to a point</string>
+    <!-- The route actions group: one title, one comment, three labeled pills. -->
+    <string name="menu_route_title">Route</string>
+    <string name="menu_route_comment">Plot, recompute or save a water route</string>
+    <string name="menu_route_to">To</string>
+    <string name="menu_route_from">From</string>
+    <string name="menu_route_save">Save</string>
 </resources>

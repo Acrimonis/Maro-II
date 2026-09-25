@@ -1,21 +1,21 @@
 # Context Hydration — Route — 2026-09-25
 
-**Last Bake:** 2026-09-25 15:42 UTC — written by `#bake`
+**Last Bake:** 2026-09-25 19:15 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** no dependency added, no machine-shaped data file opened, no device touched and nothing deployed; the session's only writes were the bake's own — the epic, the summary row, the hydration and the focus entry — and no git write ran in this session.
+**Directive trace:** no dependency added, no machine-shaped data file opened, no device touched and nothing deployed; the session's writes were the focus entry, one new plan in `xTrack/Route/`, the epic's own pointer and the state files this bake rewrites — and no git write ran in this session.
 
 ## State
 
-The route mode ships the 2026-09-24 workflow — the mode acquires on a press and nothing re-plans itself: `Acquire route` is the only trigger, the anchor re-read on every entry and led a flat 10 s, both phases carry their four-action grids, and every exit door raises the one dialog. The engine harness (`dummy` default, `avoid` selectable) stands behind the seam, and the avoid engine's stage 1 routes around land through the corridor-bounded grid A* + taut pull. The walk is closed, `## Implemented` carries the build, and the route-filtered suite stands green at 103 tests. The epic's Description and the Feature Summaries row were rewritten onto this state at this bake.
+Nothing was built. The session answered whether the line can be drawn while the engine builds it, wrote the design, and had it independently reviewed: [`260925_FEAT_PLN_Route_progressive-draw.md`](260925_FEAT_PLN_Route_progressive-draw.md) specifies `RouteProgress(stage, points)` replacing the bare `stage` channel on the seam, one emission per boundary, geometry at `PULL` and `SNAP` alone, a dedicated `route_progress` overlay in the track band and one new appearance key — with the plan's table, `Confirm` and the ladder untouched, all three reading `state.plan`. The review returned **revise** on seven findings and **none is folded yet**: the brief-versus-delivery gap (nothing is drawn during the A\*, where the time goes), the answer being the snapped line pulled a second time, the corridor retry missing from the record, the overlay's title and insertion point left to the build, the dummy's silence under the seeded default, the chain mapping's allocation uncosted, and the two fakes the channel rename touches. The mode itself ships unchanged — the acquire-on-a-press workflow, the harness (`dummy` default, `avoid` selectable) and the avoid engine's stage 1 — with the route-filtered suite green at 103 tests from the 2026-09-24 build.
 
 ## Target Files
 
-- `xTrack/Route/260924_FEAT_PLN_Route_acquisition-and-route-workflow.md` — the plan of record, shipped
-- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the button-driven ask, the per-acquisition anchor, the phase-aware exit
-- `app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt` · `RouteHost.kt` — the action matrix, the comment line
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` — the acquisition-stage channel
-- `xTrack/Route/FEAT_DSC_Route.md` — the Description and the walk, consolidated
+- `xTrack/Route/260925_FEAT_PLN_Route_progressive-draw.md` — the design of record for the drawing pass, in design, reviewed revise
+- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` · `RouteAvoidEngine.kt` · `RouteDummyEngine.kt` — the stage channel that becomes the progress channel, and where its five emissions land
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` · `RouteConfirmPanel.kt` · `RouteHost.kt` — the proxy, the panel's one parameter, and the drawing path with the pool's title trap
+- `app/src/main/assets/maro.properties` — `route.progress.transparencyPct`, the one new drawing value
+- `xTrack/Route/FEAT_DSC_Route.md` — the `## Docs` pointer and the `routing-engine` summary, rewritten onto the shipped two-engine state
 
 ## Next Step
 
-The review's four should-fixes, worst first: the discarded engine search a re-entry's first `Acquire route` pays because the anchor's tell computes against the destination the engine still holds; the lead's freshness gate, which reads the screen's `gpsStale` and GPS mode while its KDoc must not claim a speed floor it does not apply; the session's link table existing twice, a plain map beside a `StateFlow` mirror kept in step by hand; and `sessionRoutes()` with `trackFor()`, now called only from tests. Open and untouched: the duplicate save, the multi-route save, and the new line's device measurement.
+Fold the review's seven findings into the plan, worst first, and put its one reopened question back to the user — nothing is drawn during the A\*, so an emission inside the A\* is the only lever that would meet the brief as read, and it is theirs to re-decide. Also standing from the 2026-09-24 review, untouched: the discarded engine search a re-entry's first `Acquire route` pays, the lead's freshness gate, the session's twin link table, and the two session members only tests call.
