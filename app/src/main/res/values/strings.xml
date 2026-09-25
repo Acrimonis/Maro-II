@@ -369,6 +369,9 @@
     <string name="filter_option_without_icon">Without icon</string>
     <string name="filter_option_manual">Manual</string>
     <string name="filter_option_auto">Auto</string>
+    <string name="filter_axis_route_cost">Routing cost</string>
+    <string name="filter_option_route_cost">Route cost</string>
+    <string name="filter_option_no_route_cost">No route cost</string>
     <string name="color_picker_title">Pick color</string>
     <string name="settings_depth_label">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
@@ -509,6 +512,9 @@
     <string name="wizard_slider_proximity_comment">Alert distance around the zone</string>
     <string name="wizard_field_name">Name</string>
     <string name="wizard_field_description">Description</string>
+    <string name="wizard_routing_cost_title">Routing cost</string>
+    <string name="wizard_routing_cost_description">Cost of a route to this marker</string>
+    <string name="wizard_routing_cost_unset">Off</string>
 
     <!-- Map chrome -->
     <string name="marker_title_fallback">Marker</string>

@@ -23,9 +23,16 @@ import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 
 /**
- * Reusable slider step for Radius and Proximity.
+ * Reusable slider step for Radius, Proximity and Routing cost.
  * Visual style matches [BoatSizeSlider]: card background, row title+value,
  * accent-coloured slider.
+ *
+ * The three label parameters override the wording derived from [valueM], [unit] and [range]; their
+ * defaults reproduce it exactly, so Radius and Proximity are unchanged.
+ *
+ * @param valueLabel the value line, defaulting to `<value> <unit>`.
+ * @param startLabel the label under the slider's low end, defaulting to `0 <unit>`.
+ * @param endLabel   the label under the high end, defaulting to the range's end with [unit].
  */
 @Composable
 internal fun SliderStep(
@@ -35,7 +42,10 @@ internal fun SliderStep(
     step: Double,
     unit: String,
     onValueChange: (Double) -> Unit,
-    comment: String? = null
+    comment: String? = null,
+    valueLabel: String? = null,
+    startLabel: String? = null,
+    endLabel: String? = null
 ) {
     val accent = ComposeColor(AppConfig.uiAccent)
 
@@ -45,7 +55,7 @@ internal fun SliderStep(
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -55,12 +65,12 @@ internal fun SliderStep(
             Text(
                 title,
                 color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = 14.sp,
+                fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
-                "${valueM.toLong()} $unit",
-                color = accent,
+                valueLabel ?: "${valueM.toLong()} $unit",
+                color = ComposeColor(AppConfig.uiValueText),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -69,9 +79,10 @@ internal fun SliderStep(
             Text(
                 comment,
                 color = ComposeColor(AppConfig.uiTextMuted),
-                fontSize = 11.sp
+                fontSize = AppConfig.uiFontDescSize.sp,
+                maxLines = 1
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingLabelControl.dp))
         }
         Slider(
             value = valueM.toFloat(),
@@ -82,7 +93,7 @@ internal fun SliderStep(
             colors = SliderDefaults.colors(
                 thumbColor = accent,
                 activeTrackColor = accent,
-                inactiveTrackColor = accent.copy(alpha = 0.3f)
+                inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
             )
         )
         Spacer(Modifier.height(4.dp))
@@ -91,14 +102,14 @@ internal fun SliderStep(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "0 $unit",
-                color = ComposeColor(AppConfig.uiTextSecondary),
-                fontSize = 11.sp
+                startLabel ?: "0 $unit",
+                color = ComposeColor(AppConfig.uiTextMuted),
+                fontSize = AppConfig.uiFontDescSize.sp
             )
             Text(
-                "${range.endInclusive.toLong()} $unit",
-                color = ComposeColor(AppConfig.uiTextSecondary),
-                fontSize = 11.sp
+                endLabel ?: "${range.endInclusive.toLong()} $unit",
+                color = ComposeColor(AppConfig.uiTextMuted),
+                fontSize = AppConfig.uiFontDescSize.sp
             )
         }
     }

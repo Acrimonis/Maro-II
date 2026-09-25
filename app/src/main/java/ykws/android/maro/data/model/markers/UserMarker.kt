@@ -27,6 +27,8 @@ enum class MarkerOrigin { USER, IDLE_AUTO }
  * @property keepable            Whether the marker survives startup cleanup.
  *                               User-created markers are always keepable.
  *                               Auto-markers are keepable=false during idle and set to true on confirmation.
+ * @property routingCost         Optional routing cost for a future routing engine. 1–9 when set,
+ *                               null when not set. Read it through [validRoutingCost].
  */
 @Serializable
 data class UserMarker(
@@ -45,7 +47,13 @@ data class UserMarker(
     val keepable: Boolean = true,      // user-created markers are keepable by default
     /** Whether the marker is pinned (independent of [icon]). Defaults false for legacy files. */
     val pinned: Boolean = false,
-    override val updatedAtEpochMs: Long = createdAtEpochMs  // defaults to creation time for legacy
+    override val updatedAtEpochMs: Long = createdAtEpochMs,  // defaults to creation time for legacy
+    /**
+     * Optional routing cost for a routing engine that does not exist yet. `null` means not set and a
+     * set value ranges 1–9; the wizard's slider reaches `null` at its own `0` position, so a stored
+     * `0` — like any out-of-range value — is read as unset by [validRoutingCost].
+     */
+    val routingCost: Int? = null
 ) : ListableItem {
     override val title: String get() = name
     override val isPinned: Boolean get() = pinned
@@ -112,6 +120,24 @@ data class UserMarker(
         }
     }
 }
+
+/**
+ * The one validity rule for a stored routing cost: a value is a cost only inside 1–9.
+ *
+ * Anything else reads as unset — `null`, the slider's own `0`-means-Off position, and an out-of-range
+ * legacy value alike — so the marker card and any future reader answer the same way. Stored data is
+ * never rewritten on read.
+ */
+internal fun validRoutingCost(value: Int?): Int? = value?.takeIf { it in 1..9 }
+
+/**
+ * The slider's position read as a cost: `0` is Off and maps to `null`, and anything above it passes
+ * through the one validity rule in [validRoutingCost].
+ *
+ * The "0 means Off" rule lives here rather than in a Compose lambda so a test can reach it.
+ */
+internal fun routingCostForSlider(position: Double): Int? =
+    if (position.isFinite()) validRoutingCost(position.roundToInt()) else null
 
 /**
  * Axis-aligned lat/lon bounding box for cheap spatial pre-filter.
