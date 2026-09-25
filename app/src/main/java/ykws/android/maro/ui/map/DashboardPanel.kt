@@ -107,15 +107,6 @@ fun DashboardPanel(
      * epic's placement, not this component's choice.
      */
     routeTrip: RouteTripFigure? = null,
-    /**
-     * The route's manual recompute, offered **on the trip card itself**.
-     *
-     * This is a deliberate exception to the panel's own read-only rule, and it is the epic's own
-     * placement — the age and the recompute live where the trip figure lives, and no separate route
-     * panel exists — so the one control that belongs to the trip figure is drawn on it rather than
-     * somewhere the user would have to look for it.
-     */
-    onRecomputeRoute: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -147,7 +138,6 @@ fun DashboardPanel(
                         autoRevealDistanceM = autoRevealDistanceM,
                         autoRevealTimeS = autoRevealTimeS,
                         routeTrip = routeTrip,
-                        onRecomputeRoute = onRecomputeRoute,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -329,18 +319,18 @@ private fun distanceText(distanceM: Double): String {
 /**
  * The trip card: the distance-to-shore cell's other face, worn while a route is followed.
  *
- * Distance to go, the ETA at the pace in force, and the plan's age — the age ticking on its own so a
- * route that is not being recomputed still reads as an old figure rather than as a fresh one.
+ * Distance to go, the ETA at the pace in force, and the plan's age — the age ticking on its own, which
+ * is now the **only** reading that says a followed line has grown old: no gate re-asks behind the user's
+ * back any more (R10), so the card says how old the figure is rather than pretending it is fresh.
  *
- * **There is no stale reading any more** (R13): a refresh that cannot answer changes nothing on the
- * map — the standing line keeps its place and is not marked, because stale means *replaced* — and the
- * failure is said by a toast instead, so the badge this card used to carry has gone with the reading
- * behind it.
+ * **There is no stale reading and no recompute here** (R13, R12): the standing line keeps its place and
+ * is not marked, because stale means *replaced*, and the one door onto a recompute is the route panel's
+ * own **Reroute** — so the badge and the tap this card used to carry have gone with the readings behind
+ * them.
  */
 @Composable
 private fun RouteTripCard(
     trip: RouteTripFigure,
-    onRecompute: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -364,8 +354,7 @@ private fun RouteTripCard(
         } else {
             null
         },
-        routeAgeText(ageSeconds),
-        if (onRecompute != null) ROUTE_RECOMPUTE_MARK else null
+        routeAgeText(ageSeconds)
     ).joinToString(" \u00b7 ")
 
     DashboardCard(
@@ -373,17 +362,9 @@ private fun RouteTripCard(
         value = stringResource(R.string.route_trip_distance_nm, trip.distanceNm),
         subtitle = subtitle,
         valueColor = DashboardColors.textPrimary,
-        onClick = onRecompute,
         modifier = modifier
     )
 }
-
-/**
- * The recompute affordance's mark: the standard refresh arrow, which every platform draws for
- * "ask again". It is a glyph rather than a label because the card has one line to spare and a label
- * would ellipsise the ETA it sits beside.
- */
-private const val ROUTE_RECOMPUTE_MARK = "\u21bb"
 
 /** Format ETA seconds as a localised string — either "ETA X s" or "ETA X:XX min". */
 @Composable
@@ -405,14 +386,13 @@ private fun DistanceCard(
     autoRevealDistanceM: Float = 100f,
     autoRevealTimeS: Float = 10f,
     routeTrip: RouteTripFigure? = null,
-    onRecomputeRoute: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // ── The trip figure, while a route is confirmed ────────────────────
     // It outranks every other reading this cell could show: the cell carries the trip's distance and
     // time, and reaching the destination is this value reading zero rather than any state changing.
     if (routeTrip != null) {
-        RouteTripCard(trip = routeTrip, onRecompute = onRecomputeRoute, modifier = modifier)
+        RouteTripCard(trip = routeTrip, modifier = modifier)
         return
     }
 

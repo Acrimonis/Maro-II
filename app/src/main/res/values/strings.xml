@@ -571,22 +571,23 @@
 
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Route destination mode</string>
-    <string name="route_dialog_title">Destination</string>
+    <!-- The acquisition's own title and comment: the phase's name, then one line of what it asks. -->
+    <string name="route_acq_title">Route acquisition</string>
+    <string name="route_acq_comment">Place the destination, then acquire the route</string>
     <!-- The data table's own labels: two columns, an end each, the figures below them. -->
     <string name="route_label_start">Start</string>
     <string name="route_label_destination">Destination</string>
     <string name="route_label_eta">ETA</string>
     <!-- The ETA cell's bare value — the label above is what says "ETA", so it is not repeated. -->
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
-    <string name="route_action_route">Route</string>
-    <string name="route_action_save_route">Save track and Route</string>
+    <string name="route_action_acquire">Acquire route</string>
+    <string name="route_action_confirm">Confirm</string>
+    <string name="route_action_reroute">Reroute</string>
+    <string name="route_action_new">New route</string>
     <string name="route_action_save_only">Save track and Exit</string>
     <string name="route_action_save_track">Save track</string>
-    <string name="route_action_freeze">Freeze</string>
-    <string name="route_action_abort">Abort</string>
     <string name="route_action_exit">Exit</string>
     <string name="route_pin_label">Pin the track</string>
-    <string name="route_aim_hint">Drag the map to the destination</string>
     <string name="route_searching">Computing Route…</string>
     <string name="route_no_route">No water route here</string>
     <!-- The refused end's two sentences — one per end, and the crosshair is the same on both. -->
@@ -594,20 +595,21 @@
     <string name="route_origin_invalid">Position invalid: %1$s</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
-    <string name="route_following_recomputing">Re-Computing Route…</string>
-    <string name="route_status_current">Up to date</string>
-    <string name="route_status_frozen">Frozen</string>
+    <string name="route_status_acquiring">Acquiring…</string>
+    <string name="route_status_active">Route active</string>
+    <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
+         search crosses, in the order it crosses them. -->
+    <string name="route_stage_corridor">Corridor</string>
+    <string name="route_stage_grid">Grid</string>
+    <string name="route_stage_search">Search</string>
+    <string name="route_stage_pull">Pull</string>
+    <string name="route_stage_snap">Snap</string>
     <!-- The one exit dialog, reached by the toggle and by the panel's Exit alike. Its accent reuses
          the draft's own save words (route_action_save_only), the scope above saying how many routes
          that save writes. -->
     <string name="route_exit_title">Leave the route?</string>
     <string name="route_exit_continue">Continue</string>
     <string name="route_exit_discard">Discard route</string>
-    <string name="route_exit_scope_all">Save every route of the session</string>
-    <!-- A refresh that could not answer: the standing line holds and this is what is said. -->
-    <string name="route_toast_refresh_failed">Route not refreshed: %1$s</string>
-    <string name="route_failure_outside_water">outside the covered water</string>
-    <string name="route_failure_no_path">no way through</string>
     <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
          "invalid" sentence above completes. Both ends read the same set. -->
     <string name="route_refusal_off_water">no water here</string>

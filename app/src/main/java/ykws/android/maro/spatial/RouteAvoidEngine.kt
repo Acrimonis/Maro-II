@@ -57,6 +57,15 @@ class RouteAvoidEngine(
 
     override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
 
+    /**
+     * The boundary the running search has reached, or null between calls: set as the pipeline crosses
+     * each stage and cleared in [search]'s own `finally`, so an answer and an abort both leave the
+     * panel with nothing to say about a search that is no longer running.
+     */
+    private val _stage = MutableStateFlow<RouteStage?>(null)
+
+    override val stage: StateFlow<RouteStage?> = _stage.asStateFlow()
+
     /** The end the mode froze when it was armed — told once, and held for the whole session. */
     private var origin: RoutePoint? = null
 
@@ -108,11 +117,17 @@ class RouteAvoidEngine(
      */
     private suspend fun search(world: AvoidWorld, from: RoutePoint, to: RoutePoint): RouteResult =
         withContext(Dispatchers.Default) {
-            val reach = AppConfig.routeAvoidCorridorReachM
-            val first = searchOnce(world, from, to, reach)
-            if (first != null) return@withContext first
-            val second = searchOnce(world, from, to, reach * 2.0)
-            second ?: RouteResult.NoPath
+            try {
+                val reach = AppConfig.routeAvoidCorridorReachM
+                val first = searchOnce(world, from, to, reach)
+                if (first != null) return@withContext first
+                val second = searchOnce(world, from, to, reach * 2.0)
+                second ?: RouteResult.NoPath
+            } finally {
+                // The stage is cleared where the call really ends — an answer, a refusal and an
+                // abort alike — so the panel never names a search that is not running (R15).
+                _stage.value = null
+            }
         }
 
     /** One pass of the pipeline: corridor → harvest → rasterize → A* → taut pull → corner snap → pull. */
@@ -122,17 +137,20 @@ class RouteAvoidEngine(
         to: RoutePoint,
         reach: Double
     ): RouteResult.Success? {
+        _stage.value = RouteStage.CORRIDOR
         val box = corridorBox(from, to, world.regionBounds, reach) ?: return null
         val edges = world.segmentsIn(box)
         val openCoast = world.openCoastIn(box)
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
+        _stage.value = RouteStage.GRID
         val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
+        _stage.value = RouteStage.SEARCH
         val path = AvoidSearch.search(grid, startCell, aimCell) ?: return null
         val start = from.toLatLng()
         val aim = to.toLatLng()
@@ -141,8 +159,10 @@ class RouteAvoidEngine(
         val clearance: (LatLng) -> Double = { p -> world.distanceToCoastM(p.latitude, p.longitude) }
         // The grid A* owns the order, the tangent corners own the exact points: pull the cell path
         // taut, then move each bend onto its nearest corner when both neighbouring legs stay clear.
+        _stage.value = RouteStage.PULL
         val pulled = AvoidPull.pull(full, start, aim, marginM, clearance)
         val corners = TangentCorners.corners(edges, openCoast, marginM)
+        _stage.value = RouteStage.SNAP
         val snapped = snapToCorners(pulled, corners, cellM * 2.0, marginM, clearance, start, aim)
         return success(AvoidPull.pull(snapped, start, aim, marginM, clearance))
     }

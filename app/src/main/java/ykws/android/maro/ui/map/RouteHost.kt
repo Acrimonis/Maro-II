@@ -9,16 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filterNotNull
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
@@ -79,50 +72,40 @@ private const val ROUTE_TARGET_PULSE_FRAME_MS = 33L
  * **The objects are attached once and mutated in place.** The polyline pool and the pin are created at
  * this file's own composition and added to the map a single time; an answer then sets their points,
  * their colour and their transparency rather than rebuilding the set, which is the shape the contour
- * polylines already ship and the prerequisite the **stale ladder** created (R14): a ladder repainted
- * on every refresh could not be rebuilt per state change without churning the whole overlay stack
- * under the tracks the map is drawing.
+ * polylines already ship and the prerequisite the **stale ladder** created (R14).
  *
  * The pool has one slot per drawn line — the front route plus the ladder's configured oldest-plus-newest
  * — and the ladder's cap and its 20 % → 80 % band come from [`routeLadderForDrawing`] and
- * [`routeLadderAlpha`], so the drawing reads the same rule the tests do.
+ * [`routeLadderAlpha`], so the drawing reads the same rule the tests do. The **acquisition's own**
+ * ladder is the lines a reroute or a new route left standing, which is why the stale set is read from
+ * the acquisition's state as well as the following one's.
  *
- * The confirmation and the following panel are **not** here: they live in the dashboard slot, composed
- * by the shell from the same state, so the panel the outcomes are taken from cannot fight the drag the
- * aim is made with. This host therefore raises nothing, dismisses nothing and owns no dialog.
+ * The panel is **not** here: it lives in the dashboard slot, composed by the shell from the same state,
+ * so the panel the outcomes are taken from cannot fight the drag the aim is made with. This host
+ * therefore raises nothing, dismisses nothing and owns no dialog.
  *
- * The origin is [boatPosition], the position the dashboard reads: the GPS fix in GPS mode, the same
- * seam in demo mode, **never** the map centre — which is the aim itself, and would otherwise make the
- * boat chase its own target. It is read once, on the armed frame, and the machine keeps it; the aim is
- * the only end that moves while the destination is chosen.
+ * **No timer asks for anything** (R2). There is no settle, no ground-move gate, no refresh clock and no
+ * map-motion listener: the aim is the screen centre, read by the press the panel offers, and the mode
+ * opens quiet. What this file reads of the boat is exactly two things — the **anchor** one acquisition
+ * gets, handed to `beginDraft` on the arming frame (`fight`), and the pace window beside it.
  *
- * **The ask policy is here, and it is not a leading-edge one** (R2, R3): no aim is asked on the arming
- * frame — the frame is *read*, so a later aim has something to be measured against, and nothing is
- * computed from it. Every map motion pushes the current screen centre into one flow; the driver takes
- * an aim only once the drag has **stood still for the configured settle** (the debounce) **and** has
- * moved at least the configured ground distance from the aim last asked for. A drag shorter than that,
- * or one that never stops, asks for nothing — so the mode opens quiet and the line appears when the
- * aim has really been placed.
+ * **The back key is the mode's own escape** while it is armed, and it is routed through [onEndRoute]
+ * into the shell's one exit rule, so back and the panel's Exit cannot diverge (R23).
  *
- * **The refresh cycle's clock is here too** (R10, R7): while a route is followed and not frozen, this
- * file ticks once a second and hands the tick to [`routeRefreshOrigin`], which reads the boat's **live
- * position** — the very seam the dashboard reads, through `rememberUpdatedState` so a tick a minute
- * into the phase sees where the boat is *now* rather than where it stood when the phase opened — and
- * decides against the configured interval or the configured distance off the standing route. The host
- * holds no policy of its own: the machine owns the call, the engine may only veto it, and the whole
- * decision is the one pure function the tests read.
- *
- * @param armed      the mode's single switch, owned by the shell: on aims, off ends the route.
+ * @param armed      the mode's single switch, owned by the shell: on arms, off ends the route.
+ * @param leadFix    the boat's own position with the course and speed the anchor's lead is projected
+ *                   from, or null where they are not trustworthy — demo mode and a stale fix alike.
+ *                   The host falls back on [boatPosition] with no lead when it is null.
  * @param speedKn    speed over ground (kn), fed to the pace window; null when nothing is moving.
  * @param positionRestricted true when the current position sits in a regulated zone or the band, so
  *                   the reading measures the limit rather than the boat and is dropped by [RoutePace].
- * @param onEndRoute runs when the mode ends — the toggle's off, the panel's Cancel and the back key.
+ * @param onEndRoute runs when the mode ends — the toggle's off, the panel's Exit and the back key.
  */
-@OptIn(FlowPreview::class)
 @Composable
 internal fun RouteHost(
     mapView: MapView?,
     boatPosition: LatLng?,
+    leadFix: RouteFix?,
     state: RouteState,
     armed: Boolean,
     gpsMode: Boolean,
@@ -135,87 +118,26 @@ internal fun RouteHost(
 ) {
     // The back key is the mode's own escape while it is armed: the panel sits in the dashboard slot,
     // so nothing else offers one — and without this the press would reach the screen's exit guard with
-    // a route still standing on the map. The shell owns what the escape means in each phase: silent
-    // while the destination is chosen, the one exit dialog once a route is followed.
+    // a route still standing on the map. The shell owns what the escape means in each phase, and back
+    // follows the acquisition's own Exit wherever it goes (R23).
     BackHandler(enabled = armed) { onEndRoute() }
 
-    // ── The mode's edges: the origin is read once, here, and the machine keeps it ──
+    // ── The mode's edges: one acquisition's anchor is read, here, and the machine keeps it ──
     // The read happens in this effect's own frame — the one where the toggle turned on — and the value
-    // is handed to the Idle → Choosing edge, which is what makes a later re-read impossible rather
-    // than merely unlikely: no seam survives the call, so a preview can only be asked from the anchor
-    // the mode opened on, and the engine is told that origin exactly once (R7). The aim is then the
-    // only end that moves.
+    // is handed to the Idle → Choosing edge. Nothing is computed from it: the anchor is held until the
+    // panel's own **Acquire route** is pressed, which is the only ask the feature has (R2, R3).
+    val liveLeadFix by rememberUpdatedState(leadFix)
+    val liveBoatPosition by rememberUpdatedState(boatPosition)
     LaunchedEffect(armed) {
         if (armed) {
-            val origin = boatPosition?.let { RoutePoint(it.latitude, it.longitude) }
-            Log.d(TAG, "mode armed — origin frozen at $origin")
-            viewModel.beginDraft(origin)
+            val fix = liveLeadFix
+                ?: liveBoatPosition?.let { RouteFix(RoutePoint(it.latitude, it.longitude), null, null) }
+            Log.d(TAG, "mode armed — anchor resolved at ${fix?.position}")
+            viewModel.beginDraft(fix)
         } else {
             Log.d(TAG, "mode ended")
             viewModel.end()
         }
-    }
-
-    // ── The aim: the screen centre, read the way the inspect anchor reads it ────
-    var motionId by remember { mutableIntStateOf(0) }
-    val aimFlow = remember { MutableStateFlow<RoutePoint?>(null) }
-    var lastAskedAim by remember { mutableStateOf<RoutePoint?>(null) }
-
-    fun readAim(): RoutePoint? {
-        val mv = mapView ?: return null
-        val anchor = inspectAnchor(mv, mapCenterOffsetPx) ?: return null
-        return RoutePoint(anchor.latitude, anchor.longitude)
-    }
-
-    DisposableEffect(mapView, armed) {
-        val mv = mapView
-        if (mv == null || !armed) return@DisposableEffect onDispose { }
-        val listener = object : MapListener {
-            override fun onScroll(event: ScrollEvent?): Boolean {
-                motionId++
-                return false
-            }
-
-            override fun onZoom(event: ZoomEvent?): Boolean {
-                motionId++
-                return false
-            }
-        }
-        mv.addMapListener(listener)
-        onDispose { mv.removeMapListener(listener) }
-    }
-
-    // **The arming frame reads the aim and asks for nothing** (R2). The read is the baseline the ask
-    // policy measures against, so a drag of less than the configured ground move — or the very frame
-    // the mode opened on — puts no search on the worker at all.
-    LaunchedEffect(armed, mapView) {
-        if (!armed) {
-            aimFlow.value = null
-            lastAskedAim = null
-            return@LaunchedEffect
-        }
-        lastAskedAim = readAim()
-    }
-
-    // Every map motion pushes the centre; the driver below decides what to do with it.
-    LaunchedEffect(motionId, armed) {
-        if (!armed) return@LaunchedEffect
-        readAim()?.let { aimFlow.value = it }
-    }
-
-    // The ask driver: the drag must **stand still for the settle** and have moved the configured
-    // ground distance before a search is asked for. Only the aim is passed on — the origin the search
-    // uses is the machine's own frozen anchor, told to the engine once.
-    LaunchedEffect(armed, mapView) {
-        if (!armed) return@LaunchedEffect
-        aimFlow.filterNotNull()
-            .debounce(AppConfig.routeAskSettleMs)
-            .collect { aim ->
-                if (routeAimPassed(lastAskedAim, aim)) {
-                    lastAskedAim = aim
-                    viewModel.preview(aim)
-                }
-            }
     }
 
     // ── The pace window: the boat's own pace, in GPS mode only ─────────────────
@@ -226,34 +148,6 @@ internal fun RouteHost(
             nowMs = System.currentTimeMillis(),
             setPaceKn = setPaceKn.toDouble()
         )
-    }
-
-    // ── The refresh cycle's clock (R10) ───────────────────────────────────────
-    // One tick a second while a route is followed and not frozen. The boat's position is read through
-    // `rememberUpdatedState`, so the tick below sees the **current** fix every time rather than the one
-    // captured when this effect started: without it, every automatic refresh would ask from where the
-    // boat stood on the frame the following phase opened, and the off-route threshold would measure
-    // that same stale point. The gate's own decision is `routeRefreshOrigin`'s, and the machine makes
-    // the call the engine may only veto. The freeze stops this clock and nothing else — the trip figure
-    // keeps counting down on the standing line.
-    val liveBoatPosition by rememberUpdatedState(boatPosition)
-    val following = state as? RouteState.Following
-    LaunchedEffect(armed, following != null, following?.frozen, mapView) {
-        if (!armed || following == null || following.frozen) return@LaunchedEffect
-        while (true) {
-            delay(1_000L)
-            val live = viewModel.state.value as? RouteState.Following ?: break
-            if (live.frozen || live.refresh == RouteRefresh.RUNNING) continue
-            val from = routeRefreshOrigin(
-                livePosition = {
-                    liveBoatPosition?.let { RoutePoint(it.latitude, it.longitude) }
-                },
-                standingPlan = live.plan,
-                nowMs = System.currentTimeMillis()
-            ) ?: continue
-            Log.d(TAG, "refresh gate open — asking from $from")
-            viewModel.refresh(from)
-        }
     }
 
     // ── The map objects: one file owns the lines, the pool and the pin ─────────
@@ -325,7 +219,10 @@ internal fun RouteHost(
 
         val plan = state.plan
         val stale = when (state) {
+            // The following phase's ladder is the session minus its front line; the acquisition's is
+            // the set a reroute or a new route left standing, plus the answers it has itself replaced.
             is RouteState.Following -> state.routes.dropLast(1)
+            is RouteState.Choosing -> state.ladder
             else -> emptyList()
         }
         val drawnLadder = routeLadderForDrawing(stale)
@@ -338,7 +235,7 @@ internal fun RouteHost(
         // the book's own **20 % → 80 %** band (R14) — so the line just replaced is the brightest of the
         // stale set and the one that opened the session the faintest. The band is an **absolute**
         // opacity: the two figures the book states, never a fraction of the front line's own
-        // transparency, which would land the ladder at 43/255 and 172/255 under the shipped 15 % key.
+        // transparency.
         val layers: List<Pair<List<RoutePoint>, Int>> = buildList {
             if (plan != null && plan.points.size >= 2) add(plan.points to frontAlpha)
             drawnLadder.forEachIndexed { index, ladderPlan ->
@@ -456,10 +353,10 @@ internal fun RouteHost(
  */
 internal class RouteTargetOverlay : Polyline() {
 
-    /** Whether the ring is drawn at all — true only while the destination is being chosen. */
+    /** Whether the ring is drawn at all — true only while the destination is being acquired. */
     var shown: Boolean = false
 
-    /** True while the aim — or the origin — is refused: the crosshair is drawn and it beats (R6, R27). */
+    /** True while the aim — or the anchor — is refused: the crosshair is drawn and it beats (R6, R27). */
     var refused: Boolean = false
 
     /** The app's own vertical offset of the aim, in px — the same shift `inspectAnchor` reads it with. */
@@ -488,7 +385,7 @@ internal class RouteTargetOverlay : Polyline() {
         c.drawCircle(centerX, centerY, ROUTE_TARGET_INNER_RADIUS_DP * density, paint)
 
         // The refused state is the same ring with the bold red crosshair over it, for the aim and for the
-        // origin alike (R6, R27), beating with the period `route.target.pulseMs` states.
+        // anchor alike (R6, R27), beating with the period `route.target.pulseMs` states.
         if (refused) {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = AppConfig.routeTargetWidthDp * density

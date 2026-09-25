@@ -12,21 +12,18 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
-import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import ykws.android.maro.ui.components.OptionRow
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The route's own rules — the asks, the refresh gate, the ladder and the trip figure
+// The route's own rules — the anchor's lead, the ladder and the trip figure
 //
-// This file owns the route's own arithmetic and the sentences it prints: the ask policy's rule, the
-// following mode's refresh gate, the ladder's caps and their band, the failure lines, and the trip
-// figure the dashboard's distance cell reads while a route is followed. The map objects — the lines,
-// the pin and the aim ring — live in RouteHost.kt, which is the one file that touches osmdroid for
-// this feature.
+// This file owns the route's own arithmetic and the sentences it prints: the acquisition anchor's
+// lead, the ladder's caps and their band, the ends' own print, and the trip figure the dashboard's
+// distance cell reads while a route is followed. The map objects — the lines, the pin and the aim
+// ring — live in RouteHost.kt, which is the one file that touches osmdroid for this feature.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Opacity of the **oldest** line of the stale ladder (R14). */
@@ -36,69 +33,43 @@ internal const val ROUTE_LADDER_ALPHA_OLDEST = 0.20f
 internal const val ROUTE_LADDER_ALPHA_NEWEST = 0.80f
 
 /**
- * **Whether the aim has moved far enough to be worth a search** — the first half of the ask policy.
+ * The lead's own reading: where the boat is, and what it is doing, as one value.
  *
- * The threshold is the configured ground move ([`AppConfig.routeAskMinTargetMoveM`], the 25 m that
- * already shipped) and it is measured from the **last aim that was asked for**, so a drag that never
- * really leaves the water it was pointing at costs nothing. A session with no baseline at all — the
- * map not yet readable on the arming frame — lets the first real aim through, there being nothing to
- * measure it against.
+ * Public rather than internal because the interface it crosses — the acquisitions a view model opens
+ * — is public too; the helper that reads it ([`routeAnchorLead`]) stays module-internal.
  */
-internal fun routeAimPassed(
-    previous: RoutePoint?,
-    next: RoutePoint,
-    thresholdM: Double = AppConfig.routeAskMinTargetMoveM
-): Boolean {
-    if (previous == null) return true
-    val moved = SpatialOperations.haversine(
-        LatLng(previous.latitude, previous.longitude),
-        LatLng(next.latitude, next.longitude)
-    )
-    return moved >= thresholdM
-}
+data class RouteFix(val position: RoutePoint, val courseDeg: Double?, val speedKn: Double?)
+
+/** Below this speed (kn) a reported course is jitter rather than a heading, and the lead stands down. */
+private const val ROUTE_ANCHOR_MIN_SPEED_KN = 0.5
 
 /**
- * **Whether the following mode may ask for a refresh** (R10).
+ * **The acquisition's anchor** (R3): [fix]'s position led by [leadSec] along its own course and speed,
+ * or the live fix itself where there is nothing trustworthy to project from.
  *
- * The app owns this gate and the engine may only veto the call it decides on. **Either threshold alone
- * opens the moment** — the clock since the standing answer was computed, or the distance the boat
- * stands off its own route — because each one alone answers a case the other cannot: a slow drift off a
- * long leg, and a boat holding station on the line while the world around it changes.
+ * One pure helper, one call site — the acquisition's own entry edge — so no frame can move the anchor
+ * afterwards, which is the defect the per-phase anchor exists to avoid. It answers the live fix
+ * whenever the projection has nothing to stand on: no course, no speed, a course or speed that is not
+ * a number, a speed under [ROUTE_ANCHOR_MIN_SPEED_KN], or a lead of zero. **Demo mode takes no lead at
+ * all** by handing in a fix with no course and no speed, its position being the map centre rather than
+ * a moving boat's.
+ *
+ * A predicted point that is not water is the caller's to fall back from: this helper is arithmetic
+ * over the fix and asks the engine nothing.
  */
-internal fun routeRefreshDue(
-    lastAnswerAtMs: Long,
-    nowMs: Long,
-    distanceOffRouteM: Double,
-    intervalSec: Int = AppConfig.routeRefreshIntervalSec,
-    offRouteM: Double = AppConfig.routeRefreshOffRouteM
-): Boolean =
-    nowMs - lastAnswerAtMs >= intervalSec * 1_000L || distanceOffRouteM >= offRouteM
-
-/**
- * **The point one refresh tick asks from** (R10) — the boat's **own live reading**, or null while the
- * moment has not come.
- *
- * It takes a **provider**, not a point, and that is the rule rather than a convenience: a tick that
- * captured the boat's position once — in the composition that opened the following phase — would fire
- * every later refresh from where the boat stood when the phase began, and read the off-route threshold
- * off that same stale point. Reading through the provider on every call is what makes "the boat's own
- * current reading" true of a tick that runs a minute after the phase opened.
- *
- * A null reading from the provider answers null — no boat, no ask — and so does a shut gate, so the
- * caller has one reading to branch on.
- */
-internal fun routeRefreshOrigin(
-    livePosition: () -> RoutePoint?,
-    standingPlan: RoutePlan,
-    nowMs: Long
-): RoutePoint? {
-    val boat = livePosition() ?: return null
-    val due = routeRefreshDue(
-        lastAnswerAtMs = standingPlan.computedAtMs,
-        nowMs = nowMs,
-        distanceOffRouteM = routeDistanceOffRouteM(standingPlan, boat)
+internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchorLeadSec): RoutePoint {
+    val course = fix.courseDeg
+    val speed = fix.speedKn
+    if (leadSec <= 0 || course == null || speed == null) return fix.position
+    if (!course.isFinite() || !speed.isFinite() || speed < ROUTE_ANCHOR_MIN_SPEED_KN) return fix.position
+    val metres = Units.knotsToMps(speed) * leadSec
+    val moved = SpatialOperations.pointAlongBearing(
+        fix.position.latitude,
+        fix.position.longitude,
+        course,
+        metres
     )
-    return if (due) boat else null
+    return RoutePoint(moved.latitude, moved.longitude)
 }
 
 /**
@@ -146,19 +117,6 @@ internal fun routeLadderDrawAlpha(index: Int, total: Int): Int =
     (routeLadderAlpha(index, total) * 255f).roundToInt().coerceIn(0, 255)
 
 /**
- * **The line a user reads when a refresh could not answer** (R13), as a resource id — null when the
- * answer was a route.
- *
- * The failure reaches the user as a toast on the app's own snackbar surface, carrying the engine's own
- * reason; the standing line is untouched and **not** marked stale, because stale means *replaced*.
- */
-internal fun routeFailureReasonResId(result: RouteResult?): Int? = when (result) {
-    RouteResult.OutsideWater -> R.string.route_failure_outside_water
-    RouteResult.NoPath -> R.string.route_failure_no_path
-    is RouteResult.Success, null -> null
-}
-
-/**
  * The trip figure: what is left of a followed route, in the two units the dashboard cell shows.
  *
  * The time is recomputed at the pace in force, which is what makes the observed pace a live
@@ -203,21 +161,6 @@ internal fun routeTripFigure(
         etaSeconds = etaSeconds,
         forcedCrossingZoneNames = plan.forcedCrossingZoneNames,
         computedAtMs = plan.computedAtMs
-    )
-}
-
-/**
- * How far (m) the boat stands off the route it is following — the refresh gate's other threshold.
- *
- * Measured to the **nearest vertex**, the same snap the trip figure reads the remainder with, so the
- * two readings of "where the boat is on this line" can never disagree. An empty polyline answers an
- * infinite offset, which is the honest reading of a line with nothing to stand off.
- */
-internal fun routeDistanceOffRouteM(plan: RoutePlan, from: RoutePoint): Double {
-    val nearest = plan.points.getOrNull(plan.nearestVertexIndex(from)) ?: return Double.MAX_VALUE
-    return SpatialOperations.haversine(
-        LatLng(from.latitude, from.longitude),
-        LatLng(nearest.latitude, nearest.longitude)
     )
 }
 

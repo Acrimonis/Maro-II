@@ -52,6 +52,17 @@ interface RouteEngine {
     val state: StateFlow<RouteEngineState>
 
     /**
+     * **The stage of the search running right now**, or null when nothing is running — the
+     * acquisition's own progress, as a closed set of [RouteStage] ids rather than a sentence.
+     *
+     * One emission per boundary the pipeline crosses, and **null on every answer and on an abort**:
+     * a stage left standing after the call that set it would be a lie on the panel. An engine that
+     * crosses no boundary — the dummy, which computes nothing — simply never sets it, so the panel
+     * falls back on its own plain searching word.
+     */
+    val stage: StateFlow<RouteStage?>
+
+    /**
      * Makes the engine ready if it can be, and reports what it reached.
      *
      * The caller asks once and reads the answer; an engine that is already ready returns immediately,
@@ -200,6 +211,33 @@ enum class RouteUnavailableReason(val labelResId: Int) {
  * the water again will need exactly these sentences; each entry names what it meant to the engine that
  * produced it, in the past tense.
  */
+/**
+ * **The stage an acquisition has reached** — the closed set the engine publishes while a search runs
+ * ([RouteEngine.stage]), shaped like [RouteRefusalReason] so the label is an id the surface resolves
+ * and no engine holds user-facing text.
+ *
+ * The five entries are the five boundaries the routing pipeline already crosses — the corridor it
+ * bounds, the grid it rasterizes, the search it runs, the taut pull and the corner snap — so
+ * publishing them costs one emission each rather than a new computation.
+ */
+enum class RouteStage(val labelResId: Int) {
+
+    /** The corridor box the search is bounded to is being cut from the two ends. */
+    CORRIDOR(R.string.route_stage_corridor),
+
+    /** The corridor is being rasterized into the grid the A* walks. */
+    GRID(R.string.route_stage_grid),
+
+    /** The A* is expanding the grid between the two anchored cells. */
+    SEARCH(R.string.route_stage_search),
+
+    /** The cell path is being pulled taut against the coastline. */
+    PULL(R.string.route_stage_pull),
+
+    /** Each bend is being moved onto its nearest tangent corner. */
+    SNAP(R.string.route_stage_snap)
+}
+
 enum class RouteRefusalReason(val labelResId: Int) {
 
     /**

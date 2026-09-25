@@ -584,17 +584,26 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   scrim is a **hard on/off toggle** (no fade) and does not share the panel's window. While the dialog
   is visible the ladder scrim yields to it, so dims never stack; every other `DrawerSlot` caller keeps
   its own timings.
-- **Actions:** `ConfirmAction(label, role, onClick)` rendered in order, stacked full width.
+- **Actions:** `ConfirmAction(label, role, enabled, onClick)` rendered in order, stacked full width.
   `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
   label; `SECONDARY` = `OutlinedButton` with a `uiAccent` label.
+- **A disabled action is the same control with a different face** (2026-09-24): a `ConfirmAction` with
+  `enabled = false` reads as the **outlined role, its label in `uiTextMuted` and its outline in
+  `uiDividerColor`, and no accent surviving it** — which is what keeps the accent meaning *the
+  surface's own outcome* rather than being dimmed into ambiguity. The two tokens are §2.7's own
+  unselected-segment ones, so the face adds no palette entry, and Compose announces `enabled = false`
+  natively, so nothing custom rides accessibility. A greyed button promises nothing, saying only *not
+  yet*.
 - **A button's colour states its role, never its importance** (2026-09-23): the **accent** is the
   surface's own outcome — the action the surface exists for, one per surface; the **red** is the action
   that withholds the work; the **outline** is everything that neither writes nor loses, the door that
   leaves a mode included. The order **affirmative → neutral → destructive** governs a surface's
-  **stacked** actions; where a requirement fixes a row's own order, that order stands — R17 pairs
-  `Freeze`/`Resume` beside `Save track`, the accent second, which is the requirement's own shape. The
-  recording exit dialog is what the whole family is read against — `Save track` accent ·
-  `Continue recording` outlined · `Discard track` red.
+  **stacked** actions; where a requirement fixes a row's own order, that order stands — the route
+  panel's two grids fix theirs, `Acquire route` · `Confirm` · `Save track` · `Exit` in the acquisition
+  and `Save track` · `Reroute` · `New route` · `Exit` while followed, each drawn as two rows of two
+  with the accent on the **one enabled forward action** at every instant (R16, R17). The recording exit
+  dialog is what the whole family is read against — `Save track` accent · `Continue recording` outlined
+  · `Discard track` red.
 - **Cancel is optional** and is just another action, passed **last** — where present it is the
   bottom-most button and calls `onDismiss`. Offer one only where dismissal unambiguously means
   "abort, nothing happens" (resume, import conflict, merge, batch delete). No Cancel where dismissing
@@ -704,12 +713,14 @@ floating dialog cannot be aimed under. Its anatomy is the list card's (see §9 o
 
 | Block | Font / token | Source |
 |---|---|---|
-| Header row | Title 15 sp SemiBold `uiDashboardTextPrimary` on the left; the phase's **status** 13 sp `uiDashboardTextPrimary` in the right corner | `Destination` · `Routing active` beside `Up to date` · `Re-Computing Route…` · `Frozen` — one reading that costs no line; the choosing phase carries no status |
-| Divider | 0.5 dp `uiDividerColor` | the card's own divider, on the panel's 6 dp stack rhythm; drawn only where a plan stands |
+| Header row | Title 15 sp SemiBold `uiDashboardTextPrimary` on the left; the phase's **status** 13 sp `uiDashboardTextPrimary` in the right corner | `Route acquisition` beside `Acquiring…` while an acquisition runs, `Routing active` beside `Route active` while a route is followed — one reading that costs no line, and the acquisition carries no status when nothing is running |
+| Comment | 13 sp `uiDashboardTextPrimary` | the acquisition's own static line — `Place the destination, then acquire the route` — drawn under the header, one line of what the phase asks of the user |
+| Stage · sentence | 13 sp `uiDashboardTextPrimary` | the live line's own slot, under a divider: the **stage** the engine publishes while an acquisition runs (`Corridor` · `Grid` · `Search` · `Pull` · `Snap`), else the refusal's sentence, else the plain searching word — never together with the comment above, the two slots being mutually exclusive (R15) |
+| Divider | 0.5 dp `uiDividerColor` | the card's own divider, on the panel's 6 dp stack rhythm; drawn where a plan stands and where the live sentence has something to say |
 | Data table | `StatCell`, **two columns × two rows** | `Start` beside `Destination`, then `Dist` beside `ETA`, each on a cell of the card's own shape and the rows touching — the tracks card's own grid at two columns; the coordinates print to **three decimals**, the precision that column's width allows |
 | Notes | 12 sp | under the table, each only where it is true: the engine's note that the route ends away from the aim, bracketed, and the forced crossing |
 | Second divider | 0.5 dp `uiDividerColor` | closes the table, above the controls and the actions |
-| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | the roles are §5.6's, the accent the phase's own outcome; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
+| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | the roles are §5.6's, the accent the phase's own **one enabled forward action**; each phase draws a fixed grid of four — `Acquire route` · `Confirm` · `Save track` · `Exit`, and `Save track` · `Reroute` · `New route` · `Exit` — with only the enabled set changing, so a disabled `Save track` wears §5.6's disabled face rather than vanishing; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
 
 `StatCell` ([`ui/components/StatCell.kt`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt))
 is the app's **one** rendering of a reading — the track and route cards' grids and this panel read it,

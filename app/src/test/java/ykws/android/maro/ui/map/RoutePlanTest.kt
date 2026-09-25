@@ -2,9 +2,9 @@ package ykws.android.maro.ui.map
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
@@ -12,16 +12,20 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
- * The aim's rule, the trip figure and the following phase's own threshold reading.
+ * The anchor's lead, the trip figure and the naming a saved route takes.
  *
  * The trip figure is the reading the epic hangs arrival on — reaching the destination *is* the cell
  * reading zero — so the central test is that what is left of the route is zero at the destination
  * and the whole route at the start, with the ETA being that remainder over the pace rather than a
  * figure carried over from the plan.
  *
- * **What is deliberately absent is the old `stale` reading** (R13): a failed refresh changes nothing
- * on the map and is said by a toast, so the figure has nothing to mark and there is no state here to
- * read — its return would be the defect, not its absence.
+ * **The anchor's lead is the one new rule here** (R3): every entry into the acquisition projects the
+ * boat's own position forward along its course and speed, and it stands down — answering the live fix
+ * — wherever there is nothing trustworthy to project from, which is the fallback the acquisition's own
+ * judgement is asked of.
+ *
+ * **What is deliberately absent is the old `stale` reading** (R13): an answer that cannot be given
+ * changes nothing on the map, so the figure has nothing to mark and there is no state here to read.
  */
 class RoutePlanTest {
 
@@ -51,21 +55,24 @@ class RoutePlanTest {
     )
 
     /**
-     * **A route's own save name carries the fixed `Route ` prefix** (R25).
+     * **A route's own save name carries the fixed `Route ` prefix, and one shape only** (R25).
      *
      * The naming rule has one home, [`RoutePlan.trackName`], and **every** save that writes a route
-     * reads it — the draft's single doors included — so no single save falls back on the bare auto-name
-     * a recorded journey carries. The prefix is a fixed token rather than a localised string, a name
-     * being data; `· n/N` rides on the same base when one action writes several.
+     * reads it, so no save falls back on the bare auto-name a recorded journey carries. The prefix is a
+     * fixed token rather than a localised string, a name being data — and the `· n/N` suffix the
+     * withdrawn all-scope save once needed is gone, so one save path names a route one way.
      */
     @Test
-    fun aRoutesSaveNameCarriesTheFixedRoutePrefix() {
-        val single = plan().trackName()
-        val inSet = plan().trackName(index = 2, total = 3)
+    fun aRoutesSaveNameCarriesTheFixedRoutePrefixAndNothingElse() {
+        val name = plan().trackName()
 
-        assertTrue("the prefix is the fixed token, not a localised string", single.startsWith("Route "))
-        assertFalse("a single save has no index to print", single.contains("·"))
-        assertEquals("and one of a set keeps that same base", "$single · 2/3", inSet)
+        assertTrue("the prefix is the fixed token, not a localised string", name.startsWith("Route "))
+        assertFalse("and no index suffix survives the withdrawn all-scope save", name.contains("·"))
+        assertEquals(
+            "and two saves of one route name it the same way",
+            name,
+            plan().trackName()
+        )
     }
 
     @Test
@@ -142,29 +149,90 @@ class RoutePlanTest {
     }
 
     /**
-     * **The aim's rule: the configured ground move is what makes an aim worth a search.**
+     * **The anchor's lead: the boat's own position, projected forward along its own course and speed**
+     * (R3).
      *
-     * The threshold is read from `AppConfig` where the caller passes none, so the number the properties
-     * file holds is the number the rule uses — and a session with no baseline at all lets the first
-     * real aim through, there being nothing to measure it against.
+     * The projection is one pure arithmetic over the fix, and this reads it against its own
+     * derivation — the great-circle point `speed × lead` metres along the course — rather than against
+     * the helper's own answer. The pace is the boat's **speed over ground**, not the set free-water
+     * pace: the quantity is where the boat will be, not where it might sail.
      */
     @Test
-    fun theFirstAimAlwaysPassesAndTheRestNeedTheConfiguredMove() {
-        val near = RoutePoint(43.5000, 7.00001)
-        val far = RoutePoint(43.5000, 7.00100)
-        val configured = AppConfig.routeAskMinTargetMoveM
+    fun theAnchorIsTheLiveFixLedByItsOwnSpeedAndCourse() {
+        val leadSec = 10
+        val speedKn = 12.0
+        val course = 90.0
+        val metres = Units.knotsToMps(speedKn) * leadSec
 
-        assertTrue(routeAimPassed(previous = null, next = p0))
-        assertFalse(routeAimPassed(previous = p0, next = near))
-        assertTrue(routeAimPassed(previous = p0, next = far))
-        assertTrue(
-            "and the default threshold is the file's own value",
-            routeAimPassed(previous = p0, next = far, thresholdM = configured)
+        val led = routeAnchorLead(
+            RouteFix(position = p0, courseDeg = course, speedKn = speedKn),
+            leadSec = leadSec
         )
-        assertFalse(
-            "a threshold below the configured move is the rule's own argument, not a second default",
-            routeAimPassed(previous = p0, next = near, thresholdM = configured)
+        val expected = SpatialOperations.pointAlongBearing(p0.latitude, p0.longitude, course, metres)
+
+        assertEquals(expected.latitude, led.latitude, 1e-9)
+        assertEquals(expected.longitude, led.longitude, 1e-9)
+        assertNotEquals("and a moving boat's anchor is not the fix itself", p0, led)
+    }
+
+    /**
+     * **The lead is best-effort and never binding** (R3): wherever there is nothing trustworthy to
+     * project from, the anchor is the live fix, and the acquisition proceeds from there.
+     *
+     * Every stand-down is read: no course, no speed, a non-finite course or speed (a device answering
+     * nothing reads as zero), a speed under the floor at which a reported course is jitter rather than
+     * a heading, and a lead of zero — which is also the demo mode's own case, its position being the
+     * map centre and its pan-derived speed suspended while aiming.
+     */
+    @Test
+    fun theLeadStandsDownAndAnswersTheLiveFixWhereverItCannotProject() {
+        val led = { fix: RouteFix -> routeAnchorLead(fix, leadSec = 10) }
+
+        assertEquals("no course", p0, led(RouteFix(p0, null, 12.0)))
+        assertEquals("no speed", p0, led(RouteFix(p0, 90.0, null)))
+        assertEquals("a course that is not a number reads as none", p0, led(RouteFix(p0, Double.NaN, 12.0)))
+        assertEquals("a speed that is not a number reads as none", p0, led(RouteFix(p0, 90.0, Double.NaN)))
+        assertEquals("a speed under the heading floor is jitter, not a course", p0, led(RouteFix(p0, 90.0, 0.2)))
+        assertEquals("zero speed", p0, led(RouteFix(p0, 90.0, 0.0)))
+        assertEquals(
+            "and a lead of zero is the plain live fix",
+            p0,
+            routeAnchorLead(RouteFix(p0, 90.0, 12.0), leadSec = 0)
         )
+    }
+
+    /**
+     * **The lead is a horizon, not a latency budget** (R3): the distance is the speed over the
+     * configured time and nothing else, so the value stays engine-independent — a 500 ms desktop search
+     * and a 7.3 s device reading are the same horizon.
+     */
+    @Test
+    fun theLeadCoversTheConfiguredHorizonAndNothingElse() {
+        val speedKn = 10.0
+        val horizonM = Units.knotsToMps(speedKn) * 10
+
+        val ten = routeAnchorLead(RouteFix(p0, 0.0, speedKn), leadSec = 10)
+        val twenty = routeAnchorLead(RouteFix(p0, 0.0, speedKn), leadSec = 20)
+
+        assertEquals(
+            "the ten-second lead is ten seconds of the boat's own speed",
+            horizonM,
+            SpatialOperations.haversine(LatLng(p0.latitude, p0.longitude), LatLng(ten.latitude, ten.longitude)),
+            1e-6
+        )
+        assertEquals(
+            "and the horizon doubles with the lead it is asked for",
+            2 * horizonM,
+            SpatialOperations.haversine(LatLng(p0.latitude, p0.longitude), LatLng(twenty.latitude, twenty.longitude)),
+            1e-3
+        )
+        assertEquals(
+            "north is straight north at this scale, so the longitude holds",
+            p0.longitude,
+            ten.longitude,
+            1e-9
+        )
+        assertTrue("and the latitude rises with a northward course", ten.latitude > p0.latitude)
     }
 
     @Test
@@ -193,30 +261,5 @@ class RoutePlanTest {
         )
 
         assertEquals(240.0, figure.etaSeconds, 1e-9)
-    }
-
-    /**
-     * **The distance off the route is the gate's own other reading** (R10), and it is taken to the
-     * nearest vertex — the same snap the remainder reads — so the two can never disagree about where
-     * on the line the boat stands. A position a kilometre off the line reads a kilometre, whatever the
-     * line's shape.
-     */
-    @Test
-    fun theDistanceOffTheRouteIsTheNearestVertexsOwn() {
-        val offLine = RoutePoint(43.5100, 7.0200)
-
-        val measured = routeDistanceOffRouteM(plan(), offLine)
-        val expected = SpatialOperations.haversine(
-            LatLng(offLine.latitude, offLine.longitude),
-            LatLng(p1.latitude, p1.longitude)
-        )
-
-        assertEquals(expected, measured, 1e-6)
-        assertEquals(
-            "a boat standing on the line stands off it by nothing",
-            0.0,
-            routeDistanceOffRouteM(plan(), p1),
-            1e-6
-        )
     }
 }

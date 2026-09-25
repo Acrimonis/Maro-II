@@ -47,17 +47,9 @@ internal fun MapSnackbarHost(
                             is ActiveSnack.TrackDelete -> "Track '${snack.name}' deleted"
                             is ActiveSnack.MarkerDelete -> "Marker '${snack.name}' deleted"
                             is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
-                            // The route's own line: the sentence is this surface's, the reason is the
-                            // engine's — an id, resolved here, so no engine holds user-facing text.
-                            is ActiveSnack.RouteFailed -> stringResource(
-                                R.string.route_toast_refresh_failed,
-                                stringResource(snack.reasonResId)
-                            )
                         },
                         snackKey = snack.uid,
-                        // A failed refresh carries no undo: nothing happened, the standing line having
-                        // been left exactly as it was and the ladder untouched (R13).
-                        showUndo = snack !is ActiveSnack.RouteFailed,
+                        showUndo = true,
                         onUndo = { onUndo(snack) },
                         onTimeout = { onTimeout(snack) }
                     )

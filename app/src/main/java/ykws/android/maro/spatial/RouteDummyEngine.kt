@@ -56,6 +56,13 @@ class RouteDummyEngine : RouteEngine {
 
     override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
 
+    /**
+     * Always null, and that is the honest reading of this engine: it crosses no boundary of a
+     * pipeline it does not have, so the panel's sentence slot falls back on its plain searching word
+     * rather than naming a stage that was never entered.
+     */
+    override val stage: StateFlow<RouteStage?> = MutableStateFlow(null).asStateFlow()
+
     /** The end the mode froze when it was armed — told once, and held for the whole session. */
     private var origin: RoutePoint? = null
 

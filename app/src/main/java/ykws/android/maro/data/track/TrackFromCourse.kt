@@ -140,16 +140,12 @@ object TrackFromCourse {
 
     /**
      * **The name a route's track takes** (R25): the Tracks feature's own auto-name with a `Route `
-     * prefix, and `· n/N` appended when one action writes several routes of a session, in creation
-     * order.
+     * prefix, and nothing else — the `· n/N` suffix belonged to the withdrawn all-scope save and went
+     * with it, so one save path names a route one way.
      *
      * Both the prefix and the suffix are **fixed tokens rather than localised strings** — a track's
      * name is data, not UI text — and the base comes from [`trackAutoName`], so a route and a recorded
-     * journey are named by one function. [index] and [total] are both null for a single save, which is
-     * when the suffix has nothing to say.
+     * journey are named by one function.
      */
-    fun routeTrackName(createdAtMs: Long, index: Int? = null, total: Int? = null): String {
-        val base = "Route ${trackAutoName(createdAtMs)}"
-        return if (index != null && total != null) "$base · $index/$total" else base
-    }
+    fun routeTrackName(createdAtMs: Long): String = "Route ${trackAutoName(createdAtMs)}"
 }

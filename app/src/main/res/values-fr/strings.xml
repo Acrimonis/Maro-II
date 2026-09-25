@@ -570,43 +570,45 @@
 
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Mode destination de route</string>
-    <string name="route_dialog_title">Destination</string>
+    <!-- Le titre et le commentaire de l'acquisition : le nom de la phase, puis une ligne de ce qu'elle demande. -->
+    <string name="route_acq_title">Acquisition d\'itinéraire</string>
+    <string name="route_acq_comment">Placez la destination, puis acquérez la route</string>
     <!-- Les étiquettes du tableau : deux colonnes, une extrémité chacune, les chiffres en dessous. -->
     <string name="route_label_start">Départ</string>
     <string name="route_label_destination">Destination</string>
     <string name="route_label_eta">ETA</string>
     <!-- La valeur nue de la cellule ETA — l\'étiquette ci-dessus dit « ETA », elle n\'est pas répétée. -->
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
-    <string name="route_action_route">Router</string>
-    <string name="route_action_save_route">Enregistrer la trace et router</string>
+    <string name="route_action_acquire">Acquérir la route</string>
+    <string name="route_action_confirm">Confirmer</string>
+    <string name="route_action_reroute">Recalculer</string>
+    <string name="route_action_new">Nouvel itinéraire</string>
     <string name="route_action_save_only">Enregistrer la trace et quitter</string>
     <string name="route_action_save_track">Enregistrer la trace</string>
-    <string name="route_action_freeze">Geler</string>
-    <string name="route_action_abort">Interrompre</string>
     <string name="route_action_exit">Quitter</string>
     <string name="route_pin_label">Épingler la trace</string>
-    <string name="route_aim_hint">Faites glisser la carte vers la destination</string>
     <string name="route_searching">Calcul de la route…</string>
     <string name="route_no_route">Aucune route navigable ici</string>
     <!-- Les deux phrases d\'extrémité refusée — une par extrémité, et le réticule est le même. -->
     <string name="route_destination_invalid">Destination invalide : %1$s</string>
     <string name="route_origin_invalid">Position invalide : %1$s</string>
-    <!-- Les mots propres à la phase de suivi : sa phrase, ses trois statuts et ses actions. -->
+    <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
     <string name="route_following_active">Routage actif</string>
-    <string name="route_following_recomputing">Recalcul de la route…</string>
-    <string name="route_status_current">À jour</string>
-    <string name="route_status_frozen">Gelé</string>
+    <string name="route_status_acquiring">Acquisition…</string>
+    <string name="route_status_active">Route active</string>
+    <!-- L\'étape de l\'acquisition, telle que l\'ensemble fermé du moteur la publie : un mot par
+         frontière traversée, dans l\'ordre où elles le sont. -->
+    <string name="route_stage_corridor">Corridor</string>
+    <string name="route_stage_grid">Grille</string>
+    <string name="route_stage_search">Recherche</string>
+    <string name="route_stage_pull">Trait</string>
+    <string name="route_stage_snap">Coins</string>
     <!-- Le dialogue de sortie unique, atteint par la bascule comme par Quitter. Son bouton accentué
          reprend les mots de la sauvegarde du brouillon (route_action_save_only), la portée ci-dessus
          disant combien de routes cette sauvegarde écrit. -->
     <string name="route_exit_title">Quitter la route ?</string>
     <string name="route_exit_continue">Continuer</string>
     <string name="route_exit_discard">Abandonner la route</string>
-    <string name="route_exit_scope_all">Enregistrer toutes les routes de la session</string>
-    <!-- Un rafraîchissement sans réponse : la ligne en place tient, et c\'est ce qui est dit. -->
-    <string name="route_toast_refresh_failed">Route non actualisée : %1$s</string>
-    <string name="route_failure_outside_water">hors de l\'eau couverte</string>
-    <string name="route_failure_no_path">aucun passage</string>
     <!-- Pourquoi un point n\'est pas de l\'eau navigable — une ligne par raison, en fragment que la
          phrase « invalide » ci-dessus complète. Les deux extrémités lisent le même ensemble. -->
     <string name="route_refusal_off_water">pas d\'eau ici</string>

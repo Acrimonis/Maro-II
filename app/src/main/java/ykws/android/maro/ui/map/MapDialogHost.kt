@@ -66,9 +66,9 @@ internal fun MapDialogHost(
     val recordingExitActions: (() -> Unit, () -> Unit, () -> Unit) -> List<ConfirmAction> =
         { save, cont, discard ->
             listOf(
-                ConfirmAction(exitSaveLabel, ConfirmActionRole.PRIMARY, save),
-                ConfirmAction(exitContinueLabel, ConfirmActionRole.SECONDARY, cont),
-                ConfirmAction(exitDiscardLabel, ConfirmActionRole.DANGER, discard)
+                ConfirmAction(exitSaveLabel, ConfirmActionRole.PRIMARY, onClick = save),
+                ConfirmAction(exitContinueLabel, ConfirmActionRole.SECONDARY, onClick = cont),
+                ConfirmAction(exitDiscardLabel, ConfirmActionRole.DANGER, onClick = discard)
             )
         }
 
