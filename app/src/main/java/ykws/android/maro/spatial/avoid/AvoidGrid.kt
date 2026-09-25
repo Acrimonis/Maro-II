@@ -21,10 +21,18 @@ data class CellIndex(val row: Int, val col: Int)
  */
 enum class AvoidCellState { FREE, LAND, BAND, ZONE }
 
-/** A tagged, costed cell — [sourceCostM] is the metres-equivalent cost of entering the cell. */
+/**
+ * A tagged, costed cell — [sourceCostM] is the metres-equivalent cost of entering the cell.
+ *
+ * **Neither property has a default, and that is the invariant rather than the style.** The grid always
+ * writes a base cost ([AvoidGrid.cellM] of open water) and every source may only *add* to it, so no
+ * passable cell is ever cheaper than the base and no price can pay the A*'s search back. A defaulted
+ * `sourceCostM = 0.0` is the trap this signature closes: a cell built without a cost would read as
+ * free water and quietly break the shortest-path guarantee the whole field rests on.
+ */
 data class AvoidCell(
-    val state: AvoidCellState = AvoidCellState.FREE,
-    val sourceCostM: Double = 0.0
+    val state: AvoidCellState,
+    val sourceCostM: Double
 ) {
     /** [LAND] is impassable; every other tag is passable, priced by its source cost. */
     val passable: Boolean get() = state != AvoidCellState.LAND
@@ -43,7 +51,10 @@ class AvoidGrid(
     val cols: Int,
     val cellM: Double
 ) {
-    private val cells = Array(rows * cols) { AvoidCell(sourceCostM = cellM) }
+    /** The base metres-equivalent every cell starts at: one cell of open water. */
+    val baseCostM: Double get() = cellM
+
+    private val cells = Array(rows * cols) { AvoidCell(AvoidCellState.FREE, cellM) }
 
     fun index(row: Int, col: Int): Int = row * cols + col
 
@@ -63,6 +74,20 @@ class AvoidGrid(
         cells[i] = cells[i].copy(state = AvoidCellState.LAND)
     }
 
+    /**
+     * Adds one source's price to a passable cell and raises its tag to [tag] where that tag is the
+     * dearest in force — the **only** way a cost reaches a cell, so a source can add and can never
+     * replace the base. A cell already land keeps its state: a wall is not priced.
+     */
+    fun addSourceCost(row: Int, col: Int, extraM: Double, tag: AvoidCellState) {
+        require(extraM >= 0.0) { "a source may only add to the base cost, never take from it" }
+        val i = index(row, col)
+        val cell = cells[i]
+        if (!cell.passable) return
+        val state = if (tag.ordinal > cell.state.ordinal) tag else cell.state
+        cells[i] = AvoidCell(state, cell.sourceCostM + extraM)
+    }
+
     /** The cell a point falls in, clamped to the grid edge so an end outside the box still anchors. */
     fun cellOf(latitude: Double, longitude: Double): CellIndex = CellIndex(
         floor((latitude - latSouth) / cellSizeDegLat).toInt().coerceIn(0, rows - 1),
@@ -80,7 +105,8 @@ class AvoidGrid(
 }
 
 /**
- * Rasterizes the harvested edges and open-coast polylines into a tagged, costed corridor grid.
+ * Rasterizes the harvested edges and open-coast polylines into a tagged, costed corridor grid, then
+ * applies [field]'s own sources over it.
  *
  * - Every edge and open-coast segment paints a **margin band**: cells whose centre is within
  *   [marginM] of the segment are land — never stepped point discs, which would leave holes where
@@ -90,6 +116,15 @@ class AvoidGrid(
  * - The **open coast** is closed into a land polygon: each ordered polyline is capped on its land
  *   side at [capLatNorth] and even-odd filled as land, so a wide landmass's interior — which sits
  *   far from any coast edge — is sealed without a single water query.
+ * - **The field's remaining sources are then applied once per cell centre**: a hard source that
+ *   blocks paints the cell land, **ANDed with the coastline's own water** through the cell's
+ *   passability — a cell the sweep sealed stays blocked whatever the field says about it, which is
+ *   how a NoData cell the depth mask erased on the land side reads as land rather than as
+ *   unsurveyed water. A soft source only *adds* its price to the base cost the cell already carries.
+ *
+ * The three passes above are the coastline's own hard source *materialized* — one sweep over the
+ * harvested geometry rather than a water query per cell — which is what keeps a ~33 000-cell corridor
+ * inside its budget.
  */
 fun rasterize(
     box: BBox,
@@ -97,7 +132,8 @@ fun rasterize(
     marginM: Double,
     edges: List<AvoidEdge>,
     openCoast: List<List<LatLng>>,
-    capLatNorth: Double
+    capLatNorth: Double,
+    field: RouteCostField = RouteCostField.EMPTY
 ): AvoidGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -129,6 +165,21 @@ fun rasterize(
     // 3. Open-coast closure: cap each ordered polyline on its land side and even-odd fill as land.
     for (polyline in openCoast) {
         fillClosedRingEvenOdd(grid, closeOpenCoast(polyline, capLatNorth))
+    }
+
+    // 4. The field's own sources, once per cell centre. Sources only ever add a block or a price —
+    //    a field with neither a rastered wall nor a price writes nothing and costs a single test.
+    if (field.hasBlocking || field.hasSoft) {
+        for (row in 0 until grid.rows) {
+            for (col in 0 until grid.cols) {
+                if (!grid.cell(row, col).passable) continue
+                val at = field.evaluate(grid.center(row, col))
+                when {
+                    at.blocked -> grid.markLand(row, col)
+                    at.softCostM > 0.0 -> grid.addSourceCost(row, col, at.softCostM, at.tag)
+                }
+            }
+        }
     }
 
     return grid

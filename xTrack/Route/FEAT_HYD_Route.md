@@ -1,21 +1,24 @@
-# Context Hydration — Route — 2026-09-24
+# Context Hydration — Route — 2026-09-25
 
-**Last Bake:** 2026-09-24 17:52 UTC — written by `#bake`
+**Last Bake:** 2026-09-25 10:14 UTC — written by `#bake`
 
-**Directive trace:** no dependency added, no machine-shaped data file opened, and nothing deployed — the device was only read (`adb logcat`, `adb devices`, `pidof`); every build stayed on this machine and the device pass stayed the user's. The work was ordered throughout: the prototype, the adoption and the refinement each followed the user's word, and the git write is the `#commit` the user invoked.
+**Directive trace:** no dependency added, no machine-shaped data file opened and nothing deployed — the session ran one `#implement` hop that added a source and one key to files the feature already owns, its Ask review, and the code-map edit after; every step was ordered, and none stopped.
 
 ## State
 
-Stage 1 ships, and its taut pull settled twice on device evidence. The avoid engine routes around land through a corridor-bounded grid A* plus a taut pull; the first taut pass — a corner-graph A* — measured 7.3 s on the phone over 191 corners, its greedy tangent-walk replacement then drew a jittery line the user's route export exposed, and the shipped pull is now grid A* → grid pull → verified corner snap → pull: a bend moves onto its nearest tangent corner only when both neighbouring legs stay clear, so a sharp headland gets its true corners while a smooth island keeps its grid line. The ANR that opened the session — the pipeline ran on the main thread — is closed by `withContext(Dispatchers.Default)` around `RouteAvoidEngine.search()`.
+The avoid engine's stage 1 (land, islands, hazard rings) ships, and phases 2–6 are designed with a seven-item walk closed. **Items 1–2 of that plan now ship too:** the unified cost field (a source is `HARD` — land, the depth gate — or `SOFT`, a price; one evaluator, the grid always writing a base cost a source may only add to) and the 3 m depth gate, ANDed with the coastline's water and ignored wherever it is not below the threshold.
+
+- **Verified:** `gradlew :app:assembleDebug` green, `:app:testDebugUnitTest` green over 89 result files with 0 failures, the stage-1 avoid tests green with behaviour unchanged — 11 new tests plus three in the engine's own suite.
+- **Open:** one review should-fix (the phase numbers in three KDocs lag the plan of record), and `LiveAvoidWorld` — the live two-repository adapter and the refusal ordering's only home — has no test.
+- **Owed:** phases 3–6, the per-stage budget re-price, and the device measurement, which stays the user's.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the off-loaded pipeline, the corner snap
-- `app/src/main/java/ykws/android/maro/spatial/avoid/TangentCorners.kt` — the convex offset corners
-- `app/src/main/java/ykws/android/maro/spatial/avoid/AvoidPull.kt` — `legClear` now `internal` for the snap's verification
-- `app/src/test/java/ykws/android/maro/spatial/avoid/TangentCornersTest.kt` · `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt` — the corner and pipeline tests
-- `xTrack/Route/260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md` — the plan of record
+- `xTrack/Route/260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md` — the plan of record; phases 3–6 remain, so it is still in design
+- `app/src/main/java/ykws/android/maro/spatial/avoid/` — `RouteCostField.kt` is the one evaluator every later source rides
+- `app/src/main/java/ykws/android/maro/spatial/avoid/AvoidWorld.kt` — the world interface plus the renamed `LiveAvoidWorld`
+- `app/src/main/assets/maro.properties` — `route.avoid.minDepthM` and the band's own keys
 
 ## Next Step
 
-The real-corridor device measurement of the new line — the user's.
+Phase 3 — the 300 m band as the first soft price through the field, which is also the hop that lands the pull's soft-price guard.

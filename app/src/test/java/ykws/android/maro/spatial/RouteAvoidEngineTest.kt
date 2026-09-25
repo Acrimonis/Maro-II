@@ -7,6 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.DepthSample
+import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
@@ -65,6 +67,28 @@ class RouteAvoidEngineTest {
 
         assertEquals(RouteEngineState.Ready, engine.prepare())
         assertTrue(engine.state.value.ready)
+    }
+
+    /**
+     * The depth half of the gate alone forces the load and can refuse by name — with no grid every
+     * cell reads unsurveyed, so the 3 m gate would be silently inert rather than wrong-looking.
+     */
+    @Test
+    fun prepareRefusesByNameWhenTheDepthGridIsNotIn() = runTest {
+        val world = FakeWorld(
+            ready = true,
+            depthLoaded = false,
+            loadAnswers = mutableListOf(
+                RouteEngineState.Unavailable(RouteUnavailableReason.DEPTH_NOT_LOADED)
+            )
+        )
+        val engine = newEngine { world }
+
+        assertEquals(
+            RouteEngineState.Unavailable(RouteUnavailableReason.DEPTH_NOT_LOADED),
+            engine.prepare()
+        )
+        assertFalse("a refused world does not open the gate", engine.state.value.ready)
     }
 
     // ── The water refusal and the off-water end ────────────────────────────────
@@ -354,18 +378,66 @@ class RouteAvoidEngineTest {
         assertTrue("the corridor answers in $elapsedMs ms, under the 500 ms wall", elapsedMs <= 500)
     }
 
+    // ── The depth gate ─────────────────────────────────────────────────────────
+
+    /**
+     * The 3 m gate: a patch the depth layer knows to be 2 m deep paints its cells land, so the line is
+     * longer than the straight chord and stands in no cell of the patch.
+     */
+    @Test
+    fun theRouteRoundsWaterTheDepthGateCallsTooShallow() = runTest {
+        val world = FakeWorld(depth = { lat, lon -> if (shallowPatch(lat, lon)) 2.0 else 20.0 })
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+        assertTrue("the gate sends the line round the patch", route.distanceM > straight)
+        for (point in route.points) {
+            assertFalse(
+                "no waypoint stands in the water the gate forbids",
+                shallowPatch(point.latitude, point.longitude)
+            )
+        }
+    }
+
+    /** Its control: the same patch with no sounding at all is ignored, and the line stays straight. */
+    @Test
+    fun aShallowPatchWithoutASoundingIsIgnored() = runTest {
+        val world = FakeWorld(depth = { _, _ -> Double.NaN })
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals(
+            "unsurveyed water is not gated, so the line stays straight",
+            listOf(origin, aim),
+            route.points
+        )
+    }
+
+    /** A patch of water roughly 400 m by 110 m straddling the straight line, mid-corridor. */
+    private fun shallowPatch(latitude: Double, longitude: Double): Boolean =
+        latitude in 43.4995..43.5005 && longitude in 7.0210..7.0260
+
     // ── The fake world ─────────────────────────────────────────────────────────
 
     private class FakeWorld(
         private var ready: Boolean = true,
+        private var depthLoaded: Boolean = true,
         private val edges: MutableList<AvoidEdge> = mutableListOf(),
         private val openCoast: MutableList<List<LatLng>> = mutableListOf(),
         private val water: (Double, Double) -> Boolean = { _, _ -> true },
+        /** The sounding (m) the depth layer answers, or `NaN` for an unsurveyed point. */
+        private val depth: (Double, Double) -> Double = { _, _ -> Double.NaN },
         private val loadAnswers: MutableList<RouteEngineState> = mutableListOf()
     ) : AvoidWorld {
         val boxes = mutableListOf<BBox>()
 
         override val coastlineReady: Boolean get() = ready
+        override val depthReady: Boolean get() = depthLoaded
         override val regionBounds: BBox? get() = null
 
         override fun segmentsIn(box: BBox): List<AvoidEdge> {
@@ -384,6 +456,12 @@ class RouteAvoidEngineTest {
 
         override fun isWater(latitude: Double, longitude: Double): Boolean = water(latitude, longitude)
 
+        override fun depthAt(latitude: Double, longitude: Double): DepthSample {
+            val sounding = depth(latitude, longitude)
+            return if (sounding.isNaN()) DepthSample.NONE
+            else DepthSample(sounding.toFloat(), DepthSource.LITTO3D, 100, true)
+        }
+
         override fun distanceToCoastM(latitude: Double, longitude: Double): Double {
             var best = Double.MAX_VALUE
             val p = LatLng(latitude, longitude)
@@ -401,6 +479,7 @@ class RouteAvoidEngineTest {
         override suspend fun load(): RouteEngineState {
             val state = if (loadAnswers.isNotEmpty()) loadAnswers.removeAt(0) else RouteEngineState.Ready
             ready = state.ready
+            depthLoaded = state.ready
             return state
         }
     }

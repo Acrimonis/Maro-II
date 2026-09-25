@@ -13,7 +13,10 @@ import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.avoid.AvoidPull
 import ykws.android.maro.spatial.avoid.AvoidSearch
 import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.RouteCostField
+import ykws.android.maro.spatial.avoid.RouteCostSource
 import ykws.android.maro.spatial.avoid.TangentCorners
+import ykws.android.maro.spatial.avoid.depthGateSource
 import ykws.android.maro.spatial.avoid.rasterize
 import kotlin.math.PI
 import kotlin.math.cos
@@ -21,20 +24,33 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * **The avoid engine, stage 1: avoid land, islands and hazard rings.**
+ * **The avoid engine: avoid land, islands and hazard rings, and keep off water shallower than the
+ * depth gate.**
  *
  * A session like the contract: it holds the origin told at arming and the destination told with
  * each aim, and answers the collision-free route between them — from the origin to the destination,
  * so the polyline's own direction is the direction of travel — or `null` while the other end is not
  * held. The pipeline is corridor-bounded grid A* plus a clearance taut pull, run on the
- * [AvoidWorld] the injected provider supplies; every stage below reads that world and the four
- * `route.avoid.*` keys, so the 300 m band (stage 2) and the regulated speed zones (stage 3) land as
- * additive sources over the same rasterizer, A* and pull.
+ * [AvoidWorld] the injected provider supplies.
+ *
+ * **One cost field, every source through it.** The sources are read as a [RouteCostField] — a `HARD`
+ * wall the route may never cross, a `SOFT` price it may pay — and the rasterizer writes each cell once
+ * with a base cost to which a source may only add. Stage 1's land is the field's first hard wall,
+ * materialized by the geometry sweep; the 3 m depth gate is the second, rastered cell by cell; the
+ * 300 m band (stage 2) and the regulated speed zones (stage 3) land as soft prices on the same chain.
+ *
+ * **The depth gate.** A bilinear depth read per cell centre: a known depth below
+ * `route.avoid.minDepthM` paints the cell land, ANDed with the coastline's own water through the
+ * cell's passability, and everything not below the threshold — deeper water, coarse sources, NoData
+ * alike — is ignored, with no confidence floor and no penalty. It is a coarse guard on the route being
+ * written, not a fine sounding.
  *
  * **Readiness.** [prepare] fires the world's `load()` on a miss and latches
- * [RouteEngineState.Ready] once `coastlineReady`; a world that cannot become ready answers
- * [RouteEngineState.Unavailable] with [RouteUnavailableReason.COASTLINE_NOT_LOADED].
- * [isReadyToRecompute] stays `true` — stage 1 reads nothing that expires between asks.
+ * [RouteEngineState.Ready] once **both** layers are in; a world that cannot become ready answers
+ * [RouteEngineState.Unavailable] with [RouteUnavailableReason.COASTLINE_NOT_LOADED] or
+ * [RouteUnavailableReason.DEPTH_NOT_LOADED]. The depth refusal is not decoration: with no grid every
+ * cell reads unsurveyed and the gate would be silently inert.
+ * [isReadyToRecompute] stays `true` — the engine reads nothing that expires between asks.
  *
  * **What the answer means.** The emitted polyline starts at the raw start and ends at the raw aim
  * (`destinationMoved = false`, the pin stands on the aim); the snapped cells are only the search's
@@ -48,7 +64,7 @@ import kotlin.math.min
 class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
     private val paceKn: () -> Double,
-    /** The world provider — the map always holds the coastline it wraps, so it answers a live world. */
+    /** The world provider — the map always holds the layers it wraps, so it answers a live world. */
     private val worldProvider: () -> AvoidWorld
 ) : RouteEngine {
 
@@ -65,7 +81,7 @@ class RouteAvoidEngine(
 
     override suspend fun prepare(): RouteEngineState {
         val world = worldProvider()
-        val next = if (world.coastlineReady) RouteEngineState.Ready else world.load()
+        val next = if (world.coastlineReady && world.depthReady) RouteEngineState.Ready else world.load()
         _state.value = next
         return next
     }
@@ -89,7 +105,7 @@ class RouteAvoidEngine(
         return routeBetween(origin, destination)
     }
 
-    /** Stage 1 reads nothing that expires between asks. */
+    /** The engine reads its layers live at each ask, so nothing expires between them. */
     override suspend fun isReadyToRecompute(): Boolean = true
 
     /** Both ends held and both on water → the pipeline; one end off water → [RouteResult.OutsideWater]. */
@@ -115,7 +131,7 @@ class RouteAvoidEngine(
             second ?: RouteResult.NoPath
         }
 
-    /** One pass of the pipeline: corridor → harvest → rasterize → A* → taut pull → corner snap → pull. */
+    /** One pass of the pipeline: corridor → harvest → field → rasterize → A* → pull → snap → pull. */
     private suspend fun searchOnce(
         world: AvoidWorld,
         from: RoutePoint,
@@ -128,7 +144,8 @@ class RouteAvoidEngine(
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
-        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth)
+        val field = costField(world)
+        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val startCell = grid.cellOf(from.latitude, from.longitude)
@@ -138,13 +155,36 @@ class RouteAvoidEngine(
         val aim = to.toLatLng()
         val coarse = path.map { grid.center(it.row, it.col) }
         val full = listOf(start) + coarse + listOf(aim)
-        val clearance: (LatLng) -> Double = { p -> world.distanceToCoastM(p.latitude, p.longitude) }
         // The grid A* owns the order, the tangent corners own the exact points: pull the cell path
         // taut, then move each bend onto its nearest corner when both neighbouring legs stay clear.
-        val pulled = AvoidPull.pull(full, start, aim, marginM, clearance)
+        val pulled = AvoidPull.pull(full, start, aim, marginM, field)
         val corners = TangentCorners.corners(edges, openCoast, marginM)
-        val snapped = snapToCorners(pulled, corners, cellM * 2.0, marginM, clearance, start, aim)
-        return success(AvoidPull.pull(snapped, start, aim, marginM, clearance))
+        val snapped = snapToCorners(pulled, corners, cellM * 2.0, marginM, field, start, aim)
+        return success(AvoidPull.pull(snapped, start, aim, marginM, field))
+    }
+
+    /**
+     * The unified cost field for one search, built fresh so a layer that landed since the last answer
+     * is read: the coastline's wall — materialized by the rasterizer's geometry sweep, and answering
+     * the clearance the pull's margin reads — and the depth gate when the grid is in, which the
+     * rasterizer paints cell by cell.
+     *
+     * The gate is omitted entirely while the grid is out, and the refusal in [prepare] is what makes
+     * that state unreachable: an ungated search would price unsounded water as open sea and call the
+     * answer a route.
+     */
+    private fun costField(world: AvoidWorld): RouteCostField {
+        val sources = ArrayList<RouteCostSource>(2)
+        sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
+        if (world.depthReady) {
+            sources.add(
+                depthGateSource(AppConfig.routeAvoidMinDepthM) { p ->
+                    val sample = world.depthAt(p.latitude, p.longitude)
+                    if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
+                }
+            )
+        }
+        return RouteCostField(sources)
     }
 
     /** Moves a bend onto its nearest tangent corner (within [radiusM]) only when both legs stay clear; open water keeps the bend. */
@@ -153,7 +193,7 @@ class RouteAvoidEngine(
         corners: List<LatLng>,
         radiusM: Double,
         marginM: Double,
-        clearanceM: (LatLng) -> Double,
+        field: RouteCostField,
         start: LatLng,
         aim: LatLng
     ): List<LatLng> {
@@ -170,8 +210,8 @@ class RouteAvoidEngine(
                 }
             }
             val corner = nearest ?: continue
-            if (AvoidPull.legClear(out[i - 1], corner, marginM, clearanceM, start, aim) &&
-                AvoidPull.legClear(corner, path[i + 1], marginM, clearanceM, start, aim)
+            if (AvoidPull.legClear(out[i - 1], corner, marginM, field, start, aim) &&
+                AvoidPull.legClear(corner, path[i + 1], marginM, field, start, aim)
             ) {
                 out[i] = corner
             }

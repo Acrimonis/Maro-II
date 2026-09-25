@@ -6,6 +6,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -18,6 +20,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
@@ -514,8 +517,13 @@ class RouteEngineSeamTest {
             val viewModel = RouteViewModel(selectionOf(engine))
             viewModel.beginDraft(start)
             viewModel.preview(aim)
-            val plan = (viewModel.state.value as RouteState.Choosing).plan
-                ?: error("a shipped engine answers a route, so the phase must hold a plan")
+            // The dummy answers on the frame it is asked; a searching engine answers off it, because
+            // `preview` starts a worker and returns — the shape the abort rule needs. So the plan is
+            // awaited on the phase rather than read: the subject is what the feature made of the
+            // engine's answer, and the answer's arrival is not what this test is about.
+            val plan = viewModel.state
+                .mapNotNull { (it as? RouteState.Choosing)?.plan }
+                .first()
             assertEquals("the shipped engine drew its straight line", listOf(start, aim), plan.points)
             assertEquals("and its length is the great-circle distance", distanceM(start, aim), plan.distanceM, 1e-6)
         }
@@ -525,14 +533,16 @@ class RouteEngineSeamTest {
 /** The selection form the view model now takes: one engine behind a [StateFlow]. */
 private fun selectionOf(engine: RouteEngine): StateFlow<RouteEngine> = MutableStateFlow(engine)
 
-/** An empty, ready world — water everywhere and no land, so the avoid engine draws its straight line. */
+/** An empty, ready world — water everywhere, no land and unsurveyed depths, so the avoid engine draws its straight line. */
 private class EmptyAvoidWorld : AvoidWorld {
     override val coastlineReady: Boolean get() = true
+    override val depthReady: Boolean get() = true
     override val regionBounds: BBox? get() = null
     override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
     override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
     override fun isWater(latitude: Double, longitude: Double): Boolean = true
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+    override fun depthAt(latitude: Double, longitude: Double): DepthSample = DepthSample.NONE
     override suspend fun load(): RouteEngineState = RouteEngineState.Ready
 }
 

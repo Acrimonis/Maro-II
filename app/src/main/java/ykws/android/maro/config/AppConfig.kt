@@ -174,6 +174,15 @@ object AppConfig {
     var routeAvoidZone300MarginM: Double = 25.0
         private set
 
+    /**
+     * Depth (m) below which a corridor cell is excluded from the route — `route.avoid.minDepthM`,
+     * default 3.0. The gate is a coarse guard on the route being written, not a fine sounding: a
+     * known depth under this number paints the cell land, and everything at or above it — whatever
+     * its source or confidence — is ignored.
+     */
+    var routeAvoidMinDepthM: Double = 3.0
+        private set
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -1412,7 +1421,7 @@ object AppConfig {
                 ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
             props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
                 ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
-            // ── The avoid engine's four keys (stage 1 reads the first three; zone300MarginM waits for stage 2) ──
+            // ── The avoid engine's keys (the four stage-1 values, the depth gate, and stage 2's band margin) ──
             props.getProperty("route.avoid.obstacleMarginM")?.toDoubleOrNull()?.let {
                 routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
             }
@@ -1424,6 +1433,9 @@ object AppConfig {
             }
             props.getProperty("route.avoid.zone300MarginM")?.toDoubleOrNull()?.let {
                 routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.minDepthM")?.toDoubleOrNull()?.let {
+                routeAvoidMinDepthM = it.coerceIn(0.5, 50.0)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

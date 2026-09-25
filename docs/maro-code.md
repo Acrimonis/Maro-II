@@ -19,7 +19,8 @@
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
 | `data/power/` | Power management: framework-free screen-hold policy + its Android keeper | `PowerPolicy.kt`, `PowerKeeper.kt` |
-| `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt` |
+| `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt`, `RouteEngine.kt`, `RouteAvoidEngine.kt`, `Units.kt` |
+| `spatial/avoid/` | The avoid route engine's own world — the unified cost field, the corridor grid, the A* and the taut pull | `RouteCostField.kt`, `AvoidWorld.kt`, `AvoidGrid.kt`, `AvoidSearch.kt`, `AvoidPull.kt`, `TangentCorners.kt` |
 | `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerColors.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
 | `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmDialog.kt`, `IconPickerDialog.kt` |
 | `ui/markers/wizard/` | Marker creation wizard (multi-step form) | `WizardTopBar.kt`, `WizardButtonRow.kt`, `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
@@ -36,6 +37,7 @@
 | **Tracks** | `data/track/`, `ui/map/TrackHistoryOverlay.kt`, `ui/map/TrackStatusIcon.kt` |
 | **Markers** | `data/markers/`, `data/model/markers/`, `spatial/MarkerMatcher.kt`, `ui/map/MarkerOverlay.kt`, `ui/map/MarkerDrawer.kt`, `ui/map/MarkersViewModel.kt`, `ui/markers/wizard/` |
 | **Zone300** | `spatial/Zone300Builder.kt`, `spatial/CoastlineSpatialIndex.kt`, `data/model/Zone300Data.kt` |
+| **Route** | `spatial/RouteEngine.kt`, `spatial/RouteAvoidEngine.kt`, `spatial/avoid/`, `ui/map/RouteViewModel.kt`, `ui/map/RouteHost.kt` |
 | **GPS** | `data/location/`, `config/AppConfig.kt` (GPS tuning constants) |
 | **Performance** | `data/power/`, `data/location/`, `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **DepthSafety** | `ui/map/DepthViewModel.kt` (danger depth), `ui/map/LowDepthWarningBitmap.kt` |
@@ -68,6 +70,8 @@
 | `MarkerMatcher.kt` | `spatial/` | Proximity matching: which markers are near a given position |
 | `SpeedZoneIndex.kt` | `spatial/` | Spatial index for speed zone lookup around boat |
 | `Zone300Builder.kt` | `spatial/` | Generates 300m zone band from coastline |
+| `RouteEngine.kt` | `spatial/` | The route's engine seam — a session (readiness, the two entry points, the point-validity question) whose implementations are `RouteDummyEngine` and `RouteAvoidEngine` |
+| `RouteCostField.kt` | `spatial/avoid/` | The avoid engine's unified cost field — every world source (`RouteCostSource.Hard` walls / `Soft` prices) read through one evaluator, on a grid whose base cost a source may only add to |
 | `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management; its read-only data arrives via six `@Immutable` bundles declared in `OverlayLayerParams.kt` |
 | `MapOverlayRenderer.kt` | `ui/map/` | Renders overlays onto map (depth, zones, tracks, markers) |
 | `SettingsManager.kt` | `data/settings/` | SharedPreferences read/write — all persisted config |
@@ -123,3 +127,4 @@ ui/map/  ──depends on──▶  spatial/  +  data/*/
 | Change GPS behavior | `data/location/GpsLocationSource.kt` + `data/location/AdaptiveGpsPolicy.kt` |
 | Add a marker type | `data/model/markers/UserMarker.kt` + `data/markers/UserMarkerRepository.kt` + `ui/map/MarkerDrawer.kt` |
 | Modify spatial query logic | `spatial/CoastlineSpatialIndex.kt` (for coastline) or `spatial/SpeedZoneIndex.kt` (for zones) |
+| Change the route's algorithm, or add a world source it must avoid or price | `spatial/RouteAvoidEngine.kt` (the pipeline) + `spatial/avoid/RouteCostField.kt` (the one evaluator — a new source is a `RouteCostSource.Hard` wall or `.Soft` price) |
