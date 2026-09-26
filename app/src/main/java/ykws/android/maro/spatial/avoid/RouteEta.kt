@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.avoid
 
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -9,13 +10,19 @@ import kotlin.math.sqrt
 
 /**
  * The zone-aware ETA: the drawn line re-vertexed where the limit in force changes, then timed leg by
- * leg. Inside a zone the boat obeys the strictest limit (never above the configured pace), outside it
- * accelerates back to the configured pace on the simple ramp; entering a slower zone decelerates
- * instantly, the ramp being the plan's "gradual acceleration outside" and nothing more.
+ * leg — every transition a constant-acceleration ramp at [AppConfig.routeSpeedAccelMps2], whose one
+ * home is the key (this file holds no rate of its own).
+ *
+ * Inside a zone the boat obeys the strictest limit (never above the configured pace); outside it rides
+ * the pace. Leaving a slower stretch it accelerates back to the pace **after** the boundary, a limit
+ * never being exceeded; entering one it **starts slowing `(v0² − v1²) / 2a` before the boundary**, so
+ * the profile shows the boat easing down outside the ring and those slow metres are paid before the
+ * zone rather than inside it. A line whose first leg is already inside a zone opens at that zone's
+ * limit, the boat being there already.
+ *
+ * This is a **clock**, never a price: nothing here reads λ or the A\*'s own cost, so the reported time
+ * is λ-free however the search was priced.
  */
-
-/** The simple-ramp acceleration (m/s²) the ETA climbs back to pace with after leaving a zone. */
-const val ZONE_EXIT_RAMP_MPS2 = 0.5
 
 /** Sampling step (m) the boundary splitter walks each leg at — half the shipped grid cell. */
 private const val BOUNDARY_SAMPLE_M = 25.0
@@ -30,25 +37,33 @@ data class TimedLine(
 
 /**
  * Splits [waypoints] where [limitKnAt] changes and times each split leg: inside a zone the strictest
- * limit binds, outside the pace binds, and a limit rise is climbed on the simple ramp.
+ * limit binds, outside the pace binds, a limit rise is climbed after the boundary and a limit fall is
+ * reached **at** it.
  */
 fun timeLineWithLimits(
     waypoints: List<LatLng>,
     paceKn: Double,
-    limitKnAt: (LatLng) -> Double?
+    limitKnAt: (LatLng) -> Double?,
+    accelMps2: Double = AppConfig.routeSpeedAccelMps2
 ): TimedLine {
     if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
     val paceMps = Units.knotsToMps(paceKn)
     val points = splitAtLimitChanges(waypoints, limitKnAt)
-    val times = ArrayList<Double>(points.size - 1)
-    var carriedMps = paceMps
-    for (i in 0 until points.size - 1) {
-        val a = points[i]
-        val b = points[i + 1]
-        val dist = SpatialOperations.haversine(a, b)
-        val limitKn = limitKnAt(midpoint(a, b))
-        val targetMps = if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
-        val timed = segmentTimeM(dist, carriedMps, targetMps)
+    val legs = points.size - 1
+    // One target per leg: the limit in force inside it, never above the pace.
+    val targets = DoubleArray(legs) { i ->
+        val limitKn = limitKnAt(midpoint(points[i], points[i + 1]))
+        if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
+    }
+    val times = ArrayList<Double>(legs)
+    // The boat is where the line starts, so a line opening inside a zone opens at that zone's limit.
+    var carriedMps = if (legs == 0) paceMps else min(paceMps, targets[0])
+    for (i in 0 until legs) {
+        val dist = SpatialOperations.haversine(points[i], points[i + 1])
+        // The next leg's limit is what the boundary ahead asks for: this leg arrives at it, which is
+        // what puts the decel's metres outside the ring it leads into.
+        val arriveMps = if (i + 1 < legs) min(targets[i], targets[i + 1]) else targets[i]
+        val timed = segmentTimeM(dist, carriedMps, targets[i], arriveMps, accelMps2)
         times.add(timed.first)
         carriedMps = timed.second
     }
@@ -114,20 +129,74 @@ private fun bisectLimitChange(
 }
 
 /**
- * Time one segment at constant target speed [v1] (m/s), starting at [v0] (m/s). A rise climbs the
- * simple ramp; a fall decelerates instantly to the target; returns (seconds, end speed m/s).
+ * Time one segment (m) that starts at [vStart], may ride up to its own leg's [vTop], and arrives at
+ * [vArrive] — the lower of this leg's limit and the one the boundary ahead asks for.
+ *
+ * A leg the boat ends slower on is the **entering** shape: it decelerates over
+ * `(vStart² − vArrive²) / 2a` metres and then cruises at [vArrive], so the decel is paid before the
+ * boundary the leg ends on. Every other leg rides up to [vTop] and cruises at it, which leaves the
+ * exit ramp where it was: a limit is never exceeded before the boundary it belongs to.
+ *
+ * Returns (seconds, the speed the boat carries into the next leg, m/s).
  */
-private fun segmentTimeM(distanceM: Double, v0: Double, v1: Double): Pair<Double, Double> {
-    if (distanceM <= 0.0) return 0.0 to v1
-    if (v1 >= v0) {
-        val rampDist = (v1 * v1 - v0 * v0) / (2.0 * ZONE_EXIT_RAMP_MPS2)
+private fun segmentTimeM(
+    distanceM: Double,
+    vStart: Double,
+    vTop: Double,
+    vArrive: Double,
+    accelMps2: Double
+): Pair<Double, Double> {
+    if (distanceM <= 0.0) return 0.0 to vArrive
+    if (vArrive < vStart) {
+        val rampDist = (vStart * vStart - vArrive * vArrive) / (2.0 * accelMps2)
         if (distanceM <= rampDist) {
-            val endMps = sqrt(v0 * v0 + 2.0 * ZONE_EXIT_RAMP_MPS2 * distanceM)
-            return ((endMps - v0) / ZONE_EXIT_RAMP_MPS2) to endMps
+            val endMps = sqrt((vStart * vStart - 2.0 * accelMps2 * distanceM).coerceAtLeast(0.0))
+            return ((vStart - endMps) / accelMps2) to endMps
         }
-        return ((v1 - v0) / ZONE_EXIT_RAMP_MPS2 + (distanceM - rampDist) / v1) to v1
+        return ((vStart - vArrive) / accelMps2 + (distanceM - rampDist) / vArrive) to vArrive
     }
-    return (distanceM / v1) to v1
+    val rampDist = (vTop * vTop - vStart * vStart) / (2.0 * accelMps2)
+    if (distanceM <= rampDist) {
+        val endMps = sqrt(vStart * vStart + 2.0 * accelMps2 * distanceM)
+        return ((endMps - vStart) / accelMps2) to endMps
+    }
+    return ((vTop - vStart) / accelMps2 + (distanceM - rampDist) / vTop) to vTop
+}
+
+/**
+ * **The share of a route's own time it spends slowed** — the seconds its legs take beyond what the
+ * same distance costs at [paceKn], summed, over the line's whole time.
+ *
+ * The read is taken off the **timed legs** and never off the rings, which is what makes a leg on the
+ * way into a zone count too: any metre run below the pace is slow water, whether it lies inside a ring
+ * or on the approach to one. That is the quantity the budget is a share of, and the ETA already walks
+ * it, so the two can never disagree.
+ */
+fun zoneSlowShare(timed: TimedLine, paceKn: Double): Double {
+    val total = timed.durationSec
+    if (total <= 0.0 || timed.legTimesSec.isEmpty()) return 0.0
+    val paceMps = Units.knotsToMps(paceKn)
+    var slow = 0.0
+    for (i in 0 until timed.legTimesSec.size) {
+        val dist = SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+        val excess = timed.legTimesSec[i] - dist / paceMps
+        if (excess > 0.0) slow += excess
+    }
+    return (slow / total).coerceIn(0.0, 1.0)
+}
+
+/** The band the budget loop stops inside: a share this close to the budget is left alone (±20 %). */
+const val ZONE_BUDGET_BAND = 0.20
+
+/**
+ * True when [share] sits inside the budget's ±[ZONE_BUDGET_BAND] band — the loop's own **exit**.
+ *
+ * It is a predicate rather than a condition inside the loop so the exit can be read, and reverted,
+ * on its own: outside the band the loop corrects λ once and solves again, and inside it it stops.
+ */
+fun withinBudgetBand(share: Double, budgetPct: Double): Boolean {
+    val budget = budgetPct / 100.0
+    return share in (budget * (1.0 - ZONE_BUDGET_BAND))..(budget * (1.0 + ZONE_BUDGET_BAND))
 }
 
 private fun midpoint(a: LatLng, b: LatLng): LatLng =

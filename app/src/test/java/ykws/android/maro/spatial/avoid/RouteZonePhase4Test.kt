@@ -35,10 +35,10 @@ class RouteZonePhase4Test {
         val hole = squareRing(43.5, 7.03, 0.005)
         val box = BBox(43.46, 43.54, 6.99, 7.07)
         val grid = rasterize(
-            box, cellM = 50.0, marginM = 25.0,
+            box, cellM = 50.0, paceKn = 28.0, marginM = 25.0,
             edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.54,
             field = RouteCostField.EMPTY,
-            zones = listOf(PricedZone(outer, listOf(hole), 20.0))
+            zones = listOf(ZoneRing(outer, listOf(hole), 5.0))
         )
 
         val inHole = grid.cellOf(43.5, 7.03)
@@ -51,24 +51,28 @@ class RouteZonePhase4Test {
     fun zoneOverlapKeepsTheStrictestLimit() {
         val outer = squareRing(43.5, 7.03, 0.02)
         val box = BBox(43.46, 43.54, 6.99, 7.07)
-        val priceSlow = zonePriceM(50.0, paceKn = 28.0, limitKn = 5.0, k = 2.0)
-        val priceFast = zonePriceM(50.0, paceKn = 28.0, limitKn = 10.0, k = 2.0)
+        val priceSlow = zonePriceSec(50.0, paceKn = 28.0, limitKn = 5.0, k = 2.0)
+        val priceFast = zonePriceSec(50.0, paceKn = 28.0, limitKn = 10.0, k = 2.0)
         assertTrue("the slower limit is the dearer price", priceSlow > priceFast)
 
         val grid = rasterize(
-            box, cellM = 50.0, marginM = 25.0,
+            box, cellM = 50.0, paceKn = 28.0, marginM = 25.0,
             edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.54,
             field = RouteCostField.EMPTY,
             zones = listOf(
-                PricedZone(outer, emptyList(), priceSlow),
-                PricedZone(outer, emptyList(), priceFast)
+                ZoneRing(outer, emptyList(), 5.0),
+                ZoneRing(outer, emptyList(), 10.0)
             )
         )
 
         val (row, col) = grid.cellOf(43.5, 7.03)
         val cell = grid.cell(row, col)
         assertEquals(AvoidCellState.ZONE, cell.state)
-        assertEquals("the strictest limit wins, never the sum", 50.0 + priceSlow, cell.sourceCostM, 1e-6)
+        assertEquals(
+            "the strictest limit is the one in force, never a sum",
+            5.0, grid.zoneLimitKn(row, col), 1e-9
+        )
+        assertEquals("and the cell carries no price of its own — the A* prices the limit", grid.baseCostSec, cell.sourceCostSec, 1e-9)
     }
 
     @Test
@@ -76,10 +80,10 @@ class RouteZonePhase4Test {
         val grid = AvoidGrid(
             latSouth = 43.0, lonWest = 7.0,
             cellSizeDegLat = 0.001, cellSizeDegLon = 0.001,
-            rows = 10, cols = 10, cellM = 50.0
+            rows = 10, cols = 10, cellM = 50.0, baseCostSec = baseCostSec(50.0, 28.0)
         )
         grid.markLand(5, 5)
-        grid.applyZoneCost(5, 5, 25.0)
+        grid.applyZoneLimit(5, 5, 5.0)
         assertEquals("a wall is never priced", AvoidCellState.LAND, grid.cell(5, 5).state)
     }
 
@@ -89,10 +93,10 @@ class RouteZonePhase4Test {
         val zone = SpeedZone("z", "Cap", 5.0, outer)
         val box = BBox(43.47, 43.53, 7.00, 7.06)
         val grid = rasterize(
-            box, cellM = 50.0, marginM = 25.0,
+            box, cellM = 50.0, paceKn = 28.0, marginM = 25.0,
             edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.53,
             field = RouteCostField.EMPTY,
-            zones = listOf(PricedZone(outer, emptyList(), 10.0))
+            zones = listOf(ZoneRing(outer, emptyList(), 10.0))
         )
 
         // The rasterizer's scanline fill and `SpeedZone.contains` both use the same half-open latitude
@@ -118,15 +122,21 @@ class RouteZonePhase4Test {
 
     @Test
     fun zonePriceAmplifiesWithKAndCostsMoreForASlowerLimit() {
-        assertEquals("K=1 with the limit at the pace is open water", 0.0, zonePriceM(50.0, 28.0, 28.0, 1.0), 1e-9)
-        assertEquals("a limit above the pace clamps to zero", 0.0, zonePriceM(50.0, 28.0, 40.0, 1.0), 1e-9)
+        assertEquals("K=1 with the limit at the pace is open water", 0.0, zonePriceSec(50.0, 28.0, 28.0, 1.0), 1e-9)
+        assertEquals("a limit above the pace clamps to zero", 0.0, zonePriceSec(50.0, 28.0, 40.0, 1.0), 1e-9)
         assertTrue(
             "a higher K makes the zone dearer",
-            zonePriceM(50.0, 28.0, 5.0, 2.0) > zonePriceM(50.0, 28.0, 5.0, 1.0)
+            zonePriceSec(50.0, 28.0, 5.0, 2.0) > zonePriceSec(50.0, 28.0, 5.0, 1.0)
         )
         assertTrue(
             "a slower limit costs more",
-            zonePriceM(50.0, 28.0, 5.0, 1.0) > zonePriceM(50.0, 28.0, 10.0, 1.0)
+            zonePriceSec(50.0, 28.0, 5.0, 1.0) > zonePriceSec(50.0, 28.0, 10.0, 1.0)
+        )
+        assertEquals(
+            "and K=1 at a 5 kn limit is the cell's own time excess",
+            50.0 / Units.knotsToMps(5.0) - 50.0 / Units.knotsToMps(28.0),
+            zonePriceSec(50.0, 28.0, 5.0, 1.0),
+            1e-9
         )
     }
 
@@ -156,6 +166,38 @@ class RouteZonePhase4Test {
         assertEquals("two boundary crossings insert two vertices", 4, timed.points.size)
         assertEquals(3, timed.legTimesSec.size)
         assertEquals(timed.durationSec, timed.legTimesSec.sum(), 1e-9)
+    }
+
+    @Test
+    fun theDecelIsPaidBeforeTheBoundary() {
+        // 28 kn into a 5 kn ring across 43.503 N: the leg that ends on the boundary is the outer one,
+        // so that is where the boat slows — 28 kn to 5 kn at 0.5 m/s² is about 200 m and 24 s.
+        val a = LatLng(43.500, 7.030)
+        val b = LatLng(43.506, 7.030)
+        val limitKnAt: (LatLng) -> Double? = { p -> if (p.latitude >= 43.503) 5.0 else null }
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt)
+        val paceMps = Units.knotsToMps(28.0)
+        val limitMps = Units.knotsToMps(5.0)
+        val outerM = SpatialOperations.haversine(timed.points[0], timed.points[1])
+        val innerM = SpatialOperations.haversine(timed.points[1], timed.points[2])
+        val decelSec = (paceMps - limitMps) / 0.5
+
+        assertEquals("the boundary vertex splits the line in two", 3, timed.points.size)
+        assertTrue(
+            "the outer leg pays the decel before the ring",
+            timed.legTimesSec[0] > outerM / paceMps + decelSec - 1.0
+        )
+        assertEquals(
+            "so the boat enters the ring already at the limit and cruises it",
+            innerM / limitMps,
+            timed.legTimesSec[1],
+            1e-6
+        )
+        val steeper = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, accelMps2 = 1.0)
+        assertTrue(
+            "and the rate is the key's: a steeper brake finishes sooner and crawls longer",
+            steeper.legTimesSec[0] > timed.legTimesSec[0]
+        )
     }
 
     // ── Exclusion ─────────────────────────────────────────────────────────────
@@ -216,12 +258,46 @@ class RouteZonePhase4Test {
         )
     }
 
+    /**
+     * The standoff's own pin, at the level it now lives. §4 moved it out of the search — where the
+     * grid's collar price used to push the A* line off a ring — and into the pull as a **clearance**,
+     * so the promise is made here: a chord coming within the standoff of a ring is refused, and the
+     * land margin beside it is untouched.
+     */
     @Test
-    fun thePassByKeepsTheStandoff() = runTest {
+    fun thePullRefusesAChordWithinTheStandoff() {
+        val start = LatLng(43.50, 7.00)
+        val aim = LatLng(43.50, 7.02)
+        // A ring 20 m south of the straight chord's midpoint: inside a 50 m standoff, outside a zero one.
+        val ring = LatLng(43.50 - 20.0 / 111_320.0, 7.01)
+        val field = RouteCostField(
+            listOf(RouteCostSource.Hard(distanceAt = { Double.MAX_VALUE })),
+            ringDistanceAt = { p -> SpatialOperations.haversine(p, ring) }
+        )
+
+        assertFalse(
+            "a chord passing inside the standoff is refused",
+            AvoidPull.legClear(start, aim, 25.0, field, start, aim, standoffM = 50.0)
+        )
+        assertTrue(
+            "and the same chord stands when no standoff is asked for",
+            AvoidPull.legClear(start, aim, 25.0, field, start, aim, standoffM = 0.0)
+        )
+    }
+
+    /**
+     * **What the standoff cannot do, stated rather than hidden.** The zone's north edge lies ~20 m
+     * south of the straight line, so **no** chord can keep a 50 m standoff off it: every chord is
+     * refused and the line keeps the search's own path — §4's own sentence, *it degrades to the free
+     * path in a tens-of-metres passage*. The zone itself is still never entered, which
+     * `theLineDoesNotEnterAZoneItCouldHaveGoneAround` above pins. **Read this again when §5's fine
+     * pass lands**: if the corridor can widen there, the standoff stops degrading and this test must
+     * be restated to the stronger promise rather than kept as a tripwire for the weaker one.
+     */
+    @Test
+    fun theStandoffDegradesWhereNoChordCouldKeepIt() = runTest {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         setSpeedZoneMarginM(50.0)
-        // A zone whose north edge lies ~20 m south of the straight origin→aim line: without the
-        // collar the line stays 20 m off; with it the line stands off by the margin.
         val northEdge = 43.5 - 20.0 / 111_320.0
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(northEdge - 0.02, northEdge, 7.01, 7.05))
         val world = ZoneWorld(listOf(zone))
@@ -230,32 +306,11 @@ class RouteZonePhase4Test {
         engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
         val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
 
-        val margin = AppConfig.routeAvoidSpeedZoneMarginM
-        for (p in route.points) {
-            val d = ringDistanceM(zone.outerRing, p.toLatLng())
-            assertTrue("the line keeps the standoff off the ring (d=$d)", d >= margin - 5.0)
-        }
-    }
-
-    @Test
-    fun theStandoffFollowsTheMarginKey() = runTest {
-        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        for (margin in listOf(40.0, 70.0)) {
-            setSpeedZoneMarginM(margin)
-            val northEdge = 43.5 - 20.0 / 111_320.0
-            val zone = SpeedZone("z", "Cap", 5.0, rectRing(northEdge - 0.02, northEdge, 7.01, 7.05))
-            val world = ZoneWorld(listOf(zone))
-            val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
-
-            engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-            val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
-
-            val kept = route.points.minOf { ringDistanceM(zone.outerRing, it.toLatLng()) }
-            assertTrue(
-                "the kept distance follows the key (margin=$margin, kept=$kept)",
-                kept >= margin - 5.0
-            )
-        }
+        val nearest = route.points.minOf { ringDistanceM(zone.outerRing, it.toLatLng()) }
+        assertTrue(
+            "the passage is narrower than the standoff, so the standoff degrades (nearest=$nearest)",
+            nearest < AppConfig.routeAvoidSpeedZoneMarginM
+        )
     }
 
     @Test
@@ -281,19 +336,19 @@ class RouteZonePhase4Test {
     fun theBandAndAZoneSumOnACellHoldingBoth() {
         val field = RouteCostField(
             listOf(
-                RouteCostSource.Soft(priceM = { 30.0 }, tag = AvoidCellState.BAND),
-                RouteCostSource.Soft(priceM = { 20.0 }, tag = AvoidCellState.ZONE)
+                RouteCostSource.Soft(priceSec = { 30.0 }, tag = AvoidCellState.BAND),
+                RouteCostSource.Soft(priceSec = { 20.0 }, tag = AvoidCellState.ZONE)
             )
         )
         val at = field.evaluate(LatLng(43.5, 7.0))
-        assertEquals("the two prices sum", 50.0, at.softCostM, 1e-9)
+        assertEquals("the two prices sum", 50.0, at.softCostSec, 1e-9)
         assertEquals("the dearest tag wins", AvoidCellState.ZONE, at.tag)
     }
 
     @Test
     fun theCollarIsCheaperThanTheInterior() {
-        val interior = zonePriceM(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0)
-        val collar = zoneCollarPriceM(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0, collarFraction = 0.5)
+        val interior = zonePriceSec(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0)
+        val collar = zoneCollarPriceSec(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0, collarFraction = 0.5)
         assertTrue("the collar is strictly cheaper, so the field carries a gradient", collar < interior)
         assertEquals("half the interior at a fraction of 0.5", interior * 0.5, collar, 1e-9)
     }

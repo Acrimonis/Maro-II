@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.spatial.Units
 
 /**
  * The unified cost field where it meets the grid and the A*: the base cost is always written, a source
@@ -18,36 +19,47 @@ class AvoidCostFieldTest {
     private val box = BBox(43.50, 43.52, 7.00, 7.02)
     private val cellM = 50.0
 
+    /** The pace every cost here is built at, and the pace the A* bounds its time with. */
+    private val paceKn = 28.0
+
+    private val paceMps = Units.knotsToMps(paceKn)
+
     @Test
     fun anEmptyFieldStillWritesTheBaseCostToEveryCell() {
         val grid = rasterize(
-            box, cellM, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField.EMPTY
+            box, cellM, paceKn, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField.EMPTY
         )
 
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 assertEquals(
-                    "every cell carries the base cost, never a defaulted zero",
-                    grid.baseCostM, grid.cell(r, c).sourceCostM, 1e-9
+                    "every cell carries the base cost in seconds, never a defaulted zero",
+                    grid.baseCostSec, grid.cell(r, c).sourceCostSec, 1e-9
                 )
             }
         }
+        assertEquals(
+            "and the base is one cell of water at the pace, not a metre count",
+            baseCostSec(cellM, paceKn),
+            grid.baseCostSec,
+            1e-9
+        )
     }
 
     @Test
     fun aSoftSourceAddsToTheBaseAndNeverReplacesIt() {
         val priced = RouteCostSource.Soft(
-            priceM = { p -> if (inPatch(p)) 300.0 else 0.0 },
+            priceSec = { p -> if (inPatch(p)) 300.0 else 0.0 },
             tag = AvoidCellState.BAND
         )
         val grid = rasterize(
-            box, cellM, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField(listOf(priced))
+            box, cellM, paceKn, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField(listOf(priced))
         )
 
         val inside = grid.cellOf(43.510, 7.010)
         assertEquals(
-            "the price is added to the base",
-            grid.baseCostM + 300.0, grid.cell(inside.row, inside.col).sourceCostM, 1e-9
+            "the price is added to the base, in the same seconds",
+            grid.baseCostSec + 300.0, grid.cell(inside.row, inside.col).sourceCostSec, 1e-9
         )
         assertEquals(
             "the price's own tag is written",
@@ -57,7 +69,7 @@ class AvoidCostFieldTest {
         val outside = grid.cellOf(43.5005, 7.0005)
         assertEquals(
             "unpriced water keeps the base alone",
-            grid.baseCostM, grid.cell(outside.row, outside.col).sourceCostM, 1e-9
+            grid.baseCostSec, grid.cell(outside.row, outside.col).sourceCostSec, 1e-9
         )
         assertEquals(AvoidCellState.FREE, grid.cell(outside.row, outside.col).state)
 
@@ -65,7 +77,7 @@ class AvoidCostFieldTest {
             for (c in 0 until grid.cols) {
                 assertTrue(
                     "no passable cell is ever cheaper than the base",
-                    grid.cell(r, c).sourceCostM >= grid.baseCostM - 1e-9
+                    grid.cell(r, c).sourceCostSec >= grid.baseCostSec - 1e-9
                 )
             }
         }
@@ -75,14 +87,14 @@ class AvoidCostFieldTest {
     @Test
     fun aWallIsNeverPriced() {
         val grid = rasterize(
-            box, cellM, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField.EMPTY
+            box, cellM, paceKn, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField.EMPTY
         )
         grid.markLand(3, 4)
 
         grid.addSourceCost(3, 4, 500.0, AvoidCellState.ZONE)
 
         assertFalse("a priced land cell stays land", grid.cell(3, 4).passable)
-        assertEquals("and keeps the cost it had", grid.baseCostM, grid.cell(3, 4).sourceCostM, 1e-9)
+        assertEquals("and keeps the cost it had", grid.baseCostSec, grid.cell(3, 4).sourceCostSec, 1e-9)
     }
 
     @Test
@@ -92,7 +104,7 @@ class AvoidCostFieldTest {
             distanceAt = { p -> if (inPatch(p)) 0.0 else Double.MAX_VALUE }
         )
         val grid = rasterize(
-            box, cellM, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField(listOf(wall))
+            box, cellM, paceKn, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField(listOf(wall))
         )
 
         val inside = grid.cellOf(43.510, 7.010)
@@ -105,7 +117,7 @@ class AvoidCostFieldTest {
     /** The price reaches the A*: a wall priced out of all proportion is walked around. */
     @Test
     fun aDearlyPricedWallSteersTheSearchAroundIt() = runTest {
-        val path = AvoidSearch.search(walledGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10))
+        val path = AvoidSearch.search(walledGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps)
 
         assertTrue("the corridor is still connected round the wall", path != null)
         assertTrue("no priced cell is stepped on", path!!.none { pricedCell(it) })
@@ -114,7 +126,7 @@ class AvoidCostFieldTest {
     /** Its control: the same wall, priced a hair, is worth crossing — the price is a dial, not a wall. */
     @Test
     fun aCheaplyPricedWallIsWorthCrossing() = runTest {
-        val path = AvoidSearch.search(walledGrid(1.0), CellIndex(5, 0), CellIndex(5, 10))
+        val path = AvoidSearch.search(walledGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps)
 
         assertTrue("the cheap wall is crossed rather than rounded", path!!.any { pricedCell(it) })
     }
@@ -123,9 +135,11 @@ class AvoidCostFieldTest {
     private fun pricedCell(cell: CellIndex): Boolean = cell.col == 5 && cell.row in 1..9
 
     /** A vertical wall of priced cells in column 5, leaving the top and bottom rows open. */
-    private fun walledGrid(priceM: Double): AvoidGrid {
-        val grid = AvoidGrid(box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM)
-        for (r in 1..9) grid.addSourceCost(r, 5, priceM, AvoidCellState.ZONE)
+    private fun walledGrid(priceSec: Double): AvoidGrid {
+        val grid = AvoidGrid(
+            box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM, baseCostSec(cellM, paceKn)
+        )
+        for (r in 1..9) grid.addSourceCost(r, 5, priceSec, AvoidCellState.ZONE)
         return grid
     }
 

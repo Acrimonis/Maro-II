@@ -20,9 +20,10 @@ import kotlin.math.ceil
  *
  * **The priced half of the guarantee.** Where the field carries a price, a chord is accepted only
  * while its own summed price stays within the A* cell path's over the span it would replace — so the
- * pull can never shortcut a corner through a priced band the search just went around. The path's price
- * is a prefix sum, so each candidate costs one walk of the chord alone, and a field with no price
- * skips the whole reading.
+ * pull can never shortcut a corner through a priced band the search just went around. The price is a
+ * **time** here as it is in the search, so the two sides of that comparison are the same unit. The
+ * path's price is a prefix sum, so each candidate costs one walk of the chord alone, and a field with
+ * no price skips the whole reading.
  */
 object AvoidPull {
 
@@ -37,20 +38,21 @@ object AvoidPull {
         start: LatLng,
         aim: LatLng,
         marginM: Double,
-        field: RouteCostField
+        field: RouteCostField,
+        standoffM: Double = 0.0
     ): List<LatLng> {
         if (path.size <= 2) return path
         val result = ArrayList<LatLng>(path.size)
         result.add(path.first())
-        val pathPriceM = if (field.hasSoft) softPricePrefix(path, marginM, field) else null
+        val pathPriceSec = if (field.hasSoft) softPricePrefix(path, marginM, field) else null
         var anchor = 0
         var probe = 1
         while (probe < path.size) {
-            val replacedPriceM = pathPriceM?.let { it[probe] - it[anchor] }
+            val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] }
             when {
-                legClear(path[anchor], path[probe], marginM, field, start, aim) &&
-                    (replacedPriceM == null ||
-                        softPriceM(path[anchor], path[probe], marginM, field) <= replacedPriceM) -> probe++
+                legClear(path[anchor], path[probe], marginM, field, start, aim, standoffM) &&
+                    (replacedPriceSec == null ||
+                        softPriceSec(path[anchor], path[probe], marginM, field) <= replacedPriceSec) -> probe++
                 // The immediate step grazes land in a corner: it cannot be pulled, so it is accepted
                 // once and the walk moves on — the bounded form of the concave re-walk.
                 probe == anchor + 1 -> {
@@ -75,7 +77,8 @@ object AvoidPull {
         marginM: Double,
         field: RouteCostField,
         start: LatLng,
-        aim: LatLng
+        aim: LatLng,
+        standoffM: Double = 0.0
     ): Boolean {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = marginM / 2.0
@@ -90,21 +93,25 @@ object AvoidPull {
             if (SpatialOperations.haversine(p, start) < marginM) continue
             if (SpatialOperations.haversine(p, aim) < marginM) continue
             if (field.hardDistanceM(p) < marginM) return false
+            // The standoff: the same walk, a second margin, and its own read — a zone's ring is not a
+            // wall, so it never lands in `hardDistanceM`.
+            if (standoffM > 0.0 && field.hasRings && field.ringDistanceM(p) < standoffM) return false
         }
         return true
     }
 
     /**
-     * The field's prices summed along one straight segment, in metres-equivalent — price per metre
-     * times metres — read at the **midpoint of each interval** so the whole segment is covered, at
-     * `≤ marginM / 2` intervals so a price narrower than the step cannot slip between two readings.
+     * The field's prices summed along one straight segment, in **seconds** — the seconds a metre of
+     * the price costs, times the metres — read at the **midpoint of each interval** so the whole
+     * segment is covered, at `≤ marginM / 2` intervals so a price narrower than the step cannot slip
+     * between two readings.
      *
      * The midpoint is what makes two segments comparable: an end-excluding walk discounts a short
      * segment by half a sample and a long one by almost nothing, so a chord would have looked dearer
      * than the cell path it replaces and no line would ever be pulled taut. A field with no price
      * reads 0 and the guard is inert.
      */
-    internal fun softPriceM(a: LatLng, b: LatLng, marginM: Double, field: RouteCostField): Double {
+    internal fun softPriceSec(a: LatLng, b: LatLng, marginM: Double, field: RouteCostField): Double {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = marginM / 2.0
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(1)
@@ -116,12 +123,12 @@ object AvoidPull {
                 a.latitude + (b.latitude - a.latitude) * t,
                 a.longitude + (b.longitude - a.longitude) * t
             )
-            sum += field.evaluate(p).softCostM * stepM
+            sum += field.evaluate(p).softCostSec * stepM
         }
         return sum
     }
 
-    /** [softPriceM] accumulated along [path], so one span's price is a single subtraction. */
+    /** [softPriceSec] accumulated along [path], so one span's price is a single subtraction. */
     private fun softPricePrefix(
         path: List<LatLng>,
         marginM: Double,
@@ -129,7 +136,7 @@ object AvoidPull {
     ): DoubleArray {
         val prefix = DoubleArray(path.size)
         for (i in 1 until path.size) {
-            prefix[i] = prefix[i - 1] + softPriceM(path[i - 1], path[i], marginM, field)
+            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, field)
         }
         return prefix
     }

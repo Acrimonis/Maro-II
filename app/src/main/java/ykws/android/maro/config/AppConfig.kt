@@ -236,6 +236,27 @@ object AppConfig {
         private set
 
     /**
+     * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
+     * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
+     * the pace after leaving it. 0.1–2.0, default 0.5: a comfortable easing down, 2.0 the briskest a
+     * planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's clock
+     * alone** — it moves the reported time and never the drawn line, which the search has already
+     * chosen. One home for the rate: this value, and the key it is read from.
+     */
+    var routeSpeedAccelMps2: Double = 0.5
+        private set
+
+    /**
+     * **The share of a trip the search may spend slowed by speed zones**, in per cent — the budget the
+     * λ loop aims at. 0–100, default **33**: how much slow water a trip may use is a preference rather
+     * than a tuning constant, which is why this one is a lever with a Settings row of its own rather
+     * than a value in the drawing family. A share still outside the loop's ±20 % band after its two
+     * passes is reported and never chased.
+     */
+    var routeAvoidSpeedZoneTimeBudgetPct: Int = 33
+        private set
+
+    /**
      * The collar's price as a fraction of the interior's — `route.avoid.speedZone.collarFraction`,
      * default 0.5, clamped 0.0..1.0. Held strictly below 1.0 so the field carries a gradient: the
      * pull prefers the collar's edge over the zone's interior and cannot straighten across a border.
@@ -1516,6 +1537,12 @@ object AppConfig {
             }
             props.getProperty("route.avoid.speedZone.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.speed.accelMps2")?.toDoubleOrNull()?.let {
+                routeSpeedAccelMps2 = it.coerceIn(0.1, 2.0)
+            }
+            props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
+                routeAvoidSpeedZoneTimeBudgetPct = it.coerceIn(0, 100)
             }
             props.getProperty("route.avoid.speedZone.collarFraction")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneCollarFraction = it.coerceIn(0.0, 1.0)

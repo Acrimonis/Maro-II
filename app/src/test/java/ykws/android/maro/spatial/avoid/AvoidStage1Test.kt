@@ -11,6 +11,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -24,17 +25,27 @@ class AvoidStage1Test {
 
     private val box = BBox(43.50, 43.52, 7.00, 7.02)
 
+    /** The pace this class builds every cost at — the same pace the A* bounds its time with. */
+    private val paceKn = 28.0
+
+    private val paceMps = Units.knotsToMps(paceKn)
+
     // ── Rasterizer ────────────────────────────────────────────────────────────
 
     @Test
     fun anEmptyCorridorIsFreeEverywhere() {
-        val grid = rasterize(box, 50.0, 25.0, emptyList(), emptyList(), box.latNorth)
+        val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
 
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 val cell = grid.cell(r, c)
                 assertTrue(cell.passable)
-                assertEquals(grid.cellM, cell.sourceCostM, 1e-9)
+                assertEquals(
+                    "a free cell costs one cell of water at the pace, in seconds",
+                    baseCostSec(50.0, paceKn),
+                    cell.sourceCostSec,
+                    1e-9
+                )
             }
         }
     }
@@ -42,7 +53,7 @@ class AvoidStage1Test {
     @Test
     fun aCcwRingFillsItsInteriorLandAndLeavesTheExteriorFree() {
         val ring = circleRing(LatLng(43.510, 7.010), radiusM = 300.0)
-        val grid = rasterize(box, 50.0, 25.0, ring, emptyList(), box.latNorth)
+        val grid = rasterize(box, 50.0, paceKn, 25.0, ring, emptyList(), box.latNorth)
 
         val centre = grid.cellOf(43.510, 7.010)
         assertFalse("the ring's interior is land", grid.cell(centre.row, centre.col).passable)
@@ -54,7 +65,7 @@ class AvoidStage1Test {
     @Test
     fun aCwBasinKeepsItsInteriorWater() {
         val basin = circleRing(LatLng(43.510, 7.010), radiusM = 300.0, orientation = LandRingOrientation.CW_BASIN)
-        val grid = rasterize(box, 50.0, 25.0, basin, emptyList(), box.latNorth)
+        val grid = rasterize(box, 50.0, paceKn, 25.0, basin, emptyList(), box.latNorth)
 
         val centre = grid.cellOf(43.510, 7.010)
         assertTrue("a CW basin's interior stays water", grid.cell(centre.row, centre.col).passable)
@@ -67,7 +78,7 @@ class AvoidStage1Test {
             LatLng(43.51, 7.00),
             LatLng(43.51, 7.02)
         )
-        val grid = rasterize(box, 50.0, 25.0, emptyList(), listOf(coast), box.latNorth)
+        val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), listOf(coast), box.latNorth)
 
         // A cell centred ~35 m north of the coast — the land side, sealed by the cap.
         val land = grid.cellOf(43.51 + 35.0 / mPerDegLat, 7.01)
@@ -82,7 +93,7 @@ class AvoidStage1Test {
     fun twoTouchingHazardRingsReadAsOneBlockedMass() {
         val west = rectangleRing(LatLng(43.505, 7.005), LatLng(43.515, 7.010))
         val east = rectangleRing(LatLng(43.505, 7.010), LatLng(43.515, 7.015))
-        val grid = rasterize(box, 50.0, 25.0, west + east, emptyList(), box.latNorth)
+        val grid = rasterize(box, 50.0, paceKn, 25.0, west + east, emptyList(), box.latNorth)
 
         assertFalse("the west ring's interior is land", passable(grid, 43.510, 7.0075))
         assertFalse("the shared edge is land — one continuous mass", passable(grid, 43.510, 7.010))
@@ -103,14 +114,17 @@ class AvoidStage1Test {
             LatLng(43.51, 7.06)
         )
         val wide = BBox(43.47, 43.53, 6.99, 7.07)
-        val grid = rasterize(wide, 50.0, 25.0, emptyList(), listOf(coast), wide.latNorth)
+        val grid = rasterize(wide, 50.0, paceKn, 25.0, emptyList(), listOf(coast), wide.latNorth)
 
         assertFalse("the open coast's wide interior is sealed", passable(grid, 43.50, 7.03))
         assertTrue("the water south of the tip stays free", passable(grid, 43.485, 7.03))
 
         val start = grid.cellOf(43.50, 7.01)
         val aim = grid.cellOf(43.50, 7.05)
-        for (path in listOf(AvoidSearch.search(grid, start, aim), AvoidSearch.search(grid, aim, start))) {
+        for (path in listOf(
+            AvoidSearch.search(grid, start, aim, paceMps),
+            AvoidSearch.search(grid, aim, start, paceMps)
+        )) {
             assertTrue("a route around the tip exists", path != null)
             assertTrue(
                 "the route rounds the tip rather than cutting across",
@@ -128,8 +142,8 @@ class AvoidStage1Test {
 
     @Test
     fun theSearchFindsAPathAcrossFreeWater() = runTest {
-        val grid = rasterize(box, 50.0, 25.0, emptyList(), emptyList(), box.latNorth)
-        val path = AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1))
+        val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
+        val path = AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps)
 
         assertTrue("a free grid always has a path", path != null)
         assertEquals(CellIndex(0, 0), path!!.first())
@@ -141,20 +155,22 @@ class AvoidStage1Test {
 
     @Test
     fun aLandWallAcrossTheCorridorAnswersNull() = runTest {
-        val grid = rasterize(box, 50.0, 25.0, emptyList(), emptyList(), box.latNorth)
+        val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
         for (r in 0 until grid.rows) grid.markLand(r, grid.cols / 2)
 
-        assertNull(AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1)))
+        assertNull(AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps))
     }
 
     @Test
     fun theSearchIsDeterministic() = runTest {
-        val grid = rasterize(box, 50.0, 25.0, circleRing(LatLng(43.510, 7.010), radiusM = 300.0), emptyList(), box.latNorth)
+        val grid = rasterize(
+            box, 50.0, paceKn, 25.0, circleRing(LatLng(43.510, 7.010), radiusM = 300.0), emptyList(), box.latNorth
+        )
         val start = CellIndex(0, 0)
         val aim = CellIndex(grid.rows - 1, grid.cols - 1)
 
-        val first = AvoidSearch.search(grid, start, aim)
-        val second = AvoidSearch.search(grid, start, aim)
+        val first = AvoidSearch.search(grid, start, aim, paceMps)
+        val second = AvoidSearch.search(grid, start, aim, paceMps)
 
         assertEquals("the same grid yields the same path", first, second)
     }
@@ -162,11 +178,11 @@ class AvoidStage1Test {
     @Test
     fun theSearchHonoursCancellation() = runTest {
         val wide = BBox(43.50, 43.62, 7.00, 7.14)
-        val grid = rasterize(wide, 50.0, 25.0, emptyList(), emptyList(), wide.latNorth)
+        val grid = rasterize(wide, 50.0, paceKn, 25.0, emptyList(), emptyList(), wide.latNorth)
         var checks = 0
 
         val outcome = runCatching {
-            AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1)) {
+            AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps) {
                 checks++
                 throw CancellationException("abandoned drag")
             }

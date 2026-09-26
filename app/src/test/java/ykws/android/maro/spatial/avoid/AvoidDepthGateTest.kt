@@ -18,6 +18,9 @@ class AvoidDepthGateTest {
     private val box = BBox(43.50, 43.52, 7.00, 7.02)
     private val minDepthM = 3.0
 
+    /** The pace every cost is built at — the gate itself is geometry and reads no pace at all. */
+    private val paceKn = 28.0
+
     @Test
     fun aKnownDepthBelowTheThresholdPaintsTheCellLand() {
         val grid = gated { p -> if (shallow(p)) 2.0 else Double.NaN }
@@ -55,7 +58,7 @@ class AvoidDepthGateTest {
     fun aNoDataCellTheCoastlineSealedStaysBlocked() {
         val coast = listOf(LatLng(43.510, 7.00), LatLng(43.510, 7.02))
         val grid = rasterize(
-            box, 50.0, 25.0, emptyList(), listOf(coast), box.latNorth,
+            box, 50.0, paceKn, 25.0, emptyList(), listOf(coast), box.latNorth,
             RouteCostField(listOf(depthGateSource(minDepthM) { _ -> Double.NaN }))
         )
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -72,7 +75,7 @@ class AvoidDepthGateTest {
 
     private fun gated(depthMAt: (LatLng) -> Double): AvoidGrid =
         rasterize(
-            box, 50.0, 25.0, emptyList(), emptyList(), box.latNorth,
+            box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth,
             RouteCostField(listOf(depthGateSource(minDepthM, depthMAt)))
         )
 

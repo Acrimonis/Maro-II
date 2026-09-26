@@ -76,6 +76,30 @@ fun strictestLimitKnAt(
  * point — the collar's limit read, the grid's own "dearest wins" rule over the field's band. Interior
  * containment is answered separately by [strictestLimitKnAt], so the two never double-price.
  */
+/**
+ * The distance (m) from a point to the nearest of [zones]' outer rings, ignoring [excludedIds], or
+ * `Double.MAX_VALUE` where none is in [zones] — the **standoff's own read**, so the pull can refuse a
+ * chord that comes closer to a ring than the standoff while the land margin stays a separate question.
+ */
+fun nearestZoneRingDistanceM(
+    zones: List<SpeedZone>,
+    excludedIds: Set<String>,
+    latitude: Double,
+    longitude: Double
+): Double {
+    val p = LatLng(latitude, longitude)
+    var nearest = Double.MAX_VALUE
+    for (zone in zones) {
+        if (zone.id in excludedIds) continue
+        val outer = zone.outerRing
+        if (outer.size < 2) continue
+        for (i in 0 until outer.size - 1) {
+            nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, outer[i], outer[i + 1]))
+        }
+    }
+    return nearest
+}
+
 fun speedZoneCollarLimitKnAt(
     zones: List<SpeedZone>,
     excludedIds: Set<String>,
