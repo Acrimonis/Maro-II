@@ -489,6 +489,7 @@
 
     <!-- Marker wizard -->
     <string name="wizard_title_create">Créer un repère</string>
+    <string name="wizard_title_edit">Modifier le repère</string>
     <string name="action_previous">Précédent</string>
     <string name="action_next">Suivant</string>
     <string name="action_finish">Terminer</string>

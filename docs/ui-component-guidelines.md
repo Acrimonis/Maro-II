@@ -47,7 +47,7 @@ truth for the surface; other docs point here instead of restating it.
 | Background | `uiCardBackground` |
 | Corner radius | 12dp |
 | **Wide** density padding | 16×10dp — simple toggle/nav rows with single controls (non-settings surfaces) |
-| **Tight** density padding | 8×4dp — data-dense cards (track history stats grid, wizard sliders, marker details) |
+| **Tight** density padding | 8×4dp — data-dense cards (track history stats grid, marker details) |
 
 ```kotlin
 // Settings Main card — the `CardArea` composable (20% white, 12dp radius, 16dp horizontal + 8dp vertical pad)
@@ -119,9 +119,7 @@ Examples in Settings: Marker halo size and Point/icon zoom (Layers → Markers),
 
 Row padding: **vertical only** — like every row it carries **no horizontal padding** of its own; the container owns the inset (§2.0). Label-left / value-right share one line; for a **two-thumb** slider use `RangeSliderRow` (§2.8).
 
-**Wizard slider steps carry the same composition.** `SliderStep` — the Radius, Proximity and Routing cost steps of the marker wizard — keeps its card surface (16×4dp inner padding, 12dp radius, `uiCardBackground`) instead of a `CardArea`, and inside it follows the recipe above: 16sp Medium `uiTextPrimary` label, 13sp `uiTextMuted` description, the 14sp Bold `ui.value.text` value on the label's line, `${ui.spacing.label.control}` before the control, and `uiAccent` / `uiSwitchTrackInactive` on the slider. Its end labels — the low and high value printed under the track — are 13sp `uiTextMuted`.
-
-**The card owns the horizontal inset.** `SliderStep` pads its own content horizontally by `${ui.padding.card.horizontal}` (16dp) — the same inset a `CardArea` supplies (§2.0) — so the label, the description, the value, the track and both end labels all sit at the settings inset; no child row adds horizontal padding of its own. The earlier row-owned-inset exception is withdrawn: the tight wizard card is the container, and it owns the inset exactly as §2.0 requires.
+**The marker wizard's slider steps use this row.** Radius, Proximity and Routing cost are a `CardArea` holding this very `SliderRow` (`ui/components/SliderRow.kt`), so the two surfaces share one implementation rather than resembling one; `SliderStep` is only the wizard's thin seam over it, and it passes the two optional end readings — `startLabel` and `endLabel` — that the settings rows leave off. The container owns the inset (§2.0) and the row pads vertically only, as everywhere.
 
 ### 2.3 Card = rows + sections — `CardArea`, `SectionDivider`, `Expander`
 
@@ -422,6 +420,22 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 
 ---
 
+### 2.13 Text Field — inline editors
+
+One rendering for a text field the app edits in place: a **transparent `TextField`** — no container
+colour and no indicators, so it reads as the text it replaces — the cursor in `uiTextPrimary`, and the
+field **opening with its text selected**, so typing replaces the value while a tap still places the
+caret. Name lines are 15sp SemiBold `uiTextPrimary`, comment lines 13sp `uiTextMuted`, and the action is
+`Done`, or `Next` where a step continues.
+
+Its callers are the track card's name and comment fields (`TrackHistoryOverlay.kt`), the marker card's
+two (`MarkerManagementOverlay.kt`) and the marker wizard's Title and Description steps
+(`ui/markers/wizard/steps/TextInputStep.kt`). The wizard is the one that keeps a label line above the
+field — a step has no card around it to name the field — and a muted placeholder for the empty case. No
+surface adds a border, a fill or an indicator of its own.
+
+---
+
 ## 5. Non-Settings Surfaces
 
 ### 5.1 Drawer Cards (`MenuDrawerOverlay`)
@@ -591,13 +605,17 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 - **Actions:** `ConfirmAction(label, role, enabled, onClick)` rendered in order, stacked full width.
   `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
   label; `SECONDARY` = `OutlinedButton` with a `uiAccent` label.
-- **A disabled action is the same control with a different face** (2026-09-24): a `ConfirmAction` with
-  `enabled = false` reads as the **outlined role, its label in `uiTextMuted` and its outline in
-  `uiDividerColor`, and no accent surviving it** — which is what keeps the accent meaning *the
-  surface's own outcome* rather than being dimmed into ambiguity. The two tokens are §2.7's own
-  unselected-segment ones, so the face adds no palette entry, and Compose announces `enabled = false`
-  natively, so nothing custom rides accessibility. A greyed button promises nothing, saying only *not
-  yet*.
+- **A disabled action is the same control with a different face — the whole app's rule, not this
+  surface's** (2026-09-24, generalised 2026-09-26): any action with `enabled = false` reads as the
+  **outlined role, its label in `uiTextMuted` and its outline in `uiDividerColor`, and no accent
+  surviving it** — which is what keeps the accent meaning *the surface's own outcome* rather than being
+  dimmed into ambiguity. One implementation draws it: `ConfirmActionButton`
+  ([`ui/components/ConfirmDialog.kt`](../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt)),
+  the app's only rendering of an action, which the ladder's confirmation panel, the route panel and the
+  marker wizard's footer all host. No surface dims its own control into a disabled look. The two tokens
+  are §2.7's own unselected-segment ones, so the face adds no palette entry, and Compose announces
+  `enabled = false` natively, so nothing custom rides accessibility. A greyed button promises nothing,
+  saying only *not yet*.
 - **A button's colour states its role, never its importance** (2026-09-23): the **accent** is the
   surface's own outcome — the action the surface exists for, one per surface; the **red** is the action
   that withholds the work; the **outline** is everything that neither writes nor loses, the door that

@@ -490,6 +490,7 @@
 
     <!-- Marker wizard -->
     <string name="wizard_title_create">Create Marker</string>
+    <string name="wizard_title_edit">Edit Marker</string>
     <string name="action_previous">Previous</string>
     <string name="action_next">Next</string>
     <string name="action_finish">Finish</string>

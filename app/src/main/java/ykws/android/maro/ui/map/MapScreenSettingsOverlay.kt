@@ -79,6 +79,9 @@ import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
+import ykws.android.maro.ui.components.Expander
+import ykws.android.maro.ui.components.NestedCard
+import ykws.android.maro.ui.components.SliderRow
 import ykws.android.maro.ui.components.ToggleRow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1705,57 +1708,6 @@ private fun CardDescription(text: String) {
     Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
 }
 
-/** A label + value + slider WITHOUT its own box — placed directly on a [CardArea] or inside a [NestedCard]. */
-@Composable
-private fun SliderRow(
-    label: String,
-    description: String,
-    valueLabel: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit = {}
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = AppConfig.uiFontToggleSize.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = description,
-                color = ComposeColor(AppConfig.uiTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp
-            )
-        }
-        Spacer(modifier = Modifier.width(AppConfig.uiSpacingLabelControl.dp))
-        Text(
-            text = valueLabel,
-            color = ComposeColor(AppConfig.uiValueText),
-            fontSize = AppConfig.uiFontValueSize.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-    Slider(
-        value = value,
-        onValueChange = onValueChange,
-        onValueChangeFinished = onValueChangeFinished,
-        valueRange = valueRange,
-        steps = steps,
-        colors = SliderDefaults.colors(
-            thumbColor = ComposeColor(AppConfig.uiAccent),
-            activeTrackColor = ComposeColor(AppConfig.uiAccent),
-            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
-        )
-    )
-}
 
 /**
  * Label (+ optional description) + right-aligned value + two-thumb slider, WITHOUT its own box —
@@ -1912,66 +1864,7 @@ private fun ColorSwatchButton(color: Int, onClick: () -> Unit) {
     )
 }
 
-/** Nested 5% white container (`0x0DFFFFFF` + `0x40FFFFFF` border) shown when an [Expander] is open. Holds any controls, optionally split into sections by [SectionDivider]. */
-@Composable
-private fun NestedCard(content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
-            .background(ComposeColor(AppConfig.uiNestedCardBg))
-            .border(1.dp, ComposeColor(AppConfig.uiNestedCardBorder), RoundedCornerShape(AppConfig.uiRadiusCard.dp))
-            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingContentComfortable.dp)
-    ) {
-        content()
-    }
-}
 
-/**
- * Tappable "Avancé" disclosure row that reveals [content] with a chevron + slide animation.
- * Progressive disclosure — keeps advanced/fiddly controls out of the way until asked for.
- */
-@Composable
-private fun Expander(
-    label: String,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    val rotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        label = "expanderChevron"
-    )
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(AppConfig.uiRadiusExpander.dp))
-                .clickable { onToggle() }
-                .padding(vertical = AppConfig.uiPaddingExpanderVertical.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = AppConfig.uiFontToggleSize.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
-                tint = ComposeColor(AppConfig.uiDashboardTextMuted),
-                modifier = Modifier.rotate(rotation)
-            )
-        }
-        AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                content()
-            }
-        }
-    }
-}
 
 /**
  * A row showing a labeled color swatch.
