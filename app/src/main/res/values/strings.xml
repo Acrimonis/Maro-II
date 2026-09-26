@@ -624,6 +624,8 @@
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <!-- The drawer summary's sub-title over the boat-relative pair: what is left to travel. -->
+    <string name="route_trip_remaining">Remaining</string>
     <string name="route_trip_ago">%1$s ago</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
@@ -646,10 +648,4 @@
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
-    <!-- The route actions group: one title, one comment, three labeled pills. -->
-    <string name="menu_route_title">Route</string>
-    <string name="menu_route_comment">Plot, recompute or save a water route</string>
-    <string name="menu_route_to">To</string>
-    <string name="menu_route_from">From</string>
-    <string name="menu_route_save">Save</string>
 </resources>

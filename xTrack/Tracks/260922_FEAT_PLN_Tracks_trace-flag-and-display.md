@@ -257,9 +257,8 @@ against the code as it stands on 2026-09-22, with nothing left open in it.
 
 ## 13. What this plan is not
 
-- **Not a Route plan:** the requirements are the master book's, [`../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md), and the Route feature's own build order is
-  [`../Route/260922_FEAT_PLN_Route_interaction-build.md`](../Route/260922_FEAT_PLN_Route_interaction-build.md). The two
-  share `TrackFromCourse.kt` and `MapScreen.kt`, so **the Route work lands first** — its save writes the flag this
+- **Not a Route plan:** the requirements are the master book's, [`../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md); the Route feature's own build order — shipped on 2026-09-22 and since archived — sequenced the Route work first, because the two
+  share `TrackFromCourse.kt` and `MapScreen.kt`: its save writes the flag this
   plan renames.
 - **Not a corpus entry yet:** the epic's `## Docs` pointer and the walk items land with the build, so this file
   stays the plan in design until its pointer appears in the feature's `## Implemented`.

@@ -623,6 +623,8 @@
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <!-- Le sous-titre du résumé du tiroir au-dessus de la paire relative au bateau : ce qu'il reste à parcourir. -->
+    <string name="route_trip_remaining">Restant</string>
     <string name="route_trip_ago">il y a %1$s</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
@@ -645,10 +647,4 @@
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
-    <!-- Le groupe d\'actions de route : un titre, un commentaire, trois pilules étiquetées. -->
-    <string name="menu_route_title">Route</string>
-    <string name="menu_route_comment">Tracer, recalculer ou enregistrer une route navigable</string>
-    <string name="menu_route_to">Vers</string>
-    <string name="menu_route_from">Depuis</string>
-    <string name="menu_route_save">Enregistrer</string>
 </resources>

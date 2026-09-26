@@ -414,7 +414,6 @@ private fun PanelDivider() {
 @Composable
 private fun PanelDataTable(plan: RoutePlan) {
     val course = plan.remainingFrom(plan.start)
-    val whole = course.durationSec.toInt()
 
     // **The card's own grid, two columns**: `Start` beside `Destination`, then `Dist` beside `ETA`, each
     // reading on a cell of the same shape — label right-aligned in its third, value left-aligned in its
@@ -444,7 +443,7 @@ private fun PanelDataTable(plan: RoutePlan) {
             Box(Modifier.weight(1f)) {
                 StatCell(
                     stringResource(R.string.route_label_eta),
-                    stringResource(R.string.route_eta_value_fmt, whole / 60, whole % 60)
+                    routeEtaText(course.durationSec)
                 )
             }
         }
