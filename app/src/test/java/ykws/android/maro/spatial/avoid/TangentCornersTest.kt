@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
 
 /**
@@ -77,6 +78,27 @@ class TangentCornersTest {
         assertEquals("a rectangle ring contributes its four corners", 4, corners.size)
         for (c in corners) {
             assertTrue("every corner stands outside the ring", c.latitude < 43.498 || c.latitude > 43.502 || c.longitude < 7.024 || c.longitude > 7.036)
+        }
+    }
+
+    @Test
+    fun ringCornersOffsetAConvexRingOutwardForBothWindings() {
+        val ring = listOf(
+            LatLng(43.498, 7.024),
+            LatLng(43.498, 7.036),
+            LatLng(43.502, 7.036),
+            LatLng(43.502, 7.024),
+            LatLng(43.498, 7.024)
+        )
+        for (winding in listOf(ring, ring.reversed())) {
+            val corners = TangentCorners.ringCorners(listOf(SpeedZone("z", "Cap", 5.0, winding)), margin)
+            assertEquals("four convex corners regardless of winding", 4, corners.size)
+            for (c in corners) {
+                assertTrue(
+                    "every corner stands outside the ring",
+                    c.latitude < 43.498 || c.latitude > 43.502 || c.longitude < 7.024 || c.longitude > 7.036
+                )
+            }
         }
     }
 }

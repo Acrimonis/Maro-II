@@ -107,6 +107,19 @@ fun zonePriceM(cellM: Double, paceKn: Double, limitKn: Double, k: Double): Doubl
 }
 
 /**
+ * The collar's price at one cell: the interior's [zonePriceM], scaled by [collarFraction] — strictly
+ * below the interior's while the fraction is below 1, which is the gradient the pull reads to prefer
+ * the collar's edge over the zone's interior.
+ */
+fun zoneCollarPriceM(
+    cellM: Double,
+    paceKn: Double,
+    limitKn: Double,
+    k: Double,
+    collarFraction: Double
+): Double = zonePriceM(cellM, paceKn, limitKn, k) * collarFraction
+
+/**
  * How far off the coast the band's price reaches: the band's own width plus the clearance margin, so
  * the priced strip covers the margin land already took. One home, read by the rasterizer's sweep and
  * by the pull's own band source.

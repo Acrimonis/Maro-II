@@ -71,6 +71,35 @@ fun strictestLimitKnAt(
     .filter { it.contains(latitude, longitude) }
     .minOfOrNull { it.speedLimitKn }
 
+/**
+ * The strictest limit among the non-excluded zones whose **outer ring** lies within [marginM] of the
+ * point — the collar's limit read, the grid's own "dearest wins" rule over the field's band. Interior
+ * containment is answered separately by [strictestLimitKnAt], so the two never double-price.
+ */
+fun speedZoneCollarLimitKnAt(
+    zones: List<SpeedZone>,
+    excludedIds: Set<String>,
+    latitude: Double,
+    longitude: Double,
+    marginM: Double
+): Double? {
+    val p = LatLng(latitude, longitude)
+    var strictest: Double? = null
+    for (zone in zones) {
+        if (zone.id in excludedIds) continue
+        val outer = zone.outerRing
+        if (outer.size < 2) continue
+        var nearest = Double.MAX_VALUE
+        for (i in 0 until outer.size - 1) {
+            nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, outer[i], outer[i + 1]))
+        }
+        if (nearest <= marginM && (strictest == null || zone.speedLimitKn < strictest)) {
+            strictest = zone.speedLimitKn
+        }
+    }
+    return strictest
+}
+
 /** Whether the emitted line enters [zone], sampled at [stepM] along every leg. */
 fun lineEntersZone(waypoints: List<LatLng>, zone: SpeedZone, stepM: Double = 25.0): Boolean {
     if (waypoints.any { zone.contains(it.latitude, it.longitude) }) return true

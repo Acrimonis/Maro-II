@@ -27,6 +27,7 @@ import ykws.android.maro.spatial.avoid.depthGateSource
 import ykws.android.maro.spatial.avoid.forcedCrossingZoneNames
 import ykws.android.maro.spatial.avoid.rasterize
 import ykws.android.maro.spatial.avoid.timeLineWithLimits
+import ykws.android.maro.spatial.avoid.zoneCollarPriceM
 import ykws.android.maro.spatial.avoid.zonePriceM
 import kotlin.math.PI
 import kotlin.math.cos
@@ -179,7 +180,6 @@ class RouteAvoidEngine(
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
-        val field = costField(world)
         // The zones arrive pre-filtered by the world (excluded ids dropped); each is priced once from
         // the live pace, then rastered as a zone tag whose cost is the strictest limit in force.
         // The zones are priced only while the feature is armed; with it off the corridor is coastline,
@@ -187,9 +187,21 @@ class RouteAvoidEngine(
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val zoneK = AppConfig.routeAvoidSpeedZoneSoftCostAversion
         val pace = paceKn()
-        val priced = zones.map { z -> PricedZone(z.outerRing, z.holes, zonePriceM(cellM, pace, z.speedLimitKn, zoneK)) }
+        val zoneMarginM = AppConfig.routeAvoidSpeedZoneMarginM
+        val gridField = costField(world, cellM, pace, withZones = false)
+        val guardField = costField(world, cellM, pace, withZones = true)
+        val collarFraction = AppConfig.routeAvoidSpeedZoneCollarFraction
+        val priced = zones.map { z ->
+            PricedZone(
+                z.outerRing,
+                z.holes,
+                zonePriceM(cellM, pace, z.speedLimitKn, zoneK),
+                zoneMarginM,
+                zoneCollarPriceM(cellM, pace, z.speedLimitKn, zoneK, collarFraction)
+            )
+        }
         _stage.value = RouteStage.GRID
-        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, field, priced)
+        val grid = rasterize(box, cellM, marginM, edges, openCoast, capLatNorth, gridField, priced)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val startCell = grid.cellOf(from.latitude, from.longitude)
@@ -205,18 +217,23 @@ class RouteAvoidEngine(
         // both neighbouring legs stay clear. The land set snaps within a cell's reach; the band set,
         // armed with the zone, snaps at the band's own reach so a concave band is chorded.
         _stage.value = RouteStage.PULL
-        val pulled = AvoidPull.pull(full, start, aim, marginM, field)
-        val sets = ArrayList<CornerSet>(2)
+        val pulled = AvoidPull.pull(full, start, aim, marginM, guardField)
+        val sets = ArrayList<CornerSet>(3)
         sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), cellM * 2.0))
         if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
             val bandOffsetM = bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300MarginM)
             sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), bandOffsetM))
         }
+        // The hug set: a bend near a zone ring snaps onto the ring's offset corners, the snap radius
+        // being the standoff plus one cell so a bend lying a cell out is still captured.
+        if (zones.isNotEmpty()) {
+            sets.add(CornerSet(TangentCorners.ringCorners(zones, zoneMarginM), zoneMarginM + cellM))
+        }
         _stage.value = RouteStage.SNAP
-        val snapped = snapToCorners(pulled, sets, marginM, field, start, aim)
-        val waypoints = AvoidPull.pull(snapped, start, aim, marginM, field)
+        val snapped = snapToCorners(pulled, sets, marginM, guardField, start, aim)
+        val waypoints = AvoidPull.pull(snapped, start, aim, marginM, guardField)
         val forced = forcedCrossingNames(
-            box, cellM, marginM, edges, openCoast, capLatNorth, field, priced, zones,
+            box, cellM, marginM, edges, openCoast, capLatNorth, gridField, priced, zones,
             from, to, startCell, aimCell, waypoints
         )
         return success(waypoints, world, forced)
@@ -232,8 +249,8 @@ class RouteAvoidEngine(
      * refusal in [prepare] is what makes the grid-out state unreachable while it is enabled: an
      * ungated search would price unsounded water as open sea and call the answer a route.
      */
-    private fun costField(world: AvoidWorld): RouteCostField {
-        val sources = ArrayList<RouteCostSource>(3)
+    private fun costField(world: AvoidWorld, cellM: Double, pace: Double, withZones: Boolean): RouteCostField {
+        val sources = ArrayList<RouteCostSource>(4)
         sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
         if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
             sources.add(
@@ -245,7 +262,7 @@ class RouteAvoidEngine(
         }
         if (AppConfig.routeAvoidZone300Enabled) {
             val bandM = world.bandWidthM
-            val bandPriceM = bandPriceM(AppConfig.routeAvoidGridCellM, AppConfig.routeAvoidZone300SoftCostAversion)
+            val bandPriceM = bandPriceM(cellM, AppConfig.routeAvoidZone300SoftCostAversion)
             if (bandM > 0.0 && bandPriceM > 0.0) {
                 val reachM = bandReachM(bandM, AppConfig.routeAvoidZone300MarginM)
                 sources.add(
@@ -258,7 +275,39 @@ class RouteAvoidEngine(
                 )
             }
         }
+        // The zone source — read only by the pull and the snap, never per grid cell: the grid gets the
+        // zone price from the rasterizer's scanline fill, so the per-cell explosion stays out.
+        if (withZones && AppConfig.routeAvoidSpeedZoneEnabled) {
+            val k = AppConfig.routeAvoidSpeedZoneSoftCostAversion
+            val marginM = AppConfig.routeAvoidSpeedZoneMarginM
+            sources.add(
+                RouteCostSource.Soft(
+                    priceM = { p -> zoneArmPriceM(world, cellM, pace, k, marginM, p) },
+                    tag = AvoidCellState.ZONE
+                )
+            )
+        }
         return RouteCostField(sources)
+    }
+
+    /** The zone arm's price at one point: full zone price inside the ring and within the collar, else 0. */
+    private fun zoneArmPriceM(
+        world: AvoidWorld,
+        cellM: Double,
+        pace: Double,
+        k: Double,
+        marginM: Double,
+        p: LatLng
+    ): Double {
+        // The grid's own rule with the collar a fraction of the interior: the dearest covering price
+        // wins, and the gradient free < collar < interior keeps the pull from straightening across a
+        // border the corridor presses it against.
+        val interiorLimit = world.zoneLimitKnAt(p.latitude, p.longitude)
+        val collarLimit = world.collarLimitKnAt(p.latitude, p.longitude, marginM)
+        val interior = if (interiorLimit == null) 0.0 else zonePriceM(cellM, pace, interiorLimit, k)
+        val collar = if (collarLimit == null) 0.0
+            else zoneCollarPriceM(cellM, pace, collarLimit, k, AppConfig.routeAvoidSpeedZoneCollarFraction)
+        return max(interior, collar)
     }
 
     /** One tangent corner set: the offset points and the radius within which they may move a bend. */

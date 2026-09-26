@@ -22,7 +22,9 @@ data class CellIndex(val row: Int, val col: Int)
 data class PricedZone(
     val outerRing: List<LatLng>,
     val holes: List<List<LatLng>>,
-    val costM: Double
+    val costM: Double,
+    val collarMarginM: Double = 0.0,
+    val collarCostM: Double? = null
 )
 
 /**
@@ -324,6 +326,8 @@ private fun fillClosedRingEvenOdd(grid: AvoidGrid, ring: List<LatLng>) {
  * action is a price by default and a land mark when [blockZones] is set (the forced-crossing probe).
  */
 private fun fillZonesEvenOdd(grid: AvoidGrid, zones: List<PricedZone>, blockZones: Boolean) {
+    val mPerDegLat = grid.cellM / grid.cellSizeDegLat
+    val mPerDegLon = grid.cellM / grid.cellSizeDegLon
     for (zone in zones) {
         val rings = buildList {
             add(zone.outerRing)
@@ -348,6 +352,17 @@ private fun fillZonesEvenOdd(grid: AvoidGrid, zones: List<PricedZone>, blockZone
             crossings
         }) { r, c ->
             if (blockZones) grid.markLand(r, c) else grid.applyZoneCost(r, c, zone.costM)
+        }
+        // The collar: the standoff the route keeps off the ring, priced like the interior so the A*
+        // bends around a zone at the margin even when it merely passes beside it. Blocked probes skip
+        // it — a forced crossing is about the interior, never the collar.
+        if (!blockZones && zone.collarMarginM > 0.0) {
+            for (i in 0 until zone.outerRing.size - 1) {
+                val edge = AvoidEdge(zone.outerRing[i], zone.outerRing[i + 1], LandRingOrientation.CCW_RING)
+                forEachCellNear(grid, edge, zone.collarMarginM, mPerDegLat, mPerDegLon) { r, c, _ ->
+                    grid.applyZoneCost(r, c, zone.collarCostM ?: zone.costM)
+                }
+            }
         }
     }
 }

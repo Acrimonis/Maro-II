@@ -227,6 +227,22 @@ object AppConfig {
     var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
 
+    /**
+     * Standoff (m) the avoid route keeps off a speed zone's ring — `route.avoid.speedZone.marginM`,
+     * default 50, clamped 0.0..500.0. The collar's width and the hug set's offset: a route passing
+     * beside a zone keeps this distance, while the interior stays priced by the zone's own cursor.
+     */
+    var routeAvoidSpeedZoneMarginM: Double = 50.0
+        private set
+
+    /**
+     * The collar's price as a fraction of the interior's — `route.avoid.speedZone.collarFraction`,
+     * default 0.5, clamped 0.0..1.0. Held strictly below 1.0 so the field carries a gradient: the
+     * pull prefers the collar's edge over the zone's interior and cannot straighten across a border.
+     */
+    var routeAvoidSpeedZoneCollarFraction: Double = 0.5
+        private set
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -1497,6 +1513,12 @@ object AppConfig {
             }
             props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidSpeedZoneEnabled = it
+            }
+            props.getProperty("route.avoid.speedZone.marginM")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.speedZone.collarFraction")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneCollarFraction = it.coerceIn(0.0, 1.0)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

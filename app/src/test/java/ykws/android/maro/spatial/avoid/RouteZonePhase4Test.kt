@@ -1,8 +1,10 @@
 package ykws.android.maro.spatial.avoid
 
 import kotlinx.coroutines.test.runTest
+import kotlin.math.min
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -196,11 +198,144 @@ class RouteZonePhase4Test {
         assertEquals(listOf("Cap"), route.forcedCrossingZoneNames)
     }
 
+    // ── The collar ────────────────────────────────────────────────────────────
+
+    @Test
+    fun theLineDoesNotEnterAZoneItCouldHaveGoneAround() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
+        val world = ZoneWorld(listOf(zone))
+        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+
+        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
+        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+
+        assertFalse(
+            "the pulled line never enters a zone it could have gone around",
+            lineEntersZone(route.points.map { it.toLatLng() }, zone)
+        )
+    }
+
+    @Test
+    fun thePassByKeepsTheStandoff() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        setSpeedZoneMarginM(50.0)
+        // A zone whose north edge lies ~20 m south of the straight origin→aim line: without the
+        // collar the line stays 20 m off; with it the line stands off by the margin.
+        val northEdge = 43.5 - 20.0 / 111_320.0
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(northEdge - 0.02, northEdge, 7.01, 7.05))
+        val world = ZoneWorld(listOf(zone))
+        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+
+        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
+        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+
+        val margin = AppConfig.routeAvoidSpeedZoneMarginM
+        for (p in route.points) {
+            val d = ringDistanceM(zone.outerRing, p.toLatLng())
+            assertTrue("the line keeps the standoff off the ring (d=$d)", d >= margin - 5.0)
+        }
+    }
+
+    @Test
+    fun theStandoffFollowsTheMarginKey() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        for (margin in listOf(40.0, 70.0)) {
+            setSpeedZoneMarginM(margin)
+            val northEdge = 43.5 - 20.0 / 111_320.0
+            val zone = SpeedZone("z", "Cap", 5.0, rectRing(northEdge - 0.02, northEdge, 7.01, 7.05))
+            val world = ZoneWorld(listOf(zone))
+            val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+
+            engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
+            val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+
+            val kept = route.points.minOf { ringDistanceM(zone.outerRing, it.toLatLng()) }
+            assertTrue(
+                "the kept distance follows the key (margin=$margin, kept=$kept)",
+                kept >= margin - 5.0
+            )
+        }
+    }
+
+    @Test
+    fun aLineGrazingTheCollarIsTimedAtThePace() {
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.50, 7.01, 7.05))
+        val limitKnAt: (LatLng) -> Double? = { p ->
+            strictestLimitKnAt(listOf(zone), emptySet(), p.latitude, p.longitude)
+        }
+        val a = LatLng(43.505, 7.02)
+        val b = LatLng(43.505, 7.04)
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt)
+        val dist = SpatialOperations.haversine(a, b)
+
+        assertEquals(
+            "outside the zone the clock reads the pace, never the collar",
+            dist / Units.knotsToMps(28.0),
+            timed.legTimesSec[0],
+            1e-6
+        )
+    }
+
+    @Test
+    fun theBandAndAZoneSumOnACellHoldingBoth() {
+        val field = RouteCostField(
+            listOf(
+                RouteCostSource.Soft(priceM = { 30.0 }, tag = AvoidCellState.BAND),
+                RouteCostSource.Soft(priceM = { 20.0 }, tag = AvoidCellState.ZONE)
+            )
+        )
+        val at = field.evaluate(LatLng(43.5, 7.0))
+        assertEquals("the two prices sum", 50.0, at.softCostM, 1e-9)
+        assertEquals("the dearest tag wins", AvoidCellState.ZONE, at.tag)
+    }
+
+    @Test
+    fun theCollarIsCheaperThanTheInterior() {
+        val interior = zonePriceM(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0)
+        val collar = zoneCollarPriceM(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0, collarFraction = 0.5)
+        assertTrue("the collar is strictly cheaper, so the field carries a gradient", collar < interior)
+        assertEquals("half the interior at a fraction of 0.5", interior * 0.5, collar, 1e-9)
+    }
+
+    @Test
+    fun theCollarLimitReadsTheStrictestOfEveryCoveringZone() {
+        val fast = SpeedZone("fast", "Fast", 10.0, rectRing(43.49, 43.51, 7.01, 7.05))
+        val slow = SpeedZone("slow", "Slow", 5.0, rectRing(43.49, 43.51, 7.01, 7.05))
+        // Two zones share one ring; the strictest limit must win whatever the iteration order, so the
+        // collar cannot pick the nearer of two coincident rings and drop the stricter limit.
+        assertEquals(
+            "the strictest limit wins in the collar",
+            5.0,
+            speedZoneCollarLimitKnAt(listOf(fast, slow), emptySet(), 43.51, 7.03, 50.0)!!,
+            1e-9
+        )
+    }
+
+    @Test
+    fun theLineKeepsOffTwoOverlappingZones() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        // A slow 5 kn zone nested inside a fast 10 kn zone; a route crossing the pair must clear both,
+        // the zones sized so the detour fits inside the corridor reach.
+        val fast = SpeedZone("fast", "Fast", 10.0, rectRing(43.49, 43.51, 7.01, 7.05))
+        val slow = SpeedZone("slow", "Slow", 5.0, rectRing(43.495, 43.505, 7.02, 7.04))
+        val world = ZoneWorld(listOf(fast, slow))
+        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+
+        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
+        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+
+        val line = route.points.map { it.toLatLng() }
+        assertFalse("the line clears the fast zone", lineEntersZone(line, fast))
+        assertFalse("the line clears the slow zone", lineEntersZone(line, slow))
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     @After
     fun restoreTheSpeedZoneSwitch() {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
+        setSpeedZoneMarginM(50.0)
     }
 
     /**
@@ -212,6 +347,22 @@ class RouteZonePhase4Test {
         val field = AppConfig::class.java.getDeclaredField(name)
         field.isAccessible = true
         field.setBoolean(AppConfig, value)
+    }
+
+    /** Flips the speed-zone standoff key for one test; [restoreTheSpeedZoneSwitch] puts 50 back. */
+    private fun setSpeedZoneMarginM(value: Double) {
+        val field = AppConfig::class.java.getDeclaredField("routeAvoidSpeedZoneMarginM")
+        field.isAccessible = true
+        field.setDouble(AppConfig, value)
+    }
+
+    /** Distance (m) from [p] to the nearest segment of a closed ring. */
+    private fun ringDistanceM(ring: List<LatLng>, p: LatLng): Double {
+        var best = Double.MAX_VALUE
+        for (i in 0 until ring.size - 1) {
+            best = min(best, SpatialOperations.pointToSegmentDistance(p, ring[i], ring[i + 1]))
+        }
+        return best
     }
 
     private fun squareRing(centerLat: Double, centerLon: Double, half: Double): List<LatLng> = listOf(
@@ -245,6 +396,8 @@ class RouteZonePhase4Test {
         override fun speedZonesIn(box: BBox): List<SpeedZone> = speedZonesInBox(zones, box, emptySet())
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(zones, emptySet(), latitude, longitude)
+        override fun collarLimitKnAt(latitude: Double, longitude: Double, marginM: Double): Double? =
+            speedZoneCollarLimitKnAt(zones, emptySet(), latitude, longitude, marginM)
         override suspend fun load(): RouteEngineState = RouteEngineState.Ready
     }
 }

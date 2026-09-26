@@ -83,6 +83,13 @@ interface AvoidWorld {
     fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? = null
 
     /**
+     * The collar's one point read: the strictest limit among the non-excluded speed zones whose outer
+     * ring lies within [marginM] of the point, or `null` with none. The interior arm prices by
+     * [zoneLimitKnAt]; this read covers the band outside every zone.
+     */
+    fun collarLimitKnAt(latitude: Double, longitude: Double, marginM: Double): Double? = null
+
+    /**
      * Makes the layers the armed gates need ready if they can be, and reports what the engine
      * reached. Fired by `prepare()` on a miss: an idle repository is loaded, a loading one is
      * awaited, and the answer is [RouteEngineState.Ready] once the index — and, while
@@ -148,6 +155,9 @@ class LiveAvoidWorld(
 
     override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
+
+    override fun collarLimitKnAt(latitude: Double, longitude: Double, marginM: Double): Double? =
+        speedZoneCollarLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude, marginM)
 
     override suspend fun load(): RouteEngineState {
         loadCoastline()

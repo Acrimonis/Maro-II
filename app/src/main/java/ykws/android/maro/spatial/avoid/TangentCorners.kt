@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.avoid
 
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
@@ -72,6 +73,41 @@ object TangentCorners {
             addTangent(inEdge.a, inEdge.b, outEdge.b, offsetM, out)
         }
         return out
+    }
+
+    /**
+     * The hug set: every convex corner of each speed-zone outer ring, offset outward by [offsetM],
+     * read from the ring's own signed area so a CW ring offsets to the same water side as a CCW one.
+     */
+    fun ringCorners(zones: List<SpeedZone>, offsetM: Double): List<LatLng> {
+        val out = ArrayList<LatLng>()
+        for (zone in zones) {
+            val closed = normalizeCcw(zone.outerRing)
+            // Drop the closing duplicate, then walk every vertex with wrap-around so the closing
+            // corner is a candidate exactly once.
+            val ring = if (closed.size > 1 && closed.first() == closed.last()) closed.dropLast(1) else closed
+            val n = ring.size
+            if (n < 3) continue
+            for (i in 0 until n) {
+                addTangent(ring[(i + n - 1) % n], ring[i], ring[(i + 1) % n], offsetM, out)
+            }
+        }
+        return out
+    }
+
+    /** The ring read counter-clockwise, so the offset faces the water (outside) side either way. */
+    private fun normalizeCcw(ring: List<LatLng>): List<LatLng> =
+        if (ring.size < 3 || signedArea(ring) >= 0.0) ring else ring.reversed()
+
+    /** Shoelace signed area (deg² × 2) — positive for CCW, negative for CW; closed or open ring alike. */
+    private fun signedArea(ring: List<LatLng>): Double {
+        var s = 0.0
+        var prev = ring.last()
+        for (v in ring) {
+            s += prev.longitude * v.latitude - v.longitude * prev.latitude
+            prev = v
+        }
+        return s
     }
 
     private fun keyOf(p: LatLng): Key =
