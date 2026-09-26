@@ -112,11 +112,11 @@ internal fun OverlayLayer(
     // ── Menu drawer data ─────────────────────────────────────────────────
     menu: MenuOverlayData,
     /**
-     * The route's read-only state, arriving as a bundle rather than as three more parameters on this
-     * already wide signature — the shape `OverlayLayerParams.kt` exists for. Only the menu entry
-     * reads it; the mode's own state lives in `RouteViewModel`.
+     * The route mode's read-only summary, arriving as a bundle rather than as seven more parameters
+     * on this already wide signature — the shape `OverlayLayerParams.kt` exists for. Only the menu
+     * drawer reads it; the mode's own state lives in `RouteViewModel`.
      */
-    route: RouteOverlayData = RouteOverlayData(),
+    routeSummary: RouteSummaryData = RouteSummaryData(),
     onGpsModeChange: (Boolean) -> Unit,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
     onToggleMarkerZones: () -> Unit = {},
@@ -191,6 +191,7 @@ internal fun OverlayLayer(
     val wizardStep = chrome.wizardStep
     val drawerState = chrome.drawerState
     val dialogScrimActive = chrome.dialogScrimActive
+    val routeSummaryVisible = chrome.routeSummaryVisible
     val gpsMode = menu.gpsMode
     val autoShowMasterVisible = menu.autoShowMasterVisible
     val autoShowMasterOverride = menu.autoShowMasterOverride
@@ -365,13 +366,8 @@ internal fun OverlayLayer(
         ) {
             MenuDrawerOverlay(
                 isOpen = true,
-                routeActive = route.active,
-                routeConfirmed = route.confirmed,
-                routeFrontSaved = route.frontSaved,
-                routeAimOffBoat = route.aimOffBoat,
-                onRouteTo = route.onRouteTo,
-                onRouteFrom = route.onRouteFrom,
-                onSaveRoute = route.onSaveRoute,
+                routeSummary = routeSummary,
+                routeSummaryVisible = routeSummaryVisible,
                 gpsMode = gpsMode,
                 onGpsModeChange = onGpsModeChange,
                 autoShowMasterVisible = autoShowMasterVisible,

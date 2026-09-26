@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.map
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
@@ -31,6 +32,12 @@ data class OverlayChrome(
      * scrim so the two dim layers never stack; both are hard on/off toggles (no fade).
      */
     val dialogScrimActive: Boolean = false,
+    /**
+     * True while the route has something to say — `routeOwnsSlot && (a search is running || a plan
+     * stands)`, built in `MapScreen` from `routeOwnsSlot`. It gates the drawer's route summary, so an
+     * armed mode with nothing acquired and no search running draws no card at all.
+     */
+    val routeSummaryVisible: Boolean = false,
 )
 
 /**
@@ -156,30 +163,29 @@ data class MarkerListOverlayData(
 )
 
 /**
- * `RouteOverlayData` — the read-only route state that crosses into the overlay ladder.
+ * `RouteSummaryData` — the read-only summary of the route mode that crosses into the overlay ladder.
  *
  * A bundle rather than a new parameter on `OverlayLayer`, which is the shape this file exists for:
- * the route actions live in the menu drawer, and the drawer is a ladder surface, so what it needs to
- * draw those pills rides here. Everything the mode state itself is (the draft, the preview, the
- * confirmed route) stays in `RouteViewModel`, and nothing of it is duplicated into a composable's
- * parameters.
+ * the summary stands in the menu drawer, and the drawer is a ladder surface, so what it needs to
+ * draw rides here. **Nothing of the mode state is duplicated into a composable's parameters** — no
+ * `RoutePhase` crosses: [searching] gates the acquiring word, [stageRes] carries the engine's
+ * boundary while it searches, and a non-null [remaining] is the followed gate. Everything the mode
+ * state itself is (the draft, the preview, the confirmed route) stays in `RouteViewModel`.
+ *
+ * Ids, never resolved text: the spec type holds the `@StringRes` and the surface resolves it.
  *
  * Contract: all fields are `val`, like every bundle beside it.
  */
 @Immutable
-data class RouteOverlayData(
-    /** True while the mode is aiming or following — the From pill's own gate. */
-    val active: Boolean = false,
-    /** True while a route is followed — the Save pill's own gate. */
-    val confirmed: Boolean = false,
-    /** True while the front route is already written — greys the Save pill. */
-    val frontSaved: Boolean = false,
-    /** True while the aim has left the boat — the To pill's own gate. */
-    val aimOffBoat: Boolean = false,
-    /** Routes to the map centre, arming the mode when it is off. */
-    val onRouteTo: () -> Unit = {},
-    /** Recomputes from the led anchor to the current destination. */
-    val onRouteFrom: () -> Unit = {},
-    /** Writes the front route as a track. */
-    val onSaveRoute: () -> Unit = {},
+data class RouteSummaryData(
+    /** True while a search is in flight — the acquiring word's own gate, and the stage's. */
+    val searching: Boolean = false,
+    /** The engine's boundary while it searches, or null when nothing is searching. */
+    @StringRes val stageRes: Int? = null,
+    /** The plan's own length in nautical miles, or null while no plan stands. */
+    val plannedDistanceNm: Double? = null,
+    /** The plan's own course seconds — the panel's own derivation, passed in. */
+    val plannedEtaSeconds: Double? = null,
+    /** The boat-relative remainder while a route is followed; null through the acquisition. */
+    val remaining: RouteTripFigure? = null,
 )

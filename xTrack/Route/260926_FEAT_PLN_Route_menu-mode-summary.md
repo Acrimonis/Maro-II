@@ -38,13 +38,13 @@ Reviewed by Ask on 2026-09-26 — verdict **revise**, folded in full at §7.
 
 Placement: the same spot in the drawer's Navigation card, after a `SectionDivider`. The block's visibility is a chrome flag (§4), so nothing stands when the mode is off.
 
-Gate: `routeArmed && routeState.phase != RoutePhase.IDLE` — the shipped predicate at `MapScreen.kt:2402` — so the block shows while **computing** (CHOOSING) or **active** (FOLLOWING).
+Gate: `routeArmed && routeState.phase != RoutePhase.IDLE` — the shipped predicate at `MapScreen.kt:2402` — and, since the review's polish pass, **something to say**: `routeSummaryVisible` now reads `routeOwnsSlot && (a search is running || a plan stands)`, so the block shows while **computing** (CHOOSING) or **active** (FOLLOWING) and never as a bare heading while the mode is armed with nothing acquired.
 
 Rows, drawn with the drawer's own `StatRow` shape (`MenuDrawerOverlay.kt:530`), the shape its recording block already uses. The panel's `StatCell` is not borrowed: each surface keeps its own reading cell.
 
 | Row | Text | Where the words come from |
 |---|---|---|
-| status | `Computing Route…` beside the engine's stage word while it searches; `Route active` while following | `route_searching` · `route_stage_*` · `route_status_active` — all shipped, and the same derivation the panel makes |
+| status | `Acquiring…` beside the engine's stage word while it searches; `Route active` while following | `route_status_acquiring` · `route_stage_*` · `route_status_active` — all shipped, and the same derivation the panel makes |
 | block title | `Route` | `route_trip_title` — shipped |
 | planned distance | the plan's length | label `track_stat_dist`; value `route_trip_distance_nm(plan.distanceNm)` — both shipped, the panel's own labels |
 | planned ETA | the plan's own course time | label `route_label_eta`; value `route_eta_value_fmt` — both shipped |
@@ -165,3 +165,11 @@ Ask reviewed the first draft on 2026-09-26 and returned **revise** — the remov
 One item is the user's eye rather than the plan's: the sub-title's exact word, proposed as *Remaining* / *Restant*.
 
 ## Outcome
+
+**Shipped 2026-09-26 in one `#implement` run on `feature/menu-route`** — all seven steps of §5 in its own order: [`remainingFrom`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt:85) projects onto the nearest point of the line with `nearestVertexIndex` retired into it; `RouteSummaryData` replaces `RouteOverlayData`, its visibility in `OverlayChrome` and `MapScreen` handing it the `routeTrip` it already held; the ETA split has one home in `routeEtaText()` and the panel reads it; the drawer's Route group leaves with `RoutePill`, the glyph import and the seven parameters, and the summary block stands in the same Navigation card; the five `menu_route_*` keys are gone from both locales with `route_trip_remaining` joining them. The record moved with it: the epic's seam sentences and collision row no longer say *destination picker*, its `## Docs` carries this plan's pointer, the snap sentence at [`260924:56`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md:56) states the projected reading, and Ui_Menu's epic gained its pointer line. `apk-build.bat` SUCCESSFUL with `app-debug.apk` produced; the route-filtered suites green at **126 tests in 18 suites, 0 failures**; the Ask hop returned **ship** with seven should-fixes, named in the epic's `## Implemented` entry.
+
+**Deviations, each named at the hop:** this plan's §3 sketch carried the plan's own pair as plain `Double`s and it landed nullable, §2's settled behaviour needing the pair only once a plan stands, so the snippet was the stale side; §2's row above named `route_searching` for the searching engine while the acquiring word landed — what §2's prose, §7's correction and the panel's own word all agree on, and this cell is corrected above to match; the sub-title landed as the proposal (*Remaining* / *Restant*) with the user's own word still open; the record work ran to §5.6's list, wider than the three edits the hop was handed; and `ui/icons/Route.kt` stayed in place, no file being deleted on the agent's initiative.
+
+**Polish, same session:** the review's three code-side should-fixes were closed in a follow-up hop — the plan's pair printing only when both halves are present, the §2 gate narrowed as above to stand only while a search runs or a plan stands, and `RoutePlanTest`'s doc naming the halfway case as the fractional pin — with `apk-build.bat` SUCCESSFUL and the route-filtered suites at **126 tests in 18 suites, 0 failures**.
+
+**Owed:** the device pass — the drawer's look and the trip card's reading after the projection — which is the user's.

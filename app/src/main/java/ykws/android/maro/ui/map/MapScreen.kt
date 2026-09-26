@@ -1798,37 +1798,6 @@ fun MapScreen(
             }
 
             /**
-             * **RouteTo** — the menu's forward action: route to the aim at that instant, arming the
-             * mode if it is off and re-entering the acquisition if a route is followed. The aim is the
-             * screen centre the ring is drawn at, read here exactly as the panel's Acquire route reads
-             * it (R2).
-             */
-            fun routeToAction() {
-                val mv = mapView ?: return
-                val anchor = inspectAnchor(mv, inspectOffsetPx) ?: return
-                val aim = RoutePoint(anchor.latitude, anchor.longitude)
-                when (routeState) {
-                    is RouteState.Idle -> {
-                        armRouteMode()
-                        routeSaveScope.launch {
-                            routeViewModel.state.first { it is RouteState.Choosing }
-                            routeViewModel.acquire(aim)
-                        }
-                    }
-                    is RouteState.Choosing -> routeViewModel.acquire(aim)
-                    is RouteState.Following -> routeSaveScope.launch {
-                        routeViewModel.newRoute(routeLeadFix)
-                        routeViewModel.acquire(aim)
-                    }
-                }
-            }
-
-            /** **RouteFrom** — the menu's recompute: the panel's own Reroute, surfaced in the drawer. */
-            fun routeFromAction() {
-                rerouteRoute()
-            }
-
-            /**
              * Writes **one** route as an ordinary track, through `data/track`'s own repository. The
              * vertices carry the plan's own pace and cumulative time, so distance, duration and both
              * speed figures come out right with no second code path.
@@ -1863,12 +1832,6 @@ fun MapScreen(
                     routeViewModel.noteRouteSaved(plan, writtenId)
                 }
             }
-
-            /** **SaveRoute** — the menu's save: writes the front route, like the panel's Save track. */
-            fun saveRouteAction() {
-                routeState.plan?.let { saveRouteTrack(it, routePinned) }
-            }
-
 
             /**
              * Opens or steps a card the inspect way (plan §5): the one selected-item opener, with the
@@ -2400,6 +2363,10 @@ fun MapScreen(
             // where the outcomes are taken from, so it needs no floating surface to be reached — and it
             // tracks the aim through the very state the lines and the pin are drawn from.
             val routeOwnsSlot = routeArmed && routeState.phase != RoutePhase.IDLE
+            val routeSearching = (routeState as? RouteState.Choosing)?.searching == true
+            // The drawer's summary speaks only when the mode has something to say — while a search
+            // runs or a plan stands (a followed route being the latter); with neither, no card stands.
+            val routeSummaryVisible = routeOwnsSlot && (routeSearching || routeState.plan != null)
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,
@@ -2813,6 +2780,8 @@ fun MapScreen(
                 // the two dim layers never stack. The route's confirmation is not one of these: it
                 // lives in the dashboard slot, so it paints no scrim and blocks nothing.
                 dialogScrimActive = anyConfirmDialogOpen,
+                // The drawer's route summary stands while a search runs or a plan stands, and not otherwise.
+                routeSummaryVisible = routeSummaryVisible,
             ),
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
@@ -2968,15 +2937,12 @@ fun MapScreen(
                 depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
             },
             boatPosition = gpsPosition ?: mapCenter,
-            route = RouteOverlayData(
-                active = routeArmed,
-                confirmed = routeState is RouteState.Following,
-                frontSaved = routeFrontSaved,
-                aimOffBoat = !appSettings.gpsMode ||
-                    gpsPosition?.let { SpatialOperations.haversine(mapCenter, it) > 25.0 } == true,
-                onRouteTo = { routeToAction() },
-                onRouteFrom = { routeFromAction() },
-                onSaveRoute = { saveRouteAction() }
+            routeSummary = RouteSummaryData(
+                searching = routeSearching,
+                stageRes = routeStage?.labelResId,
+                plannedDistanceNm = routeState.plan?.distanceNm,
+                plannedEtaSeconds = routeState.plan?.let { it.remainingFrom(it.start).durationSec },
+                remaining = routeTrip,
             ),
             markerList = MarkerListOverlayData(
                 markers = mgmtMarkers,

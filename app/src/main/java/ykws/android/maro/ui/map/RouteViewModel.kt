@@ -77,17 +77,52 @@ data class RoutePlan(
     /**
      * What is left of the route from [from] onward.
      *
-     * The position is snapped to its **nearest vertex** rather than projected onto a leg, which is
-     * exact where a leg is long and a boat is between two of them rather than on one — and the dummy
-     * answers a single leg, so the two agree everywhere it matters. The sum reaches zero at the
-     * destination, which is the one reading that must be exact: arrival is the trip cell reading zero.
+     * The position is projected onto the **nearest point on the line** rather than snapped to its
+     * nearest vertex: a fix halfway along a leg is halfway through that leg, not back at the vertex
+     * behind it, so both readings follow the boat between the vertices as well as on them. Each leg
+     * is projected with the shipped [SpatialOperations.projectPointOntoSegment], the leg whose own
+     * [SpatialOperations.pointToSegmentDistance] is smallest wins — ties to the lower index, so the
+     * choice stays deterministic — and the remainder is the distance from that projected point to
+     * the leg's end plus every following leg.
+     *
+     * The seconds follow the same split: the chosen leg keeps the fraction of its own [legTimesSec]
+     * it has not yet travelled, and every following leg keeps its own seconds.
+     *
+     * **This is the one snap both readings of this plan use** — the trip figure and the panel's own
+     * table — so what a following boat reads and what the panel prints cannot drift. The sum reaches
+     * zero at the destination, which is the one reading that must be exact: arrival is the trip cell
+     * reading zero.
      */
     fun remainingFrom(from: RoutePoint): RouteRemainder {
         if (points.size < 2) return RouteRemainder(distanceM, durationSec)
-        val nearest = nearestVertexIndex(from)
-        var remainingM = 0.0
-        var remainingSec = 0.0
-        for (leg in nearest until points.size - 1) {
+        val fix = LatLng(from.latitude, from.longitude)
+        var bestLeg = 0
+        var bestDistance = Double.MAX_VALUE
+        for (leg in 0 until points.size - 1) {
+            val metres = SpatialOperations.pointToSegmentDistance(
+                fix,
+                LatLng(points[leg].latitude, points[leg].longitude),
+                LatLng(points[leg + 1].latitude, points[leg + 1].longitude)
+            )
+            if (metres < bestDistance) {
+                bestDistance = metres
+                bestLeg = leg
+            }
+        }
+        val a = LatLng(points[bestLeg].latitude, points[bestLeg].longitude)
+        val b = LatLng(points[bestLeg + 1].latitude, points[bestLeg + 1].longitude)
+        val projected = SpatialOperations.projectPointOntoSegment(fix, a, b)
+        val legLength = SpatialOperations.haversine(a, b)
+        // **A zero-length leg answers a fraction of 1.0** — nothing of that leg is spent, since a
+        // fix standing on it has not travelled it.
+        val notYetTravelled = if (legLength > 0.0) {
+            (1.0 - SpatialOperations.haversine(a, projected) / legLength).coerceIn(0.0, 1.0)
+        } else {
+            1.0
+        }
+        var remainingM = SpatialOperations.haversine(projected, b)
+        var remainingSec = legTimesSec.getOrElse(bestLeg) { 0.0 } * notYetTravelled
+        for (leg in bestLeg + 1 until points.size - 1) {
             remainingM += SpatialOperations.haversine(
                 LatLng(points[leg].latitude, points[leg].longitude),
                 LatLng(points[leg + 1].latitude, points[leg + 1].longitude)
@@ -95,23 +130,6 @@ data class RoutePlan(
             remainingSec += legTimesSec.getOrElse(leg) { 0.0 }
         }
         return RouteRemainder(remainingM, remainingSec)
-    }
-
-    /** The index of the polyline vertex nearest [from] — the one snap both readings of this plan use. */
-    fun nearestVertexIndex(from: RoutePoint): Int {
-        var bestIndex = 0
-        var bestDistance = Double.MAX_VALUE
-        for ((index, point) in points.withIndex()) {
-            val metres = SpatialOperations.haversine(
-                LatLng(from.latitude, from.longitude),
-                LatLng(point.latitude, point.longitude)
-            )
-            if (metres < bestDistance) {
-                bestDistance = metres
-                bestIndex = index
-            }
-        }
-        return bestIndex
     }
 
     companion object {
