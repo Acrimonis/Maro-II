@@ -246,10 +246,10 @@ internal fun OverlayLayer(
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
 
-    // ── Keyboard offset for wizard portrait ──────────────────────────────
+    // ── Keyboard: read for the scrim only ────────────────────────────────
+    // The wizard is positioned by the platform's own pan, as the track card's fields are (P7a).
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     val imeHeightDp = with(LocalDensity.current) { imeBottom.toDp() }
-    val keyboardOffsetDp = 0.dp - imeHeightDp
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -322,17 +322,18 @@ internal fun OverlayLayer(
                         onCancel = onWizardCancel,
                         step = activeStep,
                         totalSteps = totalSteps,
-                        stepIndex = stepIndex
+                        stepIndex = stepIndex,
+                        portraitDashboardHeight = portraitDashboardHeight
                     )
                 }
             } else {
+                // The panel wraps its card and floors at the dashboard height inside the scaffold,
+                // so the slot carries no height of its own — only the keyboard offset.
                 DrawerSlot(
                     visible = true,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(portraitDashboardHeight)
-                        .offset(y = keyboardOffsetDp),
+                        .fillMaxWidth(),
                     slideDirection = SlideDirection.FROM_BOTTOM,
                     shadowEdge = ShadowEdge.TOP
                 ) {
@@ -342,7 +343,8 @@ internal fun OverlayLayer(
                         onCancel = onWizardCancel,
                         step = activeStep,
                         totalSteps = totalSteps,
-                        stepIndex = stepIndex
+                        stepIndex = stepIndex,
+                        portraitDashboardHeight = portraitDashboardHeight
                     )
                 }
             }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -185,13 +186,20 @@ fun DrawerScaffold(
             // Header + footer stay fixed at natural height. The body wraps at natural height but
             // is scrollable ONLY if it exceeds the available screen height (heightIn(max) +
             // verticalScroll), so very tall content scrolls instead of clipping.
-            // bottomAnchoredContent is meaningless here (no weight(1f) host) and is ignored.
+            // bottomAnchoredContent **is** honoured here: with it the panel keeps the
+            // wrapContentMinHeight floor and its body and footer sit at the panel's bottom, the slack
+            // opening between the header and the body. Without it the slack opens below the footer,
+            // which floats a footer high on the panel.
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val density = LocalDensity.current
                 var headerHeight by remember { mutableStateOf(0.dp) }
+                var bodyHeight by remember { mutableStateOf(0.dp) }
                 var footerHeight by remember { mutableStateOf(0.dp) }
                 val availableBodyHeight =
                     (maxHeight - headerHeight - footerHeight).coerceAtLeast(0.dp)
+                // Whatever the card falls short of the floor by, and only that.
+                val bottomSlack = (wrapContentMinHeight - headerHeight - bodyHeight - footerHeight)
+                    .coerceAtLeast(0.dp)
 
                 Column(
                     modifier = Modifier
@@ -213,6 +221,9 @@ fun DrawerScaffold(
                             verticalPadding = headerVerticalPadding
                         )
                     }
+                    if (bottomAnchoredContent && bottomSlack > 0.dp) {
+                        Spacer(Modifier.height(bottomSlack))
+                    }
                     if (scrollable) {
                         val scrollState = rememberScrollState()
                         val canScroll by remember(scrollState) {
@@ -222,6 +233,7 @@ fun DrawerScaffold(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onSizeChanged { bodyHeight = with(density) { it.height.toDp() } }
                                 .heightIn(max = availableBodyHeight)
                                 .then(
                                     if (suppressOverscroll) {
@@ -237,6 +249,7 @@ fun DrawerScaffold(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onSizeChanged { bodyHeight = with(density) { it.height.toDp() } }
                                 .heightIn(max = availableBodyHeight)
                                 .padding(contentPadding),
                             content = content

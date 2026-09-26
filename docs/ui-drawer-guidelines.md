@@ -95,7 +95,7 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 |---|---------|------|-----------|-------|--------|-----------|
 | 1 | Scrim | — (inline in OverlayLayer) | any drawer/settings/wizard open **and no dialog visible** | hard toggle (no animation) | none | `fillMaxSize` |
 | 2 | Wizard (landscape) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
-| 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight`, keyboard offset |
+| 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight`; no keyboard offset of its own — the platform's pan positions it, as it positions the track card's inline fields (P7a, 2026-09-26) |
 | 3 | Menu | `MenuDrawerOverlay.kt` | `showTrackDrawer` | `FROM_RIGHT` | `LEFT` | `TopEnd`, 75% width |
 | 4 | Marker (landscape) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
 | 4 | Marker (portrait) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight` |
@@ -430,8 +430,10 @@ SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body)
 
 ### Not Migrated
 
-`ListOverlayScaffold` and `WizardDrawer` are not migrated — each already has its own fixed-header structure
-(fixed header + section label/sort/filter controls, and `WizardTopBar` + `WizardButtonRow` respectively).
+`ListOverlayScaffold` is not migrated — it already has its own fixed-header structure (fixed header plus
+section label/sort/filter controls). `WizardDrawer` **is** a `DrawerScaffold` since 2026-09-26 and reads
+through it exactly as §3's second row and §6's header table describe: the title and the dot progress in
+the header, the three actions in `footer`, no frame of its own.
 Settings uses the shared `DrawerHeader` for its header row but keeps its own tab bar + `HorizontalPager` body
 (not the full `DrawerScaffold` shell).
 
