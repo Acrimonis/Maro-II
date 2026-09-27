@@ -77,11 +77,20 @@ class AvoidGrid(
     private val cells = Array(rows * cols) { AvoidCell(AvoidCellState.FREE, baseCostSec) }
 
     /**
-     * The speed zone's **limit** (kn) standing on each cell, 0.0 where none does, kept apart from
-     * [cells]' own `sourceCostSec` so overlapping zones keep the **strictest** limit rather than
+     * The speed zone's **interior limit** (kn) standing on each cell, 0.0 where none does, kept apart
+     * from [cells]' own `sourceCostSec` so overlapping zones keep the **strictest** limit rather than
      * summing — and so the A\* can price it, per expansion, however the engine says a slow cell costs.
      */
     private val zoneLimitKn = DoubleArray(rows * cols)
+
+    /**
+     * The speed zone's **outside-margin (collar) limit** (kn) standing on each cell, 0.0 where none
+     * does: the strictest limit of every zone whose outer ring lies within the outside margin of the
+     * cell's centre. Kept beside [zoneLimitKn] rather than folded into it, so the A\* can tell an
+     * interior cell (full price) from a margin cell (fraction price) and the forced-crossing probe can
+     * block interiors alone.
+     */
+    private val collarLimitKn = DoubleArray(rows * cols)
 
     fun index(row: Int, col: Int): Int = row * cols + col
 
@@ -89,6 +98,9 @@ class AvoidGrid(
 
     /** The limit a speed zone imposes at this cell (kn), or 0.0 where none does. */
     fun zoneLimitKn(row: Int, col: Int): Double = zoneLimitKn[index(row, col)]
+
+    /** The outside-margin limit standing on this cell (kn), or 0.0 where none does. */
+    fun collarLimitKn(row: Int, col: Int): Double = collarLimitKn[index(row, col)]
 
     /** The cell's own cost and tag: the base plus the field's prices, and `ZONE` where a limit stands. */
     fun cell(row: Int, col: Int): AvoidCell {
@@ -126,6 +138,19 @@ class AvoidGrid(
     }
 
     /**
+     * Writes one zone's **outside-margin limit** onto a passable cell, keeping the strictest in force.
+     * A cell already [AvoidCellState.LAND] stays land; a cell that is also inside a zone keeps both
+     * limits, and the A\* prefers the interior's full price over this margin's fraction.
+     */
+    fun applyCollarLimit(row: Int, col: Int, limitKn: Double) {
+        require(limitKn > 0.0) { "a zone always carries a positive limit" }
+        val i = index(row, col)
+        if (cells[i].state == AvoidCellState.LAND) return
+        val current = collarLimitKn[i]
+        collarLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
+    }
+
+    /**
      * Adds one source's price (s) to a passable cell and raises its tag to [tag] where that tag is the
      * dearest in force — the **only** way a cost reaches a cell, so a source can add and can never
      * replace the base. A cell already land keeps its state: a wall is not priced.
@@ -154,6 +179,45 @@ class AvoidGrid(
         val i = index(row, col)
         cells[i] = AvoidCell(AvoidCellState.FREE, baseCostSec)
         zoneLimitKn[i] = 0.0
+        collarLimitKn[i] = 0.0
+    }
+
+    /**
+     * Opens a **carved** cell — the berth channel's own write, beside [forceFree] and deliberately not
+     * the same one: the cell becomes [AvoidCellState.FREE] at the grid's **base cost**, and it
+     * **keeps its zone limit**.
+     *
+     * The distinction is the rule the carve waives: only the shore margin is a courtesy, so a zone
+     * standing in the berth must still price the cell the A\* reads, while [forceFree] — which answers
+     * the end itself — clears the limit as well. The channel is water the margin took, nothing more.
+     */
+    fun openCarve(row: Int, col: Int) {
+        cells[index(row, col)] = AvoidCell(AvoidCellState.FREE, baseCostSec)
+    }
+
+    /**
+     * A copy of this grid with every **restrictive** zone interior marked impassable: a cell carrying
+     * a limit slower than [paceKn] becomes land, a cell at or above the pace stays open water.
+     *
+     * It is the forced-crossing probe's own question — "does a way around exist at all?" — taken off
+     * the grid the search already built rather than off a second raster sweep of the corridor, which
+     * was the dearer half of a solve. The copy leaves this grid untouched, so the answer's own grid
+     * still carries its limits, and a zone slower than the pace is exactly a zone the search prices.
+     */
+    fun blockedCopy(paceKn: Double): AvoidGrid {
+        val copy = AvoidGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
+        for (i in 0 until rows * cols) {
+            val cell = cells[i]
+            val limit = zoneLimitKn[i]
+            copy.cells[i] = if (cell.passable && limit > 0.0 && limit < paceKn) {
+                AvoidCell(AvoidCellState.LAND, cell.sourceCostSec)
+            } else {
+                cell
+            }
+            copy.zoneLimitKn[i] = limit
+            copy.collarLimitKn[i] = collarLimitKn[i]
+        }
+        return copy
     }
 }
 
@@ -189,7 +253,8 @@ fun rasterize(
     capLatNorth: Double,
     field: RouteCostField = RouteCostField.EMPTY,
     zones: List<ZoneRing> = emptyList(),
-    blockZones: Boolean = false
+    blockZones: Boolean = false,
+    zoneOutsideMarginM: Double = 0.0
 ): AvoidGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -249,9 +314,11 @@ fun rasterize(
 
     // 5. Speed zones, one even-odd fill per zone — the outer ring and its holes as one ring set, so a
     //    hole flips back to water. The strictest limit wins where zones overlap because the fill keeps
-    //    the dearest price; a cell the sweep or the field already sealed stays land either way.
+    //    the dearest price; a cell the sweep or the field already sealed stays land either way. The
+    //    outside margin is then walked per outer-ring edge, its cells carrying the collar limit the A*
+    //    prices at the configured fraction.
     if (zones.isNotEmpty()) {
-        fillZonesEvenOdd(grid, zones, blockZones)
+        fillZonesEvenOdd(grid, zones, blockZones, zoneOutsideMarginM, mPerDegLat, mPerDegLon)
     }
 
     return grid
@@ -338,11 +405,20 @@ private fun fillClosedRingEvenOdd(grid: AvoidGrid, ring: List<LatLng>) {
 /**
  * Even-odd fill of each speed zone: its outer ring and holes together form the ring set, so a cell
  * inside the outer ring but inside a hole crosses an even number of boundaries and stays water. The
- * action writes the zone's **limit** by default and a land mark when [blockZones] is set (the
- * forced-crossing probe). There is no collar here: the standoff leaves the grid for the pull's own
- * clearance, so a cell beside a ring is open water in the field the search reads.
+ * action writes the zone's **interior limit** by default and a land mark when [blockZones] is set (the
+ * forced-crossing probe). The **outside margin** is then walked per outer-ring edge — never per cell —
+ * writing the zone's collar limit onto cells whose centre stands within [zoneOutsideMarginM] of the
+ * ring; the A\* prices those at the configured fraction, and an interior cell keeps both limits so its
+ * full price wins.
  */
-private fun fillZonesEvenOdd(grid: AvoidGrid, zones: List<ZoneRing>, blockZones: Boolean) {
+private fun fillZonesEvenOdd(
+    grid: AvoidGrid,
+    zones: List<ZoneRing>,
+    blockZones: Boolean,
+    zoneOutsideMarginM: Double,
+    mPerDegLat: Double,
+    mPerDegLon: Double
+) {
     for (zone in zones) {
         val rings = buildList {
             add(zone.outerRing)
@@ -367,6 +443,18 @@ private fun fillZonesEvenOdd(grid: AvoidGrid, zones: List<ZoneRing>, blockZones:
             crossings
         }) { r, c ->
             if (blockZones) grid.markLand(r, c) else grid.applyZoneLimit(r, c, zone.limitKn)
+        }
+        if (!blockZones && zoneOutsideMarginM > 0.0) {
+            for (i in 0 until zone.outerRing.size - 1) {
+                val edge = AvoidEdge(
+                    zone.outerRing[i],
+                    zone.outerRing[i + 1],
+                    LandRingOrientation.CCW_RING
+                )
+                forEachCellNear(grid, edge, zoneOutsideMarginM, mPerDegLat, mPerDegLon) { r, c, _ ->
+                    grid.applyCollarLimit(r, c, zone.limitKn)
+                }
+            }
         }
     }
 }

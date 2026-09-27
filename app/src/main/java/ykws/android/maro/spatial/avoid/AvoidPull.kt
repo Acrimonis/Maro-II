@@ -13,10 +13,15 @@ import kotlin.math.ceil
  *
  * A chord is clear when every sample along it stands at least [marginM] from the field's nearest hard
  * wall, sampled at `≤ marginM / 2` so the margin is a guarantee rather than an approximation. The
- * clearance is **exempt within a margin-radius disc around each forced-free end** (the raw start and
- * aim), which is how the first and last legs reconcile with the margin predicate. A rejected chord is
- * re-walked once from its predecessor's predecessor — the concave-coast retry, bounded rather than
- * looped.
+ * clearance is **exempt where the margin itself is waived** — within a margin-radius disc around each
+ * forced-free end (the raw start and aim), and on the **carved approach** each end was granted
+ * ([EndApproaches]), which is how the first and last legs reconcile with the margin predicate even
+ * when the berth runs deeper than that disc. A rejected chord is re-walked once from its
+ * predecessor's predecessor — the concave-coast retry, bounded rather than looped.
+ *
+ * **No ring clearance.** The pull carries no standoff: a speed zone's outside margin is a **price** in
+ * the search and in the field's own price guard, never a clearance here. The two walls that still bind
+ * are the land margin and the price guard.
  *
  * **The priced half of the guarantee.** Where the field carries a price, a chord is accepted only
  * while its own summed price stays within the A* cell path's over the span it would replace — so the
@@ -32,6 +37,8 @@ object AvoidPull {
      * the field's margin allows and independent of grid orientation.
      *
      * @param field the unified cost field — its nearest hard wall is the clearance read here.
+     * @param approaches the two ends' carved approaches, whose stretches the margin does not bind.
+     * @param refusals the tally the walk counts its refused chords into, or `null` where none is read.
      */
     fun pull(
         path: List<LatLng>,
@@ -39,7 +46,8 @@ object AvoidPull {
         aim: LatLng,
         marginM: Double,
         field: RouteCostField,
-        standoffM: Double = 0.0
+        approaches: EndApproaches = EndApproaches.NONE,
+        refusals: PullRefusals? = null
     ): List<LatLng> {
         if (path.size <= 2) return path
         val result = ArrayList<LatLng>(path.size)
@@ -48,19 +56,22 @@ object AvoidPull {
         var anchor = 0
         var probe = 1
         while (probe < path.size) {
-            val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] }
+            val decision = chordDecision(
+                pathPriceSec, path, anchor, probe, marginM, field, start, aim, approaches
+            )
+            val refused = decision.refusal
             when {
-                legClear(path[anchor], path[probe], marginM, field, start, aim, standoffM) &&
-                    (replacedPriceSec == null ||
-                        softPriceSec(path[anchor], path[probe], marginM, field) <= replacedPriceSec) -> probe++
+                refused == null -> probe++
                 // The immediate step grazes land in a corner: it cannot be pulled, so it is accepted
                 // once and the walk moves on — the bounded form of the concave re-walk.
                 probe == anchor + 1 -> {
+                    refusals?.record(refused)
                     result.add(path[probe])
                     anchor = probe
                     probe++
                 }
                 else -> {
+                    refusals?.record(refused)
                     result.add(path[probe - 1])
                     anchor = probe - 1
                     // probe stands; the loop re-walks the chord from the new anchor exactly once.
@@ -71,6 +82,38 @@ object AvoidPull {
         return result
     }
 
+    /** The chord's own verdict: the geometry stands, then the price guard alone decides — the same
+     *  short circuit keeps a refused chord from costing a walk of its own price. */
+    private fun chordDecision(
+        pathPriceSec: DoubleArray?,
+        path: List<LatLng>,
+        anchor: Int,
+        probe: Int,
+        marginM: Double,
+        field: RouteCostField,
+        start: LatLng,
+        aim: LatLng,
+        approaches: EndApproaches
+    ): ChordDecision {
+        val a = path[anchor]
+        val b = path[probe]
+        val cause = legClearCause(a, b, marginM, field, start, aim, approaches)
+        if (cause == null) {
+            return ChordDecision(priceRefusal(pathPriceSec, path, anchor, probe, marginM, field))
+        }
+        return ChordDecision(cause)
+    }
+
+    /** One evaluation's own verdict: the refusal, or `null` where the chord stands. */
+    private data class ChordDecision(val refusal: ChordRefusal?)
+
+    /**
+     * The shortest sampling step the clearance walk will take, in metres — the floor that keeps a
+     * degenerate margin from turning the walk into a two-billion-iteration loop. A step is a property of
+     * the walk, so no caller's margin may drive it to zero.
+     */
+    private const val MIN_SAMPLE_STEP_M = 1.0
+
     internal fun legClear(
         a: LatLng,
         b: LatLng,
@@ -78,10 +121,35 @@ object AvoidPull {
         field: RouteCostField,
         start: LatLng,
         aim: LatLng,
-        standoffM: Double = 0.0
-    ): Boolean {
+        approaches: EndApproaches = EndApproaches.NONE
+    ): Boolean =
+        legClearCause(a, b, marginM, field, start, aim, approaches) == null
+
+    /**
+     * The same walk [legClear] answers with a boolean, read for its **cause** — so the instrument can
+     * count which of the pull's tests refused a chord instead of leaving the three to guesswork.
+     *
+     * **The exemption is one rule with two halves**, and it is the margin's own scope: the shore
+     * clearance binds the **route**, never the ends. A sample standing within [marginM] of either end
+     * is skipped, and so is one standing on that end's **carved approach** — the stretch the berth
+     * carve opened, which the disc cannot cover once the berth runs deeper than [marginM]. Without
+     * that second half the pull re-closes the very channel it just used, and the drawn line becomes a
+     * staircase inside the berth it escaped.
+     */
+    internal fun legClearCause(
+        a: LatLng,
+        b: LatLng,
+        marginM: Double,
+        field: RouteCostField,
+        start: LatLng,
+        aim: LatLng,
+        approaches: EndApproaches = EndApproaches.NONE
+    ): ChordRefusal? {
         val dist = SpatialOperations.haversine(a, b)
-        val sampleStep = marginM / 2.0
+        // The walk's own density, floored: a margin of zero would make the step zero and
+        // `ceil(dist / 0.0)` an astronomically long loop rather than a walk. The floor is a property
+        // of the walk, never a margin's value.
+        val sampleStep = (marginM / 2.0).coerceAtLeast(MIN_SAMPLE_STEP_M)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
@@ -92,12 +160,43 @@ object AvoidPull {
             // End-disc exemption: the margin binds the path, not the forced-free ends themselves.
             if (SpatialOperations.haversine(p, start) < marginM) continue
             if (SpatialOperations.haversine(p, aim) < marginM) continue
-            if (field.hardDistanceM(p) < marginM) return false
-            // The standoff: the same walk, a second margin, and its own read — a zone's ring is not a
-            // wall, so it never lands in `hardDistanceM`.
-            if (standoffM > 0.0 && field.hasRings && field.ringDistanceM(p) < standoffM) return false
+            // The carved approach: the berth the margin is waived along stays usable past the disc.
+            if (onApproach(p, approaches.start, sampleStep)) continue
+            if (onApproach(p, approaches.aim, sampleStep)) continue
+            if (field.hardDistanceM(p) < marginM) return ChordRefusal.LAND
         }
-        return true
+        return null
+    }
+
+    /**
+     * Whether [p] stands on one of the approach's own segments — within [toleranceM], the walk's own
+     * sampling step, so a sample the pull cannot tell apart from the stretch reads as on it.
+     */
+    private fun onApproach(p: LatLng, approach: List<LatLng>, toleranceM: Double): Boolean {
+        if (approach.size < 2) return false
+        for (i in 0 until approach.size - 1) {
+            if (SpatialOperations.pointToSegmentDistance(p, approach[i], approach[i + 1]) <= toleranceM) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /** The price guard's own cause: `PRICE` where the chord costs more than the span it would replace. */
+    private fun priceRefusal(
+        pathPriceSec: DoubleArray?,
+        path: List<LatLng>,
+        anchor: Int,
+        probe: Int,
+        marginM: Double,
+        field: RouteCostField
+    ): ChordRefusal? {
+        val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] } ?: return null
+        return if (softPriceSec(path[anchor], path[probe], marginM, field) > replacedPriceSec) {
+            ChordRefusal.PRICE
+        } else {
+            null
+        }
     }
 
     /**
@@ -139,5 +238,51 @@ object AvoidPull {
             prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, field)
         }
         return prefix
+    }
+}
+
+/**
+ * **The two ends' carved approaches, as the pull reads them** — the stretch each end may travel on
+ * beside the margin-radius disc around it. One value rather than two lists, because the exemption is
+ * one rule read twice: a berth channel longer than the margin is not covered by the disc, so a chord
+ * standing on the stretch must be exempt exactly as a sample within the disc already is.
+ *
+ * [NONE] is what a solve without a carve passes — no stretch exempt, which is the shipped behaviour.
+ */
+data class EndApproaches(
+    val start: List<LatLng> = emptyList(),
+    val aim: List<LatLng> = emptyList()
+) {
+    companion object {
+        val NONE = EndApproaches()
+    }
+}
+
+/** The pull's own causes of refusal: the land margin and the price guard. */
+internal enum class ChordRefusal { LAND, PRICE }
+
+/**
+ * **Which of the pull's two refusals fired, counted per answer** — the land margin and the price — so
+ * a line that collapses nothing names the test that refused it instead of leaving candidates to
+ * guesswork.
+ *
+ * Counters are updated where [AvoidPull.pull] decides and read once per answer: nothing is emitted per
+ * chord, nothing is measured twice, and a chord re-walked from a new anchor counts once per evaluation.
+ */
+class PullRefusals {
+
+    /** Chords refused because a sample stood nearer than `marginM` to a hard wall. */
+    var land = 0
+        private set
+
+    /** Chords refused because their own price exceeded the cell path's over the span replaced. */
+    var price = 0
+        private set
+
+    internal fun record(cause: ChordRefusal) {
+        when (cause) {
+            ChordRefusal.LAND -> land++
+            ChordRefusal.PRICE -> price++
+        }
     }
 }

@@ -122,8 +122,8 @@ class AvoidStage1Test {
         val start = grid.cellOf(43.50, 7.01)
         val aim = grid.cellOf(43.50, 7.05)
         for (path in listOf(
-            AvoidSearch.search(grid, start, aim, paceMps),
-            AvoidSearch.search(grid, aim, start, paceMps)
+            AvoidSearch.search(grid, start, aim, paceMps).path,
+            AvoidSearch.search(grid, aim, start, paceMps).path
         )) {
             assertTrue("a route around the tip exists", path != null)
             assertTrue(
@@ -143,7 +143,7 @@ class AvoidStage1Test {
     @Test
     fun theSearchFindsAPathAcrossFreeWater() = runTest {
         val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
-        val path = AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps)
+        val path = AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps).path
 
         assertTrue("a free grid always has a path", path != null)
         assertEquals(CellIndex(0, 0), path!!.first())
@@ -158,7 +158,48 @@ class AvoidStage1Test {
         val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
         for (r in 0 until grid.rows) grid.markLand(r, grid.cols / 2)
 
-        assertNull(AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps))
+        assertNull(AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps).path)
+    }
+
+    /**
+     * **The exhaustion reading names the water the search walked.** A wall across the corridor leaves
+     * the cells beyond it unvisited, so the aim's own cell is never closed and the two counts say how
+     * far the search got against how much water there was — the reading that separates an aim the grid
+     * barred from a way round lying outside the corridor.
+     */
+    @Test
+    fun theExhaustionReadingNamesTheWaterItWalked() = runTest {
+        val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
+        for (r in 0 until grid.rows) grid.markLand(r, grid.cols / 2)
+        val aim = CellIndex(grid.rows - 1, grid.cols - 1)
+
+        val outcome = AvoidSearch.search(grid, CellIndex(0, 0), aim, paceMps)
+
+        assertNull("the wall closes the corridor", outcome.path)
+        assertFalse("and the aim's own cell was never closed", outcome.aimClosed)
+        assertTrue("the search did expand cells before it exhausted", outcome.expansions > 0)
+        assertEquals(
+            "and it counted every passable cell, the wall's column alone excluded",
+            grid.rows * (grid.cols - 1),
+            outcome.passableCells
+        )
+        assertTrue(
+            "the aim's own cell is open water — the wall across the corridor is what exhausted the search",
+            grid.cell(aim.row, aim.col).passable
+        )
+    }
+
+    /** Its control: a found path reports the aim closed and the whole grid's water as its own count. */
+    @Test
+    fun aFoundPathReportsTheAimClosedAndTheWaterCounted() = runTest {
+        val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
+
+        val outcome =
+            AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps)
+
+        assertEquals("the free grid is passable whole", grid.rows * grid.cols, outcome.passableCells)
+        assertTrue("the path reaches the aim's own cell", outcome.aimClosed)
+        assertTrue("and the reading carries the path itself", outcome.path != null)
     }
 
     @Test
@@ -225,6 +266,61 @@ class AvoidStage1Test {
                 SpatialOperations.haversine(waypoint, obstacle) >= margin - 1e-6
             )
         }
+    }
+
+    /**
+     * **The carve's exemption (F7), read by the pull.** A chord standing on the berth's own stretch is
+     * not refused by the margin the approach waives — a berth longer than the margin is exactly what
+     * the end disc cannot cover — while the same chord standing off that stretch still is, and the
+     * tally names the margin as the cause.
+     *
+     * The stretch is the one a carve would return: from the end's own point out to the channel's mouth.
+     */
+    @Test
+    fun aChordOnTheCarvedApproachStandsAndOneOffItDoesNot() {
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val coastLat = 43.5000
+        val channelLat = coastLat - 10.0 / mPerDegLat
+        // Two walls twenty metres apart whose east ends are the channel's mouth at lon 7.00; east of it
+        // the hard distance is open water's.
+        val northWall = listOf(LatLng(coastLat, 6.99), LatLng(coastLat, 7.00))
+        val southWall = listOf(LatLng(coastLat - 20.0 / mPerDegLat, 6.99), LatLng(coastLat - 20.0 / mPerDegLat, 7.00))
+        val margin = 25.0
+        val field = RouteCostField.ofHard { p ->
+            minOf(
+                SpatialOperations.pointToSegmentDistance(p, northWall[0], northWall[1]),
+                SpatialOperations.pointToSegmentDistance(p, southWall[0], southWall[1])
+            )
+        }
+        val start = LatLng(channelLat, 6.995)
+        val mid = LatLng(channelLat, 6.998)
+        val aim = LatLng(channelLat, 7.02)
+        val stretch = listOf(start, LatLng(channelLat, 7.0006))
+        val tally = PullRefusals()
+
+        val onStretch = AvoidPull.pull(
+            listOf(start, mid, aim), start, aim, margin, field,
+            approaches = EndApproaches(start = stretch), refusals = tally
+        )
+
+        assertEquals("the chord on the carved approach stands", listOf(start, aim), onStretch)
+        assertEquals("and nothing was refused by the land margin", 0, tally.land)
+        assertEquals("nor by the price", 0, tally.price)
+
+        // The same stretch, twenty metres to the north of the chord: outside the exemption's own width.
+        val shifted = stretch.map { LatLng(it.latitude + 20.0 / mPerDegLat, it.longitude) }
+        val refused = PullRefusals()
+        val offStretch = AvoidPull.pull(
+            listOf(start, mid, aim), start, aim, margin, field,
+            approaches = EndApproaches(start = shifted), refusals = refused
+        )
+
+        assertEquals(
+            "a chord off the stretch is refused and the staircase is kept",
+            listOf(start, mid, aim),
+            offStretch
+        )
+        assertTrue("and the tally names the land margin", refused.land > 0)
     }
 
     /** The pull samples at `marginM / 2`, so a dip a coarser step would miss is still caught. */

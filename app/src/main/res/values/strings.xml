@@ -618,8 +618,11 @@
     <string name="route_exit_continue">Continue</string>
     <string name="route_exit_discard">Discard route</string>
     <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
-         "invalid" sentence above completes. Both ends read the same set. -->
+         "invalid" sentence above completes. Both ends read the same set. The middle two are the
+         ring's own reads: the depth gate's rule, and whether a berth approach reaches legal water. -->
     <string name="route_refusal_off_water">no water here</string>
+    <string name="route_refusal_too_shallow">too shallow here</string>
+    <string name="route_refusal_no_approach">no way in from here</string>
     <string name="route_refusal_outside_coverage">outside the covered area</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
@@ -629,6 +632,10 @@
     <string name="route_age_min">%1$d min</string>
     <string name="route_trip_forced">forced: %1$s</string>
     <string name="route_forced_crossing">Forced crossing of %1$s</string>
+    <!-- The budget's own verdict, apart from the forced crossing above: a way around exists and the
+         price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
+    <string name="route_budget_unmet">Slow-water budget not met</string>
+    <string name="route_budget_unmet_desc">The route spends more of its time slowed by speed zones than the budget allows.</string>
     <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
          surface behind it may not be a mesh. -->
     <string name="route_unavailable_region_not_baked">Routing unavailable for this region</string>
@@ -641,6 +648,8 @@
     <string name="settings_route_pace_label">Free-water pace</string>
     <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_budget_label">Slow-water budget</string>
+    <string name="settings_route_budget_desc">The share of a trip\'s time a route may spend slowed by speed zones; a route still over it reports the overrun</string>
     <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>

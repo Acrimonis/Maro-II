@@ -27,10 +27,16 @@ import kotlin.math.sqrt
 /** Sampling step (m) the boundary splitter walks each leg at — half the shipped grid cell. */
 private const val BOUNDARY_SAMPLE_M = 25.0
 
-/** A polyline split at limit changes, with one planned time per split leg. */
+/** A polyline split at limit changes, with one planned time and one made-good speed per split leg. */
 data class TimedLine(
     val points: List<LatLng>,
-    val legTimesSec: List<Double>
+    val legTimesSec: List<Double>,
+    /**
+     * The **pace made good** over each leg, in m/s — `distance / time`, so a leg carrying a ramp
+     * reports the average of its own profile rather than either end of it and the figure can never
+     * disagree with the clock beside it.
+     */
+    val legSpeedsMps: List<Double> = emptyList()
 ) {
     val durationSec: Double get() = legTimesSec.sum()
 }
@@ -56,6 +62,7 @@ fun timeLineWithLimits(
         if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
     }
     val times = ArrayList<Double>(legs)
+    val speeds = ArrayList<Double>(legs)
     // The boat is where the line starts, so a line opening inside a zone opens at that zone's limit.
     var carriedMps = if (legs == 0) paceMps else min(paceMps, targets[0])
     for (i in 0 until legs) {
@@ -65,9 +72,12 @@ fun timeLineWithLimits(
         val arriveMps = if (i + 1 < legs) min(targets[i], targets[i + 1]) else targets[i]
         val timed = segmentTimeM(dist, carriedMps, targets[i], arriveMps, accelMps2)
         times.add(timed.first)
+        // The pace made good: the same numbers the clock just produced, divided the other way, so a
+        // zero-time leg reads zero rather than an infinity.
+        speeds.add(if (timed.first > 0.0) dist / timed.first else 0.0)
         carriedMps = timed.second
     }
-    return TimedLine(points, times)
+    return TimedLine(points, times, speeds)
 }
 
 /** Walks every leg and inserts the boundary vertices where [limitKnAt] changes. */
@@ -198,6 +208,21 @@ fun withinBudgetBand(share: Double, budgetPct: Double): Boolean {
     val budget = budgetPct / 100.0
     return share in (budget * (1.0 - ZONE_BUDGET_BAND))..(budget * (1.0 + ZONE_BUDGET_BAND))
 }
+
+/**
+ * True when the budget is **met** — [share] stands inside the band or **below** it, so no correction
+ * is owed and the loop stops.
+ *
+ * The loop's own exit, and the reason it is not the band alone: the correction raises λ to buy slow
+ * water *out* of a line, so a share under the budget — a route already spending less slow water than
+ * it may — is a line to keep, never one to chase. Chasing it would lower λ until the only way to
+ * spend more slow water is to cross a zone the search had rounded, which is the opposite of what the
+ * route is for. So the loop corrects only above the band's top edge, and the band's own reading stays
+ * [withinBudgetBand] — this predicate is that one widened by the under-budget case, its single
+ * reader.
+ */
+fun budgetMet(share: Double, budgetPct: Double): Boolean =
+    withinBudgetBand(share, budgetPct) || share < (budgetPct / 100.0) * (1.0 - ZONE_BUDGET_BAND)
 
 private fun midpoint(a: LatLng, b: LatLng): LatLng =
     LatLng((a.latitude + b.latitude) / 2.0, (a.longitude + b.longitude) / 2.0)

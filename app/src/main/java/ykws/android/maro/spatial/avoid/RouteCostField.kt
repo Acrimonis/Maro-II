@@ -123,30 +123,66 @@ fun zonePriceSec(cellM: Double, paceKn: Double, limitKn: Double, k: Double): Dou
 }
 
 /**
- * The collar's price at one cell: the interior's [zonePriceSec], scaled by [collarFraction] — strictly
- * below the interior's while the fraction is below 1, which is the gradient the pull reads to prefer
- * the collar's edge over the zone's interior.
+ * The outside-margin price at one cell: the interior's [zonePriceSec], scaled by [costFraction] —
+ * strictly below the interior's while the fraction is below 1, which is the gradient the search reads
+ * to prefer the margin's outer edge over the zone's interior.
  */
 fun zoneCollarPriceSec(
     cellM: Double,
     paceKn: Double,
     limitKn: Double,
     k: Double,
-    collarFraction: Double
-): Double = zonePriceSec(cellM, paceKn, limitKn, k) * collarFraction
+    costFraction: Double
+): Double = zonePriceSec(cellM, paceKn, limitKn, k) * costFraction
 
 /**
- * How far off the coast the band's price reaches: the band's own width plus the clearance margin, so
- * the priced strip covers the margin land already took. One home, read by the rasterizer's sweep and
- * by the pull's own band source.
+ * **The one zone price, read by both the search and the pull's guard.** An interior limit prices at
+ * the zone's full time excess; a collar limit — a cell outside every ring but within the outside
+ * margin — prices at that excess times [costFraction]. A cell carrying both (inside one zone, near
+ * another's ring) takes the dearer. The search reads the two limits off the grid; the pull's guard
+ * reads them off the same point geometry, and both hand this function the same two values, which is
+ * what keeps the two prices from ever disagreeing.
+ */
+fun zonePriceAtLimits(
+    cellM: Double,
+    paceKn: Double,
+    interiorLimitKn: Double,
+    collarLimitKn: Double,
+    k: Double,
+    costFraction: Double
+): Double = max(
+    if (interiorLimitKn > 0.0) zonePriceSec(cellM, paceKn, interiorLimitKn, k) else 0.0,
+    if (collarLimitKn > 0.0) zoneCollarPriceSec(cellM, paceKn, collarLimitKn, k, costFraction) else 0.0
+)
+
+/**
+ * The 300 m band's price at one distance: the band's own width pays the full [fullSec], the outside
+ * margin between that width and the band's reach pays [fullSec] × [costFraction], and everything
+ * beyond pays nothing. One home for the split, read by the field's band source and by its tests.
+ */
+fun bandPriceAt(
+    bandWidthM: Double,
+    outsideMarginM: Double,
+    fullSec: Double,
+    costFraction: Double,
+    distanceM: Double
+): Double = when {
+    distanceM <= bandWidthM -> fullSec
+    distanceM <= bandReachM(bandWidthM, outsideMarginM) -> fullSec * costFraction
+    else -> 0.0
+}
+
+/**
+ * How far off the coast the band's price reaches: the band's own width plus its outside margin, so the
+ * priced strip covers the margin land already took. One home, read by the rasterizer's sweep and by
+ * the pull's own band source.
  */
 fun bandReachM(bandWidthM: Double, marginM: Double): Double = bandWidthM + marginM
 
 fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostSource.Hard {
-    val belowGate: (LatLng) -> Boolean = { p ->
-        val depthM = depthMAt(p)
-        !depthM.isNaN() && depthM < minDepthM
-    }
+    // The rule itself is [depthClearsGate]'s, read by the ring's validity question and by the berth
+    // carve as well: one home, so a walled cell, a red target and a carve can never disagree.
+    val belowGate: (LatLng) -> Boolean = { p -> !depthClearsGate(depthMAt(p), minDepthM) }
     return RouteCostSource.Hard(
         blockedAt = belowGate,
         distanceAt = { p -> if (belowGate(p)) 0.0 else Double.MAX_VALUE }
@@ -160,7 +196,7 @@ fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostS
  * the rasterizer asks once per cell centre; the pull asks [hardDistanceM] along the emitted line and
  * the same [evaluate] for the price. The A* is unchanged in structure: it reads the `sourceCostSec`
  * the rasterizer wrote, which is the grid's base cost plus this field's prices, and adds the zone's
- * own excess from the **limit** the grid stores per cell.
+ * own excess from the two **limits** the grid stores per cell — interior and outside margin.
  *
  * **The base cost is the grid's, and a source may only add to it.** A passable cell is never cheaper
  * than the base, so no price can pay the search back — the shortest path stays defined and the closed
@@ -168,14 +204,7 @@ fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostS
  * sea dearer or leaves it alone, and a genuine *go through this place* is a via, not a price.
  */
 class RouteCostField(
-    private val sources: List<RouteCostSource> = emptyList(),
-    /**
-     * The distance (m) to the nearest speed zone's ring, or null where the field carries no ring at
-     * all. It is kept **apart from the hard walls** because the pull reads it with its own margin: a
-     * chord must stay the standoff clear of a ring while the land margin is a different number, and
-     * taking both through one nearest-wall read would let the smaller of the two win.
-     */
-    private val ringDistanceAt: ((LatLng) -> Double)? = null
+    private val sources: List<RouteCostSource> = emptyList()
 ) {
 
     private val hard: List<RouteCostSource.Hard> = sources.filterIsInstance<RouteCostSource.Hard>()
@@ -208,15 +237,6 @@ class RouteCostField(
         }
         return RouteCostAtPoint(blocked, costSec, tag)
     }
-
-    /** True when a ring is in the field — the pull's standoff read is skipped when it is not. */
-    val hasRings: Boolean get() = ringDistanceAt != null
-
-    /**
-     * Distance (m) to the nearest speed zone's ring, or `Double.MAX_VALUE` where there is none — the
-     * pull's **standoff** reading, beside [hardDistanceM]'s land margin.
-     */
-    fun ringDistanceM(p: LatLng): Double = ringDistanceAt?.invoke(p) ?: Double.MAX_VALUE
 
     /**
      * Distance (m) to the nearest hard wall — the pull's margin reading, taken **along the emitted

@@ -20,6 +20,7 @@ import org.junit.Before
 import org.junit.Test
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
@@ -29,7 +30,7 @@ import ykws.android.maro.spatial.RouteDummyEngine
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.RouteRefusalReason
-import ykws.android.maro.spatial.RouteStage
+import ykws.android.maro.spatial.RouteProgress
 import ykws.android.maro.spatial.RouteUnavailableReason
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -547,7 +548,12 @@ class RouteEngineSeamTest {
     /** **The seam runs through both shipped engines**: each draws its own straight line end to end. */
     @Test
     fun theSeamRunsThroughBothShippedEngines() = runTest {
-        for (engine in listOf(RouteDummyEngine(), RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { EmptyAvoidWorld() }))) {
+        val avoid = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            slowWaterBudgetPct = { 33 },
+            worldProvider = { EmptyAvoidWorld() }
+        )
+        for (engine in listOf(RouteDummyEngine(), avoid)) {
             val viewModel = RouteViewModel(selectionOf(engine))
             viewModel.beginDraft(fix(start))
             viewModel.acquire(aim)
@@ -608,9 +614,12 @@ class StraightLineEngine(
     override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
 
     /** Always null — see the class note on the degenerate case the channel allows. */
-    private val _stage = MutableStateFlow<RouteStage?>(null)
+    private val _progress = MutableStateFlow<RouteProgress?>(null)
+ 
+    override val progress: StateFlow<RouteProgress?> = _progress.asStateFlow()
 
-    override val stage: StateFlow<RouteStage?> = _stage.asStateFlow()
+    /** A foreign engine offers nothing, so the empty set is the whole stream. */
+    override val offers: StateFlow<List<RouteOffer>> = MutableStateFlow<List<RouteOffer>>(emptyList()).asStateFlow()
 
     /** How many times the feature asked this engine to prepare. */
     var prepareCalls: Int = 0

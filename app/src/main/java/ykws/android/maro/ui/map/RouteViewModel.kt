@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.route.RoutePace
@@ -21,7 +22,7 @@ import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.RouteRefusalReason
-import ykws.android.maro.spatial.RouteStage
+import ykws.android.maro.spatial.RouteProgress
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
@@ -315,12 +316,22 @@ class RouteViewModel(
     val engineState: StateFlow<RouteEngineState> = _engineState.asStateFlow()
 
     /**
-     * **The stage of the acquisition running right now** (R15), or null when none is — proxied from the
-     * engine in force, so the panel reads one value whatever engine is installed.
+     * **The progress of the acquisition running right now** (R15, R43), or null when none is — proxied
+     * from the engine in force, so the panel reads one value whatever engine is installed, and the
+     * provisional line rides the same emission as the stage.
      */
-    private val _stage = MutableStateFlow<RouteStage?>(null)
+    private val _progress = MutableStateFlow<RouteProgress?>(null)
+ 
+    val progress: StateFlow<RouteProgress?> = _progress.asStateFlow()
 
-    val stage: StateFlow<RouteStage?> = _stage.asStateFlow()
+    /**
+     * **The offers that arrived for the front result**, proxied from the engine in force the way
+     * [progress] is — empty from each new ask until the engine's background job publishes them, and the
+     * one value the deferred carousel will read.
+     */
+    private val _offers = MutableStateFlow<List<RouteOffer>>(emptyList())
+
+    val offers: StateFlow<List<RouteOffer>> = _offers.asStateFlow()
 
     /**
      * One preparation of the engine in force, published to the gate **synchronously** — the
@@ -400,8 +411,13 @@ class RouteViewModel(
         }
         viewModelScope.launch {
             combine(selection, _sessionEngine) { selected, session -> session ?: selected }
-                .flatMapLatest { it.stage }
-                .collect { _stage.value = it }
+                .flatMapLatest { it.progress }
+                .collect { _progress.value = it }
+        }
+        viewModelScope.launch {
+            combine(selection, _sessionEngine) { selected, session -> session ?: selected }
+                .flatMapLatest { it.offers }
+                .collect { _offers.value = it }
         }
         viewModelScope.launch { prepareCurrent() }
     }
@@ -468,6 +484,7 @@ class RouteViewModel(
         val (anchor, refusal) = resolveAnchor(fix)
         standingRoutes = if (enteredFromRoute) session.keys.toList() else emptyList()
         anchorTold = false
+        _offers.value = emptyList()
         _state.value = RouteState.Choosing(
             start = anchor,
             plan = null,
@@ -527,6 +544,7 @@ class RouteViewModel(
             return
         }
         pendingAim = aim
+        _offers.value = emptyList()
         _state.value = choosing.copy(searching = true, asked = true)
         startWorker()
     }

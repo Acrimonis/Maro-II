@@ -594,13 +594,21 @@ fun MapScreen(
     val routeEngineSelection = remember {
         MutableStateFlow(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
+                .factory(
+                    { appSettings.routeFreeWaterPaceKn.toDouble() },
+                    { appSettings.routeSlowWaterBudgetPct },
+                    avoidWorldProvider
+                )
         )
     }
     LaunchedEffect(appSettings.routeEngineId) {
         routeEngineSelection.value =
             RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
+                .factory(
+                    { appSettings.routeFreeWaterPaceKn.toDouble() },
+                    { appSettings.routeSlowWaterBudgetPct },
+                    avoidWorldProvider
+                )
     }
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
@@ -625,7 +633,9 @@ fun MapScreen(
     // both `Save track` actions grey themselves on (R16, R17) and the second is the acquisition's own
     // progress (R15).
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
-    val routeStage by routeViewModel.stage.collectAsState()
+    val routeProgress by routeViewModel.progress.collectAsState()
+    // The panel's sentence reads the stage arm; the host's provisional line reads the points arm.
+    val routeStage = routeProgress?.stage
     // **Is the front route already written?** — the one fact both `Save track` actions grey themselves
     // on (R16, R17). Read through the link table rather than a null check at each call site.
     val routeFrontSaved = routeState.plan?.let { routeSessionLinks[it] != null } == true
@@ -2355,6 +2365,7 @@ fun MapScreen(
                             boatPosition = routeStart,
                             leadFix = routeLeadFix,
                             state = routeState,
+                            progress = routeProgress,
                             armed = routeArmed,
                             gpsMode = appSettings.gpsMode,
                             speedKn = navigationState.speedKnots,

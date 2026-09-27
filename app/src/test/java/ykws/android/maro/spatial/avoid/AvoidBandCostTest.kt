@@ -26,6 +26,9 @@ class AvoidBandCostTest {
     private val bandM = 300.0
     private val marginM = 25.0
 
+    /** The band's outside margin, wide enough that the margin band holds whole cell centres. */
+    private val bandOutsideMarginM = 100.0
+
     /** The pace every cost here is built at — and the pace the A* bounds its time with. */
     private val paceKn = 28.0
 
@@ -94,7 +97,7 @@ class AvoidBandCostTest {
     /** The price reaches the A*: a band priced out of proportion is walked around. */
     @Test
     fun theSearchSteersOutOfADearlyPricedBand() = runTest {
-        val path = AvoidSearch.search(bandedGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps)
+        val path = AvoidSearch.search(bandedGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
 
         assertTrue("the corridor is still connected round the band", path != null)
         assertTrue("no priced cell is stepped on", path!!.none { pricedCell(it) })
@@ -103,7 +106,7 @@ class AvoidBandCostTest {
     /** Its control: the same band, priced a hair, is worth crossing — a price is a dial, not a wall. */
     @Test
     fun aCheaplyPricedBandIsWorthCrossing() = runTest {
-        val path = AvoidSearch.search(bandedGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps)
+        val path = AvoidSearch.search(bandedGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
 
         assertTrue("the cheap band is crossed rather than rounded", path!!.any { pricedCell(it) })
     }
@@ -142,21 +145,64 @@ class AvoidBandCostTest {
     }
 
     /**
-     * The band as `RouteAvoidEngine.costField()` builds it: a single soft source priced [priceSec]
-     * seconds inside the band's reach off the coast and 0 beyond — the shape the rasterize sweep
-     * used to write.
+     * The band's outside margin, priced at the fraction: the core band pays [priceSec] in full and the
+     * ring between the band's own width and its outside margin pays [priceSec] × the fraction — the
+     * split [bandPriceAt] carries, read off the same cells the rasterizer wrote.
      */
-    private fun bandField(priceSec: Double): RouteCostField {
-        val reachM = bandReachM(bandM, marginM)
-        return RouteCostField(
+    @Test
+    fun theBandsOutsideMarginPricesAtTheFraction() {
+        val grid = rasterize(
+            box, cellM, paceKn, marginM, emptyList(), listOf(coast), box.latNorth, bandField(priceSec)
+        )
+        var coreCell: CellIndex? = null
+        var marginCell: CellIndex? = null
+        for (row in 0 until grid.rows) {
+            for (col in 0 until grid.cols) {
+                val cell = grid.cell(row, col)
+                if (!cell.passable) continue
+                val d = distanceToCoastM(grid.center(row, col))
+                when {
+                    d <= bandM && coreCell == null -> coreCell = CellIndex(row, col)
+                    d > bandM && d <= bandReachM(bandM, bandOutsideMarginM) && marginCell == null ->
+                        marginCell = CellIndex(row, col)
+                }
+            }
+        }
+
+        assertTrue("a core cell inside the band exists", coreCell != null)
+        assertTrue("a margin cell inside the outside margin exists", marginCell != null)
+        assertEquals(
+            "the core band prices at the full cost",
+            grid.baseCostSec + priceSec,
+            grid.cell(coreCell!!.row, coreCell.col).sourceCostSec,
+            1e-9
+        )
+        assertEquals(
+            "the outside margin prices at the fraction of the core",
+            grid.baseCostSec + priceSec * 0.66,
+            grid.cell(marginCell!!.row, marginCell.col).sourceCostSec,
+            1e-9
+        )
+    }
+
+    /**
+     * The band as `RouteAvoidEngine.costField()` builds it: a single soft source priced [priceSec]
+     * seconds inside the band's own width, a fraction of it in the outside margin, and 0 beyond — the
+     * split [bandPriceAt] carries.
+     */
+    private fun bandField(priceSec: Double, costFraction: Double = 0.66): RouteCostField =
+        RouteCostField(
             listOf(
                 RouteCostSource.Soft(
-                    priceSec = { p -> if (distanceToCoastM(p) <= reachM) priceSec else 0.0 },
+                    priceSec = { p ->
+                        bandPriceAt(
+                            bandM, bandOutsideMarginM, priceSec, costFraction, distanceToCoastM(p)
+                        )
+                    },
                     tag = AvoidCellState.BAND
                 )
             )
         )
-    }
 
     /** A band of priced cells in column 5, leaving the top and bottom rows open. */
     private fun bandedGrid(priceSec: Double): AvoidGrid {

@@ -47,10 +47,33 @@ sealed interface RouteResult {
          * spelling outside would be a second answer waiting to disagree.
          */
         val legTimesSec: List<Double> = emptyList(),
+        /**
+         * **The pace made good** over each leg, in m/s, beside [legTimesSec] and in the same order —
+         * one set of numbers the drawn line, the panel's figures and the saved track all read.
+         *
+         * A leg carrying a ramp reports the average of its own profile rather than either end of it,
+         * because the clock is what derives it: `distance / time`. It is the engine's own reading and
+         * never a second computation by a caller, for the same reason the leg times are.
+         */
+        val legSpeedsMps: List<Double> = emptyList(),
         val distanceM: Double,
         val durationSec: Double,
         val destinationMoved: Boolean,
-        val forcedCrossingZoneNames: List<String> = emptyList()
+        /**
+         * The share of the trip's own time it spends slowed by speed zones, set **only** where the
+         * slow-water budget was missed: `null` means the line is inside the budget, a value means it is
+         * over it and the overrun is reported rather than refused. Deliberately apart from
+         * [forcedCrossingZoneNames]: one says a way around existed and the price could not reach it,
+         * the other that no way around exists at all.
+         */
+        val budgetUnmetZoneShare: Double? = null,
+        val forcedCrossingZoneNames: List<String> = emptyList(),
+        /**
+         * **What the engine offers beside this line** — one candidate per priced source that would save
+         * time, empty where nothing does. Their UI (the panel's carousel row) waits on the panel's own
+         * re-shell, so this ships the numbers and the lines the row will draw.
+         */
+        val offers: List<RouteOffer> = emptyList()
     ) : RouteResult
 
     /**

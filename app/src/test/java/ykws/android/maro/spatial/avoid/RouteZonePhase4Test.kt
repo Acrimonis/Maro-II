@@ -1,7 +1,6 @@
 package ykws.android.maro.spatial.avoid
 
 import kotlinx.coroutines.test.runTest
-import kotlin.math.min
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -118,6 +117,54 @@ class RouteZonePhase4Test {
         assertTrue("the zone must actually cover some cell centres", tagged > 0)
     }
 
+    // ── The outside margin in the search ───────────────────────────────────────
+
+    /**
+     * **The collar is in the search.** A grid rasterized with a zone's outside margin prices the ring
+     * around the zone — not only its interior — so the A* rounds a margin band it would otherwise cut
+     * straight through. The pin is the pair: with the collar priced the path steps on no collar cell,
+     * and with the collar price dropped to zero the same grid is crossed in a straight line. Revert the
+     * grid's collar fill or the A*'s collar read and the priced leg no longer detours, so this goes red.
+     */
+    @Test
+    fun theCollarIsPricedInTheSearch() = runTest {
+        // A zone whose north edge runs under the straight start→aim line: the line stays outside the
+        // interior but inside the 50 m outside margin, so the collar is the only price on its path.
+        val zone = ZoneRing(rectRing(43.510, 43.511, 7.010, 7.030), emptyList(), 5.0)
+        val box = BBox(43.505, 43.514, 6.995, 7.045)
+        val grid = rasterize(
+            box, cellM = 50.0, paceKn = 28.0, marginM = 25.0,
+            edges = emptyList(), openCoast = emptyList(), capLatNorth = box.latNorth,
+            field = RouteCostField.EMPTY,
+            zones = listOf(zone),
+            zoneOutsideMarginM = 50.0
+        )
+        val start = grid.cellOf(43.51105, 7.00)
+        val aim = grid.cellOf(43.51105, 7.04)
+        val paceMps = Units.knotsToMps(28.0)
+        fun collarOnly(cell: CellIndex): Boolean =
+            grid.zoneLimitKn(cell.row, cell.col) <= 0.0 && grid.collarLimitKn(cell.row, cell.col) > 0.0
+
+        val priced = AvoidSearch.search(
+            grid, start, aim, paceMps,
+            zonePriceSec = { interiorKn, collarKn ->
+                zonePriceAtLimits(50.0, 28.0, interiorKn, collarKn, 5.0, 0.66)
+            }
+        ).path
+
+        assertTrue("a corridor still connects around the zone", priced != null)
+        assertTrue(
+            "the priced collar keeps the A* off every margin cell",
+            priced!!.none { collarOnly(it) }
+        )
+
+        val free = AvoidSearch.search(grid, start, aim, paceMps, zonePriceSec = { _, _ -> 0.0 }).path
+        assertTrue(
+            "and the same grid, collar free, is crossed straight through the margin",
+            free!!.any { collarOnly(it) }
+        )
+    }
+
     // ── The price cursor ──────────────────────────────────────────────────────
 
     @Test
@@ -230,9 +277,9 @@ class RouteZonePhase4Test {
     @Test
     fun aZoneBlockingTheWholeCorridorIsReportedAsAForcedCrossing() = runTest {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
         val world = ZoneWorld(listOf(zone))
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+        val engine = RouteAvoidEngine(paceKn = { 28.0 }, slowWaterBudgetPct = { 33 }, worldProvider = { world })
 
         engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
         val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
@@ -247,7 +294,7 @@ class RouteZonePhase4Test {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
         val world = ZoneWorld(listOf(zone))
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+        val engine = RouteAvoidEngine(paceKn = { 28.0 }, slowWaterBudgetPct = { 33 }, worldProvider = { world })
 
         engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
         val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
@@ -259,57 +306,30 @@ class RouteZonePhase4Test {
     }
 
     /**
-     * The standoff's own pin, at the level it now lives. §4 moved it out of the search — where the
-     * grid's collar price used to push the A* line off a ring — and into the pull as a **clearance**,
-     * so the promise is made here: a chord coming within the standoff of a ring is refused, and the
-     * land margin beside it is untouched.
+     * **The pull is purely priced (the standoff's retirement).** A ring twenty metres off the straight
+     * chord no longer refuses it: the outside margin is a **price** in the search, never a clearance
+     * here. The chord collapses to the two ends because the only walls left are the land margin and the
+     * price guard. Revert the standoff's removal and this chord is refused again, so the pin goes red.
      */
     @Test
-    fun thePullRefusesAChordWithinTheStandoff() {
+    fun thePullCarriesNoRingClearance() {
         val start = LatLng(43.50, 7.00)
         val aim = LatLng(43.50, 7.02)
-        // A ring 20 m south of the straight chord's midpoint: inside a 50 m standoff, outside a zero one.
+        // A ring 20 m south of the chord's midpoint: inside the old 50 m standoff, a pure price now.
         val ring = LatLng(43.50 - 20.0 / 111_320.0, 7.01)
-        val field = RouteCostField(
-            listOf(RouteCostSource.Hard(distanceAt = { Double.MAX_VALUE })),
-            ringDistanceAt = { p -> SpatialOperations.haversine(p, ring) }
-        )
+        val field = RouteCostField(listOf(RouteCostSource.Hard(distanceAt = { Double.MAX_VALUE })))
+        val path = listOf(start, LatLng(43.50, 7.005), LatLng(43.50, 7.01), LatLng(43.50, 7.015), aim)
 
-        assertFalse(
-            "a chord passing inside the standoff is refused",
-            AvoidPull.legClear(start, aim, 25.0, field, start, aim, standoffM = 50.0)
+        val pulled = AvoidPull.pull(path, start, aim, marginM = 25.0, field)
+
+        assertEquals(
+            "a ring near the chord is no clearance: the chord is read taut, priced only",
+            listOf(start, aim),
+            pulled
         )
         assertTrue(
-            "and the same chord stands when no standoff is asked for",
-            AvoidPull.legClear(start, aim, 25.0, field, start, aim, standoffM = 0.0)
-        )
-    }
-
-    /**
-     * **What the standoff cannot do, stated rather than hidden.** The zone's north edge lies ~20 m
-     * south of the straight line, so **no** chord can keep a 50 m standoff off it: every chord is
-     * refused and the line keeps the search's own path — §4's own sentence, *it degrades to the free
-     * path in a tens-of-metres passage*. The zone itself is still never entered, which
-     * `theLineDoesNotEnterAZoneItCouldHaveGoneAround` above pins. **Read this again when §5's fine
-     * pass lands**: if the corridor can widen there, the standoff stops degrading and this test must
-     * be restated to the stronger promise rather than kept as a tripwire for the weaker one.
-     */
-    @Test
-    fun theStandoffDegradesWhereNoChordCouldKeepIt() = runTest {
-        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        setSpeedZoneMarginM(50.0)
-        val northEdge = 43.5 - 20.0 / 111_320.0
-        val zone = SpeedZone("z", "Cap", 5.0, rectRing(northEdge - 0.02, northEdge, 7.01, 7.05))
-        val world = ZoneWorld(listOf(zone))
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
-
-        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
-
-        val nearest = route.points.minOf { ringDistanceM(zone.outerRing, it.toLatLng()) }
-        assertTrue(
-            "the passage is narrower than the standoff, so the standoff degrades (nearest=$nearest)",
-            nearest < AppConfig.routeAvoidSpeedZoneMarginM
+            "and the ring stands inside the old standoff's reach, so the pull never asked it",
+            SpatialOperations.haversine(LatLng(43.50, 7.01), ring) < 50.0
         )
     }
 
@@ -348,9 +368,9 @@ class RouteZonePhase4Test {
     @Test
     fun theCollarIsCheaperThanTheInterior() {
         val interior = zonePriceSec(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0)
-        val collar = zoneCollarPriceSec(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0, collarFraction = 0.5)
+        val collar = zoneCollarPriceSec(50.0, paceKn = 28.0, limitKn = 5.0, k = 5.0, costFraction = 0.66)
         assertTrue("the collar is strictly cheaper, so the field carries a gradient", collar < interior)
-        assertEquals("half the interior at a fraction of 0.5", interior * 0.5, collar, 1e-9)
+        assertEquals("0.66 of the interior at the shipped fraction", interior * 0.66, collar, 1e-9)
     }
 
     @Test
@@ -367,22 +387,47 @@ class RouteZonePhase4Test {
         )
     }
 
+    /**
+     * **The priced-band promise.** With the standoff gone, the only thing keeping the line off a zone is
+     * the **price**: a shortcut chord through the zones' priced interiors costs more than the free path
+     * around them, so the pull's price guard refuses it and the path survives. Revert the price guard and
+     * the shortcut is taken, the line enters a zone, and this goes red.
+     */
     @Test
-    fun theLineKeepsOffTwoOverlappingZones() = runTest {
-        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        // A slow 5 kn zone nested inside a fast 10 kn zone; a route crossing the pair must clear both,
-        // the zones sized so the detour fits inside the corridor reach.
+    fun thePricedBandKeepsTheLineOffTheZones() {
         val fast = SpeedZone("fast", "Fast", 10.0, rectRing(43.49, 43.51, 7.01, 7.05))
         val slow = SpeedZone("slow", "Slow", 5.0, rectRing(43.495, 43.505, 7.02, 7.04))
-        val world = ZoneWorld(listOf(fast, slow))
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { world })
+        val zones = listOf(fast, slow)
+        val lambda = 5.0
+        val fraction = 0.66
+        val field = RouteCostField(
+            listOf(
+                RouteCostSource.Hard(distanceAt = { Double.MAX_VALUE }),
+                RouteCostSource.Soft(
+                    priceSec = { p ->
+                        val interior = strictestLimitKnAt(zones, emptySet(), p.latitude, p.longitude)
+                        val collar = speedZoneCollarLimitKnAt(
+                            zones, emptySet(), p.latitude, p.longitude, 50.0
+                        )
+                        zonePriceAtLimits(50.0, 28.0, interior ?: 0.0, collar ?: 0.0, lambda, fraction)
+                    },
+                    tag = AvoidCellState.ZONE
+                )
+            )
+        )
+        val start = LatLng(43.50, 7.00)
+        val aim = LatLng(43.50, 7.06)
+        // The free path: around the zones' north edge, every point outside every zone.
+        val path = listOf(start, LatLng(43.52, 7.01), LatLng(43.52, 7.05), aim)
 
-        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+        val pulled = AvoidPull.pull(path, start, aim, marginM = 50.0, field)
 
-        val line = route.points.map { it.toLatLng() }
-        assertFalse("the line clears the fast zone", lineEntersZone(line, fast))
-        assertFalse("the line clears the slow zone", lineEntersZone(line, slow))
+        assertFalse("the line never enters the fast zone", lineEntersZone(pulled, fast))
+        assertFalse("the line never enters the slow zone", lineEntersZone(pulled, slow))
+        assertTrue(
+            "the shortcut through the zones is refused by price, so the free path survives",
+            pulled.size > 2
+        )
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -404,20 +449,11 @@ class RouteZonePhase4Test {
         field.setBoolean(AppConfig, value)
     }
 
-    /** Flips the speed-zone standoff key for one test; [restoreTheSpeedZoneSwitch] puts 50 back. */
+    /** Flips the speed-zone outside-margin key for one test; [restoreTheSpeedZoneSwitch] puts 50 back. */
     private fun setSpeedZoneMarginM(value: Double) {
-        val field = AppConfig::class.java.getDeclaredField("routeAvoidSpeedZoneMarginM")
+        val field = AppConfig::class.java.getDeclaredField("routeAvoidSpeedZoneOutsideMarginM")
         field.isAccessible = true
         field.setDouble(AppConfig, value)
-    }
-
-    /** Distance (m) from [p] to the nearest segment of a closed ring. */
-    private fun ringDistanceM(ring: List<LatLng>, p: LatLng): Double {
-        var best = Double.MAX_VALUE
-        for (i in 0 until ring.size - 1) {
-            best = min(best, SpatialOperations.pointToSegmentDistance(p, ring[i], ring[i + 1]))
-        }
-        return best
     }
 
     private fun squareRing(centerLat: Double, centerLon: Double, half: Double): List<LatLng> = listOf(
@@ -436,6 +472,90 @@ class RouteZonePhase4Test {
         LatLng(latSouth, lonWest)
     )
 
+    // ── The budget ────────────────────────────────────────────────────────────
+
+    /**
+     * The loop's own exit, read where it is decided. A share **under** the band is met — a route
+     * already spending less slow water than it may — so the correction, which only ever raises λ,
+     * has nothing to chase; the band's top edge is still met; and above it the budget is missed.
+     */
+    @Test
+    fun theBudgetIsMetUnderItsBandAndMissedOnlyAboveIt() {
+        assertTrue("a share under the budget is met, and never chased", budgetMet(0.05, 33.0))
+        assertTrue("an overrun inside the band is met", budgetMet(0.33, 33.0))
+        assertTrue("the band's own predicate answers one reading of it", withinBudgetBand(0.30, 33.0))
+        assertTrue("a share just inside the band's top edge is met", budgetMet(0.39, 33.0))
+        assertFalse("above the band the budget is missed", budgetMet(0.40, 33.0))
+        assertFalse("a zero budget is missed by any slow water at all", budgetMet(0.01, 0.0))
+        assertTrue("and met by a line that spends none", budgetMet(0.0, 0.0))
+    }
+
+    /**
+     * The verdict's own pin, and the loop's most visible consequence: the same forced crossing reports
+     * the share it spent when the budget cannot accept it, and reports nothing when it can. A zero
+     * budget also stops the loop after its first pass, so the two answers differ by the verdict alone.
+     */
+    @Test
+    fun theBudgetVerdictIsReportedOnlyWhenItIsMissed() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
+
+        val crossed = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            slowWaterBudgetPct = { 0 },
+            worldProvider = { ZoneWorld(listOf(zone)) }
+        )
+        crossed.onOriginPositionChanged(RoutePoint(43.5, 7.00))
+        val unmet = crossed.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+
+        val allowed = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            slowWaterBudgetPct = { 100 },
+            worldProvider = { ZoneWorld(listOf(zone)) }
+        )
+        allowed.onOriginPositionChanged(RoutePoint(43.5, 7.00))
+        val met = allowed.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+
+        assertTrue(
+            "a crossing under a zero budget reports the share it spent",
+            (unmet.budgetUnmetZoneShare ?: 0.0) > 0.0
+        )
+        assertNull("and the same crossing is inside a full budget", met.budgetUnmetZoneShare)
+    }
+
+    /**
+     * The probe's own mechanism, which §8's fix took off the second raster sweep: the copy that
+     * answers "is there a way around at all?" blocks the zones **slower than the pace** and leaves
+     * every other cell as it was, while the grid the search built keeps its limits untouched.
+     */
+    @Test
+    fun theForcedCrossingProbeBlocksOnlyTheZonesBelowThePace() {
+        val slow = ZoneRing(rectRing(43.49, 43.51, 7.02, 7.04), emptyList(), 5.0)
+        val fast = ZoneRing(rectRing(43.49, 43.51, 7.06, 7.08), emptyList(), 30.0)
+        val grid = rasterize(
+            BBox(43.45, 43.55, 7.00, 7.10), cellM = 50.0, paceKn = 28.0, marginM = 25.0,
+            edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.55,
+            field = RouteCostField.EMPTY,
+            zones = listOf(slow, fast)
+        )
+        val inSlow = grid.cellOf(43.5, 7.03)
+        val inFast = grid.cellOf(43.5, 7.07)
+        val blocked = grid.blockedCopy(28.0)
+
+        assertFalse(
+            "the zone below the pace is blocked",
+            blocked.cell(inSlow.row, inSlow.col).passable
+        )
+        assertTrue(
+            "the zone at or above it is left open",
+            blocked.cell(inFast.row, inFast.col).passable
+        )
+        assertTrue(
+            "and the grid the search built is untouched",
+            grid.cell(inSlow.row, inSlow.col).passable
+        )
+    }
+
     /** A water-everywhere world whose only source is its speed zones — the corridor reads no land or depth. */
     private class ZoneWorld(private val zones: List<SpeedZone>) : AvoidWorld {
         override val coastlineReady: Boolean get() = true
@@ -451,8 +571,6 @@ class RouteZonePhase4Test {
         override fun speedZonesIn(box: BBox): List<SpeedZone> = speedZonesInBox(zones, box, emptySet())
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(zones, emptySet(), latitude, longitude)
-        override fun collarLimitKnAt(latitude: Double, longitude: Double, marginM: Double): Double? =
-            speedZoneCollarLimitKnAt(zones, emptySet(), latitude, longitude, marginM)
         override suspend fun load(): RouteEngineState = RouteEngineState.Ready
     }
 }

@@ -617,8 +617,12 @@
     <string name="route_exit_continue">Continuer</string>
     <string name="route_exit_discard">Abandonner la route</string>
     <!-- Pourquoi un point n\'est pas de l\'eau navigable — une ligne par raison, en fragment que la
-         phrase « invalide » ci-dessus complète. Les deux extrémités lisent le même ensemble. -->
+         phrase « invalide » ci-dessus complète. Les deux extrémités lisent le même ensemble. Les deux
+         du milieu sont les lectures du réticule : la règle du seuil de profondeur, et l\'existence
+         d\'un accès vers de l\'eau libre. -->
     <string name="route_refusal_off_water">pas d\'eau ici</string>
+    <string name="route_refusal_too_shallow">trop peu profond ici</string>
+    <string name="route_refusal_no_approach">aucun accès depuis ici</string>
     <string name="route_refusal_outside_coverage">hors de la zone couverte</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
@@ -628,6 +632,10 @@
     <string name="route_age_min">%1$d min</string>
     <string name="route_trip_forced">forcé : %1$s</string>
     <string name="route_forced_crossing">Franchissement forcé de %1$s</string>
+    <!-- The budget's own verdict, apart from the forced crossing above: a way around exists and the
+         price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
+    <string name="route_budget_unmet">Budget d\'eau lente non respecté</string>
+    <string name="route_budget_unmet_desc">Le trajet passe plus de temps que le budget ne l\'autorise au ralenti dans les zones de vitesse.</string>
     <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
          surface behind it may not be a mesh. -->
     <string name="route_unavailable_region_not_baked">Routage indisponible pour cette région</string>
@@ -640,6 +648,8 @@
     <string name="settings_route_pace_label">Allure en eau libre</string>
     <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_budget_label">Budget d\'eau lente</string>
+    <string name="settings_route_budget_desc">La part du temps d\'un trajet qui peut être passée au ralenti dans les zones de vitesse ; un trajet qui la dépasse le signale</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>

@@ -23,6 +23,7 @@ import kotlin.math.roundToInt
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.spatial.RouteProgress
 import android.graphics.Color as AndroidColor
 
 /** Log tag for the route mode's own host — its two edges, kept for the device pass. */
@@ -34,6 +35,9 @@ private const val TAG = "MaroRoute"
  * existing re-order rather than by a second rule.
  */
 internal const val ROUTE_LINE_TITLE = "route_line"
+
+/** The provisional line's own overlay title — the `route_` prefix keeps it in the track band, above the pool. */
+internal const val ROUTE_PROGRESS_TITLE = "route_progress"
 
 /**
  * The destination pin's title. The `marker_` prefix is the marker band's own, so the pin is drawn
@@ -107,6 +111,7 @@ internal fun RouteHost(
     boatPosition: LatLng?,
     leadFix: RouteFix?,
     state: RouteState,
+    progress: RouteProgress?,
     armed: Boolean,
     gpsMode: Boolean,
     speedKn: Float?,
@@ -167,6 +172,16 @@ internal fun RouteHost(
         }
         pool.forEach { mv.overlays.add(it) }
 
+        // The provisional line — the partial line the engine publishes while a search runs — added
+        // after the pool and before the pin, so it paints over the standing front line and the ladder
+        // and stays under every marker. Hidden by its own flag, never by a null position.
+        val progressLine = Polyline().apply {
+            title = ROUTE_PROGRESS_TITLE
+            setPoints(emptyList())
+            outlinePaint.isAntiAlias = true
+        }
+        mv.overlays.add(progressLine)
+
         val pin = Marker(mv).apply {
             title = ROUTE_PIN_TITLE
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -192,6 +207,7 @@ internal fun RouteHost(
 
         onDispose {
             mv.overlays.removeAll(pool)
+            mv.overlays.remove(progressLine)
             mv.overlays.remove(pin)
             mv.overlays.remove(target)
             OverlayZOrder.reorder(mv)
@@ -300,6 +316,34 @@ internal fun RouteHost(
         )
 
         OverlayZOrder.reorder(mv)
+        mv.invalidate()
+    }
+
+    // ── The provisional line: the partial line the engine publishes, drawn as it is built ──
+    // A line the pipeline has not finished is not the plan: it draws into its own overlay at the line's
+    // own colour and width with a provisional transparency, and it is hidden the moment progress clears
+    // — on the answer and on an abort alike — so a partial line never outlives the search that drew it.
+    LaunchedEffect(mapView, progress) {
+        val mv = mapView ?: return@LaunchedEffect
+        val line = mv.overlays.filterIsInstance<Polyline>()
+            .firstOrNull { it.title == ROUTE_PROGRESS_TITLE } ?: return@LaunchedEffect
+        val points = progress?.points
+        if (points == null || points.size < 2) {
+            line.isEnabled = false
+            line.setPoints(emptyList())
+        } else {
+            line.setPoints(points.map { GeoPoint(it.latitude, it.longitude) })
+            line.outlinePaint.apply {
+                color = AndroidColor.argb(
+                    transparencyPctToAlpha(AppConfig.routeProgressTransparencyPct),
+                    AndroidColor.red(AppConfig.routeLineColor),
+                    AndroidColor.green(AppConfig.routeLineColor),
+                    AndroidColor.blue(AppConfig.routeLineColor)
+                )
+                strokeWidth = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
+            }
+            line.isEnabled = true
+        }
         mv.invalidate()
     }
 

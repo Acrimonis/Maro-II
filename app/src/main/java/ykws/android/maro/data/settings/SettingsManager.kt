@@ -152,6 +152,14 @@ data class AppSettings(
      */
     val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
     /**
+     * The **slow-water budget** (per cent of a trip, 0–100) the λ loop aims at, seeded from
+     * `route.avoid.speedZone.timeBudgetPct`, so the property stays the value's one home. How much
+     * slow water a trip may use is a preference rather than a tuning constant — the pace's own
+     * counterpart, and the reason it carries a Settings row of its own.
+     */
+    val routeSlowWaterBudgetPct: Int =
+        ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
+    /**
      * The route algorithm the harness arms with — the id the registry resolves, seeded from
      * `route.engine.id`, so the property stays the value's one home and the user's choice persists
      * here. An id nothing claims falls back to the registry's default and is reported at startup.
@@ -570,6 +578,13 @@ class SettingsManager(
             ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN,
             ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN
         ),
+        routeSlowWaterBudgetPct = prefs.getInt(
+            KEY_ROUTE_SLOW_WATER_BUDGET_PCT,
+            ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN,
+            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
+        ),
         routeEngineId = prefs.getString(
             KEY_ROUTE_ENGINE_ID,
             ykws.android.maro.config.AppConfig.routeEngineId
@@ -757,6 +772,7 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
+            .putInt(KEY_ROUTE_SLOW_WATER_BUDGET_PCT, updated.routeSlowWaterBudgetPct)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
@@ -944,6 +960,8 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
         private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
+        /** The persisted slow-water budget (per cent), seeded from `route.avoid.speedZone.timeBudgetPct`. */
+        private const val KEY_ROUTE_SLOW_WATER_BUDGET_PCT = "route_slow_water_budget_pct"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
         private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
         /** The persisted set of speed-zone ids the user excluded from route planning. */

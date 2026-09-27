@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the line drawn as it is built
 
-**Date:** 2026-09-25 · **Branch:** `feature/route-avoid-workflow` · **Status:** in design — nothing built, nothing outside this file touched · **Re-reviewed 2026-09-26**: §10 carries the verdict, its five findings and the re-anchored citations
+**Date:** 2026-09-25 · **Branch:** `feature/zones-avoid-fix` · **Status:** shipped 2026-09-27 — the line draws as it builds, per §7 · **Re-reviewed 2026-09-26**: §10 carries the verdict, its five findings and the re-anchored citations
 **Asked for:** the user's brief of 2026-09-25, in two parts: (1) *is it possible to draw the route as it builds?* (2) *we could pass an intermediary call back that gets invoked at each step and trigger a drawing of the track* — settled the same day at the user's word as **each of the steps**, meaning the five pipeline boundaries the engine already crosses, **not** every step of the A\*.
 
 **It is a change to what the delivery does, so it is a change to the master book first.** [`260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](260922_FEAT_PLN_Route_ask-policy-and-target-validity.md) is the requirements' home and **wins any conflict** with the epic; this pass adds **R43** and amends **R15**, and the epic's `routing-engine` and `destination-ui` rules follow them.
@@ -98,6 +98,7 @@ sequenceDiagram
 7. **The drawing value** — `route.progress.transparencyPct=55` in [`maro.properties`](../../app/src/main/assets/maro.properties:65) with its accessor, its bounds and its KDoc.
 8. **The test pins** of §8, each shown red on its revert.
 9. **The paperwork** of §6, then `apk-build.bat` and the route-filtered suite green.
+10. **Landed, 2026-09-27 (`feature/zones-avoid-fix`)** — the seam publishes `RouteProgress(stage, points)` in place of the bare stage, the avoid engine carries the cell chain at `PULL` and the pulled line at `SNAP`, the dummy answers a null flow, the ViewModel proxies it, `RouteHost` draws it into a `route_progress` overlay hidden by its own flag, and `route.progress.transparencyPct=55` lands with its accessor. Gates: `:app:compileDebugKotlin` green, `RouteAcquisitionTest` · `RouteEngineSeamTest` · `RouteAvoidEngineTest` green one class per log, `apk-build.bat` SUCCESSFUL. The panel is left taking the stage arm (`routeProgress?.stage`) rather than the whole progress — the design's end holds with one fewer signature. The retry-re-emits pin of §8 and the device judgement of the 55 % provisional face stay owed.
 
 ## 8. Test pins
 

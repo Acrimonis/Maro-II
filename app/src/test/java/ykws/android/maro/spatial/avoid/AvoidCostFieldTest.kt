@@ -117,7 +117,7 @@ class AvoidCostFieldTest {
     /** The price reaches the A*: a wall priced out of all proportion is walked around. */
     @Test
     fun aDearlyPricedWallSteersTheSearchAroundIt() = runTest {
-        val path = AvoidSearch.search(walledGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps)
+        val path = AvoidSearch.search(walledGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
 
         assertTrue("the corridor is still connected round the wall", path != null)
         assertTrue("no priced cell is stepped on", path!!.none { pricedCell(it) })
@@ -126,7 +126,7 @@ class AvoidCostFieldTest {
     /** Its control: the same wall, priced a hair, is worth crossing — the price is a dial, not a wall. */
     @Test
     fun aCheaplyPricedWallIsWorthCrossing() = runTest {
-        val path = AvoidSearch.search(walledGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps)
+        val path = AvoidSearch.search(walledGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
 
         assertTrue("the cheap wall is crossed rather than rounded", path!!.any { pricedCell(it) })
     }

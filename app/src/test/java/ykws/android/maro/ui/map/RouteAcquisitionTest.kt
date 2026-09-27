@@ -21,6 +21,7 @@ import org.junit.Before
 import org.junit.Test
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
@@ -28,6 +29,7 @@ import ykws.android.maro.spatial.RouteAvoidEngine
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.RouteRefusalReason
+import ykws.android.maro.spatial.RouteProgress
 import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -333,15 +335,22 @@ class RouteAcquisitionTest {
         val engine = CountingEngine()
         val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
 
-        assertNull("nothing runs, nothing is said", viewModel.stage.value)
+        assertNull("nothing runs, nothing is said", viewModel.progress.value)
 
-        engine.publishStage(RouteStage.SEARCH)
+        engine.publishProgress(RouteStage.SEARCH)
 
-        assertEquals("and the stage follows the engine's own", RouteStage.SEARCH, viewModel.stage.value)
+        assertEquals("and the stage follows the engine's own", RouteStage.SEARCH, viewModel.progress.value?.stage)
 
-        engine.publishStage(null)
+        engine.publishProgress(RouteStage.PULL, listOf(start, aim))
 
-        assertNull("cleared with it", viewModel.stage.value)
+        val emitted = viewModel.progress.value
+        assertEquals("the line rides the same emission as the stage", listOf(start, aim), emitted?.points)
+        assertEquals("and the stage is that same emission's", RouteStage.PULL, emitted?.stage)
+        assertNull("a partial line is never the plan", viewModel.state.value.plan)
+
+        engine.publishProgress(null)
+
+        assertNull("cleared with it", viewModel.progress.value)
     }
 
     /**
@@ -354,13 +363,17 @@ class RouteAcquisitionTest {
      */
     @Test
     fun theAvoidEnginePublishesEveryBoundaryAndClearsTheStageOnItsAnswer() = runTest {
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, worldProvider = { OpenWaterWorld() })
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            slowWaterBudgetPct = { 33 },
+            worldProvider = { OpenWaterWorld() }
+        )
         val seen = ArrayList<RouteStage?>()
         // The collector runs **unconfined**, so it subscribes before the search starts and then
         // resumes on whichever thread publishes — a plain `launch` would only start when the test
         // yielded, and every boundary would already have been published and conflated away.
         val collectorScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
-        val collector = collectorScope.launch { engine.stage.collect { seen += it } }
+        val collector = collectorScope.launch { engine.progress.collect { seen += it?.stage } }
 
         engine.onOriginPositionChanged(start)
         assertTrue("the engine answers a route", engine.onDestinationPositionChanged(aim) is RouteResult.Success)
@@ -381,10 +394,33 @@ class RouteAcquisitionTest {
             order,
             crossed.sortedBy { order.indexOf(it) }.distinct()
         )
-        assertNull("the channel is cleared with the answer", engine.stage.value)
+        assertNull("the channel is cleared with the answer", engine.progress.value)
 
         collector.cancel()
         collectorScope.cancel()
+    }
+
+    /**
+     * **D8's keep rule** — the fine re-search keeps the incumbent on every tie, so an equal open-water
+     * line is never replaced by the fine pass. It also drives the new pass end-to-end on a staged world.
+     */
+    @Test
+    fun theFineReSearchKeepsTheIncumbentUnlessStrictlyFaster() = runTest {
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            slowWaterBudgetPct = { 33 },
+            worldProvider = { OpenWaterWorld() }
+        )
+        engine.onOriginPositionChanged(start)
+        val result = engine.onDestinationPositionChanged(aim)
+
+        assertTrue("open water still answers", result is RouteResult.Success)
+        val success = result as RouteResult.Success
+        assertEquals(
+            "the coarse and fine open-water lines tie, and the tie is the incumbent's",
+            2,
+            success.points.size
+        )
     }
 }
 
@@ -416,9 +452,12 @@ private class CountingEngine(
 
     override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
 
-    private val _stage = MutableStateFlow<RouteStage?>(null)
+    private val _progress = MutableStateFlow<RouteProgress?>(null)
+ 
+    override val progress: StateFlow<RouteProgress?> = _progress.asStateFlow()
 
-    override val stage: StateFlow<RouteStage?> = _stage.asStateFlow()
+    /** A counting engine offers nothing, so the empty set is the whole stream. */
+    override val offers: StateFlow<List<RouteOffer>> = MutableStateFlow<List<RouteOffer>>(emptyList()).asStateFlow()
 
     /** Every destination the feature asked about, in order. */
     val askedDestinations = ArrayList<RoutePoint>()
@@ -432,9 +471,9 @@ private class CountingEngine(
     private var heldOrigin: RoutePoint? = null
     private var heldDestination: RoutePoint? = null
 
-    /** Publishes the stage the panel would read. */
-    fun publishStage(stage: RouteStage?) {
-        _stage.value = stage
+    /** Publishes the progress the panel and the provisional line read. */
+    fun publishProgress(stage: RouteStage?, points: List<RoutePoint>? = null) {
+        _progress.value = if (stage == null) null else RouteProgress(stage, points)
     }
 
     override suspend fun prepare(): RouteEngineState = RouteEngineState.Ready

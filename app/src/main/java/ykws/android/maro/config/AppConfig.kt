@@ -80,6 +80,10 @@ object AppConfig {
     var routeLineWidthDp: Float = 6f
         private set
 
+    /** The provisional line's transparency (0 = opaque, 100 = invisible) — `route.progress.transparencyPct`. */
+    var routeProgressTransparencyPct: Int = 55
+        private set
+
     /** The destination pin's fill colour — `route.pin.color`. */
     var routePinColor: Int = 0xFF2ECC71.toInt()
         private set
@@ -153,7 +157,7 @@ object AppConfig {
      * is kept beside it for the two to drift apart.
      *
      * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
-     * unused, as `route.avoid.zone300.marginM` did before the band.
+     * unused, as `route.avoid.zone300.outsideMarginM` did before the band.
      */
     var routeAvoidFineCellRatio: Double = 0.40
         private set
@@ -167,12 +171,24 @@ object AppConfig {
      */
     const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
 
-    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`, default 1852 (1 NM). */
-    var routeAvoidCorridorReachM: Double = 1852.0
+    /**
+     * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
+     * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
+     * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
+     * grown box's own cost — 30 843 cells, a 1.16 s rasterise and a 3.4 s solve on the phone — is the
+     * price this value is argued against. The search may still grow one step (doubled) when the first
+     * answer finds nothing, is over its slow-water budget, or reports a forced crossing.
+     */
+    var routeAvoidCorridorReachM: Double = 3704.0
         private set
 
-    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300.marginM`, default 25. */
-    var routeAvoidZone300MarginM: Double = 25.0
+    /**
+     * The 300 m band's outside margin (m) — `route.avoid.zone300.outsideMarginM`, default 25, clamped
+     * 0.0..500.0. The ring between the band's own edge and this distance prices at the band's core cost
+     * times [routeAvoidZone300OutsideMarginCostFraction]; the band's own width prices at the full cost.
+     * It is a price band, never a clearance.
+     */
+    var routeAvoidZone300OutsideMarginM: Double = 25.0
         private set
 
     /**
@@ -228,11 +244,12 @@ object AppConfig {
         private set
 
     /**
-     * Standoff (m) the avoid route keeps off a speed zone's ring — `route.avoid.speedZone.marginM`,
-     * default 50, clamped 0.0..500.0. The collar's width and the hug set's offset: a route passing
-     * beside a zone keeps this distance, while the interior stays priced by the zone's own cursor.
+     * The speed zone's outside margin (m) — `route.avoid.speedZone.outsideMarginM`, default 50,
+     * clamped 0.0..500.0. A cell outside a zone's ring but within this distance prices at the zone's
+     * interior excess times [routeAvoidSpeedZoneOutsideMarginCostFraction]; the interior prices at the
+     * full excess. The margin is a price band, never a clearance: the old hard standoff is gone.
      */
-    var routeAvoidSpeedZoneMarginM: Double = 50.0
+    var routeAvoidSpeedZoneOutsideMarginM: Double = 50.0
         private set
 
     /**
@@ -256,12 +273,28 @@ object AppConfig {
     var routeAvoidSpeedZoneTimeBudgetPct: Int = 33
         private set
 
+    /** Lowest slow-water budget (per cent) the properties load accepts — one home for that end. */
+    const val ROUTE_SLOW_WATER_BUDGET_PCT_MIN = 0
+
+    /** Highest slow-water budget (per cent) the properties load accepts — one home for that end. */
+    const val ROUTE_SLOW_WATER_BUDGET_PCT_MAX = 100
+
     /**
-     * The collar's price as a fraction of the interior's — `route.avoid.speedZone.collarFraction`,
-     * default 0.5, clamped 0.0..1.0. Held strictly below 1.0 so the field carries a gradient: the
-     * pull prefers the collar's edge over the zone's interior and cannot straighten across a border.
+     * The speed zone's outside-margin price as a fraction of the interior's —
+     * `route.avoid.speedZone.outsideMargin.costFraction`, default 0.66, clamped 0.0..1.0. A cell
+     * outside the ring but within [routeAvoidSpeedZoneOutsideMarginM] prices at the interior excess
+     * times this fraction, so the outside band carries a gradient from free water to the interior.
      */
-    var routeAvoidSpeedZoneCollarFraction: Double = 0.5
+    var routeAvoidSpeedZoneOutsideMarginCostFraction: Double = 0.66
+        private set
+
+    /**
+     * The 300 m band's outside-margin price as a fraction of the core band's —
+     * `route.avoid.zone300.outsideMargin.costFraction`, default 0.66, clamped 0.0..1.0. The ring
+     * between the band's own edge and [routeAvoidZone300OutsideMarginM] prices at the core cost
+     * times this fraction.
+     */
+    var routeAvoidZone300OutsideMarginCostFraction: Double = 0.66
         private set
 
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
@@ -1477,6 +1510,8 @@ object AppConfig {
                 ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.line.widthDp")?.toFloatOrNull()
                 ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
+            props.getProperty("route.progress.transparencyPct")?.toIntOrNull()
+                ?.let { routeProgressTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.pin.color")?.let { parseColorOrNull(it) }
                 ?.let { routePinColor = it }
             props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
@@ -1507,8 +1542,11 @@ object AppConfig {
             props.getProperty("route.avoid.corridor.reachM")?.toDoubleOrNull()?.let {
                 routeAvoidCorridorReachM = it.coerceIn(100.0, 20_000.0)
             }
-            props.getProperty("route.avoid.zone300.marginM")?.toDoubleOrNull()?.let {
-                routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            props.getProperty("route.avoid.zone300.outsideMarginM")?.toDoubleOrNull()?.let {
+                routeAvoidZone300OutsideMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.zone300.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
+                routeAvoidZone300OutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
             }
             // Parsed and left unread until Change 4's fine band reads it.
             props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
@@ -1535,17 +1573,18 @@ object AppConfig {
             props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidSpeedZoneEnabled = it
             }
-            props.getProperty("route.avoid.speedZone.marginM")?.toDoubleOrNull()?.let {
-                routeAvoidSpeedZoneMarginM = it.coerceIn(0.0, 500.0)
+            props.getProperty("route.avoid.speedZone.outsideMarginM")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneOutsideMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.speedZone.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneOutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
             }
             props.getProperty("route.speed.accelMps2")?.toDoubleOrNull()?.let {
                 routeSpeedAccelMps2 = it.coerceIn(0.1, 2.0)
             }
             props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
-                routeAvoidSpeedZoneTimeBudgetPct = it.coerceIn(0, 100)
-            }
-            props.getProperty("route.avoid.speedZone.collarFraction")?.toDoubleOrNull()?.let {
-                routeAvoidSpeedZoneCollarFraction = it.coerceIn(0.0, 1.0)
+                routeAvoidSpeedZoneTimeBudgetPct =
+                    it.coerceIn(ROUTE_SLOW_WATER_BUDGET_PCT_MIN, ROUTE_SLOW_WATER_BUDGET_PCT_MAX)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
