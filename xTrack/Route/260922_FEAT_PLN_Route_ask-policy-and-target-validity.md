@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the master requirement book (the route mode and the route it saves)
 
-**Date:** 2026-09-22 · **Branch:** `feature/route-avoid-workflow` · **Status:** in design — rev 8, the **master requirement book**: every requirement of the route mode and of the **route** a saved line becomes, with the technical details settled (§7) and nothing open; nothing implemented. The saved line was called a **trace** until 2026-09-23, when the pair became **Track** against **Route**; every section below carries the new word. Rev 8 (2026-09-24) rewrote the acquisition onto an **explicit action** with no timer and no automatic refresh — the change [`260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md) specifies.
+**Date:** 2026-09-22 · **Branch:** `feature/route-avoid-workflow` · **Status:** in design — rev 9, the **master requirement book**: every requirement of the route mode and of the **route** a saved line becomes, with the technical details settled (§7) and nothing open; R1–R43 shipped, and §1.3's R44–R74 built on 2026-09-28 by [`260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md`](260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md). The saved line was called a **trace** until 2026-09-23, when the pair became **Track** against **Route**; every section below carries the new word. Rev 8 (2026-09-24) rewrote the acquisition onto an **explicit action** with no timer and no automatic refresh — the change [`260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md) specifies; rev 9 (2026-09-28) moves the mode's two **ends into the drawer**, arms the acquisition on that standing pair and gives the engine's candidates their own rows, superseding **R14** and **R16**.
 **Note on the name:** opened as "the ask policy, the serial pipeline and target validity", now the master book of the whole delivery; the filename lags its content and a rename is the user's to authorise.
 **Corrects:** the rule statements written into [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md)'s three sections and the walk items it carries, where they disagree; the saved-route half likewise corrects the rule statements in [`../Tracks/FEAT_DSC_Tracks.md`](../Tracks/FEAT_DSC_Tracks.md) and the Tracks walk's 2026-09-22 level.
 **The plans reference this file and never restate it:** the trace work's build order is [`../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md) — the route mode's own build order having shipped on 2026-09-22 and been archived — so a plan points back here rather than restating a requirement, and a change to what the delivery does is a change here first.
@@ -27,10 +27,10 @@
 | R11 | **`isReadyToRecompute()` is kept as the seam's promise, not a clock** — nothing calls it while no automatic recompute exists; the app owns when to ask, which is now the user's own press | decided |
 | R12 | **The refresh's switch leaves with the gate** — no `Freeze`/`Resume` and no `Abort`, no route-owned control surviving the clock that gave it its subject | decided |
 | R13 | **An acquisition that cannot answer changes nothing** — the standing line stays the front line, **nothing is staled**, and the panel's own sentence says no route answers (R6); the failure reaches the user nowhere else | decided |
-| R14 | **Stale means replaced, and the replaced routes form a ladder**: the display keeps `route.ladder.oldest.nb` + `route.ladder.latest.nb` of them, drawn from **20 % opacity for the oldest to 80 % for the newest**; a line is superseded only by a new acquisition answer, so the ladder grows on the user's own press | decided |
-| R15 | **The acquisition's status names the phase and its stage** — a short state word (`Acquiring…`, `Route active`) in the header's right corner, and the acquisition's **stage** — a closed set of `@StringRes` ids the engine publishes, one per pipeline boundary — on the sentence line under the divider; **the stage rides one emission with the line the engine holds at that instant** (R43) | decided |
+| R14 | ~~**Stale means replaced, and the replaced routes form a ladder**~~ — **superseded 2026-09-28 by R65**: with no reroute the mode holds one answer per arming, so nothing inside it can replace a line; the two keys, the stale painting, its 20–80 % band and this rule left together, the polyline pool a candidate draws into staying | superseded |
+| R15 | **The acquisition's status names the phase and its stage** — a short state word in the header's right corner, and the acquisition's **stage** — a closed set of `@StringRes` ids the engine publishes, one per pipeline boundary — **inside that same word**, `Acquiring (Search)…`, the sentence line under the divider carrying the refusals and the no-route word alone (**amended 2026-09-28**, the user's word: the stage rode that sentence line until then); **the stage rides one emission with the line the engine holds at that instant** (R43) | decided |
 | R43 | **The engine publishes the line as it builds it** — at each pipeline boundary the same emission that carries the stage also carries the line the pipeline holds: null through corridor · grid · search, the raw cell chain at `PULL` and the pulled line at `SNAP`; the line has no consumer but the map, is cleared on every answer and every abort, and is never the plan | decided |
-| R16 | **The acquisition's outcomes**: **Acquire route** · **Confirm** · **Save track** · **Exit** — `Acquire route` never disabled, `Confirm` enabled only while a plan stands, `Save track` disabled once the front route is written, `Exit` phase-aware (R23) | decided |
+| R16 | ~~**The acquisition's outcomes**: **Acquire route** · **Confirm** · **Save track** · **Exit**~~ — **superseded 2026-09-28 by R50, R55 and R57**: arming is the trigger so no placement press exists, `Confirm` becomes `Select route`, `Acquire route` and `Exit` leave the grid, and the three that remain are **Save to track · Select route · Cancel** | superseded |
 | R17 | **The following panel's actions**: `Save track` · `Reroute` · `New route` · `Exit` — the save takes the accent and is disabled once the front route is written; the other three are outlined | decided |
 | R18 | **`Confirm` means following** — the toggle stays on, the line stays drawn, and the camera returns **in the same frame** to the current fix in GPS mode and to the anchor coordinate in demo mode | decided |
 | R19 | **The toggle's two on-phases differ**: a plain active face while the destination is acquired, and the same face with the **recording toggle's own pulsing dot** while a route is followed — the same 10 dp dot at the same corner inset, pulsing 1 → 0.3 over 800 ms, in the route's own colour | decided |
@@ -63,6 +63,47 @@
 | R41 | **Resume and merge do not apply to a route** — no resume action on its row, the bulk resume skips it, and it is not a candidate for a merge | decided |
 | R42 | **The dead track-colour keys are removed with what nothing read** — the four `tracking.color.*` keys, the three unread `AppSettings` fields, their `BuildConfig` fields, their prefs keys and the stored preferences themselves; the route pair is read by a `propColor` helper, and a value it cannot read falls back to its sibling's default while the app **shows an error at start** | decided |
 
+### 1.3 The drawer's pair, the candidates and the navigation phase (2026-09-28)
+
+**R44–R74**, settled by the user's word on 2026-09-28 and specified by
+[`260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md`](260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md)
+— which carries the same rows as this pass's own record, while this table is their home. They supersede
+**R14** and **R16** above.
+
+| # | Requirement |
+|---|---|
+| R44 | **The route's two ends are chosen in the drawer** — a Route section under Navigation holding a start selector, a destination selector and one action that arms the acquisition on the standing pair; the map supplies only the Marker-position entry, and only before the trigger |
+| R45 | **The start selector offers the current position, the standing marker position and every marker flagged origin** — the current position reading the shipped anchor rule, led `route.anchor.leadSec` in GPS mode and unled in demo |
+| R46 | **Marker position is where the map's own marker stands when the action is pressed** — the boat's own position in demo mode; in GPS mode the dragged map's own centre, falling back to the fix led 10 s where the map still sits on the boat; offered by both selectors |
+| R47 | **One item shows at a time and the list rolls under a vertical drag** — the new shared component whose shape R70 carries |
+| R48 | **The pair persists per navigation mode** — keyed on the mode the drawer already carries, so GPS and demo remember their own |
+| R49 | **The section's action arms the acquisition with the stored pair**, and the route toggle does the same when no route is on |
+| R50 | **Nothing is placed on the map any more** — the acquisition opens computing, so **Acquire route** leaves the grid, and the map is handed back the moment the ends are read (R71) |
+| R51 | **The toggle shows three faces** — off, acquiring, navigating — green with a pulsing red dot while the search runs, that dot being shared with every other toggle (R69) |
+| R52 | **The acquisition paints its progress as the engine publishes it** — R43's shipped overlay, no new path |
+| R53 | **Two candidate lines are computed beside the settled one**, painted as it is at lower opacity — the pair **cumulative**: the zones' price dropped, then that price and the 300 m band's together |
+| R54 | **Next/prev appears as candidates land and loops the set** — the selected line at full strength, the others dimmed |
+| R55 | **The acquisition's controls are Save to track · Select route · Discard route** — the save writing the **selected** line, the one the panel's table describes, the save and the selection sharing **one row** with the discard full width beneath them (**amended 2026-09-28**: `Cancel` became the red `Discard route`, on `route_exit_discard`'s own key) |
+| R56 | **Select route writes nothing and discards the rest** — it shows the selected line as the route, drops the other candidates, and enters navigation |
+| R57 | **Discard route leaves the acquisition and turns the toggle off, asking nothing** — the red face, the act unchanged from the `Cancel` it replaced (rewritten 2026-09-28) |
+| R58 | **The navigation phase closes the panel and shows the route clearly** — the toggle blue with the pulsing red dot, and nothing else route-specific on screen (R73) |
+| R59 | **Leaving navigation raises the one dialog** — Save Route to Track, disabled while the route has its track · Continue route · Discard Route |
+| R60 | **Routing confirms before tracking** — the route's exit answers first, the tracking exit only after it |
+| R61 | **Which passes run, and what keeps their result, is configuration rather than code** — one row in `maro.properties` naming the passes in run order with the prices each drops, beside the conditions that keep their result (§8 of the plan); the presence test is **already in code** (`zones.isNotEmpty()`, `routeAvoidZone300Enabled && world.bandWidthM > 0.0`), so that key makes an existing guard configurable rather than adding one |
+| R62 | **A candidate's row states what it saves** — the absolute time and that time as a share of the settled trip's own clock, as `Route #2 saves 12 min (22 %)` |
+| R63 | **A candidate is discarded unless it saves at least `minSavingPct` of the trip's own clock** — shipped at **15**, set below the budget's own 25 as a first working value, to be tuned from a device reading |
+| R64 | **One key dims the lines drawn beside the plan** — the line a search is still building and the unpicked candidates share `route.dimmed.transparencyPct`, told apart by motion and replacement rather than by paleness |
+| R65 | **The stale ladder and its code are removed** — `route.ladder.oldest.nb` and `route.ladder.latest.nb` with their fields and stored preferences, the stale painting and its 20–80 % band, and the staleness pathway they fed, all leaving with R14. The **polyline pool stays**: `RouteHost` keeps its lines attached once and mutated in place, and that pool is what a candidate line draws into — the removal takes the staleness and its band, never the drawing path |
+| R66 | **A selection that stops resolving falls back to its list's first entry** — Current position for the start and Marker position for the destination, the row naming what it holds and the dead id leaving the store |
+| R67 | **The standing info answers for the selected route** — `RouteSummaryBlock` is kept beside the new section and its rows follow the **selection**, not the settled answer |
+| R68 | **A better alternative is reported as a status above those rows** — where a candidate that saves time stands, one line above the info names it with its own saving, the rows beneath it unmoved. **The drawer's half is withdrawn 2026-09-28** (D5): the trigger shuts the menu and the summary stands in the routing phase alone, so a drawer line naming a saving can no longer be reached — the panel's own candidate rows already say it (R62, R74), and the requirement now speaks for the panel alone |
+| R69 | **One pulsing dot serves every toggle** — a red mark of the UI's own rather than the mode's colour, so the recording toggle and the route toggle's two phases wear the same one; `MapPulseDot` keeps the geometry and reads that single colour, and the refused crosshair keeps `route.target.color`, unrelated to it |
+| R70 | **Each end is a dropdown** — **superseded 2026-09-28 by the user's word, and its roller retired with its component**: the shape this row introduced — a list one visible row tall, stepping on a vertical drag claimed inside its own bounds — never committed reliably in the hand, the marked entry and the committed one disagreeing, and its instrumented trace was cut short by the retirement rather than answered by it. Each end is chosen from a **`DropdownRow`**, the app's own dropdown in the `CustomSortField` shape, **labelled by its role** — `Origin` and `Destination` — with the value on the row's right. What the row settled stands: a list that may grow past two entries is a dropdown's job, `docs/ui-component-guidelines.md` §2.12 owns its spec, and R66's fallback to a list's first entry is unchanged |
+| R71 | **The ends are read at the trigger and the map is handed back** — the pair is taken at the instant the action is pressed, after which pan and zoom are free and change nothing about the search; the camera hold and the demo-speed suspension the aim needed leave with the aim |
+| R72 | **The rows print the engine's own figures** — a candidate's saving and duration are shown as the engine publishes them, the UI recomputing nothing and asserting no basis of its own; the faired-or-un-faired question belongs to the engine's finalization |
+| R73 | **The navigation phase adds no surface** — selecting returns the app to the ordinary dashboard, the map carrying the line, the toggle's face and the exit dialog being the mode's whole presence, and the drawer's summary the only route reading and only when opened. **Neither door opens the drawer on arming** (**amended 2026-09-28**, the user's word: the map's square used to open it, and the acquisition now lands on the panel alone) |
+| R74 | **The acquisition's own surface is the route acquisition dashboard** — the panel in the dashboard slot carries the status, the candidate rows and the three actions, the drawer standing above it for the parameters rather than instead of it |
+
 ## 2. The engine's interface
 
 - **Two entry points, one per end:** `onDestinationPositionChanged(newPosition)` while the destination is being acquired, `onOriginPositionChanged(newPosition)` while a route is followed — and now also on the acquisition's own entry, each acquisition's anchor being told before its first search.
@@ -75,40 +116,39 @@
 
 ## 3. The interaction, state by state
 
-**Acquiring the destination.** The slot carries the comment line, the actions and, once a plan stands, the data table; the aim is the screen centre; the camera is held (R21); the toggle shows its plain active face. Nothing is computed until **Acquire route** is pressed (R2). `Save track` writes the **front line** — the newest answer — and greys once that line has a track (R16).
+**Acquiring the route.** **The ends are the drawer's, read at the trigger, and the mode opens computing** (R44, R49, R50, R71): the slot carries the comment line, the actions and — once a line stands — the data table, the candidate rows and the next/prev pair. Nothing is placed on the map and there is no placement press; the drawer stands above the panel for the parameters (R74); the camera is free and the demo speed is not suspended (R71); the toggle wears its **green** face with the pulsing dot (R51). `Save to track` writes the **selected** line and greys once that line has a track (R55).
 
 | State | The slot's sentence | Actions |
 |---|---|---|
-| Armed, nothing acquired | "Place the destination, then acquire the route" | Acquire route · Exit |
-| Destination refused | "Destination invalid: *[reason]*" + the red crosshair | Acquire route · Exit |
-| Acquiring | the **stage** (corridor · grid · search · pull · snap) | Acquire route · Exit |
-| A plan stands | the four details + the pin checkbox | **Confirm** · Acquire route · Save track · Exit |
-| The front route is written | the four details + the pin checkbox | **Confirm** · Acquire route · Save track (disabled) · Exit |
+| Armed, nothing acquired | "The route follows the ends chosen in the route section" | Save to track (disabled) · Select route (disabled) · Discard route |
+| Destination refused | "Destination invalid: *[reason]*" + the red crosshair | Save to track (disabled) · Select route (disabled) · Discard route |
+| Acquiring | nothing of its own — the **stage** rides the header's acquiring word, `Acquiring (Search)…` (R15) | Save to track (disabled) · Select route (disabled) · Discard route |
+| A line stands | the four details + the pin checkbox + the candidate rows | Save to track · **Select route** · Discard route |
+| A line stands and is written | the four details + the pin checkbox + the candidate rows | Save to track (disabled) · **Select route** · Discard route |
 
-**Following.** Entered by `Confirm`; left by Exit or the toggle, **each asking first** (R23). Its panel **is** the dashboard slot's content, so the epic's "no separate route panel exists" is superseded there. The toggle carries the pulsing dot (R19); the camera follows the boat (R18).
+**Navigating.** Entered by `Select route`; left by the toggle or the back key, **each asking first** (R59, R60). **It adds no surface at all** (R58, R73): the ordinary dashboard returns, the map carries the line, and the toggle's blue face with the one exit dialog is the mode's whole presence. The camera follows the boat (R18).
 
-| State | The slot shows | Actions |
+| State | What is on screen | Actions |
 |---|---|---|
-| Route active | Route active · the four details · the pin | Save track · Reroute · New route · Exit |
-| The front route is written | Route active · the four details · the pin | Save track (disabled) · Reroute · New route · Exit |
+| Route active | the ordinary dashboard · the line · the blue toggle | the exit dialog's three, raised by the toggle or the back key |
+| The route is written | the same | the dialog's save disabled (R59) |
 
 - **No automatic refresh remains:** nothing re-asks while a route is followed (R10, R12), so the trip figure's own age is the only reading that says the line is old.
-- **The acquisition is re-enterable:** `Reroute` returns to it and fires one acquisition to the same destination from the fresh anchor (R3); `New route` is the same move with the destination cleared and **nothing computed** until `Acquire route` is pressed; both keep the session set, and `Exit` inside the acquisition moves back to the route that was standing.
-- **Replacement is the only thing that stales a route** (R14): when a new answer is accepted, the line it replaces joins the ladder.
-- **The trip figure describes the front route** — the newest accepted line.
+- **The mode holds one answer per arming** (R65): with no reroute the two moves R17 named left with the panel the brief closes, so nothing inside a mode can replace a line and the acquisition is entered from Idle alone.
+- **The trip figure describes the followed route** — the line the selection took.
 
 ## 4. What the map shows
 
-- **The front route** at full opacity: one polyline and one destination pin, in the track band above the tracks and below the markers.
-- **The stale ladder** (R14): the replaced routes stay drawn, oldest at **20 %** and newest at **80 %**, the display keeping `route.ladder.oldest.nb` + `route.ladder.latest.nb` of them.
-- **One pin serves the front route**; a ladder line keeps no pin of its own.
-- **A refused point shows a bold red crosshair** on the aim ring, for both ends (R6, R27).
-- **The pulsing dot** on the toggle reuses the recording toggle's own treatment (R19) — and because that dot is `TrackStatusIcon`'s today, **the dot becomes one home** shared by the two toggles rather than two copies of four values.
-- **A saved route is a route** (R29): drawn as its own role of the track renderer, with its own pair, ladder, stroke and count (R32–R36), never with the recorded tracks' pinned ladders (R34).
+- **The selected line at full strength**: one polyline and one destination pin, in the track band above the tracks and below the markers.
+- **The candidates beside it** (R53, R54, R64): every line the engine offered that was not picked, drawn at the one shared dimming key `route.dimmed.transparencyPct` — told apart by motion and replacement rather than by paleness; stepping the selection moves the emphasis, never the drawing.
+- **One pin serves the selected line**, standing at its own resolved destination.
+- **A refused point still shows a bold red crosshair** on the aim ring, for both ends (R6, R27), with the `route.target.color` the shared dot deliberately does not use (R69).
+- **The pulsing dot** every toggle wears has **one home**, [`MapPulseDot`](../../app/src/main/java/ykws/android/maro/ui/map/MapPulseDot.kt) — a red mark of the UI's own, `ui.map.pulse.dot`, read by the recording square and by the route square's two on-phases alike (R69).
+- **A saved route is a route** (R29): drawn as its own role of the track renderer, with its own pair, transparency, stroke and count (R32–R36), never with the recorded tracks' pinned ladders (R34).
 
 ## 5. Saving, naming and the session's set
 
-- **The set is the ladder** (R25): every route the session produced, the front one and its stale predecessors alike, so the drawing and the save read one collection rather than two that can drift.
+- **The session holds one route per arming** (R25, R65): with no reroute a mode produces one answer, so the drawing and the save read one collection rather than two that can drift, and a selection that takes a candidate writes that line (R56).
 - **A save writes the front route**, under the route's own name `Route <generated-and-finalised instant>` (R40); the `· n/N` suffix belonged to the withdrawn all-scope option (R23) and goes with it, so the naming has **one home and one shape**.
 - **Nothing is written twice**: a route with a track is renamed (unconditionally, a track the user renamed by hand included), the route-to-track link living in the mode's session and read through one predicate.
 - **The link is the session's** — a map in the mode's own state from route to the track it wrote, dying with the mode; the track's own schema is untouched, `TrackFromCourse`'s KDoc having deliberately refused such a field.
@@ -131,16 +171,19 @@
 - **The anchor's lead** (R3): `route.anchor.leadSec=10`, bounded 0–60 — 0 is the plain live fix and a device that answers no course or speed reads as 0. The lead is a **horizon, not a latency budget**: it does not absorb the acquisition's own compute time, and it is read **once, on the acquisition's own entry edge, by one pure helper**, so no frame can move the anchor.
 - **The lead's pace is the boat's own speed over ground**, not the set free-water pace: the quantity is where the boat *will be*, not where it might sail.
 - **The removed keys** (R2, R10, R12): `route.ask.minTargetMoveM`, `route.ask.settleMs`, `route.refresh.intervalSec` and `route.refresh.offRouteM` leave with their accessors, bounds and KDocs — a key whose reader is gone is dead configuration, not a spare lever.
-- **The ladder's caps** (R14): `route.ladder.oldest.nb=1` and `route.ladder.latest.nb=3`, so at most four stale lines stand beside the front one.
+- ~~**The ladder's caps**~~ — **removed 2026-09-28** (R65): `route.ladder.oldest.nb`, `route.ladder.latest.nb`, the stale painting and its 20–80 % band left with R14, and the **polyline pool stayed**, being what a candidate line draws into.
+- **The candidates' own keys** (R61, R63, R64): `route.avoid.candidate.passes`, `route.avoid.candidate.minSavingPct` and `route.avoid.candidate.skipAbsent` for the passes and their floor, and one renamed `route.dimmed.transparencyPct` for every line drawn beside the plan — the line a search is still building and the unpicked candidates alike, which is why the name is not the progress one.
 - **The crosshair's drawing values** (R6, R27): `route.target.color=#FFD32F2F` — bold red, spelled `#AARRGGBB` as the line's own key is — with `route.target.widthDp=3` and `route.target.pulseMs=800`, the pulse taking the toggle dot's own 1 → 0.3 alpha shape.
 - **The worker** (R4): one `Job` in `RouteViewModel`; an aim landing while it runs **cancels** it and starts the new ask rather than queueing; the pending slot keeps the newest aim alone; the standing plan is deliberately **not** cleared on abort.
 - **The validity question's shape** (R6, R7): one `suspend` question for a point, answering `null` for a usable point or a `@StringRes` id from a closed set — shaped like `RouteUnavailableReason`, so no engine holds user-facing text.
-- **The couplings' wiring** (R18, R20, R21): the acquisition joins the hold [`PanResumeTimer`](../../app/src/main/java/ykws/android/maro/ui/map/PanResumeTimer.kt:55) already keeps for the wizard and the cards; the demo suspension becomes **phase-keyed** rather than toggle-keyed; and both are released at confirmation in the same frame, the centre returning to the current fix in GPS mode and to the anchor coordinate in demo mode.
+- ~~**The couplings' wiring**~~ (R18, R20, R21) — **the couplings left 2026-09-28** (R71): the camera hold and the demo-mode pan-speed suspension existed to stop an *aiming* pan from recentring and from moving the boat, and with the ends read at the trigger neither has a subject left, so [`PanResumeTimer`](../../app/src/main/java/ykws/android/maro/ui/map/PanResumeTimer.kt) lost its route term and `NavigationViewModel` lost the demo suspension. R18 stands: the camera returns to the current fix in GPS mode and to the anchor coordinate in demo mode when `Select route` is pressed.
 - **The drawing path**: the map objects are attached **once** and mutated in place — the polyline pool and the pin created at the host's own composition, their points, colour and transparency updated per answer — which is the shape the contour polylines already ship.
 - **The route's own values** (R32, R33, R35, R36): `tracking.color.routeFrom` / `routeTo`, `tracking.transparency.routeFrom` / `routeTo`, `tracking.route.render.nb=5` (bounded 0–20 like its sibling), `track.width.route`, and the gates `tracking.route.allowSpeedColor=false` / `tracking.route.allowSpeedArrows=true`.
 - **The `propColor` helper** (R42): it parses the app's live colour format where the family's `propInt` cannot carry an ARGB value; a value it cannot read falls back to its sibling's literal and the app **shows an error at start**, a silent fallback being the trap the finding is about.
 
 ## 8. What this contradicts in the corpus today
+
+**Added 2026-09-28 (R44–R74):** the drawer's own route group had left in favour of a read-only summary, and §1.3 puts the mode's **parameters** back into it — a Route section under Navigation, with the summary kept beside it (R44, R67). The aim ring and its `route.target.*` values stay, being the refused end's own surface (R6, R69), while the camera hold and the demo suspension that served the aim leave (R71). The epic's `## Sections` text, its `## Docs` list and its `## Implemented` pointer are corrected with this pass, and `docs/ui-drawer-guidelines.md` gains the section's entry.
 
 - The epic said **no route panel exists** while a route is confirmed; §3 replaces that — the following phase's details and actions are the dashboard slot's own content, so nothing floats over the map.
 - The epic says **only the toggle ends a route**; R17's Exit and R23's confirmation widen it.

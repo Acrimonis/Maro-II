@@ -1,6 +1,5 @@
 package ykws.android.maro.ui.map
 
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +12,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -46,29 +44,20 @@ import ykws.android.maro.spatial.avoid.AvoidWorld
  * [`RouteEngine`] that knows no bake, no mesh and no chain is handed to a real [`RouteViewModel`],
  * and every reading below is taken from what the *feature* made of its answer.
  *
- * Three properties of the **session** shape are what it mostly exists for, because they are the ones
- * this delivery introduced: an engine told one end **holds the other**, a new ask **aborts the one in
- * flight and starts** rather than queueing, and the anchor is **judged on every entry into the
- * acquisition** — Reroute's own entry included — rather than once per session.
+ * Two properties of the **session** shape are what it mostly exists for: an engine told one end
+ * **holds the other**, so the feature never re-states a destination; and the anchor is **judged as the
+ * acquisition opens** (R7), rather than assumed. Since 2026-09-28 the **arming is the trigger** (R49,
+ * R50), so every acquisition here is opened by `arm` on the drawer's standing pair and the answer lands
+ * without a second press — the retry for an unprepared engine rides on that same arming.
  *
- * Every acquisition here is opened with a **plain live fix** (`fix(start)`), no course and no speed:
- * the lead's own arithmetic is [`RoutePlanTest`]'s, and what this file reads is the feature's
- * behaviour behind it.
+ * Every acquisition here is opened with a **plain pair of ends**, no lead and no fallback: the lead's own
+ * arithmetic is [`RoutePlanTest`]'s, and what this file reads is the feature's behaviour behind it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RouteEngineSeamTest {
 
     private val start = RoutePoint(43.5000, 7.0000)
     private val aim = RoutePoint(43.5200, 7.0100)
-
-    /** A second position, for the reroute: the boat has moved while a route was followed. */
-    private val boatLater = RoutePoint(43.5050, 7.0030)
-
-    /**
-     * A third position, for the abort: the abort is read on **which** aims a search was asked for, so
-     * the superseded one and the newest one have to be two different places.
-     */
-    private val aimLater = RoutePoint(43.5300, 7.0200)
 
     /**
      * `viewModelScope` is the main dispatcher, and a JVM test has none: the eager test dispatcher
@@ -84,9 +73,6 @@ class RouteEngineSeamTest {
         Dispatchers.resetMain()
     }
 
-    /** The anchor's own reading with no lead: the plain live fix, which is the fallback's own shape. */
-    private fun fix(point: RoutePoint) = RouteFix(point, courseDeg = null, speedKn = null)
-
     /** The distance the test derives for itself — never read back from the object under assertion. */
     private fun distanceM(from: RoutePoint, to: RoutePoint): Double = SpatialOperations.haversine(
         LatLng(from.latitude, from.longitude),
@@ -98,10 +84,20 @@ class RouteEngineSeamTest {
         distanceM / Units.knotsToMps(paceKn)
 
     /**
+     * **Arms the acquisition on two plain ends** — the one door the feature has since 2026-09-28
+     * (R49, R50): no aim is placed, the pair is read here, and the answer lands computing.
+     */
+    private suspend fun armOn(
+        viewModel: RouteViewModel,
+        from: RoutePoint,
+        to: RoutePoint
+    ) = viewModel.arm(RouteEnds(start = from, fallbackStart = null, destination = to))
+
+    /**
      * Waits for the acquisition's plan, for the engines that answer off the main dispatcher.
      *
      * The shipped avoid engine runs its corridor on `Dispatchers.Default`, so its answer arrives after
-     * the press has returned; a synchronous read of the state would race it. The wait is bounded and
+     * the arming has returned; a synchronous read of the state would race it. The wait is bounded and
      * then gives up, so a missing plan is still the test's own failure rather than a hang.
      */
     private fun awaitPlan(viewModel: RouteViewModel): RoutePlan? {
@@ -147,27 +143,26 @@ class RouteEngineSeamTest {
     }
 
     /**
-     * **An acquisition from a foreign engine reaches the plan and the trip figure**, and it reaches
-     * them from the destination the ask gave — the engine holds the anchor the feature told it as the
-     * acquisition opened, so the feature never hands a start to the destination's entry point.
+     * **An arming from a foreign engine reaches the plan and the trip figure**, and it reaches them from
+     * the pair the drawer stood on — the engine holds the anchor the feature told it as the acquisition
+     * opened, so the feature never hands a start to the destination's entry point.
      */
     @Test
-    fun anAcquisitionSearchesThroughTheForeignEngineAndItsAnswerReachesThePlanAndTheTripFigure() = runTest {
+    fun theArmingSearchesThroughTheForeignEngineAndItsAnswerReachesThePlanAndTheTripFigure() = runTest {
         val engine = StraightLineEngine()
         val viewModel = RouteViewModel(selectionOf(engine))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
+        armOn(viewModel, start, aim)
 
         val choosing = viewModel.state.value as RouteState.Choosing
         val plan = choosing.plan ?: error("the foreign engine answered, so the phase must hold a plan")
         assertEquals(
-            "the anchor reached the engine with the acquisition's first ask",
+            "the anchor reached the engine as part of the acquisition's own ask",
             listOf(start),
             engine.toldOrigins
         )
         assertEquals(
-            "and the destination's entry point was asked for the aim alone",
+            "and the destination's entry point was asked for the standing end alone",
             listOf(aim),
             engine.askedDestinations
         )
@@ -195,16 +190,15 @@ class RouteEngineSeamTest {
     }
 
     /**
-     * **The confirmation locks the foreign engine's plan, and the save is that plan written out** —
-     * dated by the route's own generation instant, which is what names the track too (R40).
+     * **`Select route` locks the foreign engine's plan, and the save is that plan written out** — dated
+     * by the route's own generation instant, which is what names the track too (R40).
      */
     @Test
-    fun aConfirmedForeignRouteIsTheTrackTheMapSaves() = runTest {
+    fun aSelectedForeignRouteIsTheTrackTheMapSaves() = runTest {
         val viewModel = RouteViewModel(selectionOf(StraightLineEngine()))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
+        armOn(viewModel, start, aim)
+        viewModel.selectRoute()
 
         val following = viewModel.state.value as RouteState.Following
         val plan = following.plan
@@ -246,54 +240,13 @@ class RouteEngineSeamTest {
     }
 
     /**
-     * **`Reroute` asks the origin's own entry point once**, from the fresh anchor to the destination
-     * the engine **holds** — the feature never re-states the destination, which is the whole point of
-     * a session — and the route it replaces stays in the session rather than being dropped (R14, R25).
-     *
-     * The count is the reading: the answer came out of the arming call alone, so the destination's
-     * entry point was never asked a second time, which is what "one acquisition" means here.
+     * **The readiness retry: an arming refused for an unprepared engine restarts itself once the engine
+     * says it is ready.** The engine is not ready on the preparation the view model runs at construction
+     * and ready on the one the refused arming requests, so the same pair only becomes a route through the
+     * retry.
      */
     @Test
-    fun aRerouteAsksTheEnginesOriginEntryPointOnceAndKeepsTheStandingRoute() = runTest {
-        val engine = StraightLineEngine()
-        val viewModel = RouteViewModel(selectionOf(engine))
-
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        val locked = (viewModel.state.value as RouteState.Following).plan
-
-        viewModel.reroute(fix(boatLater))
-
-        val choosing = viewModel.state.value as RouteState.Choosing
-        assertEquals(
-            "the acquisition's own anchor is the one told again",
-            listOf(start, boatLater),
-            engine.toldOrigins
-        )
-        assertEquals("and the destination was never re-stated", listOf(aim), engine.askedDestinations)
-        assertEquals(listOf(boatLater, locked.destination), choosing.plan?.points)
-        assertEquals(distanceM(boatLater, locked.destination), choosing.plan?.distanceM ?: 0.0, 1e-6)
-        assertEquals(
-            "the route it replaced is the ladder, oldest first, and the new one is the front",
-            listOf(locked),
-            choosing.ladder
-        )
-        assertEquals(
-            "and the session still holds both, in creation order",
-            listOf(locked, choosing.plan),
-            viewModel.sessionRoutes()
-        )
-    }
-
-    /**
-     * **The readiness retry: an acquisition refused for an unprepared engine restarts itself once the
-     * engine says it is ready.** The engine is not ready on the preparation the view model runs at
-     * construction and ready on the one the refused ask requests, so the same aim only becomes a
-     * route through the retry.
-     */
-    @Test
-    fun anAskRefusedWhileTheEngineIsUnpreparedRestartsItselfOnceTheEngineIsReady() = runTest {
+    fun anArmingRefusedWhileTheEngineIsUnpreparedRestartsItselfOnceTheEngineIsReady() = runTest {
         val engine = StraightLineEngine(
             prepareStates = listOf(RouteEngineState.NotReady, RouteEngineState.Ready)
         )
@@ -304,8 +257,7 @@ class RouteEngineSeamTest {
             RouteEngineState.NotReady,
             viewModel.engineState.value
         )
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
+        armOn(viewModel, start, aim)
 
         assertEquals("the retry asked the engine again", 2, engine.prepareCalls)
         assertEquals("and the ask it restarted was answered once", 1, engine.askedDestinations.size)
@@ -316,161 +268,92 @@ class RouteEngineSeamTest {
 
     /**
      * **A refusal that keeps being refused does not loop.** The retry is one preparation per refused
-     * ask: an engine that never becomes ready is asked about nothing, and the recursion stops because
-     * the preparation returned.
+     * arming: an engine that never becomes ready is asked about nothing, and the recursion stops because
+     * the preparation returned — a **second arming while the mode is already on** is ignored, so the one
+     * acquisition cannot be re-driven either.
      */
     @Test
-    fun anAskRefusedByAnEngineThatNeverBecomesReadyIsNotAskedTwiceForOneAim() = runTest {
+    fun anArmingRefusedByAnEngineThatNeverBecomesReadyIsNotAskedTwice() = runTest {
         val engine = StraightLineEngine(prepareStates = listOf(RouteEngineState.NotReady))
         val viewModel = RouteViewModel(selectionOf(engine))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.acquire(boatLater)
+        armOn(viewModel, start, aim)
+        armOn(viewModel, start, aim)
 
         assertTrue("an unready engine is never asked for a route", engine.askedDestinations.isEmpty())
         assertEquals(
-            "one preparation on construction and one per refused ask, and no recursion behind them",
-            3,
+            "one preparation on construction and one for the refused arming, and no recursion behind them",
+            2,
             engine.prepareCalls
         )
         assertNull("and the phase holds no plan", (viewModel.state.value as RouteState.Choosing).plan)
     }
 
     /**
-     * **A new ask aborts the one in flight and starts** (R4), and the standing plan survives that
-     * abort.
-     *
-     * The engine is gated on the second aim alone, so the first answer has landed a plan and the second
-     * search is genuinely **in flight** while the assertion reads — the one state a synchronous engine
-     * can never show. What the reads pin is exactly the behaviour: the superseded ask never queues (the
-     * engine is asked for the newest aim and never for the one in between), the abort does **not** clear
-     * the line already drawn, and the newest answer is what ends up followed.
-     */
-    @Test
-    fun aNewAskAbortsTheOneInFlightAndLeavesTheStandingPlanDrawn() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        // The **second** aim is the one held, so the first answer has landed a plan by the time the
-        // abort happens — which is the whole point of reading the standing line through an abort.
-        val engine = StraightLineEngine(gateAfter = boatLater, gate = gate)
-        val viewModel = RouteViewModel(selectionOf(engine))
-
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        val firstPlan = (viewModel.state.value as RouteState.Choosing).plan
-
-        viewModel.acquire(boatLater)
-
-        val inFlight = viewModel.state.value as RouteState.Choosing
-        assertEquals(
-            "the second aim's search is genuinely in flight",
-            listOf(aim, boatLater),
-            engine.askedDestinations
-        )
-        assertEquals(
-            "and the abort has not touched the line already drawn",
-            firstPlan,
-            inFlight.plan
-        )
-        assertTrue("while the phase says a search runs", inFlight.searching)
-
-        viewModel.acquire(aimLater)
-
-        assertEquals(
-            "the newest aim cancelled the one in flight and started at once",
-            listOf(aim, boatLater, aimLater),
-            engine.askedDestinations
-        )
-        val landed = viewModel.state.value as RouteState.Choosing
-        assertEquals("the newest aim's answer is the plan", listOf(start, aimLater), landed.plan?.points)
-        assertFalse("and the slot being empty is what ends the searching flag", landed.searching)
-
-        // The abandoned call cannot land afterwards: it was cancelled, so its held answer is dropped.
-        gate.complete(Unit)
-        assertEquals(
-            "the superseded answer never reaches the phase",
-            listOf(start, aimLater),
-            (viewModel.state.value as RouteState.Choosing).plan?.points
-        )
-    }
-
-    /**
-     * **The anchor is judged on every entry into the acquisition** (R7), and the aim as it moves.
+     * **The anchor is judged as the acquisition opens** (R7), and the destination as it is asked for.
      *
      * The engine counts every point it was asked about, so the counts themselves are the reading: one
-     * call for each acquisition's own anchor — the arm's, and Reroute's fresh one — and one per ask.
-     * Reroute's anchor is judged rather than assumed, which is the rule this delivery changed.
+     * call for the acquisition's own anchor and one for the standing destination. Neither is assumed.
      */
     @Test
-    fun theAnchorIsJudgedOnEachEntryAndTheAimAsItMoves() = runTest {
+    fun theAnchorIsJudgedAsTheAcquisitionOpensAndTheDestinationAsItIsAskedFor() = runTest {
         val engine = StraightLineEngine()
         val viewModel = RouteViewModel(selectionOf(engine))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        viewModel.reroute(fix(boatLater))
+        armOn(viewModel, start, aim)
 
         assertEquals(
-            "the arm's own anchor was judged once",
+            "the acquisition's own anchor was judged once",
             1,
             engine.validatedPoints.count { it == start }
         )
         assertEquals(
-            "the aim was judged as it moved, which is the destination's own rule",
+            "and the standing destination once, which is the destination's own rule",
             1,
             engine.validatedPoints.count { it == aim }
-        )
-        assertEquals(
-            "and Reroute's fresh anchor was judged too, rather than assumed",
-            1,
-            engine.validatedPoints.count { it == boatLater }
         )
     }
 
     /**
-     * **A refused aim is the panel's sentence and nothing else** (R6): no route is asked for it, and the
-     * reason rides in the closed set the surface resolves.
+     * **A refused destination is the panel's sentence and nothing else** (R6): no route is asked for it,
+     * and the reason rides in the closed set the surface resolves.
      */
     @Test
-    fun aRefusedAimIsCarriedAsAReasonAndAsksForNoRoute() = runTest {
+    fun aRefusedDestinationIsCarriedAsAReasonAndAsksForNoRoute() = runTest {
         val engine = StraightLineEngine(refuse = aim)
         val viewModel = RouteViewModel(selectionOf(engine))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
+        armOn(viewModel, start, aim)
 
         val choosing = viewModel.state.value as RouteState.Choosing
         assertEquals(RouteRefusalReason.OFF_WATER, choosing.refusal)
-        assertNull("no plan exists for a refused aim, which is what hides the outcomes", choosing.plan)
+        assertNull("no plan exists for a refused destination, which is what hides the outcomes", choosing.plan)
         assertTrue("and the engine was asked for no route at all", engine.askedDestinations.isEmpty())
     }
 
     /**
-     * **A refused aim's panel state stands alone** (R6).
-     *
-     * The refusal is read after an aim that *did* resolve, so the phase is holding a plan when the
-     * refused aim arrives. That plan must go: the panel shows the sentence from a state with no plan,
-     * which is the only thing that hides the four outcomes — otherwise the refused sentence would sit
-     * above a superseded route's details and its own action grid.
+     * **No ask happens without a standing pair** (R49, R71): the ends are what the drawer holds, so an
+     * arm with no start — the position before the first fix — is the mode being on and nothing being
+     * asked, and an arm with no destination is the same.
      */
     @Test
-    fun aRefusedAimDropsTheStandingPlanSoTheOutcomesAreHidden() = runTest {
-        val engine = StraightLineEngine(refuse = boatLater)
+    fun anArmingWithoutAStandingPairAsksForNoRoute() = runTest {
+        val engine = StraightLineEngine()
         val viewModel = RouteViewModel(selectionOf(engine))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        assertNotNull(
-            "the first aim resolved a plan, which is what the refusal must not leave standing",
+        viewModel.arm(RouteEnds(start = null, fallbackStart = null, destination = aim))
+        assertTrue("no start, no ask", engine.askedDestinations.isEmpty())
+        assertTrue("and no anchor is told either", engine.toldOrigins.isEmpty())
+        assertNull(
+            "while the phase is armed and holds no line",
             (viewModel.state.value as RouteState.Choosing).plan
         )
 
-        viewModel.acquire(boatLater)
+        viewModel.end()
 
-        val refused = viewModel.state.value as RouteState.Choosing
-        assertEquals(RouteRefusalReason.OFF_WATER, refused.refusal)
-        assertNull("the refused aim's state holds no plan, so the outcomes are hidden", refused.plan)
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = null))
+        assertTrue("no destination, no ask", engine.askedDestinations.isEmpty())
+        assertTrue("and still no anchor told", engine.toldOrigins.isEmpty())
     }
 
     /**
@@ -489,59 +372,16 @@ class RouteEngineSeamTest {
 
         assertTrue("while idle the gate reads the selected engine", viewModel.engineState.value.ready)
 
-        viewModel.beginDraft(fix(start))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = null))
         selection.value = second
         assertTrue(
             "the session engine is the one the mode was armed with, not the new selection",
             viewModel.engineState.value.ready
         )
-        viewModel.acquire(aim)
-        assertEquals(
-            "and the armed engine drew the line",
-            listOf(start, aim),
-            (viewModel.state.value as RouteState.Choosing).plan?.points
-        )
-
         viewModel.end()
         assertFalse(
             "released on Idle, the gate follows the newly selected engine again",
             viewModel.engineState.value.ready
-        )
-    }
-
-    /**
-     * **A selection changed while a route runs leaves the standing line untouched** (D5).
-     *
-     * The reroute goes through the engine the route was armed with — the newly selected one is never
-     * told a thing — so the line the armed engine drew keeps its own pace and the ladder it grew.
-     */
-    @Test
-    fun aSelectionChangedWhileARouteRunsLeavesTheStandingLineUntouched() = runTest {
-        val first = StraightLineEngine(paceKn = 9.0)
-        val second = StraightLineEngine(paceKn = 18.0)
-        val selection = MutableStateFlow<RouteEngine>(first)
-        val viewModel = RouteViewModel(selection)
-
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        val locked = (viewModel.state.value as RouteState.Following).plan
-
-        selection.value = second
-        viewModel.reroute(fix(boatLater))
-
-        val choosing = viewModel.state.value as RouteState.Choosing
-        assertEquals("the standing destination holds", locked.destination, choosing.plan?.destination)
-        assertEquals(
-            "the reroute went through the armed engine, at the armed engine's pace",
-            secondsFor(distanceM(boatLater, locked.destination), 9.0),
-            choosing.plan?.durationSec ?: 0.0,
-            1e-6
-        )
-        assertEquals(
-            "the newly selected engine was never told a thing",
-            emptyList<RoutePoint>(),
-            second.toldOrigins
         )
     }
 
@@ -555,8 +395,7 @@ class RouteEngineSeamTest {
         )
         for (engine in listOf(RouteDummyEngine(), avoid)) {
             val viewModel = RouteViewModel(selectionOf(engine))
-            viewModel.beginDraft(fix(start))
-            viewModel.acquire(aim)
+            viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
             val plan = awaitPlan(viewModel)
                 ?: error("a shipped engine answers a route, so the phase must hold a plan")
             assertEquals("the shipped engine drew its straight line", listOf(start, aim), plan.points)
@@ -565,7 +404,7 @@ class RouteEngineSeamTest {
     }
 }
 
-/** The selection form the view model now takes: one engine behind a [StateFlow]. */
+/** The selection form the view model takes: one engine behind a [StateFlow]. */
 private fun selectionOf(engine: RouteEngine): StateFlow<RouteEngine> = MutableStateFlow(engine)
 
 /** An empty, ready world — water everywhere and no land, so the avoid engine draws its straight line. */
@@ -592,17 +431,13 @@ private class EmptyAvoidWorld : AvoidWorld {
  *
  * It also answers readiness by script, because the readiness retry is a step of the seam and cannot be
  * read from an engine that is always ready: [prepareStates] names what each successive `prepare`
- * reaches, the last one repeating. [gateAfter] holds one ask **in flight** — the one state a
- * synchronous answer can never show — and [refuse] names the one point it judges unusable.
+ * reaches, the last one repeating. [refuse] names the one point it judges unusable.
  *
  * Its stage is null throughout: it crosses no boundary of a pipeline it does not have, which is the
  * degenerate case the channel has to allow.
  */
 class StraightLineEngine(
     private val prepareStates: List<RouteEngineState> = listOf(RouteEngineState.Ready),
-    /** Consulted inside the destination entry point, before the answer, so a search can be held. */
-    private val gateAfter: RoutePoint? = null,
-    private val gate: CompletableDeferred<Unit>? = null,
     /** The one point this engine judges unusable, or null for an engine that judges nothing. */
     private val refuse: RoutePoint? = null,
     /** The pace this instance prices at, so two instances can be told apart by their answer. */
@@ -615,7 +450,7 @@ class StraightLineEngine(
 
     /** Always null — see the class note on the degenerate case the channel allows. */
     private val _progress = MutableStateFlow<RouteProgress?>(null)
- 
+
     override val progress: StateFlow<RouteProgress?> = _progress.asStateFlow()
 
     /** A foreign engine offers nothing, so the empty set is the whole stream. */
@@ -659,7 +494,6 @@ class StraightLineEngine(
 
     override suspend fun onDestinationPositionChanged(newPosition: RoutePoint): RouteResult? {
         askedDestinations += newPosition
-        if (newPosition == gateAfter) gate?.await()
         heldDestination = newPosition
         val origin = heldOrigin ?: return null
         return line(origin, newPosition)

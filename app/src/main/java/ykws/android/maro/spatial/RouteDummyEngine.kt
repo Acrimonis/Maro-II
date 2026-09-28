@@ -66,7 +66,7 @@ class RouteDummyEngine : RouteEngine {
 
     /**
      * The dummy computes nothing, so the empty set is the whole stream — the degenerate case the
-     * carousel's row later reads as "no offers" without a computation behind it.
+     * acquisition's candidate rows read as "no alternatives" without a computation behind it.
      */
     override val offers: StateFlow<List<RouteOffer>> = MutableStateFlow<List<RouteOffer>>(emptyList()).asStateFlow()
 

@@ -9,28 +9,22 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import java.util.Locale
-import kotlin.math.roundToInt
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import ykws.android.maro.ui.components.OptionRow
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The route's own rules — the anchor's lead, the ladder and the trip figure
+// The route's own rules — the anchor's lead, the candidate set and the trip figure
 //
 // This file owns the route's own arithmetic and the sentences it prints: the acquisition anchor's
-// lead, the ladder's caps and their band, the ends' own print, and the trip figure the dashboard's
-// distance cell reads while a route is followed. The map objects — the lines, the pin and the aim
-// ring — live in RouteHost.kt, which is the one file that touches osmdroid for this feature.
+// lead, the candidate set the selection walks, the ends' own print, and the trip figure the
+// dashboard's distance cell reads while a route is followed. The map objects — the lines, the pin and
+// the aim ring — live in RouteHost.kt, which is the one file that touches osmdroid for this feature.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Opacity of the **oldest** line of the stale ladder (R14). */
-internal const val ROUTE_LADDER_ALPHA_OLDEST = 0.20f
-
-/** Opacity of the **newest** line of the stale ladder — the one just replaced (R14). */
-internal const val ROUTE_LADDER_ALPHA_NEWEST = 0.80f
 
 /**
  * The lead's own reading: where the boat is, and what it is doing, as one value.
@@ -73,48 +67,37 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
 }
 
 /**
- * **How many of the replaced routes the display keeps** (R14) — the configured oldest plus newest,
- * and nothing else.
+ * **The lines the acquisition draws, and the selection walks** (R53, R54) — the settled answer first,
+ * then the engine's offers, each as a plan of its own in the order its pass ran.
  *
- * [stale] is the session's own stale set, oldest first. It is capped for **drawing** only: the session
- * itself is not trimmed, so the all-scope save still writes every route it produced. The middle is what
- * goes — the two ends are the ones the eye reads, the line just replaced and the one that opened the
- * session.
+ * Index 0 is the **settled** line, so the set has one entry the moment an answer lands and grows only
+ * as the offers arrive: that is what makes the candidate row appear only as the engine's background job
+ * publishes, and what makes "save what you see" read the same list the map paints.
+ *
+ * The offers become plans through [`RoutePlan.of`], which takes the settled plan's own anchor and
+ * instant — a candidate is another line between the same two ends, and it is dated and named with the
+ * route it belongs to. Its distance, clock and leg times are the engine's own figures, recomputed
+ * nowhere (R72).
  */
-internal fun routeLadderForDrawing(
-    stale: List<RoutePlan>,
-    oldestNb: Int = AppConfig.routeLadderOldestNb,
-    latestNb: Int = AppConfig.routeLadderLatestNb
-): List<RoutePlan> {
-    if (stale.size <= oldestNb + latestNb) return stale
-    return stale.take(oldestNb) + stale.takeLast(latestNb)
+internal fun routeCandidateLines(settled: RoutePlan?, offers: List<RouteOffer>): List<RoutePlan> {
+    if (settled == null) return emptyList()
+    return buildList {
+        add(settled)
+        offers.forEach { add(RoutePlan.of(settled.start, it, settled.computedAtMs)) }
+    }
 }
 
 /**
- * **The ladder's opacity band** (R14): [ROUTE_LADDER_ALPHA_OLDEST] at the oldest entry and
- * [ROUTE_LADDER_ALPHA_NEWEST] at the newest, spread evenly between them.
+ * **Next/prev over a set of [count] entries** (R54): [index] stepped by [delta] and **looped**, so a
+ * press past either end comes back on the other.
  *
- * The band is spread over the **stale set alone** — the front route is drawn at its own full opacity
- * and is never an input here, so a new answer never dims the line being followed. It is an **absolute**
- * band, too: 20 % to 80 % *of full opacity*, never a fraction of the front line's own transparency, so
- * the book's two figures are what reaches the map whatever the front line happens to carry.
+ * One home for the wrap, so the row the panel prints at full strength and the line the map paints are
+ * read from the same arithmetic. A set of one, or none, has nowhere to step and the index stays.
  */
-internal fun routeLadderAlpha(index: Int, total: Int): Float {
-    if (total <= 1) return ROUTE_LADDER_ALPHA_NEWEST
-    val step = (ROUTE_LADDER_ALPHA_NEWEST - ROUTE_LADDER_ALPHA_OLDEST) / (total - 1)
-    return ROUTE_LADDER_ALPHA_OLDEST + step * index
+internal fun routeStepIndex(index: Int, delta: Int, count: Int): Int {
+    if (count <= 1 || delta == 0) return index.coerceIn(0, (count - 1).coerceAtLeast(0))
+    return ((index + delta) % count + count) % count
 }
-
-/**
- * **The ladder's drawn opacity** (R14): the band's fraction as the ARGB alpha a line is painted with —
- * **20 % for the oldest, 80 % for the newest**, the book's own figures.
- *
- * It is the one conversion from the band to a paint value, so a drawing cannot quietly multiply the
- * band by another line's alpha and land at 43/255 and 172/255 — a fraction of a fraction that is
- * neither of the book's two numbers.
- */
-internal fun routeLadderDrawAlpha(index: Int, total: Int): Int =
-    (routeLadderAlpha(index, total) * 255f).roundToInt().coerceIn(0, 255)
 
 /**
  * The trip figure: what is left of a followed route, in the two units the dashboard cell shows.
@@ -189,6 +172,20 @@ internal fun routeEtaText(etaSeconds: Double): String {
     return stringResource(R.string.route_eta_value_fmt, whole / 60, whole % 60)
 }
 
+/**
+ * **A span as the panel prints it** — whole minutes above a minute, whole seconds below it.
+ *
+ * The two fragments it reads are the age line's own (`route_age_sec` · `route_age_min`), because the
+ * unit words live once per locale: a candidate's saving and a route's age are the same span, and a
+ * second pair of keys would be one value written twice.
+ */
+@Composable
+internal fun routeSpanText(seconds: Double): String {
+    val whole = seconds.toInt().coerceAtLeast(0)
+    return if (whole < 60) stringResource(R.string.route_age_sec, whole)
+    else stringResource(R.string.route_age_min, whole / 60)
+}
+
 /** Route age as a short read-out: seconds under a minute, whole minutes above it. */
 @Composable
 internal fun routeAgeText(ageSeconds: Long): String {
@@ -203,15 +200,19 @@ internal fun routeAgeText(ageSeconds: Long): String {
 /**
  * The route toggle: the map control stack's own square, beside the sleuth's.
  *
- * It is the mode's **single control**, and it carries both edges: on arms the mode, off ends the route
- * and cancels an unconfirmed aim — and, once a route is *followed*, off asks first, through the same
- * dialog the panel's own Exit raises (R23). Like the inspect square it stays tappable while it is on:
- * a gate must never trap the user in a mode they cannot switch off.
+ * It is the mode's **single control**, and it carries both edges: on arms the mode on the drawer's
+ * standing pair, off ends the route — and, once a route is *followed*, off asks first, through the one
+ * exit dialog (R59). Like the inspect square it stays tappable while it is on: a gate must never trap
+ * the user in a mode they cannot switch off.
  *
- * **Its two on-phases look different** (R19): a plain active face while the destination is being
- * chosen, and the same face carrying the **recording toggle's own pulsing dot** while a route is
- * followed — the same disc, the same corner inset, the same 1 → 0.3 beat, in the route's own colour,
- * through the one shared home ([`MapPulseDot`]).
+ * **It shows three faces** (R51): off; **acquiring**, the route's own green
+ * ([`AppConfig.routeLineColor`]) with the pulsing dot; and **navigating**, the palette's blue
+ * ([`AppConfig.routeNavigateColor`]) with the same dot (R58).
+ *
+ * **One pulsing dot serves every toggle** (R69): the mark is a UI token of its own —
+ * `ui.map.pulse.dot`, read by [`MapPulseDot`] rather than handed in — so the recording square and this
+ * one wear literally the same colour. R51 widens **when** it shows too: it used to be drawn only while
+ * a route was followed, and the searching phase joins the following one.
  *
  * **It stays tappable while the engine is not ready too, and that is the point.** Readiness is the
  * mode's real gate, but it is the **engine's** answer and it arrives late, so the tap is the user's own
@@ -223,11 +224,15 @@ internal fun routeAgeText(ageSeconds: Long): String {
 internal fun RouteToggleButton(
     armed: Boolean,
     following: Boolean,
+    searching: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = if (armed) mapSurfaceFaceActive(ComposeColor(AppConfig.routeLineColor))
-    else mapSurfaceFaceInactive()
+    val face = when {
+        !armed -> mapSurfaceFaceInactive()
+        following -> mapSurfaceFaceActive(ComposeColor(AppConfig.routeNavigateColor))
+        else -> mapSurfaceFaceActive(ComposeColor(AppConfig.routeLineColor))
+    }
     val description = stringResource(R.string.cd_route_toggle)
     MapToggleSquare(
         face = face,
@@ -238,12 +243,10 @@ internal fun RouteToggleButton(
         // Hard-coded like the row's other glyphs: a compass, which reads as "where to go".
         Text(text = "\uD83E\uDDED", fontSize = TOP_TOGGLE_ICON_SIZE)
 
-        // The following on-phase is the recording toggle's own treatment, in the route's colour.
-        if (armed && following) {
-            MapPulseDot(
-                color = ComposeColor(AppConfig.routeLineColor),
-                modifier = Modifier.align(Alignment.TopEnd)
-            )
+        // The mark is the shared one: the geometry and the colour both live in MapPulseDot (R69), and
+        // it beats while the search runs as well as while the route is followed (R51).
+        if (armed && (following || searching)) {
+            MapPulseDot(modifier = Modifier.align(Alignment.TopEnd))
         }
     }
 }

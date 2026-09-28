@@ -15,6 +15,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RouteOfferSource
+import ykws.android.maro.data.model.routeCandidateSavingSec
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
@@ -165,7 +166,8 @@ class RouteAvoidEngine(
 
     /**
      * The offers for the settled answer, published when the background job that computes them lands —
-     * empty from the ask until then, and the one place a later carousel reads them.
+     * empty from the ask until then, and the set the acquisition's candidate rows and its next/prev
+     * pair read (R54).
      */
     private val _offers = MutableStateFlow<List<RouteOffer>>(emptyList())
 
@@ -1031,23 +1033,26 @@ class RouteAvoidEngine(
     }
 
     /**
-     * **The offers (§8)** — one candidate per priced source, computed **after** the answer is settled
-     * and on the solve's own cancellable job.
+     * **The offers (§8, R53, R61)** — the passes the file declares, in the order it declares them,
+     * computed **after** the answer is settled and on the solve's own cancellable job.
      *
-     * Each candidate is the same pipeline with that one source's price dropped: the speed zones by
-     * pricing them at λ = 0 over the **same grid** — the limit is stored per cell and the price is the
-     * read, so this costs one search and nothing else — and the 300 m band by re-rasterizing the one
-     * field its price is written into, that price living in the grid's base rather than in a per-cell
-     * read. A candidate is kept **only where its own clock beats the settled line's**: the saving, or
-     * nothing at all, so a line no candidate improves on offers an empty set rather than a lone card.
+     * Each pass is the same pipeline with its own prices dropped: the speed zones by pricing them at
+     * λ = 0 over the **same grid** — the limit is stored per cell and the price is the read, so this
+     * costs one search and nothing else — and the 300 m band by re-rasterizing the one field its price
+     * is written into, that price living in the grid's base rather than in a per-cell read. **The passes
+     * are cumulative** (R53): the second drops the zones' price as well, so it reads λ = 0 on its own
+     * grid and offers the line with no aversion left. A pass whose price is not in force, or whose
+     * source touches nothing in the box while `skipAbsent` holds, is skipped rather than run, and a
+     * candidate is kept **only where its clock beats the settled line's by the configured floor** —
+     * `route.avoid.candidate.minSavingPct` — or nothing at all.
      *
      * **Their passes publish no stage.** The panel's stage line narrates the answer's own build alone,
      * so a candidate's pass leaves the channel untouched — the λ passes and the fine pass are the ones
      * that move it. Nothing is lost: each candidate's pass is logged on the `OFFER` line that reports
      * its answer, its duration, its saving and whether it was kept, so every pass is logged either way.
      *
-     * Their **UI waits** — the carousel's row needs the panel's re-shell — so this ships the numbers
-     * and the lines that row will draw.
+     * Their **UI is the acquisition's own** (R74): the rows and the next/prev pair read the published
+     * set, so this ships the numbers and the lines those rows draw rather than waiting on a re-shell.
      */
     private suspend fun offers(
         world: AvoidWorld,
@@ -1073,39 +1078,52 @@ class RouteAvoidEngine(
     ): List<RouteOffer> {
         val out = ArrayList<RouteOffer>(2)
         var candidates = 0
-        if (zones.isNotEmpty()) {
+        var ran = 0
+        for (candidatePass in AppConfig.routeAvoidCandidatePasses) {
             candidates++
+            val dropsZones = RouteOfferSource.SPEED_ZONES in candidatePass.drops
+            val dropsBand = RouteOfferSource.ZONE300 in candidatePass.drops
+            // A price that is not in force has nothing to drop, so the pass would only re-draw the
+            // settled line — skipped whatever `skipAbsent` says.
+            if (dropsZones && !AppConfig.routeAvoidSpeedZoneEnabled) continue
+            if (dropsBand && !AppConfig.routeAvoidZone300Enabled) continue
+            if (AppConfig.routeAvoidCandidateSkipAbsent) {
+                if (dropsZones && zones.isEmpty()) continue
+                if (dropsBand && world.bandWidthM <= 0.0) continue
+            }
+            // **The band's price lives in the grid's base, the zones' in the per-cell read**: dropping
+            // the band needs a grid of its own, while dropping the zones alone is λ = 0 on the grid the
+            // solve already built — which is why the file is written cheapest first.
+            val passGrid = if (dropsBand) {
+                val bandField = costField(
+                    world, cellM, pace, withZones = false, withBand = false, zones = zones, lambda = lambda
+                )
+                rasterize(
+                    box, cellM, pace, marginM, edges, openCoast, capLatNorth, bandField, priced,
+                    zoneOutsideMarginM = zoneOutsideMarginM
+                ).also {
+                    it.forceFree(start.latitude, start.longitude)
+                    it.forceFree(aim.latitude, aim.longitude)
+                }
+            } else {
+                grid
+            }
+            ran++
             val pass = runPass(
-                world, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
-                0.0, limitAt, zones, sets, publishStage = false,
+                world, passGrid,
+                if (passGrid === grid) startCell else passGrid.cellOf(start.latitude, start.longitude),
+                if (passGrid === grid) aimCell else passGrid.cellOf(aim.latitude, aim.longitude),
+                start, aim, pace, cellM, marginM, zoneOutsideMarginM,
+                // Cumulative: a pass that drops the zones' price prices them at λ = 0.
+                if (dropsZones) 0.0 else lambda,
+                limitAt, zones, sets, publishStage = false,
                 approaches = EndApproaches.NONE, refusals = null
             )
-            val kept = offer(RouteOfferSource.SPEED_ZONES, pass.timed, settledSec)
-            trace { offerLine(RouteOfferSource.SPEED_ZONES, pass.timed, settledSec, kept) }
+            val kept = offer(candidatePass.source, pass.timed, settledSec)
+            trace { offerLine(candidatePass.source, pass.timed, settledSec, kept) }
             kept?.let { out.add(it) }
         }
-        if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
-            candidates++
-            val bandField = costField(
-                world, cellM, pace, withZones = false, withBand = false, zones = zones, lambda = lambda
-            )
-            val bandGrid = rasterize(
-                box, cellM, pace, marginM, edges, openCoast, capLatNorth, bandField, priced,
-                zoneOutsideMarginM = zoneOutsideMarginM
-            )
-            bandGrid.forceFree(start.latitude, start.longitude)
-            bandGrid.forceFree(aim.latitude, aim.longitude)
-            val pass = runPass(
-                world, bandGrid, bandGrid.cellOf(start.latitude, start.longitude),
-                bandGrid.cellOf(aim.latitude, aim.longitude), start, aim, pace, cellM, marginM,
-                zoneOutsideMarginM, lambda, limitAt, zones, sets, publishStage = false,
-                approaches = EndApproaches.NONE, refusals = null
-            )
-            val kept = offer(RouteOfferSource.ZONE300, pass.timed, settledSec)
-            trace { offerLine(RouteOfferSource.ZONE300, pass.timed, settledSec, kept) }
-            kept?.let { out.add(it) }
-        }
-        trace { "OFFERS n=${out.size} candidates=$candidates settled=${fmt(settledSec)}s" }
+        trace { "OFFERS n=${out.size} candidates=$candidates ran=$ran settled=${fmt(settledSec)}s" }
         return out
     }
 
@@ -1128,15 +1146,23 @@ class RouteAvoidEngine(
             "saving=${saving?.let { fmt(it) } ?: "none"}s kept=${kept != null}$reason"
     }
 
-    /** Keeps a candidate line only where it beats [settledSec] — the saving, or nothing. */
+    /**
+     * Keeps a candidate line only where it beats [settledSec] **by the configured floor** (R63) — the
+     * saving, or nothing. The rule itself lives in [`routeCandidateSavingSec`], so the floor the engine
+     * applies and the floor a test reads are one piece of arithmetic; what this function adds is the
+     * answer a saved candidate carries.
+     */
     private fun offer(
         source: RouteOfferSource,
         timed: TimedLine?,
         settledSec: Double
     ): RouteOffer? {
         if (timed == null) return null
-        val savingSec = settledSec - timed.durationSec
-        if (savingSec <= 0.0) return null
+        val savingSec = routeCandidateSavingSec(
+            settledSec = settledSec,
+            candidateSec = timed.durationSec,
+            minSavingPct = AppConfig.routeAvoidCandidateMinSavingPct
+        ) ?: return null
         return RouteOffer(
             source = source,
             points = timed.points.map { RoutePoint.of(it) },

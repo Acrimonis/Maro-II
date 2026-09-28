@@ -266,10 +266,51 @@ This section keeps only the **drawer-specific** rules layered on top of that sur
 - **Between sections:** `uiSpacingSectionGap` (14dp) — the shared Settings rhythm; the old drawer-internal 8dp inter-card gap is retired (no other drawer stacks legacy §8 cards).
 - **Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`; switch rows inherit Material3 `Switch`'s minimum interactive size.
 - **Divider internal spacing:** §9 list-item cards only — their horizontal dividers use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation). Grouped drawer cards (e.g. the Menu drawer) use the shared `SectionDivider` (§2.6 of the component guidelines).
-- **Action rows:** Label+icon tap targets (e.g., the Menu drawer's Import/Export pair) use `Modifier.heightIn(min = 48.dp)` on the clickable row; the icon itself is `size(24.dp)`. Bare icon-only buttons use `Modifier.size(48.dp)`.
+- **Action rows:** the drawer's one pair, the Menu's Import/Export, wears §5.9 tier 1's `ConfirmActionButton` in the **middle** role — the accent at **50 %** (`ui.action.neutral.background`) under a **2dp `ui.accent` rim at full opacity**, with the primary's white bold label — side by side, weighted halves 8dp apart (2026-09-28, re-faced five times that day and settled here); the bare label + icon tap row and its `ActionRow` retired with the glyphs, the pair being neither the drawer's outcome nor a loss — and both acts are the track list's, which the drawer only opens a door onto. Bare icon-only buttons use `Modifier.size(48.dp)`.
+- **A group reached every time stays open:** the Tracks card's `Display Tracks with:` pair stands as a sub-section under its own caption rather than behind a chevron (the collapse of 2026-09-28 was withdrawn the same day), `Expander` + `NestedCard` remaining the recipe for a group that is genuinely optional — its open/closed state then held by the drawer that owns the row.
 - **Panel background:** `uiBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
 
 ---
+
+## 8a. The Route Sub-section (Menu drawer)
+
+**The Menu drawer's one input group, standing inside the Navigation card** (`MenuDrawerOverlay.RouteEndsSection`,
+R44–R49): a route's two ends, chosen here rather than placed on the map, and one action that arms the
+acquisition on the pair standing in them. Since 2026-09-28 it is a **sub-section of the Navigation card**
+rather than a top-level section with a card of its own (D2) — the drawer's first section is titled
+Navigation — so it is set off by a `SectionDivider` and **headed by one comment naming the group's two
+fields**: `route_comment_ends` reads `Route origin and destination` (`Origine et destination de la route`),
+**which is what identifies them**, since neither row carries a label of its own — each dropdown shows **only
+its value**, on the row's right. **A rule separates nothing inside the group either**: no `SectionDivider`
+between the two rows, so the card's order is GPS mode → the summary (conditional) → one divider → the comment
+→ the two value-only dropdowns → the arm action, **one block**, with **auto-show zones at the card's foot**
+(moved below the Route sub-section on 2026-09-28: the mode's parameters stand before the reveal that serves
+them, and that row's label, preference, callback and gate are untouched by the move). It remains the
+drawer's only
+group that **writes** mode state rather than reading it; the summary stays read-only (R67).
+
+- **Two `DropdownRow`s, one per end** (2026-09-28), **label-less and back to back**: the shared dropdown of
+  [`ui-component-guidelines.md` §2.12](ui-component-guidelines.md#212-dropdown-row--dropdownrow), each row
+  `label = null` so it shows **only its value**, on the right, under the comment that names both fields — the
+  wheel of R70 retired (its drag never committing reliably), **the rule between the rows withdrawn**, and no
+  per-row label duplicating what the heading already says.
+- **Entries are ordered and the first is the fallback** (R66): the fixed words first — `Current
+  position`, `Marker position` — then every marker the end's own flag names, in the marker list's own
+  order. A marker's own name is **data rather than a label**, so it arrives already resolved while the
+  fixed entries are `@StringRes` ids the sub-section resolves; the two shapes meet in one label list here
+  and nowhere else.
+- **One action below them, on the row's right half** (2026-09-28), reading `Route`, on §5.6's own
+  `ConfirmActionButton` in the primary role, so the drawer's forward action and the panel's are the same
+  control. It takes half the row because `ConfirmActionButton` resolves its own `fillMaxWidth()` against
+  the max it is handed, which an `End`-arranged row sets at 0.5 — no change to the shared component. It is
+  the second door onto the arming the map's square performs — the two mean one thing (R49) — and since
+  2026-09-28 the doors **no longer part on the drawer**: the **square** arms from the closed map leaving it
+  closed, this action arms and shuts the one it was pressed in, and the route panel — its status, its
+  sentence, its table and its three actions — is what the user lands on either way (D5, R73).
+- **The sub-section stands always**, whether or not a route runs: the pair is what an arming reads, and
+  hiding it while the mode is off would put a parameter behind a mode. What gates is the **summary** above
+  it, which stands in the **routing phase alone** — while a route is followed — because the acquisition's
+  own status lives on the panel.
 
 ## 9. List Item Card Pattern (Track + Marker)
 

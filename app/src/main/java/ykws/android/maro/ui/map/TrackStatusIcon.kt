@@ -39,11 +39,6 @@ fun TrackStatusIcon(
         )
     }
     val showDot = recorderState.state == TrackRecorderState.ON
-    val dotColor = when {
-        !showDot -> Color.Transparent
-        recorderState.isMoving -> Color(AppConfig.statusTrackingDotRecording)
-        else -> Color(AppConfig.statusTrackingDotIdle)
-    }
 
     MapToggleSquare(face = face, onClick = onClick, modifier = modifier) {
         Text(
@@ -56,10 +51,11 @@ fun TrackStatusIcon(
         // area, so TopEnd here is the square's own corner inset by `ui.map.surface.padding` (6 dp) on
         // both axes — the same 10 dp dot at the same 6 dp inset the pre-surface version drew, and now by
         // construction rather than because the paw's measured box happened to be the padded 32 dp.
-        // The disc's own four values — its size, that inset, the 1 -> 0.3 range and its 800 ms period —
-        // live in one shared home, which the route toggle's following on-phase draws through too (R19).
+        // **The disc's colour is not this square's to choose** (R69): it is the UI's one mark, read by
+        // MapPulseDot, and the geometry beside it — the size, that inset, the 1 -> 0.3 range and the
+        // 800 ms period — lives in that same shared home, which the route toggle draws through too.
         if (showDot) {
-            MapPulseDot(color = dotColor, modifier = Modifier.align(Alignment.TopEnd))
+            MapPulseDot(modifier = Modifier.align(Alignment.TopEnd))
         }
     }
 }

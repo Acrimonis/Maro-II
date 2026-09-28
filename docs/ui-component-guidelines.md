@@ -24,7 +24,17 @@ New setting?
   ├─ Choice list that may grow?   → DropdownRow                    (§2.12)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
+
+New action, not a setting?
+  ├─ The surface's forward outcome (one per surface)? → ConfirmActionButton PRIMARY    (§5.6)
+  ├─ What withholds the work?                         → ConfirmActionButton DANGER     (§5.6)
+  ├─ Neither writes nor loses?                        → ConfirmActionButton SECONDARY  (§5.6)
+  ├─ A bare icon control?                             → IconButton, 40–48 dp           (§5.9, tier 2)
+  └─ A mode's own on/off?                             → MapToggleSquare family          (§5.9, tier 3)
 ```
+
+**The actions branch is §5.9's** ([Actions — the four tiers](#59-actions--the-four-tiers-authority)): the
+full table, and when each tier is used.
 
 **Naming rule.** `<Control>Row` for a row, `<Thing>Group` for a group of rows. No `Settings`
 prefix; name after the **control**, never the widget or the use case.
@@ -260,8 +270,12 @@ For 2–3 exclusive choices (e.g. Language, Arrow density, GPS frequency). One g
 all of them: `SegmentedRow(options, selected, onSelect, captions = null)`.
 
 - **Connected segments** — no gaps between them; only the **outer ends** are rounded (`ui.radius.card`).
-- **Unselected segments are outlined** (1dp `uiDividerColor`); the selected segment is **accent-filled**
-  (`uiAccent`) with `uiTextPrimary` Bold text.
+- **Unselected segments are outlined** (1dp `uiDividerColor`); the selected segment wears the **tonal
+  container** (`ui.select.container`, the accent at 30 %), a **1dp `ui.accent` border on its own cell** —
+  square by design, the parent's rounded clip shaping its outer end — `uiTextPrimary` Bold text and a
+  **check glyph in `ui.value.text`**. The 20 % container read too faint on the device, so it rose
+  (2026-09-28). The accent **fill** is the **action's**, reserved for it (§5.6, §5.9), so a selected
+  choice no longer wears the same face as a primary button — see the note below the two components.
 - **Accessibility** — `selectableGroup()` on the row plus `Role.RadioButton` per segment, so the control
   is announced as "n of m, selected" instead of as unrelated buttons.
 - **`captions`** (optional) — one 12sp `uiTextMuted` line under each segment (per-stop numbers,
@@ -273,15 +287,20 @@ all of them: `SegmentedRow(options, selected, onSelect, captions = null)`.
 
 ### 2.7b Multi-Select Row — `MultiSelectRow`
 
-The same connected shape, for choices that do **not** exclude each other — two or more flags, each on or
-off by itself (the menu drawer's Arrows and Colours chips are the shipped case):
-`MultiSelectRow(options, isOn, onToggle)`.
+For choices that do **not** exclude each other — two or more flags, each on or off by itself (the menu
+drawer's Arrows and Colours are the shipped case): `MultiSelectRow(options, isOn, onToggle)`.
 
-- **Same geometry as §2.7** — one outline, outer ends rounded (`ui.radius.card`), equal halves; each half
-  paints the accent fill while it is on and the muted label while it is off. No combination is refused,
-  including none.
+- **The same connected control as §2.7, and deliberately so** (2026-09-28, by the user's word against a
+  day of separate pills): **one bar is the app's norm for a set of choices**, whether or not they exclude
+  each other — the language selector's own shape, which every multiple-choice control follows. What differs
+  between the two is what they **do**, never how they look.
+- **The on-face is the app's taken-choice face**, shared with §2.7's selected segment on purpose —
+  `ui.select.container`, a **1dp `ui.accent` border on the on half** and a **check glyph in
+  `ui.value.text`**, the label rising to `uiTextPrimary`. Off is the inactive face: no fill, an
+  `uiTextMuted` label. No combination is refused, including none.
 - **Accessibility** — deliberately **no** `selectableGroup()`: each half is `toggleable` with
-  `Role.Checkbox`, so it is announced as "check box, checked/unchecked" rather than as "n of m, selected".
+  `Role.Checkbox`, so it is announced as "check box, checked/unchecked" rather than as "n of m, selected" —
+  the one place the two controls part, and it is in what is announced, not in what is drawn.
 - **Surface-free**, exactly as §2.7 is, so the call site supplies the `CardArea`/`NestedCard`.
 
 **Use §2.7 when the options exclude one another, and this one when they are independent.** Both live in
@@ -465,6 +484,17 @@ sections divided by the vertical rule (§2.6), each side taking the share of the
 - **A comment wraps rather than being cut** — no `maxLines` on a section's comment; keep the wording
   short enough for the column instead of trimming it with an ellipsis.
 
+### 2.15 Retired — the roller (`RollerRow`)
+
+**The roller was retired on 2026-09-28, by the user's word, and its component deleted.** It showed one entry
+at a time and stepped under a **vertical drag** inside its own bounds (R70's own shape, the drawer's Route
+sub-section its only call site); in the hand its drag never committed reliably — the marked entry and the
+committed one disagreed — and the instrumented trace that was to settle which of its two mechanisms was at
+fault was cut short by the retirement rather than answered by it. **A list of choices is a dropdown**
+([§2.12](#212-dropdown-row--dropdownrow)) **or a bar** ([§2.7](#27-segmented-row--segmentedrow)); a
+drag-only control with no tap path carries an accessibility gap of its own, which is what its last section
+here had warned about. The row is kept as the record of a shape the app tried and withdrew, not as a recipe.
+
 ---
 
 ## 5. Non-Settings Surfaces
@@ -635,12 +665,19 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   its own timings.
 - **Actions:** `ConfirmAction(label, role, enabled, onClick)` rendered in order, stacked full width.
   `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
-  label; `SECONDARY` = `OutlinedButton` with a `uiAccent` label.
+  label; `SECONDARY` = a **full action button on the accent at 50 %** (`ui.action.neutral.background`) with a
+  **2 dp `ui.accent` rim at full opacity** and the same **white bold label** — the fill's weight states the
+  rank, and the rim, accent against grey, states that the control can be taken (2026-09-28: outlines at 1 dp
+  and 2 dp read too faint, a navy body read as another family, a tonal fill as another species, and a
+  borderless 66 % fill as one too — the rim over a half-strength body is what settled it).
 - **A disabled action is the same control with a different face — the whole app's rule, not this
   surface's** (2026-09-24, generalised 2026-09-26): any action with `enabled = false` reads as the
   **outlined role, its label in `uiTextMuted` and its outline in `uiDividerColor`, and no accent
   surviving it** — which is what keeps the accent meaning *the surface's own outcome* rather than being
-  dimmed into ambiguity. One implementation draws it: `ConfirmActionButton`
+  dimmed into ambiguity. **Since the live faces carry the accent in fill and rim (2026-09-28), those two
+  tokens are the whole of the disabled signal**: a control that cannot be taken is the only one **with
+  neither a fill nor a drop of accent**, its 1 dp grey outline against the middle action's **2 dp accent
+  rim**. One implementation draws it: `ConfirmActionButton`
   ([`ui/components/ConfirmDialog.kt`](../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt)),
   the app's only rendering of an action, which the ladder's confirmation panel, the route panel and the
   marker wizard's footer all host. No surface dims its own control into a disabled look. The two tokens
@@ -649,8 +686,11 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   saying only *not yet*.
 - **A button's colour states its role, never its importance** (2026-09-23): the **accent** is the
   surface's own outcome — the action the surface exists for, one per surface; the **red** is the action
-  that withholds the work; the **outline** is everything that neither writes nor loses, the door that
-  leaves a mode included. The order **affirmative → neutral → destructive** governs a surface's
+  that withholds the work; the **50 % accent under an accent rim** is the middle door, **whatever is not the surface's own
+  outcome and not a loss, whether it writes elsewhere or not** (corrected 2026-09-28: the Menu's Export
+  writes a GPX and its Import writes tracks in, and both are the track list's own work rather than the
+  drawer's, which is what a door looks like) — the door that leaves a mode included. The order
+  **affirmative → neutral → destructive** governs a surface's
   **stacked** actions; where a requirement fixes a row's own order, that order stands — the route
   panel's two grids fix theirs, `Acquire route` · `Confirm` · `Save track` · `Exit` in the acquisition
   and `Save track` · `Reroute` · `New route` · `Exit` while followed, each drawn as two rows of two
@@ -773,7 +813,8 @@ floating dialog cannot be aimed under. Its anatomy is the list card's (see §9 o
 | Data table | `StatCell`, **two columns × two rows** | `Start` beside `Destination`, then `Dist` beside `ETA`, each on a cell of the card's own shape and the rows touching — the tracks card's own grid at two columns; the coordinates print to **three decimals**, the precision that column's width allows |
 | Notes | 12 sp | under the table, each only where it is true: the engine's note that the route ends away from the aim, bracketed, and the forced crossing |
 | Second divider | 0.5 dp `uiDividerColor` | closes the table, above the controls and the actions |
-| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | the roles are §5.6's, the accent the phase's own **one enabled forward action**; each phase draws a fixed grid of four — `Acquire route` · `Confirm` · `Save track` · `Exit`, and `Save track` · `Reroute` · `New route` · `Exit` — with only the enabled set changing, so a disabled `Save track` wears §5.6's disabled face rather than vanishing; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
+| Candidates | 13 sp `uiDashboardTextPrimary`, the selected row on `uiAccent` · `KeyboardArrowLeft` / `KeyboardArrowRight` `IconButton`s | **only while the engine has offered something** (R54): a `Alternatives` title with the next/prev pair beside it, then one row per candidate printing `Route #n · <duration> · saves <x> (y %)` — the engine's own figures, recomputed nowhere (R62, R72). A tap on a row seats the selection on it through the same step the pair takes, and the selection moves the emphasis and the drawing's own full-strength line, never the geometry (R54) |
+| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | **the acquisition is the panel's only phase** (R73): the three actions are `Save to track` · `Select route` · `Cancel`, stacked full width, and only the enabled set changes — the save greyed once the **selected** line is written, `Select route` enabled only while a line stands (R55–R57). The accent is the surface's own forward action, `Select route`, and a disabled save wears §5.6's disabled face rather than vanishing; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
 
 `StatCell` ([`ui/components/StatCell.kt`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt))
 is the app's **one** rendering of a reading — the track and route cards' grids and this panel read it,
@@ -782,6 +823,39 @@ the card prints `4.20 nm` where the panel prints the dashboard's `4.2 NM`, each 
 print. The panel's 16 dp / 12 dp gutters and the choosing phase's 2×2 action grid are unchanged, so
 the portrait slot's height budget is untouched; its scroll now lives in the weighted content block,
 which is what anchors the actions to the panel's foot.
+
+---
+
+### 5.9 Actions — the four tiers (authority)
+
+**What an action is, and how it clothes itself.** §5.6 owns the **button family** — `ConfirmAction` /
+`ConfirmActionButton` — and its role model is the spine: the accent is the surface's own forward outcome
+and **only one per surface**, the red is what withholds the work, the outline is everything that neither
+writes nor loses, the order is affirmative → neutral → destructive, and a disabled action wears the
+outlined face. That family is **tier 1** below; the other four tiers are the other shapes an action takes,
+and this table is the one place that names them.
+
+| Tier | Shape | When it is used | Home |
+|---|---|---|---|
+| 1 | Accent-filled — **at 50 % under a 2 dp accent rim for a middle action** — or red-filled **full-width button** | A surface's own outcome, its loss, or its middle doors — dialogs, the route panel, the Route sub-section's `Route`, and the Menu's Import/Export pair, which wears the **half-strength accent with its full-opacity rim** | `ConfirmActionButton` (§5.6) |
+| 2 | **Icon-only button**, 40–48 dp | A control belonging to a header or a card's chrome — link, filter reset, gear, chevrons | `IconButton` |
+| 3 | **Map status square acting as a button** | A mode's own on/off that also reports a state — GPS, tracking, lock, recenter | `MapToggleSquare` family (§5.5) |
+| 4 | **Row-level action** | An action belonging to a list row — swipe, chevron gutter, header trash, Undo / Clear / Select-all | per list (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)) |
+
+**What was the fifth tier retired on 2026-09-28**: the bare label + icon tap row (`ActionRow`) served the
+Menu's Import/Export pair alone, and once the pair moved onto tier 1's outlined role the component had no
+call site left, so the tier and the component went together.
+
+**Selections are not actions.** The accent **fill** belongs to an action, and a **selection wears a marker
+instead**: a chosen choice takes the tonal container `ui.select.container` — the accent at **30 %** — with a
+**1dp accent border** and a check glyph (§2.7 / §2.7b), a value read-out over a stepped set takes the accent
+in **bold text with no fill**, and a middle action wears the accent as a **50 % fill under a 2 dp accent
+rim**: the two ranks of fill are told apart by weight and by context, never by hue
+(the dropdown's value, §2.12), and a card or row picked out of a list takes an **accent border with a check glyph and
+no fill** (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)). Binary controls are the deliberate
+exception, following M3: a selected `Switch` and a selected `Checkbox` take the primary role, so `ToggleRow`
+and `OptionRow` keep `uiAccent` and are consistent rather than exempt. The reserved thing is therefore
+narrower than "the accent is for actions": it is **the accent as a filled container on a group of choices**.
 
 ---
 

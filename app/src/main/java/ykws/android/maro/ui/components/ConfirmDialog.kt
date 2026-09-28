@@ -315,6 +315,12 @@ fun ConfirmDialog(
  * outline in `uiDividerColor` and its label in `uiTextMuted`, with **no accent surviving it**. The
  * tokens are the ones §2.7's unselected segments already use, so the rule adds no palette entry.
  *
+ * **The family is one hue, and the fill's weight states the rank** (2026-09-28): `PRIMARY` wears the accent
+ * full; `SECONDARY` — the middle action — is the **same button filled with the accent at 50 %**, its rim a
+ * **2 dp accent at full opacity** and its label the same white bold; and the disabled face is the bare
+ * 1 dp `uiDividerColor` outline with a muted label, the only face with neither fill nor accent. One shape,
+ * one hue, one label — and the fill's weight says which of the three it is.
+ *
  * [modifier] is what lets such a host place it: stacked full width by default, or weighted inside a
  * [Row] where the slot is short.
  */
@@ -350,12 +356,18 @@ internal fun ConfirmActionButton(action: ConfirmAction, modifier: Modifier = Mod
         ) {
             Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
         }
-        ConfirmActionRole.SECONDARY -> OutlinedButton(
+        ConfirmActionRole.SECONDARY -> Button(
             onClick = action.onClick,
             modifier = modifier.fillMaxWidth(),
+            // A middle action is a **full action button**: the primary's shape and white bold label, its
+            // background the accent at 50 % and its rim a **2 dp accent at full opacity** — the fill's
+            // weight states the rank, while the rim, accent against the disabled face's 1 dp
+            // `uiDividerColor`, says the control can be taken (§5.6).
+            colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.uiActionNeutralBackground)),
+            border = BorderStroke(2.dp, Color(AppConfig.uiAccent)),
             shape = shape
         ) {
-            Text(action.label, color = Color(AppConfig.uiAccent))
+            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }

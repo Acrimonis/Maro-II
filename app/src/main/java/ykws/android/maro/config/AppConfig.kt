@@ -62,6 +62,60 @@ object AppConfig {
         private set
 
     /**
+     * **The candidate passes the engine runs beside a settled answer** (R53, R61) —
+     * `route.avoid.candidate.passes`, read as `|`-separated passes whose `,`-separated tokens name the
+     * prices each leaves out. The default mirrors the property's own value, so the file stays the
+     * value's one home, and a token nothing claims leaves the whole list at that default rather than
+     * half read — a typo must never silently offer a line that drops nothing.
+     */
+    var routeAvoidCandidatePasses: List<ykws.android.maro.data.model.RouteCandidatePass> =
+        parseCandidatePasses("speedZone|speedZone,zone300") ?: emptyList()
+        private set
+
+    /**
+     * The floor a candidate's saving must clear to be offered, as a share of the settled trip's own
+     * clock — `route.avoid.candidate.minSavingPct`, clamped 0..100, **15** in force from 2026-09-28.
+     */
+    var routeAvoidCandidateMinSavingPct: Int = 15
+        private set
+
+    /**
+     * Whether a pass whose source touches nothing in the corridor the solve already framed is skipped —
+     * `route.avoid.candidate.skipAbsent`, default true.
+     */
+    var routeAvoidCandidateSkipAbsent: Boolean = true
+        private set
+
+    /**
+     * The passes a `route.avoid.candidate.passes` value names, or null where any token is unknown — the
+     * refusal that keeps a typo from offering a line that drops nothing.
+     */
+    private fun parseCandidatePasses(raw: String): List<ykws.android.maro.data.model.RouteCandidatePass>? {
+        val passes = raw.split('|').map { it.trim() }.filter { it.isNotEmpty() }.map { segment ->
+            val tokens = segment.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
+            when (tokens) {
+                setOf("speedzone") -> ykws.android.maro.data.model.RouteCandidatePass(
+                    ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES,
+                    setOf(ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES)
+                )
+                setOf("zone300") -> ykws.android.maro.data.model.RouteCandidatePass(
+                    ykws.android.maro.data.model.RouteOfferSource.ZONE300,
+                    setOf(ykws.android.maro.data.model.RouteOfferSource.ZONE300)
+                )
+                setOf("speedzone", "zone300") -> ykws.android.maro.data.model.RouteCandidatePass(
+                    ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES_AND_ZONE300,
+                    setOf(
+                        ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES,
+                        ykws.android.maro.data.model.RouteOfferSource.ZONE300
+                    )
+                )
+                else -> return null
+            }
+        }
+        return passes.ifEmpty { null }
+    }
+
+    /**
      * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
      * against both the blue water and the amber tracks.
      *
@@ -80,8 +134,24 @@ object AppConfig {
     var routeLineWidthDp: Float = 6f
         private set
 
-    /** The provisional line's transparency (0 = opaque, 100 = invisible) — `route.progress.transparencyPct`. */
-    var routeProgressTransparencyPct: Int = 55
+    /**
+     * **Every line drawn beside the plan** wears this transparency (0 = opaque, 100 = invisible) —
+     * `route.dimmed.transparencyPct`, renamed from `route.progress.transparencyPct`.
+     *
+     * One key for both readers (R64): the line a search is still building, and the candidate lines the
+     * engine offered that were not picked, so the two are told apart by motion and replacement rather
+     * than by how pale they are. The plan itself keeps `route.line.transparencyPct`.
+     */
+    var routeDimmedTransparencyPct: Int = 55
+        private set
+
+    /**
+     * The route toggle's **navigating** face — `route.navigate.color`, the palette's `semantic.info`.
+     *
+     * R51 gives the toggle three faces: off, acquiring and navigating. The **acquiring** face keeps the
+     * route line's own green ([routeLineColor]) and needs no key of its own, so only this blue is new.
+     */
+    var routeNavigateColor: Int = 0xFF1565C0.toInt()
         private set
 
     /** The destination pin's fill colour — `route.pin.color`. */
@@ -125,20 +195,6 @@ object AppConfig {
     var routeTargetPulseMs: Int = 800
         private set
 
-
-    /**
-     * How many of the **oldest** replaced routes the ladder keeps beside the standing one —
-     * `route.ladder.oldest.nb`, default 1.
-     *
-     * Stale means *replaced*: a failed refresh stales nothing, so the ladder only ever grows on a new
-     * answer arriving.
-     */
-    var routeLadderOldestNb: Int = 1
-        private set
-
-    /** How many of the **newest** replaced routes the ladder keeps — `route.ladder.latest.nb`, default 3. */
-    var routeLadderLatestNb: Int = 3
-        private set
 
     /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
     var routeAvoidObstacleMarginM: Double = 25.0
@@ -405,6 +461,17 @@ object AppConfig {
     /** Background alpha (0.0–1.0) an active surface paints its own state colour at. Default 0.65.
      *  Set via `ui.map.surface.active.alpha`. */
     var uiMapSurfaceActiveAlpha: Float = 0.65f
+        private set
+
+    /**
+     * The one colour of the pulsing mark every toggle wears — `ui.map.pulse.dot`, default `#FFD32F2F`.
+     *
+     * R69: the recording square and the route square's two on-phases wear the same dot, so the mark is
+     * a UI token of its own rather than the mode's colour — `semantic.danger`'s role is compliance, and
+     * the refused crosshair keeps `route.target.color`, unrelated to it. `MapPulseDot` keeps the
+     * geometry (its 10 dp, its corner inset and its 1 → 0.3 beat over 800 ms) and reads this value.
+     */
+    var uiMapPulseDot: Int = 0xFFD32F2F.toInt()
         private set
 
     /** Side (dp) of one square in the row. Default 44. Set via `ui.map.toggle.square`. */
@@ -902,6 +969,12 @@ object AppConfig {
         private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
     var uiCardBackground: Int = 0x33FFFFFF.toInt()
+        private set
+    /** Selected-state container for a connected group of choices. Default #4D1565C0 (accent 30%). Set via `ui.select.container` in colors.properties. */
+    var uiSelectContainer: Int = 0x4D1565C0.toInt()
+        private set
+    /** The middle action's background — the accent at 50 %, worn by a full action button whose 2dp accent rim is full-opacity. Default #801565C0. Set via `ui.action.neutral.background` in colors.properties. */
+    var uiActionNeutralBackground: Int = 0x801565C0.toInt()
         private set
     /** Settings panel divider colour. Default #14FFFFFF. Set via `ui.divider.color` in colors.properties. */
     var uiDividerColor: Int = 0x14FFFFFF.toInt()
@@ -1419,6 +1492,7 @@ object AppConfig {
             props.getProperty("ui.map.surface.border.width")?.toFloatOrNull()?.let { uiMapSurfaceBorderWidth = it }
             props.getProperty("ui.map.surface.inactive.content.alpha")?.toFloatOrNull()?.let { uiMapSurfaceInactiveContentAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.pulse.dot")?.let { parseColorOrNull(it) }?.let { uiMapPulseDot = it }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
@@ -1556,13 +1630,15 @@ object AppConfig {
                 ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.line.widthDp")?.toFloatOrNull()
                 ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
-            props.getProperty("route.progress.transparencyPct")?.toIntOrNull()
-                ?.let { routeProgressTransparencyPct = it.coerceIn(0, 100) }
+            props.getProperty("route.dimmed.transparencyPct")?.toIntOrNull()
+                ?.let { routeDimmedTransparencyPct = it.coerceIn(0, 100) }
+            props.getProperty("route.navigate.color")?.let { parseColorOrNull(it) }
+                ?.let { routeNavigateColor = it }
             props.getProperty("route.pin.color")?.let { parseColorOrNull(it) }
                 ?.let { routePinColor = it }
             props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
                 ?.let { routePinRingWidthDp = it.coerceIn(0f, 12f) }
-            // ── The route's anchor, its crosshair and its ladder ───────
+            // ── The route's anchor, its crosshair and its toggle's faces ───────
             // Read here rather than beside the pace above: every one of them is a drawing or
             // interaction value rather than a behaviour the spatial side reads.
             props.getProperty("route.anchor.leadSec")?.toIntOrNull()
@@ -1573,10 +1649,6 @@ object AppConfig {
                 ?.let { routeTargetWidthDp = it.coerceIn(1f / 3f, 12f) }
             props.getProperty("route.target.pulseMs")?.toIntOrNull()
                 ?.let { routeTargetPulseMs = it.coerceIn(100, 5_000) }
-            props.getProperty("route.ladder.oldest.nb")?.toIntOrNull()
-                ?.let { routeLadderOldestNb = it.coerceIn(0, 10) }
-            props.getProperty("route.ladder.latest.nb")?.toIntOrNull()
-                ?.let { routeLadderLatestNb = it.coerceIn(0, 10) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine ratio Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
@@ -1644,9 +1716,22 @@ object AppConfig {
                 routeAvoidSpeedZoneTimeBudgetPct =
                     it.coerceIn(ROUTE_SLOW_WATER_BUDGET_PCT_MIN, ROUTE_SLOW_WATER_BUDGET_PCT_MAX)
             }
+            // ── The candidate passes (R61) ── a value whose tokens all parse replaces the pair; one
+            //    unknown token leaves the shipped pair standing rather than half-reading the row.
+            props.getProperty("route.avoid.candidate.passes")?.let { raw ->
+                parseCandidatePasses(raw)?.let { routeAvoidCandidatePasses = it }
+            }
+            props.getProperty("route.avoid.candidate.minSavingPct")?.toIntOrNull()?.let {
+                routeAvoidCandidateMinSavingPct = it.coerceIn(0, 100)
+            }
+            props.getProperty("route.avoid.candidate.skipAbsent")?.toBooleanStrictOrNull()?.let {
+                routeAvoidCandidateSkipAbsent = it
+            }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }
+            props.getProperty("ui.select.container")?.let { parseColorOrNull(it) }?.let { uiSelectContainer = it }
+            props.getProperty("ui.action.neutral.background")?.let { parseColorOrNull(it) }?.let { uiActionNeutralBackground = it }
             props.getProperty("ui.divider.color")?.let { parseColorOrNull(it) }?.let { uiDividerColor = it }
             props.getProperty("ui.switch.track.inactive")?.let { parseColorOrNull(it) }?.let { uiSwitchTrackInactive = it }
             props.getProperty("ui.input.border")?.let { parseColorOrNull(it) }?.let { uiInputBorder = it }

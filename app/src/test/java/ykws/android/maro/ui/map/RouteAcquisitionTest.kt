@@ -22,9 +22,11 @@ import org.junit.Test
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RouteOffer
+import ykws.android.maro.data.model.RouteOfferSource
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.data.model.routeCandidateSavingSec
 import ykws.android.maro.spatial.RouteAvoidEngine
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineState
@@ -37,19 +39,18 @@ import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
 
 /**
- * **The acquisition, as the machine sees it** — the change this pass landed, read through a real
- * [`RouteViewModel`] driven the way the map drives it.
+ * **The acquisition, as the machine sees it** — the change of 2026-09-28, read through a real
+ * [`RouteViewModel`] driven the way the drawer drives it.
  *
- * Four of its readings are the brief's own: nothing asks for a route until the user's own action does,
- * the anchor is re-read **per acquisition** with its live-fix fallback, a written route greys both
- * `Save track` actions through one predicate, and the acquisition's Exit is a **phase move** where a
- * route stands behind it rather than an ending. The fifth is the engine's own **stage channel**, whose
- * five boundaries and whose clearing are read off the shipped avoid engine.
+ * The readings are the brief's own: **arming is the trigger** and it computes at once, so no ask
+ * happens without a standing pair; the anchor is read as the acquisition opens, with its live-fix
+ * fallback; the candidate set opens at the settled line and **grows only as the engine's offers land**;
+ * the selection **loops** and the line it stands on is what the saves write; and a written route greys
+ * the save through one predicate.
  *
- * The two doors the screen owns rather than the machine — the toggle's off asking the one dialog, and
- * the back key following the acquisition's Exit — are wired in `MapScreen`'s own callbacks, so what is
- * pinned here is the **decision** behind them: [`RouteViewModel.exitAcquisition`] and the
- * `enteredFromRoute` reading the screen branches on.
+ * The two doors the screen owns rather than the machine — the exit dialog answering before the tracking
+ * exit, and the save action's enabled state — are wired in `MapScreen`'s own callbacks, so what is
+ * pinned here is the **state** those callbacks branch on.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RouteAcquisitionTest {
@@ -57,8 +58,8 @@ class RouteAcquisitionTest {
     private val start = RoutePoint(43.5000, 7.0000)
     private val aim = RoutePoint(43.5200, 7.0100)
 
-    /** The boat has moved on, for Reroute's fresh anchor. */
-    private val boatLater = RoutePoint(43.5050, 7.0030)
+    /** A second destination, for the candidate that saves time. */
+    private val shortcut = RoutePoint(43.5150, 7.0080)
 
     /** The anchor a 12 kn course of 090° covers in the shelf's default ten seconds. */
     private val courseDeg = 90.0
@@ -80,6 +81,30 @@ class RouteAcquisitionTest {
         return RoutePoint(moved.latitude, moved.longitude)
     }
 
+    /** Arms on two standing ends — the drawer's pair, read at the trigger (R49, R71). */
+    private suspend fun armEnds(
+        viewModel: RouteViewModel,
+        from: RoutePoint,
+        to: RoutePoint,
+        fallbackStart: RoutePoint? = null
+    ) = viewModel.arm(RouteEnds(start = from, fallbackStart = fallbackStart, destination = to))
+
+    private fun anOffer(from: RoutePoint, to: RoutePoint, durationSec: Double): RouteOffer {
+        val distance = SpatialOperations.haversine(
+            LatLng(from.latitude, from.longitude),
+            LatLng(to.latitude, to.longitude)
+        )
+        return RouteOffer(
+            source = RouteOfferSource.SPEED_ZONES,
+            points = listOf(from, to),
+            legTimesSec = listOf(durationSec),
+            legSpeedsMps = listOf(distance / durationSec),
+            distanceM = distance,
+            durationSec = durationSec,
+            savingSec = 60.0
+        )
+    }
+
     @Before
     fun installMainDispatcher() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -91,239 +116,274 @@ class RouteAcquisitionTest {
     }
 
     /**
-     * **Nothing is computed until the acquisition asks** (R2), and that is the removal this pass made.
-     *
-     * Arming the mode is a read and nothing else: the engine is told no end and asked no route, so the
-     * timer the ask gate used to be — the ground move and the settle — has no successor. `New route`'s
-     * own entry is the same reading one phase later: it clears the destination and waits.
+     * **Arming is the trigger, and it computes at once** (R49, R50): the standing pair is read at that
+     * instant, the anchor is told and the destination asked **without a second press**, and there is no
+     * placement left for the map to hold.
      */
     @Test
-    fun nothingIsComputedUntilTheAcquisitionAsks() = runTest {
+    fun armingAsksAtOnceAndTellsTheAnchorAsPartOfTheSameAcquisition() = runTest {
         val engine = CountingEngine()
         val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
 
-        viewModel.beginDraft(fix(start))
+        armEnds(viewModel, start, aim)
 
-        assertTrue("arming asks for no route", engine.askedDestinations.isEmpty())
-        assertTrue("and tells the engine no end either", engine.toldOrigins.isEmpty())
-        assertTrue("while the phase says it has asked nothing", !(viewModel.state.value as RouteState.Choosing).asked)
-        assertFalse("and no search runs", (viewModel.state.value as RouteState.Choosing).searching)
-
-        viewModel.acquire(aim)
-        assertEquals("the press is what asks", listOf(aim), engine.askedDestinations)
-        viewModel.confirm()
-
-        viewModel.newRoute(fix(boatLater))
-
+        assertEquals("the anchor is told as part of the acquisition's own ask", listOf(start), engine.toldOrigins)
+        assertEquals("and the standing destination is asked for once", listOf(aim), engine.askedDestinations)
         val choosing = viewModel.state.value as RouteState.Choosing
-        assertNull("New route clears the destination", choosing.plan)
+        assertEquals("so a line stands without a second press", listOf(start, aim), choosing.plan?.points)
+        assertTrue("and the phase says it has asked", choosing.asked)
         assertEquals(
-            "and computes nothing until Acquire route is pressed",
-            listOf(aim),
-            engine.askedDestinations
-        )
-        assertEquals(
-            "the anchor is not even told while the acquisition stands on nothing",
-            listOf(start),
-            engine.toldOrigins
+            "the acquisition's own anchor is the one the line starts from",
+            start,
+            choosing.plan?.start
         )
     }
 
     /**
-     * **The anchor is re-read on every entry into the acquisition, led by the boat's own course and
-     * speed** (R3) — an anchor held from the session's first arming would redraw the same line from the
-     * same point, which is not a recompute at all.
+     * **No ask happens without a standing pair** (R49): a mode armed before the first fix, or with the
+     * destination still resolving to nothing, is the mode being on and the engine being asked nothing.
+     * A second arming while the mode is already on is ignored, so one acquisition is one ask.
      */
     @Test
-    fun theAnchorIsLedOnEachEntryFromTheLiveFix() = runTest {
+    fun noAskHappensWithoutAStandingPair() = runTest {
         val engine = CountingEngine()
         val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
 
-        viewModel.beginDraft(movingFix(start))
-        assertEquals(
-            "the anchor is the fix led by the configured horizon",
-            predicted(start),
-            (viewModel.state.value as RouteState.Choosing).start
-        )
+        viewModel.arm(RouteEnds(start = null, fallbackStart = null, destination = aim))
+        assertTrue("no start, no ask", engine.askedDestinations.isEmpty())
+        assertTrue("and no anchor is told either", engine.toldOrigins.isEmpty())
 
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        viewModel.reroute(movingFix(boatLater))
+        viewModel.end()
 
-        assertEquals(
-            "and Reroute re-reads it rather than holding the session's",
-            predicted(boatLater),
-            (viewModel.state.value as RouteState.Choosing).start
-        )
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = null))
+        assertTrue("no destination, no ask", engine.askedDestinations.isEmpty())
+
+        viewModel.end()
+
+        armEnds(viewModel, start, aim)
+        assertEquals("the first arming on a standing pair asks once", 1, engine.askedDestinations.size)
+
+        armEnds(viewModel, start, shortcut)
+        assertEquals("and a second arming while the mode is on is ignored", 1, engine.askedDestinations.size)
     }
 
     /**
-     * **The lead is best-effort and never binding** (R3): a predicted point that is not water falls
-     * back to the live fix, and the acquisition proceeds — a boat bearing down on a headland is
-     * precisely the case a reroute exists for.
+     * **The anchor's lead is best-effort and never binding** (R3): a predicted point that is not water
+     * falls back to the live fix and the acquisition proceeds — a boat bearing down on a headland is
+     * precisely the case a fresh acquisition exists for.
      *
      * The engine refuses the prediction alone, so the fallback is the only way the anchor can be
-     * accepted, and what is read is that the anchor **is** the live fix and that the judgement was
-     * asked of it (R7).
+     * accepted, and what is read is that the anchor **is** the live fix and that the judgement was asked
+     * of it (R7).
      */
     @Test
     fun theAnchorFallsBackToTheLiveFixWhereThePredictionIsNotWater() = runTest {
         val engine = CountingEngine(refuse = predicted(start))
         val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
 
-        viewModel.beginDraft(movingFix(start))
+        viewModel.arm(
+            RouteEnds(
+                start = predicted(start),
+                fallbackStart = start,
+                destination = aim
+            )
+        )
 
         val choosing = viewModel.state.value as RouteState.Choosing
         assertEquals("the anchor is the live fix", start, choosing.start)
         assertNull("and the fallback was accepted, so the acquisition is not refused", choosing.originRefusal)
         assertEquals(
-            "the judgement was asked of the prediction and then of the fallback",
-            listOf(predicted(start), start),
+            "the judgement was asked of the prediction and then of the fallback, before the destination",
+            listOf(predicted(start), start, aim),
             engine.validatedPoints
         )
-
-        viewModel.acquire(aim)
         assertEquals(
             "and the line it draws starts at the fallback, not at the point off water",
             start,
-            (viewModel.state.value as RouteState.Choosing).plan?.start
+            choosing.plan?.start
         )
     }
 
     /**
-     * **`Confirm` is disabled without a plan** (R16) — the panel's own rule, read here as the machine's
-     * counterpart: a confirmation with nothing to lock is ignored rather than locking an empty route.
+     * **The candidate set opens at the settled line and grows only as the offers land** (R54).
+     *
+     * The engine publishes its offers on its own lane, after the answer, so the rows the panel draws
+     * stand only from the moment there is something to step through — which is exactly the set the map
+     * paints and the selection walks.
      */
     @Test
-    fun confirmWithoutAPlanIsIgnored() = runTest {
-        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(CountingEngine()))
+    fun theCandidateSetOpensAtOneAndGrowsOnlyAsTheOffersLand() = runTest {
+        val engine = CountingEngine()
+        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.confirm()
+        armEnds(viewModel, start, aim)
+        val settled = (viewModel.state.value as RouteState.Choosing).plan ?: error("a plan stands")
 
-        val choosing = viewModel.state.value as RouteState.Choosing
-        assertNull("the press locked nothing", choosing.plan)
-        assertTrue("and the phase is still the acquisition", choosing.phase == RoutePhase.CHOOSING)
+        assertEquals("the set is the settled answer alone until an offer arrives", listOf(settled), viewModel.candidates.value)
+        assertEquals("and the selection stands on it", settled, viewModel.selectedLine())
+
+        engine.publishOffers(listOf(anOffer(start, shortcut, settled.durationSec - 60.0)))
+
+        val lines = viewModel.candidates.value
+        assertEquals("the candidate follows the settled line", 2, lines.size)
+        assertEquals("and index 0 is still that settled answer", settled, lines[0])
+        assertEquals(
+            "while the candidate is the engine's own line, dated with the route it belongs to",
+            settled.computedAtMs,
+            lines[1].computedAtMs
+        )
+        assertEquals(settled.start, lines[1].start)
+        assertEquals(
+            "and its clock is the engine's own figure, recomputed nowhere",
+            settled.durationSec - 60.0,
+            lines[1].durationSec,
+            1e-6
+        )
     }
 
     /**
-     * **A written route greys both `Save track` actions** (R16, R17), because they read **one** fact:
-     * the session's route-to-track link, through one predicate.
-     *
-     * The same reading is taken in both phases, which is the point — the acquisition's save and the
-     * following phase's save cannot disagree about whether the front route is written.
+     * **Next/prev loops the set** (R54), and the line the selection stands on is the one both saves
+     * write and the one `Select route` follows (R55, R56).
      */
     @Test
-    fun aWrittenRouteIsUnsavedForNoPhaseAndGreysBothSaves() = runTest {
+    fun theSelectionLoopsTheSetAndTheSelectedLineIsWhatIsSaved() = runTest {
+        val engine = CountingEngine()
+        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
+
+        armEnds(viewModel, start, aim)
+        val settled = (viewModel.state.value as RouteState.Choosing).plan ?: error("a plan stands")
+        val candidate = anOffer(start, shortcut, settled.durationSec - 60.0)
+        engine.publishOffers(listOf(candidate))
+        val lines = viewModel.candidates.value
+
+        assertEquals("the selection starts on the settled answer", 0, viewModel.candidateIndex.value)
+
+        viewModel.stepCandidate(1)
+        assertEquals("a step forward stands on the candidate", 1, viewModel.candidateIndex.value)
+        assertEquals("and the save would write that line, not the settled one", lines[1], viewModel.selectedLine())
+
+        viewModel.stepCandidate(1)
+        assertEquals("stepping past the end loops back to the settled answer", 0, viewModel.candidateIndex.value)
+
+        viewModel.stepCandidate(-1)
+        assertEquals("and stepping back past the start loops to the candidate", 1, viewModel.candidateIndex.value)
+
+        viewModel.selectRoute()
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals("Select route follows the selected line", lines[1], following.plan)
+        assertEquals("and drops the candidates it did not take", listOf(following.plan), viewModel.candidates.value)
+        assertTrue("with no offer left published", viewModel.offers.value.isEmpty())
+    }
+
+    /**
+     * **A written route greys the save** (R55, R59), because it reads **one** fact: the session's
+     * route-to-track link, through one predicate. Read in both phases, which is the point — the
+     * acquisition's save and the exit dialog's cannot disagree about whether the line is written.
+     */
+    @Test
+    fun aWrittenRouteIsUnsavedForNoPhaseAndGreysTheSave() = runTest {
         val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(CountingEngine()))
 
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
+        armEnds(viewModel, start, aim)
         val acquired = (viewModel.state.value as RouteState.Choosing).plan
             ?: error("a plan stands, so the acquisition has a front line")
         assertFalse("nothing is written yet", viewModel.isRouteSaved(acquired))
 
         viewModel.noteRouteSaved(acquired, "track-1")
 
-        assertTrue("the link is the one fact the two saves read", viewModel.isRouteSaved(acquired))
+        assertTrue("the link is the one fact the saves read", viewModel.isRouteSaved(acquired))
         assertEquals("and the panel's own reading of it follows the session", "track-1", viewModel.trackFor(acquired))
         assertEquals(
-            "the reactive mirror says the same, which is what the panel greys on",
+            "the reactive mirror says the same, which is what the save action greys on",
             mapOf(acquired to "track-1"),
             viewModel.sessionLinks.value
         )
 
-        viewModel.confirm()
+        viewModel.selectRoute()
         val front = (viewModel.state.value as RouteState.Following).plan
-        assertEquals("and the followed route is that same front line", acquired, front)
-        assertTrue("so the following phase's save is greyed by the same predicate", viewModel.isRouteSaved(front))
+        assertEquals("and the followed route is that same line", acquired, front)
+        assertTrue("so the exit dialog's save is greyed by the same predicate", viewModel.isRouteSaved(front))
     }
 
     /**
-     * **`Reroute` fires one acquisition and keeps the standing route** (R17): the engine is asked once —
-     * by the anchor's own call, its held destination answering — and the route it replaced stays in the
-     * session.
-     */
-    @Test
-    fun rerouteFiresOneAcquisitionAndKeepsTheStandingRoute() = runTest {
-        val engine = CountingEngine()
-        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
-
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        val locked = (viewModel.state.value as RouteState.Following).plan
-
-        viewModel.reroute(fix(boatLater))
-
-        val choosing = viewModel.state.value as RouteState.Choosing
-        assertEquals("the anchor was told exactly once more", 2, engine.toldOrigins.size)
-        assertEquals("and the destination was never re-stated, which is the one acquisition", 1, engine.askedDestinations.size)
-        assertEquals("the standing route is the acquisition's ladder", listOf(locked), choosing.ladder)
-        assertEquals(
-            "and the session holds both, the new one last",
-            listOf(locked, choosing.plan),
-            viewModel.sessionRoutes()
-        )
-        assertTrue("the acquisition reads as entered from a route", choosing.enteredFromRoute)
-    }
-
-    /**
-     * **`New route` clears the destination and keeps the session** (R17): the earlier lines stay drawn
-     * on the ladder, so the drawing and the session both survive the move.
-     */
-    @Test
-    fun newRouteClearsTheDestinationAndKeepsTheSession() = runTest {
-        val engine = CountingEngine()
-        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
-
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        val locked = (viewModel.state.value as RouteState.Following).plan
-
-        viewModel.newRoute(fix(boatLater))
-
-        val choosing = viewModel.state.value as RouteState.Choosing
-        assertNull("the destination is cleared", choosing.plan)
-        assertEquals("the session survives for the drawing alone", listOf(locked), choosing.ladder)
-        assertEquals("and it is still the session", listOf(locked), viewModel.sessionRoutes())
-        assertTrue("the phase reads as entered from a route", choosing.enteredFromRoute)
-    }
-
-    /**
-     * **The acquisition's Exit is a phase move where a route stands behind it** (R23), and an ending
-     * where none does — which is the decision the panel's Exit and the back key both branch on.
+     * **Routing confirms before tracking** (R60), read as the state the screen's own door branches on.
      *
-     * The acquisition's own answers are dropped on the way back: the route that stood behind the
-     * acquisition returns with the line it had, not with the unconfirmed one.
+     * While a route is followed the press must raise the **route's** dialog — the route is still the
+     * mode with something to lose — and only with the route gone does the same press reach the shell's
+     * tracking exit. The screen's own branch, made below, is what this pins.
      */
     @Test
-    fun theAcquisitionExitIsAPhaseMoveWithARouteBehindItAndAnEndingWithNone() = runTest {
-        val engine = CountingEngine()
-        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(engine))
+    fun theRouteAnswersBeforeTheTrackingExit() = runTest {
+        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(CountingEngine()))
 
-        // (a) A fresh acquisition, standing on nothing: Exit ends the mode.
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.exitAcquisition()
-        assertEquals("a fresh acquisition ends on Exit", RouteState.Idle, viewModel.state.value)
+        armEnds(viewModel, start, aim)
+        assertFalse(
+            "inside the acquisition there is nothing to confirm, so the press simply ends the mode",
+            viewModel.state.value is RouteState.Following
+        )
+
+        viewModel.selectRoute()
+        assertTrue(
+            "with a route on, the press resolves the route first",
+            viewModel.state.value is RouteState.Following
+        )
+
+        viewModel.end()
+        assertTrue(
+            "and only with the route gone does the second press reach the tracking exit",
+            viewModel.state.value is RouteState.Idle
+        )
+    }
+
+    /**
+     * **`Cancel` leaves the acquisition and asks nothing** (R57): the mode ends, the session goes with
+     * it and no dialog stands in the way.
+     */
+    @Test
+    fun cancelEndsTheAcquisitionWithNothingAsked() = runTest {
+        val viewModel = RouteViewModel(MutableStateFlow<RouteEngine>(CountingEngine()))
+
+        armEnds(viewModel, start, aim)
+        viewModel.end()
+
+        assertEquals(RouteState.Idle, viewModel.state.value)
         assertTrue("and its session goes with it", viewModel.sessionRoutes().isEmpty())
+        assertTrue("with no candidate left drawn", viewModel.candidates.value.isEmpty())
+    }
 
-        // (b) An acquisition entered from a followed route: Exit puts the mode back on that route.
-        viewModel.beginDraft(fix(start))
-        viewModel.acquire(aim)
-        viewModel.confirm()
-        val locked = (viewModel.state.value as RouteState.Following).plan
-
-        viewModel.reroute(fix(boatLater))
-        assertTrue("the acquisition stands on a plan of its own", (viewModel.state.value as RouteState.Choosing).plan != null)
-
-        viewModel.exitAcquisition()
-
-        val restored = viewModel.state.value as RouteState.Following
-        assertEquals("the route that stood behind it comes back", listOf(locked), restored.routes)
-        assertEquals("and the acquisition's own answer was dropped", listOf(locked), viewModel.sessionRoutes())
+    /**
+     * **The floor discards what it should** (R63): a candidate is offered only where it saves at least
+     * `minSavingPct` of the settled trip's **own clock**, and a line that saves nothing is refused at
+     * every floor.
+     */
+    @Test
+    fun theCandidateFloorDiscardsWhatItShould() {
+        assertEquals(
+            "a saving under the floor is discarded",
+            null,
+            routeCandidateSavingSec(settledSec = 1_000.0, candidateSec = 900.0, minSavingPct = 15)
+        )
+        assertEquals(
+            "one that exactly clears it is kept",
+            150.0,
+            routeCandidateSavingSec(settledSec = 1_000.0, candidateSec = 850.0, minSavingPct = 15)
+        )
+        assertEquals(
+            "and at 0 the rule is the saving alone",
+            10.0,
+            routeCandidateSavingSec(settledSec = 1_000.0, candidateSec = 990.0, minSavingPct = 0)
+        )
+        assertEquals(
+            "a line that saves nothing is refused whatever the floor",
+            null,
+            routeCandidateSavingSec(settledSec = 1_000.0, candidateSec = 1_000.0, minSavingPct = 0)
+        )
+        assertEquals(
+            "and so is one that is slower",
+            null,
+            routeCandidateSavingSec(settledSec = 1_000.0, candidateSec = 1_100.0, minSavingPct = 0)
+        )
     }
 
     /**
@@ -440,8 +500,8 @@ private class OpenWaterWorld : AvoidWorld {
 
 /**
  * A counting engine with nothing to compute: it holds the ends as it is told them, answers the
- * straight line between them, judges one point unusable at most, and publishes whatever stage it is
- * handed — the three readings the acquisition's own tests need and no more.
+ * straight line between them, judges one point unusable at most, publishes whatever stage it is handed
+ * and whatever offers it is given — the readings the acquisition's own tests need and no more.
  */
 private class CountingEngine(
     /** The one point this engine judges unusable, or null for an engine that judges nothing. */
@@ -453,11 +513,12 @@ private class CountingEngine(
     override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
 
     private val _progress = MutableStateFlow<RouteProgress?>(null)
- 
+
     override val progress: StateFlow<RouteProgress?> = _progress.asStateFlow()
 
-    /** A counting engine offers nothing, so the empty set is the whole stream. */
-    override val offers: StateFlow<List<RouteOffer>> = MutableStateFlow<List<RouteOffer>>(emptyList()).asStateFlow()
+    private val _offers = MutableStateFlow<List<RouteOffer>>(emptyList())
+
+    override val offers: StateFlow<List<RouteOffer>> = _offers.asStateFlow()
 
     /** Every destination the feature asked about, in order. */
     val askedDestinations = ArrayList<RoutePoint>()
@@ -474,6 +535,11 @@ private class CountingEngine(
     /** Publishes the progress the panel and the provisional line read. */
     fun publishProgress(stage: RouteStage?, points: List<RoutePoint>? = null) {
         _progress.value = if (stage == null) null else RouteProgress(stage, points)
+    }
+
+    /** Publishes the candidates the engine's background lane would have computed. */
+    fun publishOffers(offers: List<RouteOffer>) {
+        _offers.value = offers
     }
 
     override suspend fun prepare(): RouteEngineState = RouteEngineState.Ready

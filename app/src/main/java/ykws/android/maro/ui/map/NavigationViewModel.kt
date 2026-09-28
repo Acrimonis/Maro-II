@@ -245,35 +245,6 @@ class NavigationViewModel(
     /** Repository for prebaked regulated zone data (loaded from APK assets). */
     private val regulatedZonesRepository: RegulatedZonesRepository = RegulatedZonesRepository()
 
-    /**
-     * True while the route mode is **choosing its destination** — the phase's own state, never the
-     * mode's switch (R20).
-     *
-     * It carries the draft's **two couplings**, and it is the phase rather than the toggle that owns
-     * them because the toggle cannot tell choosing from following. The suspension is here, because
-     * demo's speed is derived from the map's pan and aiming *is* panning — letting it through would
-     * sail the boat and extend its track. The camera's hold is read where the deadline is armed
-     * ([notifyUserInteraction]) and by the drawer rule handed [panResumeOnDrawerChange], because a pan
-     * to aim must not be recentred on the boat. Both are released the moment the phase leaves
-     * **choosing** — following a route is ordinary sailing.
-     */
-    private var routeChoosing = false
-
-    /**
-     * The route mode's phase, told by the screen on every change of it (R20, R21).
-     *
-     * The suspension belongs to [RoutePhase.CHOOSING] alone: every other phase — [RoutePhase.IDLE]
-     * included — releases it, so once a route is followed the map behaves exactly as it does with no
-     * route at all. Keyed on the **phase** rather than on the toggle, which is the correction R20
-     * makes: keyed on the toggle, demo's pan-derived speed stayed suspended while merely following.
-     */
-    fun setRouteAiming(phase: RoutePhase) {
-        val choosing = phase == RoutePhase.CHOOSING
-        if (routeChoosing == choosing) return
-        routeChoosing = choosing
-        if (choosing) _navigationState.update { it.copy(demoSpeedKnots = null) }
-    }
-
     /** Speed zone spatial index — built once when both data sources are ready. */
     private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
     /** The built speed-zone list — the same objects the index above was built from, exposed for the avoid engine. */
@@ -458,11 +429,9 @@ class NavigationViewModel(
         resumeJob?.cancel()
         // A fresh pan is an ordinary release: whatever the mode had loaned the user is superseded.
         inspectLoaned = false
-        // The route draft's hold is a hold on the *deadline*, not on the user's ownership of the
-        // centre: while the destination is being placed no resume is armed, so a pan to aim is never
-        // recentred on the boat — and the recentrer the pan itself offers keeps working exactly as it
-        // does outside the mode.
-        if (!drawerOpen && !inspectHoldsCentre && !routeChoosing) startTimer()
+        // The route mode holds nothing on the deadline any more (R71): its ends are read at the trigger
+        // and the map is handed back, so a pan after it is an ordinary pan.
+        if (!drawerOpen && !inspectHoldsCentre) startTimer()
     }
 
     /**
@@ -487,8 +456,7 @@ class NavigationViewModel(
             autoFollowSuppressed = _autoFollowSuppressed.value,
             inspectLoaned = inspectLoaned,
             inspectArmed = inspectArmed,
-            inspectCardOpen = inspectCardOpen,
-            routeDraftArmed = routeChoosing
+            inspectCardOpen = inspectCardOpen
         )) {
             PanResumeAction.HOLD -> resumeJob?.cancel()
             PanResumeAction.RESTART -> startTimer()
@@ -1350,18 +1318,12 @@ class NavigationViewModel(
             settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
         }
         // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
-        // While the destination mode is **choosing** — and only then (R20) — the derivation is
-        // suspended: aiming *is* panning, so letting it through would sail the boat and extend its
-        // track, and the readout reads stationary. The observed pace stays a GPS-mode feature, so
-        // nothing is sampled here.
+        // **The route mode suspends nothing here any more** (R71): the arming reads the standing pair
+        // and the map is handed back, so there is no aiming pan for a suspension to serve and the
+        // derivation runs as it does with no route at all. The observed pace stays a GPS-mode feature,
+        // so nothing is sampled there.
         if (!settings.value.gpsMode) {
-            if (routeChoosing) {
-                if (_navigationState.value.demoSpeedKnots != null) {
-                    _navigationState.update { it.copy(demoSpeedKnots = null) }
-                }
-            } else {
-                computeDemoSpeed(latitude, longitude)
-            }
+            computeDemoSpeed(latitude, longitude)
         } else {
             _navigationState.update { it.copy(demoSpeedKnots = null) }
         }

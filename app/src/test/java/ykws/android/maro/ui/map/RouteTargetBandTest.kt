@@ -8,20 +8,21 @@ import org.osmdroid.views.overlay.Polyline
 /**
  * **The aim ring's band, as far as the JVM can honestly see it.**
  *
- * The ring lands in `OverlayZOrder`'s track band — above the tracks, below every marker, the boat
- * included — through two facts: [RouteTargetOverlay] must be a type `titleOf` recognises, and its title
- * must carry the `route_` prefix the band's own list holds.
+ * The ring lands in `OverlayZOrder`'s **route tier** — above every stored track, below the live
+ * recording and below every marker, the boat included — through two facts: [RouteTargetOverlay] must be
+ * a type `titleOf` recognises, and its title must carry the `route_` prefix the tier's own list holds.
  *
  * The **type arm is asserted here** and is load-bearing: `titleOf` reads a `Polyline` and not a generic
  * overlay, so a refactor of the ring onto a plain `Overlay` would compile, draw, and silently drop the
  * ring below every track — this is what fails then. The **prefix constant is pinned too**, so a rename
  * that drops the prefix fails here.
  *
- * **What is not covered, and cannot be on this JVM:** the link from that prefix to the band's own list.
- * `OverlayZOrder` keeps its prefix list private and `isTrackOverlay` takes an `Overlay`, and this app's
- * JVM tests deliberately construct no osmdroid overlay (`Polyline`'s constructor needs
- * `android.graphics.Paint`). The device pass covers the ordering; a reflective probe into the private
- * list would be a brittle stand-in for it, not a test of it.
+ * **What is covered since 2026-09-28, and what still is not.** The link from a prefix to the band's tier
+ * is a **pure function of the title** ([`OverlayZOrder.trackTierOf`]), so [`OverlayTrackTierTest`] pins
+ * where the ring lands — a string needs no overlay. What stays the device's is `reorder`'s own effect on
+ * a real `MapView`: this app's JVM tests deliberately construct no osmdroid overlay (`Polyline`'s
+ * constructor needs `android.graphics.Paint`), and a reflective probe into the ordering would be a
+ * brittle stand-in for the device pass, not a test of it.
  */
 class RouteTargetBandTest {
 
