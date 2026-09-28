@@ -25,10 +25,8 @@ import ykws.android.maro.config.AppConfig
  * inset; this row pads vertically only.
  *
  * [description] is optional (§2.1's optional row description). [startLabel] and [endLabel] are the
- * optional readings under the track's two ends — 13sp
- * `uiTextMuted`, drawn only when either is passed, so the settings rows that read their bounds from
- * the row itself are unchanged. The marker wizard's Radius, Proximity and Routing cost steps are the
- * callers that pass them.
+ * optional readings under the track's two ends, drawn by [SliderControl] so the settings rows and the
+ * marker wizard's slider share one implementation.
  */
 @Composable
 internal fun SliderRow(
@@ -71,6 +69,36 @@ internal fun SliderRow(
             fontWeight = FontWeight.Bold
         )
     }
+    SliderControl(
+        value = value,
+        valueRange = valueRange,
+        steps = steps,
+        onValueChange = onValueChange,
+        onValueChangeFinished = onValueChangeFinished,
+        startLabel = startLabel,
+        endLabel = endLabel
+    )
+}
+
+/**
+ * The bare slider — track and knob, its colours included, plus the optional readings under its two
+ * ends — with no label, value line or surface of its own. [SliderRow] draws it under its own heading;
+ * a composition that supplies the heading itself (the marker wizard's Routing cost step, §2.14) calls
+ * it directly, so the accent and track colours and the end-label row each keep this one home.
+ *
+ * The readings are drawn only when either is passed, so a caller that names neither gets the track
+ * alone.
+ */
+@Composable
+internal fun SliderControl(
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit = {},
+    startLabel: String? = null,
+    endLabel: String? = null
+) {
     Slider(
         value = value,
         onValueChange = onValueChange,

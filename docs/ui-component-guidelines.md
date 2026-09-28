@@ -20,6 +20,7 @@ New setting?
   │   └─ Sub controls (any type) → NestedCard                     (§2.4)
   ├─ Exclusive 2–3 choice?        → SegmentedRow                   (§2.7)
   ├─ Independent on/off choices?  → MultiSelectRow                 (§2.7b)
+  ├─ Controls that fit one line?  → Card + SectionRow              (§2.14)
   ├─ Choice list that may grow?   → DropdownRow                    (§2.12)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
@@ -128,6 +129,8 @@ A **`CardArea`** is one surface (20% white, 12dp radius, `${ui.padding.card.hori
 The card is divided into **sections**, defined **functionally**: controls that belong together form one section; a control that stands alone is its own section.
 
 - **Between sections** → `SectionDivider()` (§2.6).
+- **Sections stack or sit side by side** → stacking is the default (a `Column`); side by side is a
+  `SectionRow` (§2.14), whose sections divide by a **vertical** rule.
 - **Within a section** → `${ui.spacing.grouped.row.gap}` (8dp) between rows, no divider.
 
 A card may additionally reveal optional or advanced content through one or more `Expander`s:
@@ -220,12 +223,15 @@ Expander(label, expanded, onToggle) {
 A card is divided into **sections**, defined **functionally**: controls that belong together form one section; a control that stands alone is its own section.
 
 - **Between sections** → the visible divider: `uiDividerColor`, `${ui.divider.gap}` (6dp) above/below, and **no inset of its own** — the `CardArea`/`NestedCard` supplies the horizontal inset (§2.0).
+- **Between horizontal sections** (§2.14) → the same divider turned on its side, drawn by `SectionRow`: `${ui.divider.height}` (1dp) **wide** and full height, `${ui.divider.gap}` either side, no inset of its own.
 - **Within a section** → `${ui.spacing.grouped.row.gap}` (8dp) between rows. No divider.
 
 ```
 Spacer(6.dp)
 Box(Modifier.fillMaxWidth().height(1.dp).background(uiDividerColor))   // inset comes from the container
 Spacer(6.dp)
+
+Box(Modifier.fillMaxHeight().width(1.dp).background(uiDividerColor))   // SectionRow draws this (§2.14)
 ```
 
 **Example — Regulated zones card (merged expander):**
@@ -399,6 +405,7 @@ on it.
 | Last expander→card close | `ui.spacing.grouped.after-expander` | 4dp |
 | Label→control (row) | `ui.spacing.label.control` | 16dp |
 | Visible divider gap (above/below) | `ui.divider.gap` | 6dp |
+| Vertical divider width (side-by-side sections) | `ui.divider.height` | 1dp |
 
 Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 
@@ -412,6 +419,8 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ Hand-rolled divider markup (`Spacer` + `Box(background)`) — use `SectionDivider()` (§2.6)
 - ❌ Hand-rolled `RangeSlider` blocks — use `RangeSliderRow` (§2.8); its value line is mandatory
 - ❌ Visible dividers between top-level cards (use spacer)
+- ❌ A hand-rolled `Row` of card sections, or a hand-drawn vertical divider (use `SectionRow`, §2.14)
+- ❌ A `SectionRow` nested inside another `SectionRow` (§2.14)
 - ❌ Hand-rolled two-`Text` toggle rows (use `SegmentedRow`, §2.7)
 - ❌ Hand-rolled label + tap-to-open `DropdownMenu` rows (use `DropdownRow`, §2.12)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
@@ -433,6 +442,28 @@ two (`MarkerManagementOverlay.kt`) and the marker wizard's Title and Description
 (`ui/markers/wizard/steps/TextInputStep.kt`). The wizard is the one that keeps a label line above the
 field — a step has no card around it to name the field — and a muted placeholder for the empty case. No
 surface adds a border, a fill or an indicator of its own.
+
+### 2.14 Side-by-Side Sections — `SectionRow`
+
+A card's sections stack by default (§2.3). When two controls genuinely belong on one line,
+`SectionRow(weightLeft, left, right)` lays them side by side inside the same `CardArea`: two `Column`
+sections divided by the vertical rule (§2.6), each side taking the share of the width it is weighted.
+
+- **Unequal shares are the norm** — `weightLeft` states the left side's share; equal halves are `0.5f`,
+  and a slider generally wants the wider side. `RoutingCostStep` is the shipped case: Route role left,
+  Routing cost right.
+- **Same laws as everywhere** — the `CardArea` owns the surface and the horizontal inset (§2.0); each
+  side pads vertically only; a card inside a card stays forbidden (§2.4).
+- **Depth cap** — one `SectionRow` per card, never a `SectionRow` inside a `SectionRow`.
+- **The rule and the height are the primitive's** — `SectionRow` draws the vertical divider and the row
+  is as tall as its taller side; no caller hand-rolls a `Row` of sections with a divider of its own.
+- **Headings top, controls bottom** — each side leads with its heading block, then gives the slack to
+  `Spacer(Modifier.weight(1f))` and any minimum gap before its control, so two controls of different
+  heights share one bottom line while the headings stay aligned at the top. The sides fill the row's
+  height because `SectionRow` gives it to them; the spacer is the caller's, which is what lets a heading
+  and its control be drawn by different pieces — `RoutingCostStep`'s right side is that case.
+- **A comment wraps rather than being cut** — no `maxLines` on a section's comment; keep the wording
+  short enough for the column instead of trimming it with an ellipsis.
 
 ---
 

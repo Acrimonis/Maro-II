@@ -6,6 +6,7 @@ import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
+import ykws.android.maro.data.model.markers.ROUTING_COST_BLOCKED
 import ykws.android.maro.data.model.markers.UserMarker
 
 /**
@@ -41,8 +42,13 @@ class MarkerRoutingCostHeaderTest {
     }
 
     @Test
+    fun `the wall draws the compass too`() {
+        assertTrue(coordinateHeader(marker(ROUTING_COST_BLOCKED)).endsWith("$pinGlyph $compass"))
+    }
+
+    @Test
     fun `an unset-reading value draws no compass`() {
         assertFalse(coordinateHeader(marker(0)).contains(compass))
-        assertFalse(coordinateHeader(marker(10)).contains(compass))
+        assertFalse(coordinateHeader(marker(ROUTING_COST_BLOCKED + 1)).contains(compass))
     }
 }

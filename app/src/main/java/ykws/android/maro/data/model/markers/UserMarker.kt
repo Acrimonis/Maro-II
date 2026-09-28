@@ -27,8 +27,14 @@ enum class MarkerOrigin { USER, IDLE_AUTO }
  * @property keepable            Whether the marker survives startup cleanup.
  *                               User-created markers are always keepable.
  *                               Auto-markers are keepable=false during idle and set to true on confirmation.
- * @property routingCost         Optional routing cost for a future routing engine. 1–9 when set,
- *                               null when not set. Read it through [validRoutingCost].
+ * @property routingCost         Optional routing cost for a future routing engine: 1–[ROUTING_COST_MAX]
+ *                               is a price and [ROUTING_COST_BLOCKED] is a wall the route may never
+ *                               cross. `null` is unset. Read it through [validRoutingCost].
+ * @property routeOrigin         True when the marker is offered as the origin end of a route.
+ *                               Independent of [routeDestination]: a marker may carry neither, one or
+ *                               both.
+ * @property routeDestination    True when the marker is offered as the destination end of a route.
+ *                               Independent of [routeSource].
  */
 @Serializable
 data class UserMarker(
@@ -49,11 +55,23 @@ data class UserMarker(
     val pinned: Boolean = false,
     override val updatedAtEpochMs: Long = createdAtEpochMs,  // defaults to creation time for legacy
     /**
-     * Optional routing cost for a routing engine that does not exist yet. `null` means not set and a
-     * set value ranges 1–9; the wizard's slider reaches `null` at its own `0` position, so a stored
-     * `0` — like any out-of-range value — is read as unset by [validRoutingCost].
+     * Optional routing cost for a routing engine that does not exist yet. `null` means not set; a set
+     * value is a price from 1 to [ROUTING_COST_MAX], or [ROUTING_COST_BLOCKED] for a wall the route may
+     * never cross. The wizard's slider reaches `null` at its own `0` position, so a stored `0` — like
+     * any out-of-range value — is read as unset by [validRoutingCost].
      */
-    val routingCost: Int? = null
+    val routingCost: Int? = null,
+    /**
+     * True when the marker is offered as a route **origin** — the start end, what the engine calls the
+     * origin. Independent of [routeDestination], so a marker may carry neither, one or both. Nothing
+     * consumes it yet.
+     */
+    val routeOrigin: Boolean = false,
+    /**
+     * True when the marker is offered as a route **destination** — the arrival end. Independent of
+     * [routeOrigin], so both may be set. Nothing consumes it yet.
+     */
+    val routeDestination: Boolean = false
 ) : ListableItem {
     override val title: String get() = name
     override val isPinned: Boolean get() = pinned
@@ -121,14 +139,25 @@ data class UserMarker(
     }
 }
 
+/** The highest **price** a marker may carry; the slider's `0` is Off and is never stored. */
+internal const val ROUTING_COST_MAX = 9
+
 /**
- * The one validity rule for a stored routing cost: a value is a cost only inside 1–9.
+ * The **wall**: a marker carrying this is never crossed, whatever price it would otherwise carry. It is
+ * a role rather than a price — the top of the slider's scale, one step above [ROUTING_COST_MAX] — so a
+ * reader that cares about crossing treats it apart from the 1–9 prices.
+ */
+internal const val ROUTING_COST_BLOCKED = 10
+
+/**
+ * The one validity rule for a stored routing cost: a value is a price or the wall only inside 1–10.
  *
  * Anything else reads as unset — `null`, the slider's own `0`-means-Off position, and an out-of-range
- * legacy value alike — so the marker card and any future reader answer the same way. Stored data is
- * never rewritten on read.
+ * legacy value alike — so the marker card and any future reader answer the same way. The wall passes
+ * this guard like the prices do: what `10` means is a reader's business, not this rule's. Stored data
+ * is never rewritten on read.
  */
-internal fun validRoutingCost(value: Int?): Int? = value?.takeIf { it in 1..9 }
+internal fun validRoutingCost(value: Int?): Int? = value?.takeIf { it in 1..ROUTING_COST_BLOCKED }
 
 /**
  * The slider's position read as a cost: `0` is Off and maps to `null`, and anything above it passes
