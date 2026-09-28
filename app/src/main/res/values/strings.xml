@@ -514,8 +514,13 @@
     <string name="wizard_field_name">Name</string>
     <string name="wizard_field_description">Description</string>
     <string name="wizard_routing_cost_title">Routing cost</string>
-    <string name="wizard_routing_cost_description">Cost of a route to this marker</string>
+    <string name="wizard_routing_cost_description">Cost to a Route of this Marker</string>
     <string name="wizard_routing_cost_unset">Off</string>
+    <string name="wizard_routing_cost_blocked">Blocked/Wall</string>
+    <string name="wizard_route_role_title">Route role</string>
+    <string name="wizard_route_role_description">Marker can be used as Origin or Dest of Route</string>
+    <string name="wizard_route_role_origin">Origin</string>
+    <string name="wizard_route_role_destination">Dest</string>
 
     <!-- Map chrome -->
     <string name="marker_title_fallback">Marker</string>

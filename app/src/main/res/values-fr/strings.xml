@@ -515,6 +515,11 @@
     <string name="wizard_routing_cost_title">Coût de routage</string>
     <string name="wizard_routing_cost_description">Coût d\'un itinéraire vers ce repère</string>
     <string name="wizard_routing_cost_unset">Désactivé</string>
+    <string name="wizard_routing_cost_blocked">Bloqué/Mur</string>
+    <string name="wizard_route_role_title">Rôle d\'itinéraire</string>
+    <string name="wizard_route_role_description">Le repère peut servir d\'origine ou de destination</string>
+    <string name="wizard_route_role_origin">Origine</string>
+    <string name="wizard_route_role_destination">Dest</string>
 
     <!-- Map chrome -->
     <string name="marker_title_fallback">Repère</string>
