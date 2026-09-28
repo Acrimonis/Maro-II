@@ -74,9 +74,10 @@ sealed interface RouteResult {
         val budgetUnmetZoneShare: Double? = null,
         val forcedCrossingZoneNames: List<String> = emptyList(),
         /**
-         * **What the engine offers beside this line** — one candidate per priced source that would save
-         * time, empty where nothing does. Their UI (the panel's carousel row) waits on the panel's own
-         * re-shell, so this ships the numbers and the lines the row will draw.
+         * **What the engine offers beside this line** — one candidate per pass `maro.properties`
+         * declares that clears the configured saving floor, empty where none does. The acquisition's
+         * own rows and its next/prev pair read them, and both saves write whichever the selection
+         * stands on (R54, R55).
          */
         val offers: List<RouteOffer> = emptyList()
     ) : RouteResult

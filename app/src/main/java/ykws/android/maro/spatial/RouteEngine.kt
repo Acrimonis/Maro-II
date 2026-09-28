@@ -66,8 +66,9 @@ interface RouteEngine {
     val progress: StateFlow<RouteProgress?>
 
     /**
-     * **The offers computed for the settled answer** — one candidate per priced source that would
-     * save time, empty while none has arrived and empty where none exists.
+     * **The offers computed for the settled answer** — one candidate per pass the file declares, kept
+     * only where it clears the configured saving floor, empty while none has arrived and empty where
+     * none exists.
      *
      * It is a stream rather than a field of the result because the candidates are computed **after**
      * the answer is returned, on a non-blocking job the engine owns: the settled line must reach the

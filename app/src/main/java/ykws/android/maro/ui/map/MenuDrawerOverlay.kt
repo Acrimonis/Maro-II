@@ -15,12 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -30,17 +27,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.route.RouteEndSelection
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.ui.components.CardArea
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionButton
+import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.FilterControl
+import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
@@ -94,9 +95,10 @@ fun MenuDrawerOverlay(
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
     /**
-     * The route mode's read-only summary and its own gate: [routeSummaryVisible] is the chrome flag
-     * (`routeArmed && phase != IDLE`, narrowed to a running search or a standing plan), and
-     * [routeSummary] carries the words the block prints.
+     * The route mode's read-only summary and its own gate: [routeSummaryVisible] is the chrome flag,
+     * standing in the **routing phase alone** (a route followed) since 2026-09-28 — the acquisition's
+     * own status lives on the panel, so nothing here carries it — and [routeSummary] carries the words
+     * the block prints.
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
     routeSummaryVisible: Boolean = false,
@@ -158,6 +160,40 @@ fun MenuDrawerOverlay(
                 checkedColor = gpsToggleColor
             )
 
+            // ── The mode's summary: what a route is doing, and what it costs ──
+            // The mode's own switch stays the map control stack's square as well as the Route
+            // sub-section's action, and this block carries no action of its own — the panel's three
+            // outcomes are the doors. It is the read-only echo of the mode, what remains readable of it
+            // while the drawer stands over the panel, and R67 keeps it **in the same card** as the
+            // sub-section below rather than absorbed by it.
+            if (routeSummaryVisible) {
+                SectionDivider()
+                RouteSummaryBlock(routeSummary)
+            }
+
+            // ── ROUTE sub-section: a route's two ends, and the action that arms the acquisition ──
+            // The mode's own **parameters**, held in the drawer since 2026-09-28 (R44, D2): the ends are
+            // chosen here rather than placed on the map, one pair per navigation mode, and the action
+            // beside them is the second door onto the same arming the map's square performs (R49). It
+            // stands **inside** the Navigation card under a sub-section header, and it stands always;
+            // what gates is the summary above it.
+            SectionDivider()
+            // The head is one comment naming the group's two fields — the route's **origin and
+            // destination** (2026-09-28) — and it is what identifies them: neither dropdown row carries a
+            // label of its own, each showing only its value on the right, and no rule separates the two
+            // rows. The arm action closes the block.
+            Text(
+                text = stringResource(R.string.route_comment_ends),
+                color = Color(AppConfig.uiTextMuted),
+                fontSize = AppConfig.uiFontToggleSize.sp,
+                fontWeight = FontWeight.Medium
+            )
+            RouteEndsSection(routeSummary)
+
+            // ── Auto-show zones: the master switch the settings' own approach reveal obeys ──
+            // Moved to the card's foot on 2026-09-28, the user's word: the route's parameters stand above
+            // it, so the card reads mode → parameters → the reveal that serves them. The row itself is
+            // untouched — same label, same preference, same gate.
             if (autoShowMasterVisible) {
                 SectionDivider()
                 ToggleRow(
@@ -165,15 +201,6 @@ fun MenuDrawerOverlay(
                     checked = autoShowMasterOverride,
                     onCheckedChange = onAutoShowMasterChange
                 )
-            }
-
-            // ── The mode's summary: what a route is doing, and what it costs ──
-            // The mode's own switch stays the map control stack's square, and the block carries no
-            // action of its own — the panel's four outcomes are the doors. It is the read-only echo of
-            // the mode, what remains readable of it while the drawer stands over the panel.
-            if (routeSummaryVisible) {
-                SectionDivider()
-                RouteSummaryBlock(routeSummary)
             }
         }
 
@@ -276,6 +303,9 @@ fun MenuDrawerOverlay(
             // moves, and the live block sits at the card's head. One chip per axis, each on or off by
             // itself, so all four combinations are states: neither, arrows only, colours only, both.
             SectionDivider()
+            // A standing sub-section again since 2026-09-28: the collapse came out and the group sits
+            // open in the card under its own caption, the settings' rows being the shape it follows —
+            // nothing about the two axes is hidden behind a chevron.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -308,58 +338,31 @@ fun MenuDrawerOverlay(
             }
 
             // ── Import / Export pair ───────────────────────
+            // Both wear the **outlined role**, side by side (2026-09-28): the pair is neither the
+            // drawer's own outcome nor a loss, so neither takes the accent fill, which stays the
+            // surface's action alone (§5.6, §5.9). The glyphs left with `ActionRow`, which had no icon
+            // slot and no other call site, so the component went with them.
             SectionDivider()
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .heightIn(min = 48.dp)
-                        .clickable(onClick = onExportAllTracks)
-                        .padding(horizontal = 12.dp)
-                        .semantics(mergeDescendants = true) {},
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.action_export),
-                        color = Color(AppConfig.uiTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.Upload,
-                        contentDescription = null,
-                        tint = ButtonColors.icon,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .heightIn(min = 48.dp)
-                        .clickable(onClick = onImportTracks)
-                        .padding(horizontal = 12.dp)
-                        .semantics(mergeDescendants = true) {},
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.action_import),
-                        color = Color(AppConfig.uiTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.Download,
-                        contentDescription = null,
-                        tint = ButtonColors.icon,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.action_export),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onExportAllTracks
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.action_import),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onImportTracks
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
             }
 
         }
@@ -454,13 +457,67 @@ fun MenuDrawerOverlay(
 }
 
 /**
- * **The mode's summary** — the drawer's read-only echo of the route panel.
+ * **The Route sub-section: a route's two ends, and the action that arms the acquisition** (R44–R49).
+ *
+ * Two **dropdowns** over the ends the screen resolved — the wheel of R70 retired 2026-09-28, its drag
+ * never committing reliably — and one action, standing **inside** the Navigation card under a comment
+ * naming the group's two roles. The entries arrive already labelled — two of them are `@StringRes`-backed
+ * words and the rest are markers' own names, which is data rather than UI text — so each row's own label is
+ * its role and the value rides on its right. The action is §5.6's own rendering of an outcome, so the
+ * drawer's primary action and the panel's are the same control.
+ */
+@Composable
+private fun RouteEndsSection(section: RouteSummaryData) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp)
+    ) {
+        DropdownRow(
+            label = null,
+            options = section.startOptions.map { it.selection to it.label },
+            selected = section.startSelection,
+            onSelect = section.onStartSelect
+        )
+        DropdownRow(
+            label = null,
+            options = section.destinationOptions.map { it.selection to it.label },
+            selected = section.destinationSelection,
+            onSelect = section.onDestinationSelect
+        )
+        Spacer(Modifier.height(8.dp))
+        // The action takes the row's right half (2026-09-28): `ConfirmActionButton` resolves its own
+        // `fillMaxWidth()` against the max it is handed, so an `End`-arranged row places it at half
+        // width with no change to the shared component (§5.6).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            ConfirmActionButton(
+                action = ConfirmAction(
+                    label = stringResource(R.string.route_action_arm),
+                    role = ConfirmActionRole.PRIMARY,
+                    onClick = section.onArm
+                ),
+                modifier = Modifier.fillMaxWidth(0.5f)
+            )
+        }
+    }
+}
+
+/**
+ * **The mode's summary** — the drawer's read-only echo of the route panel, kept beside the section.
  *
  * The status word is the panel's own: the acquiring word stands only while the engine searches, with
  * the engine's stage word beside it, and the active word stands while a route is followed. The plan's
  * own pair stands as soon as a plan does, and the boat-relative pair — under its own sub-title — only
  * while a route is followed, since a draft is not being followed and "remaining" would describe a
  * line the boat may never take.
+ *
+ * **R68's line stands above those rows and moves nothing**: where a candidate that saves time exists,
+ * one line names it with its own saving, and the rows beneath it read exactly as they would without it.
+ * It is the drawer's answer to "is there a better line than the one I am looking at" without the drawer
+ * becoming the selection surface — the panel's own rows and next/prev are that.
  */
 @Composable
 private fun RouteSummaryBlock(summary: RouteSummaryData) {
@@ -479,6 +536,15 @@ private fun RouteSummaryBlock(summary: RouteSummaryData) {
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = AppConfig.uiPaddingToggleVertical.dp)
     ) {
+        summary.alternativeSavingSec?.let { saving ->
+            Text(
+                text = stringResource(R.string.route_alternative_status, routeSpanText(saving)),
+                color = Color(AppConfig.uiAccent),
+                fontSize = AppConfig.uiFontDescSize.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(6.dp))
+        }
         status?.let {
             Text(
                 text = it,

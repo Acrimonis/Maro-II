@@ -10,7 +10,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.delay
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -22,7 +21,6 @@ import org.osmdroid.views.overlay.Polyline
 import kotlin.math.roundToInt
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.spatial.RouteProgress
 import android.graphics.Color as AndroidColor
 
@@ -73,45 +71,44 @@ private const val ROUTE_TARGET_PULSE_FRAME_MS = 33L
  * This is **the one file that touches osmdroid for the Route feature**, so ordering, the pin's slot
  * and the aim's own reading of the map centre all have a single home.
  *
- * **The objects are attached once and mutated in place.** The polyline pool and the pin are created at
- * this file's own composition and added to the map a single time; an answer then sets their points,
- * their colour and their transparency rather than rebuilding the set, which is the shape the contour
- * polylines already ship and the prerequisite the **stale ladder** created (R14).
+ * **The objects are attached once and mutated in place** (R65 keeps that pool). The polyline pool and
+ * the pin are created at this file's own composition and added to the map a single time; an answer then
+ * sets their points, their colour and their transparency rather than rebuilding the set — which is what
+ * a **candidate line** draws into, and the shape the contour polylines already ship.
  *
- * The pool has one slot per drawn line — the front route plus the ladder's configured oldest-plus-newest
- * — and the ladder's cap and its 20 % → 80 % band come from [`routeLadderForDrawing`] and
- * [`routeLadderAlpha`], so the drawing reads the same rule the tests do. The **acquisition's own**
- * ladder is the lines a reroute or a new route left standing, which is why the stale set is read from
- * the acquisition's state as well as the following one's.
+ * The pool has one slot per line the acquisition can draw: the settled answer, then one per candidate
+ * pass `maro.properties` declares. Slot 0 is the settled line and the candidates follow it, and the
+ * **selected** one is drawn at the plan's own transparency while every other wears the one shared
+ * [`AppConfig.routeDimmedTransparencyPct`] (R54, R64) — the same key the line a search is still building
+ * paints at, so the two are told apart by motion and replacement rather than by paleness.
  *
  * The panel is **not** here: it lives in the dashboard slot, composed by the shell from the same state,
- * so the panel the outcomes are taken from cannot fight the drag the aim is made with. This host
+ * so the panel the outcomes are taken from cannot fight the map the ends are read from. This host
  * therefore raises nothing, dismisses nothing and owns no dialog.
  *
- * **No timer asks for anything** (R2). There is no settle, no ground-move gate, no refresh clock and no
- * map-motion listener: the aim is the screen centre, read by the press the panel offers, and the mode
- * opens quiet. What this file reads of the boat is exactly two things — the **anchor** one acquisition
- * gets, handed to `beginDraft` on the arming frame (`fight`), and the pace window beside it.
+ * **No timer asks for anything** (R2), and since 2026-09-28 the **arming is not this file's either**:
+ * the toggle and the drawer's Route section resolve the standing pair and call `RouteViewModel.arm`, so
+ * what this host reads of the boat is the pace window alone — the anchor is the screen's own reading at
+ * the trigger (R71).
  *
  * **The back key is the mode's own escape** while it is armed, and it is routed through [onEndRoute]
- * into the shell's one exit rule, so back and the panel's Exit cannot diverge (R23).
+ * into the shell's one exit rule, so the back key cannot diverge from the toggle's own door (R60).
  *
  * @param armed      the mode's single switch, owned by the shell: on arms, off ends the route.
- * @param leadFix    the boat's own position with the course and speed the anchor's lead is projected
- *                   from, or null where they are not trustworthy — demo mode and a stale fix alike.
- *                   The host falls back on [boatPosition] with no lead when it is null.
  * @param speedKn    speed over ground (kn), fed to the pace window; null when nothing is moving.
  * @param positionRestricted true when the current position sits in a regulated zone or the band, so
  *                   the reading measures the limit rather than the boat and is dropped by [RoutePace].
- * @param onEndRoute runs when the mode ends — the toggle's off, the panel's Exit and the back key.
+ * @param onEndRoute runs when the mode ends — the toggle's off and the back key.
  */
 @Composable
 internal fun RouteHost(
     mapView: MapView?,
-    boatPosition: LatLng?,
-    leadFix: RouteFix?,
     state: RouteState,
     progress: RouteProgress?,
+    /** The lines the acquisition draws, the settled answer first — [`routeCandidateLines`]. */
+    candidates: List<RoutePlan>,
+    /** Which of [candidates] the selection stands on: the one at full strength and under the pin. */
+    selectedIndex: Int,
     armed: Boolean,
     gpsMode: Boolean,
     speedKn: Float?,
@@ -127,18 +124,13 @@ internal fun RouteHost(
     // follows the acquisition's own Exit wherever it goes (R23).
     BackHandler(enabled = armed) { onEndRoute() }
 
-    // ── The mode's edges: one acquisition's anchor is read, here, and the machine keeps it ──
-    // The read happens in this effect's own frame — the one where the toggle turned on — and the value
-    // is handed to the Idle → Choosing edge. Nothing is computed from it: the anchor is held until the
-    // panel's own **Acquire route** is pressed, which is the only ask the feature has (R2, R3).
-    val liveLeadFix by rememberUpdatedState(leadFix)
-    val liveBoatPosition by rememberUpdatedState(boatPosition)
+    // ── The mode's ending, and nothing else: the arming is the screen's own act (R49, R71) ──
+    // The trigger is the toggle or the drawer's Route section, and either one resolves the standing pair
+    // and calls `RouteViewModel.arm` — so this effect's only subject is the **ending**: the machine's own
+    // `end` follows the switch going off, whichever door turned it off (R57, R59).
     LaunchedEffect(armed) {
         if (armed) {
-            val fix = liveLeadFix
-                ?: liveBoatPosition?.let { RouteFix(RoutePoint(it.latitude, it.longitude), null, null) }
-            Log.d(TAG, "mode armed — anchor resolved at ${fix?.position}")
-            viewModel.beginDraft(fix)
+            Log.d(TAG, "mode armed — the ends were read by the screen")
         } else {
             Log.d(TAG, "mode ended")
             viewModel.end()
@@ -159,11 +151,11 @@ internal fun RouteHost(
     // **Attached once, mutated in place** (R14's prerequisite): the pool is created here, added to the
     // map in this effect and removed by its own disposal — never rebuilt on an answer — and every
     // update below writes points, colour and transparency into the objects that are already there.
-    val ladderSlots = AppConfig.routeLadderOldestNb + AppConfig.routeLadderLatestNb
+    val poolSlots = 1 + AppConfig.routeAvoidCandidatePasses.size
 
     DisposableEffect(mapView) {
         val mv = mapView ?: return@DisposableEffect onDispose { }
-        val pool = (0..ladderSlots).map { index ->
+        val pool = (0 until poolSlots).map { index ->
             Polyline().apply {
                 title = if (index == 0) ROUTE_LINE_TITLE else "${ROUTE_LINE_TITLE}_$index"
                 setPoints(emptyList())
@@ -234,40 +226,24 @@ internal fun RouteHost(
         }
 
         val plan = state.plan
-        val stale = when (state) {
-            // The following phase's ladder is the session minus its front line; the acquisition's is
-            // the set a reroute or a new route left standing, plus the answers it has itself replaced.
-            is RouteState.Following -> state.routes.dropLast(1)
-            is RouteState.Choosing -> state.ladder
-            else -> emptyList()
-        }
-        val drawnLadder = routeLadderForDrawing(stale)
-
-        val frontAlpha = transparencyPctToAlpha(AppConfig.routeLineTransparencyPct)
         val colour = AppConfig.routeLineColor
         val stroke = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
-
-        // Slot 0 is the front route at its own transparency key; the ladder follows it, oldest first, on
-        // the book's own **20 % → 80 %** band (R14) — so the line just replaced is the brightest of the
-        // stale set and the one that opened the session the faintest. The band is an **absolute**
-        // opacity: the two figures the book states, never a fraction of the front line's own
-        // transparency.
-        val layers: List<Pair<List<RoutePoint>, Int>> = buildList {
-            if (plan != null && plan.points.size >= 2) add(plan.points to frontAlpha)
-            drawnLadder.forEachIndexed { index, ladderPlan ->
-                add(ladderPlan.points to routeLadderDrawAlpha(index, drawnLadder.size))
-            }
-        }
+        // **The selected line at full strength, the others dimmed** (R54, R64): the plan's own key for
+        // the line the selection stands on, and the one shared key for every line drawn beside it —
+        // candidates here, and the line a search is still building below.
+        val selectedAlpha = transparencyPctToAlpha(AppConfig.routeLineTransparencyPct)
+        val dimmedAlpha = transparencyPctToAlpha(AppConfig.routeDimmedTransparencyPct)
 
         pool.forEachIndexed { index, line ->
-            val layer = layers.getOrNull(index)
-            if (layer == null) {
+            val candidate = candidates.getOrNull(index)
+            if (candidate == null || candidate.points.size < 2) {
                 line.setPoints(emptyList())
             } else {
-                line.setPoints(layer.first.map { GeoPoint(it.latitude, it.longitude) })
+                val alpha = if (index == selectedIndex) selectedAlpha else dimmedAlpha
+                line.setPoints(candidate.points.map { GeoPoint(it.latitude, it.longitude) })
                 line.outlinePaint.apply {
                     color = AndroidColor.argb(
-                        layer.second,
+                        alpha,
                         AndroidColor.red(colour),
                         AndroidColor.green(colour),
                         AndroidColor.blue(colour)
@@ -277,10 +253,11 @@ internal fun RouteHost(
             }
         }
 
-        // The pin is drawn at the **resolved** destination, which is where the route really ends — an
-        // aim on land or in another stretch has already moved to the boat's own stretch. One pin serves
-        // the front route; a ladder line keeps none of its own.
-        if (plan != null && plan.points.size >= 2) {
+        // The pin marks the **selected** line's resolved destination, which is where that route really
+        // ends — an end on land or in another stretch has already moved to the boat's own stretch. One
+        // pin serves the whole set: it stands at the line the eye reads at full strength.
+        val selected = candidates.getOrNull(selectedIndex) ?: plan
+        if (selected != null && selected.points.size >= 2) {
             val density = mv.paintDensity
             val pinPx = (ROUTE_PIN_SIZE_DP * density).toInt().coerceAtLeast(1)
             val ringPx = (AppConfig.routePinRingWidthDp * density).toInt().coerceAtLeast(1)
@@ -291,7 +268,7 @@ internal fun RouteHost(
             }
             icon.setBounds(0, 0, pinPx, pinPx)
             pin?.let {
-                it.position = GeoPoint(plan.destination.latitude, plan.destination.longitude)
+                it.position = GeoPoint(selected.destination.latitude, selected.destination.longitude)
                 it.icon = icon
                 it.isEnabled = true
             }
@@ -308,11 +285,12 @@ internal fun RouteHost(
         val firstLine = pool.firstOrNull()
         Log.d(
             TAG,
-            "line repaint — phase=${state.phase}, points=${plan?.points?.size ?: 0}, " +
+            "line repaint — phase=${state.phase}, points=${selected?.points?.size ?: 0}, " +
                 "pool=${pool.size} attached=${pool.count { line -> mv.overlays.contains(line) }} " +
                 "firstLineAlpha=${firstLine?.outlinePaint?.alpha ?: -1}, " +
-                "layers=${layers.size}, stroke=${stroke}px, colour=${Integer.toHexString(colour)}, " +
-                "frontAlpha=$frontAlpha, pinEnabled=${pin?.isEnabled == true}"
+                "lines=${candidates.size}, selected=$selectedIndex, stroke=${stroke}px, " +
+                "colour=${Integer.toHexString(colour)}, selectedAlpha=$selectedAlpha, " +
+                "dimmedAlpha=$dimmedAlpha, pinEnabled=${pin?.isEnabled == true}"
         )
 
         OverlayZOrder.reorder(mv)
@@ -335,7 +313,7 @@ internal fun RouteHost(
             line.setPoints(points.map { GeoPoint(it.latitude, it.longitude) })
             line.outlinePaint.apply {
                 color = AndroidColor.argb(
-                    transparencyPctToAlpha(AppConfig.routeProgressTransparencyPct),
+                    transparencyPctToAlpha(AppConfig.routeDimmedTransparencyPct),
                     AndroidColor.red(AppConfig.routeLineColor),
                     AndroidColor.green(AppConfig.routeLineColor),
                     AndroidColor.blue(AppConfig.routeLineColor)

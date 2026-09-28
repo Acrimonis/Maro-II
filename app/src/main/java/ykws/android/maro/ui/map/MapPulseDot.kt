@@ -17,14 +17,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ykws.android.maro.config.AppConfig
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The app's one pulsing dot
 //
-// Two toggles carry it — the recording square and the route's own — and they must look alike: the
-// same 10 dp disc at the same corner inset, beating 1 → 0.3 and back over 800 ms, in the colour the
-// square's own state supplies. It is one home rather than two copies of those four values, which is
-// what R19 asks for: the route's following on-phase **reuses the recording dot**.
+// Two toggles carry it — the recording square and the route's own, the second on both its on-phases —
+// and they must look alike: the same 10 dp disc at the same corner inset, beating 1 → 0.3 and back over
+// 800 ms, **in one colour the caller does not choose** (R69). The colour is a UI token of its own,
+// `ui.map.pulse.dot`, rather than the mode's colour: the mark means "this control is live", and the
+// refused crosshair's red is a different thing that keeps its own key.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** The beat every pulsing marker in the app uses: how long one 1 → 0.3 → 1 cycle takes (ms). */
@@ -55,15 +57,16 @@ internal fun rememberPulseAlpha(pulseMs: Int, label: String): Float {
 }
 
 /**
- * The shared pulsing disc.
+ * The shared pulsing disc — **one colour for every toggle that wears it** (R69).
  *
  * The caller places it: aligned `TopEnd` inside a [MapToggleSquare]'s content box it lands at the
  * square's own corner inset by `ui.map.surface.padding`, which is the inset the recording dot has
- * always had, now by construction rather than by the glyph's measured box.
+ * always had, now by construction rather than by the glyph's measured box. The size and the beat are
+ * parameters because a mark that is not a toggle's may want another, but the colour is not: it is the
+ * token, read here, so the two squares cannot drift into two reds.
  */
 @Composable
 internal fun MapPulseDot(
-    color: Color,
     modifier: Modifier = Modifier,
     size: Dp = MAP_PULSE_DOT_SIZE,
     pulseMs: Int = MAP_PULSE_DEFAULT_MS
@@ -74,6 +77,6 @@ internal fun MapPulseDot(
             .size(size)
             .alpha(alpha)
             .clip(CircleShape)
-            .background(color)
+            .background(Color(AppConfig.uiMapPulseDot))
     )
 }

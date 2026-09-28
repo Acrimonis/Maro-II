@@ -171,6 +171,19 @@ data class AppSettings(
      * forced-crossing report alike.
      */
     val excludedSpeedZoneIds: Set<String> = emptySet(),
+    /**
+     * **The start the drawer arms the acquisition on** — a
+     * [ykws.android.maro.data.route.RouteEndSelection] token, one value per navigation mode so GPS and
+     * demo remember their own. Empty reads as unresolved, and
+     * [ykws.android.maro.data.route.RouteEndSelection.resolve] answers the end's first entry for it.
+     */
+    val routeStartSelectionGps: String = "",
+    /** The start the drawer arms on in demo mode — the same token family, its own memory. */
+    val routeStartSelectionDemo: String = "",
+    /** **The destination the drawer arms the acquisition on** — the same tokens, per navigation mode. */
+    val routeDestinationSelectionGps: String = "",
+    /** The destination the drawer arms on in demo mode. */
+    val routeDestinationSelectionDemo: String = "",
     /** Regenerate: reload depth grid from assets. */
     val regenGrid: Boolean = true,
     /** Regenerate: re-derive isobath contours. */
@@ -591,6 +604,10 @@ class SettingsManager(
         ) ?: ykws.android.maro.config.AppConfig.routeEngineId,
         excludedSpeedZoneIds = prefs.getStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, emptySet())?.toSet()
             ?: emptySet(),
+        routeStartSelectionGps = prefs.getString(KEY_ROUTE_START_SELECTION_GPS, "") ?: "",
+        routeStartSelectionDemo = prefs.getString(KEY_ROUTE_START_SELECTION_DEMO, "") ?: "",
+        routeDestinationSelectionGps = prefs.getString(KEY_ROUTE_DESTINATION_SELECTION_GPS, "") ?: "",
+        routeDestinationSelectionDemo = prefs.getString(KEY_ROUTE_DESTINATION_SELECTION_DEMO, "") ?: "",
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
@@ -775,6 +792,10 @@ class SettingsManager(
             .putInt(KEY_ROUTE_SLOW_WATER_BUDGET_PCT, updated.routeSlowWaterBudgetPct)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
+            .putString(KEY_ROUTE_START_SELECTION_GPS, updated.routeStartSelectionGps)
+            .putString(KEY_ROUTE_START_SELECTION_DEMO, updated.routeStartSelectionDemo)
+            .putString(KEY_ROUTE_DESTINATION_SELECTION_GPS, updated.routeDestinationSelectionGps)
+            .putString(KEY_ROUTE_DESTINATION_SELECTION_DEMO, updated.routeDestinationSelectionDemo)
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
@@ -966,6 +987,14 @@ class SettingsManager(
         private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
         /** The persisted set of speed-zone ids the user excluded from route planning. */
         private const val KEY_EXCLUDED_SPEED_ZONE_IDS = "excluded_speed_zone_ids"
+        /** The persisted start the drawer arms on in GPS mode — a `RouteEndSelection` token. */
+        private const val KEY_ROUTE_START_SELECTION_GPS = "route_start_selection_gps"
+        /** The same for demo mode. */
+        private const val KEY_ROUTE_START_SELECTION_DEMO = "route_start_selection_demo"
+        /** The persisted destination the drawer arms on in GPS mode. */
+        private const val KEY_ROUTE_DESTINATION_SELECTION_GPS = "route_destination_selection_gps"
+        /** The same for demo mode. */
+        private const val KEY_ROUTE_DESTINATION_SELECTION_DEMO = "route_destination_selection_demo"
         private const val KEY_REGEN_GRID = "regen_grid"
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"

@@ -585,22 +585,41 @@
 
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Route destination mode</string>
-    <!-- The acquisition's own title and comment: the phase's name, then one line of what it asks. -->
+    <!-- The acquisition's own title and comment: the phase's name, then one line of whence the answer
+         comes. The ends are chosen in the drawer's Route section, so nothing is placed on the map. -->
     <string name="route_acq_title">Route acquisition</string>
-    <string name="route_acq_comment">Place the destination, then acquire the route</string>
+    <string name="route_acq_comment">The route follows the ends chosen in the route section</string>
+    <!-- The drawer's Route section: its two selectors' fixed entries and the action that arms the
+         acquisition on the standing pair. Each flagged marker's own name is data, not a label. Its
+         head is `route_comment_ends`, so no bare "Route" title stands there. -->
+    <!-- The two rollers' short fixed captions: the value takes the rest of the row (R70). -->
+    <!-- The sub-section's head: one comment naming the group's two fields — the route's origin and
+         destination — and it is what identifies them, since neither dropdown row carries a label of its
+         own; each row shows only its value, on the right. -->
+    <string name="route_comment_ends">Route origin and destination</string>
+    <string name="route_end_current">Current position</string>
+    <string name="route_end_position">Marker position</string>
+    <string name="route_action_arm">Route</string>
+    <!-- R68 : la ligne d'état du résumé, au-dessus de ses lignes, quand un candidat fait gagner du temps. -->
+    <string name="route_alternative_status">A faster route saves %1$s</string>
+    <!-- The candidate lines the engine offered beside the settled one (R53, R54, R62): the block's own
+         title, one row per alternative — its own number, its duration and what it saves, in time and as
+         a share of the settled trip's clock — and the pair that loops the selection. -->
+    <string name="route_candidates_title">Alternatives</string>
+    <string name="route_candidate_fmt">Route #%1$d · %2$s · saves %3$s (%4$d %%)</string>
+    <string name="cd_route_candidate_prev">Previous alternative</string>
+    <string name="cd_route_candidate_next">Next alternative</string>
     <!-- The data table's own labels: two columns, an end each, the figures below them. -->
     <string name="route_label_start">Start</string>
     <string name="route_label_destination">Destination</string>
     <string name="route_label_eta">ETA</string>
     <!-- The ETA cell's bare value — the label above is what says "ETA", so it is not repeated. -->
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
-    <string name="route_action_acquire">Acquire route</string>
-    <string name="route_action_confirm">Confirm</string>
-    <string name="route_action_reroute">Reroute</string>
-    <string name="route_action_new">New route</string>
-    <string name="route_action_save_only">Save track and Exit</string>
-    <string name="route_action_save_track">Save track</string>
-    <string name="route_action_exit">Exit</string>
+    <!-- The acquisition's own three actions (R55): the save writes the **selected** line, `Select
+         route` locks it and enters navigation, and the cancellation turns the toggle off asking
+         nothing — `action_cancel` is the app's one word for it. -->
+    <string name="route_action_save_track">Save to track</string>
+    <string name="route_action_select">Select route</string>
     <string name="route_pin_label">Pin the track</string>
     <string name="route_searching">Computing Route…</string>
     <string name="route_no_route">No water route here</string>
@@ -618,12 +637,12 @@
     <string name="route_stage_search">Search</string>
     <string name="route_stage_pull">Pull</string>
     <string name="route_stage_snap">Snap</string>
-    <!-- The one exit dialog, reached by the toggle and by the panel's Exit alike. Its accent reuses
-         the draft's own save words (route_action_save_only), the scope above saying how many routes
-         that save writes. -->
+    <!-- The one exit dialog, reached by the toggle's off and by the back key alike (R59). Its accent
+         writes the followed route to a track and is disabled while that route already has one. -->
     <string name="route_exit_title">Leave the route?</string>
-    <string name="route_exit_continue">Continue</string>
-    <string name="route_exit_discard">Discard route</string>
+    <string name="route_exit_save">Save Route to Track</string>
+    <string name="route_exit_continue">Continue route</string>
+    <string name="route_exit_discard">Discard Route</string>
     <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
          "invalid" sentence above completes. Both ends read the same set. The middle two are the
          ring's own reads: the depth gate's rule, and whether a berth approach reaches legal water. -->
