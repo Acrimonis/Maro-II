@@ -8,11 +8,8 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
@@ -193,11 +190,6 @@ class MarkersViewModel(
     private val _mapMarkers = MutableStateFlow<List<UserMarker>>(emptyList())
     val mapMarkers: StateFlow<List<UserMarker>> = _mapMarkers.asStateFlow()
 
-    /** Unfiltered all-marker ID set — ghost-pin render-time existence checks. */
-    val allMarkerIds: StateFlow<Set<String>> = _allMarkers
-        .map { list -> list.mapTo(HashSet()) { it.id } }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
-
     /** Binary layer visibility (FanLayout toggle). */
     private val _markerLayerState = MutableStateFlow(MarkerLayerState.HIDDEN)
     val markerLayerState: StateFlow<MarkerLayerState> = _markerLayerState.asStateFlow()
@@ -306,7 +298,12 @@ class MarkersViewModel(
                     cap = Int.MAX_VALUE,
                     focus = markerMapFocus,
                     todayMidnightMs = 0L
-                )
+                ).also { selected ->
+                    Log.d(
+                        "MaroMapRefresh",
+                        "mapMarkers publish: filter=${settings.markerMapFilter} count=${selected.size}"
+                    )
+                }
             }.collect { _mapMarkers.value = it }
         }
     }

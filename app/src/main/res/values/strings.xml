@@ -372,6 +372,9 @@
     <string name="filter_axis_route_cost">Routing cost</string>
     <string name="filter_option_route_cost">Route cost</string>
     <string name="filter_option_no_route_cost">No route cost</string>
+    <string name="filter_axis_route_role">Route role</string>
+    <string name="filter_option_route_role">Origin or Dest</string>
+    <string name="filter_option_no_route_role">No route role</string>
     <string name="color_picker_title">Pick color</string>
     <string name="settings_depth_label">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>

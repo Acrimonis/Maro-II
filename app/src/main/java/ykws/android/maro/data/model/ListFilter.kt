@@ -103,9 +103,14 @@ fun UserMarker.matchesFilter(f: ListFilter): Boolean =
                 (value == "PINNED" && this.pinned) ||
                 (value == "UNPINNED" && !this.pinned)
             "origin" -> value == "ALL" || originMatches(this.origin, value)
+            // Cost and role are independent: a marker may carry a cost and no role, or a role and no
+            // cost, so the two criteria are two axes and each can be cut alone.
             "routeCost" -> value == "ALL" ||
                 (value == "WITH_COST" && validRoutingCost(this.routingCost) != null) ||
                 (value == "WITHOUT_COST" && validRoutingCost(this.routingCost) == null)
+            "routeRole" -> value == "ALL" ||
+                (value == "ROLE" && (this.routeOrigin || this.routeDestination)) ||
+                (value == "NONE" && !this.routeOrigin && !this.routeDestination)
             else -> true
         }
     }
@@ -217,9 +222,18 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
         key = "routeCost",
         labelResId = R.string.filter_axis_route_cost,
         options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("WITH_COST", R.string.filter_option_route_cost),
-            FilterOptionSpec("WITHOUT_COST", R.string.filter_option_no_route_cost),
-            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true)
+            FilterOptionSpec("WITHOUT_COST", R.string.filter_option_no_route_cost)
+        )
+    ),
+    FilterAxisSpec(
+        key = "routeRole",
+        labelResId = R.string.filter_axis_route_role,
+        options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("ROLE", R.string.filter_option_route_role),
+            FilterOptionSpec("NONE", R.string.filter_option_no_route_role)
         )
     )
 )

@@ -2594,7 +2594,6 @@ fun MapScreen(
                     // simply joins this overlay's existing input rather than being painted separately.
                     selectedMarkerId = inspectCandidate?.takeIf { it.kind == InspectKind.MARKER }?.id
                         ?: selectedMarkerId,
-                    markerLayerState = markerLayerState,
                     markerHaloSize = appSettings.markerHaloSize,
                     markerPointIconZoom = appSettings.markerPointIconZoom,
                     markerHaloPinnedColor = appSettings.markerHaloPinnedColor,
@@ -3047,6 +3046,7 @@ fun MapScreen(
             },
             // ── Marker map referential (menu filter) + link ───────────────
             onMarkerMapFilterChange = { newFilter ->
+                android.util.Log.d("MaroMapRefresh", "onMarkerMapFilterChange: $newFilter")
                 val linked = appSettings.markerFilterLinked
                 // R2: a map-opened marker walk reads the map world, so this write closes it. The view
                 // model then re-tests the linked list world too — a map write need not pass through

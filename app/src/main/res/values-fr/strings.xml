@@ -371,6 +371,9 @@
     <string name="filter_axis_route_cost">Coût de routage</string>
     <string name="filter_option_route_cost">Avec coût de routage</string>
     <string name="filter_option_no_route_cost">Sans coût de routage</string>
+    <string name="filter_axis_route_role">Rôle de route</string>
+    <string name="filter_option_route_role">Origine ou destination</string>
+    <string name="filter_option_no_route_role">Sans rôle de route</string>
     <string name="color_picker_title">Choisir une couleur</string>
     <string name="settings_depth_label">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
