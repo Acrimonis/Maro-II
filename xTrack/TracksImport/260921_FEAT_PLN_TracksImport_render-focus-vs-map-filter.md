@@ -35,9 +35,11 @@ Two derivations answer the same question, and only one of them honours the overr
   appSettings.trackMapFilter, cap = nbToRender, focus = focus, …)` (`:147-155`).
 - **Eligibility carries the override** — `MapSelectionPolicy.kt:41-44`:
   `!candidate.pinned && (focus.includes(candidate.id) || candidate.matchesFilter(filter, todayMidnightMs))`.
-  The highlighted track is additionally kept past the cap (`:52-53`).
+  The highlighted track is additionally kept past the cap (`:52-53`). *(Both deleted 2026-09-28: the drawn
+  set is the filter's alone; the highlighted id is a rank term now.)*
 - **The pinned loop repeats it** — `MapTrackOverlayEffects.kt:236-240`:
   `it.pinned && (it.id == highlightedTrackId || it.matchesFilter(appSettings.trackMapFilter, midnightMs))`.
+  *(Deleted 2026-09-28: a pinned summary is drawn only when it matches the map filter.)*
 
 So the filter is not leaking and nothing is stale: the effect's rebuild keys include
 `appSettings.trackMapFilter` (`MapTrackOverlayEffects.kt:77`), the pass does re-run, and the policy
@@ -162,6 +164,7 @@ active filter, which is when the user has just said what they want to see.
 ## 9. Non-goals
 
 - The position axis's classification, the cap value, and the pinned path's own highlight exception.
+  *(The pinned path's highlight exception was deleted 2026-09-28 — the pin escapes the route count alone.)*
 - `MarkerSelectionPolicy`, the marker badge, and the live recording line's non-filterability.
 - The 2026-09-11 no-touch list stands: `pinned`, the master layer toggles, filter state and both link
   toggles, and the GAP/dash split rendering.
@@ -177,7 +180,9 @@ active filter, which is when the user has just said what they want to see.
 The user chose **reading 2 with the badge moved onto the drawn set** and ordered it through `#impl`. §5
 is therefore the edit set and §6 stands as the rejected reading: D1a's "individual axis changes keep the
 boost" is amended so the boost keeps the cap override and gives up the filter bypass, while the
-highlighted track keeps both.
+highlighted track keeps both. *(Both superseded 2026-09-28: the highlighted track keeps neither — the map
+filter is authoritative with no exception — and the drawing's three escapes, the pinned carve-out among
+them, are deleted.)*
 
 ## 12. Outcome — shipped 2026-09-21
 

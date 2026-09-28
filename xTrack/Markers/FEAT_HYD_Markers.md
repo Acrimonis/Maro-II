@@ -1,61 +1,38 @@
 # Context Hydration — Markers — 2026-09-28
 
-**Last Bake:** 2026-09-28 09:55 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-09-28 20:35 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** No dependency was added, no machine-shaped data file was opened and the device was untouched — the user's orders each named their action (the `#new` branch, the role flags, then three layout corrections, the wall, and this bake with `#commit` and `#push`); every claim written about the code carried a read behind it, and the gaps the two Ask reviews named still stand: the alignment's dependence on intrinsic measurement, and the two comment blocks differing in height.
+**Directive trace:** All five covered action classes were met and none stopped this session — no dependency was added, no machine-shaped data file was opened, the branch was cut only on the user's `#new` and every implementation ran on an explicit order, the device was touched once for a read-only `adb logcat -d` fetched after the user said the navigation was theirs, and every claim written about the code carries a file read behind it. The archive pass and the log sweep were each ordered in the same session. The gap that stays open is named: the Markers and Ui_General rows of `## Feature Summaries` still carry their old dates.
 
 ## State
 
-One session, 2026-09-28, on `feature/marker-to-route`, cut from `origin/develop` at `192fb2b`: the marker
-gained the two route roles, the cost scale gained its wall, and the Routing cost step was rebuilt as two
-columns.
+One session, 2026-09-28, opened on this feature by `#focus marker` on a branch cut from `origin/develop` (`feature/misc-ui-n-routing`), its marker pass committed as `840841c`, and the branch closed on `8ac9086` and `5a0ec28` after the work spilled into Ui_General.
 
-**The roles.** `UserMarker.routeOrigin` and `.routeDestination` are independent booleans, both defaulting
-`false`, so either, both or neither may be set — never an exclusive enum. `CreateFormState` carries the
-pair through the dashboard-open seed and both `startWizard` entries, and `saveMarker` and `updateMarker`
-write it, exactly as `routingCost` is carried. Additive on the JSON: a legacy file reads both false, with
-no migration and no schema bump.
+**The filter validated.** The pinned axis was reported inert on the map. The reads of the predicate, of the two referentials and of the wiring found no defect, and the device log settled it: the map filter was correct — 12 of 42 markers, every one pinned — so the two leaks lay elsewhere, in the map's reveal-on-select force-drawing the open card's marker and in the walk following the world of the door it was opened from. Both were removed by the Ui_General pass; the report and the evidence live in the plan of record.
 
-**The wall.** `ROUTING_COST_MAX` is 9 for the prices and `ROUTING_COST_BLOCKED` is 10 for a wall the route
-may never cross, both in
-[`UserMarker.kt`](../../app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt), and
-`validRoutingCost` accepts `1..ROUTING_COST_BLOCKED` — the range now has one home, which closes the note
-the 2026-09-25 plan left open. The step names it **Blocked/Wall** / **Bloqué/Mur** on the value line and
-under the track's right end.
+**The route axis.** The marker filters' routing criteria are **two independent axes**, because a single-select panel can never hold a cost and a role at once: `routeCost` — ALL · WITH_COST · WITHOUT_COST — restored as it shipped, and beside it the new `routeRole` — ALL · ROLE · NONE; `UserMarker.matchesFilter` reads both, the cost through the shared `validRoutingCost` guard, and the two AND together. The single-axis `Route` form built earlier the same session, and the retired-key prune that came with it, were **withdrawn before leaving the branch**. The ROLE option ships as **`Origin or Dest`** / **`Origine ou destination`**.
 
-**The step.** `RoutingCostStep` is one `CardArea` holding two sections side by side, divided by a vertical
-rule: **Route role** left with its comment and its Origin / Dest options side by side, **Routing cost**
-right with its comment, a right-aligned value line and the slider, the columns weighted 0.44 / 0.56. Each
-side leads with its heading block, then gives the slack to a weighted spacer, so the headings align at the
-top and the controls share one bottom line. No new wizard step: both mirrored sequences are unchanged.
+**The header's marks.** The marker card header's two route-role marks are the true colour emoji 🚩 while `routeOrigin` and 🏁 while `routeDestination`, set apart from the geometry line by one ` | ` separator emitted before the first mark alone; the settled order is start · 💲 cost · end.
 
-**The primitives.** `ui/components/SectionRow.kt` is new — two weighted `Column` sections divided by the
-vertical rule, its sides filling the row's height so a caller's spacer can bottom-weight them — and
-`SliderControl` holds the slider's colour recipe and its end-label row, which `SliderRow` now forwards to.
-`docs/ui-component-guidelines.md` gained §2.14 and the §2.6 vertical rule.
+**Dead code swept** under the same order: `MarkersViewModel.allMarkerIds` with its ghost-pin KDoc, `MarkerOverlay`'s `markerLayerState` and `modifier` parameters with their call-site argument, and the `drawGeometry` local pinned `true`.
 
-**Build.** `gradlew :app:assembleDebug` SUCCESSFUL with only pre-existing warnings, and
-`gradlew :app:testDebugUnitTest --tests "*Marker*" --tests "*RoutingCost*"` green: `RoutingCostGuardTest`
-rewritten for 1..10, `MarkerRoutingCostHeaderTest` for the wall's compass, beside the new
-`MarkerRouteRoleTest`.
+**The diagnostics gone.** The `MaroFilter` lines added for the pinned investigation — four `filterWrite` lines and `open source=MAP` in `MapScreen`, the `publish` pair with `open` and `step` in `MarkersViewModel`, and the added `onMarkerMapFilterChange` line — were removed together with the three helpers they orphaned (`filterAxes`, `walkWorldName`, `logStep`); the pre-existing `MaroMapRefresh` lines stay. No `reveal` line ever existed. `gradlew :app:assembleDebug` SUCCESSFUL and the scoped suites green at 16 classes and 157 tests.
+
+**Three plans archived.** `#archive` created this feature's first `xTrack/Markers/xxArchive/` and filed the moved plan's tombstone there as `superseded`, its `Superseded-by` naming the Ui_General plan; the two shipped Ui_General plans went to their own archive in the same pass, and every live pointer to the three was dropped or repointed.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — the two roles, the two range constants, the widened guard
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `CreateFormState`, the three seeds, `saveMarker`, `updateMarker`
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/RoutingCostStep.kt` — the two-column step and the wall's wording
-- `app/src/main/java/ykws/android/maro/ui/components/SectionRow.kt` — **new**: the side-by-side section primitive
-- `app/src/main/java/ykws/android/maro/ui/components/SliderRow.kt` — `SliderControl` holds the colours and the end-label row
-- `app/src/main/java/ykws/android/maro/ui/components/MultiSelectRow.kt` — unchanged; its shipped horizontal form is the control
-- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the role keys, the cost comment and the wall
-- `docs/ui-component-guidelines.md` — §2.14, §2.6's vertical rule, §1's flow line, §4's anti-pattern
-- `xTrack/Markers/260928_FEAT_PLN_Markers_route-role-flags.md` — the plan, its three withdrawn rounds and its nine open items
+- `app/src/main/java/ykws/android/maro/data/model/ListFilter.kt` — the `routeCost` and `routeRole` axes and their `matchesFilter` arms
+- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — `routeOrigin` / `routeDestination`, `ROUTING_COST_MAX`, `ROUTING_COST_BLOCKED`, `validRoutingCost`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — `coordinateHeader()`'s marks and its separator
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — the log lines and the three helpers removed
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the `MaroFilter` lines removed
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the two axes' keys, both locales
+- `app/src/test/java/ykws/android/maro/data/model/MarkerFilterMigrationTest.kt` · `MarkerRoutingCostHeaderTest.kt` — the axes and the marks
+- `xTrack/Markers/xxArchive/INDEX.md` — the new index and its single `superseded` row
+- `xTrack/Markers/260928_FEAT_PLN_Markers_filter-validation-and-route-axis.md` — the filter report and the pin evidence
+- `xTrack/Markers/260928_FEAT_PLN_Markers_route-role-flags.md` — the two roles, the cost wall and the two-column step
 
 ## Next Step
 
-The device pass over the rebuilt step, owed by the user: the vertical rule visible between the columns,
-the headings and the controls lined up, the slider reaching **Blocked/Wall** and naming it, and both
-comments reading whole where they wrap. Then the plan's open items — chiefly the alignment's dependence
-on `height(IntrinsicSize.Min)`, the first suspect if the rule is unseen, and §2.14's claim that no caller
-hand-rolls a divider — with the two superseded `route-role-flags` paragraphs in the feature's
-`## Implemented` left for a `findstr`-based patch or the next bake.
+The walk of 2026-09-18 advanced on 2026-09-28: **item 11 closed** — the bookkeeping bake across Markers, UI_Map and Ui_Settings, its Markers half done by this feature's bake and its two other halves by the pointers written into UI_Map and Ui_Settings — and the cursor now sits on **item 12**, the only point left: the rays hit and test a subset of the date points rather than all of them, which the epic's own `## Todos` line duplicates. The marker header's mark line still carries its own open record entry.

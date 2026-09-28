@@ -63,6 +63,20 @@ panel **above** the drawer or the dashboard would float over the panel's scrim. 
 - The autoclose set is closed at three members: the wizard, the other selected-item dashboard, and a
   scope change of the walk. The fan needs no change, being already outside it.
 
+> **Amended 2026-09-28.** R2 stands exactly as written: a change of scope — a filter edit, a sort, a
+> reset — closes the card, and "close on any change" in the table below is still the target. What this
+> amendment adds is the case R2 never reached, an item leaving its world by its *own* change rather than
+> by a filter edit: an edit that stops the selected marker matching the world its card walks steps to the
+> adjacent item — the previous when it was last — and closes only when that world empties. The deletion
+> already answers that way, at the tap (`260816_FEAT_PLN_Ui_General_delete-advance-next.md`); the pass,
+> with the editor's return, is promoted into `FEAT_DSC_Ui_General.md`'s `## Rules`.
+>
+> **Amended again 2026-09-28.** R2's map-world close no longer reaches the map-opened card: a click on
+> the map seats a single item whose standing is not the filter's business, so the row at `:86` is a
+> **keep** where it read a "close", while the spy (inspect) card still closes on a map write and a list
+> card on a list write. The drawing loses its three escapes with it — the marker reveal, the highlighted
+> track's filter override and the pinned carve-out — so the map draws its filter's set and nothing else.
+
 ## Action table
 
 | Action | Rule | Today | Target |
@@ -75,11 +89,14 @@ panel **above** the drawer or the dashboard would float over the panel's scrim. 
 | Arrows / Colours chips, display settings | keep | unreachable while selected | reachable, selection survives |
 | Marker list filter while opened from the list | R2 | closes only when the item leaves the filter | close on any change |
 | Marker list sort, opened from the list | R2 | stays open | close |
-| Marker map filter over a map-opened marker | R2 | stays open by design | close |
+| Marker map filter over a map-opened marker | R2 | stays open by design | **stays open** (2026-09-28: the map-opened card is the exception) |
 | Track list filter / sort / reset | R2 | no close, index silently stale | close |
 | Track map filter while linked | R2 | no close | close |
 | Eye / Speed toggle, GPS toggle, zoom, recentre, lock, map gestures | keep | stays open | keep |
 | Back, drawer close, delete-advance | user | closes / advances | unchanged |
+
+*Amended 2026-09-28:* the close targets above stand — save the map-opened row, a keep now — and the
+advance is the answer to the item's own departure, not to a filter edit — see the amendments above.
 
 ## Code changes
 

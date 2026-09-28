@@ -8,11 +8,8 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
@@ -68,25 +65,34 @@ enum class MarkerLayerState { HIDDEN, SHOW_ALL }
 enum class DrawerSource {
     /** Opened from the marker list → prev/next follows the list world, clamps at edges. */
     LIST,
-    /** Opened by tapping a marker on the map → prev/next follows the map world, clamps at edges. */
+    /**
+     * Opened by tapping a marker on the map → the item the tap seated; its card stands while that
+     * marker exists, whatever the map filter says of it (2026-09-28).
+     */
     MAP,
     /**
      * Opened by an inspect pick → prev/next follows the frozen distance ladder, which the inspect
      * cursor above both drawers owns, so this source never walks a world of its own.
      */
     INSPECT,
-    /** Opened from whereAmI query → prev/next wraps, existing behavior. */
-    WHERE_AM_I
+    /**
+     * Opened by the menu chevron → it walks the map-referential set the menu shows, so a map-filter
+     * write closes it exactly as it closes the spy card. Named for its door rather than its world,
+     * because that world is the same map-filtered set [INSPECT] reads (2026-09-28).
+     */
+    MENU
 }
 
 /**
  * R2 core — does a change to a referential close the open dashboard's walk?
  *
  * A viewing panel's Prev/Next reads the world its surface was opened from: the list referential for
- * [DrawerSource.LIST], the map referential for [DrawerSource.MAP]. [DrawerSource.INSPECT] answers on
- * the map world because its ladder is snapshotted from the same map-filtered set a map filter change
- * rewrites. [DrawerSource.WHERE_AM_I] walks the match set of the query, which no list or map filter
- * rewrites, so it never closes this way.
+ * [DrawerSource.LIST]; the map-filtered set for [DrawerSource.INSPECT], whose ladder is snapshotted
+ * from the same set a map filter change rewrites, so a filter write closes the spy card. The menu
+ * chevron's card ([DrawerSource.MENU]) walks that same map-referential set — a door of the item's-list
+ * kind hands over its list — so a map-filter write closes it too. A click on the map ([DrawerSource.MAP])
+ * is the exception (2026-09-28): it seats a single item whose standing is not the filter's business, so a
+ * filter write leaves it standing.
  *
  * The caller answers the two flags for the world its change landed in: the list filter and the list sort
  * answer for the list world, the map filter and the map reset for the map world. Membership is the answer
@@ -96,14 +102,38 @@ enum class DrawerSource {
 internal fun scopeClosed(source: DrawerSource, inListWorld: Boolean, inMapWorld: Boolean): Boolean =
     when (source) {
         DrawerSource.LIST -> inListWorld
-        DrawerSource.MAP -> inMapWorld
+        DrawerSource.MAP -> false
         DrawerSource.INSPECT -> inMapWorld
-        DrawerSource.WHERE_AM_I -> false
+        DrawerSource.MENU -> inMapWorld
     }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The door an edit entered the wizard by (plan §4).
+ *
+ * [CARD] is the marker card's own Edit: the card stays behind the wizard inside the same drawer
+ * state, so a save and a cancel alike hand it back — the selection is untouched and the drawer
+ * returns to [MarkerDrawerState.Viewing]. [LIST] is the management list's Edit: the ending is the
+ * one that door has always had, the drawer closing. A create has no door to speak of and records
+ * [LIST].
+ */
+enum class WizardDoor { CARD, LIST }
+
+/**
+ * The one-shot request that hands a card back to the screen (plan §4): the selection to reopen and
+ * the id it lands on.
+ *
+ * It exists because a card's walk can be the screen's own state — the inspect ladder's cursor above
+ * both drawers — so a return the state layer cannot seat alone is offered to the screen, which
+ * seats its cursor or drops the walk to the map world before the card is shown again.
+ */
+internal data class CardReturnRequest(
+    val selectionIds: List<String>,
+    val selectedId: String
+)
 
 /** Which geometry type is being created/edited. */
 enum class MarkerType { PIN, CIRCLE, CORRIDOR }
@@ -193,11 +223,6 @@ class MarkersViewModel(
     private val _mapMarkers = MutableStateFlow<List<UserMarker>>(emptyList())
     val mapMarkers: StateFlow<List<UserMarker>> = _mapMarkers.asStateFlow()
 
-    /** Unfiltered all-marker ID set — ghost-pin render-time existence checks. */
-    val allMarkerIds: StateFlow<Set<String>> = _allMarkers
-        .map { list -> list.mapTo(HashSet()) { it.id } }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
-
     /** Binary layer visibility (FanLayout toggle). */
     private val _markerLayerState = MutableStateFlow(MarkerLayerState.HIDDEN)
     val markerLayerState: StateFlow<MarkerLayerState> = _markerLayerState.asStateFlow()
@@ -215,7 +240,7 @@ class MarkersViewModel(
     val drawerState: StateFlow<MarkerDrawerState> = _drawerState.asStateFlow()
 
     /** Source of the current drawer opening — controls prev/next behavior. */
-    var drawerSource: DrawerSource = DrawerSource.WHERE_AM_I
+    var drawerSource: DrawerSource = DrawerSource.LIST
         private set
 
     /** Current wizard step (null when wizard is not active). */
@@ -225,6 +250,22 @@ class MarkersViewModel(
     /** One-shot request to centre the map on a given position (edit mode). */
     private val _mapCenterRequest = MutableStateFlow<LatLng?>(null)
     val mapCenterRequest: StateFlow<LatLng?> = _mapCenterRequest.asStateFlow()
+
+    /**
+     * One-shot request that the screen hand a card back (plan §4), in the shape of
+     * [mapCenterRequest]: the editor's return publishes it when the card it returns to walks the
+     * inspect ladder, whose cursor and frozen ladder are the screen's own state. The screen consumes
+     * it — [consumeCardReturnRequest] — re-seats its cursor on [CardReturnRequest.selectedId] where
+     * that ladder still holds it, and reopens the card on the ladder; a cursor that no longer stands
+     * leaves the card on the map world, which is where it was reopened.
+     */
+    private val _cardReturnRequest = MutableStateFlow<CardReturnRequest?>(null)
+    internal val cardReturnRequest: StateFlow<CardReturnRequest?> = _cardReturnRequest.asStateFlow()
+
+    /** Consumes the one-shot card-return request; the screen calls this once it has acted on it. */
+    internal fun consumeCardReturnRequest() {
+        _cardReturnRequest.value = null
+    }
 
     /** Gate that suspends form position tracking during animateTo (prevents
      *  intermediate mapCenter values from overwriting form position/P2). */
@@ -237,6 +278,9 @@ class MarkersViewModel(
 
     /** ID of the marker being edited via wizard, or null for creation. */
     private var editingMarkerId: String? = null
+
+    /** The door the current edit entered by (plan §4); [WizardDoor.LIST] for a create and the list. */
+    private var wizardDoor: WizardDoor = WizardDoor.LIST
 
     /** ID of the last saved marker (for post-save undo Snackbar). */
     private val _lastSavedMarkerId = MutableStateFlow<String?>(null)
@@ -320,6 +364,14 @@ class MarkersViewModel(
             isLoaded = true
         }
         // Keep _allMarkers fresh after service-side writes (AutoMarkerManager).
+        //
+        // The open card is deliberately not re-tested here: the write paths own that one call (plan
+        // §4), because only a caller that made the write can order the test after the state that
+        // write left behind — the wizard's save hands its card back as `Viewing` first, and a test
+        // taken on this channel could run while the drawer still reads `Editing` and so see nothing
+        // to reconcile. What this reload is for is the write the ViewModel never sees: a card whose
+        // item that write removed draws nothing until the next write path's reconcile reaches it,
+        // there being no not-found branch left to fall back on.
         viewModelScope.launch {
             UserMarkerRepository.markerChanges.collect {
                 val all = withContext(Dispatchers.IO) { repo.loadAll() }
@@ -382,12 +434,12 @@ class MarkersViewModel(
     }
 
     /** Opens drawer in viewing mode for a single marker (convenience). */
-    fun openEditDrawer(markerId: String, selectedId: String? = null, source: DrawerSource = DrawerSource.WHERE_AM_I) {
+    fun openEditDrawer(markerId: String, selectedId: String? = null, source: DrawerSource = DrawerSource.LIST) {
         openEditDrawer(listOf(markerId), selectedId = selectedId, source = source)
     }
 
     /** Opens drawer in viewing mode for one or more markers (§11 multi-marker). */
-    fun openEditDrawer(markerIds: List<String>, selectedId: String? = null, source: DrawerSource = DrawerSource.WHERE_AM_I) {
+    fun openEditDrawer(markerIds: List<String>, selectedId: String? = null, source: DrawerSource = DrawerSource.LIST) {
         if (markerIds.isEmpty()) return
         drawerSource = source
         _selectedMarkerIds.value = markerIds
@@ -433,10 +485,7 @@ class MarkersViewModel(
         setDrawerState(MarkerDrawerState.Viewing)
     }
 
-    private fun isClampedSource() = drawerSource == DrawerSource.LIST || drawerSource == DrawerSource.MAP ||
-        drawerSource == DrawerSource.INSPECT
-
-    /** Navigate to the previous marker. Clamps when LIST/MAP/INSPECT source, wraps when WHERE_AM_I. */
+    /** Navigate to the previous marker. Clamps at the world's edge for every source. */
     fun viewPreviousMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
@@ -444,37 +493,25 @@ class MarkersViewModel(
         // this ViewModel's own marker walk stands down entirely.
         if (drawerSource == DrawerSource.INSPECT) return
         val current = _selectedMarkerIndex.value
-        val newIndex = if (isClampedSource()) {
-            (current - 1).coerceAtLeast(0)
-        } else {
-            if (current > 0) current - 1 else ids.lastIndex  // wrap (WHERE_AM_I)
-        }
+        val newIndex = (current - 1).coerceAtLeast(0)
         if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        if (isClampedSource()) {
-            emitMapCenterForMarker(ids[newIndex])
-        }
+        emitMapCenterForMarker(ids[newIndex])
     }
 
-    /** Navigate to the next marker. Clamps when LIST/MAP/INSPECT source, wraps when WHERE_AM_I. */
+    /** Navigate to the next marker. Clamps at the world's edge for every source. */
     fun viewNextMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
         // Inspect: as above — the cursor walks the merged ladder.
         if (drawerSource == DrawerSource.INSPECT) return
         val current = _selectedMarkerIndex.value
-        val newIndex = if (isClampedSource()) {
-            (current + 1).coerceAtMost(ids.lastIndex)
-        } else {
-            if (current < ids.lastIndex) current + 1 else 0  // wrap (WHERE_AM_I)
-        }
+        val newIndex = (current + 1).coerceAtMost(ids.lastIndex)
         if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        if (isClampedSource()) {
-            emitMapCenterForMarker(ids[newIndex])
-        }
+        emitMapCenterForMarker(ids[newIndex])
     }
 
     /** Emit a map-center request for the given marker ID (LIST/MAP-mode prev/next). */
@@ -548,6 +585,101 @@ class MarkersViewModel(
         _selectedMarkerId.value = null
         _selectedMarkerIds.value = emptyList()
         _selectedMarkerIndex.value = 0
+    }
+
+    // ── The card's world, and the departure check (plan §2, §3, §4) ───────
+
+    /** The three worlds a card can walk off the source of truth, each read as it now stands (plan §3). */
+    private fun listWorld(): List<UserMarker> = _markers.value
+
+    /** The map world: the source of truth under the MAP filter, which is what the overlay draws. */
+    private fun mapWorld(): List<UserMarker> {
+        val filter = settingsFlow?.value?.markerMapFilter ?: ListFilter()
+        return _allMarkers.value.filter { it.matchesFilter(filter) }
+    }
+
+    /**
+     * The world a Viewing card reads (the edit-return plan §3; the family plan §3), answered as
+     * membership rather than a copy. Which source reads which collection is [cardWalkWorld]'s one home
+     * — the card's own render in [MarkerDrawer] reads the very same answer — and the worlds are read
+     * synchronously off their sources of truth, so a write already applied is seen at once rather than
+     * a dispatch behind. A map-opened card reads the unfiltered source, so a one-item card stands
+     * through an item write that leaves the map filter (2026-09-28).
+     */
+    private fun cardWorldContains(id: String): Boolean =
+        cardWalkWorld(drawerSource, listWorld(), mapWorld(), _allMarkers.value).any { it.id == id }
+
+    /**
+     * The marker [id] as the world a card walks holds it (plan §2), or null where that world no
+     * longer holds it. The editor enters through this rather than the list world, so a map-tapped or
+     * inspect-opened marker — seated in the map world — is found instead of silently no-op'ing.
+     */
+    private fun resolveCardMarker(id: String): UserMarker? =
+        cardWalkWorld(drawerSource, listWorld(), mapWorld(), _allMarkers.value).find { it.id == id }
+
+    /**
+     * The state layer's resolve-and-close and departure check (plan §3, §4). A Viewing card whose
+     * selected marker has left the world it walks cannot be shown, so it moves onto that world's
+     * neighbouring item — next, else previous, from the one ordering rule [advanceAfterDeparture] —
+     * and closes when the world holds no neighbour at all. Every item write and the wizard's save end
+     * here, so a live card's marker is always resolved — the null the drawer's render guard sees is
+     * only the frame between this close and the next recomposition.
+     *
+     * The write paths are its one owner (plan §4): re-testing the card from the `markerChanges`
+     * channel as well would run this twice per write, and could run it while the wizard's save still
+     * reads `Editing` and so had nothing to reconcile.
+     *
+     * The filter, sort and reset writes are deliberately not routed here: those keep R2's close
+     * ([applyScopeGuard]), which closes rather than advances. Which of the three endings this takes is
+     * [cardReconcile]'s pure answer, so each one is unit-tested without a device.
+     */
+    private fun reconcileOpenCard() {
+        val selected = _selectedMarkerId.value
+        val holds = selected != null && cardWorldContains(selected)
+        val advanceTo = if (selected == null || holds) null else
+            advanceAfterDeparture(selected, _selectedMarkerIds.value, pendingDeletes.toSet())
+                ?.takeIf { cardWorldContains(it) }
+        val decision = cardReconcile(
+            cardOpen = _drawerState.value is MarkerDrawerState.Viewing,
+            selectedId = selected,
+            worldHoldsSelected = holds,
+            source = drawerSource,
+            advanceTo = advanceTo
+        )
+        when (decision) {
+            CardReconcile.Hold -> Unit
+            is CardReconcile.Advance -> {
+                val index = _selectedMarkerIds.value.indexOf(decision.nextId).coerceAtLeast(0)
+                _selectedMarkerIndex.value = index
+                _selectedMarkerId.value = decision.nextId
+                emitMapCenterForMarker(decision.nextId)
+            }
+            CardReconcile.Close -> closeDrawer()
+        }
+    }
+
+    /**
+     * Hands the drawer back to the card an edit was entered from (plan §4): the same selection,
+     * re-resolved in the world that card walks so the form is repopulated from the marker as it now
+     * stands. Falls back to a close when there is no selection left to show.
+     *
+     * The world it reopens on is [cardWalkSource]'s answer: the card's own source, unless that source
+     * is the inspect ladder — whose cursor is the screen's own state, and which this layer cannot
+     * seat. Such a card reopens on the map world, the collection the ladder is ranked from, and the
+     * one-shot [cardReturnRequest] offers the screen the chance to lift it back onto the ladder.
+     */
+    private fun returnToCardView() {
+        val ids = _selectedMarkerIds.value
+        val selected = _selectedMarkerId.value
+        if (ids.isEmpty() || selected == null) {
+            setDrawerState(MarkerDrawerState.Hidden)
+            return
+        }
+        val source = drawerSource
+        openEditDrawer(ids, selectedId = selected, source = cardWalkSource(source, cursorReSeated = false))
+        if (source == DrawerSource.INSPECT) {
+            _cardReturnRequest.value = CardReturnRequest(ids, selected)
+        }
     }
 
     // ── Wizard state machine ──────────────────────────────────────────────
@@ -624,12 +756,25 @@ class MarkersViewModel(
         )
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
+        wizardDoor = WizardDoor.LIST
         setDrawerState(MarkerDrawerState.Creating)
     }
 
-    /** Begin wizard in edit mode, pre-filled with the marker identified by [markerId]. */
-    fun startWizard(markerId: String) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
+    /**
+     * Begin wizard in edit mode, pre-filled with the marker identified by [markerId].
+     *
+     * [door] (plan §4) is the door the edit entered by, and it is required rather than defaulted: no
+     * later caller can forget it and inherit an ending it never chose. From the marker card
+     * ([WizardDoor.CARD]) the marker is resolved in the world that card walks — the list, the map set
+     * a tap came from, the frozen ladder's own world — rather than the list world, which may have
+     * filtered it out and would leave the editor with nothing to show; the ending then hands the card
+     * back. From the management list ([WizardDoor.LIST]) the list world is the world, exactly as
+     * before.
+     */
+    fun startWizard(markerId: String, door: WizardDoor) {
+        val marker = (if (door == WizardDoor.CARD) resolveCardMarker(markerId)
+            else _markers.value.find { it.id == markerId }) ?: return
+        wizardDoor = door
         editingMarkerId = markerId
         // Populate form from marker if not already populated by Viewing → Edit flow
         if (_createForm.value.position == null || _createForm.value.name != marker.name) {
@@ -711,13 +856,19 @@ class MarkersViewModel(
         }
     }
 
-    /** Cancel wizard — discard form, close drawer, reset form state. */
+    /** Cancel wizard — discard the form; from the card door the card is handed back, else the drawer closes. */
     fun wizardCancel() {
+        val returnsToCard = wizardEditReturnsToCard(wizardDoor, isEdit = editingMarkerId != null)
         _wizardStep.value = null
         editingMarkerId = null
-        _selectedMarkerId.value = null
         _createForm.value = CreateFormState()
-        setDrawerState(MarkerDrawerState.Hidden)
+        if (returnsToCard) {
+            returnToCardView()
+        } else {
+            _selectedMarkerId.value = null
+            setDrawerState(MarkerDrawerState.Hidden)
+        }
+        wizardDoor = WizardDoor.LIST
     }
 
     /** Finish early — save immediately with defaults for remaining steps. */
@@ -796,12 +947,20 @@ class MarkersViewModel(
             _wizardStep.value = null
             editingMarkerId = null
             _selectedMarkerId.value = null
+            wizardDoor = WizardDoor.LIST
         }
     }
 
-    /** Update an existing marker from the current form state. */
+    /**
+     * Update an existing marker from the current form state.
+     *
+     * The marker is resolved off the unfiltered source of truth, like [setMarkerIcon] and the
+     * repository's own write: the wizard may have been entered from a card that walks a world the
+     * list filter does not hold — the very case §2 exists for — and a list-world lookup would return
+     * silently there, leaving the wizard standing and the save lost.
+     */
     fun updateMarker(markerId: String) {
-        val existing = _markers.value.find { it.id == markerId } ?: return
+        val existing = _allMarkers.value.find { it.id == markerId } ?: return
         val form = _createForm.value
         val pos = form.position ?: return
 
@@ -842,16 +1001,30 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            setDrawerState(MarkerDrawerState.Hidden)
+            val returnsToCard = wizardEditReturnsToCard(wizardDoor, isEdit = true)
+            wizardDoor = WizardDoor.LIST
             _wizardStep.value = null
             editingMarkerId = null
-            _selectedMarkerId.value = null
+            if (returnsToCard) {
+                // Entered from the marker card (plan §4): hand it back with the same selection, then
+                // let the departure check act if this write pushed the marker out of that card's world.
+                returnToCardView()
+                reconcileOpenCard()
+            } else {
+                setDrawerState(MarkerDrawerState.Hidden)
+                _selectedMarkerId.value = null
+            }
         }
     }
 
-    /** Inline text edit (name/description) — persists like [updateMarker] without touching geometry. */
+    /**
+     * Inline text edit (name/description) — persists like [updateMarker] without touching geometry,
+     * and resolves the marker the same way, off the unfiltered source of truth: the card's inline
+     * writer is reached by a list-opened card as well as a map- or inspect-opened one, whose world the
+     * list filter need not hold, and a list-world lookup would drop the typed name or description.
+     */
     fun updateMarkerText(id: String, name: String? = null, description: String? = null) {
-        val existing = _markers.value.find { it.id == id } ?: return
+        val existing = _allMarkers.value.find { it.id == id } ?: return
         val updated = existing.copy(
             name = name?.takeIf { it.isNotBlank() } ?: existing.name,
             description = description ?: existing.description
@@ -864,6 +1037,7 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            reconcileOpenCard()
         }
     }
 
@@ -879,6 +1053,8 @@ class MarkersViewModel(
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
             if (closeDrawer) {
                 setDrawerState(MarkerDrawerState.Hidden)
+            } else {
+                reconcileOpenCard()
             }
         }
     }
@@ -1003,6 +1179,7 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            reconcileOpenCard()
         }
     }
 
@@ -1022,6 +1199,7 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            reconcileOpenCard()
         }
     }
 
@@ -1035,6 +1213,7 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            reconcileOpenCard()
         }
     }
 
@@ -1138,10 +1317,7 @@ class MarkersViewModel(
 
 /** Top-level extension: convert WhereAmIMatch → MarkerSnapshot (used by idle + manual paths). */
 fun WhereAmIMatch.toMarkerSnapshot(): ykws.android.maro.data.track.MarkerSnapshot {
-    val m = when (this) {
-        is WhereAmIMatch.ZoneMatch -> marker
-        is WhereAmIMatch.LineOfSightMatch -> marker
-    }
+    val m = matchedMarker()
     val (centerLat, centerLon) = when (val g = m.geometry) {
         is MarkerGeometry.Pin -> g.position.latitude to g.position.longitude
         is MarkerGeometry.Circle -> g.center.latitude to g.center.longitude

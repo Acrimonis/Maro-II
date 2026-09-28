@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-23 20:57
+modified: 2026-09-28 19:45
 ---
 
 # Feature: Ui_General
@@ -15,8 +15,6 @@ App-lifecycle UX for the Maro-II app: back-exit guard, edge-to-edge rendering, W
 ### track list colors
 
 Track list (TrackHistoryOverlay) color review — ensure track cards/stats/labels/icons use correct `ui.card.background` + `colors.properties` tokens.
-
-#### Todos
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
@@ -61,7 +59,19 @@ The route's panel — the dashboard slot's own content — and the one exit dial
 - `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_dialog-option-row.md` — the option row and its gap
 - `docs/ui-component-guidelines.md` §5.6 · §5.8 — the two homes both rules live in
 
+## Walk
+**Level 1 — Date:** 2026-09-28 · **Source:** `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_edit-return-and-advance.md` · **Closed:** 2026-09-28 — all five items resolved by the user's word; nothing parked, nothing dropped
+- [x] 1 · A card that cannot find its marker — settled 2026-09-28: it closes instead of showing an empty card, and the card and the editor both resolve in the world the card walks, so a legitimate open is never blind to its own marker
+- [x] 2 · Stepping to the next marker — settled 2026-09-28: yes, a step frames its target the way opening it does, zoom included
+- [x] 3 · Who decides when an item leaves the list — settled 2026-09-28: whoever has the hand, so the write that changes the item checks, through one shared ordering rule the delete path also uses
+- [x] 4 · The card's neighbours after a removal — settled 2026-09-28: the list is rebuilt from the current screen, minus the departed marker, with the cursor on its neighbour
+- [x] 5 · Two bits of bookkeeping — settled 2026-09-28: the moved plan is archived with an index row, and the next bake writes the front-matter date and the pointer list
+
 ## Implemented
+
+- **map-cards-and-the-filter (2026-09-28)** — the map draws its filter's set and nothing else, and a click on the map stands. Three escapes deleted: the marker reveal-on-select, the highlighted track's eligibility override in `TrackSelectionPolicy` (its dead cap rescue with it, the ranking that puts the highlighted first kept), and the pinned carve-out's repeated OR in `storedTrackSelection` (its `highlightedTrackId` parameter gone) — so no pinned, highlighted or opened item rides past the map filter. R2's map-world close left the map-opened card: `scopeClosed`'s `MAP` arm is `false` while `LIST` and `INSPECT` keep theirs, so a filter write leaves a map tap standing and still closes the spy card. The map-opened card now reads the map's own source of truth (`cardWalkWorld`'s fourth collection, the unfiltered markers), so one item holds through its own write and closes only on a genuine deletion. The dead `DrawerSource.WHERE_AM_I` went at every site — the match panel staying and walking nothing — a plain map tap opens `listOf(sel)` on the `MAP` source, and the menu chevron's first item now reads the menu's own referential (the map filter) rather than the list world, the marker chevron's opener handed that world and source at last. Its Prev/Next now grey both ends on every door of the item's-list kind — the menu chevron's card reading its ends exactly as the panel's does through the pure `cardStepEnds`. `gradlew :app:assembleDebug` SUCCESS; the full unit suite green at 767 tests
+
+- **edit-return-and-advance (2026-09-28)** — the editor hands its card back, and an item's departure advances. One pure rule, `advanceAfterDeparture(departedId, world, excluded)` in [`CardWalkPolicy.kt`](../../app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt) — next, else previous, else none — serves both cards, and the card and the editor resolve in the world the card walks rather than in the list world, so a map-tapped marker renders its own card; the close is issued from the state layer's `reconcileOpenCard`, one call per write, and that is what let the drawer's `marker_not_found` branch and its string in both locale files be deleted — no live card could reach them, and a momentarily null marker now returns early and draws nothing. `startWizard(markerId, door)` gained its required door: a card-entered edit restores `Viewing` on a save and on a cancel, a list-entered one keeps its close, and the management delete advances the deleted item's own card rather than closing every open card. `gradlew :app:assembleDebug` SUCCESS; the scoped `Marker`/`Track`/`Dashboard`/`Inspect` suites green at 249 tests with the new `AdvanceAfterDepartureTest` and `CardWalkDecisionsTest`
 
 - **dialog-option-row (2026-09-23)** — the app's checkbox-and-label row became one control: `ui/components/OptionRow.kt` carries the `toggleable(Role.Checkbox)` and the merged semantics, tints the box `uiAccent` and gives the label a weight, and **states no gap of its own** — the checkbox's target inset is the gap, so the distance between a box and its label is one fact wherever it is drawn. The three dialog rows (the route exit's session scope, the resume backup, the GPX import's keep-originals) and the route panel's pin all read it; the pin's own `Spacer(4.dp)` went with them. The rule lives in `docs/ui-component-guidelines.md` §5.6, with §5.8's pin row pointing at it → `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_dialog-option-row.md`
 
@@ -89,7 +99,7 @@ The route's panel — the dashboard slot's own content — and the one exit dial
 - **landscape-menu-drawer** — scroll-when-overflow, overscroll suppressed when fits → `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_landscape-menu-drawer.md`
 - **notification-lifecycle** — foreground notification follows recording state; recorder + GPS moved into service → `xTrack/Ui_General/260815_FEAT_PLN_Ui_General_notification-lifecycle.md`
 - **filter** — extensible `ListFilter` (tracks=date+pinned, markers=pinned+geometry+origin), sort UX normalized → `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter.md`
-- **filter everywhere** — map mirrors filtered list; fan binary ON/OFF → `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter-everywhere.md`
+- **filter everywhere** — map mirrors filtered list; fan binary ON/OFF → `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter-everywhere.md`. *Superseded in part 2026-09-28:* the map draws its own filter's set with no reveal-on-select and no highlighted or pinned escape, and R2's map-world close left the map-opened card
 - **BackToExitConfirm** — double-back-to-exit guard
 - **KeepScreenOn** — keep-screen-on setting (ownership moved to Performance 2026-09-12: the policy and keeper now live in `data/power/` and the setting is documented in `xTrack/Performance/FEAT_DSC_Performance.md`)
 - **page layout** — `enableEdgeToEdge()` + status-bar immersion + WindowInsets
@@ -106,11 +116,10 @@ The route's panel — the dashboard slot's own content — and the one exit dial
 - **menu** — drawer menu items wrapped in card backgrounds
 
 ## Rules
-- The selected-item dashboard — the marker detail drawer and the track detail drawer — closes on exactly two conditions: a surface that wants its own slot (the marker/track wizard, the other selected-item dashboard), or a change of the scope of the world its Prev/Next walks.
+- The selected-item dashboard — the marker detail drawer and the track detail drawer — closes when a surface wants its own slot (the marker/track wizard, the other selected-item dashboard) or when the scope of the world its walk reads changes — a filter edit, a sort and a reset included, as R2 has always said. **The map-opened card is the one exception (2026-09-28):** a click on the map seats a single item whose standing is not the filter's business, so a filter write leaves it standing, where a list card closes on the list's write and a spy (inspect) card closes on the map's. A deletion, and an edit that leaves the item out of its world, are the other case: those advance to the adjacent item, the previous when the lost one was last, and the dashboard closes only when the world is left empty. No third reason closes it, and it never points at nothing.
+- An edit entered from the marker card returns to that card on a save and on a cancel alike, with the camera flying back to the marker.
 - The menu, settings, track history and marker management are panels over the map: they never close it, and the selection returns when they close. Every other action — the layer fan, displays, zoom, lock, gestures — leaves it open.
 - Action table, code sites and the open checks: `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`.
-
-## Key Files
 
 ## Docs
 - `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, swipe-to-delete

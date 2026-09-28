@@ -163,7 +163,6 @@ class TrackRouteRoleTest {
 
         val selection = storedTrackSelection(
             summaries = summaries,
-            highlightedTrackId = null,
             filter = ListFilter(),
             focus = MapRenderFocus(),
             tracksVisible = true,
@@ -185,7 +184,6 @@ class TrackRouteRoleTest {
         // pinned pass capped by the route count would answer nothing here (R35).
         val noRoutes = storedTrackSelection(
             summaries = summaries,
-            highlightedTrackId = null,
             filter = ListFilter(),
             focus = MapRenderFocus(),
             tracksVisible = true,
@@ -199,6 +197,29 @@ class TrackRouteRoleTest {
             listOf("route-pinned"),
             noRoutes.pinned.map { it.id }
         )
+    }
+
+    @Test
+    fun aPinnedTrackTheMapFilterExcludesIsNotDrawn() {
+        // The pin escapes the route count alone; it is no escape from the map filter — the map draws
+        // its filter's set and nothing else (2026-09-28, family plan §3).
+        val today = 1_000_000_000_000L
+        val summaries = listOf(
+            summary("pinned-excluded", route = true, pinned = true, startTimeMs = 0L),
+            summary("in-range", startTimeMs = today)
+        )
+        val selection = storedTrackSelection(
+            summaries = summaries,
+            filter = ListFilter(mapOf("dateRange" to "LAST_7_DAYS")),
+            focus = MapRenderFocus(),
+            tracksVisible = true,
+            todayMidnightMs = today,
+            recordingNb = 10,
+            routeNb = 10
+        )
+        assertTrue("the pin no longer escapes the map filter", selection.pinned.isEmpty())
+        assertTrue("nor does it ride the counted route set", selection.routes.isEmpty())
+        assertEquals(listOf("in-range"), selection.recorded.map { it.id })
     }
 
     @Test

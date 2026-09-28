@@ -372,6 +372,9 @@
     <string name="filter_axis_route_cost">Routing cost</string>
     <string name="filter_option_route_cost">Route cost</string>
     <string name="filter_option_no_route_cost">No route cost</string>
+    <string name="filter_axis_route_role">Route role</string>
+    <string name="filter_option_route_role">Origin or Dest</string>
+    <string name="filter_option_no_route_role">No route role</string>
     <string name="color_picker_title">Pick color</string>
     <string name="settings_depth_label">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
@@ -524,7 +527,6 @@
 
     <!-- Map chrome -->
     <string name="marker_title_fallback">Marker</string>
-    <string name="marker_not_found">Marker not found</string>
     <string name="where_am_i_title">Where Am I?</string>
     <string name="where_am_i_none">in the middle of nowhere</string>
     <string name="marker_direction_of_boat_fmt">%1$s of boat - %2$s</string>

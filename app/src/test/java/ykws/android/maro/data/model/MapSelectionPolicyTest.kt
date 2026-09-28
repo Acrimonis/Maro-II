@@ -15,8 +15,8 @@ import ykws.android.maro.data.track.TrackSummary
  * twin ordering, and the deliberate asymmetry between tracks (ranked + capped) and markers
  * (filter-only, no cap).
  *
- * Since 2026-09-21 the map filter is authoritative: only the highlighted id outranks it, while the
- * session boost keeps the render cap alone as its override — the pair pinned in the boost cases below.
+ * Since 2026-09-28 the map filter is authoritative with no exception: the highlighted id is a rank term
+ * alone and the session boost keeps the render cap alone as its override — both pinned below.
  */
 class MapSelectionPolicyTest {
 
@@ -98,17 +98,33 @@ class MapSelectionPolicyTest {
         assertEquals(listOf("filler", "original"), reversed.map { it.id })
     }
 
-    // ── Focus override ────────────────────────────────────────────────────
+    // ── Focus rank, not a filter override ─────────────────────────────────
 
     @Test
-    fun highlightedId_overridesCapAndFilter() {
+    fun highlightedId_ranksFirstButDoesNotOverrideTheFilter() {
+        // 2026-09-28: the highlighted id is a rank term alone — the map draws its filter's set and
+        // nothing else, so a highlighted track the filter excludes is not drawn, cap or no cap.
         val focus = MapRenderFocus().apply { highlight("viewed") }
         val items = listOf(
             summary("newest", startTimeMs = today),
             summary("viewed", startTimeMs = today - 100 * dayMs)   // outside LAST_7_DAYS
         )
-        val selected = trackPolicy.select(items, last7Days, cap = 1, focus = focus, todayMidnightMs = today)
-        assertEquals(listOf("viewed"), selected.map { it.id })
+        val selected = trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today)
+        assertEquals(listOf("newest"), selected.map { it.id })
+    }
+
+    @Test
+    fun highlightedId_leadsTheRankWhenTheFilterHoldsIt() {
+        val focus = MapRenderFocus().apply { highlight("viewed") }
+        val items = listOf(
+            summary("newest", startTimeMs = today),
+            summary("viewed", startTimeMs = today - dayMs)
+        )
+        // Both inside LAST_7_DAYS: the highlight's rank term still puts it first.
+        assertEquals(
+            listOf("viewed", "newest"),
+            trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today).map { it.id }
+        )
     }
 
     @Test

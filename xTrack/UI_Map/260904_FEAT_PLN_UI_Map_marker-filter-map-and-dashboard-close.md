@@ -2,7 +2,7 @@
 feature: UI_Map
 topic: Marker filter on map + menu/fan closes selected-item dashboard
 created: 2026-09-04 19:07 UTC
-status: planned
+status: shipped — changes 1 and 3; change 2 in part
 ---
 
 # Plan: Marker filter on map + dashboard auto-close
@@ -12,6 +12,13 @@ status: planned
 > conditions are now the two rules and the action table in
 > `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`, which keeps the selected
 > item open under the menu.
+>
+> **Change 1 re-assessed again 2026-09-28.** The map draws its own filter's set with no reveal-on-select and
+> no highlighted or pinned escape, and the map-opened panel now stands on a filter write — a click on the
+> map seats a single item whose standing is not the filter's business. The rule lives in
+> `xTrack/Ui_General/FEAT_DSC_Ui_General.md` `## Rules`. Change 1's clause that keeps `allMarkers` /
+> `allMarkerIds` for the proximity query no longer describes the walk either: `allMarkerIds` was deleted as
+> dead code and `DrawerSource.WHERE_AM_I` is gone, one tap seating the item on the `MAP` source instead.
 
 ## Goal
 

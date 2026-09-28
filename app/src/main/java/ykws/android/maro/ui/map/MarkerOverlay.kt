@@ -9,7 +9,6 @@ import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -22,7 +21,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import kotlin.math.*
 
@@ -109,13 +107,11 @@ private const val MARKER_DASH_OFF_DP = 8f / 3f
  * @param markers                List of all confirmed user markers to render.
  * @param mapView                The OSMdroid [MapView]; null → nothing drawn.
  * @param proximityZoneMultiplier Multiplier for proximity range preview.
- * @param modifier               Compose modifier (unused — overlays go to mapView).
  * @param unconfirmedMarker      Optional unconfirmed marker being created/edited.
  * @param onMarkerTap            Called with the list of tapped marker IDs (one or more for overlapping markers).
  * @param matchResult            Optional tiered match result for marker highlighting.
  * @param markerZonesVisible     Whether marker zone shapes render (selected markers force theirs).
  * @param selectedMarkerId       The currently selected/viewed marker id (single driver for gold + force-zones).
- * @param markerLayerState       Marker layer visibility state.
  * @param markerHaloSize         Halo size % (0-100) scaling the ring radius.
  * @param markerPointIconZoom    Marker point/icon rendering zoom % (50-150); 100 = current
  *                               size. Scales the rendered dot radius, the icon glyph and the
@@ -128,13 +124,11 @@ fun MarkerOverlay(
     markers: List<UserMarker>,
     mapView: MapView?,
     proximityZoneMultiplier: Double = 3.0,
-    modifier: Modifier = Modifier,
     unconfirmedMarker: UserMarker? = null,
     onMarkerTap: (List<String>) -> Unit = {},
     matchResult: WhereAmIResult? = null,
     markerZonesVisible: Boolean = true,
     selectedMarkerId: String? = null,
-    markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
     markerHaloSize: Int = 50,
     markerPointIconZoom: Int = 100,
     markerHaloPinnedColor: Int = 0xFFFFFFFF.toInt(),
@@ -165,12 +159,10 @@ fun MarkerOverlay(
     }
 
     // ── P6: Build set of matched marker IDs for highlighting ──────────────────
-    val matchedIds: Set<String> = matchResult?.allMatches?.mapNotNull { match ->
-        when (match) {
-            is WhereAmIMatch.ZoneMatch -> match.marker.id
-            is WhereAmIMatch.LineOfSightMatch -> match.marker.id
-        }
-    }?.toSet() ?: emptySet()
+    // The match-marker rule has one home (plan §3), read here through it rather than a `when` of its
+    // own at each of the four readers.
+    val matchedIds: Set<String> =
+        matchResult?.allMatches?.map { it.matchedMarker().id }?.toSet() ?: emptySet()
 
     DisposableEffect(
         markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible,
@@ -223,13 +215,10 @@ fun MarkerOverlay(
             val proxColor = dimColor(markerColor, PROXIMITY_ALPHA_FRACTION)
             val proxFillColor = dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION / 2.0f)
 
-            // Always render full geometry — only SHOW_ALL state now (no SHOW_PINNED).
-            val drawGeometry = true
-
             // Zone shapes gated by markerZonesVisible for confirmed markers;
             // unconfirmed (creating/editing) always show full geometry; the selected
             // marker forces its zones visible.
-            val drawZones = drawGeometry && (!confirmed || markerZonesVisible || isSelected)
+            val drawZones = !confirmed || markerZonesVisible || isSelected
 
             // Suppress center/p1/p2 dots when an icon is set — icon replaces the point marker.
             // Only applies to confirmed markers; unconfirmed always shows dots.
@@ -249,7 +238,7 @@ fun MarkerOverlay(
 
             when (val geom = marker.geometry) {
                 is MarkerGeometry.Pin -> {
-                    if (drawGeometry && !skipDots) {
+                    if (!skipDots) {
                         addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap,
                             confirmed = confirmed, onMarkerTap = onMarkerTap,
                             isSelected = isSelected, haloSpec = haloSpec,
@@ -294,7 +283,7 @@ fun MarkerOverlay(
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
                             markerPointIconZoom = markerPointIconZoom)
-                    } else if (drawGeometry && !skipDots) {
+                    } else if (!skipDots) {
                         // Center dot only
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap,
                             confirmed = confirmed, onMarkerTap = onMarkerTap,

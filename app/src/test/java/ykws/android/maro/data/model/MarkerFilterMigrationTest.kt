@@ -14,8 +14,9 @@ import ykws.android.maro.data.settings.SettingsManager
 import java.io.File
 
 /**
- * Unit tests for [UserMarker.matchesFilter] on the `icon` and `pinned` axes, and for the fact
- * that a stored `markerListFilter` is parsed as written.
+ * Unit tests for [UserMarker.matchesFilter] on the `icon`, `pinned`, `origin`, `routeCost` and
+ * `routeRole` axes — the two route criteria independent of each other — and for the fact that a
+ * stored `markerListFilter` is parsed as written.
  */
 class MarkerFilterMigrationTest {
 
@@ -26,7 +27,9 @@ class MarkerFilterMigrationTest {
         icon: String? = null,
         pinned: Boolean = false,
         origin: MarkerOrigin = MarkerOrigin.USER,
-        routingCost: Int? = null
+        routingCost: Int? = null,
+        routeOrigin: Boolean = false,
+        routeDestination: Boolean = false
     ): UserMarker = UserMarker(
         id = id,
         name = id,
@@ -34,7 +37,9 @@ class MarkerFilterMigrationTest {
         icon = icon,
         pinned = pinned,
         origin = origin,
-        routingCost = routingCost
+        routingCost = routingCost,
+        routeOrigin = routeOrigin,
+        routeDestination = routeDestination
     )
 
     private fun filter(vararg entries: Pair<String, String>): ListFilter =
@@ -104,6 +109,40 @@ class MarkerFilterMigrationTest {
         assertTrue(unpinned.matchesFilter(f))
     }
 
+    // ── UserMarker.matchesFilter: origin axis ───────────────────────────────
+
+    @Test
+    fun `origin axis MANUAL matches only user-origin markers`() {
+        val manual = marker("a", origin = MarkerOrigin.USER)
+        val auto = marker("b", origin = MarkerOrigin.IDLE_AUTO)
+        val f = filter("origin" to "MANUAL")
+
+        assertTrue(manual.matchesFilter(f))
+        assertFalse(auto.matchesFilter(f))
+    }
+
+    @Test
+    fun `origin axis AUTO matches only auto-origin markers`() {
+        val manual = marker("a", origin = MarkerOrigin.USER)
+        val auto = marker("b", origin = MarkerOrigin.IDLE_AUTO)
+        val f = filter("origin" to "AUTO")
+
+        assertFalse(manual.matchesFilter(f))
+        assertTrue(auto.matchesFilter(f))
+    }
+
+    @Test
+    fun `origin axis ALL matches regardless of origin`() {
+        val manual = marker("a", origin = MarkerOrigin.USER)
+        val auto = marker("b", origin = MarkerOrigin.IDLE_AUTO)
+        val f = filter("origin" to "ALL")
+
+        assertTrue(manual.matchesFilter(f))
+        assertTrue(auto.matchesFilter(f))
+    }
+
+    // ── UserMarker.matchesFilter: routeCost axis ────────────────────────────
+
     @Test
     fun `routeCost axis WITH_COST matches only markers with a valid cost`() {
         val withCost = marker("a", routingCost = 3)
@@ -134,6 +173,62 @@ class MarkerFilterMigrationTest {
         assertTrue(withoutCost.matchesFilter(f))
     }
 
+    // ── UserMarker.matchesFilter: routeRole axis ────────────────────────────
+
+    @Test
+    fun `routeRole axis ROLE matches only markers carrying an origin or a destination`() {
+        val originOnly = marker("a", routeOrigin = true)
+        val destinationOnly = marker("b", routeDestination = true)
+        val bothRoles = marker("c", routeOrigin = true, routeDestination = true)
+        val neither = marker("d")
+        val f = filter("routeRole" to "ROLE")
+
+        assertTrue(originOnly.matchesFilter(f))
+        assertTrue(destinationOnly.matchesFilter(f))
+        assertTrue(bothRoles.matchesFilter(f))
+        assertFalse(neither.matchesFilter(f))
+    }
+
+    @Test
+    fun `routeRole axis NONE matches only markers carrying neither role`() {
+        val originOnly = marker("a", routeOrigin = true)
+        val destinationOnly = marker("b", routeDestination = true)
+        val bothRoles = marker("c", routeOrigin = true, routeDestination = true)
+        val neither = marker("d")
+        val f = filter("routeRole" to "NONE")
+
+        assertFalse(originOnly.matchesFilter(f))
+        assertFalse(destinationOnly.matchesFilter(f))
+        assertFalse(bothRoles.matchesFilter(f))
+        assertTrue(neither.matchesFilter(f))
+    }
+
+    @Test
+    fun `routeRole axis ALL matches regardless of role`() {
+        val originOnly = marker("a", routeOrigin = true)
+        val destinationOnly = marker("b", routeDestination = true)
+        val bothRoles = marker("c", routeOrigin = true, routeDestination = true)
+        val f = filter("routeRole" to "ALL")
+
+        assertTrue(originOnly.matchesFilter(f))
+        assertTrue(destinationOnly.matchesFilter(f))
+        assertTrue(bothRoles.matchesFilter(f))
+    }
+
+    // ── The two route axes are independent ──────────────────────────────────
+
+    @Test
+    fun `a cost with no role answers WITH_COST and NONE at once`() {
+        // The correction's whole point: two options in one axis could never hold both.
+        val costOnly = marker("a", routingCost = 3)
+        val f = filter("routeCost" to "WITH_COST", "routeRole" to "NONE")
+
+        assertTrue(costOnly.matchesFilter(f))
+        assertFalse(marker("b").matchesFilter(f))                                       // neither
+        assertFalse(marker("c", routeOrigin = true).matchesFilter(f))                   // role, no cost
+        assertFalse(marker("d", routingCost = 3, routeOrigin = true).matchesFilter(f))  // cost and role
+    }
+
     @Test
     fun `icon and pinned axes are independent`() {
         // A marker can carry an icon but be unpinned, and vice versa.
@@ -161,6 +256,7 @@ class MarkerFilterMigrationTest {
         assertEquals("WITH_ICON", settings.markerListFilter.axes["icon"])
         assertEquals("CIRCLES", settings.markerListFilter.axes["geometry"])
     }
+
 }
 
 /**

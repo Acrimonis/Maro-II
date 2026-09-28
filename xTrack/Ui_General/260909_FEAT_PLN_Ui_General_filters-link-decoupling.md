@@ -68,6 +68,8 @@ lists — only the bound referential differs.
   map ONLY while its detail panel is open, then hidden. Map effective set = Map-filter matches ∪ active
   item. The revealed item is never counted anywhere; it never coexists with the menu counter because
   opening the menu closes the dash.
+  **Superseded 2026-09-28:** the reveal is deleted — the map draws its filter's set and nothing else,
+  and a click on the map seats one item whose standing is not the filter's business.
 - whereAmI matches override the Map filter (matching uses unfiltered `allMarkers`).
 
 ### MarkersViewModel streams
@@ -109,7 +111,7 @@ lists — only the bound referential differs.
 6. Wire detail-panel navigation per opening world; map-tap Next/Prev clamps at edges; populate marker
    drawer selection from the correct world at open; unify track delete-advance to the opening world.
 7. Implement reveal-on-select: map draws Map-filter matches plus the active dash item while its panel is
-   open.
+   open. *(Deleted 2026-09-28 — the map draws its filter's set alone; family plan §3.)*
 8. Per-referential counters: menu = map items to be rendered (independent of master toggle, cap allowed to
    diverge); list header = list content; live excluded.
 9. Keep deletion undo/permanent-delete flows; verify auto-close only reacts to the opening world's filter
@@ -165,7 +167,8 @@ lists — only the bound referential differs.
 - Map-tap Next/Prev stops at the edges; list-opened Next/Prev clamps at list edges.
 - Deleting a viewed track advances within the opening world; deleting a viewed marker advances within its
   selection; undo restores; permanent delete removes.
-- whereAmI reveals markers regardless of the Map filter.
+- whereAmI reveals markers regardless of the Map filter. *(The reveal-on-select half is deleted
+  2026-09-28: the map draws its filter's set and nothing else; family plan §3.)*
 
 ## Out of scope
 

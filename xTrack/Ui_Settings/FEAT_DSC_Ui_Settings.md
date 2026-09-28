@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-19 13:50
+modified: 2026-09-28 20:35
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -50,6 +50,8 @@ modified: 2026-09-19 13:50
 - **tab organization** — Material 3 TabRow + HorizontalPager (3 tabs); per-tab scroll states; custom blue indicator
 - **track-drawer-settings-btn** — Settings gear in Track Drawer header (64dp), drawer padding trimmed, redundant map Settings button removed
 
+- **debug-rays toggle de-wired from the retired hook (2026-09-18, `feature/where-are-zone-trans`)** — the debug-rays toggle's write of the retired `marker.debug.rays.enabled` hook and the empty sync effect that carried it are gone, so `AppSettings.markerDebugRays` is the single carrier and the toggle only flips it. The half of that session's work this feature owns, recorded here by the cross-feature bake its source plan asked for → `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md`
+
 ## Rules
 - **Defer to [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md)** — the canonical source for all settings UI patterns (grouped cards §2.3, nested surfaces §2.4, dividers §2.6, headers §2.9, anti-patterns §4). No UI rules are duplicated here.
 
@@ -61,6 +63,7 @@ modified: 2026-09-19 13:50
 
 ## Docs
 - `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_settings-tab-fourth-tap.md` — the fourth tab's lost tap: the write-back deletion, the derived page count and the §2.11 invariant (implemented; device pass owed)
+- `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md` — the tap-zone and ray-clear session, whose toggle half touched this feature's overlay
 - `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_heading-line-and-arrow-appearance.md` — head arrow and heading line appearance: the seven settings, the Speed Colour mode, the neutral tint while stale, and the never-disabled Default colour row (implemented; device pass owed)
 - `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_stroke-widths-and-shoreline-colours.md` — stroke widths + shoreline colours: the six settings, the eleven-key colour sweep, the one-clamp-per-value rule and the parked px-to-dp pass (implemented; device pass owed)
 - `xTrack/Ui_Settings/260918_FEAT_PLN_Ui_Settings_regulated-zones-transparency.md` — regulated zone transparency: the Regulated Zones Appearance row, the persisted pair, the shared `transparencyPctToAlpha`, and the string consolidation (implemented; device pass open)

@@ -122,8 +122,9 @@ the existing line's `outlinePaint.color` (small win) or leave the guard as-is.
    ([`MapScreen.kt:785`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:785)).
 4. GAP handling: pause/resume within a recording still inserts a dashed seam instead of a straight line.
 5. Filter regressions: set a Map filter that excludes the recording's date range — the live line still
-   draws (never filterable) and no `track_hist_<liveId>` duplicate appears; history/pinned tracks,
-   highlighted-from-list reveal, and menu/list counters behave as before.
+   draws (never filterable) and no `track_hist_<liveId>` duplicate appears; history/pinned tracks, and
+   menu/list counters behave as before. *(The highlighted-from-list reveal was deleted 2026-09-28 — the
+   map draws its filter's set and nothing else.)*
 
 ## Files affected
 
