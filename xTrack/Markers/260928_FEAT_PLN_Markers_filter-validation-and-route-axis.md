@@ -42,8 +42,9 @@ dead code removed, and corrected the axis shape once: the two criteria must be s
 Nothing in the read path explains it, so the defect is unproven either way until one logged pass says
 which stage fails. The three suspects:
 
-- **S1 — the write.** The map-referential handler was the only one of the pair with no log line, and now
-  has one ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3049)).
+- **S1 — the write.** The map-referential handler was the only one of the pair with no log line, and one
+  was added for the pass ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3049)) —
+  removed again on 2026-09-28 with the session's other diagnostic lines.
 - **S2 — the stream.** `_mapMarkers` is a `StateFlow`, so an emission equal to the standing list writes
   nothing; a filter change computing an equal list is invisible.
 - **S3 — the overlay pass.** `MarkerOverlay`'s `DisposableEffect` rebuilds on the marker list alone
@@ -95,12 +96,12 @@ one axis are mutually exclusive by construction, while two axes are ANDed and ea
 - `MarkerFilterMigrationTest`: the `routeCost` cases restored, `routeRole` cases over a marker with one
   role, both roles and neither, and one case holding both axes at once — the independence proof. The
   prune case goes with the prune, and the class KDoc names the axes again.
-- One device pass with the `MaroMapRefresh` log, the pinned axis exercised on both referentials; the
-  map-referential handler and the map marker set each carry a log line so the pass is decisive.
+- One device pass, the pinned axis exercised on both referentials. The two `MaroMapRefresh` log lines this
+  pass was to read were removed and swept on 2026-09-28, so what it reads now is the map's behaviour alone.
 
 ## 7. Owed after this
 
-- The pinned outcome, once the log names its stage (S1, S2 or S3).
+- The pinned outcome, from the device — the log that would have named the failing stage is gone.
 - `#bake`, for the hydration, the Focus History entry and the Markers summary row.
 
 ## Outcome
@@ -109,5 +110,5 @@ Earlier this session the axis was built as one `Route` axis with `Cost set` and 
 as mutually exclusive options, and its key renamed from `routeCost`. The user's correction — the two
 criteria must be settable independently — made that form wrong rather than incomplete, and it was
 withdrawn before leaving the branch: the cost axis returns exactly as it shipped, the role axis is added
-beside it, and the rename's retired-key machinery is deleted with the rename. The dead code and the two
-`MaroMapRefresh` log lines from the same pass stand.
+beside it, and the rename's retired-key machinery is deleted with the rename. The dead code from the same
+pass stands; the two `MaroMapRefresh` log lines it also added were removed on 2026-09-28, the user's word.

@@ -36,8 +36,7 @@ Two derivations answer the same question, and only one of them honours the overr
 - **Eligibility carries the override** — `MapSelectionPolicy.kt:41-44`:
   `!candidate.pinned && (focus.includes(candidate.id) || candidate.matchesFilter(filter, todayMidnightMs))`.
   The highlighted track is additionally kept past the cap (`:52-53`). *(Both deleted 2026-09-28: the drawn
-  set is the filter's alone; the highlighted id is a rank term now —
-  `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md`.)*
+  set is the filter's alone; the highlighted id is a rank term now.)*
 - **The pinned loop repeats it** — `MapTrackOverlayEffects.kt:236-240`:
   `it.pinned && (it.id == highlightedTrackId || it.matchesFilter(appSettings.trackMapFilter, midnightMs))`.
   *(Deleted 2026-09-28: a pinned summary is drawn only when it matches the map filter.)*

@@ -69,14 +69,13 @@ panel **above** the drawer or the dashboard would float over the panel's scrim. 
 > by a filter edit: an edit that stops the selected marker matching the world its card walks steps to the
 > adjacent item — the previous when it was last — and closes only when that world empties. The deletion
 > already answers that way, at the tap (`260816_FEAT_PLN_Ui_General_delete-advance-next.md`); the pass,
-> with the editor's return, is `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_edit-return-and-advance.md`.
+> with the editor's return, is promoted into `FEAT_DSC_Ui_General.md`'s `## Rules`.
 >
 > **Amended again 2026-09-28.** R2's map-world close no longer reaches the map-opened card: a click on
 > the map seats a single item whose standing is not the filter's business, so the row at `:86` is a
 > **keep** where it read a "close", while the spy (inspect) card still closes on a map write and a list
 > card on a list write. The drawing loses its three escapes with it — the marker reveal, the highlighted
 > track's filter override and the pinned carve-out — so the map draws its filter's set and nothing else.
-> `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md`.
 
 ## Action table
 

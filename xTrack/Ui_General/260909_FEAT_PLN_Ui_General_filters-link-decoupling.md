@@ -69,8 +69,7 @@ lists — only the bound referential differs.
   item. The revealed item is never counted anywhere; it never coexists with the menu counter because
   opening the menu closes the dash.
   **Superseded 2026-09-28:** the reveal is deleted — the map draws its filter's set and nothing else,
-  and a click on the map seats one item whose standing is not the filter's business
-  (`xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md`).
+  and a click on the map seats one item whose standing is not the filter's business.
 - whereAmI matches override the Map filter (matching uses unfiltered `allMarkers`).
 
 ### MarkersViewModel streams

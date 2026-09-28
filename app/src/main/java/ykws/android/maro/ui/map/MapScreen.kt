@@ -2668,10 +2668,6 @@ fun MapScreen(
                                 // A click on the map opens the item it clicked and nothing else (plan §4):
                                 // one item, no arrows. Its card stands while that marker exists, whatever
                                 // the map filter says of it — the tap's world is the map's source of truth.
-                                Log.d(
-                                    "MaroFilter",
-                                    "open source=MAP world=map size=1 selected=$sel"
-                                )
                                 markersViewModel.openEditDrawer(listOf(sel), selectedId = sel, source = DrawerSource.MAP)
                             }
                         }
@@ -3175,12 +3171,6 @@ fun MapScreen(
                     if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
                     else s.copy(markerListFilter = newFilter)
                 }
-                Log.d(
-                    "MaroFilter",
-                    "filterWrite ref=list axes=${filterAxes(newFilter)} link=${appSettings.markerFilterLinked} " +
-                        "list=${filterAxes(newFilter)} " +
-                        "map=${filterAxes(if (appSettings.markerFilterLinked) newFilter else appSettings.markerMapFilter)}"
-                )
                 markersViewModel.refreshSort(filter = newFilter)
             },
             onMarkerReset = {
@@ -3192,17 +3182,10 @@ fun MapScreen(
                     if (s.markerFilterLinked) s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter, markerMapFilter = resetFilter)
                     else s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter)
                 }
-                Log.d(
-                    "MaroFilter",
-                    "filterWrite ref=list axes=none link=${appSettings.markerFilterLinked} " +
-                        "list=none " +
-                        "map=${filterAxes(if (appSettings.markerFilterLinked) resetFilter else appSettings.markerMapFilter)}"
-                )
                 markersViewModel.refreshSort(filter = resetFilter)
             },
             // ── Marker map referential (menu filter) + link ───────────────
             onMarkerMapFilterChange = { newFilter ->
-                android.util.Log.d("MaroMapRefresh", "onMarkerMapFilterChange: $newFilter")
                 val linked = appSettings.markerFilterLinked
                 // R2: a map-opened marker card stands — its item is not the filter's business — while
                 // the spy card, whose walk is bounded by the map filter, still closes here. The view
@@ -3213,12 +3196,6 @@ fun MapScreen(
                     if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
                     else s.copy(markerMapFilter = newFilter)
                 }
-                Log.d(
-                    "MaroFilter",
-                    "filterWrite ref=map axes=${filterAxes(newFilter)} link=$linked " +
-                        "list=${filterAxes(if (linked) newFilter else appSettings.markerListFilter)} " +
-                        "map=${filterAxes(newFilter)}"
-                )
                 markersViewModel.onMapReferentialChanged()
                 if (linked) markersViewModel.refreshSort(filter = newFilter)
             },
@@ -3230,12 +3207,6 @@ fun MapScreen(
                     if (s.markerFilterLinked) s.copy(markerListFilter = resetFilter, markerMapFilter = resetFilter)
                     else s.copy(markerMapFilter = resetFilter)
                 }
-                Log.d(
-                    "MaroFilter",
-                    "filterWrite ref=map axes=none link=${appSettings.markerFilterLinked} " +
-                        "list=${filterAxes(if (appSettings.markerFilterLinked) resetFilter else appSettings.markerListFilter)} " +
-                        "map=none"
-                )
                 markersViewModel.onMapReferentialChanged()
                 if (appSettings.markerFilterLinked) markersViewModel.refreshSort(filter = resetFilter)
             },

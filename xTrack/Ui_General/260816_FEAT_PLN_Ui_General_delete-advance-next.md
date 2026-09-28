@@ -24,9 +24,7 @@ restore + reopen the deleted item.
 7. Consecutive deletes stack as a FIFO queue (one snackbar at a time).
 8. Widened 2026-09-28: the advance also answers the loss that is not a deletion — an edit leaving the
    selected item out of the world its card walks steps to the neighbour the same way and closes only on
-   an emptied world. A filter edit or a sort is *not* that case: it stays a close, as R2 has it. The
-   editor's return is the same pass's other half, in
-   `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_edit-return-and-advance.md`.
+   an emptied world. A filter edit or a sort is *not* that case: it stays a close, as R2 has it.
 
 ## Design
 

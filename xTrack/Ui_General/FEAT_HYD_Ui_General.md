@@ -23,11 +23,10 @@ One branch, `feature/misc-ui-n-routing`, cut from `origin/develop` on the user's
 - `app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt` — `advanceAfterDeparture`, `cardWalkWorld`, `cardWalkSource`, `CardStepEnds` / `cardStepEnds`, `cardReconcile`, `TrackCardSource`, `trackScopeClosed`
 - `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `DrawerSource`, `scopeClosed`, `WizardDoor`, `reconcileOpenCard`, `returnToCardView`, `cardReturnRequest`, the item writes resolving off `_allMarkers`
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — `ViewingContent`'s resolution in the card's own world and `MarkerPrevNext`'s `CardStepEnds`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `openSelectedTrack`, `TrackDrawerState`, the chevron's ids read from the map filter, `inspectTapPickId` and its bounded ladder pass, the `MaroFilter` instrumentation
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `openSelectedTrack`, `TrackDrawerState`, the chevron's ids read from the map filter, `inspectTapPickId` and its bounded ladder pass
 - `app/src/main/java/ykws/android/maro/data/model/MapSelectionPolicy.kt` · `ui/map/MapTrackOverlayEffects.kt` — the deleted escapes
 - Tests: `CardWalkDecisionsTest`, `AdvanceAfterDepartureTest`, `MapSelectionPolicyTest`, `DashboardScopeClosedTest`, `TrackRouteRoleTest`
-- `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md` · `260928_FEAT_PLN_Ui_General_edit-return-and-advance.md`
 
 ## Next Step
 
-The device pass this session's work owes: a card opened from the menu chevron greys both pills at its ends, an armed tap on a marker opens the card that matches, both chevrons show what their own referential holds, and the map draws nothing but its filter's set — no reveal, no pinned or highlighted escape. Then the section's own carried work: the route panel, exit dialog and aim-ring pass, and the three `RouteHost` log lines removed once it has answered. Owed to a `findstr`-based patch, since the line is longer than a tool can read back whole: this feature's row in `## Feature Summaries`, whose Modified date and whose map-close clause are stale.
+The device pass this session's work owes: a card opened from the menu chevron greys both pills at its ends, an armed tap on a marker opens the card that matches, both chevrons show what their own referential holds, and the map draws nothing but its filter's set — no reveal, no pinned or highlighted escape. Then the section's own carried work: the route panel, exit dialog and aim-ring pass, and the three `RouteHost` log lines removed once it has answered.

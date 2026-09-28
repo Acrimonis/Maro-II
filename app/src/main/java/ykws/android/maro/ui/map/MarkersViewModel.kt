@@ -107,21 +107,6 @@ internal fun scopeClosed(source: DrawerSource, inListWorld: Boolean, inMapWorld:
         DrawerSource.MENU -> inMapWorld
     }
 
-/**
- * MaroFilter logging: a filter's axes as `key=value;key=value`, `none` when the filter is empty. One
- * home for the rendering the four filter-write lines and both publish lines share — no behaviour.
- */
-internal fun filterAxes(f: ListFilter): String = ListFilter.format(f).ifEmpty { "none" }
-
-/**
- * MaroFilter logging: the world a card walks for a source, named short. Mirrors [cardWalkWorld]'s
- * choice so a log line and the walk it describes cannot disagree.
- */
-internal fun walkWorldName(source: DrawerSource): String = when (source) {
-    DrawerSource.LIST -> "list"
-    DrawerSource.MAP, DrawerSource.INSPECT, DrawerSource.MENU -> "map"
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state
 // ─────────────────────────────────────────────────────────────────────────────
@@ -365,17 +350,7 @@ class MarkersViewModel(
                     cap = Int.MAX_VALUE,
                     focus = markerMapFocus,
                     todayMidnightMs = 0L
-                ).also { selected ->
-                    Log.d(
-                        "MaroMapRefresh",
-                        "mapMarkers publish: filter=${settings.markerMapFilter} count=${selected.size}"
-                    )
-                    Log.d(
-                        "MaroFilter",
-                        "publish world=map filter=${filterAxes(settings.markerMapFilter)} " +
-                            "count=${selected.size} ids=${selected.joinToString(",") { it.id }}"
-                    )
-                }
+                )
             }.collect { _mapMarkers.value = it }
         }
     }
@@ -405,18 +380,6 @@ class MarkersViewModel(
                 val filter = settings?.markerListFilter ?: ListFilter()
                 val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
                 _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            }
-        }
-        // MaroFilter: one line per list-world settle, whichever path wrote it — the single point the
-        // list flow emits, so its many writers need no call site of their own.
-        viewModelScope.launch {
-            _markers.collect { list ->
-                val f = settingsFlow?.value?.markerListFilter ?: ListFilter()
-                Log.d(
-                    "MaroFilter",
-                    "publish world=list filter=${filterAxes(f)} count=${list.size} " +
-                        "ids=${list.joinToString(",") { it.id }}"
-                )
             }
         }
     }
@@ -487,10 +450,6 @@ class MarkersViewModel(
         }
         _selectedMarkerIndex.value = index
         val lookupId = markerIds[index]
-        Log.d(
-            "MaroFilter",
-            "open source=$source world=${walkWorldName(source)} size=${markerIds.size} selected=$lookupId"
-        )
         val marker = _allMarkers.value.find { it.id == lookupId } ?: return
         _selectedMarkerId.value = lookupId
         val pos = when (val g = marker.geometry) {
@@ -538,7 +497,6 @@ class MarkersViewModel(
         if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        logStep("prev", ids[current], ids[newIndex])
         emitMapCenterForMarker(ids[newIndex])
     }
 
@@ -553,7 +511,6 @@ class MarkersViewModel(
         if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        logStep("next", ids[current], ids[newIndex])
         emitMapCenterForMarker(ids[newIndex])
     }
 
@@ -566,22 +523,6 @@ class MarkersViewModel(
             is MarkerGeometry.Corridor -> g.p1
         }
         _mapCenterRequest.value = pos
-    }
-
-    /**
-     * MaroFilter: one line per card step — the two ids and, for the id stepped to, the pin and the two
-     * filter answers that decide whether the step landed inside its own world.
-     */
-    private fun logStep(dir: String, fromId: String, toId: String) {
-        val listFilter = settingsFlow?.value?.markerListFilter ?: ListFilter()
-        val mapFilter = settingsFlow?.value?.markerMapFilter ?: ListFilter()
-        val marker = _allMarkers.value.find { it.id == toId }
-        Log.d(
-            "MaroFilter",
-            "step dir=$dir from=$fromId to=$toId pinned=${marker?.pinned} " +
-                "listPass=${marker?.matchesFilter(listFilter)} mapPass=${marker?.matchesFilter(mapFilter)} " +
-                "listAxes=${filterAxes(listFilter)} mapAxes=${filterAxes(mapFilter)}"
-        )
     }
 
     /** Re-apply filter + sort with current settings. */

@@ -6,7 +6,7 @@ filter, then two independent reviews. Consolidated to the three entry kinds, and
 completeness review found missing. The line numbers are the reviews' reads; the implementing hop
 re-derives each before it writes.
 
-> **Status:** in design, corrected twice. Nothing is open, and the work items are the ones below rather
+> **Status:** shipped, corrected twice. Nothing is open, and the work items are the ones below rather
 > than the rule's summary.
 > **Widens:** `260928_FEAT_PLN_Ui_General_edit-return-and-advance.md`, implemented earlier the same day.
 

@@ -29,8 +29,7 @@ interface MapSelectionPolicy<T> {
  * The map filter is authoritative (2026-09-21, tightened 2026-09-28): the drawn set **is** the filter's
  * set, with no highlighted override — a session-boosted track, and the highlighted one the user is
  * looking at, both keep their rank term below and neither defeats the filter. See
- * `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md` and
- * `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md`. That is what stops the
+ * `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`. That is what stops the
  * menu's count and the map disagreeing, the count being read off the painted set.
  *
  * Ranking: `focus → session-boosted → startTimeMs desc → lastPointTimeMs desc`, then `take(cap)` — the

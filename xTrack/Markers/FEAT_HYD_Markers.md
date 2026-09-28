@@ -27,9 +27,9 @@ One session, 2026-09-28, opened on this feature by `#focus marker` on a branch c
 - `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `allMarkerIds` deleted
 - `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the two axes' keys, both locales
 - `app/src/test/java/ykws/android/maro/data/model/MarkerFilterMigrationTest.kt` · `MarkerRoutingCostHeaderTest.kt` — the axes and the marks
-- `xTrack/Markers/260928_FEAT_PLN_Markers_filter-validation-and-route-axis.md` — the filter report, the pin evidence, the log pass
+- `xTrack/Markers/260928_FEAT_PLN_Markers_filter-validation-and-route-axis.md` — the filter report and the pin evidence
 - `xTrack/Markers/260928_FEAT_PLN_Markers_route-role-flags.md` — the two roles, the cost wall and the two-column step
 
 ## Next Step
 
-The epic's open walk of 2026-09-18 (**Active 11**) still owns this feature's bookkeeping and is the section to read; its item 11 — a bake across Markers, UI_Map and Ui_Settings — is not discharged by this bake, which covers Markers alone, and its item 12 duplicates the epic's own `## Todos` line on the proximity of date points. Still owed by the user: the device pass over the marker header's mark line (its line box and the coordinate's ellipsis budget) and the pinned report's logcat on a build carrying its log lines. Owed to `#archive`, on the user's word: the moved plan's tombstone at `xTrack/Markers/260928_FEAT_PLN_Markers_edit-return-and-selection-fallback.md`. Owed to a `findstr`-based patch, since both lines are longer than a tool can read back whole: the two superseded `route-role-flags` paragraphs in `## Implemented`, and the Markers row's stale Modified date in `GLOBAL_CONTEXT.md`.
+The epic's open walk of 2026-09-18 (**Active 11**) still owns this feature's bookkeeping and is the section to read; its item 11 — a bake across Markers, UI_Map and Ui_Settings — is not discharged by this bake, which covers Markers alone, and its item 12 duplicates the epic's own `## Todos` line on the proximity of date points. Still owed by the user: the device pass over the marker header's mark line (its line box and the coordinate's ellipsis budget).

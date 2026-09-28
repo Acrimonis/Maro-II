@@ -5,7 +5,7 @@ Moved here from `xTrack/Markers/` on the user's word: the rule spans both cards,
 Ui_General, and the rule's own home is the advance plan it widens. Session 2026-09-28 on
 `feature/misc-ui-n-routing`, after three independent reviews of its drafts.
 
-> **Status:** in design, corrected a third time — the decisions are settled and the two corrections in §2
+> **Status:** shipped, corrected a third time — the decisions are settled and the two corrections in §2
 > are written in, so this plan is buildable as it stands; §6 lists what is owed rather than done, and two
 > calls in it are still the user's, neither of which blocks the writing of the change.
 > **Scope:** Ui_General's rule and both cards; the marker editor's return is the Markers half of it, and
