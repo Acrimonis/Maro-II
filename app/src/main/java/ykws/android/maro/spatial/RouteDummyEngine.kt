@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 
@@ -59,9 +60,15 @@ class RouteDummyEngine : RouteEngine {
     /**
      * Always null, and that is the honest reading of this engine: it crosses no boundary of a
      * pipeline it does not have, so the panel's sentence slot falls back on its plain searching word
-     * rather than naming a stage that was never entered.
+     * rather than naming a stage that was never entered, and no partial line is ever drawn.
      */
-    override val stage: StateFlow<RouteStage?> = MutableStateFlow(null).asStateFlow()
+    override val progress: StateFlow<RouteProgress?> = MutableStateFlow(null).asStateFlow()
+
+    /**
+     * The dummy computes nothing, so the empty set is the whole stream — the degenerate case the
+     * carousel's row later reads as "no offers" without a computation behind it.
+     */
+    override val offers: StateFlow<List<RouteOffer>> = MutableStateFlow<List<RouteOffer>>(emptyList()).asStateFlow()
 
     /** The end the mode froze when it was armed — told once, and held for the whole session. */
     private var origin: RoutePoint? = null

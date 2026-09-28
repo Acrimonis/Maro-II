@@ -22,9 +22,13 @@ import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.bandReachM
+import ykws.android.maro.spatial.avoid.EndApproaches
 import ykws.android.maro.spatial.avoid.speedZonesInBox
+import ykws.android.maro.spatial.avoid.rasterize
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
+import ykws.android.maro.spatial.avoid.ZoneRing
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.max
@@ -46,8 +50,14 @@ class RouteAvoidEngineTest {
 
     private val marginM = AppConfig.routeAvoidObstacleMarginM
 
-    private fun newEngine(world: () -> AvoidWorld = { FakeWorld() }) =
-        RouteAvoidEngine(paceKn = { paceKn }, worldProvider = world)
+    private fun newEngine(
+        budgetPct: Int = AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
+        world: () -> AvoidWorld = { FakeWorld() }
+    ) = RouteAvoidEngine(
+        paceKn = { paceKn },
+        slowWaterBudgetPct = { budgetPct },
+        worldProvider = world
+    )
 
     private fun success(result: RouteResult?): RouteResult.Success {
         assertTrue("the engine answers a route", result is RouteResult.Success)
@@ -71,6 +81,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidZone300Enabled", true)
         // The speed-zone switch ships disarmed, so its shipped default is the one restored.
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
+        setAvoidMarginM(25.0)
     }
 
     /**
@@ -82,6 +93,13 @@ class RouteAvoidEngineTest {
         val field = AppConfig::class.java.getDeclaredField(name)
         field.isAccessible = true
         field.setBoolean(AppConfig, value)
+    }
+
+    /** Flips the obstacle margin for one test — the shore yield's strip is only as wide as this margin. */
+    private fun setAvoidMarginM(value: Double) {
+        val field = AppConfig::class.java.getDeclaredField("routeAvoidObstacleMarginM")
+        field.isAccessible = true
+        field.setDouble(AppConfig, value)
     }
 
     // ── Readiness ─────────────────────────────────────────────────────────────
@@ -211,10 +229,10 @@ class RouteAvoidEngineTest {
     fun exhaustionAnswersNoPathAndRetriesWithDoubledReach() = runTest {
         val wall = polygonRing(
             listOf(
-                LatLng(43.45, 7.02),
-                LatLng(43.45, 7.04),
-                LatLng(43.55, 7.04),
-                LatLng(43.55, 7.02)
+                LatLng(43.40, 7.02),
+                LatLng(43.40, 7.04),
+                LatLng(43.60, 7.04),
+                LatLng(43.60, 7.02)
             )
         )
         val world = FakeWorld(edges = wall.toMutableList())
@@ -230,6 +248,32 @@ class RouteAvoidEngineTest {
         assertTrue("the retry's corridor reach is doubled", retrySpan > firstSpan)
     }
 
+    /**
+     * The growth gate's crossing case (F5): a first answer that reports a forced crossing — its budget
+     * met, so the budget branch never fires — is retried once at the doubled reach, and the grown answer
+     * is kept only where it does better. Here the zone spans the whole first corridor, so the first
+     * answer is a forced crossing; the doubled box reaches past the zone's edge, finds the way around,
+     * and the keep rule takes it. Reverting the crossing trigger leaves the first answer untouched —
+     * one corridor box and the forced name still reported.
+     */
+    @Test
+    fun aForcedCrossingGrowsTheReachAndKeepsTheWayAround() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
+        val world = FakeWorld(zones = listOf(zone))
+        val engine = newEngine(budgetPct = 100) { world }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals("the forced crossing earns the doubled reach", 2, world.boxes.size)
+        assertTrue(
+            "the retry's corridor reach is doubled",
+            world.boxes[1].latNorth - world.boxes[1].latSouth > world.boxes[0].latNorth - world.boxes[0].latSouth
+        )
+        assertTrue("the grown answer's way around is kept", route.forcedCrossingZoneNames.isEmpty())
+    }
+
     @Test
     fun legsAreTimedAtTheInjectedPace() = runTest {
         val engine = newEngine()
@@ -241,6 +285,28 @@ class RouteAvoidEngineTest {
         val seconds = straight / Units.knotsToMps(paceKn)
         assertEquals(listOf(seconds), route.legTimesSec)
         assertEquals(seconds, route.durationSec, 1e-9)
+    }
+
+    /**
+     * The reported duration is the pre-fairing base plus the caps' delta, and the saved legs are folded
+     * so their sum is that figure — the contract the drawn line's own clock would not satisfy on its own.
+     * A bendy line, the island detour, is where the fairing's residual is non-zero.
+     */
+    @Test
+    fun theReportedDurationIsTheSumOfTheSavedLegTimes() = runTest {
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 400.0)
+        val engine = newEngine { FakeWorld(edges = island.toMutableList()) }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals("one leg time per drawn leg", route.points.size - 1, route.legTimesSec.size)
+        assertEquals(
+            "the saved legs sum to the reported duration",
+            route.durationSec,
+            route.legTimesSec.sum(),
+            1e-6
+        )
     }
 
     /** A concave bay: a peninsula jutting south from the north coast; the line must round its tip. */
@@ -320,16 +386,18 @@ class RouteAvoidEngineTest {
         engine.onOriginPositionChanged(from)
         val route = success(engine.onDestinationPositionChanged(to))
 
-        assertEquals("the two ends plus exactly the two offset tangent corners", 4, route.points.size)
-        assertEquals(from, route.points.first())
-        assertEquals(to, route.points.last())
+        assertEquals("the line starts at the raw start", from, route.points.first())
+        assertEquals("and ends at the raw aim", to, route.points.last())
+        // The fitter rounds each bend, so the offset tangent corner is replaced by an arc that still
+        // passes near it: the nearest faired point stands within the arc's own intrusion (a few tens of
+        // metres at this pace), which is what "the bend happens here" means once it is a curve.
         assertTrue(
-            "the first bend stands on the first offset tangent corner",
-            SpatialOperations.haversine(route.points[1].toLatLng(), firstCorner) < 1.0
+            "the first bend is faired around the first offset tangent corner",
+            route.points.minOf { SpatialOperations.haversine(it.toLatLng(), firstCorner) } < 30.0
         )
         assertTrue(
-            "the second bend stands on the second offset tangent corner",
-            SpatialOperations.haversine(route.points[2].toLatLng(), secondCorner) < 1.0
+            "the second bend is faired around the second offset tangent corner",
+            route.points.minOf { SpatialOperations.haversine(it.toLatLng(), secondCorner) } < 30.0
         )
         for (i in 0 until route.points.size - 1) {
             val a = route.points[i].toLatLng()
@@ -394,13 +462,41 @@ class RouteAvoidEngineTest {
 
         val route = success(engine.onDestinationPositionChanged(RoutePoint(43.48, 7.081)))
 
-        assertTrue("the 40-tooth coast collapses to a clean line, not a per-tooth zigzag", route.points.size <= 8)
+        // The faired line gains arc points by design, so the zigzag is judged on its **turns**: a clean
+        // line holds a couple of real bends, a per-tooth zigzag would hold dozens.
+        assertTrue(
+            "the 40-tooth coast collapses to a clean line, not a per-tooth zigzag",
+            sharpCorners(route.points) <= 2
+        )
         for (point in route.points) {
             assertTrue(
                 "every waypoint keeps the clearance off the teeth",
                 world.distanceToCoastM(point.latitude, point.longitude) >= marginM - 1e-6
             )
         }
+    }
+
+    /**
+     * How many interior vertices the polyline turns at least [minDeg] through — the clean-line reading
+     * the sawtooth case uses, robust to the arc points the fitter legitimately adds.
+     */
+    private fun sharpCorners(points: List<RoutePoint>, minDeg: Double = 20.0): Int {
+        var count = 0
+        for (i in 1 until points.size - 1) {
+            val before = Math.toDegrees(
+                Math.toRadians(
+                    SpatialOperations.initialBearing(points[i - 1].toLatLng(), points[i].toLatLng())
+                )
+            )
+            val after = Math.toDegrees(
+                Math.toRadians(
+                    SpatialOperations.initialBearing(points[i].toLatLng(), points[i + 1].toLatLng())
+                )
+            )
+            val turn = (after - before + 540.0) % 360.0 - 180.0
+            if (abs(turn) >= minDeg) count++
+        }
+        return count
     }
 
     /** The Lérins-to-Salis-shaped corridor answers under the 500 ms wall the plan pins. */
@@ -460,6 +556,169 @@ class RouteAvoidEngineTest {
     /** A patch of water roughly 400 m by 110 m straddling the straight line, mid-corridor. */
     private fun shallowPatch(latitude: Double, longitude: Double): Boolean =
         latitude in 43.4995..43.5005 && longitude in 7.0210..7.0260
+
+    // ── The ring's own question (F8) ───────────────────────────────────────────
+
+    /** Water the depth layer knows to be under the route's gate: the ring's middle read. */
+    @Test
+    fun validatePointRefusesWaterTheDepthGateCallsTooShallow() = runTest {
+        val engine = newEngine { FakeWorld(depth = { _, _ -> 2.0 }) }
+
+        assertEquals(RouteRefusalReason.TOO_SHALLOW, engine.validatePoint(origin))
+    }
+
+    /** NoData is not shallow: the gate's own rule ignores an unsurveyed point, so the ring stays green. */
+    @Test
+    fun validatePointAnswersWaterWithNoSoundingAndAnApproach() = runTest {
+        val engine = newEngine { FakeWorld(depth = { _, _ -> Double.NaN }) }
+
+        assertNull("an unsurveyed point is not gated", engine.validatePoint(origin))
+    }
+
+    /**
+     * The berth defect's own red: a point in margin-water whose eight directions all run into land has
+     * no approach, so the ring refuses it **while it is aimed** instead of letting the ask fail after.
+     */
+    @Test
+    fun validatePointRefusesAMarginPocketWithNoApproach() = runTest {
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val northLat = 43.5000
+        val southLat = northLat - 20.0 / mPerDegLat
+        val world = FakeWorld(
+            openCoast = mutableListOf(
+                listOf(LatLng(northLat, 6.90), LatLng(northLat, 7.10)),
+                listOf(LatLng(southLat, 6.90), LatLng(southLat, 7.10))
+            ),
+            water = { lat, _ -> lat < northLat && lat > southLat }
+        )
+        val engine = newEngine { world }
+
+        val at = RoutePoint(northLat - 10.0 / mPerDegLat, 7.00)
+
+        assertEquals(
+            "a berth walled by land is refused while aiming",
+            RouteRefusalReason.NO_APPROACH,
+            engine.validatePoint(at)
+        )
+    }
+
+    /**
+     * Its control, and the margin's own scope: the same margin-water with open water beside it stays
+     * green, because the shore margin is the **route's** rule and never the destination's.
+     */
+    @Test
+    fun validatePointAnswersAMarginEndThatHasAnApproach() = runTest {
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val northLat = 43.5000
+        val world = FakeWorld(
+            openCoast = mutableListOf(listOf(LatLng(northLat, 6.90), LatLng(northLat, 7.10))),
+            water = { lat, _ -> lat < northLat }
+        )
+        val engine = newEngine { world }
+
+        assertNull(
+            "a berth with water beside it is green",
+            engine.validatePoint(RoutePoint(northLat - 10.0 / mPerDegLat, 7.00))
+        )
+    }
+
+    // ── The ends' disc and the crossing's line-end re-solve ────────────────────
+
+    /**
+     * The ends' disc (D11): a berth whose one freed cell is ringed by margin-land was refused at the
+     * first reach (`expansions=1`), because the grid exempted a cell where the pull exempts a disc. The
+     * disc re-reads the world per barred cell and opens the margin-water ring, so the first reach answers
+     * — one corridor box, no growth — where the carve's own straight scan finds nothing to open.
+     */
+    @Test
+    fun anEndInABerthRingedByMarginLandAnswersAtTheFirstReach() = runTest {
+        val cellM = AppConfig.routeAvoidGridCellM
+        val reach = AppConfig.routeAvoidCorridorReachM
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val aim = RoutePoint(43.5000, 7.0000)
+        // The aim sits south-west of the berth, so the corridor's south and west edges are the aim's own.
+        val startLat = aim.latitude + 300.0 / mPerDegLat
+        val midLat = (startLat + aim.latitude) / 2.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+        val latSouth = aim.latitude - reach / mPerDegLat
+        val lonWest = aim.longitude - reach / mPerDegLon
+        val cellDegLat = cellM / mPerDegLat
+        val cellDegLon = cellM / mPerDegLon
+        fun centre(row: Int, col: Int) = LatLng(
+            latSouth + (row + 0.5) * cellDegLat,
+            lonWest + (col + 0.5) * cellDegLon
+        )
+        val r0 = 40
+        val c0 = 40
+        val start = RoutePoint(centre(r0, c0).latitude + 1.0 / mPerDegLat, centre(r0, c0).longitude)
+        // Seven point-edges carve the bar set: the end's cell, its eight neighbours and the eight cells
+        // the carve would test at step two — all barred — while the escape cell (r0+2, c0+1) and its
+        // continuation stand outside every edge's 50 m margin.
+        val edgeOffsets = listOf(
+            0 to 0, 1 to 2, 1 to -2, -1 to 2, -1 to -2, 2 to -1, -2 to -1
+        )
+        val edges = edgeOffsets.map { (dr, dc) ->
+            val p = centre(r0 + dr, c0 + dc)
+            AvoidEdge(p, p, LandRingOrientation.OPEN_COAST)
+        }
+        val world = DiscWorld(start.toLatLng(), edges)
+        val engine = newEngine { world }
+        engine.onOriginPositionChanged(start)
+
+        val result = engine.onDestinationPositionChanged(aim)
+
+        assertTrue("the berth answers instead of refusing", result is RouteResult.Success)
+        assertEquals("the first reach answers, no corridor growth", 1, world.boxes.size)
+    }
+
+    /**
+     * F3 (D3): a crossing whose stretch touches the line's end used to read `reason=line-end` and skip
+     * the fine re-solve. The re-solve now takes the raw start or aim at that end and splices the head or
+     * tail, so a destination-side crossing answers `local=yes spliced=yes` — pinned here by the splice's
+     * own shape: the in-box coarse vertex is replaced by the chord to the aim.
+     */
+    @Test
+    fun theCrossingReSolveReachesTheLinesEnds() = runTest {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
+        val world = FakeWorld(zones = listOf(zone))
+        val engine = newEngine { world }
+        val start = LatLng(43.50, 7.00)
+        val p1 = LatLng(43.50, 7.015)
+        val p2 = LatLng(43.50, 7.025)
+        val aim = LatLng(43.50, 7.035)
+        val corridor = BBox(43.40, 43.60, 6.90, 7.20)
+        val priced = listOf(ZoneRing(zone.outerRing, zone.holes, zone.speedLimitKn))
+        val line = listOf(start, p1, p2, aim)
+
+        val spliced = engine.solveCrossing(
+            world = world,
+            corridor = corridor,
+            line = line,
+            zone = zone,
+            start = start,
+            aim = aim,
+            pace = 28.0,
+            cellM = 50.0,
+            fineCellM = 20.0,
+            marginM = 50.0,
+            outsideMarginM = 50.0,
+            lambda = 5.0,
+            edges = emptyList(),
+            openCoast = emptyList(),
+            capLatNorth = corridor.latNorth,
+            priced = priced,
+            zones = listOf(zone),
+            sets = emptyList(),
+            approaches = EndApproaches.NONE,
+            refusals = null
+        )
+
+        assertNotNull("the crossing touching the line's end is re-solved, not refused", spliced)
+        assertEquals("the splice keeps the head", start, spliced!!.first())
+        assertEquals("and ends on the raw aim", aim, spliced.last())
+        assertTrue("the fine search rebuilt the in-box stretch", spliced.size > line.size)
+    }
 
     // ── The avoid switches ─────────────────────────────────────────────────────
 
@@ -573,7 +832,7 @@ class RouteAvoidEngineTest {
      */
     @Test
     fun speedZoneOffPricesTheZoneAsOpenWaterAndItsArmedControlDoesNot() = runTest {
-        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
         val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
 
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
@@ -641,7 +900,7 @@ class RouteAvoidEngineTest {
 
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
         val mPerDegLon = mPerDegLat * cos(Math.toRadians(43.49))
-        val bandReach = bandReachM(300.0, AppConfig.routeAvoidZone300MarginM)
+        val bandReach = bandReachM(300.0, AppConfig.routeAvoidZone300OutsideMarginM)
         val bandDLat = bandReach / mPerDegLat
         val bandDLon = bandReach / mPerDegLon
         val swBandCorner = LatLng(43.49 - bandDLat, 7.02 - bandDLon)
@@ -659,11 +918,11 @@ class RouteAvoidEngineTest {
 
         assertTrue(
             "the chorded line bends at the west tip's band-offset corner",
-            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), swBandCorner) < 1.0 }
+            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), swBandCorner) < 30.0 }
         )
         assertTrue(
             "and at the east tip's band-offset corner",
-            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), seBandCorner) < 1.0 }
+            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), seBandCorner) < 30.0 }
         )
 
         setAvoidSwitch("routeAvoidZone300Enabled", false)
@@ -673,11 +932,11 @@ class RouteAvoidEngineTest {
 
         assertTrue(
             "the diving line bends at the west tip's obstacle-margin corner",
-            dived.points.any { SpatialOperations.haversine(it.toLatLng(), swLandCorner) < 1.0 }
+            dived.points.any { SpatialOperations.haversine(it.toLatLng(), swLandCorner) < 30.0 }
         )
         assertTrue(
             "and at the east tip's obstacle-margin corner",
-            dived.points.any { SpatialOperations.haversine(it.toLatLng(), seLandCorner) < 1.0 }
+            dived.points.any { SpatialOperations.haversine(it.toLatLng(), seLandCorner) < 30.0 }
         )
         assertTrue(
             "the chorded line stands further off the tips than the diving line",
@@ -758,6 +1017,37 @@ class RouteAvoidEngineTest {
             depthLoaded = state.ready
             return state
         }
+    }
+
+    /** The smallest world the ends' disc reads: water and depth everywhere, with the berth's bar set
+     *  coming from the point-edges the rasterizer sweeps and the shore margin the disc re-reads. */
+    private class DiscWorld(
+        private val end: LatLng,
+        private val edges: List<AvoidEdge>
+    ) : AvoidWorld {
+        val boxes = mutableListOf<BBox>()
+
+        override val coastlineReady: Boolean get() = true
+        override val depthReady: Boolean get() = true
+        override val bandWidthM: Double get() = 0.0
+        override val regionBounds: BBox? get() = null
+
+        override fun segmentsIn(box: BBox): List<AvoidEdge> {
+            boxes.add(box)
+            return edges
+        }
+
+        override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
+
+        override fun isWater(latitude: Double, longitude: Double): Boolean = true
+
+        override fun distanceToCoastM(latitude: Double, longitude: Double): Double =
+            if (SpatialOperations.haversine(LatLng(latitude, longitude), end) <= 200.0) 10.0 else 1000.0
+
+        override fun depthAt(latitude: Double, longitude: Double): DepthSample =
+            DepthSample(20.0f, DepthSource.LITTO3D, 100, true)
+
+        override suspend fun load(): RouteEngineState = RouteEngineState.Ready
     }
 
     /** A closed rectangle ring over `[latSouth, latNorth]` × `[lonWest, lonEast]`. */

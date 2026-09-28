@@ -80,6 +80,10 @@ object AppConfig {
     var routeLineWidthDp: Float = 6f
         private set
 
+    /** The provisional line's transparency (0 = opaque, 100 = invisible) — `route.progress.transparencyPct`. */
+    var routeProgressTransparencyPct: Int = 55
+        private set
+
     /** The destination pin's fill colour — `route.pin.color`. */
     var routePinColor: Int = 0xFF2ECC71.toInt()
         private set
@@ -153,7 +157,7 @@ object AppConfig {
      * is kept beside it for the two to drift apart.
      *
      * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
-     * unused, as `route.avoid.zone300.marginM` did before the band.
+     * unused, as `route.avoid.zone300.outsideMarginM` did before the band.
      */
     var routeAvoidFineCellRatio: Double = 0.40
         private set
@@ -167,12 +171,24 @@ object AppConfig {
      */
     const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
 
-    /** How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`, default 1852 (1 NM). */
-    var routeAvoidCorridorReachM: Double = 1852.0
+    /**
+     * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
+     * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
+     * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
+     * grown box's own cost — 30 843 cells, a 1.16 s rasterise and a 3.4 s solve on the phone — is the
+     * price this value is argued against. The search may still grow one step (doubled) when the first
+     * answer finds nothing, is over its slow-water budget, or reports a forced crossing.
+     */
+    var routeAvoidCorridorReachM: Double = 3704.0
         private set
 
-    /** The 300 m band's own margin, read only from stage 2 on — `route.avoid.zone300.marginM`, default 25. */
-    var routeAvoidZone300MarginM: Double = 25.0
+    /**
+     * The 300 m band's outside margin (m) — `route.avoid.zone300.outsideMarginM`, default 25, clamped
+     * 0.0..500.0. The ring between the band's own edge and this distance prices at the band's core cost
+     * times [routeAvoidZone300OutsideMarginCostFraction]; the band's own width prices at the full cost.
+     * It is a price band, never a clearance.
+     */
+    var routeAvoidZone300OutsideMarginM: Double = 25.0
         private set
 
     /**
@@ -190,6 +206,18 @@ object AppConfig {
      * excluded on a sounding.
      */
     var routeAvoidDepthGateEnabled: Boolean = true
+        private set
+
+    /**
+     * The lateral standoff (m) the curve fitter keeps off the depth gate's wall —
+     * `route.avoid.depthGate.marginM`, default 20, clamped 0.0..200.0.
+     *
+     * The fitter reads it as the distance from a sampled cell's **centre** to the nearest cell whose
+     * centre is under the gate, refusing a sample within it — the same 20 m of standoff the gate's own
+     * rule implies, made representable at the grid's resolution without a finer walk. It is the depth
+     * gate's standoff only: the coast's own clearance is [routeAvoidObstacleMarginM].
+     */
+    var routeAvoidDepthGateMarginM: Double = 20.0
         private set
 
     /**
@@ -225,6 +253,94 @@ object AppConfig {
      * stays physics.
      */
     var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
+        private set
+
+    /**
+     * The speed zone's outside margin (m) — `route.avoid.speedZone.outsideMarginM`, default 50,
+     * clamped 0.0..500.0. A cell outside a zone's ring but within this distance prices at the zone's
+     * interior excess times [routeAvoidSpeedZoneOutsideMarginCostFraction]; the interior prices at the
+     * full excess. The margin is a price band, never a clearance: the old hard standoff is gone.
+     */
+    var routeAvoidSpeedZoneOutsideMarginM: Double = 50.0
+        private set
+
+    /**
+     * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
+     * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
+     * the pace after leaving it. 0.1–2.0, default 0.5: a comfortable easing down, 2.0 the briskest a
+     * planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's clock
+     * alone** — it moves the reported time and never the drawn line, which the search has already
+     * chosen. One home for the rate: this value, and the key it is read from.
+     */
+    var routeSpeedAccelMps2: Double = 0.5
+        private set
+
+    /**
+     * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`,
+     * default 1.0 (~0.1 g), clamped 0.1..2.94.
+     *
+     * A corner is drawn as a curve whose radius is `r = v² / a_lat`, so a high value gives a tight,
+     * hard turn and a low value a wide, gentle one; the fitter caps a bend's radius at the pace's own
+     * `v_pace² / a_lat` and never draws it tighter than the speed's own minimum, `v² / a_lat`. One
+     * home for the ceiling: this value and the key it is read from.
+     */
+    var routeTurnLateralAccelMps2: Double = 1.0
+        private set
+
+    /**
+     * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, default 2.0, clamped
+     * 0.5..5.0.
+     *
+     * It gives the spiral length `L = v · transitionSec` at the bend's own speed — ~29 m at 28 kn,
+     * ~10 m at 10 kn — so the entry inertia scales with speed; the curvature rate follows,
+     * `κ̇ = v / (r · L)`. One home for the time: this value and the key it is read from.
+     */
+    var routeTurnTransitionSec: Double = 2.0
+        private set
+
+    /**
+     * The floor a bend's corner speed may not go below (kn) — `route.turn.minSpeedKn`, default 5,
+     * clamped 2..10.
+     *
+     * A boat cannot crawl to zero, so where no radius clears the walls even at this floor, the bend
+     * is left sharp and taken at the floor. One home for the floor: this value and the key it is
+     * read from.
+     */
+    var routeTurnMinSpeedKn: Double = 5.0
+        private set
+
+    /**
+     * **The share of a trip the search may spend slowed by speed zones**, in per cent — the budget the
+     * λ loop aims at. 0–100, default **33**: how much slow water a trip may use is a preference rather
+     * than a tuning constant, which is why this one is a lever with a Settings row of its own rather
+     * than a value in the drawing family. A share still outside the loop's ±20 % band after its two
+     * passes is reported and never chased.
+     */
+    var routeAvoidSpeedZoneTimeBudgetPct: Int = 33
+        private set
+
+    /** Lowest slow-water budget (per cent) the properties load accepts — one home for that end. */
+    const val ROUTE_SLOW_WATER_BUDGET_PCT_MIN = 0
+
+    /** Highest slow-water budget (per cent) the properties load accepts — one home for that end. */
+    const val ROUTE_SLOW_WATER_BUDGET_PCT_MAX = 100
+
+    /**
+     * The speed zone's outside-margin price as a fraction of the interior's —
+     * `route.avoid.speedZone.outsideMargin.costFraction`, default 0.66, clamped 0.0..1.0. A cell
+     * outside the ring but within [routeAvoidSpeedZoneOutsideMarginM] prices at the interior excess
+     * times this fraction, so the outside band carries a gradient from free water to the interior.
+     */
+    var routeAvoidSpeedZoneOutsideMarginCostFraction: Double = 0.66
+        private set
+
+    /**
+     * The 300 m band's outside-margin price as a fraction of the core band's —
+     * `route.avoid.zone300.outsideMargin.costFraction`, default 0.66, clamped 0.0..1.0. The ring
+     * between the band's own edge and [routeAvoidZone300OutsideMarginM] prices at the core cost
+     * times this fraction.
+     */
+    var routeAvoidZone300OutsideMarginCostFraction: Double = 0.66
         private set
 
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
@@ -1440,6 +1556,8 @@ object AppConfig {
                 ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.line.widthDp")?.toFloatOrNull()
                 ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
+            props.getProperty("route.progress.transparencyPct")?.toIntOrNull()
+                ?.let { routeProgressTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.pin.color")?.let { parseColorOrNull(it) }
                 ?.let { routePinColor = it }
             props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
@@ -1470,8 +1588,11 @@ object AppConfig {
             props.getProperty("route.avoid.corridor.reachM")?.toDoubleOrNull()?.let {
                 routeAvoidCorridorReachM = it.coerceIn(100.0, 20_000.0)
             }
-            props.getProperty("route.avoid.zone300.marginM")?.toDoubleOrNull()?.let {
-                routeAvoidZone300MarginM = it.coerceIn(0.0, 500.0)
+            props.getProperty("route.avoid.zone300.outsideMarginM")?.toDoubleOrNull()?.let {
+                routeAvoidZone300OutsideMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.zone300.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
+                routeAvoidZone300OutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
             }
             // Parsed and left unread until Change 4's fine band reads it.
             props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
@@ -1486,6 +1607,9 @@ object AppConfig {
             props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidDepthGateEnabled = it
             }
+            props.getProperty("route.avoid.depthGate.marginM")?.toDoubleOrNull()?.let {
+                routeAvoidDepthGateMarginM = it.coerceIn(0.0, 200.0)
+            }
             props.getProperty("route.avoid.zone300.softCostAversion")?.toDoubleOrNull()?.let {
                 routeAvoidZone300SoftCostAversion = it.coerceIn(1.0, 5.0)
             }
@@ -1497,6 +1621,28 @@ object AppConfig {
             }
             props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidSpeedZoneEnabled = it
+            }
+            props.getProperty("route.avoid.speedZone.outsideMarginM")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneOutsideMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.speedZone.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
+                routeAvoidSpeedZoneOutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
+            }
+            props.getProperty("route.speed.accelMps2")?.toDoubleOrNull()?.let {
+                routeSpeedAccelMps2 = it.coerceIn(0.1, 2.0)
+            }
+            props.getProperty("route.turn.lateralAccelMps2")?.toDoubleOrNull()?.let {
+                routeTurnLateralAccelMps2 = it.coerceIn(0.1, 2.94)
+            }
+            props.getProperty("route.turn.transitionSec")?.toDoubleOrNull()?.let {
+                routeTurnTransitionSec = it.coerceIn(0.5, 5.0)
+            }
+            props.getProperty("route.turn.minSpeedKn")?.toDoubleOrNull()?.let {
+                routeTurnMinSpeedKn = it.coerceIn(2.0, 10.0)
+            }
+            props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
+                routeAvoidSpeedZoneTimeBudgetPct =
+                    it.coerceIn(ROUTE_SLOW_WATER_BUDGET_PCT_MIN, ROUTE_SLOW_WATER_BUDGET_PCT_MAX)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

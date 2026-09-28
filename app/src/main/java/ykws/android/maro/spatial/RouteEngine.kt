@@ -2,6 +2,7 @@ package ykws.android.maro.spatial
 
 import kotlinx.coroutines.flow.StateFlow
 import ykws.android.maro.R
+import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 
@@ -52,15 +53,28 @@ interface RouteEngine {
     val state: StateFlow<RouteEngineState>
 
     /**
-     * **The stage of the search running right now**, or null when nothing is running — the
-     * acquisition's own progress, as a closed set of [RouteStage] ids rather than a sentence.
+     * **The progress of the search running right now**, or null when nothing is running — the
+     * acquisition's own stage plus the line the pipeline holds at that instant, in one value.
      *
-     * One emission per boundary the pipeline crosses, and **null on every answer and on an abort**:
-     * a stage left standing after the call that set it would be a lie on the panel. An engine that
-     * crosses no boundary — the dummy, which computes nothing — simply never sets it, so the panel
-     * falls back on its own plain searching word.
+     * One emission per boundary the pipeline crosses, carrying the line the previous work produced:
+     * `PULL` carries the raw cell chain and `SNAP` the pulled line, while the three earlier boundaries
+     * carry no points at all — nothing has been computed yet. It is **null on every answer and on an
+     * abort**: a progress left standing after the call that set it would be a lie on the panel. An
+     * engine that crosses no boundary — the dummy, which computes nothing — simply never sets it, so
+     * the panel falls back on its own plain searching word and no partial line is ever drawn.
      */
-    val stage: StateFlow<RouteStage?>
+    val progress: StateFlow<RouteProgress?>
+
+    /**
+     * **The offers computed for the settled answer** — one candidate per priced source that would
+     * save time, empty while none has arrived and empty where none exists.
+     *
+     * It is a stream rather than a field of the result because the candidates are computed **after**
+     * the answer is returned, on a non-blocking job the engine owns: the settled line must reach the
+     * map first, and the offers arrive later, cleared and re-computed on every new ask. The dummy has
+     * nothing to compute and publishes the empty set for the whole session.
+     */
+    val offers: StateFlow<List<RouteOffer>>
 
     /**
      * Makes the engine ready if it can be, and reports what it reached.
@@ -205,15 +219,31 @@ enum class RouteUnavailableReason(val labelResId: Int) {
  * user-facing text. It answers about **one end**, and both ends read the same: a refused aim and a
  * refused origin paint the same crosshair (R27).
  *
- * **Nothing produces one of these today** — the dummy judges nothing, so every entry is unreachable
- * while it is the installed engine. They are kept because the ring's refused state, the panel's
- * sentence and the strings in both locales are wired to this type, and because an engine that reads
- * the water again will need exactly these sentences; each entry names what it meant to the engine that
- * produced it, in the past tense.
+ * **The avoid engine is the reader that produces them** — [RouteAvoidEngine.validatePoint] answers
+ * `OFF_WATER`, `TOO_SHALLOW` or `NO_APPROACH` — while the dummy, which judges nothing, leaves every
+ * entry unreachable when it is the installed engine. The ring's refused state, the panel's sentence
+ * and the strings in both locales are wired to this type, so a new reason is one member here and its
+ * fragment in each locale, and nothing else: the panel completes `route_destination_invalid` or
+ * `route_origin_invalid` with whatever [labelResId] resolves to, whoever produced it.
  */
 /**
+ * **The progress of a running search** — the stage and the line the pipeline holds, in one value so
+ * the panel's sentence and the drawn provisional line can never disagree ([RouteEngine.progress]).
+ *
+ * [points] is null where the boundary carries no line: the corridor, grid and search boundaries have
+ * nothing computed yet, while `PULL` carries the raw cell chain and `SNAP` the pulled line. The
+ * reference type is the domain's [RoutePoint], never a `GeoPoint` — osmdroid stays inside `RouteHost`.
+ */
+data class RouteProgress(
+    /** The stage the acquisition has reached — the closed set the panel resolves to a label. */
+    val stage: RouteStage,
+    /** The line the pipeline holds at that instant, or null where none exists yet. */
+    val points: List<RoutePoint>?
+)
+
+/**
  * **The stage an acquisition has reached** — the closed set the engine publishes while a search runs
- * ([RouteEngine.stage]), shaped like [RouteRefusalReason] so the label is an id the surface resolves
+ * ([RouteEngine.progress]), shaped like [RouteRefusalReason] so the label is an id the surface resolves
  * and no engine holds user-facing text.
  *
  * The five entries are the five boundaries the routing pipeline already crosses — the corridor it
@@ -245,6 +275,20 @@ enum class RouteRefusalReason(val labelResId: Int) {
      * end before it built anything, because a line cannot be drawn from or to a place that is land.
      */
     OFF_WATER(R.string.route_refusal_off_water),
+
+    /**
+     * The point is water the depth layer knows to be under the route's gate — the reading a green ring
+     * used to hide while the search barred the cell anyway (F8). It is a statement about the data in
+     * hand, never about the sea.
+     */
+    TOO_SHALLOW(R.string.route_refusal_too_shallow),
+
+    /**
+     * The point is water, deep enough, and **no approach reaches legal water from it** within the
+     * berth carve's bounded scan — a berth walled by land or by the gate (F8). It is a red raised while
+     * aiming, so the ask that follows is owed only the reachability it alone can answer.
+     */
+    NO_APPROACH(R.string.route_refusal_no_approach),
 
     /**
      * The point lies outside the region the engine has read — beyond the box the removed engines cut

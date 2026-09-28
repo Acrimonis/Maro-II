@@ -594,13 +594,21 @@ fun MapScreen(
     val routeEngineSelection = remember {
         MutableStateFlow(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
+                .factory(
+                    { appSettings.routeFreeWaterPaceKn.toDouble() },
+                    { appSettings.routeSlowWaterBudgetPct },
+                    avoidWorldProvider
+                )
         )
     }
     LaunchedEffect(appSettings.routeEngineId) {
         routeEngineSelection.value =
             RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory({ appSettings.routeFreeWaterPaceKn.toDouble() }, avoidWorldProvider)
+                .factory(
+                    { appSettings.routeFreeWaterPaceKn.toDouble() },
+                    { appSettings.routeSlowWaterBudgetPct },
+                    avoidWorldProvider
+                )
     }
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
@@ -625,7 +633,9 @@ fun MapScreen(
     // both `Save track` actions grey themselves on (R16, R17) and the second is the acquisition's own
     // progress (R15).
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
-    val routeStage by routeViewModel.stage.collectAsState()
+    val routeProgress by routeViewModel.progress.collectAsState()
+    // The panel's sentence reads the stage arm; the host's provisional line reads the points arm.
+    val routeStage = routeProgress?.stage
     // **Is the front route already written?** — the one fact both `Save track` actions grey themselves
     // on (R16, R17). Read through the link table rather than a null check at each call site.
     val routeFrontSaved = routeState.plan?.let { routeSessionLinks[it] != null } == true
@@ -1807,8 +1817,10 @@ fun MapScreen(
              * it** (R25): the name defaults to the route's own [`RoutePlan.trackName`] — `Route
              * <instant>`, the fixed prefix a name-as-data token rather than a localised string — and
              * an all-scope write hands in the same base with `· n/N`. The track's id is remembered
-             * against the route, in the mode's own session, which is what lets a second save **rename**
-             * it instead of writing it again.
+             * against the route, in the mode's own session, and that is what greys every save door
+             * once the front route is written (R16, R17), so a second press writes nothing new.
+             * Nothing renames a written track here: a route recomputed or acquired again is a new plan
+             * with its own instant and its own name, and it writes its own track.
              */
             fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
                 val points = plan.points
@@ -2316,6 +2328,7 @@ fun MapScreen(
                             boatPosition = routeStart,
                             leadFix = routeLeadFix,
                             state = routeState,
+                            progress = routeProgress,
                             armed = routeArmed,
                             gpsMode = appSettings.gpsMode,
                             speedKn = navigationState.speedKnots,

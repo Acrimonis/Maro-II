@@ -1292,6 +1292,27 @@ private fun NavigationSettings(
                 .toInt() - 1,
             onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
         )
+
+        SectionDivider()
+
+        // The slow-water budget: how much of a trip may be spent slowed by speed zones, as a share of
+        // its time. A route still over it is **reported and never refused**, so this is a preference
+        // rather than a gate — and its bounds are read from AppConfig, where they live beside the
+        // accessor, so the slider, the properties loader and the settings clamp cannot disagree.
+        SliderRow(
+            label = stringResource(R.string.settings_route_budget_label),
+            description = stringResource(R.string.settings_route_budget_desc),
+            valueLabel = stringResource(
+                R.string.settings_value_percent,
+                settings.routeSlowWaterBudgetPct
+            ),
+            value = settings.routeSlowWaterBudgetPct.toFloat(),
+            valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
+                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
+            steps = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX -
+                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
+            onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
+        )
     }
 
     Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
