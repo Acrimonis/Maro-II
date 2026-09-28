@@ -1803,13 +1803,13 @@ fun MapScreen(
              * **The mode's one trigger, behind both its doors** (R49, R50, R71, R73, D5).
              *
              * The map's square and the drawer's Route sub-section come here and mean one thing:
-             * **resolve the standing pair at this instant**, arm the acquisition on it, and set the
-             * drawer to [openDrawer]. There is nothing to place and no press to wait for — the ends are
-             * the drawer's, so the mode opens **computing** and the map is handed back the moment they
-             * are read. The two doors differ only in the drawer: the square arms from the closed map with
-             * `openDrawer = true` (R73), while the sub-section's own action is pressed *inside* the
-             * drawer and arms with it false, so the drawer shuts and the panel — its status, its
-             * candidates and its three actions — is what the user lands on (D5).
+             * **resolve the standing pair at this instant**, arm the acquisition on it, and leave the
+             * drawer shut. There is nothing to place and no press to wait for — the ends are the
+             * drawer's, so the mode opens **computing** and the map is handed back the moment they are
+             * read, and the panel — its status, its sentence, its table and its three actions — is what
+             * the user lands on (D5). **The two doors no longer differ** (2026-09-28, the user's word):
+             * the square used to open the drawer for the acquisition, and arming now opens nothing, so a
+             * press from the closed map leaves it closed and one from inside the drawer shuts it.
              *
              * **Entry is the engine's own gate, and a tap that finds it shut is the user's retry**
              * (§17 item 3). The engine prepares once at construction, and that one preparation can land
@@ -1818,7 +1818,7 @@ fun MapScreen(
              * preparation, and an engine that still cannot arm has said so: its reason's own id is what
              * the surface shows, and nothing is asked a third time.
              */
-            fun armRouteMode(openDrawer: Boolean = true) {
+            fun armRouteMode() {
                 if (routeArmed) return
                 // **The selection leaves before the mode arms** — the dashboard slot's R1 rule: the
                 // route panel wants the slot, so whatever selected-item card held it stands down first
@@ -1827,10 +1827,10 @@ fun MapScreen(
                     closeSelectedItemDashboards()
                     if (inspectArmed) disarmInspectMode()
                     routeArmed = true
-                    // The door decides the drawer's state: the map's square opens it for the acquisition
-                    // (R73), the sub-section's own action shuts the one it was pressed in (D5), so the
-                    // panel is what the user lands on.
-                    showTrackDrawer = openDrawer
+                    // **Neither door opens the drawer** (2026-09-28): the acquisition is what the press
+                    // lands on — the panel owns the dashboard slot — so the drawer is left as it was
+                    // found, shut from the map and shut behind the press that armed inside it.
+                    showTrackDrawer = false
                     routeSaveScope.launch { routeViewModel.arm(routeEndsAtTrigger()) }
                 }
                 if (!routeAvailable) {
@@ -2575,7 +2575,7 @@ fun MapScreen(
                         onStepCandidate = { delta -> routeViewModel.stepCandidate(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
-                        onCancel = { endRouteMode() },
+                        onDiscard = { endRouteMode() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -2613,7 +2613,7 @@ fun MapScreen(
                         onStepCandidate = { delta -> routeViewModel.stepCandidate(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
-                        onCancel = { endRouteMode() },
+                        onDiscard = { endRouteMode() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -3169,7 +3169,7 @@ fun MapScreen(
                 destinationOptions = routeEndOptions(RouteEndSelection.End.DESTINATION, routeMarkers),
                 startSelection = routeStartSelection,
                 destinationSelection = routeDestinationSelection,
-                onArm = { armRouteMode(openDrawer = false) },
+                onArm = { armRouteMode() },
                 onStartSelect = { storeRouteEnd(RouteEndSelection.End.START, it) },
                 onDestinationSelect = { storeRouteEnd(RouteEndSelection.End.DESTINATION, it) },
                 searching = routeSearching,

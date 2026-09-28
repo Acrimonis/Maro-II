@@ -51,8 +51,9 @@ import ykws.android.maro.ui.components.StatCell
 // exit dialog being the mode's whole presence from then on.
 //
 // **The anatomy.** A header row — the phase's title left, its short state word right, a top-right
-// reading that costs no line of its own — then the phase's comment, then the card's 0.5 dp rule, then
-// the **stage** (or the refusal, or the plain searching word) on the sentence line the panel already
+// reading that costs no line of its own, and the stage **inside that word** (`Acquiring (Search)…`
+// since 2026-09-28) — then the phase's comment, then the card's 0.5 dp rule, then the **refusal** the
+// state has to report, or the word a pair no route answers with, on the sentence line the panel already
 // carried, then the **selected** line's whole **data table** on the card's own cell ([StatCell]): the
 // two ends as their own labelled rows, `Dist · ETA` as one row of two. The four details R24 names are
 // all there. A **second rule** closes the table, the pin stands under it, and the actions are
@@ -66,7 +67,8 @@ import ykws.android.maro.ui.components.StatCell
 //
 // **A button's colour states its role, never its importance** (§5.6): the accent is the surface's own
 // outcome — `Select route` once a line stands — the outline is everything that neither writes nor
-// loses, and the red, which lives on the exit dialog alone, is the action that withholds the work.
+// loses, and the red is the action that withholds the work — the panel's own **Discard route**, which
+// took the place of `Cancel` on 2026-09-28, as well as the exit dialog's.
 //
 // It reuses what already exists rather than re-drawing it: [ConfirmActionButton] for the outcomes,
 // [StatCell] for the readings and [RoutePinOption] for the pin, so the styling and the tick each keep
@@ -79,7 +81,7 @@ import ykws.android.maro.ui.components.StatCell
  * The acquisition's panel, for the dashboard slot.
  *
  * @param stage           the acquisition's own stage, or null when nothing is running (R15) — the stage
- *                        rides the sentence line, never the header's corner.
+ *                        rides the header's own acquiring word, never a line of its own.
  * @param candidates      the lines the acquisition draws, the settled answer first (R53, R54).
  * @param selectedIndex   which of [candidates] the selection stands on — the table, the notes and the
  *                        saves all describe that one line.
@@ -90,7 +92,8 @@ import ykws.android.maro.ui.components.StatCell
  * @param onStepCandidate **next/prev**: steps the selection and loops it.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
- * @param onCancel        **Cancel**: leaves the acquisition and turns the toggle off, asking nothing (R57).
+ * @param onDiscard       **Discard route**: leaves the acquisition and turns the toggle off, asking
+ *                        nothing (R57) — the red, and the act the `Cancel` it replaced performed.
  *
  * Renders nothing at all unless the machine is acquiring a route: the slot belongs to the dashboard
  * whenever no route is being acquired (R73).
@@ -107,14 +110,23 @@ internal fun RouteConfirmationPanel(
     onStepCandidate: (Int) -> Unit,
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
-    onCancel: () -> Unit,
+    onDiscard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val acquiring = state as? RouteState.Choosing ?: return
     val selected = candidates.getOrNull(selectedIndex.coerceIn(0, (candidates.size - 1).coerceAtLeast(0)))
-    // The header's short state word (R15): the acquisition says it is working only while it is.
-    val status = if (acquiring.searching) stringResource(R.string.route_status_acquiring) else null
-    val sentence = acquiringSentence(acquiring, stage)
+    // The header's short state word (R15): the acquisition says it is working only while it is, and the
+    // **stage rides inside that word** — `Acquiring (Search)…` — rather than on a sentence line of its
+    // own (2026-09-28, the user's word). A running search that publishes no stage — the dummy engine's
+    // own case — reads the plain word.
+    val status = if (acquiring.searching) {
+        stage?.let {
+            stringResource(R.string.route_status_acquiring_stage, stringResource(it.labelResId))
+        } ?: stringResource(R.string.route_status_acquiring)
+    } else {
+        null
+    }
+    val sentence = acquiringSentence(acquiring)
 
     PanelColumn(
         modifier = modifier,
@@ -146,34 +158,40 @@ internal fun RouteConfirmationPanel(
             }
         },
         actions = {
-            // R55's own three, stacked: `Save to track` · `Select route` · `Cancel`. The accent is the
-            // acquisition's own forward action — entering navigation on the selected line — and the save
-            // keeps the role it had.
+            // R55's own three, and **the forward pair shares one row** (2026-09-28, the user's word):
+            // `Save to track` beside `Select route`, each a weighted half 8 dp apart — the family's own
+            // geometry, which `ConfirmActionButton`'s modifier exists for — with the abort full width
+            // beneath them. The row gives back one line of height to the status and the table above it.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.route_action_save_track),
+                        role = ConfirmActionRole.SECONDARY,
+                        enabled = selected != null && !frontSaved,
+                        onClick = onSaveTrack
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.route_action_select),
+                        role = ConfirmActionRole.PRIMARY,
+                        enabled = selected != null,
+                        onClick = onSelectRoute
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            // The abort, red and last (R57): the same silent end the `Cancel` performed, under the exit
+            // dialog's own word for it — one act, one key, one colour, the loss painted last.
             ConfirmActionButton(
                 action = ConfirmAction(
-                    label = stringResource(R.string.route_action_save_track),
-                    role = ConfirmActionRole.SECONDARY,
-                    enabled = selected != null && !frontSaved,
-                    onClick = onSaveTrack
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            ConfirmActionButton(
-                action = ConfirmAction(
-                    label = stringResource(R.string.route_action_select),
-                    role = ConfirmActionRole.PRIMARY,
-                    enabled = selected != null,
-                    onClick = onSelectRoute
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            ConfirmActionButton(
-                action = ConfirmAction(
-                    // The app's one word for the generic abort, shared with every other dialog and
-                    // footers: `Cancel` here really is "abort, nothing happens" (R57).
-                    label = stringResource(R.string.action_cancel),
-                    role = ConfirmActionRole.SECONDARY,
-                    onClick = onCancel
+                    label = stringResource(R.string.route_exit_discard),
+                    role = ConfirmActionRole.DANGER,
+                    onClick = onDiscard
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -218,10 +236,12 @@ private fun PanelColumn(
 
 /**
  * The panel's first row: the phase's title on the left and, where the phase has one, its **status** in
- * the right corner — the one reading that costs no line of its own.
+ * the right corner — the one reading that costs no line of its own, and the one the stage rides inside
+ * while a search runs.
  *
  * The title keeps a single line and yields the width before the status does: a title that is cut is a
- * word a reader can finish, while a status read short would say the wrong thing about the route.
+ * word a reader can finish, while a status read short would say the wrong thing about the route — so
+ * the status ellipsises rather than being cut in silence.
  */
 @Composable
 private fun PanelHeader(title: String, status: String?) {
@@ -244,7 +264,10 @@ private fun PanelHeader(title: String, status: String?) {
                 text = it,
                 color = Color(AppConfig.uiDashboardTextPrimary),
                 fontSize = 13.sp,
-                maxLines = 1
+                maxLines = 1,
+                // The corner says the phase and its stage both, so it carries the longer reading of the
+                // two; a clipped status now reads as clipped (§5.8's one line).
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -457,12 +480,12 @@ private fun PlanNotes(plan: RoutePlan) {
  *
  * A refused **anchor** outranks everything (there is no start to route from, and it reads as a line
  * about the position rather than on the destination, R7); a refused **destination** names its reason
- * with the outcomes hidden (R6); then the **stage** the engine publishes while a search runs (R15), then
- * the two readings a null plan can mean — a search in flight and a pair no route answers. Nothing asked
- * yet is the comment above alone.
+ * with the outcomes hidden (R6); then the pair no route answers. **The stage is not here** (R15, as
+ * rewritten 2026-09-28): it rides the header's own acquiring word, so a search simply running prints
+ * nothing and the sentence line disappears with it. Nothing asked yet is the comment above alone.
  */
 @Composable
-private fun acquiringSentence(acquiring: RouteState.Choosing, stage: RouteStage?): String? = when {
+private fun acquiringSentence(acquiring: RouteState.Choosing): String? = when {
     acquiring.originRefusal != null -> stringResource(
         R.string.route_origin_invalid,
         stringResource(acquiring.originRefusal.labelResId)
@@ -473,8 +496,6 @@ private fun acquiringSentence(acquiring: RouteState.Choosing, stage: RouteStage?
         stringResource(acquiring.refusal.labelResId)
     )
 
-    stage != null -> stringResource(stage.labelResId)
-    acquiring.searching -> stringResource(R.string.route_searching)
     acquiring.asked -> stringResource(R.string.route_no_route)
     else -> null
 }

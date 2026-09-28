@@ -28,7 +28,7 @@
 | R12 | **The refresh's switch leaves with the gate** — no `Freeze`/`Resume` and no `Abort`, no route-owned control surviving the clock that gave it its subject | decided |
 | R13 | **An acquisition that cannot answer changes nothing** — the standing line stays the front line, **nothing is staled**, and the panel's own sentence says no route answers (R6); the failure reaches the user nowhere else | decided |
 | R14 | ~~**Stale means replaced, and the replaced routes form a ladder**~~ — **superseded 2026-09-28 by R65**: with no reroute the mode holds one answer per arming, so nothing inside it can replace a line; the two keys, the stale painting, its 20–80 % band and this rule left together, the polyline pool a candidate draws into staying | superseded |
-| R15 | **The acquisition's status names the phase and its stage** — a short state word (`Acquiring…`, `Route active`) in the header's right corner, and the acquisition's **stage** — a closed set of `@StringRes` ids the engine publishes, one per pipeline boundary — on the sentence line under the divider; **the stage rides one emission with the line the engine holds at that instant** (R43) | decided |
+| R15 | **The acquisition's status names the phase and its stage** — a short state word in the header's right corner, and the acquisition's **stage** — a closed set of `@StringRes` ids the engine publishes, one per pipeline boundary — **inside that same word**, `Acquiring (Search)…`, the sentence line under the divider carrying the refusals and the no-route word alone (**amended 2026-09-28**, the user's word: the stage rode that sentence line until then); **the stage rides one emission with the line the engine holds at that instant** (R43) | decided |
 | R43 | **The engine publishes the line as it builds it** — at each pipeline boundary the same emission that carries the stage also carries the line the pipeline holds: null through corridor · grid · search, the raw cell chain at `PULL` and the pulled line at `SNAP`; the line has no consumer but the map, is cleared on every answer and every abort, and is never the plan | decided |
 | R16 | ~~**The acquisition's outcomes**: **Acquire route** · **Confirm** · **Save track** · **Exit**~~ — **superseded 2026-09-28 by R50, R55 and R57**: arming is the trigger so no placement press exists, `Confirm` becomes `Select route`, `Acquire route` and `Exit` leave the grid, and the three that remain are **Save to track · Select route · Cancel** | superseded |
 | R17 | **The following panel's actions**: `Save track` · `Reroute` · `New route` · `Exit` — the save takes the accent and is disabled once the front route is written; the other three are outlined | decided |
@@ -83,9 +83,9 @@
 | R52 | **The acquisition paints its progress as the engine publishes it** — R43's shipped overlay, no new path |
 | R53 | **Two candidate lines are computed beside the settled one**, painted as it is at lower opacity — the pair **cumulative**: the zones' price dropped, then that price and the 300 m band's together |
 | R54 | **Next/prev appears as candidates land and loops the set** — the selected line at full strength, the others dimmed |
-| R55 | **The acquisition's controls are Save to track · Select route · Cancel** — the save writing the **selected** line, the one the panel's table describes |
+| R55 | **The acquisition's controls are Save to track · Select route · Discard route** — the save writing the **selected** line, the one the panel's table describes, the save and the selection sharing **one row** with the discard full width beneath them (**amended 2026-09-28**: `Cancel` became the red `Discard route`, on `route_exit_discard`'s own key) |
 | R56 | **Select route writes nothing and discards the rest** — it shows the selected line as the route, drops the other candidates, and enters navigation |
-| R57 | **Cancel leaves the acquisition and turns the toggle off, asking nothing** |
+| R57 | **Discard route leaves the acquisition and turns the toggle off, asking nothing** — the red face, the act unchanged from the `Cancel` it replaced (rewritten 2026-09-28) |
 | R58 | **The navigation phase closes the panel and shows the route clearly** — the toggle blue with the pulsing red dot, and nothing else route-specific on screen (R73) |
 | R59 | **Leaving navigation raises the one dialog** — Save Route to Track, disabled while the route has its track · Continue route · Discard Route |
 | R60 | **Routing confirms before tracking** — the route's exit answers first, the tracking exit only after it |
@@ -101,7 +101,7 @@
 | R70 | **Each end is a dropdown** — **superseded 2026-09-28 by the user's word, and its roller retired with its component**: the shape this row introduced — a list one visible row tall, stepping on a vertical drag claimed inside its own bounds — never committed reliably in the hand, the marked entry and the committed one disagreeing, and its instrumented trace was cut short by the retirement rather than answered by it. Each end is chosen from a **`DropdownRow`**, the app's own dropdown in the `CustomSortField` shape, **labelled by its role** — `Origin` and `Destination` — with the value on the row's right. What the row settled stands: a list that may grow past two entries is a dropdown's job, `docs/ui-component-guidelines.md` §2.12 owns its spec, and R66's fallback to a list's first entry is unchanged |
 | R71 | **The ends are read at the trigger and the map is handed back** — the pair is taken at the instant the action is pressed, after which pan and zoom are free and change nothing about the search; the camera hold and the demo-speed suspension the aim needed leave with the aim |
 | R72 | **The rows print the engine's own figures** — a candidate's saving and duration are shown as the engine publishes them, the UI recomputing nothing and asserting no basis of its own; the faired-or-un-faired question belongs to the engine's finalization |
-| R73 | **The navigation phase adds no surface** — selecting returns the app to the ordinary dashboard, the map carrying the line, the toggle's face and the exit dialog being the mode's whole presence, and the drawer's summary the only route reading and only when opened |
+| R73 | **The navigation phase adds no surface** — selecting returns the app to the ordinary dashboard, the map carrying the line, the toggle's face and the exit dialog being the mode's whole presence, and the drawer's summary the only route reading and only when opened. **Neither door opens the drawer on arming** (**amended 2026-09-28**, the user's word: the map's square used to open it, and the acquisition now lands on the panel alone) |
 | R74 | **The acquisition's own surface is the route acquisition dashboard** — the panel in the dashboard slot carries the status, the candidate rows and the three actions, the drawer standing above it for the parameters rather than instead of it |
 
 ## 2. The engine's interface
@@ -120,11 +120,11 @@
 
 | State | The slot's sentence | Actions |
 |---|---|---|
-| Armed, nothing acquired | "The route follows the ends chosen in the route section" | Save to track (disabled) · Select route (disabled) · Cancel |
-| Destination refused | "Destination invalid: *[reason]*" + the red crosshair | Save to track (disabled) · Select route (disabled) · Cancel |
-| Acquiring | the **stage** (corridor · grid · search · pull · snap) | Save to track (disabled) · Select route (disabled) · Cancel |
-| A line stands | the four details + the pin checkbox + the candidate rows | Save to track · **Select route** · Cancel |
-| A line stands and is written | the four details + the pin checkbox + the candidate rows | Save to track (disabled) · **Select route** · Cancel |
+| Armed, nothing acquired | "The route follows the ends chosen in the route section" | Save to track (disabled) · Select route (disabled) · Discard route |
+| Destination refused | "Destination invalid: *[reason]*" + the red crosshair | Save to track (disabled) · Select route (disabled) · Discard route |
+| Acquiring | nothing of its own — the **stage** rides the header's acquiring word, `Acquiring (Search)…` (R15) | Save to track (disabled) · Select route (disabled) · Discard route |
+| A line stands | the four details + the pin checkbox + the candidate rows | Save to track · **Select route** · Discard route |
+| A line stands and is written | the four details + the pin checkbox + the candidate rows | Save to track (disabled) · **Select route** · Discard route |
 
 **Navigating.** Entered by `Select route`; left by the toggle or the back key, **each asking first** (R59, R60). **It adds no surface at all** (R58, R73): the ordinary dashboard returns, the map carries the line, and the toggle's blue face with the one exit dialog is the mode's whole presence. The camera follows the boat (R18).
 

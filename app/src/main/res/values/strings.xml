@@ -615,20 +615,22 @@
     <string name="route_label_eta">ETA</string>
     <!-- The ETA cell's bare value — the label above is what says "ETA", so it is not repeated. -->
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
-    <!-- The acquisition's own three actions (R55): the save writes the **selected** line, `Select
-         route` locks it and enters navigation, and the cancellation turns the toggle off asking
-         nothing — `action_cancel` is the app's one word for it. -->
+    <!-- The acquisition's own three actions (R55, rewritten 2026-09-28): the save writes the
+         **selected** line and shares one row with the selection, and the abort leaves the acquisition
+         asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
     <string name="route_action_save_track">Save to track</string>
     <string name="route_action_select">Select route</string>
     <string name="route_pin_label">Pin the track</string>
-    <string name="route_searching">Computing Route…</string>
     <string name="route_no_route">No water route here</string>
     <!-- The refused end's two sentences — one per end, and the crosshair is the same on both. -->
     <string name="route_destination_invalid">Destination invalid: %1$s</string>
     <string name="route_origin_invalid">Position invalid: %1$s</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
+    <!-- The status with the stage the engine published while a search runs — `Acquiring (Search)…`
+         (R15, rewritten 2026-09-28). The stage's own words are the closed set below. -->
     <string name="route_status_acquiring">Acquiring…</string>
+    <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
     <string name="route_status_active">Route active</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->

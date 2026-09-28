@@ -615,20 +615,22 @@
     <string name="route_label_eta">ETA</string>
     <!-- La valeur nue de la cellule ETA — l\'étiquette ci-dessus dit « ETA », elle n\'est pas répétée. -->
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
-    <!-- Les trois actions propres à l'acquisition (R55) : l'enregistrement écrit la ligne
-         **sélectionnée**, « Sélectionner la route » la verrouille et entre en navigation, et
-         l'annulation éteint la bascule sans rien demander — action_cancel est le mot de l'app. -->
+    <!-- Les trois actions propres à l'acquisition (R55, réécrit le 2026-09-28) : l'enregistrement écrit
+         la ligne **sélectionnée** et partage une ligne avec la sélection, et l'abandon quitte
+         l'acquisition sans rien demander sous le mot de `route_exit_discard` — un acte, une clé. -->
     <string name="route_action_save_track">Enregistrer dans les traces</string>
     <string name="route_action_select">Sélectionner la route</string>
     <string name="route_pin_label">Épingler la trace</string>
-    <string name="route_searching">Calcul de la route…</string>
     <string name="route_no_route">Aucune route navigable ici</string>
     <!-- Les deux phrases d\'extrémité refusée — une par extrémité, et le réticule est le même. -->
     <string name="route_destination_invalid">Destination invalide : %1$s</string>
     <string name="route_origin_invalid">Position invalide : %1$s</string>
     <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
     <string name="route_following_active">Routage actif</string>
+    <!-- Le statut avec l'étape que le moteur publie pendant une recherche — « Acquisition (Recherche)… »
+         (R15, réécrit le 2026-09-28). Les mots de l'étape sont l'ensemble fermé ci-dessous. -->
     <string name="route_status_acquiring">Acquisition…</string>
+    <string name="route_status_acquiring_stage">Acquisition (%1$s)…</string>
     <string name="route_status_active">Route active</string>
     <!-- L\'étape de l\'acquisition, telle que l\'ensemble fermé du moteur la publie : un mot par
          frontière traversée, dans l\'ordre où elles le sont. -->

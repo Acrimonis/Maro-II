@@ -43,6 +43,10 @@ shared. Route is where the collision was first seen, not where it is fixed.
   arms and the drawer shuts with it, so the panel — its status, its candidate rows and its three actions —
   is what the user lands on; the acquiring word and the engine's stage stand there and nowhere else, and
   the summary stands in the **routing phase alone** (the user's word, 2026-09-28).
+  **Amended 2026-09-28, later the same day: D5 generalises.** `armRouteMode` lost its `openDrawer` parameter,
+  so the map's square stops opening the drawer too and the two doors behave alike — no door differs any more,
+  and the panel is what a press lands on either way. See
+  [`260928_FEAT_PLN_Route_acquisition-face-and-map-order.md`](260928_FEAT_PLN_Route_acquisition-face-and-map-order.md).
 
 ## 2. The Route section moves into the Navigation card, and the trigger closes the menu (D2, D5)
 

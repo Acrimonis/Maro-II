@@ -14,6 +14,11 @@ are, and nothing in the previous plan is re-opened beyond its own surfaces.
 **Rev 4 (2026-09-28)** closes two more with no word needed: the collapsible's state stays in the drawer that
 owns it, an expansion being view state rather than a preference, and `ActionRow`'s fate follows step 6 —
 its only call site is the Import/Export pair, so it dies with that move.
+**Rev 10 (2026-09-28)** records what the toggle's door became under
+[`260928_FEAT_PLN_Route_acquisition-face-and-map-order.md`](260928_FEAT_PLN_Route_acquisition-face-and-map-order.md)
+on the user's word: `armRouteMode` lost its `openDrawer` parameter, so **the square stops opening the drawer** —
+the two doors now behave alike — and the sentence §8a of `ui-drawer-guidelines.md` carried about the square
+opening it moved with the change.
 **Rev 9 (2026-09-28)** moves the Navigation card's **auto-show zones toggle below the Route sub-section**, on
 the user's word: the card reads GPS mode → the summary (when it stands) → the Route block → auto-show at the
 foot, that row's label, preference, callback and gate untouched. The drawer guidelines' own order sentence

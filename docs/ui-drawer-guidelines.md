@@ -303,11 +303,10 @@ group that **writes** mode state rather than reading it; the summary stays read-
   `ConfirmActionButton` in the primary role, so the drawer's forward action and the panel's are the same
   control. It takes half the row because `ConfirmActionButton` resolves its own `fillMaxWidth()` against
   the max it is handed, which an `End`-arranged row sets at 0.5 — no change to the shared component. It is
-  the second door onto the arming the map's square performs — the two mean one thing (R49) — but the doors
-  part on the drawer: the
-  **square** arms from the closed map and opens the drawer (R73), while this action **arms and shuts the
-  drawer it was pressed in** (D5), so the route panel — its status, its candidates and its three actions —
-  is what the user lands on.
+  the second door onto the arming the map's square performs — the two mean one thing (R49) — and since
+  2026-09-28 the doors **no longer part on the drawer**: the **square** arms from the closed map leaving it
+  closed, this action arms and shuts the one it was pressed in, and the route panel — its status, its
+  sentence, its table and its three actions — is what the user lands on either way (D5, R73).
 - **The sub-section stands always**, whether or not a route runs: the pair is what an arming reads, and
   hiding it while the mode is off would put a parameter behind a mode. What gates is the **summary** above
   it, which stands in the **routing phase alone** — while a route is followed — because the acquisition's
