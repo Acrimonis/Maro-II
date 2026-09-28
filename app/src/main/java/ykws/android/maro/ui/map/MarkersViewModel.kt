@@ -136,7 +136,9 @@ data class CreateFormState(
     val icon: String? = null,            // POI emoji/unicode icon, null = no icon
     // Corridor 2nd-point
     val corridorP2: LatLng? = null,
-    val routingCost: Int? = null         // null = unset; 1–9 when set (wheel's 0 stop = unset)
+    val routingCost: Int? = null,        // null = unset; 1–9 when set (slider's 0 = unset)
+    val routeOrigin: Boolean = false,    // offered as a route origin; independent of routeDestination
+    val routeDestination: Boolean = false // offered as a route arrival; both may be set
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -424,7 +426,9 @@ class MarkersViewModel(
             colorIndex = colorIndex,
             icon = marker.icon,
             corridorP2 = corridorP2,
-            routingCost = validRoutingCost(marker.routingCost)
+            routingCost = validRoutingCost(marker.routingCost),
+            routeOrigin = marker.routeOrigin,
+            routeDestination = marker.routeDestination
         )
         setDrawerState(MarkerDrawerState.Viewing)
     }
@@ -614,7 +618,9 @@ class MarkersViewModel(
             name = defaultName,
             description = dateTimeFormat.get()!!.format(now),
             colorIndex = colorIdx,
-            routingCost = null
+            routingCost = null,
+            routeOrigin = false,
+            routeDestination = false
         )
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
@@ -651,7 +657,9 @@ class MarkersViewModel(
                 colorIndex = marker.colorIndex ?: 0,
                 icon = marker.icon,
                 corridorP2 = corridorP2,
-                routingCost = validRoutingCost(marker.routingCost)
+                routingCost = validRoutingCost(marker.routingCost),
+                routeOrigin = marker.routeOrigin,
+                routeDestination = marker.routeDestination
             )
         }
         wizardForward = true
@@ -770,7 +778,9 @@ class MarkersViewModel(
             colorIndex = form.colorIndex,
             icon = form.icon,
             createdAtEpochMs = System.currentTimeMillis(),
-            routingCost = validRoutingCost(form.routingCost)
+            routingCost = validRoutingCost(form.routingCost),
+            routeOrigin = form.routeOrigin,
+            routeDestination = form.routeDestination
         )
 
         viewModelScope.launch {
@@ -811,15 +821,17 @@ class MarkersViewModel(
                 MarkerType.CORRIDOR -> form.widthM * AppConfig.markerProximityZoneMultiplier
             }
 
-        // The copy takes the form's routingCost, so a Finish pressed early on the last step means the
-        // same thing for an edit as for a fresh marker.
+        // The copy takes the form's routingCost and its two route roles, so a Finish pressed early on
+        // the last step means the same thing for an edit as for a fresh marker.
         val updated = existing.copy(
             name = form.name.ifBlank { existing.name },
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
             icon = form.icon,
-            routingCost = validRoutingCost(form.routingCost)
+            routingCost = validRoutingCost(form.routingCost),
+            routeOrigin = form.routeOrigin,
+            routeDestination = form.routeDestination
         )
 
         viewModelScope.launch {

@@ -100,12 +100,48 @@ class RoutePlanTest {
     }
 
     /**
+     * **A fix halfway along a leg is halfway through that leg** — the reading the projection buys, where
+     * the retired vertex snap answered the whole leg from the vertex behind the boat.
+     *
+     * The projection is planar and its own KDoc states it accurate to < 1 % below 50 km, so the case
+     * pins a **short leg** and asserts at that stated tolerance — never at the 1e-6/1e-9 the vertex
+     * cases use.
+     */
+    @Test
+    fun aFixHalfwayAlongALegAnswersHalfThatLegAndHalfItsSeconds() {
+        val a = RoutePoint(43.5000, 7.0000)
+        val b = RoutePoint(43.5010, 7.0000)
+        val legM = SpatialOperations.haversine(
+            LatLng(a.latitude, a.longitude),
+            LatLng(b.latitude, b.longitude)
+        )
+        val half = RoutePoint((a.latitude + b.latitude) / 2.0, a.longitude)
+        val route = RoutePlan(
+            start = a,
+            destination = b,
+            destinationMoved = false,
+            points = listOf(a, b),
+            legTimesSec = listOf(120.0),
+            distanceM = legM,
+            durationSec = 120.0,
+            computedAtMs = computedAt
+        )
+
+        val remaining = route.remainingFrom(half)
+
+        assertEquals("half the leg is still to run", legM / 2.0, remaining.distanceM, legM * 0.01)
+        assertEquals("and half its own seconds", 60.0, remaining.durationSec, 120.0 * 0.01)
+    }
+
+    /**
      * **What is left of the route is measured in the plan's own leg times, and nothing else.**
      *
-     * `remainingFrom` walks `legTimesSec`, so the seconds the trip cell counts down are the line's own —
-     * the per-leg times the engine answered with — and never the total it also carries. An engine that
-     * prices one line and answers another makes the two disagree, and a remainder taken from the wrong
-     * one would count down to arrival at the wrong moment; nothing pinned which of the two it reads.
+     * `remainingFrom` prices each leg from `legTimesSec`: the chosen leg keeps the **fraction of its own
+     * time** it has not yet travelled and every following leg keeps its own — never the total the plan
+     * also carries; that fraction is pinned by the halfway case above, this one standing on a vertex
+     * where nothing fractional is left. An engine that prices one line and answers another makes the two
+     * disagree, and a remainder taken from the wrong one would count down to arrival at the wrong
+     * moment; nothing pinned which of the two it reads.
      */
     @Test
     fun whatIsLeftIsCountedInTheLegTimesNotTheTotal() {

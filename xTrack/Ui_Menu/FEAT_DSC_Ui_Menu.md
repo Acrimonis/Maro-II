@@ -2,7 +2,7 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-09-11 14:59
+modified: 2026-09-26 11:05
 ---
 
 # Feature: Ui_Menu
@@ -32,3 +32,4 @@ scrollable body, and renders its three sections with the shared Settings stencil
 ## Docs
 - `docs/ui-drawer-guidelines.md`
 - `xTrack/Ui_Menu/FEAT_DOC_Ui_Menu_decisions.md`
+- `xTrack/Route/260926_FEAT_PLN_Route_menu-mode-summary.md` — the drawer's route action group retired in favour of a read-only mode summary (owned by the Route feature)

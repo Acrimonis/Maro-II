@@ -5,7 +5,7 @@ import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.SliderRow
 
 /**
- * Reusable slider step for Radius, Proximity and Routing cost.
+ * Reusable slider step for Radius and Proximity.
  *
  * The step is a [CardArea] holding one [SliderRow] — the settings card and the settings slider row
  * (`ui-component-guidelines` §2.0/§2.2), so the label, the description, the value, the track and the
@@ -13,8 +13,7 @@ import ykws.android.maro.ui.components.SliderRow
  * The wizard's tight card shell and this function's own row composition are retired with it.
  *
  * The three label parameters override the wording derived from [valueM], [unit] and [range]; their
- * defaults reproduce it exactly, so Radius and Proximity are unchanged. [comment] is the row's
- * optional description.
+ * defaults reproduce it exactly. [comment] is the row's optional description.
  */
 @Composable
 internal fun SliderStep(

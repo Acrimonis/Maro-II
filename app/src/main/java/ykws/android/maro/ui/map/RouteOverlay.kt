@@ -176,6 +176,19 @@ internal fun routeTripFigure(
 internal fun routeCoordinate(point: RoutePoint): String =
     String.format(Locale.US, "%.3f, %.3f", point.latitude, point.longitude)
 
+/**
+ * **The ETA as both surfaces print it** — the remaining course's seconds split into whole minutes and
+ * seconds.
+ *
+ * One home for the split, read by the panel's data table and by the drawer's summary alike, so the two
+ * surfaces cannot drift into printing the same route's time two ways.
+ */
+@Composable
+internal fun routeEtaText(etaSeconds: Double): String {
+    val whole = etaSeconds.toInt()
+    return stringResource(R.string.route_eta_value_fmt, whole / 60, whole % 60)
+}
+
 /** Route age as a short read-out: seconds under a minute, whole minutes above it. */
 @Composable
 internal fun routeAgeText(ageSeconds: Long): String {

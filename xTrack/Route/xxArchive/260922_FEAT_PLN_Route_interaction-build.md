@@ -100,3 +100,32 @@ needs and a book must not carry: **the files each step owns, the order they land
   and the only joint is the rename this plan's step 10 follows.
 - **Not a corpus entry yet:** the epic's `## Docs` pointer lands with the build, so this file stays the plan in
   design until its pointer appears in the feature's `## Implemented`.
+
+## Outcome — retired 2026-09-26
+
+**What shipped.** All eleven steps landed on 2026-09-22 in one `#implement` Code hop: the nine keys
+(`route.ask.minTargetMoveM` · `route.ask.settleMs` · the three `route.target.*` · the two `route.refresh.*` · the two
+`route.ladder.*`), one worker whose new ask aborts the one in flight, the seam as a session with `RouteDummyEngine`
+behind it, the refused crosshair, both phases' slot content with the pulsing dot's one home, the one exit dialog, the
+ladder's attach-once drawing path, the phase-keyed aim couplings, and the save — with the review's two blocking
+defects (the refresh reading a composition-captured origin, the all-scope save rewriting rather than renaming) closed
+in a second hop, `:app:compileDebugKotlin` and `apk-build.bat` green and the focused suites green.
+
+**What changed under it, and what was superseded.** The mode shipped twice over after this order. The **acquisition
+workflow** of 2026-09-24 removed step 1's ask policy — the 25 m move, the 300 ms settle and both keys — and step 7's
+refresh cycle (its two keys, `RouteRefresh.FROZEN`, Freeze/Resume and Abort), made the user's own press the only
+trigger and the anchor the configuration, and withdrew step 6's last/all scope and step 10's `Route <creation> · n/N`
+naming, so a save writes the front route alone and the session keeps the ladder for the drawing. The **engine
+harness** replaced the placeholder's single expression with `RouteEngineChoice`, adding `RouteAvoidEngine` priced at
+the live set pace; the **trace rename** this plan sequenced before landed in the Tracks feature; and the drawer's
+**Route group** shipped on 2026-09-25. Nothing in the plan was left unbuilt and still wanted, so nothing was
+promoted.
+
+**Why it is retired.** Every step is shipped or superseded with the evidence above and in the epic's `## Implemented`,
+and the mode it ordered has shipped twice over since — the plan is history, not a live order.
+
+**Where the live state now lives.** The epic [`../FEAT_DSC_Route.md`](../FEAT_DSC_Route.md) — its three sections'
+rules, its isolation design, its key files and its `## Implemented` — carries the shipped behaviour; the shipped
+workflow is in [`../260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](../260924_FEAT_PLN_Route_acquisition-and-route-workflow.md);
+the requirement book this plan built against is still [`../260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../260922_FEAT_PLN_Route_ask-policy-and-target-validity.md);
+and the one open item, the duplicate save, is the epic's `## Todos`.
