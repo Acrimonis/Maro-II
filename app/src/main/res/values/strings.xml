@@ -527,7 +527,6 @@
 
     <!-- Map chrome -->
     <string name="marker_title_fallback">Marker</string>
-    <string name="marker_not_found">Marker not found</string>
     <string name="where_am_i_title">Where Am I?</string>
     <string name="where_am_i_none">in the middle of nowhere</string>
     <string name="marker_direction_of_boat_fmt">%1$s of boat - %2$s</string>

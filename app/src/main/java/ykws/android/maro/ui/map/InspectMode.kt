@@ -392,7 +392,16 @@ internal fun MapInspectEffects(
     trackColours: Boolean,
     eyeOverride: Boolean?,
     onSweep: (InspectRank?) -> Unit,
-    onPick: (InspectRank, List<InspectRank>) -> Unit
+    onPick: (InspectRank, List<InspectRank>) -> Unit,
+    /**
+     * A tap's own pick request (plan §4), or null: the id an armed tap landed on. The mode runs it
+     * through the same bounded pass a dwell pick runs, so the tap's card carries the proximity ladder —
+     * and the spy kind's close — rather than the flat map-filtered walk an un-ranked tap used to hand
+     * over.
+     */
+    tapPickId: String? = null,
+    /** The tap request has been handled — the caller drops it, so a later tap is a new one. */
+    onTapPickConsumed: () -> Unit = {}
 ) {
     // ── Warm geometry: once per armed session and per candidate set ──────────
     var warm by remember { mutableStateOf<List<InspectCandidate>>(emptyList()) }
@@ -479,6 +488,30 @@ internal fun MapInspectEffects(
     // ── Trigger clock: a lift, then the dwell on a map that has come to rest ──
     val dwellMs = AppConfig.uiMapInspectDwellMs
     val lastPickedId = remember { mutableStateOf<String?>(null) }
+
+    // ── An armed tap's own ladder (plan §4) ─────────────────────────────────
+    // A tap that lands on a marker asks for that marker, not for the sweep's nearest, so the request
+    // carries the id. The pass below is the same bounded one the trigger clock runs — over the same warm
+    // candidates and the anchor as it stands — so the card opens carrying the proximity walk and the spy
+    // kind's own close rather than a flat map-filtered one (2026-09-28). The candidates are warmed off the
+    // UI thread and may not be ready the instant the tap lands, so this effect waits for them rather than
+    // spend the request on nothing, [warm] being one of its keys; a mode left with nothing inspectable
+    // never arms, so the wait is the arming gap and nothing longer.
+    LaunchedEffect(tapPickId, warm, armed) {
+        val id = tapPickId ?: return@LaunchedEffect
+        if (!armed) {
+            onTapPickConsumed()
+            return@LaunchedEffect
+        }
+        if (warm.isEmpty()) return@LaunchedEffect
+        onTapPickConsumed()
+        val a = anchor.value ?: return@LaunchedEffect
+        val ladder = withContext(Dispatchers.Default) { InspectRanking.rank(a, warm) }
+        val picked = ladder.firstOrNull { it.id == id } ?: return@LaunchedEffect
+        if (picked.id == lastPickedId.value) return@LaunchedEffect
+        lastPickedId.value = picked.id
+        onPick(picked, ladder)
+    }
     // The lift is the instruction and the quiet is the confirmation: only a genuine finger lift may
     // start the clock, so a resting finger never dries it out and the arming seed picks nothing. The
     // whole flag is reset per armed session, as is the no-re-fire guard: the pick's own camera move

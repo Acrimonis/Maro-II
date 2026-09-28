@@ -23,17 +23,19 @@ interface MapSelectionPolicy<T> {
 /**
  * Track selection — **ranked + capped**.
  *
- * Eligibility: matches the map filter **or** is the highlighted track. Pinned tracks are excluded here
- * — they render through the dedicated pinned path (never capped).
+ * Eligibility: matches the map filter. Pinned tracks are excluded here — they render through the
+ * dedicated pinned path (never capped).
  *
- * The map filter is authoritative (2026-09-21): only the highlighted id, the one the user is looking
- * at, outranks it. A session-boosted track — one recorded, imported, merged or edited in this session
- * — keeps the rank term below, so it still defeats the render **cap**, but it no longer defeats the
- * filter; see `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`. That is
- * what stops the menu's count and the map disagreeing, the count being read off the painted set.
+ * The map filter is authoritative (2026-09-21, tightened 2026-09-28): the drawn set **is** the filter's
+ * set, with no highlighted override — a session-boosted track, and the highlighted one the user is
+ * looking at, both keep their rank term below and neither defeats the filter. See
+ * `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md` and
+ * `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md`. That is what stops the
+ * menu's count and the map disagreeing, the count being read off the painted set.
  *
- * Ranking: `focus → session-boosted → startTimeMs desc → lastPointTimeMs desc`, then `take(cap)`.
- * The highlighted track is always kept even when `cap == 0`.
+ * Ranking: `focus → session-boosted → startTimeMs desc → lastPointTimeMs desc`, then `take(cap)` — the
+ * highlighted track ranks first, but a render cap of zero draws nothing, the filter's own set being the
+ * whole of what is drawn.
  */
 class TrackSelectionPolicy : MapSelectionPolicy<TrackSummary> {
 
@@ -45,8 +47,7 @@ class TrackSelectionPolicy : MapSelectionPolicy<TrackSummary> {
         todayMidnightMs: Long
     ): List<TrackSummary> {
         val eligible = items.filter { candidate ->
-            !candidate.pinned &&
-                (focus.isHighlighted(candidate.id) || candidate.matchesFilter(filter, todayMidnightMs))
+            !candidate.pinned && candidate.matchesFilter(filter, todayMidnightMs)
         }
         val ranked = eligible.sortedWith(
             compareByDescending<TrackSummary> { focus.isHighlighted(it.id) }
@@ -54,9 +55,7 @@ class TrackSelectionPolicy : MapSelectionPolicy<TrackSummary> {
                 .thenByDescending { it.startTimeMs }
                 .thenByDescending { it.lastPointTimeMs }
         )
-        val capped = ranked.take(cap.coerceAtLeast(0))
-        val highlighted = ranked.firstOrNull { focus.isHighlighted(it.id) } ?: return capped
-        return if (capped.none { focus.isHighlighted(it.id) }) capped + highlighted else capped
+        return ranked.take(cap.coerceAtLeast(0))
     }
 }
 

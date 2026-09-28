@@ -41,9 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
@@ -162,12 +159,23 @@ private fun ViewingContent(
     walk: InspectWalk? = null
 ) {
     val markers by viewModel.markers.collectAsState()
+    val mapMarkers by viewModel.mapMarkers.collectAsState()
+    val allMarkers by viewModel.allMarkers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
     val selectedIndex by viewModel.selectedMarkerIndex.collectAsState()
 
+    // The card resolves in the world it reads (plan §2, §3): which source reads which collection is
+    // [cardWalkWorld]'s one home, shared with the state layer's own resolve-and-close, so the two
+    // cannot drift apart. A map-tapped marker reads the map's own source of truth, so a one-item card
+    // stands through a write that leaves the map filter — which is what let it render as not-found.
+    val world: List<UserMarker> = cardWalkWorld(
+        source = viewModel.drawerSource,
+        listWorld = markers,
+        mapWorld = mapMarkers,
+        mapSourceWorld = allMarkers
+    )
     val currentId = selectedIds.getOrNull(selectedIndex)
-    val marker = currentId?.let { id -> markers.find { it.id == id } }
-    val hasMultiple = selectedIds.size > 1
+    val marker = currentId?.let { id -> world.find { it.id == id } }
 
     // The predecessor held for an in-flight inspect open: this card's own Delete stands down with the
     // walk, because the advance it triggers would interleave with the open about to land here (§5).
@@ -192,9 +200,20 @@ private fun ViewingContent(
         }
     }
 
+    // The pills' own ends, and whether they are drawn at all, are [cardStepEnds]'s one home (plan §2),
+    // so a menu-opened card greys its ends exactly as the panel's does and a one-item walk draws no
+    // bars.
+    val stepEnds = cardStepEnds(
+        source = viewModel.drawerSource,
+        selectedCount = selectedIds.size,
+        selectedIndex = selectedIndex,
+        walkAtFirst = walk?.atFirst,
+        walkAtLast = walk?.atLast
+    )
+
     val footerContent: @Composable () -> Unit = {
-        if (hasMultiple) {
-            MarkerPrevNext(viewModel, selectedIndex, selectedIds.size, walk)
+        if (stepEnds.shows) {
+            MarkerPrevNext(viewModel, walk, stepEnds)
         }
     }
 
@@ -248,59 +267,56 @@ private fun MarkerDetailContent(
     /** True while an inspect open holds this card as its predecessor — the Edit stands down with it. */
     held: Boolean = false
 ) {
-    if (marker != null) {
-        // Direction + distance (if boatPosition available)
-        if (boatPosition != null) {
-            val markerPos = when (val g = marker.geometry) {
-                is MarkerGeometry.Pin -> g.position
-                is MarkerGeometry.Circle -> g.center
-                is MarkerGeometry.Corridor -> g.p1
-            }
-            val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
-            val distM = SpatialOperations.haversine(markerPos, boatPosition)
-            val dir = stringResource(cardinalDirectionRes(bearing))
-            val distStr = if (distM < 1000.0) stringResource(R.string.settings_value_meters, distM.toInt())
-                else stringResource(R.string.dash_value_km, distM / 1000.0)
-            Text(
-                text = stringResource(R.string.marker_direction_of_boat_fmt, dir, distStr),
-                color = ComposeColor(AppConfig.uiTextMuted),
-                fontSize = 13.sp
-            )
-            Spacer(Modifier.height(6.dp))
+    // The card draws nothing for a marker it cannot resolve (plan §1, §2): the state layer closes a
+    // live card before this is reached, so what is left here is the frame between that close and the
+    // next recomposition — no crash, and no user-facing text. The branch that used to render the
+    // not-found string, and the string itself, went with the rule.
+    if (marker == null) return
+
+    // Direction + distance (if boatPosition available)
+    if (boatPosition != null) {
+        val markerPos = when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> g.position
+            is MarkerGeometry.Circle -> g.center
+            is MarkerGeometry.Corridor -> g.p1
         }
-
-        MarkerCardContent(
-            marker = marker,
-            trackTitle = marker.trackId?.let(trackTitleLookup),
-            onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
-            onTap = {},
-            onEdit = {
-                // R1: the wizard takes this dashboard's slot — only the track dashboard closes. The
-                // marker half is left alone: the wizard replaces the Viewing content inside the same
-                // MarkerDrawerState, so a marker excluded from the list world is never closed out from
-                // under the edit (`startWizard` would find nothing and leave a silent no-op).
-                // While an inspect open holds this card, the wizard stands down with everything else:
-                // its disarm would clear the very hand-off holding this card for the successor (§5).
-                if (!held) {
-                    onWizardEntry()
-                    viewModel.startWizard(marker.id)
-                }
-            },
-            onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
-            onSetPin = { id, pinned -> viewModel.setMarkerPinned(id, pinned) },
-            onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
-            onLongPress = null,
-            showChevron = false
-        )
-
-    } else {
-        Spacer(Modifier.height(12.dp))
+        val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
+        val distM = SpatialOperations.haversine(markerPos, boatPosition)
+        val dir = stringResource(cardinalDirectionRes(bearing))
+        val distStr = if (distM < 1000.0) stringResource(R.string.settings_value_meters, distM.toInt())
+            else stringResource(R.string.dash_value_km, distM / 1000.0)
         Text(
-            stringResource(R.string.marker_not_found),
+            text = stringResource(R.string.marker_direction_of_boat_fmt, dir, distStr),
             color = ComposeColor(AppConfig.uiTextMuted),
             fontSize = 13.sp
         )
+        Spacer(Modifier.height(6.dp))
     }
+
+    MarkerCardContent(
+        marker = marker,
+        trackTitle = marker.trackId?.let(trackTitleLookup),
+        onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
+        onTap = {},
+        onEdit = {
+            // R1: the wizard takes this dashboard's slot — only the track dashboard closes. The
+            // marker half is left alone: the wizard replaces the Viewing content inside the same
+            // MarkerDrawerState, so the card is never closed out from under the edit.
+            // While an inspect open holds this card, the wizard stands down with everything else:
+            // its disarm would clear the very hand-off holding this card for the successor (§5).
+            if (!held) {
+                onWizardEntry()
+                // The door is named (plan §4): card entry, so the editor resolves the marker in
+                // this card's world and hands the card back on a save and on a cancel alike.
+                viewModel.startWizard(marker.id, WizardDoor.CARD)
+            }
+        },
+        onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
+        onSetPin = { id, pinned -> viewModel.setMarkerPinned(id, pinned) },
+        onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
+        onLongPress = null,
+        showChevron = false
+    )
 
     Spacer(Modifier.height(4.dp))
 }
@@ -360,28 +376,23 @@ private fun MatchResultContent(
  * The walk is a callback rather than a ViewModel read ([walk]) because an inspect-opened card steps
  * the merged distance ladder, which the inspect cursor above both drawers owns; null leaves the
  * card on its own world, so a list- or map-opened card walks exactly as it always did.
+ *
+ * Which ends grey is [cardStepEnds]'s one home (plan §2): every door of the item's-list kind — the
+ * panel's and the menu chevron's alike — greys the index it lands on, so a menu card at either end
+ * shows the 35 % face and loses its click exactly as the panel's does.
  */
 @Composable
 private fun MarkerPrevNext(
     viewModel: MarkersViewModel,
-    selectedIndex: Int,
-    selectedCount: Int,
-    walk: InspectWalk? = null
+    walk: InspectWalk? = null,
+    ends: CardStepEnds
 ) {
     Spacer(Modifier.height(10.dp))
     val accentBg = ComposeColor(AppConfig.uiAccent)
     val accentFg = ComposeColor(AppConfig.uiTextPrimary)
     val disabledAlpha = 0.35f
-    val isListMode = viewModel.drawerSource == DrawerSource.LIST
-    // An inspect-sourced card whose cursor is gone — disarmed while its open was still in flight —
-    // has no walk at all: the ViewModel's own marker walk stands down for that source, so the pills
-    // must read as at both ends rather than enabled and dead. The same "never dead" intent the
-    // marker-delete undo fallback answers (plan §5, §8).
-    val noInspectWalk = viewModel.drawerSource == DrawerSource.INSPECT && walk == null
-    // The ladder's own ends when the card is inspect-opened — a step lands only where the frozen
-    // pass knows there is a target, so no press falls on something unknown.
-    val isAtFirst = walk?.atFirst ?: (noInspectWalk || (isListMode && selectedIndex == 0))
-    val isAtLast = walk?.atLast ?: (noInspectWalk || (isListMode && selectedIndex == selectedCount - 1))
+    val isAtFirst = ends.atFirst
+    val isAtLast = ends.atLast
     val onPrev: () -> Unit = walk?.onPrev ?: viewModel::viewPreviousMarker
     val onNext: () -> Unit = walk?.onNext ?: viewModel::viewNextMarker
 
@@ -438,10 +449,9 @@ private fun MarkerPrevNext(
 
 @Composable
 private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
-    val marker = when (match) {
-        is WhereAmIMatch.ZoneMatch -> match.marker
-        is WhereAmIMatch.LineOfSightMatch -> match.marker
-    }
+    // The one match-marker rule (plan §3), shared with the card's own world and the recording's
+    // snapshot — never a `when` of its own at each of the three readers.
+    val marker = match.matchedMarker()
     val icon = marker.icon
 
     Row(

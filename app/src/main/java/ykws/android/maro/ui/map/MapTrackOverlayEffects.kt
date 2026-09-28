@@ -152,10 +152,11 @@ internal fun MapTrackOverlayHistoryDiff(
             }
         }
 
-        // Selection is a pure projection: the shared policy owns eligibility + ranking + cap,
-        // including the focus override (highlighted / session-boosted ids). Source = UNFILTERED
-        // summaries so the map stays independent of the list filter when unlinked. The shell only
-        // executes the selection; layer toggles are still applied here, never by the policy.
+        // Selection is a pure projection: the shared policy owns eligibility + ranking + cap. The focus
+        // only ranks — highlighted and session-boosted first — and never overrides the filter, so the
+        // drawn set is the filter's set and nothing else (2026-09-28). Source = UNFILTERED summaries so
+        // the map stays independent of the list filter when unlinked. The shell only executes the
+        // selection; layer toggles are still applied here, never by the policy.
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
         // The live recording line is drawn by the dedicated live effects and is never filterable, so it
         // is excluded here: a resumed recording must not also render as a stale stored-track overlay.
@@ -170,7 +171,6 @@ internal fun MapTrackOverlayHistoryDiff(
         // [storedTrackSelection]).
         val selection = storedTrackSelection(
             summaries = storedSummaries,
-            highlightedTrackId = highlightedTrackId,
             filter = appSettings.trackMapFilter,
             focus = focus,
             tracksVisible = appSettings.tracksVisible,
@@ -483,22 +483,22 @@ internal data class StoredTrackSelection(
 )
 
 /**
- * What one pass asks each of the three roles for, from one entry point so the two counts and the pin's
- * exemption cannot drift apart:
+ * What one pass asks each of the three roles for, from one entry point so the two counts cannot drift
+ * apart:
  *
  * - [StoredTrackSelection.recorded] — the recorded half, ranked, filtered and bounded by
  *   [recordingNb]'s own count;
  * - [StoredTrackSelection.routes] — the route half, bounded by [routeNb] and **never** by the recorded
  *   count: the two sibling counts limit their own role alone (R35);
- * - [StoredTrackSelection.pinned] — every pinned summary, **uncapped**: the pin is what marks a route
- *   already saved, so a pinned route is drawn whatever [routeNb] says (R34, R35).
+ * - [StoredTrackSelection.pinned] — every pinned summary **the map filter holds**, **uncapped**: the pin
+ *   is what marks a route already saved, so it escapes [routeNb] (R34, R35), but the pin is no escape
+ *   from the filter — the map draws its filter's set and nothing else (2026-09-28).
  *
  * Membership is [storedTrackSets]' decision; this one only decides what each half is asked for. The
  * two caps are taken here rather than at the call site, so a test can hold the count's home.
  */
 internal fun storedTrackSelection(
     summaries: List<TrackSummary>,
-    highlightedTrackId: String?,
     filter: ListFilter,
     focus: MapRenderFocus,
     tracksVisible: Boolean,
@@ -525,7 +525,7 @@ internal fun storedTrackSelection(
             todayMidnightMs = todayMidnightMs
         ),
         pinned = summaries
-            .filter { it.pinned && (it.id == highlightedTrackId || it.matchesFilter(filter, todayMidnightMs)) }
+            .filter { it.pinned && it.matchesFilter(filter, todayMidnightMs) }
             .sortedByDescending { it.startTimeMs }
     )
 }

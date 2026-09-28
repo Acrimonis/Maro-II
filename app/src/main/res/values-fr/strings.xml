@@ -526,7 +526,6 @@
 
     <!-- Map chrome -->
     <string name="marker_title_fallback">Repère</string>
-    <string name="marker_not_found">Repère introuvable</string>
     <string name="where_am_i_title">Où suis-je ?</string>
     <string name="where_am_i_none">au milieu de nulle part</string>
     <string name="marker_direction_of_boat_fmt">%1$s du bateau - %2$s</string>

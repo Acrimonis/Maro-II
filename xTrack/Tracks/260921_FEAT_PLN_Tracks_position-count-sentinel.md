@@ -111,6 +111,9 @@ the same class of hidden convention that produced this defect.
 - The `positionPassDone` latch (`TrackRepository.kt:397`). It stops being load-bearing once the decode is
   honest, since a re-read index then carries correct counts; it is left as it is rather than widened.
 - The marker count, the render cap, and the shell-side pinned carve-out recorded by the TracksImport plan.
+  The carve-out itself is **no longer live (amended 2026-09-28)**: the map now draws its filter's set and
+  nothing else, pinned tracks included, so the pinned escape this non-goal named was deleted —
+  `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_map-cards-and-the-filter.md`.
 
 ## 9. Beside this — the part of the earlier fix that is reverted
 

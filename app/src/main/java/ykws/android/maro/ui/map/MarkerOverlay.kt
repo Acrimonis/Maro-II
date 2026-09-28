@@ -21,7 +21,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import kotlin.math.*
 
@@ -160,12 +159,10 @@ fun MarkerOverlay(
     }
 
     // ── P6: Build set of matched marker IDs for highlighting ──────────────────
-    val matchedIds: Set<String> = matchResult?.allMatches?.mapNotNull { match ->
-        when (match) {
-            is WhereAmIMatch.ZoneMatch -> match.marker.id
-            is WhereAmIMatch.LineOfSightMatch -> match.marker.id
-        }
-    }?.toSet() ?: emptySet()
+    // The match-marker rule has one home (plan §3), read here through it rather than a `when` of its
+    // own at each of the four readers.
+    val matchedIds: Set<String> =
+        matchResult?.allMatches?.map { it.matchedMarker().id }?.toSet() ?: emptySet()
 
     DisposableEffect(
         markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible,
