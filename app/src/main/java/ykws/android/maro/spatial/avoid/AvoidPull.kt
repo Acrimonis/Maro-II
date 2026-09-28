@@ -114,6 +114,41 @@ object AvoidPull {
      */
     private const val MIN_SAMPLE_STEP_M = 1.0
 
+    /** The wall walk's own sampling step for [marginM], floored — the density and its floor, one home. */
+    internal fun clearanceStep(marginM: Double): Double = (marginM / 2.0).coerceAtLeast(MIN_SAMPLE_STEP_M)
+
+    /**
+     * Whether the margin is **waived** at [p]: within a disc of [marginM] around either raw end, or on
+     * either carved approach. It is the pull's own exemption, read here and by the curve fitter's wall
+     * test from one home, so the two can never disagree about where the shore clearance binds.
+     */
+    internal fun marginWaived(
+        p: LatLng,
+        marginM: Double,
+        start: LatLng,
+        aim: LatLng,
+        approaches: EndApproaches,
+        toleranceM: Double
+    ): Boolean =
+        SpatialOperations.haversine(p, start) < marginM ||
+            SpatialOperations.haversine(p, aim) < marginM ||
+            approachCovers(p, approaches.start, toleranceM) ||
+            approachCovers(p, approaches.aim, toleranceM)
+
+    /**
+     * Whether [p] stands on one of the approach's own segments — within [toleranceM], the walk's own
+     * sampling step, so a sample that cannot be told apart from the stretch reads as on it.
+     */
+    internal fun approachCovers(p: LatLng, approach: List<LatLng>, toleranceM: Double): Boolean {
+        if (approach.size < 2) return false
+        for (i in 0 until approach.size - 1) {
+            if (SpatialOperations.pointToSegmentDistance(p, approach[i], approach[i + 1]) <= toleranceM) {
+                return true
+            }
+        }
+        return false
+    }
+
     internal fun legClear(
         a: LatLng,
         b: LatLng,
@@ -146,10 +181,7 @@ object AvoidPull {
         approaches: EndApproaches = EndApproaches.NONE
     ): ChordRefusal? {
         val dist = SpatialOperations.haversine(a, b)
-        // The walk's own density, floored: a margin of zero would make the step zero and
-        // `ceil(dist / 0.0)` an astronomically long loop rather than a walk. The floor is a property
-        // of the walk, never a margin's value.
-        val sampleStep = (marginM / 2.0).coerceAtLeast(MIN_SAMPLE_STEP_M)
+        val sampleStep = clearanceStep(marginM)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
@@ -157,29 +189,11 @@ object AvoidPull {
                 a.latitude + (b.latitude - a.latitude) * t,
                 a.longitude + (b.longitude - a.longitude) * t
             )
-            // End-disc exemption: the margin binds the path, not the forced-free ends themselves.
-            if (SpatialOperations.haversine(p, start) < marginM) continue
-            if (SpatialOperations.haversine(p, aim) < marginM) continue
-            // The carved approach: the berth the margin is waived along stays usable past the disc.
-            if (onApproach(p, approaches.start, sampleStep)) continue
-            if (onApproach(p, approaches.aim, sampleStep)) continue
+            // The end-disc and the carved approach, one rule: the margin binds the path, never the ends.
+            if (marginWaived(p, marginM, start, aim, approaches, sampleStep)) continue
             if (field.hardDistanceM(p) < marginM) return ChordRefusal.LAND
         }
         return null
-    }
-
-    /**
-     * Whether [p] stands on one of the approach's own segments — within [toleranceM], the walk's own
-     * sampling step, so a sample the pull cannot tell apart from the stretch reads as on it.
-     */
-    private fun onApproach(p: LatLng, approach: List<LatLng>, toleranceM: Double): Boolean {
-        if (approach.size < 2) return false
-        for (i in 0 until approach.size - 1) {
-            if (SpatialOperations.pointToSegmentDistance(p, approach[i], approach[i + 1]) <= toleranceM) {
-                return true
-            }
-        }
-        return false
     }
 
     /** The price guard's own cause: `PRICE` where the chord costs more than the span it would replace. */

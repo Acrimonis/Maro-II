@@ -209,6 +209,18 @@ object AppConfig {
         private set
 
     /**
+     * The lateral standoff (m) the curve fitter keeps off the depth gate's wall —
+     * `route.avoid.depthGate.marginM`, default 20, clamped 0.0..200.0.
+     *
+     * The fitter reads it as the distance from a sampled cell's **centre** to the nearest cell whose
+     * centre is under the gate, refusing a sample within it — the same 20 m of standoff the gate's own
+     * rule implies, made representable at the grid's resolution without a finer walk. It is the depth
+     * gate's standoff only: the coast's own clearance is [routeAvoidObstacleMarginM].
+     */
+    var routeAvoidDepthGateMarginM: Double = 20.0
+        private set
+
+    /**
      * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.zone300.softCostAversion`,
      * a cost multiplier clamped 1.0..5.0. 1.0 prices the band as open water; the excess over 1.0 is the extra
      * cost per metre inside it.
@@ -261,6 +273,40 @@ object AppConfig {
      * chosen. One home for the rate: this value, and the key it is read from.
      */
     var routeSpeedAccelMps2: Double = 0.5
+        private set
+
+    /**
+     * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`,
+     * default 1.0 (~0.1 g), clamped 0.1..2.94.
+     *
+     * A corner is drawn as a curve whose radius is `r = v² / a_lat`, so a high value gives a tight,
+     * hard turn and a low value a wide, gentle one; the fitter caps a bend's radius at the pace's own
+     * `v_pace² / a_lat` and never draws it tighter than the speed's own minimum, `v² / a_lat`. One
+     * home for the ceiling: this value and the key it is read from.
+     */
+    var routeTurnLateralAccelMps2: Double = 1.0
+        private set
+
+    /**
+     * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, default 2.0, clamped
+     * 0.5..5.0.
+     *
+     * It gives the spiral length `L = v · transitionSec` at the bend's own speed — ~29 m at 28 kn,
+     * ~10 m at 10 kn — so the entry inertia scales with speed; the curvature rate follows,
+     * `κ̇ = v / (r · L)`. One home for the time: this value and the key it is read from.
+     */
+    var routeTurnTransitionSec: Double = 2.0
+        private set
+
+    /**
+     * The floor a bend's corner speed may not go below (kn) — `route.turn.minSpeedKn`, default 5,
+     * clamped 2..10.
+     *
+     * A boat cannot crawl to zero, so where no radius clears the walls even at this floor, the bend
+     * is left sharp and taken at the floor. One home for the floor: this value and the key it is
+     * read from.
+     */
+    var routeTurnMinSpeedKn: Double = 5.0
         private set
 
     /**
@@ -1561,6 +1607,9 @@ object AppConfig {
             props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidDepthGateEnabled = it
             }
+            props.getProperty("route.avoid.depthGate.marginM")?.toDoubleOrNull()?.let {
+                routeAvoidDepthGateMarginM = it.coerceIn(0.0, 200.0)
+            }
             props.getProperty("route.avoid.zone300.softCostAversion")?.toDoubleOrNull()?.let {
                 routeAvoidZone300SoftCostAversion = it.coerceIn(1.0, 5.0)
             }
@@ -1581,6 +1630,15 @@ object AppConfig {
             }
             props.getProperty("route.speed.accelMps2")?.toDoubleOrNull()?.let {
                 routeSpeedAccelMps2 = it.coerceIn(0.1, 2.0)
+            }
+            props.getProperty("route.turn.lateralAccelMps2")?.toDoubleOrNull()?.let {
+                routeTurnLateralAccelMps2 = it.coerceIn(0.1, 2.94)
+            }
+            props.getProperty("route.turn.transitionSec")?.toDoubleOrNull()?.let {
+                routeTurnTransitionSec = it.coerceIn(0.5, 5.0)
+            }
+            props.getProperty("route.turn.minSpeedKn")?.toDoubleOrNull()?.let {
+                routeTurnMinSpeedKn = it.coerceIn(2.0, 10.0)
             }
             props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
                 routeAvoidSpeedZoneTimeBudgetPct =

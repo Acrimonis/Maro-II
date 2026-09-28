@@ -1,22 +1,23 @@
-# Context Hydration — Route — 2026-09-27
+# Context Hydration — Route — 2026-09-28
 
-**Last Bake:** 2026-09-27 20:55 UTC — written by `#bake`
+**Last Bake:** 2026-09-28 12:18 UTC — written by `#bake`
 
-**Directive trace:** this session ran the covered action classes on the user's own word — the `#bake` and `#commit` they invoked and each Code hop they authorised — and none was taken without it; no dependency was added, no machine-shaped data file was opened, the device was never touched and nothing was deployed, so every claim about the code came from a file read or a command's own output.
+**Directive trace:** this session ran the covered action classes on the user's own word — the `#bake`, `#commit` and `#push` they invoked, the two mode switches they authorised and every Code hop they ordered — and none was taken without it; no dependency was added, no machine-shaped data file was opened, the device was never touched and nothing was deployed, so every claim about the code came from a file read or a command's own output.
 
 ## State
 
-The avoid engine's outside-margin model is now unified across both speed-enforcement sources: the 300 m band and the speed zones each price an **outside margin in the search**, at their own `costFraction` (both 0.66). The speed zone's collar is stored per cell beside its interior limit (`AvoidGrid.collarLimitKn`) and priced `max(interior, collar × fraction)` by `zonePriceAtLimits`, read by the A* and the pull's guard alike; the band is split into core-at-full plus an outside ring at the fraction (`bandPriceAt`). The pull's hard standoff — the staged clearance F4 built — is gone, so both sources are purely priced and no clearance is kept off a ring. This session also shipped the progressive-draw plan, D8's fine re-search and F9(d)'s shore yield, the last of which the unified outside-margin model superseded. Gates green throughout: compile, the touched test classes one class per log, `apk-build.bat`.
+**Phase 6 — curve smoothing and turn rounding — is implemented and built, and it is NOT yet validated on the device.** Its first cut was reverted uncommitted and the phase rebuilt from scratch: `RouteCurveFitter` fairs a **run** of corners into straight → spiral → arc → spiral → straight, splits a run at the bend's own transition with a per-corner fallback when a joined run's curve cannot meet its legs, caps the radius at the pace's own, finds the clearing radius by a **24-step bisection**, and composes the corner speed as `min(cap, max(decelFloor, minSpeed))` — a slower corner the one lever, the radius never below `v²/a_lat`. Its walls read the coast margin, the depth gate's min **and** its new 20 m standoff, the grid's blocked set and the two carved approaches, reusing the pull's `marginWaived`, and it reads no soft price. `RouteEta` charges a cap at every arc point, and the answer keeps the **pre-fairing** line's distance and clock with only the caps' delta added, the last leg carrying the residual. Four keys: `route.turn.lateralAccelMps2` (**2.0**), `route.turn.transitionSec` (**2.5**), `route.turn.minSpeedKn` (5) and `route.avoid.depthGate.marginM` (20). Ask returned **revise** on the first build — the relaxation discarding the curvature guarantee, and the pace-wide run split — and both blockers and every should-fix were folded, but the fixes were **not re-reviewed**. `apk-build.bat` SUCCESSFUL and the route suites plus the full unit suite green. **The device pass is owed, and the user is about to make other functional changes to test the fairing in a better way — this is the point to resume from.**
 
 ## Target Files
 
-- `app/src/main/assets/maro.properties` · `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the four outside-margin keys, `collarFraction` and `yieldShoreMargin` gone
-- `app/src/main/java/ykws/android/maro/spatial/avoid/AvoidGrid.kt` — the per-cell `collarLimitKn` beside `zoneLimitKn`
-- `app/src/main/java/ykws/android/maro/spatial/avoid/RouteCostField.kt` — `zonePriceAtLimits` and the band split `bandPriceAt`
-- `app/src/main/java/ykws/android/maro/spatial/avoid/AvoidSearch.kt` — the A* prices interior and collar through one lambda
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the field, the ring corner offset and the trimmed `PULLREF` line
-- `app/src/test/java/ykws/android/maro/spatial/` — `RouteAvoidEngineTest`, `RouteZonePhase4Test`, `AvoidStage1Test`, `AvoidCostFieldTest`, `AvoidBandCostTest`
+- `app/src/main/java/ykws/android/maro/spatial/avoid/RouteCurveFitter.kt` — the post-processor (new this session)
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the call between `fineReSearch` and the clock, the base-and-delta figures, the pre-fairing probe
+- `app/src/main/java/ykws/android/maro/spatial/avoid/RouteEta.kt` — the `CurveCap` point cap and `decelSpeedMps`
+- `app/src/main/assets/maro.properties` · `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the four turn/depth keys
+- `app/src/main/java/ykws/android/maro/data/model/RouteResult.kt` — the `durationSec` wording
+- `app/src/main/java/ykws/android/maro/spatial/avoid/AvoidPull.kt` — `marginWaived`, the shared clearance
+- `app/src/test/java/ykws/android/maro/spatial/avoid/RouteCurveFitterTest.kt` · `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt`
 
 ## Next Step
 
-F1 and F2 — the refusal's honest sentence and the crossing-versus-forced claim gated on the box — the last remaining wording items; and the two long `GLOBAL_CONTEXT.md` Route lines still wait on a `findstr` extraction.
+Resume from the **device pass**: a GPX showing chorded arc points through a bend with `lateralAccelMps2=2.0` and `transitionSec=2.5`, after the user's other functional changes land. Asked and not done: the Ask review's fixes are unreviewed; Phase 5 (marker weights) is untouched; the F1/F2 wording pair of the standoff register still waits; and the `GLOBAL_CONTEXT.md` Route summary row still needs a `findstr` extraction before it can be rewritten.

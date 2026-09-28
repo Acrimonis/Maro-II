@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — avoid engine phases 2–6: soft costs, depth gate, markers and curves
 
-**Created:** 2026-09-24 · **Branch:** `feature/route-avoid` · **Status:** in design
+**Created:** 2026-09-24 · **Branch:** `feature/zones-avoid-fix` · **Status:** phases 2–5 shipped; Phase 6 in design — the targeted review's fixes being folded
 
 ## What this is for
 
@@ -68,14 +68,24 @@ flowchart LR
 
 ## Phase 6 — curve smoothing and turn rounding
 
-- **Mechanism.** One post-processor, [`RouteCurveFitter`](../../app/src/main/java/ykws/android/maro/spatial/avoid/TangentCorners.kt) as its own file, over the pulled waypoints:
-  - **Smooth** — corner-cutting or Chaikin over the waypoints to remove the grid's digitization jitter, so the line reads as a trajectory.
-  - **Round** — at each remaining corner a circular transition of radius `r = v² / a_lat`, with `a_lat` from a new key `route.turn.lateralAccelMps2` (default 2.94, the 0.3 g ceiling the removed tracer used). At the 28 kn pace that is a ~70 m turn radius; where the water will not hold that radius the fit shortens the transition first, then reduces the radius, then keeps a sharp vertex and slows the boat — the archived rule, re-derived.
-- **Emission.** Arcs emit as chords stepped ~10 m or ~10°, each chord water-tested against the unified field, so smoothing never introduces a clearance breach a vertex kept.
-- **ETA.** The turn slowdown is charged on the drawn clock, shared with the cost model's turn price so search and display agree.
-- **Perf cost.** O(waypoints) geometry plus clearance sampling along the emitted line — negligible. **Difficulty: medium** — geometry and ETA correctness, not performance.
-- **Placement note.** The fitter water-tests against every source, so it lands after phases 2–5; it is otherwise independent and could be pulled earlier if visual quality is wanted before full avoidance.
-- **Navigated, not display-only (decided).** The smoothed line is the route: ETA, distance and off-route checks follow the chorded arcs, so the screen and the clock describe one line.
+- **What it is.** A post-processor over the settled line, running between the fine re-search and the clock, that turns the grid-shaped path into a navigable trajectory: it flattens the staircase jitter and fairs each bend into a curve the boat can steer, on water. It is a **post-search stage** — the A\* is untouched — and the faired line is the route **drawn and saved**.
+- **Fair the bend, not the corner.** One curve spans a run of consecutive corners from the bend's entry tangent to its exit tangent. A run ends where the turn's **sign changes** (an S-bend is two bends) or where the separating leg is longer than twice its transition — the transition being the **floor speed's** own, the shortest a bend can have, since the bend's speed is not known until its radius is; so the join never depends on the radius it would need. Where a run's single curve cannot meet the legs, its corners are faired **individually** rather than the whole run dropped.
+- **Curvature-continuous.** The curve runs straight → **spiral** → arc → spiral → straight. The spiral ramps curvature `0 → 1/r` over the transition length and consumes `L/(2r)` radians of the turn at each end, the circular middle sweeping what is left; where two spirals would meet or cross (the turn at or under `L/r`), the bend is a **spiral-only** curve, or its vertex is kept. A bare arc, or a trimmed one with a heading kink, is not a trajectory and is refused.
+- **The transition is timed.** `route.turn.transitionSec` (**2.0 s**, clamped 0.5–5) gives the spiral length `L = v · transitionSec` at the bend's speed — ~29 m at 28 kn, ~10 m at 10 kn — so the entry inertia scales with speed; the curvature rate follows, `κ̇ = v / (r · L)`.
+- **The radius comes from the water, capped by the pace.** A bend is drawn at the largest radius that clears the walls, `r_fit`, never wider than the pace's own radius `v_pace² / a_lat` — a gentler curve only bows further inside for no gain — with `a_lat` from `route.turn.lateralAccelMps2` (**1.0 m/s²**, ~0.1 g, clamped 0.1–2.94).
+- **The corner speed is a cap with floors under it.** The cap is `min(v_pace, sqrt(a_lat · r_fit))` — the fastest the boat may take that radius without breaking the lateral ceiling. Two floors lift it: the deceleration floor the approach sets, `v ≥ sqrt(v_pace² − 2·a_long·L_approach)` with `a_long` the clock's own `route.speed.accelMps2` and `L_approach` the distance from the previous resolved bend's exit to this bend's entry, the radicand clamped at 0; and `route.turn.minSpeedKn` (**5 kn**, clamped 2–10), because a boat cannot crawl to zero. The one value is `v = min(cap, max(decelFloor, minSpeedKn))`; a floor above the cap means the radius is too tight for any legal speed, and the bend stays sharp. The corner speed never raises the boat above the limit in force: a 3 kn zone still runs at 3 kn.
+- **The arc's intrusion is the lever.** The arc's apex stands `r · (1/sin(θ/2) − 1)` inside the corner's vertex, so a **slower corner shrinks `r` and with it the intrusion** — the one lever, trimming the sweep changing neither `r` nor `θ`. The ladder tries the full curve, then a slower corner, down to `route.turn.minSpeedKn`, each step easing the intrusion until the wall test clears.
+- **One rule, with a stated end.** A bend is faired where a radius and a speed clear the walls; where no radius clears even at `route.turn.minSpeedKn`, that same slow bend is the answer — the search's vertices taken at the floor. **The radius is never reduced below `v² / a_lat`; the speed is** — and a curve the relaxation has **moved** re-derives its cap from its own minimum radius, so a moved bend can never claim a speed its geometry no longer holds. The clearing radius is found by **bisection, 24 steps**, not in a single pass.
+- **The walls are absolute.** The water test reads the coast's `route.avoid.obstacle.marginM` (50 m), the depth gate's `route.avoid.depthGate.minM` (3 m) **and** its standoff `route.avoid.depthGate.marginM` (20 m), the grid's own blocked set, and the two carved approaches — on **every segment and every sample**. The engine hands the fitter the **coarse search grid** — it carries its own origin and box — and the two approaches **beside** the field, so a point resolves to a cell and the test sees what the search saw. The emitted line is walked at the pull's own step (`marginM / 2`), and the depth standoff is read as the **distance from the cell's centre to the nearest cell under the gate**, refused when it is within the standoff — so a 20 m offset is representable without a finer walk.
+- **Inward relaxation, outside walls only.** Where the slowed ladder still grazes a wall on the **outside** of the turn, the intermediate control points may move **inward, toward the vertex** — tightening the curve away from that outside wall — bounded by the corridor box the engine hands the fitter, and re-tested. The verdict reads the blocked sample **nearest the vertex**, so an inside graze behind a flank block is not misread as outside. An **inside** wall is never answered by relaxation — the intrusion above is the lever there — and where both sides are walls the speed floor answers.
+- **The soft price is waived.** A bow into a priced zone or band is accepted — the app cues zone proximity through `speedZone.distanceOutOfZoneInfoM` — so the fitter reads no soft price.
+- **The clock carries the bend's speed.** A cap is emitted for **every arc point** of a resolved bend, strictest-wins, and charged beside the longitudinal ramp; the search stays turn-blind. The cap survives the clock's own boundary splitting, and every keyed point must survive the fitter's own duplicate collapse.
+- **The base and the delta.** The route's **distance and clock are the pre-fairing line's own**; each resolved bend adds only its **cap's delta** — the same faired line timed with and without the caps — so the geometry is never re-costed and the slowdown is never hidden.
+- **The budget.** The slow-water share is a verdict on the **drawn** line and is measured there; the λ loop runs before the fairing and cannot correct for a bow.
+- **The probe.** The forced-crossing probe reads the pre-fairing search line, so the crossing report describes the search and not the drawn curve.
+- **Every comparison is un-faired.** The fine pass's keep-only-where-faster rule and the offers' `savingSec` compare the un-faired durations on both sides.
+- **Perf cost and its stage.** The fairing runs **after** the search has answered, so it spends none of the A\*'s budget: its cost is O(waypoints) geometry plus the wall test on every sample, timed as its own post-search stage. **Difficulty: medium-high** — geometry and the bisection, not performance.
+- **Acceptance.** A GPX showing chorded arc points through a bend the geometry allows, and a sharp vertex only where the floor binds.
 
 ## Logical implementation order
 
@@ -86,7 +96,10 @@ The order above is the technical dependency order: the unified field first, the 
 | Key | Default | Meaning |
 |---|---|---|
 | `route.avoid.depthGate.minM` | 3.0 | depth below which a cell is excluded |
-| `route.turn.lateralAccelMps2` | 2.94 | turn-rounding lateral-acceleration ceiling |
+| `route.avoid.depthGate.marginM` | 20 | lateral standoff from the depth wall |
+| `route.turn.lateralAccelMps2` | 1.0 (~0.1 g) | turn-rounding lateral-acceleration limit: `r = v² / a_lat`, clamped 0.1–2.94 |
+| `route.turn.transitionSec` | 2.0 | spiral roll-in time, clamped 0.5–5; transition length `= v · this` |
+| `route.turn.minSpeedKn` | 5 | the floor a bend's speed may not go below (clamped 2–10) — a boat cannot crawl to zero |
 | `route.avoid.zone300.softCostAversion` | 1.5 | multiplier on time spent in the 300 m band |
 | `route.avoid.speedZone.softCostAversion` | 1.0 | cursor on a zone cell's time-excess: 1 = true travel time, 0 = no zone pricing |
 | `route.avoid.speedZone.enabled` | false | switch: false prices every speed zone as open water |
@@ -95,17 +108,17 @@ All read through `AppConfig` with a clamp, one home each — no Settings row unt
 
 ## Performance invariant
 
-Budget stays ≤ 500 ms wall, re-priced per stage. The invariant the tests pin: **every source rasterizes once into the corridor grid; the pull and the curve fitter sample only along the emitted line, never per grid cell.** The stage-1 assertion that guards the full-grid `isWater` explosion generalizes to depth, band, zone and marker queries.
+Budget stays ≤ 500 ms wall, re-priced per stage, and the curve fitter is a **post-search stage** counted apart from the search's own wall. The invariant the tests pin: **every source rasterizes once into the corridor grid; the pull and the curve fitter sample only along the emitted line, never per grid cell.** The stage-1 assertion that guards the full-grid `isWater` explosion generalizes to depth, band, zone and marker queries.
 
 ## Decisions (arbitrated 2026-09-24)
 
 - Marker weight — an avoid-only dial w ∈ [0, +10] scaling the per-metre price by a factor ≥ 1; a marker can only make the sea dearer, and going through one is a via, not a price.
 - Speed-zone exclusion — a persisted set of excluded zone ids, default empty.
-- The smoothed curve is the navigated route — ETA, distance and off-route checks follow the chorded arcs.
-- Depth — block a known depth below the threshold and ignore everything else, ANDed with the coastline's water test.
-- Band aversion — one `route.avoid.zone300.softCostAversion`, default 1.5.
+- The smoothed curve is the route drawn and saved; the route's figures keep the **search's base** with the bends' caps' deltas added — the geometry is never re-costed.
+- Depth — block a known depth below the threshold, with `route.avoid.depthGate.marginM` (20 m) of standoff, ANDed with the coastline's water test; everything at or above the threshold is ignored.
+- Band aversion — one `route.avoid.zone300.softCostAversion`, shipped at 5.
 - ETA — obey the zone limit in force and accelerate gradually to the configured speed outside one; the computed speeds are saved with the track.
-- Zone-avoidance cursor — the route bends away from zones by `route.avoid.speedZone.softCostAversion`, default 1 (a zone cell costed at its true travel time, so the search minimises real time; 0 is the no-zone-price line); the cursor chooses the line and never the ETA.
+- Zone-avoidance cursor — the route bends away from zones by `route.avoid.speedZone.softCostAversion`, shipped at 4 (a zone cell costed at its true travel time at 1, so the search minimises real time; 0 is the no-zone-price line); the cursor chooses the line and never the ETA.
 
 ## Amendments (2026-09-25) — folded from the 2026-09-25 plan
 

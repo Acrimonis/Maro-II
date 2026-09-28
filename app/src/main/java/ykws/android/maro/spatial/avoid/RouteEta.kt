@@ -9,9 +9,9 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * The zone-aware ETA: the drawn line re-vertexed where the limit in force changes, then timed leg by
- * leg — every transition a constant-acceleration ramp at [AppConfig.routeSpeedAccelMps2], whose one
- * home is the key (this file holds no rate of its own).
+ * The zone- and curve-aware ETA: the drawn line re-vertexed where the limit in force changes, then
+ * timed leg by leg — every transition a constant-acceleration ramp at [AppConfig.routeSpeedAccelMps2],
+ * whose one home is the key (this file holds no rate of its own).
  *
  * Inside a zone the boat obeys the strictest limit (never above the configured pace); outside it rides
  * the pace. Leaving a slower stretch it accelerates back to the pace **after** the boundary, a limit
@@ -20,12 +20,28 @@ import kotlin.math.sqrt
  * zone rather than inside it. A line whose first leg is already inside a zone opens at that zone's
  * limit, the boat being there already.
  *
+ * **The curve caps sit beside the longitudinal ramp.** A [CurveCap] names a speed the clock may not
+ * exceed at one of the faired line's own vertices — the fitter emits one per arc point of a resolved
+ * bend, and the strictest in force wins where a cap and a zone limit meet. A cap is a **point**, so it
+ * needs no boundary vertex of its own: every leg whose endpoint carries one is bound by it, and the
+ * ramp does the rest — the boat eases to the bend's speed arriving at its first arc point, holds it
+ * across the arc and climbs back after. The caps are read off the same profile as the limits, so the
+ * cap's own delta (the faired line timed with and without them) is exactly the seconds the slowdown
+ * costs — never a hidden term and never a re-cost of the geometry.
+ *
  * This is a **clock**, never a price: nothing here reads λ or the A\*'s own cost, so the reported time
  * is λ-free however the search was priced.
  */
 
 /** Sampling step (m) the boundary splitter walks each leg at — half the shipped grid cell. */
 private const val BOUNDARY_SAMPLE_M = 25.0
+
+/**
+ * One **curve cap**: the speed (kn) the clock must not exceed at a point on the faired line — the
+ * fitter's per-arc-point emission for a resolved bend. The same point carrying two caps keeps the
+ * strictest (lowest) one.
+ */
+data class CurveCap(val point: LatLng, val capKn: Double)
 
 /** A polyline split at limit changes, with one planned time and one made-good speed per split leg. */
 data class TimedLine(
@@ -44,22 +60,34 @@ data class TimedLine(
 /**
  * Splits [waypoints] where [limitKnAt] changes and times each split leg: inside a zone the strictest
  * limit binds, outside the pace binds, a limit rise is climbed after the boundary and a limit fall is
- * reached **at** it.
+ * reached **at** it. Any [caps] stand beside the limit — a leg whose endpoint carries one is bound by
+ * it, strictest-wins, so a rounded bend is taken at its corner speed between the ramps.
  */
 fun timeLineWithLimits(
     waypoints: List<LatLng>,
     paceKn: Double,
     limitKnAt: (LatLng) -> Double?,
+    caps: List<CurveCap> = emptyList(),
     accelMps2: Double = AppConfig.routeSpeedAccelMps2
 ): TimedLine {
     if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
     val paceMps = Units.knotsToMps(paceKn)
+    // One home for the strictest cap at a point: the same vertex carrying two caps keeps the slower.
+    val capKnAt: Map<LatLng, Double> = caps
+        .groupBy { it.point }
+        .mapValues { (_, shared) -> shared.minOf { it.capKn } }
+    // The cap at an endpoint binds the leg that ends on it and the one that leaves it, which is what
+    // places the spiral's slowdown beside the longitudinal ramp rather than inside the arc alone.
+    fun capBoundMps(p: LatLng): Double =
+        capKnAt[p]?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
     val points = splitAtLimitChanges(waypoints, limitKnAt)
     val legs = points.size - 1
-    // One target per leg: the limit in force inside it, never above the pace.
+    // One target per leg: the strictest of the limit in force inside it and any cap on its ends,
+    // never above the pace.
     val targets = DoubleArray(legs) { i ->
         val limitKn = limitKnAt(midpoint(points[i], points[i + 1]))
-        if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
+        val limitMps = if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
+        min(limitMps, min(capBoundMps(points[i]), capBoundMps(points[i + 1])))
     }
     val times = ArrayList<Double>(legs)
     val speeds = ArrayList<Double>(legs)
@@ -139,6 +167,14 @@ private fun bisectLimitChange(
 }
 
 /**
+ * The speed (m/s) the boat still carries after decelerating [distanceM] from [vStartMps] at
+ * [accelMps2] — the clock's own deceleration ramp, with the radicand clamped at 0. One home, read by
+ * [segmentTimeM] and by the curve fitter's deceleration floor, so the two can never disagree.
+ */
+internal fun decelSpeedMps(vStartMps: Double, distanceM: Double, accelMps2: Double): Double =
+    sqrt((vStartMps * vStartMps - 2.0 * accelMps2 * distanceM).coerceAtLeast(0.0))
+
+/**
  * Time one segment (m) that starts at [vStart], may ride up to its own leg's [vTop], and arrives at
  * [vArrive] — the lower of this leg's limit and the one the boundary ahead asks for.
  *
@@ -160,7 +196,7 @@ private fun segmentTimeM(
     if (vArrive < vStart) {
         val rampDist = (vStart * vStart - vArrive * vArrive) / (2.0 * accelMps2)
         if (distanceM <= rampDist) {
-            val endMps = sqrt((vStart * vStart - 2.0 * accelMps2 * distanceM).coerceAtLeast(0.0))
+            val endMps = decelSpeedMps(vStart, distanceM, accelMps2)
             return ((vStart - endMps) / accelMps2) to endMps
         }
         return ((vStart - vArrive) / accelMps2 + (distanceM - rampDist) / vArrive) to vArrive

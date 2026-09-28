@@ -28,6 +28,7 @@ import ykws.android.maro.spatial.avoid.rasterize
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
 import ykws.android.maro.spatial.avoid.ZoneRing
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.max
@@ -286,6 +287,28 @@ class RouteAvoidEngineTest {
         assertEquals(seconds, route.durationSec, 1e-9)
     }
 
+    /**
+     * The reported duration is the pre-fairing base plus the caps' delta, and the saved legs are folded
+     * so their sum is that figure — the contract the drawn line's own clock would not satisfy on its own.
+     * A bendy line, the island detour, is where the fairing's residual is non-zero.
+     */
+    @Test
+    fun theReportedDurationIsTheSumOfTheSavedLegTimes() = runTest {
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 400.0)
+        val engine = newEngine { FakeWorld(edges = island.toMutableList()) }
+        engine.onOriginPositionChanged(origin)
+
+        val route = success(engine.onDestinationPositionChanged(aim))
+
+        assertEquals("one leg time per drawn leg", route.points.size - 1, route.legTimesSec.size)
+        assertEquals(
+            "the saved legs sum to the reported duration",
+            route.durationSec,
+            route.legTimesSec.sum(),
+            1e-6
+        )
+    }
+
     /** A concave bay: a peninsula jutting south from the north coast; the line must round its tip. */
     @Test
     fun aConcaveBayWithAPeninsulaRoutesAroundTheTip() = runTest {
@@ -363,16 +386,18 @@ class RouteAvoidEngineTest {
         engine.onOriginPositionChanged(from)
         val route = success(engine.onDestinationPositionChanged(to))
 
-        assertEquals("the two ends plus exactly the two offset tangent corners", 4, route.points.size)
-        assertEquals(from, route.points.first())
-        assertEquals(to, route.points.last())
+        assertEquals("the line starts at the raw start", from, route.points.first())
+        assertEquals("and ends at the raw aim", to, route.points.last())
+        // The fitter rounds each bend, so the offset tangent corner is replaced by an arc that still
+        // passes near it: the nearest faired point stands within the arc's own intrusion (a few tens of
+        // metres at this pace), which is what "the bend happens here" means once it is a curve.
         assertTrue(
-            "the first bend stands on the first offset tangent corner",
-            SpatialOperations.haversine(route.points[1].toLatLng(), firstCorner) < 1.0
+            "the first bend is faired around the first offset tangent corner",
+            route.points.minOf { SpatialOperations.haversine(it.toLatLng(), firstCorner) } < 30.0
         )
         assertTrue(
-            "the second bend stands on the second offset tangent corner",
-            SpatialOperations.haversine(route.points[2].toLatLng(), secondCorner) < 1.0
+            "the second bend is faired around the second offset tangent corner",
+            route.points.minOf { SpatialOperations.haversine(it.toLatLng(), secondCorner) } < 30.0
         )
         for (i in 0 until route.points.size - 1) {
             val a = route.points[i].toLatLng()
@@ -437,13 +462,41 @@ class RouteAvoidEngineTest {
 
         val route = success(engine.onDestinationPositionChanged(RoutePoint(43.48, 7.081)))
 
-        assertTrue("the 40-tooth coast collapses to a clean line, not a per-tooth zigzag", route.points.size <= 8)
+        // The faired line gains arc points by design, so the zigzag is judged on its **turns**: a clean
+        // line holds a couple of real bends, a per-tooth zigzag would hold dozens.
+        assertTrue(
+            "the 40-tooth coast collapses to a clean line, not a per-tooth zigzag",
+            sharpCorners(route.points) <= 2
+        )
         for (point in route.points) {
             assertTrue(
                 "every waypoint keeps the clearance off the teeth",
                 world.distanceToCoastM(point.latitude, point.longitude) >= marginM - 1e-6
             )
         }
+    }
+
+    /**
+     * How many interior vertices the polyline turns at least [minDeg] through — the clean-line reading
+     * the sawtooth case uses, robust to the arc points the fitter legitimately adds.
+     */
+    private fun sharpCorners(points: List<RoutePoint>, minDeg: Double = 20.0): Int {
+        var count = 0
+        for (i in 1 until points.size - 1) {
+            val before = Math.toDegrees(
+                Math.toRadians(
+                    SpatialOperations.initialBearing(points[i - 1].toLatLng(), points[i].toLatLng())
+                )
+            )
+            val after = Math.toDegrees(
+                Math.toRadians(
+                    SpatialOperations.initialBearing(points[i].toLatLng(), points[i + 1].toLatLng())
+                )
+            )
+            val turn = (after - before + 540.0) % 360.0 - 180.0
+            if (abs(turn) >= minDeg) count++
+        }
+        return count
     }
 
     /** The Lérins-to-Salis-shaped corridor answers under the 500 ms wall the plan pins. */
@@ -865,11 +918,11 @@ class RouteAvoidEngineTest {
 
         assertTrue(
             "the chorded line bends at the west tip's band-offset corner",
-            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), swBandCorner) < 1.0 }
+            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), swBandCorner) < 30.0 }
         )
         assertTrue(
             "and at the east tip's band-offset corner",
-            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), seBandCorner) < 1.0 }
+            chorded.points.any { SpatialOperations.haversine(it.toLatLng(), seBandCorner) < 30.0 }
         )
 
         setAvoidSwitch("routeAvoidZone300Enabled", false)
@@ -879,11 +932,11 @@ class RouteAvoidEngineTest {
 
         assertTrue(
             "the diving line bends at the west tip's obstacle-margin corner",
-            dived.points.any { SpatialOperations.haversine(it.toLatLng(), swLandCorner) < 1.0 }
+            dived.points.any { SpatialOperations.haversine(it.toLatLng(), swLandCorner) < 30.0 }
         )
         assertTrue(
             "and at the east tip's obstacle-margin corner",
-            dived.points.any { SpatialOperations.haversine(it.toLatLng(), seLandCorner) < 1.0 }
+            dived.points.any { SpatialOperations.haversine(it.toLatLng(), seLandCorner) < 30.0 }
         )
         assertTrue(
             "the chorded line stands further off the tips than the diving line",

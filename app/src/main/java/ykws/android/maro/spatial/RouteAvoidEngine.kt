@@ -34,6 +34,7 @@ import ykws.android.maro.spatial.avoid.SearchOutcome
 import ykws.android.maro.spatial.avoid.TangentCorners
 import ykws.android.maro.spatial.avoid.EndApproaches
 import ykws.android.maro.spatial.avoid.PullRefusals
+import ykws.android.maro.spatial.avoid.RouteCurveFitter
 import ykws.android.maro.spatial.avoid.TimedLine
 import ykws.android.maro.spatial.avoid.bandPriceAt
 import ykws.android.maro.spatial.avoid.bandPriceSec
@@ -558,12 +559,35 @@ class RouteAvoidEngine(
             world, box, refined, start, aim, pace, cellM, marginM, zoneOutsideMarginM, lambda,
             edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals
         )
-        val timed = timeLineWithLimits(reSearched, pace, limitAt)
-        val finalShare = zoneSlowShare(timed, pace)
-        val distanceM = lineLengthM(timed.points)
+        // **The curve fitter (phase 6)** — the settled line's bends faired on water, between the fine
+        // re-search and the clock. The faired line is the route **drawn and saved**; its figures are the
+        // **pre-fairing base** (`baseTimed`) plus the caps' **delta**, per the plan's "base and the
+        // delta", so the fairing's own geometry change is never re-costed. `distanceM` is therefore the
+        // pre-fairing length and `durationSec` the base's clock plus the cap delta, while `timed.points`
+        // is the drawn (faired) polyline — [routeTimedLine] folds their difference into the last leg so
+        // the saved legs sum to the reported duration. The forced-crossing probe reads the
+        // **pre-fairing** line, so the crossing report describes the search and not the curve.
+        val faired = RouteCurveFitter.fit(
+            line = reSearched, grid = grid, box = box, approaches = approaches, world = world,
+            paceKn = pace, marginM = marginM, start = start, aim = aim,
+            depthGateActive = depthGateActive, minDepthM = minDepthM
+        )
+        trace {
+            "CURVE bends=${faired.bends} resolved=${faired.resolved} keptSharp=${faired.keptSharp} " +
+                "points=${faired.points.size} caps=${faired.caps.size}"
+        }
+        val baseTimed = timeLineWithLimits(reSearched, pace, limitAt)
+        val fairedNoCap = timeLineWithLimits(faired.points, pace, limitAt)
+        val fairedWithCap = timeLineWithLimits(faired.points, pace, limitAt, faired.caps)
+        val capDeltaSec = fairedWithCap.durationSec - fairedNoCap.durationSec
+        val durationSec = baseTimed.durationSec + capDeltaSec
+        val timed = routeTimedLine(fairedWithCap, durationSec)
+        // The slow-water share is a verdict on the **drawn** line and is measured there.
+        val finalShare = zoneSlowShare(fairedWithCap, pace)
+        val distanceM = lineLengthM(reSearched)
         // The probe runs **once**, against the settled line, so neither verdict is reported per pass.
         val forced = forcedCrossingNames(
-            grid, zones, priced, cellM, pace, lambda, from, to, startCell, aimCell, refined
+            grid, zones, priced, cellM, pace, lambda, from, to, startCell, aimCell, reSearched
         )
         val bandM = bandMetres(world, timed.points)
         val slowM = slowMetres(timed, pace)
@@ -571,7 +595,7 @@ class RouteAvoidEngine(
             "PULLREF land=${refusals.land} price=${refusals.price}"
         }
         trace {
-            "LINE distance=${fmt(distanceM)}m duration=${fmt(timed.durationSec)}s " +
+            "LINE distance=${fmt(distanceM)}m duration=${fmt(durationSec)}s " +
                 "legs=${timed.legTimesSec.size} " +
                 "bandMetres=${fmt(bandM)}m bandShare=${fmt(shareOf(bandM, distanceM), 2)} " +
                 "slowMetres=${fmt(slowM)}m slowShare=${fmt(finalShare, 2)} " +
@@ -582,16 +606,40 @@ class RouteAvoidEngine(
         // [search] starts from [SettledAnswer.offerInputs], so the configured line reaches the map
         // before a single candidate is searched.
         val settled = success(
-            timed, forced, if (budgetMet(finalShare, budgetPct)) null else finalShare
+            timed, forced, if (budgetMet(finalShare, budgetPct)) null else finalShare,
+            distanceM = distanceM, durationSec = durationSec
         )
         return SettledAnswer(
             settled,
             OfferInputs(
                 world, box, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, timed.durationSec, limitAt
+                lambda, edges, openCoast, capLatNorth, priced, zones, sets, baseTimed.durationSec, limitAt
             ),
             regionSaturated
         )
+    }
+
+    /**
+     * **The route's clock, from the faired line and the cap delta.** [clocked] is the drawn (faired)
+     * line timed with its caps, so its legs carry the drawn line's own profile. The reported
+     * [durationSec] is the **pre-fairing base plus the caps' delta** — the plan's figures, never a
+     * re-cost of the fairing's geometry — so it differs from the drawn line's own clock by the seconds
+     * the fairing shortened. The residual between the two is folded into the **last** leg, whose profile
+     * is therefore the one leg that does not describe the drawn line: it exists so `legTimesSec` sums to
+     * [durationSec], the contract `RouteResult.Success` states.
+     */
+    private fun routeTimedLine(clocked: TimedLine, durationSec: Double): TimedLine {
+        val legTimes = clocked.legTimesSec.toMutableList()
+        if (legTimes.isEmpty()) return clocked
+        val residual = durationSec - legTimes.sum()
+        legTimes[legTimes.lastIndex] = max(0.0, legTimes.last() + residual)
+        val legSpeeds = clocked.legSpeedsMps.toMutableList()
+        if (legSpeeds.size == legTimes.size) {
+            val i = legSpeeds.lastIndex
+            val d = SpatialOperations.haversine(clocked.points[i], clocked.points[i + 1])
+            legSpeeds[i] = if (legTimes[i] > 0.0) d / legTimes[i] else 0.0
+        }
+        return TimedLine(clocked.points, legTimes, legSpeeds)
     }
 
     /**
@@ -876,13 +924,15 @@ class RouteAvoidEngine(
     private fun success(
         timed: TimedLine,
         forcedCrossingZoneNames: List<String>,
-        budgetUnmetZoneShare: Double?
+        budgetUnmetZoneShare: Double?,
+        distanceM: Double = lineLengthM(timed.points),
+        durationSec: Double = timed.durationSec
     ): RouteResult.Success = RouteResult.Success(
         points = timed.points.map { RoutePoint.of(it) },
         legTimesSec = timed.legTimesSec,
         legSpeedsMps = timed.legSpeedsMps,
-        distanceM = lineLengthM(timed.points),
-        durationSec = timed.durationSec,
+        distanceM = distanceM,
+        durationSec = durationSec,
         // The emitted polyline ends at the raw aim, never a resolved node: the pin stands where the
         // user dragged, and the snapped cell is only the search's anchor.
         destinationMoved = false,

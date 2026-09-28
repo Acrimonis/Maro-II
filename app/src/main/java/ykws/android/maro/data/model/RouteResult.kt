@@ -20,8 +20,11 @@ sealed interface RouteResult {
      *
      * @property points            the polyline, start first and the resolved destination last.
      * @property distanceM         total length in metres.
-     * @property durationSec       **the drawn line's own seconds** — the plan's real time, read off the
-     *                             polyline beside it at the limits in force over each of its legs.
+     * @property durationSec       the route's planned seconds: the **pre-fairing** line's own clock at
+     *                             the limits in force, plus the resolved bends' cap delta — the plan's
+     *                             "base and the delta", never a re-cost of the fairing's geometry. It is
+     *                             therefore not the drawn polyline's own clock; [legTimesSec] is folded
+     *                             to sum to it.
      * @property destinationMoved  true when the aimed destination resolved elsewhere — land, or
      *                             another stretch of water — and the route ends at the closest
      *                             point of the boat's own stretch instead.
@@ -39,7 +42,9 @@ sealed interface RouteResult {
         /**
          * The planned time of each leg, in the same order as [points] — `legTimesSec[i]` is the time
          * the plan allots the leg from `points[i]` to `points[i + 1]`, so the list is one shorter
-         * than the polyline and the cumulative sum is [durationSec].
+         * than the polyline and the cumulative sum is [durationSec]. Where the faired line shortened
+         * the drawn geometry, the fairing's residual is folded into the **last** leg, so that leg alone
+         * carries the reported figure rather than the drawn line's own profile.
          *
          * It is what makes the plan's own pace recoverable per leg — the speed the engine intended,
          * neither the cruise speed nor the limit — and it is exposed here rather than recomputed by
