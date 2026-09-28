@@ -14,7 +14,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [ ] fix proximity of date points — rays hit/test all of them
 
 ## Walk
-**Level 1 — Date:** 2026-09-18 · **Source:** `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md` · **Active:** 11
+**Level 1 — Date:** 2026-09-18 · **Source:** `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md` · **Active:** 12
 - [x] 1 · Touch zone — a fixed thumb-sized circle centred on the sprite's visual centre at any zoom, with a short transparent-gold ring flash on an accepted tap
 - [x] 2 · Rays cleared when the dashboard closes — segments cleared, the run left to finish, publishing gated on the dashboard still being its own
 - [x] 3 · Rays withdrawn when the debug toggle goes off
@@ -25,7 +25,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [x] 8 · The `marker.debug.rays.enabled` hook — retired 2026-09-18, the setting left as the single carrier
 - [x] 9 · Verification — build, scoped tests, and whatever guards `spatial/`
 - [x] 10 · Device pass — closed by decision 2026-09-18: the user owns it, and this walk no longer tracks it
-- [ ] 11 · Bookkeeping bake across Markers, UI_Map and Ui_Settings
+- [x] 11 · Bookkeeping bake across Markers, UI_Map and Ui_Settings — closed 2026-09-28: Markers baked earlier the same session, UI_Map took the tap-zone and ray-clear pointer with the superseded marker-filter clause and a corrected hydration, and Ui_Settings the de-wired debug-rays toggle
 - [ ] 12 · Proximity of date points — rays hit and test all of them (pre-existing, outside the plan above)
 
 ## Implemented
