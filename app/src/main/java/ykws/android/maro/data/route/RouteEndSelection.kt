@@ -1,5 +1,7 @@
 package ykws.android.maro.data.route
 
+import ykws.android.maro.data.model.titleOrder
+
 /**
  * **One end of a route, as the drawer holds it** (R44–R46, R66): the boat's own position, the map's
  * standing marker position, or a marker the user flagged for that end.
@@ -120,3 +122,19 @@ data class MarkerRouteFlags(
     val origin: Boolean,
     val destination: Boolean
 )
+
+/**
+ * **A selector's entries in the order it offers them** (2026-09-29): the fixed ones first, in their declared
+ * order — the caller's own fallback being the first of them — then the flagged ones by the app's shared
+ * [titleOrder], so `Le Port` files under P beside `Port`.
+ *
+ * The pairs arrive already labelled, because a marker's own name is data rather than a localised string; the
+ * rule itself is pure Kotlin, which is what lets the order be pinned without a screen. [order] is a parameter
+ * so a test can hand in its own rather than read the shipped words.
+ */
+internal fun routeEndEntries(
+    fixed: List<RouteEndSelection>,
+    flagged: List<Pair<RouteEndSelection, String>>,
+    order: Comparator<String> = titleOrder
+): List<RouteEndSelection> =
+    fixed + flagged.sortedWith(compareBy(order) { it.second }).map { it.first }

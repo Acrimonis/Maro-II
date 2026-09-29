@@ -2,6 +2,7 @@ package ykws.android.maro.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
@@ -19,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -55,8 +57,15 @@ private const val BAND_RULE_DP = 1
  * down on a row instead. **The slot is the bars' own height**, `WHEEL_ITEM_DP` at scale 1.0 and never less,
  * measured from the label so a large font scale grows the wheel as it grows the bars.
  *
- * The arithmetic — the slot count, the quantised height, the end padding and the row the band names — lives
- * in [WheelPolicy] and is unit-tested there; this file is layout only.
+ * The arithmetic — the slot count, the quantised height, the end padding, the row the band names and the
+ * landing that puts the chosen entry under it — lives in [WheelPolicy] and is unit-tested there; this file
+ * is layout only.
+ *
+ * **Two invariants hold the landing up, and both are stated rather than implied** (2026-09-29). The popup
+ * is composed afresh on every open, so **frame 0 is the rest position** the landing counts from — a caller
+ * hoisting the list state above the open would break it. And the last entry's own distance sits inside the
+ * scroll range because the end pad is `(slots − 1)/2 × slot` with `slots` taken from the same expression
+ * that sizes the wheel.
  */
 @Composable
 internal fun DropdownWheel(
@@ -94,14 +103,21 @@ internal fun DropdownWheel(
         }
     }
 
-    // One positioning on open: the entry the box already shows sits under the band from the first frame.
-    LaunchedEffect(selectedIndex, slotDp, slots) {
-        if (labels.isNotEmpty()) {
-            listState.scrollToItem(
-                index = selectedIndex.coerceIn(0, labels.lastIndex),
-                scrollOffset = with(density) { endPadDp.dp.roundToPx() }
-            )
-        }
+    // **The landing, and the one comparison the wheel never made** (2026-09-29). From its rest frame the
+    // list scrolls **by** the entry's own distance on the slot grid — `index × slot` — so no offset sign
+    // and no origin have to be assumed, and the end pad cancels out of the difference instead of entering
+    // the sum. The row the band then names is read from the first laid-out frame and compared with the
+    // entry the caller holds: once, and only here, so the wheel's answer and its drawing cannot drift
+    // apart, and no later drag is second-guessed.
+    LaunchedEffect(selectedIndex, slotDp, slots, labels.size) {
+        if (labels.isEmpty()) return@LaunchedEffect
+        val target = selectedIndex.coerceIn(0, labels.lastIndex)
+        val slotPx = with(density) { slotDp.dp.toPx() }
+        val landing = wheelTargetScrollPx(target, slotPx)
+        if (landing != 0f) listState.scrollBy(landing)
+        withFrameNanos { } // the landing's own layout, before its result is read back
+        val correction = wheelCorrectionSlots(target, centred ?: target)
+        if (correction != 0) listState.scrollBy(correction * slotPx)
     }
 
     PopupSectionCard {
