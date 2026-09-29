@@ -338,7 +338,7 @@ Filter/sort and other popup menus follow the settings-page hierarchy. This is th
 popup-styling spec (moved from `ui-lists-guidelines`).
 
 ```
-┌─ Popup → Surface (uiBackground, 12dp, 1dp 0x40FFFFFF border) ─┐
+┌─ Popup → Surface (uiBackground, 12dp, 1dp uiAccent rim) ────────────┐
 │  Section Title (popup title style)                                      │
 │  ┌─ CardArea → Surface (uiCardBackground, 12dp) ─────────────────────┐ │
 │  │  Row (16dp h-pad, 2dp v-pad): checkmark box (24dp) + text         │ │
@@ -352,7 +352,7 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 | Token | Value | Role |
 |-------|-------|------|
 | Popup bg | `uiBackground` | Outer Surface |
-| Popup border | `0x40FFFFFF`, 1dp | Settings expander border style |
+| Popup border | `uiAccent`, 1dp | The edge the dropdown box and the bars' taken cells wear too (2026-09-29) |
 | Card bg | `uiCardBackground` | Per-section card |
 | Section title | `uiDashboardTextMuted`, 16sp, SemiBold | Popup-only: deliberately dimmer than the settings `SubSectionHeader`, which is `uiTextPrimary` (§2.9). Sharing the dashboard muted token here is a known token-scope wart — a future pass may migrate popups to `uiTextPrimary`. |
 | Row text | `uiTextPrimary`, 15sp, Medium (selected: SemiBold) | |
@@ -362,6 +362,17 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 | Card gap | 4dp | `Arrangement.spacedBy(4.dp)` |
 
 All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) + `.alpha(activeAlpha/inactiveAlpha)` per [`FanIconComponents.kt`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt).
+
+**One row serves the whole family** (2026-09-29). Every member draws its rows through `PopupRow`, its
+groups through `PopupSectionCard`, its section titles through `PopupSectionTitle` and its outer surface
+through **`PopupSurface`** — `uiBackground` on a 12dp corner behind the 1dp **`uiAccent` rim**, an 8dp
+shadow, the family's **12dp inset on all four sides** and a height bound it scrolls past — all in
+[`PopupFamily.kt`](../app/src/main/java/ykws/android/maro/ui/components/PopupFamily.kt), together with the
+geometry above as constants: the 240dp width, the 16dp/2dp row padding, the 24dp check box holding the `✓`
+in `uiAccent` at 16sp SemiBold on the selected row alone, the 15sp Medium–SemiBold label and the 0.4 dim of
+a switched-off row. The dropdown's menu ([§2.12](#212-dropdown-row--dropdownrow)) reads them all; the two
+list popups read the rows and the constants but still state their own outer surface inline, and
+`PopupSurface` is there for them to move onto.
 
 **Overflow.** A popup wraps its own height and **scrolls** once its content exceeds the space it can
 occupy — a popup whose content fits stays exactly as tall as that content, and nothing is pushed past
@@ -392,20 +403,54 @@ Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum w
 ### 2.12 Dropdown Row — `DropdownRow`
 
 For a single choice whose option list may grow past the two or three segments a `SegmentedRow` fits
-(e.g. the route algorithm list): `DropdownRow(label, options, selected, onSelect, description = null)`.
+(e.g. the route algorithm list):
+`DropdownRow(label, options, selected, onSelect, accessibleName, description = null)`.
 
-- **Same row model as §2.1/§2.2** — label (16sp Medium `uiTextPrimary`), optional description (13sp
-  `uiTextMuted`), and the control on the right; **no surface of its own**, so the call site supplies the
-  `CardArea`/`NestedCard` (§2.0) and the row pads vertically only.
-- **Control** — the selected option's label in `uiValueText` Bold (`${ui.font.value.size}`) with a
-  `KeyboardArrowDown` arrow in `uiAccent`; tapping the row opens a `DropdownMenu` listing every option.
+```
+┌─ Column ──────────────────────────────────────────────────────────────────┐
+│  optional label (16sp Medium uiTextPrimary)                               │
+│  optional description (13sp uiTextMuted)                                  │
+│  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 10dp padding ───────┐ │
+│  │  value (uiTextPrimary, Bold)                      ⌄ (uiAccent)        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+- **The box is the control, the anchor and the tap target** (2026-09-29) — a `Row` holds the value and the
+  arrow and is the one tap that opens the list, the same single-target rule `OptionRow` follows, now scoped
+  to the box rather than the row. It carries `clickable`, the call site's `accessibleName` as its
+  `contentDescription` and `Role.DropdownList`, and it reports its own measured size, so nothing about the
+  list's placement or width is left to a library.
+- **Label and description sit above the field** — same type as §2.1/§2.2, both optional (`null` at every
+  call site today, where a section header or the drawer's comment already names the control). The row
+  paints nothing of its own: the call site supplies the `CardArea`/`NestedCard` (§2.0).
+- **The box is the bars' own base** (2026-09-29) — `uiRadiusCard` behind the **1dp `uiAccent` edge** a
+  `MultiSelectRow`'s on half or a `SegmentedRow`'s selected cell wears, with their **10dp vertical
+  padding** and no surface of its own. The value reads `uiTextPrimary` at `${ui.font.value.size}` Bold on one
+  line, ellipsised when a marker's own name is long, and the arrow is the app's `KeyboardArrowDown` in
+  `uiAccent`. **Its height is that padding's consequence, not a number** — the same way the bars get
+  theirs — which is what M3's `OutlinedTextField` could not give: its internal padding, 56dp floor, caret
+  and theme selection highlight are all gone with it.
+- **The list is a §2.10 popup the box itself positions** (2026-09-29) — a `Popup` at the box's **bottom
+  left**, as wide as the box's own measured width and bounded in height by `popupMaxHeightDp()`, so it
+  opens flush under the box in either orientation and can never reach past the space the box already fits.
+  **Why it is not M3's menu:** `ExposedDropdownMenu` sized itself from the anchor and then shifted to stay
+  inside the window, which showed as a horizontal offset against the box in landscape — placement neither
+  review could see in the source and no parameter could override. The content is the family's own —
+  `PopupSurface` outside, `PopupRow` for every option ([§2.10](#210-popup-styling-canonical)) — so 16dp/2dp
+  padding, the 15sp Medium–SemiBold label and the 24dp `✓` box in `uiAccent` on the current option are one
+  implementation for all three lists.
 - **Options** — `List<Pair<T, String>>`, the `CustomSortField` shape: the generic `T` is the value the
   caller persists and the strings are already-resolved labels, so the row never holds user-facing text.
-- **The row is the target** — the whole row is one tap that opens the menu, the same single-target rule
-  `OptionRow` follows.
+- **The box carries a name, and takes no caret** (2026-09-29) — a plain `Row` rather than a focusable
+  field, so nothing enters the surface's traversal with a caret. A **required `accessibleName`** is the one
+  string each call site hands it, set as the node's `contentDescription`, because a label-less box would
+  otherwise announce nothing at all; what is announced with it is the device pass's to confirm.
 
-**Do not hand-roll a label + tap-to-open `DropdownMenu`** — use this control, and do not paint a surface
-on it.
+**Do not hand-roll a label + tap-to-open `DropdownMenu`** — use this control. What a control paints, and
+where its own list goes, is the control's business: this one draws the bars' rim and positions its list from
+its own measured bounds rather than leaving the placement to a library. A call site wraps it in a card and
+needs nothing else.
 
 ---
 
@@ -433,7 +478,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 ## 4. Anti-Patterns
 
 - ❌ A card inside the `NestedCard` (a third level), or a full `uiCardBackground` card used as the `NestedCard` (stacked 20% white) — §2.4 depth cap
-- ❌ A row that pads itself **horizontally** or paints its own surface (background/radius) — the `CardArea`/`NestedCard` owns the inset and the box (§2.0, §2.1, §2.3)
+- ❌ A row that pads itself **horizontally** or paints its own surface (background/radius) — the `CardArea`/`NestedCard` owns the inset and the box (§2.0, §2.1, §2.3). **The bar-shaped controls are the deliberate exception** (§2.7, §2.8, §2.12): `SegmentedRow`, `MultiSelectRow` and `DropdownRow` draw their own rim and pad themselves inside the card's inset, because their box *is* the control
 - ❌ Hand-rolled label + `Switch` rows — use `ToggleRow` (§2.1); its description is optional
 - ❌ Hand-rolled divider markup (`Spacer` + `Box(background)`) — use `SectionDivider()` (§2.6)
 - ❌ Hand-rolled `RangeSlider` blocks — use `RangeSliderRow` (§2.8); its value line is mandatory

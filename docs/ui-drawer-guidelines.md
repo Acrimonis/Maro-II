@@ -281,7 +281,7 @@ rather than a top-level section with a card of its own (D2) — the drawer's fir
 Navigation — so it is set off by a `SectionDivider` and **headed by one comment naming the group's two
 fields**: `route_comment_ends` reads `Route origin and destination` (`Origine et destination de la route`),
 **which is what identifies them**, since neither row carries a label of its own — each dropdown shows **only
-its value**, on the row's right. **A rule separates nothing inside the group either**: no `SectionDivider`
+its value**, inside its own field box (§2.12). **A rule separates nothing inside the group either**: no `SectionDivider`
 between the two rows, so the card's order is GPS mode → the summary (conditional) → one divider → the comment
 → the two value-only dropdowns → the arm action, **one block**, with **auto-show zones at the card's foot**
 (moved below the Route sub-section on 2026-09-28: the mode's parameters stand before the reveal that serves
@@ -291,9 +291,11 @@ group that **writes** mode state rather than reading it; the summary stays read-
 
 - **Two `DropdownRow`s, one per end** (2026-09-28), **label-less and back to back**: the shared dropdown of
   [`ui-component-guidelines.md` §2.12](ui-component-guidelines.md#212-dropdown-row--dropdownrow), each row
-  `label = null` so it shows **only its value**, on the right, under the comment that names both fields — the
+  `label = null` so its field shows **only the value**, still under the comment that names both fields — the
   wheel of R70 retired (its drag never committing reliably), **the rule between the rows withdrawn**, and no
-  per-row label duplicating what the heading already says.
+  per-row label duplicating what the heading already says. Since 2026-09-29 the value stands inside the
+  control's own read-only field box rather than bare on the row, so the ends read as two boxes under the
+  comment.
 - **Entries are ordered and the first is the fallback** (R66): the fixed words first — `Current
   position`, `Marker position` — then every marker the end's own flag names, in the marker list's own
   order. A marker's own name is **data rather than a label**, so it arrives already resolved while the

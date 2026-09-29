@@ -477,13 +477,15 @@ private fun RouteEndsSection(section: RouteSummaryData) {
             label = null,
             options = section.startOptions.map { it.selection to it.label },
             selected = section.startSelection,
-            onSelect = section.onStartSelect
+            onSelect = section.onStartSelect,
+            accessibleName = stringResource(R.string.route_label_start)
         )
         DropdownRow(
             label = null,
             options = section.destinationOptions.map { it.selection to it.label },
             selected = section.destinationSelection,
-            onSelect = section.onDestinationSelect
+            onSelect = section.onDestinationSelect,
+            accessibleName = stringResource(R.string.route_label_destination)
         )
         Spacer(Modifier.height(8.dp))
         // The action takes the row's right half (2026-09-28): `ConfirmActionButton` resolves its own
