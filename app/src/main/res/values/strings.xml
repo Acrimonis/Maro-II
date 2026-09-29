@@ -586,6 +586,12 @@
 
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Route destination mode</string>
+    <!-- The map's route fan (R75–R80): the parent anchor's own name and the automatic child's. The
+         other four children act exactly as the keys they reuse already name — `route_action_arm`,
+         `route_action_save_track`, `route_exit_save` and `route_exit_discard` — so the fan adds no
+         second copy of those words. -->
+    <string name="cd_route_fan">Route actions</string>
+    <string name="cd_route_fan_auto">Automatic route</string>
     <!-- The acquisition's own title and comment: the phase's name, then one line of whence the answer
          comes. The ends are chosen in the drawer's Route section, so nothing is placed on the map. -->
     <string name="route_acq_title">Route acquisition</string>
@@ -645,9 +651,9 @@
     <string name="route_stage_snap">Snap</string>
     <!-- The one exit dialog, reached by the toggle's off and by the back key alike (R59). Its accent
          writes the followed route to a track and is disabled while that route already has one. -->
-    <string name="route_exit_title">Leave the route?</string>
-    <string name="route_exit_save">Save Route to Track</string>
-    <string name="route_exit_continue">Continue route</string>
+    <string name="route_exit_title">Leave the Route mode?</string>
+    <string name="route_exit_save">Save Route and exit</string>
+    <string name="route_exit_continue">Continue Route</string>
     <string name="route_exit_discard">Discard Route</string>
     <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
          "invalid" sentence above completes. Both ends read the same set. The middle two are the

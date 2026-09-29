@@ -1,31 +1,43 @@
-# Context Hydration — Route — 2026-09-28
+# Context Hydration — Route — 2026-09-29
 
-**Last Bake:** 2026-09-28 21:43 UTC — written by `#bake`
+**Last Bake:** 2026-09-29 13:12 UTC — written by `#bake`
 
-**Directive trace:** this session ran the covered action classes on the user's own word — every `#implement` hop they invoked, the three prose orders for the drawer's Route sub-section (the wheel retired, then the head and the per-row labels, then the card's order), the six re-facings of the action buttons, the five words of the acquisition-face pass they then opened with "Go ahead — implement A1 through A8", and the `#bake`, `#commit` and `#merge` of its first half with the `#bake`, `#commit` and `#push` closing it — and none was taken without it; no dependency was added, no machine-shaped data file was opened, the device was never touched and nothing was deployed, so every claim about the code came from a file read or a command's own output.
+**Directive trace:** this session ran the covered action classes on the user's own word — the `#new` that cut the branch, the `#impl` and `#commit` of the marker pass, then the route pass: the discuss gate's "plan, report, discuss", two `#impl` runs, four prose orders on the fan (its order and the loss's mark, the parent's mark, the loss's colour, the parent's colour), and the look at `color-scheme.md` that followed — and none was taken without it. No dependency was added, no machine-shaped data file was opened, the device was never touched and nothing was deployed, so every claim about the code came from a file read or a command's own output. Two gaps are named rather than hidden: a hop changed the fan's parent mark and another edited an epic entry beyond their instructions, the first was undone on the rule that an action taken without the user's word is void, and both were reported.
 
 ## State
 
-**The acquisition's own face, the toggle's door and the map's paint order are rebuilt** — the user's five words, built in one Code hop. The panel's third action is a **red `Discard route`** on the exit dialog's own `route_exit_discard` key, one act one key one colour, with `Save to track` and `Select route` sharing **one row** (weighted halves, 8 dp apart) and the discard full width beneath them; the header's corner reads **`Acquiring (Search)…`** from a new `route_status_acquiring_stage` in both locales, the stage having left the sentence line, which now carries the refusals and the no-route word alone — `route_searching` lost its only reader and left both locales; and **`armRouteMode` lost its `openDrawer` parameter**, so neither door opens the drawer and the acquisition lands on the panel alone (D5 generalised, R73 amended).
+**The map's route surface changed shape.** The control stack's `cm` square — the Add Zone door markers no longer need — became a **route fan**: a `ControlId.ROUTE_FAN` anchor that **opens the arc and arms nothing**, with five momentary children that close the fan on a press. The arming moved into the arc, so the mode is entered from the map by a child rather than by the square itself.
 
-**The map's track band gained three tiers** — stored tracks, then the route, then the live recording — because the band's order was only ever whoever wrote last, which is what let a stored track cover the route's green: `OverlayZOrder` now applies the tiers behind a pure `trackTierOf`, `OverlayTrackTierTest` pins the classification, and the drawing itself stays the device's, exactly as `RouteTargetBandTest` records for the band's own list.
+**The arc's order is the screen's, not the list's** — the distinction that cost two passes. It reads, top to bottom, `bolt` (`Route (auto)`) · `route` (`Route`) · `save` (`Save to track`) · `logout` (`Save to track and exit`) · `cancel` (`Discard, unasked`), so the **list runs bottom-to-top** (`FanDirection.LEFT` fixes `baseAngleDeg` at 270°, putting index 0 at the arc's bottom, 198°, and index 4 at its top, 342°). The first pass wrote the list in reading order and drew the arc mirrored; §3 of the plan carries the mapping so it is never re-derived.
 
-**The rest of the day stands as the 21:19 bake left it:** the drawer's Route sub-section rebuilt — one comment naming its two fields over two label-less dropdowns under the `Route` action, with auto-show at the card's foot — the app's action faces settled by six re-facings (`PRIMARY` the accent full, `SECONDARY` the accent at 50 % under a 2 dp rim, the **disabled face the only bare outline**, one bar the norm for any set of choices), and R70 of the master book superseded by the dropdown.
+**The gating is one derivation, and each cell reads the flag its own door reads**: the two arming children on `!routeArmed`, `Save to track` where a line stands unwritten, `Save to track and exit` on `FOLLOWING` and unwritten, `Discard` on `routeArmed`. An Ask finding was folded before the pointer landed — the arming cells and `Discard` had keyed on `RouteState.phase`, which disagrees with `routeArmed` after process death and on the arming frame, drawing live cells that did nothing and a dead `Discard`.
 
-**Not validated:** nothing of today has been seen on the device — neither the morning's fairing, nor the drawer's controls, nor the panel's row and corner, nor the paint order.
+**Two capabilities the framework owed, both defaulted so nothing else moved**: `MapControlButton(enabled)` pins Material's disabled container and content back to its own tokens, and `FanLayout(enabledStates)` suppresses a child's press. The fan passes no `activeStates`, so no glyph inherits the toggle's 0.25 face; a disabled child wears the fan's own inactive alpha, which is the convention the user kept.
+
+**The auto-pick takes the settled line, through the panel's own seam.** `routeAutoPickReady()` fires on the first `Choosing` carrying a plan and selects **index 0**, which `routeCandidateLines` defines as the settled answer with the engine's offers behind it — so `selectRoute()` is used unchanged, nothing waits for an offer, and the flag clears on the selection, on an end and on a new arming.
+
+**No glyph in that fan carries a hue.** The user's rule, in two passes: *all white all the time*. The Discard child lost `AppConfig.semanticDanger`, the parent glyph lost `routeLineColor` / `routeNavigateColor`, and the anchor's three faces are told apart by the `MapPulseDot` alone. The mode's read at large is untouched — `RouteToggleButton` still draws R51's green while acquiring and blue while following — so the map's colour is the mode's own square, and `docs/color-scheme.md` §2 now states the rule without its parent exception.
+
+**The rest of the day, on the same branch:** the markers' create action moved to the head of both markers headers (committed `12b8338`, device pass owed), and the master book took the fan's requirements — **R49 · R50 · R51 · R59 · R60 · R73 amended** and **R75–R80 added**.
+
+**Not validated:** nothing of this session has been seen on the device — not the arc's order, its fade against the layer fan, the 0.25 face across five glyphs, the close on press, the anchor's faces and dot, the two waypoint marks in one arc, the auto-pick's hand-over, nor the markers' two new header actions.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt` — the red discard, the shared action row, the corner's status pair and the sentence's shortened arms
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `armRouteMode`'s one door and the panel's two call sites
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — the band's three tiers and the pure `trackTierOf`
-- `app/src/test/java/ykws/android/maro/ui/map/OverlayTrackTierTest.kt` (new) · `RouteTargetBandTest.kt` (its band sentence moved to the route tier)
-- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — `route_status_acquiring_stage` added in both, `route_searching` deleted from both
-- `docs/ui-drawer-guidelines.md` §8a · `docs/ui-component-guidelines.md` (read and unchanged — it places the stage nowhere)
-- `xTrack/Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` — R15, R55, R57, R73 and the acquisition's own state table
-- `xTrack/Route/FEAT_DSC_Route.md` — the ordering, toggle and action rules, the Key Files row, a new `## Implemented` entry
-- `xTrack/Route/260928_FEAT_PLN_Route_acquisition-face-and-map-order.md` — this pass's plan, shipped, plus the Rev 10 line and the D5 amendment in the two plans beside it
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `ControlId.ROUTE_FAN`, the children list in bottom-to-top order, `routeFanEnabled`, `routeFanActions`, the auto-pick's arming, the Add Zone square's three removal sites
+- `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt` — the five child icons, the parent's plain mark, `AddLocationAltIcon` deleted, `MapPulseDot` untouched
+- `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt` · `MapControlButton.kt` · `MapControls.kt` — `enabledStates`, `enabled`, the new `ControlId` entry
+- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt` — `routeAutoPickReady()` beside `routeCandidateLines`
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the auto-pick flag and its one-shot
+- `app/src/main/java/ykws/android/maro/ui/icons/` — `AddRoad.kt`, `Bolt.kt`, `Route.kt`, `Save.kt`, `Logout.kt` and `Cancel.kt` added, `AddRoad.kt` and `DeleteForever.kt` deleted with their callers
+- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — the fan's two new keys in both locales
+- `app/src/test/java/ykws/android/maro/ui/map/RouteAutoPickTest.kt` (new, 4 cases)
+- `docs/color-scheme.md` §2 · `docs/ui-lists-guidelines.md` — the round map button's no-hue rule, and the markers list's header order
+- `xTrack/Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` — R49, R50, R51, R59, R60, R73 amended, R75–R80 added
+- `xTrack/Route/260929_FEAT_PLN_Route_map-fan-add-route.md` — this pass's plan of record, reviewed to **revise** with every finding folded, its Outcome written
+- `xTrack/Route/FEAT_DSC_Route.md` — both new `## Implemented` entries, the fan rule, the Docs row, the date
+- `xTrack/Markers/260929_FEAT_PLN_Markers_add-marker-trigger.md` · `xTrack/Markers/FEAT_DSC_Markers.md` — the morning's marker pass
 
 ## Next Step
 
-The walk at [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) is **open** — its cursor on the trigger's coroutine read — so it blocks the bake's fold and any `#archive` until it closes. Behind it, in the walk's own order: `MapScreen.kt:91`'s unused `OutlinedButton` import (one line of dead code), Phase 6's folded fixes never re-reviewed, Phase 5's marker weights, Change 4's fine band, the progressive-draw findings, the F1/F2 wording pair, the two long-line record rows, and the device passes — the fairing's, the drawer's and now the acquisition's own three readings.
+The Route walk at [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) is **open** — its first level's cursor still reads item 3, which is closed, so the field is stale and the first open item is **13** (the trigger's read of the end pair, moved out of its coroutine launch) — and an open walk blocks the bake's fold and any `#archive` until it closes. Behind it the walk's own order stands: item 14's never-re-reviewed folded fixes, Phase 5's marker weights, Change 4's fine band, the progressive-draw findings, the F1/F2 wording pair, the two long-line record rows, and the device passes — the fairing's, the drawer's, the acquisition's, the markers' two header actions and now the arc's own readings.

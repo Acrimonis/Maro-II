@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** Identifies a control in the right-edge stack. Add new entries when adding controls. */
-internal enum class ControlId { SETTINGS, LAYER_FAN, ZOOM, MENU }
+internal enum class ControlId { SETTINGS, LAYER_FAN, ROUTE_FAN, ZOOM, MENU }
 
 /**
  * Side (dp) of one square in the map's top-left toggle-button row, from the palette's
