@@ -296,15 +296,15 @@ data class AppSettings(
      * Whether stored **recorded** tracks are painted from the speed ramp rather than from the default
      * colours — the other render axis, and the one a fresh install opens on. It is the *fill* alone:
      * while it is on, the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a
-     * recorded track is drawn, and the chevrons stay [trackArrows]' business. A **route** is not one of
-     * them: it paints from its own pair whatever this says, banded only by its own colour gate
-     * ([routeSpeedColor]), so the chips never reach a route (R34, R37).
+     * recorded track is drawn, and the chevrons stay [trackArrows]' business. A **route** follows this
+     * chip too: the route role bands only while this is on **and** the route's own colour gate is on
+     * ([routeSpeedColor]), so with Colours off a route keeps its own pair (R34, R37).
      */
     val trackColours: Boolean = true,
     /**
-     * The route-scoped speed-colour gate (R37): true lets a route be rendered with its speeds in
-     * colour, false — the shipped default — draws it in its own colour pair. For a route it replaces
-     * the Colours chip's say-so rather than sitting beside it.
+     * The route-scoped speed-colour gate (R37): it **gates** the Colours chip rather than replacing it —
+     * a route bands only while this is true **and** [trackColours] is on, so at the shipped default
+     * `false` (and whenever Colours is off) a route is drawn in its own colour pair.
      */
     val routeSpeedColor: Boolean = BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_COLOR,
     /**

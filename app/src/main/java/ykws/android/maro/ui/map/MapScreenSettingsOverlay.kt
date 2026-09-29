@@ -429,9 +429,9 @@ private fun LayersSettings(
 
                     SectionDivider()
 
-                    // The route's two rendering gates, the route-scoped twins of the drawer's
-                    // Colours and Arrows chips: the colour one replaces the ramp for a route, the
-                    // arrow one can only veto the chevrons.
+                    // The route's two rendering gates, each gating its drawer chip: the colour one
+                    // bands a route only while the Colours chip is on too, the arrow one can only
+                    // veto the Arrows chip's chevrons (R37, R38).
                     ToggleRow(
                         label = stringResource(R.string.settings_routes_speed_color_label),
                         checked = settings.routeSpeedColor,

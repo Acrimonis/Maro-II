@@ -32,7 +32,9 @@ class TrackRouteRoleTest {
     )
 
     @Test
-    fun aRouteTakesItsOwnPairWhateverTheChipsSay() {
+    fun aRouteWithItsGateOffTakesItsOwnPairWhateverTheChipsSay() {
+        // The gate defaults off, so with it off the chips never band a route (R37): both combinations
+        // land on the route pair. With the gate on the Colours chip decides — see the test below.
         val bothChipsOn = trackRenderPlan(
             trackArrows = true, trackColours = true, selected = false,
             eyeOverride = null, route = true
@@ -90,18 +92,25 @@ class TrackRouteRoleTest {
     }
 
     @Test
-    fun theSpeedColourGateReplacesThePairWithTheRamp() {
-        val off = trackRenderPlan(
-            trackArrows = true, trackColours = false, selected = false,
-            eyeOverride = null, route = true, routeSpeedColour = false
-        )
-        val on = trackRenderPlan(
-            trackArrows = true, trackColours = false, selected = false,
-            eyeOverride = null, route = true, routeSpeedColour = true
-        )
+    fun theSpeedColourGateJoinsTheChipsToBandARoute() {
+        fun path(trackColours: Boolean, gate: Boolean) = trackRenderPlan(
+            trackArrows = true, trackColours = trackColours, selected = false,
+            eyeOverride = null, route = true, routeSpeedColour = gate
+        ).path
 
-        assertEquals(TrackRenderPath.ROUTE, off.path)
-        assertEquals(TrackRenderPath.BANDED, on.path)
+        // Both must be on: the gate is a condition on the Colours chip, not a replacement for it (R37).
+        assertEquals(TrackRenderPath.BANDED, path(trackColours = true, gate = true))
+        assertEquals(
+            "the gate alone cannot band a route",
+            TrackRenderPath.ROUTE,
+            path(trackColours = false, gate = true)
+        )
+        assertEquals(
+            "the chip alone cannot band a route",
+            TrackRenderPath.ROUTE,
+            path(trackColours = true, gate = false)
+        )
+        assertEquals(TrackRenderPath.ROUTE, path(trackColours = false, gate = false))
     }
 
     @Test
