@@ -46,6 +46,13 @@ import kotlin.math.sin
  * - Children receive [isActive] to visually indicate toggle state.
  * - Fan stays open after child toggle ([FanConfig.stayOpenAfterToggle]).
  * - Active badge shown on parent when [FanConfig.showActiveBadge] is true.
+ *
+ * Momentary mode ([FanConfig.toggleChildren] false) — a fan whose children are **actions** rather
+ * than toggles:
+ * - Every child receives `false` for [isActive], so the established `alpha = if (isActive) 1f else 0.25f`
+ *   toggle idiom would dim the whole arc; such children draw at full tint and read [enabledStates].
+ * - [enabledStates] is what carries the phase: a `false` entry hands that child its disabled reading
+ *   and suppresses its press, an absent entry leaves the child enabled.
  * - Scrim dismiss: a transparent full-screen scrim is placed below the control
  *   stack when any fan is expanded; tapping anywhere that isn't a fan child,
  *   settings, or zoom button closes the fan. Also closes on parent anchor tap
@@ -59,9 +66,13 @@ import kotlin.math.sin
  * @param modifier     Root modifier for the fan's bounding box.
  * @param parent       Composable for the parent button's content. Receives [isOpen] and [activeChildCount].
  * @param onParentClick   Tap handler for the parent button.
- * @param children        List of composables for each child button's icon content. Each receives [isActive].
+ * @param children        List of composables for each child button's icon content. Each receives [isActive]
+ *                        and whether that child is enabled.
  * @param onChildClick    Tap handler for each child button. Receives index and current active state.
  * @param activeStates    Per-child active state. When non-empty, overrides [FanConfig.toggleChildren] per child.
+ * @param enabledStates   Per-child enabled state. When non-empty, a `false` entry suppresses that child's
+ *                        press and lets the child draw its own disabled face; an absent entry is enabled,
+ *                        so the default leaves the layer fan and every other caller untouched.
  */
 @Composable
 fun FanLayout(
@@ -69,9 +80,10 @@ fun FanLayout(
     modifier: Modifier = Modifier,
     parent: @Composable (isOpen: Boolean, activeChildCount: Int) -> Unit,
     onParentClick: () -> Unit,
-    children: List<@Composable (isActive: Boolean) -> Unit>,
+    children: List<@Composable (isActive: Boolean, enabled: Boolean) -> Unit>,
     onChildClick: ((index: Int, isActive: Boolean) -> Unit)? = null,
-    activeStates: List<Boolean> = emptyList()
+    activeStates: List<Boolean> = emptyList(),
+    enabledStates: List<Boolean> = emptyList()
 ) {
     // Compute effective θ from the actual number of buttons to place (not maxCount).
     // This determines both spacing (angle between children) and radius (chord = btn+gap).
@@ -156,6 +168,8 @@ fun FanLayout(
 
                 // Use per-child active state when provided, otherwise fall back to toggleChildren flag
                 val isActive = activeStates.getOrElse(i) { config.toggleChildren }
+                // Enablement is the phase's own reading for a momentary fan, and absent means enabled.
+                val enabled = enabledStates.getOrElse(i) { true }
 
                 Box(
                     modifier = Modifier
@@ -163,6 +177,7 @@ fun FanLayout(
                         .size(config.buttonSizeDp)
                 ) {
                     MapControlButton(
+                        enabled = enabled,
                         onClick = {
                             // In toggle mode, report the current state so caller can toggle
                             if (config.toggleChildren) {
@@ -172,7 +187,7 @@ fun FanLayout(
                                 onChildClick?.invoke(i, false)
                             }
                         },
-                        icon = { childContent(isActive) }
+                        icon = { childContent(isActive, enabled) }
                     )
                 }
             }

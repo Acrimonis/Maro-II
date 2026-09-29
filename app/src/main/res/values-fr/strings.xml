@@ -450,6 +450,7 @@
     <string name="cd_manage_markers">Gérer les repères</string>
     <string name="cd_open_first_track">Ouvrir la première trace</string>
     <string name="cd_open_first_marker">Ouvrir le premier repère</string>
+    <string name="cd_create_marker">Créer un repère</string>
     <string name="cd_set_icon">Définir l\'icône</string>
     <string name="cd_edit">Modifier</string>
     <string name="cd_delete">Supprimer</string>
@@ -584,6 +585,12 @@
 
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Mode destination de route</string>
+    <!-- Le fan de route de la carte (R75–R80) : le nom de son ancre et celui de l\'enfant automatique.
+         Les quatre autres enfants font exactement ce que les clés réutilisées nomment déjà —
+         `route_action_arm`, `route_action_save_track`, `route_exit_save` et `route_exit_discard` —
+         donc le fan n\'ajoute pas une seconde copie de ces mots. -->
+    <string name="cd_route_fan">Actions de route</string>
+    <string name="cd_route_fan_auto">Route automatique</string>
     <!-- Le titre et le commentaire de l'acquisition : le nom de la phase, puis une ligne disant d'où
          vient la réponse. Les extrémités sont choisies dans la section Route du tiroir, donc rien
          n'est placé sur la carte. -->

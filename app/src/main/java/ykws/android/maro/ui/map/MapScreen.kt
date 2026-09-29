@@ -642,6 +642,10 @@ fun MapScreen(
     // reached by three doors needs one set of those values.
     var routePinned by remember { mutableStateOf(false) }
     var routeExitRequested by remember { mutableStateOf(false) }
+    // **The auto-pick's own one-shot flag** (R80): armed by the fan's *Route (auto)* child, it takes the
+    // settled line the instant that line exists and clears with it — on the selection, on an end and on a
+    // new arming — so no later acquisition can inherit an intent nobody pressed for.
+    var routeAutoPick by remember { mutableStateOf(false) }
     // **The session's link table and the running stage**, read reactively: the first is the one fact
     // the save actions grey themselves on (R55, R59) and the second is the acquisition's own progress
     // (R15).
@@ -1858,6 +1862,8 @@ fun MapScreen(
                 routeArmed = false
                 routePinned = false
                 routeExitRequested = false
+                // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
+                routeAutoPick = false
                 // The machine is told here as well as from the host's own `armed` edge, so the state
                 // leaves the acquisition on this frame rather than a recomposition later.
                 routeViewModel.end()
@@ -2343,6 +2349,72 @@ fun MapScreen(
             // Crosshair removed — boat marker stays visible during position steps
             val showCrosshair = false
 
+            // ── The route fan's own wiring (R75–R80) ──────────────────────────
+            // **The five booleans, in the children list's order** (D7, R77): the enablement table is
+            // stated once, here, and **every cell is read from the same source as the action it gates**,
+            // so a cell can never disagree with the door it opens.
+            // **That list is not the arc's reading order**: a left-facing fan puts index 0 at the arc's
+            // **bottom** — `FanConfig.baseAngleDeg` is 270° for `FanDirection.LEFT`, the five-child step
+            // is 36°, so index 0 lands at 198° and index 4 at 342° — and the screen therefore reads the
+            // list **bottom to top**: the user's word of 2026-09-29 being **Route (auto) · Route · Save
+            // to track · Save to track and exit · Discard, top to bottom**, which is exactly this list
+            // reversed, index 0 opening the reading with Discard.
+            val routeFanEnabled: List<Boolean> = run {
+                val phase = routeState.phase
+                val following = phase == RoutePhase.FOLLOWING
+                val unwritten = routeSelectedLine != null && !routeFrontSaved
+                listOf(
+                    // Discard — wherever a line can be left, from the search itself to a written route.
+                    // Read from **`routeArmed`**, the flag the door itself turns off, so it stands
+                    // enabled exactly while its action would act.
+                    routeArmed,
+                    // Save to track and exit — the Following phase's alone: inside the acquisition the
+                    // leaving is the phase move Discard, and it asks nothing (R63).
+                    following && unwritten,
+                    // Save to track — mirrors the panel's own face: a line stands and is unwritten.
+                    unwritten,
+                    // Route — the same arming and the same source, asking for the search alone.
+                    !routeArmed,
+                    // Route (auto) — the arming that takes the settled answer itself (R80), and an
+                    // arming belongs to Idle alone (R65). Its source is **`routeArmed`**, not the phase:
+                    // the flag is what the press reads and the only thing a restore brings back, so the
+                    // phase would draw the cell live on the arming frame and dead after process death,
+                    // exactly when the arc is needed.
+                    !routeArmed
+                )
+            }
+            // **The five actions, in that same list's order** (D5, R79): the two arming children differ
+            // by the auto-pick flag alone, the save pair mirror the panel's and the dialog's own saves,
+            // and the Discard is the dialog's third outcome without its question.
+            val routeFanActions: List<() -> Unit> = listOf(
+                { endRouteMode() },
+                {
+                    routeSelectedLine?.let { saveRouteTrack(it, routePinned) }
+                    endRouteMode()
+                },
+                { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
+                {
+                    routeAutoPick = false
+                    armRouteMode()
+                },
+                {
+                    routeAutoPick = true
+                    armRouteMode()
+                }
+            )
+            // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **settled
+            // line has landed** — `plan != null` — and never on "a non-empty candidate set", which is
+            // the same moment one emission later. Index 0 of the drawn set *is* the settled answer
+            // ([`routeCandidateLines`] puts it first) and the arming resets the index, so the panel's own
+            // `selectRoute()` takes exactly that line and the shell's follow hand-over follows. The flag
+            // is cleared before the selection, so no second pass can take it.
+            LaunchedEffect(routeState, routeAutoPick) {
+                if (routeAutoPickReady(routeAutoPick, routeState)) {
+                    routeAutoPick = false
+                    followRoute()
+                }
+            }
+
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
             MapContent(
@@ -2379,12 +2451,6 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 markerLayerState = markerLayerState,
                 onToggleMarkerLayer = { markersViewModel.toggleMarkerLayer() },
-                onAddZone = { center ->
-                    // R1: the wizard takes the dashboard slot. The other dashboard is the close that
-                    // matters; the same-kind half is what clears a selection the wizard's state cannot.
-                    closeSelectedItemDashboards()
-                    markersViewModel.startWizard(initialPos = center)
-                },
                 onWhereAmI = {
                     // R1: the Where-Am-I dashboard is the other selected-item dashboard, so a live
                     // track dashboard closes first (one selected item at a time).
@@ -2490,6 +2556,8 @@ fun MapScreen(
                 routeFollowing = routeState is RouteState.Following,
                 routeSearching = routeSearching,
                 onToggleRoute = { if (routeArmed) toggleRouteOff() else armRouteMode() },
+                routeFanEnabled = routeFanEnabled,
+                routeFanActions = routeFanActions,
                 routeHost = {
                     Box(modifier = Modifier.fillMaxSize()) {
                         RouteHost(
@@ -3685,7 +3753,6 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
     onToggleMarkerLayer: () -> Unit = {},
-    onAddZone: (LatLng) -> Unit = {},
     onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
@@ -3738,6 +3805,14 @@ private fun MapContent(
     /** True while a search runs: the pulsing dot is drawn on the acquiring face too (R51). */
     routeSearching: Boolean = false,
     onToggleRoute: () -> Unit = {},
+    /**
+     * **The route fan's own five booleans and five actions, in the arc's order** (R75–R80): the shell
+     * derives both — §2's enablement table is stated once, and the five actions close over the shell's
+     * own arming, saving and Discard — so this file composes the arc rather than re-deriving the phase.
+     * The two lists are parallel, and index N of each belongs to child N.
+     */
+    routeFanEnabled: List<Boolean> = emptyList(),
+    routeFanActions: List<() -> Unit> = emptyList(),
     /**
      * The route mode's own slot, composed by the shell so this file keeps **one** new parameter
      * rather than a dozen: the single `RouteHost(mapView, boatPosition)` call lives in the shell,
@@ -4070,30 +4145,74 @@ private fun MapContent(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Fan layout with built-in alpha fade for children
-                    val isExpanded = expandedFanId == ControlId.LAYER_FAN
-                    // Only the fan anchor fades when another fan is expanded;
-                    // the fan itself is always visible when it's the expanded one.
-                    val cmAlpha by animateFloatAsState(
-                        targetValue = if (anyFanOpen && !isExpanded) 0f else 1f,
+                    // ── The two fans, and the fade that is each one's own ─────────
+                    // **Each parent takes the layer fan's form** (R76, D2): it hides only while the
+                    // *other* fan is open and stands while its own is. The Add Zone square this fan
+                    // replaced faded on `anyFanOpen` alone, and copied here that rule would have made a
+                    // parent vanish the instant its own arc opened.
+                    val layerFanExpanded = expandedFanId == ControlId.LAYER_FAN
+                    val routeFanExpanded = expandedFanId == ControlId.ROUTE_FAN
+                    val layerFanAlpha by animateFloatAsState(
+                        targetValue = if (anyFanOpen && !layerFanExpanded) 0f else 1f,
                         animationSpec = tween(300)
                     )
-                    // Add Zone button (same size/style as FanLayout buttons, opens wizard at TypeSelect)
-                    MapControlButton(
-                        onClick = { onAddZone(mapCenter) },
-                        modifier = Modifier.alpha(if (anyFanOpen) 0f else 1f)
-                    ) {
-                        AddLocationAltIcon()
+                    val routeFanAlpha by animateFloatAsState(
+                        targetValue = if (anyFanOpen && !routeFanExpanded) 0f else 1f,
+                        animationSpec = tween(300)
+                    )
+
+                    // ── The route fan (R75–R80) ───────────────────────────────
+                    // The parent opens the arc and states the mode (R76); the five children are the
+                    // route's own actions, each enabled by the phase alone (R77); and a child's press
+                    // closes the fan first, by clearing the one id that says which is open (D3, R78).
+                    // **The list runs bottom to top** — index 0 sits at the arc's bottom — so it is the
+                    // screen's reading reversed: Discard lowest, `bolt` highest.
+                    Box(modifier = Modifier.alpha(routeFanAlpha)) {
+                        FanLayout(
+                            config = FanConfig(
+                                maxCount = 5,
+                                currentCount = 5,
+                                direction = FanDirection.LEFT,
+                                isOpen = routeFanExpanded,
+                                toggleChildren = false,
+                                showActiveBadge = false
+                            ),
+                            parent = { _: Boolean, _: Int ->
+                                RouteFanParentIcon(
+                                    armed = routeArmed,
+                                    following = routeFollowing,
+                                    searching = routeSearching
+                                )
+                            },
+                            onParentClick = { onToggleFan(ControlId.ROUTE_FAN) },
+                            // The arc reads **enablement** rather than a toggle state (D3, R78): every
+                            // child of a momentary fan receives `false` for `isActive`, so the layer
+                            // fan's own dimming idiom would have painted all five glyphs at a quarter
+                            // strength. Each child draws at full tint and dims only where its phase has
+                            // nothing for it to act on.
+                            children = listOf<@Composable (Boolean, Boolean) -> Unit>(
+                                { _, enabled -> RouteFanDiscardIcon(enabled) },
+                                { _, enabled -> RouteFanSaveExitIcon(enabled) },
+                                { _, enabled -> RouteFanSaveIcon(enabled) },
+                                { _, enabled -> RouteFanArmIcon(enabled) },
+                                { _, enabled -> RouteFanAutoIcon(enabled) }
+                            ),
+                            enabledStates = routeFanEnabled,
+                            onChildClick = { index: Int, _: Boolean ->
+                                onDismissFan()
+                                routeFanActions.getOrNull(index)?.invoke()
+                            }
+                        )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Box(modifier = Modifier.alpha(cmAlpha)) {
+                    Box(modifier = Modifier.alpha(layerFanAlpha)) {
                         FanLayout(
                             config = FanConfig(
                                 maxCount = 6,
                                 currentCount = 6,
                                 direction = FanDirection.LEFT,
-                                isOpen = isExpanded,
+                                isOpen = layerFanExpanded,
                                 toggleChildren = true,
                                 showActiveBadge = true,
                                 activeChildCount = listOf(
@@ -4107,13 +4226,13 @@ private fun MapContent(
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
-                            children = listOf<@Composable (Boolean) -> Unit>(
-                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                            children = listOf<@Composable (Boolean, Boolean) -> Unit>(
+                                { isActive, _ -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive, _ -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive, _ -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive, _ -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive, _ -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive, _ -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
                                 markerLayerState != MarkerLayerState.HIDDEN,

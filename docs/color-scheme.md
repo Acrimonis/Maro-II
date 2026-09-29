@@ -136,6 +136,13 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 
 **Toggle state logic:** Active = `icon` at full alpha; Inactive = `icon` at 25% alpha. Same hue, alpha-only distinction.
 
+**Every glyph in a round map button wears `ui.button.icon`** — the near-white above, over the navy fill — and
+never a semantic hue: the fan's **parent button** and each of its children alike, so a mark's meaning is
+carried by its shape and its place in the stack, not by a colour (2026-09-29). The arc's Discard is no
+exception, its 25 % face included, and neither is the fan's parent: its three faces are told apart by the
+pulsing dot alone, so the mode's state lives on that dot and on the map's own route toggle, a square of
+its own that keeps R51's green and blue.
+
 ### Map Surface & Toggle Row
 
 **Property prefix:** `ui.map.surface.*` / `ui.map.toggle.*` / `ui.map.overlay.*`

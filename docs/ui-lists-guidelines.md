@@ -158,10 +158,16 @@ Filter and sort popups follow the canonical popup-styling spec in
 
 | Icon | Material | Role | Active state |
 |------|----------|------|-------------|
+| Create — markers list only | `AddLocationAlt` (standalone .kt) | Opens the create wizard at the map centre | Action — no state |
 | Filter button | `FilterAlt` (funnel, standalone .kt) | Opens filter popup | `activeAlpha` when `axes.isNotEmpty()` |
 | Sort button | `FilterList` (3 descending bars, standalone .kt) | Opens sort popup | `activeAlpha` when field ≠ CREATED or customFieldKey ≠ null or !descending |
 | Direction toggle | `ArrowDropUp` / `ArrowDropDown` (core) | Instant toggle | Same as sort (inactive at default) |
 | Reset | `Refresh` (circular arrow, standalone .kt) | Clears filter + sort | Action — no state |
+
+The markers list opens its row cluster with the shared create action; the tracks list takes no create action.
+The order the action takes in that cluster, and the separator's own shape, are stated once in
+[`MarkerCreateAction`](../app/src/main/java/ykws/android/maro/ui/components/MarkerCreateAction.kt:27)'s KDoc —
+this table keeps each control's own row and nothing more.
 
 ## ViewModel Pattern
 

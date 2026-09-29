@@ -72,6 +72,7 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.MarkerCreateAction
 
 /**
  * Full-screen overlay displaying a LazyColumn of user marker cards with
@@ -79,7 +80,7 @@ import ykws.android.maro.ui.components.ListOverlayScaffold
  *
  * @param markers              List of all user markers.
  * @param onAction             Single callback for all list actions.
- * @param onCreateFirst        Called when user taps "Create First Marker" from empty state.
+ * @param onCreateFirst        The create path: the empty state's button and the header's create action.
  * @param onDismiss            Called to close the management page.
  * @param onSetIcon            Called to set/change marker icon.
  * @param sortOrder            Current sort order from settings.
@@ -228,6 +229,7 @@ fun MarkerManagementOverlay(
         onDismiss = onDismiss,
         modifier = modifier,
         multiActions = markerMultiActions,
+        headerActions = { MarkerCreateAction(onClick = onCreateFirst) },
         lazyListState = lazyListState
     )
 

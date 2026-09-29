@@ -42,6 +42,7 @@ import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.components.DropdownRow
+import ykws.android.maro.ui.components.MarkerCreateAction
 import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
@@ -64,6 +65,7 @@ private enum class TrackAxis { ARROWS, COLOURS }
  * @param recorderState    Current recorder state from [TrackViewModel].
  * @param onViewTrackList   Triggered when user taps "Track List".
  * @param onManageMarkers   Triggered when user taps "Manage Markers".
+ * @param onCreateMarker    The create action closing the MARKERS header's trailing slot.
  * @param onDismiss         Triggered to close the panel.
  */
 @Composable
@@ -78,6 +80,7 @@ fun MenuDrawerOverlay(
     recorderState: TrackRecorderUiState,
     onViewTrackList: () -> Unit,
     onManageMarkers: () -> Unit = {},
+    onCreateMarker: () -> Unit = {},
     onOpenFirstTrack: (() -> Unit)? = null,
     onOpenFirstMarker: (() -> Unit)? = null,
     markerZonesVisible: Boolean = true,
@@ -371,6 +374,9 @@ fun MenuDrawerOverlay(
 
         // ── MARKERS section + filter controls ────────────
         SectionHeader(title = stringResource(R.string.settings_section_markers)) {
+            // The create action opens the slot outside the filter-axes gate below, so creation never
+            // disappears with the filters (D6); its rule and the order it follows travel with it.
+            MarkerCreateAction(onClick = onCreateMarker)
             if (markerFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleMarkerLink,

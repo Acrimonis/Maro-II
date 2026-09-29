@@ -88,6 +88,21 @@ internal fun routeCandidateLines(settled: RoutePlan?, offers: List<RouteOffer>):
 }
 
 /**
+ * **The auto-pick's one-shot, as a reading of the machine** (R80) — the fan's *Route (auto)* child
+ * armed with the intent to take the first answer.
+ *
+ * It is true the moment the intent is armed **and the acquisition's settled line has landed**, and false
+ * either side of that instant. It keys on `plan != null` rather than on a non-empty candidate set on
+ * purpose: the settled answer is what this child promises, and "a non-empty set" is the same moment one
+ * emission later — waiting for an offer would make the promise depend on the engine's own lane rather
+ * than on the route it drew. The caller takes **index 0** of the drawn set, which
+ * [`routeCandidateLines`] puts the settled line at and every arming resets, so no second selection path
+ * exists and `selectRoute()` is called unchanged.
+ */
+internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState): Boolean =
+    autoPick && state is RouteState.Choosing && state.plan != null
+
+/**
  * **Next/prev over a set of [count] entries** (R54): [index] stepped by [delta] and **looped**, so a
  * press past either end comes back on the other.
  *
