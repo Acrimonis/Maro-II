@@ -94,6 +94,16 @@ No `UPDATED` — removed, default is `CREATED` descending.
 
 [`ListSortState.applySort<T : ListableItem>()`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt:39) centralizes field dispatch, direction reversal, and `pinnedGrouped`-free sorting. Each ViewModel provides only its type-specific custom comparator lambda.
 
+### Ignored title prefixes
+
+The alphabetical field's key is `titleSortKey(title, ignoredPrefixes)` — the title, case folded, with its
+leading non-letters dropped, and **one** configured word dropped when the title *starts with* it and whitespace
+follows (the key then beginning at the first character of the next word, so `Le Port` files under P while
+`Leman`, whose next character is not a space, and `Léman`, whose next character is not the same letter, keep
+their L). The words are `title.sort.ignoredPrefixes` in `maro.properties`, and `titleOrder` is the **one**
+comparator the lists and the route ends' selector both read — the ascending base the lists reverse for their
+direction, taken as it stands by a selector. The test folds case and nothing else: no accent, no collation.
+
 ## Filter System
 
 ### ListFilter Model
@@ -153,6 +163,12 @@ data class FilterOptionSpec(val value: String, val labelResId: Int, val isDefaul
 
 Filter and sort popups follow the canonical popup-styling spec in
 [`ui-component-guidelines.md` §2.10](ui-component-guidelines.md#210-popup-styling-canonical).
+
+**The filter popup stays open on a row tap** (2026-09-29): a filter is a set of groups and the user works
+through them in one visit, so a row writes its choice **live** — the list behind answers at once, the popup
+standing — and the popup is dismissed by an **outside tap or by back** alone. There is no group count in the
+rule and no draft state in the control. The sort popup is the other case and keeps closing on a choice: one
+choice, one job.
 
 ## Header Row Icons
 

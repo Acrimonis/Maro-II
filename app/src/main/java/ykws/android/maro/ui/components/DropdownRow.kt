@@ -70,6 +70,11 @@ private const val FIELD_BORDER_DP = 1
  * holds user-facing text, the caller hands in already-resolved labels for each option and the selected
  * value. It is the dropdown the row family gains for a list that may grow past two entries, where the
  * inline [SegmentedRow] would not fit.
+ *
+ * **The selection is resolved once, and both surfaces read that one answer** (2026-09-29): the box's word
+ * and the wheel's entry come from the same resolved index, so a value the options do not carry shows the
+ * entry the popup bands rather than a blank box beside a banded first row — the control answers once
+ * instead of twice. §2.12 carries the rule.
  */
 @Composable
 internal fun <T> DropdownRow(
@@ -82,7 +87,10 @@ internal fun <T> DropdownRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var anchorSize by remember { mutableStateOf(IntSize.Zero) }
-    val selectedLabel = options.firstOrNull { it.first == selected }?.second.orEmpty()
+    // One resolution, read by both surfaces: an entry the options do not carry leaves this at the first
+    // option, and the box paints that same option's word — never a blank box against a banded entry 0.
+    val selectedIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
+    val selectedLabel = options.getOrNull(selectedIndex)?.second.orEmpty()
     val menuMaxHeight = popupMaxHeightDp(LocalConfiguration.current.screenHeightDp).dp
     val measuredWidth = with(LocalDensity.current) { anchorSize.width.toDp() }
     val menuWidth = if (anchorSize.width > 0) measuredWidth else POPUP_WIDTH_DP.dp
@@ -156,7 +164,7 @@ internal fun <T> DropdownRow(
                     PopupSurface(maxHeight = menuMaxHeight, width = menuWidth, scrollable = false) {
                         DropdownWheel(
                             labels = options.map { it.second },
-                            selectedIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0),
+                            selectedIndex = selectedIndex,
                             onChoose = { index ->
                                 options.getOrNull(index)?.let { onSelect(it.first) }
                                 expanded = false

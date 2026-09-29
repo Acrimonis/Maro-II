@@ -66,3 +66,22 @@ internal fun wheelCentredIndex(
     val viewportCentre = viewportStartOffsetPx + viewportSizePx / 2
     return visible.minByOrNull { row -> abs(row.offsetPx + row.sizePx / 2 - viewportCentre) }?.index
 }
+
+/**
+ * The scroll that puts [selectedIndex] under the band, measured **from the popup's own rest position** —
+ * `index × slot`, the grid the design states. Relative on purpose (2026-09-29): the popup is composed
+ * afresh on every open, so frame 0 bands entry 0, and a scroll *by* this amount never asks which way an
+ * offset is counted or which origin it is counted from — the direction is the drag's own, and the end
+ * padding cancels out of the difference instead of entering the sum.
+ */
+internal fun wheelTargetScrollPx(selectedIndex: Int, slotDp: Float): Float = selectedIndex * slotDp
+
+/**
+ * The one step that closes the wheel's loop: the slots to scroll so the row the band names is the entry
+ * the caller holds, zero when the two already agree.
+ *
+ * It is a **detector**, not a proof: it corrects the landing and can say nothing about the convention
+ * behind [wheelCentredIndex] — were the centre read wrong, the wheel would stay self-consistent and still
+ * sit off the band. The guard applies it once per open, and never fights a clamp it cannot win.
+ */
+internal fun wheelCorrectionSlots(targetIndex: Int, centredIndex: Int): Int = targetIndex - centredIndex
