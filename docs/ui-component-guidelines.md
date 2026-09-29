@@ -379,7 +379,9 @@ draws a snapped column of three to five rows where the centre slot is marked by 
 than a `✓`, and only that label is bold — so the wheel's row is not `PopupRow`, deliberately, and a change to
 the row family does not reach it. Its arithmetic is in
 [`WheelPolicy.kt`](../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt) and its rule of entry
-is §2.15's.
+is §2.15's. **It lands the entry it is given** (2026-09-29): the popup scrolls by that entry's own distance on
+the slot grid, from the rest frame it opens in, and then compares the row the band names with the entry the
+caller holds — once per open. §2.12 states what the control shows.
 
 **Overflow.** A popup wraps its own height and **scrolls** once its content exceeds the space it can
 occupy — a popup whose content fits stays exactly as tall as that content, and nothing is pushed past
@@ -452,8 +454,16 @@ For a single choice whose option list may grow past the two or three segments a 
   scrolls and snaps and **a tap does the choosing**. `PopupSurface` is its outer surface with
   `scrollable = false`, the wheel owning the only scroll; its arithmetic lives in `WheelPolicy.kt`,
   unit-tested beside it.
+- **The selection is resolved once, and the popup names the row it lands on** (2026-09-29) — one index feeds
+  the box's word and the wheel's entry alike, and the wheel reaches that entry by scrolling *by* its own
+  distance on the slot grid from the popup's rest frame, then comparing the row the band names with the entry
+  the caller holds, once per open. A value the options do not carry therefore reads the same on both surfaces
+  instead of leaving a blank box beside a banded first row; the anchors the library's layout reports stay the
+  device pass's to confirm, this guard being a detector of disagreement rather than a proof of the convention.
 - **Options** — `List<Pair<T, String>>`, the `CustomSortField` shape: the generic `T` is the value the
-  caller persists and the strings are already-resolved labels, so the row never holds user-facing text.
+  caller persists and the strings are already-resolved labels, so the row never holds user-facing text. The
+  order they arrive in is the **caller's** own — the alphabetical order a list and a flag-driven selector
+  share, ignored articles and all, lives in [`ui-lists-guidelines.md`](ui-lists-guidelines.md).
 - **The box carries a name, and takes no caret** (2026-09-29) — a plain `Row` rather than a focusable
   field, so nothing enters the surface's traversal with a caret. A **required `accessibleName`** is the one
   string each call site hands it, set as the node's `contentDescription`, because a label-less box would

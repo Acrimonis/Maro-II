@@ -1230,6 +1230,23 @@ object AppConfig {
     var isobarColorDefault = 0xFF37474F.toInt() // muted blue-grey
         private set
 
+    // ── List title sort ─────────────────────────────────────────────────────────
+    /**
+     * **The words the alphabetical sort ignores at the head of a title.** Default `La, Le, Les`, mirroring
+     * the shipped `title.sort.ignoredPrefixes`; the entries keep their own case — the match folds case
+     * itself, so the comparison stays free of the locale's own folding.
+     */
+    var titleSortIgnoredPrefixes: List<String> = parseIgnoredPrefixes("La,Le,Les")
+        private set
+
+    /**
+     * The ignored-prefix list, parsed from its comma-separated value: entries trimmed, blanks dropped. A key
+     * that is present but blank therefore parses to an empty list, which ignores nothing — the default stands
+     * only when the key is absent, as every other property here behaves.
+     */
+    private fun parseIgnoredPrefixes(raw: String): List<String> =
+        raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
     /** Per-source extra stroke width (px) added on top of the major/minor base; default 0. */
     private val isobarWidthBonuses = hashMapOf(
         DepthSource.LITTO3D to 1f,  // Litto3D (precise nearshore) reads a touch bolder
@@ -1501,6 +1518,12 @@ object AppConfig {
             // on the first frame of every pan.
             props.getProperty("ui.map.inspect.dwell.ms")?.toLongOrNull()?.let {
                 uiMapInspectDwellMs = it.coerceIn(0L, 5_000L)
+            }
+            // ── List title sort ──────────────────────────────────────────────
+            // A key present but blank assigns the empty list, which ignores nothing; only an absent key
+            // leaves the default standing.
+            props.getProperty("title.sort.ignoredPrefixes")?.let {
+                titleSortIgnoredPrefixes = parseIgnoredPrefixes(it)
             }
             props.getProperty("ui.map.overlay.text.color")?.let { parseColorOrNull(it) }?.let { uiMapOverlayTextColor = it }
             props.getProperty("ui.map.overlay.text.weight")?.toIntOrNull()?.let { uiMapOverlayTextWeight = it.coerceIn(100, 900) }

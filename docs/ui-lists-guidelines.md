@@ -94,6 +94,16 @@ No `UPDATED` — removed, default is `CREATED` descending.
 
 [`ListSortState.applySort<T : ListableItem>()`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt:39) centralizes field dispatch, direction reversal, and `pinnedGrouped`-free sorting. Each ViewModel provides only its type-specific custom comparator lambda.
 
+### Ignored title prefixes
+
+The alphabetical field's key is `titleSortKey(title, ignoredPrefixes)` — the title, case folded, with its
+leading non-letters dropped, and **one** configured word dropped when the title *starts with* it and whitespace
+follows (the key then beginning at the first character of the next word, so `Le Port` files under P while
+`Leman`, whose next character is not a space, and `Léman`, whose next character is not the same letter, keep
+their L). The words are `title.sort.ignoredPrefixes` in `maro.properties`, and `titleOrder` is the **one**
+comparator the lists and the route ends' selector both read — the ascending base the lists reverse for their
+direction, taken as it stands by a selector. The test folds case and nothing else: no accent, no collation.
+
 ## Filter System
 
 ### ListFilter Model

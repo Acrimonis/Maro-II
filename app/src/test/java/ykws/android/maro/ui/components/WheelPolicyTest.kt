@@ -54,18 +54,92 @@ class WheelPolicyTest {
 
     @Test
     fun `a settled scroll names the row sitting on the viewport centre`() {
-        // A 76dp end pad and a 38dp slot: a scroll of 38 x k centres item k in a 190dp viewport.
-        val visible = (0..5).map { k -> WheelItemBounds(index = k, offsetPx = 76 + 38 * k, sizePx = 38) }
-        assertEquals(2, wheelCentredIndex(visible, viewportStartOffsetPx = 76, viewportSizePx = 190))
-        assertEquals(4, wheelCentredIndex(visible, viewportStartOffsetPx = 152, viewportSizePx = 190))
+        // Five slots at a 38dp slot: the pad and the offsets both come from the policy, so the figures
+        // below are checked against the arithmetic rather than typed beside it.
+        val slot = 38f
+        val endPad = wheelEndPadDp(slots = 5, slotDp = slot)
+        val visible = (0..5).map { k ->
+            WheelItemBounds(index = k, offsetPx = (endPad + slot * k).toInt(), sizePx = slot.toInt())
+        }
+        assertEquals(
+            2,
+            wheelCentredIndex(visible, viewportStartOffsetPx = endPad.toInt(), viewportSizePx = (5 * slot).toInt())
+        )
+        assertEquals(
+            4,
+            wheelCentredIndex(visible, viewportStartOffsetPx = (2 * endPad).toInt(), viewportSizePx = (5 * slot).toInt())
+        )
     }
 
     @Test
     fun `an even slot count centres a row just the same`() {
-        // Four slots: a 57dp half-slot pad, a 152dp viewport, and a scroll of 38 x k centring item k.
-        val visible = (0..4).map { k -> WheelItemBounds(index = k, offsetPx = 57 + 38 * k, sizePx = 38) }
-        assertEquals(1, wheelCentredIndex(visible, viewportStartOffsetPx = 38, viewportSizePx = 152))
-        assertEquals(3, wheelCentredIndex(visible, viewportStartOffsetPx = 114, viewportSizePx = 152))
+        // Four slots: a half-slot pad, and a scroll of 38 x k centring item k exactly as at five.
+        val slot = 38f
+        val endPad = wheelEndPadDp(slots = 4, slotDp = slot)
+        val visible = (0..4).map { k ->
+            WheelItemBounds(index = k, offsetPx = (endPad + slot * k).toInt(), sizePx = slot.toInt())
+        }
+        assertEquals(
+            1,
+            wheelCentredIndex(
+                visible,
+                viewportStartOffsetPx = slot.toInt(),
+                viewportSizePx = (4 * slot).toInt()
+            )
+        )
+        assertEquals(
+            3,
+            wheelCentredIndex(
+                visible,
+                viewportStartOffsetPx = (endPad * 2).toInt(),
+                viewportSizePx = (4 * slot).toInt()
+            )
+        )
+    }
+
+    @Test
+    fun `the landing is the entry's own distance on the slot grid`() {
+        // From the popup's rest frame the entry is `index x slot` away, whatever the pad is.
+        assertEquals(0f, wheelTargetScrollPx(selectedIndex = 0, slotDp = 38f), 0.01f)
+        assertEquals(76f, wheelTargetScrollPx(selectedIndex = 2, slotDp = 38f), 0.01f)
+        assertEquals(114f, wheelTargetScrollPx(selectedIndex = 3, slotDp = 38f), 0.01f)
+    }
+
+    @Test
+    fun `the correction is the gap between the entry and the row the band names`() {
+        assertEquals(0, wheelCorrectionSlots(targetIndex = 3, centredIndex = 3))
+        assertEquals(2, wheelCorrectionSlots(targetIndex = 4, centredIndex = 2))
+        assertEquals(-2, wheelCorrectionSlots(targetIndex = 0, centredIndex = 2))
+    }
+
+    @Test
+    fun `a wheel landed on its entry names that entry, in the wheel's own frame`() {
+        // The landing and the band read the same layout, so their round trip is asserted in the one frame
+        // both can be stated in — rows placed relative to the band, its top at 0. The library's own anchors
+        // are not this test's to pin; what it checks is that the two figures agree with each other, at
+        // three, four and five slots alike.
+        val slot = 38f
+        for (slots in 3..5) {
+            val endPad = wheelEndPadDp(slots, slot)
+            val viewport = (slots * slot).toInt()
+            for (target in 0..6) {
+                val visible = (0..8).map { k ->
+                    WheelItemBounds(index = k, offsetPx = ((k - target) * slot).toInt(), sizePx = slot.toInt())
+                }
+                assertEquals(
+                    target,
+                    wheelCentredIndex(
+                        visible,
+                        viewportStartOffsetPx = -endPad.toInt(),
+                        viewportSizePx = viewport
+                    )
+                )
+                assertEquals(0, wheelCorrectionSlots(target, target))
+            }
+            // The landing never leaves the grid the pad was cut for: the last entry's own distance is
+            // inside the range the pad buys.
+            assertEquals(endPad * 2f, wheelTargetScrollPx(selectedIndex = slots - 1, slotDp = slot), 0.01f)
+        }
     }
 
     @Test

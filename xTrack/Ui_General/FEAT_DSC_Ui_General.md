@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-29 07:10
+modified: 2026-09-29 16:36
 ---
 
 # Feature: Ui_General
@@ -61,14 +61,16 @@ The route's panel — the dashboard slot's own content — and the one exit dial
 
 ### dropdown row
 
-The app's dropdown — label, optional description, and the value with its down-arrow on the right — is now Material 3's exposed dropdown box: the row is the anchor, the list is `ExposedDropdownMenu`, and every slot M3 would paint from `MaterialTheme.colorScheme` reads an `AppConfig` token instead, the menu taking §2.10's popup surface. All three call sites (the route's two ends in the menu drawer, the route algorithm in settings) go through the one control; the route ends stay label-less and value-only. §2.12's clause forbidding a control to paint a surface was retired with it.
+The app's dropdown — label, optional description, and the value with its down-arrow on the right — is the row family's own box: the row is the anchor, the list is a `Popup` the box itself positions, and every slot M3 would have painted from `MaterialTheme.colorScheme` reads an `AppConfig` token instead, the menu taking §2.10's popup surface. M3's `ExposedDropdownMenu` was retired for the placement drift it caused, and the popup's body is now the wheel — so the control resolves its selection once and the popup names the row it lands on. All three call sites (the route's two ends in the menu drawer, the route algorithm in settings) go through the one control; the route ends stay label-less and value-only. §2.12's clause forbidding a control to paint a surface was retired with the M3 form.
 
 #### Docs
+- `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-wheel.md` — the wheel, its selection fix and that fix's review
 - `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-exposed-menu.md` — the rewrite, the colour mapping and the retired clause
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the control, now M3-backed
-- `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the menu surface
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the control: the box, its anchor and the popup that holds the wheel
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt` · `WheelPolicy.kt` — the popup's body and its arithmetic
+- `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the popup surface the wheel sits on
 
 ## Walk
 **Level 1 — Date:** 2026-09-28 · **Source:** `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_edit-return-and-advance.md` · **Closed:** 2026-09-28 — all five items resolved by the user's word; nothing parked, nothing dropped
@@ -79,6 +81,10 @@ The app's dropdown — label, optional description, and the value with its down-
 - [x] 5 · Two bits of bookkeeping — settled 2026-09-28: the moved plan is archived with an index row, and the next bake writes the front-matter date and the pointer list
 
 ## Implemented
+
+- **selector-entry-order (2026-09-29)** — a selector's entries are now ordered once: the fixed ones first in their declared order, then the flagged ones by title. The alphabetical rule became one shared comparator, `titleOrder` in [`ListSortOrder.kt`](../../app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt:83) — `titleSortKey` case-folds the title, drops its leading non-letters and drops **one** configured word when the title *starts with* it and whitespace follows, so `Le Port` files under P while `Leman` and `Léman` keep their L — read by the lists' `TITLE` field and by the route ends' selector through the pure `routeEndEntries` beside `MarkerRouteFlags`, which `routeEndOptions` now uses so the dress stays the surface's own and the order is the rule's. The words are `title.sort.ignoredPrefixes=La,Le,Les` in `maro.properties`, parsed by `AppConfig.parseIgnoredPrefixes` and read per comparison, so the file stays the source of truth. `ListSortOrderTest`, `RouteEndEntriesTest` and `TitleSortPropertiesTest` pin the key's cases, the ends' order, and the shipped words against the code's default; `ui-lists-guidelines.md` gained the ignored-prefix section and §2.12 points at it. `:app:assembleDebug` SUCCESS and the full unit suite green — one corridor-budget case in `RouteAvoidEngineTest` failing once while a daemon started and passing alone and in the re-run — and the Ask hop returned **ship**, its three Low notes standing in the plan's §8 → [`260929_FEAT_PLN_Ui_General_selector-entry-order.md`](260929_FEAT_PLN_Ui_General_selector-entry-order.md) §3 · §6 · §8
+
+- **dropdown-selection-sync (2026-09-29)** — the dropdown's box and its popup no longer answer twice. The wheel lands the entry the caller holds by scrolling **by** that entry's own distance on the slot grid from the popup's rest frame (`wheelTargetScrollPx`), then reads the row the band names from the first laid-out frame and closes the gap once (`wheelCorrectionSlots`, driven from `DropdownWheel`) — the form it shipped with having handed a *relative* quantity to `scrollToItem`'s absolute argument, which put the band `(slots − 1)/2` entries past the box and, on a clamped scroll, onto the last entry of the common three-to-five-entry list. `DropdownRow` resolves the option index once and feeds both readers, so a stored value the options do not carry reads as the first entry on both surfaces instead of a blank box beside a banded first row. §2.10 and §2.12 gained the landing and the one-reading rule, the epic's `### dropdown row` lost its stale M3 sentence, and the plan's §3.1 sentence was amended rather than left beside the code. `:app:testDebugUnitTest` green and `apk-build.bat` BUILD SUCCESSFUL with the APK produced; the Ask hop returned **revise** — one High (the guard's single-frame read-back can act on a pre-landing layout), one Medium (a caller may hand in a value the options do not carry) and four Low, recorded in the plan's §9 and folded nowhere, the pipeline forbidding ping-pong. Nothing here is device-validated → [`260929_FEAT_PLN_Ui_General_dropdown-wheel.md`](260929_FEAT_PLN_Ui_General_dropdown-wheel.md) §7–§9
 
 - **map-cards-and-the-filter (2026-09-28)** — the map draws its filter's set and nothing else, and a click on the map stands. Three escapes deleted: the marker reveal-on-select, the highlighted track's eligibility override in `TrackSelectionPolicy` (its dead cap rescue with it, the ranking that puts the highlighted first kept), and the pinned carve-out's repeated OR in `storedTrackSelection` (its `highlightedTrackId` parameter gone) — so no pinned, highlighted or opened item rides past the map filter. R2's map-world close left the map-opened card: `scopeClosed`'s `MAP` arm is `false` while `LIST` and `INSPECT` keep theirs, so a filter write leaves a map tap standing and still closes the spy card. The map-opened card now reads the map's own source of truth (`cardWalkWorld`'s fourth collection, the unfiltered markers), so one item holds through its own write and closes only on a genuine deletion. The dead `DrawerSource.WHERE_AM_I` went at every site — the match panel staying and walking nothing — a plain map tap opens `listOf(sel)` on the `MAP` source, and the menu chevron's first item now reads the menu's own referential (the map filter) rather than the list world, the marker chevron's opener handed that world and source at last. Its Prev/Next now grey both ends on every door of the item's-list kind — the menu chevron's card reading its ends exactly as the panel's does through the pure `cardStepEnds`. `gradlew :app:assembleDebug` SUCCESS; the full unit suite green at 767 tests
 

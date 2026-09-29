@@ -1,6 +1,7 @@
 package ykws.android.maro.data.model
 
 import ykws.android.maro.R
+import ykws.android.maro.config.AppConfig
 
 /** Sort field for lists of [ListableItem]s. Direction toggled separately. */
 enum class ListSortField(val labelResId: Int) {
@@ -46,7 +47,7 @@ data class ListSortState(
             customFieldKey != null -> customComparator(customFieldKey!!)
                 ?: compareBy { it.updatedAtEpochMs }  // ascending base — .reversed() below handles direction
             else -> when (field) {
-                ListSortField.TITLE -> compareBy { it.title.dropWhile { !it.isLetterOrDigit() }.lowercase() }
+                ListSortField.TITLE -> compareBy(titleOrder) { it.title }
                 ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
             }
         }
@@ -72,4 +73,43 @@ data class ListSortState(
             return if (state.customFieldKey != null) "$base:${state.customFieldKey}" else base
         }
     }
+}
+
+/**
+ * **The app's own alphabetical order for a title** — one rule, read by the lists' `TITLE` field and by the
+ * route ends' selector (2026-09-29). This is the **ascending** base: a list reverses it for its direction,
+ * the selector takes it as it stands. The ignored words come from the shipped `title.sort.ignoredPrefixes`.
+ */
+internal val titleOrder: Comparator<String> =
+    compareBy { titleSortKey(it, AppConfig.titleSortIgnoredPrefixes) }
+
+/**
+ * **The sort key of one title** — what "alphabetical on title" means here.
+ *
+ * It is the title case-folded and stripped of leading non-letters, as it always was, and since 2026-09-29 it
+ * also drops one word from [ignoredPrefixes]: `Le Port` files under P. The user's own condition governs the
+ * drop — the title must **start with** a configured word, character for character, and the character right
+ * after it must be **whitespace** — so `Léman` (a different second character) and `Leman` (no whitespace after
+ * `Le`) keep their L, a title that *is* the word has no next word to sort on and keeps itself, and `«Le» Port`
+ * is read as it stands rather than after the dress has been stripped. One word is dropped, never a stack, and
+ * the key then begins at the first character of the next word.
+ *
+ * The set arrives as a parameter rather than read from `AppConfig`, so the rule is testable on its own.
+ */
+internal fun titleSortKey(title: String, ignoredPrefixes: List<String>): String {
+    val dropped = ignoredPrefixes.firstNotNullOfOrNull { prefix -> title.textAfterLeading(prefix) }
+    return (dropped ?: title).dropWhile { !it.isLetterOrDigit() }.lowercase()
+}
+
+/**
+ * The text after [prefix] when this string starts with it — case aside, which `regionMatches` folds without
+ * the locale's help — and whitespace follows it with something after that; null otherwise, which is what
+ * leaves a word the title merely begins with alone.
+ */
+private fun String.textAfterLeading(prefix: String): String? {
+    if (prefix.isEmpty() || length <= prefix.length) return null
+    if (!regionMatches(0, prefix, 0, prefix.length, ignoreCase = true)) return null
+    val rest = substring(prefix.length)
+    if (rest.firstOrNull()?.isWhitespace() != true) return null
+    return rest.dropWhile { it.isWhitespace() }.takeIf { it.isNotEmpty() }
 }

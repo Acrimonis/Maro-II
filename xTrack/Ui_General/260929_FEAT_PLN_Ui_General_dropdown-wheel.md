@@ -73,9 +73,10 @@ than a content-wrapped list — so the wheel is a known size wherever it opens.
   `layoutInfo.visibleItemsInfo` — and returns the index whose centre is nearest `viewportStartOffset +
   viewportSize/2`. Pure and unit-tested; the convention itself is settled by a test against a real
   `LazyListState`, and this is the join the roller's failure lived in.
-- **It opens on the current selection** — one `LaunchedEffect` scrolls to the selected index on first
-  composition, so the band starts on the taken entry instead of on the first one. Without it the band names
-  an entry the box does not show.
+- **It opens on the current selection** — one `LaunchedEffect` lands the entry the box shows under the band
+  on the wheel's first laid-out frame, **by scrolling that entry's own distance on the slot grid from the
+  popup's rest frame** and then comparing the row the band names with the entry the caller holds. *Amended
+  2026-09-29: the offset form this first shipped with is the fault §7.1 records, and §7.3 is its fix.*
 
 ### 3.2 The band, and what marks the choice
 
@@ -219,3 +220,170 @@ against its finding:
   one per attempt, and the second consecutive failure halted the experiment per §4. The wheel therefore
   keeps the library's own feel by the user's word, and a `TargetedFlingBehavior` of our own is the one way
   to change it.
+
+## 7. The box-and-popup disagreement — the fix in design (2026-09-29)
+
+**Reported:** the box's word and the entry the wheel opens on disagree. Evaluated the same day against the
+shipped code by a report-only pass, which wrote nothing. **Status of this section: in design — no code
+written; the write waits on the user's word.**
+
+### 7.1 The fault
+
+- **Two readings of "selected", and nothing joining them.** `DropdownRow` tells its box the word of the
+  option whose value equals `selected` — an **identity** lookup — and tells the wheel the labels plus an
+  index. Past that line the popup speaks **positions only**: which entry the band covers is a *scroll*
+  product, and which row it names is `wheelCentredIndex`'s answer. Nothing compares the two, and nothing
+  compares either with the entry the caller holds.
+- **The opening scroll hands a *relative* quantity to an *absolute* argument.** `scrollToItem(index,
+  scrollOffset = endPadPx)` makes `endPadDp` — the band's distance from the viewport's top — an offset
+  measured from the item's own top, so the entry is pushed `(slots − 1) / 2` slots past the band instead
+  of left under it. The grid the design already states — *"a settled scroll of `k × slot` puts item `k`'s
+  centre there"* — is measured **from the popup's rest position**, which is the origin this call does not
+  use. The band reads `centred`, so a mis-landed wheel also mis-names its own selection.
+- **Why it looks irregular rather than constant.** The scroll clamps at both ends of the content, so the
+  entries nearest the ends keep the band where the clamp leaves it; with the pad counted twice the common
+  3-to-5-entry list lands on its **last** entry whatever the box shows.
+- **The pad's convention is unverified in this tree.** `wheelCentredIndex` reads
+  `viewportStartOffset + viewportSize/2`, and §5 recorded that field's padding convention as
+  unverifiable from the tree. Its unit test feeds offsets typed in that same convention
+  (`offsetPx = 76 + 38 * k` beside `viewportStartOffsetPx = 76`), so it restates the assumption instead
+  of checking it — the reason an off-by-`(slots − 1)/2` band passes the suite.
+- **A second path to the same symptom needs no convention at all.** A `selected` value absent from
+  `options` paints an **empty box** (`orEmpty()`) while the popup bands entry 0 (`coerceAtLeast(0)`);
+  reachable today at the settings language dropdown, whose stored code is matched against a fixed
+  `system`/`en`/`fr` list.
+
+### 7.2 Candidates
+
+| # | Fix | vs the fault | Verdict |
+|---|-----|--------------|---------|
+| A | Keep `scrollToItem`, retune or flip its offset | a second guess at the same convention | rejected |
+| B | **Land the entry by a scroll *relative to the popup's rest position* — `scrollBy(selectedIndex × slot)` — plus one closed-loop correction** | the drag's own validated direction; the pad leaves the arithmetic | **chosen** |
+| C | Move the band to the first slot so `scrollToItem(index, 0)` suffices | changes the wheel's settled look | rejected |
+| D | Back to the family's `PopupRow` list, or to M3's menu | re-opens R70's retirement or the placement drift | rejected |
+
+- **Why A is out**: the shipped call is already one guess at that convention; a second is a second
+  coin-toss, and it keeps the pad inside a formula that does not need it.
+- **Why C is out**: the centred band *is* the wheel, by the user's own word; a band at the top is a list.
+- **Why D is out**: R70 stays retired and the M3 menu was retired for the placement drift it caused.
+
+### 7.3 The chosen fix (B), by file
+
+1. **`WheelPolicy.kt` — the target, as pure arithmetic.** `wheelTargetScrollPx(selectedIndex, slotDp)` =
+   `selectedIndex × slotDp`, the plan's own `k × slot` grid measured from the popup's rest position, and
+   `wheelCorrectionSlots(targetIndex, centredIndex)` = `targetIndex − centredIndex`, zero when they
+   agree. Both sit beside `wheelEndPadDp` in the policy file and are pinned by tests.
+2. **`DropdownWheel.kt` — the landing, and the one comparison the wheel never made.** The opening effect
+   scrolls **by** `wheelTargetScrollPx` (`listState.scrollBy`) instead of to an offset, then reads
+   `centred` from the first laid-out frame and, if it differs from `selectedIndex`, applies **one**
+   correction of `wheelCorrectionSlots × slotPx`. The correction is scoped to the opening — one step,
+   never re-armed by a later drag — and it deliberately does not fight a clamp it cannot win.
+3. **`DropdownRow.kt` — one resolution, not two.** The index is resolved once and both readers take it:
+   the box's word from the same resolved option and the wheel's `selectedIndex` from the same figure, so
+   the control has one answer. **This is the one user-visible change in the pass** — see §7.4.
+4. **Invariants the relative form needs, written down rather than implied.** The popup is composed afresh
+   on every open, so frame 0 *is* the rest position; and `lastIndex × slot` is inside the scroll range
+   because the end pad is `(slots − 1)/2 × slot` and `slots` comes from that same expression. Both belong
+   in `DropdownWheel`'s KDoc — a future caller hoisting the state above the open would break the first.
+5. **Nothing else moves.** The box, the anchor, the popup's width and placement, the band's face and
+   position, the slot rule, the four `WHEEL_*` constants and all three call sites' signatures are out of
+   scope. The epic's `### dropdown row` sentence, which still calls the control M3-backed where §6
+   retired that menu, is corrected in the same pass as one line of record hygiene.
+6. **Docs.** `docs/ui-component-guidelines.md` §2.12 gains the one-reading rule — the control resolves the
+   selection once and the popup names the row it lands on — with §2.10's wheel paragraph pointing at it;
+   §3.1's sentence about the opening scroll is **amended**, not appended to.
+7. **Tests and the gates.** The new arithmetic, plus the round trip: offsets for a settled state
+   **generated from `wheelTargetScrollPx`** and fed to `wheelCentredIndex`, so the two figures are
+   checked against each other rather than typed independently. `apk-build.bat` green and
+   `:app:testDebugUnitTest` green are the gates.
+8. **Out of a JVM test's reach, and named as such**: the real `viewportStartOffset`, the rest frame a
+   device actually paints, and whether a corrected open lands the band on the box's entry at three, four
+   and five-plus entries — the device pass this plan already owes, with the disagreement as its first
+   check.
+
+### 7.4 The one decision this plan leaves open
+
+- **What an unknown `selected` value shows.** Recommended: the entry the popup will band — the first
+  option — in **both** readings, since §7.3.3 gives the control one resolution and one answer; the
+  alternative, a blank box beside a banded entry 0, keeps two answers by design, which is the fault this
+  section exists to end. The user's word settles it, and either answer is one line.
+
+## 8. The review of this fix (2026-09-29)
+
+Verdict: **revise** — the fault is read right and the chosen shape stands, but two of its mechanisms
+failed as written. Findings kept with what each changed.
+
+- **Blocking — the rest-position premise was an inference, not a measurement.** A relative scroll is only
+  a landing if entry 0 is banded at the popup's frame 0; §3.1's grid sentence supports it, yet no file in
+  the tree shows that frame, the scroll running before the user's first look. **Folded**: the correction
+  now runs against the first laid-out frame rather than merely after the scroll, so a rest frame other
+  than the assumed one is caught by the same comparison.
+- **Blocking — a relative scroll is clamped exactly as the absolute one was.** `scrollBy` cannot pass the
+  scroll range, so a target outside it would still leave the band on the last entry. **Checked and folded
+  as an invariant**: the range's ends are what the end pad buys, the pad being `(slots − 1)/2 × slot` with
+  `slots` from the same expression that sizes the wheel, so `lastIndex × slot` is in range by
+  construction; the guard does not fight a clamp it cannot win, and the nearest reachable row keeps the
+  band and the bold label together.
+- **High — the guard could fight the user.** A correction reacting to every `centred` change would pull
+  the wheel back from the finger. **Folded**: one step, keyed on the opening, never re-armed by a drag.
+- **High — the guard corrects the drawing, never the reading.** It cannot prove the *naming* convention:
+  if `viewportStartOffset` means something other than assumed, `centred`, the band and the guard stay
+  self-consistent while the entry still sits off the band. **Folded and re-scoped**: no claim that the
+  helper is verified; the exposure is reduced by deriving the target from one relative quantity instead of
+  two origins, and the convention stays with the device pass of §7.3.8 — the guard is a detector of
+  disagreement between the wheel's own readings, not evidence about the library.
+- **Medium — a KDoc invariant was left implicit.** The fresh-state premise holds only because `Popup` is
+  composed inside `if (expanded)`; hoisting the state would silently break the fix. **Folded** into §7.3.4.
+- **Medium — §3.1 would have gone stale.** It states the opening scroll as `scrollToItem` to the selected
+  index. **Folded** into §7.3.6 as an amendment rather than a second sentence beside it.
+- **Medium — the unknown-value change is user-visible and was buried in the change list.** It alters what
+  the box paints for a value the options do not carry, which is the user's call rather than the agent's.
+  **Moved** out of §7.3.3 into §7.4 with a recommendation and no implementation until the word comes.
+- **Low — the test's typed offsets are what let the convention slip.** §7.3.7 replaces them with offsets
+  generated from the target helper, so the two figures are checked against each other.
+
+- **The limit of this review, stated**: it was written by the same session that drafted §7, so it shares
+  that draft's blind spots — which is exactly why a `#implement` run would put this through the Ask hop
+  before any code, and why §7.4's answer is the user's.
+
+## 9. The code review (2026-09-29 — the `#implement` run's Ask hop)
+
+Reviewing the run's Target Files because they are §7's change set: `WheelPolicy.kt`, `DropdownWheel.kt`,
+`DropdownRow.kt`, `WheelPolicyTest.kt`, §2.10 · §2.12 of `ui-component-guidelines.md`, the epic's
+`### dropdown row` and this plan's §3.1 — read as they stand, not as they were described.
+
+Verdict: **revise** — the shape is right and both gates are green, with one High finding on the guard and one
+user-visible behaviour taken on an inferred authorisation. Nothing below is folded: the pipeline forbids
+ping-pong, so these wait on the user's word.
+
+- **High — the guard can act on a pre-landing layout.** The read-back sits one `withFrameNanos` behind the
+  landing, fresh under Compose's own frame order (effects → scroll → measure → the next frame's read) but
+  **argued, not measured**; were a frame boundary ever to come first, `centred` would still hold the rest row
+  and the guard would close a gap already closed — **doubling the landing** and clamping the band onto the
+  last entry, the very symptom §7.1 records. The cheap hardening is also the better detector: correct only
+  when **two reads a frame apart agree**, since a wrong landing is a *settled* state and survives the pair,
+  while a frame mid-flight never does.
+- **Medium — the box now shows the entry it would commit, which need not be the caller's stored value.**
+  §7.4's recommendation is implemented as written, `#impl` being the word it was taken under; the residual
+  belongs to the call sites, which should resolve their own value first — the route algorithm already does
+  exactly that through `RouteEngineChoice.resolve`. The control is honest now; its inputs are the loose end.
+- **Low — `wheelTargetScrollPx(selectedIndex, slotDp)` takes pixels under a dp-shaped name**, while its
+  neighbour `wheelEndPadDp` takes dp and returns dp. Calling the parameter `slotPx` would put the unit where
+  a caller can get it wrong.
+- **Low — the correction is an instant scroll, so when it fires it is a one-frame jump** in the open popup.
+  Deliberate — an animated correction would slide the whole popup — and it only fires when the landing
+  missed; named so a later reader does not take it for a glitch.
+- **Low — §7.3.7's "replace" was met in substance, not in the letter.** The typed offsets now come from the
+  policy functions with their expectations kept, and the frame-based round trip was added beside them, so the
+  coverage is a superset of what was asked; the plan's own wording is the loose end.
+- **Low — record hygiene.** The epic's front-matter `modified` moved with its section edit, a line the bake
+  owns; harmless, named so the next bake does not read it as drift.
+- **Verified rather than assumed**, since these were §7.2's blockers: the scroll range holds for every count
+  and slot count — the pad is `(slots − 1)/2 × slot` with `slots = wheelSlotsFitting(count, …)` — so
+  `lastIndex × slot` is reachable at two entries and at a one-slot window alike; `scrollBy` and
+  `withFrameNanos` are the real public API, which the compiling build proves; and an empty layout names no
+  row, where the guard's `centred ?: target` correctly acts on nothing.
+- **What no test here can reach**: the guard's own effect and the library's anchors. `WheelPolicyTest` proves
+  the landing and the naming agree *with each other*; whether the platform's `viewportStartOffset` answers to
+  that reading stays §7.3.8's device pass, and a Compose UI test able to run it is a dependency the project
+  does not carry today.

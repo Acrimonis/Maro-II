@@ -185,6 +185,7 @@ import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.power.BatteryExemption
 import ykws.android.maro.data.route.MarkerRouteFlags
 import ykws.android.maro.data.route.RouteEndSelection
+import ykws.android.maro.data.route.routeEndEntries
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
@@ -4359,13 +4360,17 @@ private fun routeEndOptions(
         )
         RouteEndSelection.End.DESTINATION ->
             listOf(RouteEndSelection.MarkerPosition to R.string.route_end_position)
-    }.map { (selection, resId) ->
-        RouteEndOption(selection, stringResource(R.string.route_end_fixed_fmt, stringResource(resId)))
     }
     val flagged = markers
         .filter { if (end == RouteEndSelection.End.START) it.routeOrigin else it.routeDestination }
-        .map { RouteEndOption(RouteEndSelection.Marker(it.id), it.name) }
-    return fixed + flagged
+        .map { RouteEndSelection.Marker(it.id) to it.name }
+    // The dress is this surface's own, a marker's name being data; the order is the shared rule's — the
+    // fixed entries first in their declared order, the flagged ones by title (2026-09-29).
+    val labels = fixed.associate { (selection, resId) ->
+        selection to stringResource(R.string.route_end_fixed_fmt, stringResource(resId))
+    } + flagged.toMap()
+    return routeEndEntries(fixed.map { it.first }, flagged)
+        .mapNotNull { selection -> labels[selection]?.let { RouteEndOption(selection, it) } }
 }
 
 /**
