@@ -572,7 +572,9 @@ Settings spacing rhythm (`ui.spacing.header.bottom` 6dp header→card, `ui.spaci
 section→section). Section titles are sentence case and reuse the `settings_section_*` strings. Nav rows are
 surface-free, pad vertically only and keep an explicit `heightIn(min = 48dp)` touch target; the Import/Export
 pair sits in one card with the same 48dp floor. The tracks/markers headers host their link / filter / reset
-controls in the `SectionHeader` `trailing` slot.
+controls in the `SectionHeader` `trailing` slot, and the markers header opens that slot with the shared
+create action, outside the filter-axes gate; the tracks header takes none. The order the action takes there,
+and the separator's own shape, are stated once in `MarkerCreateAction`'s KDoc.
 
 ### 5.2 List Item Cards (`TrackHistoryOverlay` + `MarkerManagementOverlay`)
 

@@ -450,6 +450,7 @@
     <string name="cd_manage_markers">Gérer les repères</string>
     <string name="cd_open_first_track">Ouvrir la première trace</string>
     <string name="cd_open_first_marker">Ouvrir le premier repère</string>
+    <string name="cd_create_marker">Créer un repère</string>
     <string name="cd_set_icon">Définir l\'icône</string>
     <string name="cd_edit">Modifier</string>
     <string name="cd_delete">Supprimer</string>

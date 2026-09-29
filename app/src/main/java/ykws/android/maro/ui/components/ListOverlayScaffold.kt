@@ -637,7 +637,6 @@ fun <T : ListableItem> ListOverlayScaffold(
                 ) {
                     Text(sectionLabel, color = Color(AppConfig.uiAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Header actions (e.g. import button)
                         headerActions()
                         // Link toggle (list referential vs map referential), left of the filter icon
                         if (filterAxes.isNotEmpty()) {

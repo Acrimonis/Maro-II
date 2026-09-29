@@ -387,6 +387,9 @@ internal fun OverlayLayer(
                 },
                 onOpenFirstTrack = firstTrackId?.let { id -> { onDismissMenu(); onOpenFirstTrack(id) } },
                 onOpenFirstMarker = firstMarkerId?.let { id -> { onDismissMenu(); onOpenFirstMarker(id) } },
+                // The create path this layer already holds: the menu closes before the wizard opens,
+                // its own order, the chevron's pattern above (D7).
+                onCreateMarker = { onDismissMenu(); onCreateFirst() },
                 onDismiss = onDismissMenu,
                 onOpenSettings = {
                     onDismissMenu()
