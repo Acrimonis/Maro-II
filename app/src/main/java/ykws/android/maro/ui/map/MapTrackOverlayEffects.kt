@@ -108,14 +108,15 @@ internal fun MapTrackOverlayHistoryDiff(
             add(appSettings.trackingColorPinnedFrom)
             add(appSettings.trackingColorPinnedTo)
         }
-        if (!appSettings.routeSpeedColor) {
-            // A route paints from its own pair while its colour gate is off — whatever the chips say —
-            // so the pair joins the list for the same reason the default colours do above.
+        if (!(trackColours && appSettings.routeSpeedColor)) {
+            // A route paints from its own pair unless **both** its colour gate and the Colours chip are
+            // on (R37), so the pair joins the list for the same reason the default colours do above.
             add(appSettings.trackingColorRouteFrom)
             add(appSettings.trackingColorRouteTo)
         }
-        // The ramp is read whenever Colours bands the stored tracks *or* a route may band on its own.
-        if (trackColours || appSettings.routeSpeedColor) {
+        // The ramp is read whenever Colours bands a stroke. A route now bands only through that same
+        // chip, so the route's own gate alone can no longer raise it (R37).
+        if (trackColours) {
             add(AppConfig.trackHeatmapRamp)
         }
         if (trackArrows) {
@@ -531,9 +532,10 @@ internal fun storedTrackSelection(
 }
 
 /**
- * The plan an **unpinned route** draws by: the route role whatever the chips say, its two gates
- * route-scoped (R34, R37, R38). One home, so the counted pass and the test that pins the role read the
- * same arguments.
+ * The plan an **unpinned route** draws by: the route role, its two gates joined to the chips — the
+ * colour one bands it only while the Colours chip is on too, the arrow one vetoes the Arrows chip
+ * (R34, R37, R38). One home, so the counted pass and the test that pins the role read the same
+ * arguments.
  */
 internal fun routeTrackRenderPlan(
     trackArrows: Boolean,
@@ -629,7 +631,7 @@ internal fun newestTrackId(summaries: List<ykws.android.maro.data.track.TrackSum
  *
  * [ROUTE] is the route's own colour pair rather than a copy of [PLAIN]: it is the same shape of
  * rendering — one appearance, iterated by the chevrons — but it is decided by the route's own gate
- * and never by the Colours chip, so it is named for the role that decides it.
+ * together with the Colours chip (R37), so it is named for the role that takes it.
  */
 internal enum class TrackRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
 
@@ -653,6 +655,10 @@ internal data class TrackRenderPlan(
  * [trackColours]. The chevrons are [trackArrows]' alone: a gold selection with the flag on still
  * carries them and a banded selection with it off does not, whatever the eye says. In every
  * combination the selected track keeps its z-lift and its casing.
+ *
+ * A **route** is decided before all of this: it takes the route role, its own colour gate joined to
+ * [trackColours] and its arrow gate vetoing [trackArrows], and the eye never reaches it (R34, R37,
+ * R38).
  */
 internal fun trackRenderPlan(
     trackArrows: Boolean,
@@ -663,13 +669,13 @@ internal fun trackRenderPlan(
     routeSpeedColour: Boolean = false,
     routeSpeedArrows: Boolean = true
 ): TrackRenderPlan {
-    // The route role is decided **before** the pinned one and before the chips: a route paints from
-    // its own pair whatever its pin says, and the Colours chip and the drawer eye never reach it. Its
-    // two gates are route-scoped instead — the colour one replaces the ramp for a route, the arrow one
-    // can only veto the chevrons — so a route's appearance is the same pinned or not (R34, R37, R38).
+    // The route role is decided **before** the pinned one: a route paints from its own pair whatever
+    // its pin says, and the drawer eye never reaches it. Its two gates join the chips instead (R37,
+    // R38) — the colour one bands a route only while [trackColours] is on too, the arrow one can only
+    // veto the chevrons — so a route's appearance is the same pinned or not (R34).
     if (route) {
         return TrackRenderPlan(
-            path = if (routeSpeedColour) TrackRenderPath.BANDED else TrackRenderPath.ROUTE,
+            path = if (trackColours && routeSpeedColour) TrackRenderPath.BANDED else TrackRenderPath.ROUTE,
             drawArrows = trackArrows && routeSpeedArrows,
             selected = selected
         )
@@ -712,10 +718,9 @@ internal fun selectionBandedAfterTap(current: Boolean?, trackColours: Boolean): 
  *
  * [selectionOpen] and [selectionBanded] are the second half, and they follow the fill the drawer has
  * open: with a track selected the scale lives and dies with *that* track's fill — read by
- * [selectionBandedFor], so a selected route follows its own gate where the chips never reach it — while
- * with nothing selected the painted strokes are the whole answer, because the ramp can then be on the
- * map without the Colours chip having raised it: a route's own gate bands a stroke too (R37), so a
- * fallback on the chip alone would hide the scale from the very fill it keys.
+ * [selectionBandedFor] — while with nothing selected the painted strokes are the whole answer, since
+ * every banded stroke now hangs on the Colours chip: a route's own gate joins that chip rather than
+ * replacing it (R37).
  */
 private fun legendVisibleFor(
     storedOnMap: Boolean,
@@ -724,9 +729,10 @@ private fun legendVisibleFor(
 ): Boolean = storedOnMap && (!selectionOpen || selectionBanded)
 
 /**
- * The fill the open track wears, read exactly as the map paints it: a selected **route** takes its own
- * pair whatever the chips and the eye say, so only its own colour gate bands it (R34, R37); every other
- * selection is banded by the eye's own value, or by [trackColours] while the eye has never been tapped.
+ * The fill the open track wears, read exactly as the map paints it: a selected **route** bands only
+ * when its own colour gate and the Colours chip are both on (R34, R37), the eye never reaching it;
+ * every other selection is banded by the eye's own value, or by [trackColours] while the eye has never
+ * been tapped.
  */
 private fun selectionBandedFor(
     highlightedTrackId: String?,
@@ -735,7 +741,7 @@ private fun selectionBandedFor(
     routeIds: Set<String>,
     routeSpeedColour: Boolean
 ): Boolean = if (highlightedTrackId != null && highlightedTrackId in routeIds) {
-    routeSpeedColour
+    trackColours && routeSpeedColour
 } else eyeOverride ?: trackColours
 
 /**
@@ -748,8 +754,8 @@ private fun selectionBandedFor(
  * predicate could not catch.
  *
  * [routeIds] is which painted summaries are routes: without it every painted id is asked of
- * [trackRenderPlan] as a recorded track, so a route banded by its own gate while the chips are off
- * would leave the scale hidden although the ramp is on the map (R37).
+ * [trackRenderPlan] as a recorded track, so a route the route role bands differently from a recorded
+ * one would be misread and the scale could hide from the very fill it keys (R37).
  */
 internal fun legendVisibleForState(
     paintedIds: Set<String>,
@@ -792,8 +798,7 @@ internal fun legendVisibleForState(
  * flipped gold all answer false, whatever the flags say.
  *
  * [routeIds] names the painted routes, so each id is read as the role it really is: a route bands on
- * its own colour gate ([routeSpeedColour]) and never on [trackColours] (R34, R37), which is the reading
- * the map paints by.
+ * its own colour gate joined to [trackColours] (R34, R37), which is the reading the map paints by.
  */
 internal fun bandedStrokeOnMap(
     paintedIds: Set<String>,

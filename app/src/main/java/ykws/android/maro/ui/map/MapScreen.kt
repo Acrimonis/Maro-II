@@ -2712,8 +2712,8 @@ fun MapScreen(
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
             // Drawn while the map carries a banded stroke: Colours paints every recorded stored track
-            // from the ramp, a route bands on its own colour gate alone (R37), and the eye bands the
-            // selection in the other modes. So the gate reads the ids the track effect actually painted
+            // from the ramp, a route bands on its own colour gate joined to Colours (R37), and the eye
+            // bands the selection in the other modes. So the gate reads the ids the track effect painted
             // — unselecting leaves the scale up in Colours, and a painted set holding no banded stroke
             // takes it down — asking the same planner the map renders by for each of them, and telling
             // it which of them are routes so a route is not read as a recorded track. The selection
