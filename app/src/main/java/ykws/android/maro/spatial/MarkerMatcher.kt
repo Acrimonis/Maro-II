@@ -65,7 +65,9 @@ object MarkerMatcher {
      *
      * 1. Zone check (purely geometric, no land test)
      * 2. Compute proximity range (override or formula, no cap)
-     * 3. Boat at marker (≤ 1 m) → skip land check
+     * 3. Boat at marker (≤ 1 m) → skip land check; a Pin is otherwise range-gated alone, and its
+     *    segment is recorded whichever way that gate answers — the gate decides the match, never
+     *    whether the date point was tested
      * 4. Find closest unblocked boundary point via [closestUnblockedPoint]
      * 5. Unblocked point found → [WhereAmIMatch.LineOfSightMatch], else null
      *
@@ -110,10 +112,12 @@ object MarkerMatcher {
         }
 
         // ── 3. Pin markers: proximity-distance gate, no coastline check ──
+        // The segment is recorded before the gate answers, so a pin beyond its range is still
+        // tested and drawn: its rejection reads as the absent match, never as silence.
         if (marker.geometry is MarkerGeometry.Pin) {
             val range = proximityRange(marker)
-            if (directDist > range) return null
             if (collecting) debugger.onSegmentTested(boat, marker.geometry.position, false)
+            if (directDist > range) return null
             return WhereAmIMatch.LineOfSightMatch(marker, directDist,
                 SpatialOperations.initialBearing(marker.geometry.position, boat))
         }

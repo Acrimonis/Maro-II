@@ -35,4 +35,4 @@ One session, 2026-09-28, opened on this feature by `#focus marker` on a branch c
 
 ## Next Step
 
-The walk of 2026-09-18 advanced on 2026-09-28: **item 11 closed** — the bookkeeping bake across Markers, UI_Map and Ui_Settings, its Markers half done by this feature's bake and its two other halves by the pointers written into UI_Map and Ui_Settings — and the cursor now sits on **item 12**, the only point left: the rays hit and test a subset of the date points rather than all of them, which the epic's own `## Todos` line duplicates. The marker header's mark line still carries its own open record entry.
+The walk of 2026-09-18 is **closed** as of 2026-09-28: its item 11 was the three-feature bake, and its last point, the date-point coverage, shipped the same night — a pin's segment is now recorded before its range gate answers, so every date point is tested and drawn while the 300 m rule keeps deciding the match. What the ruling raised, and what the walk closed with rather than dropped, is carried in `## Todos`: the overlay gives a tested-but-rejected date point no marking of its own. The marker header's mark line still carries its own open record entry.
