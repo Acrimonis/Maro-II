@@ -164,6 +164,12 @@ data class FilterOptionSpec(val value: String, val labelResId: Int, val isDefaul
 Filter and sort popups follow the canonical popup-styling spec in
 [`ui-component-guidelines.md` §2.10](ui-component-guidelines.md#210-popup-styling-canonical).
 
+**The filter popup stays open on a row tap** (2026-09-29): a filter is a set of groups and the user works
+through them in one visit, so a row writes its choice **live** — the list behind answers at once, the popup
+standing — and the popup is dismissed by an **outside tap or by back** alone. There is no group count in the
+rule and no draft state in the control. The sort popup is the other case and keeps closing on a choice: one
+choice, one job.
+
 ## Header Row Icons
 
 | Icon | Material | Role | Active state |

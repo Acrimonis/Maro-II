@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-29 16:36
+modified: 2026-09-29 17:22
 ---
 
 # Feature: Ui_General
@@ -81,6 +81,8 @@ The app's dropdown — label, optional description, and the value with its down-
 - [x] 5 · Two bits of bookkeeping — settled 2026-09-28: the moved plan is archived with an index row, and the next bake writes the front-matter date and the pointer list
 
 ## Implemented
+
+- **filter-popup-dismissal (2026-09-29)** — a filter's row tap now writes the choice and leaves the popup open: the `expanded = false` after `onFilterChange` went, so the user works through every group in one visit with the list answering live behind it, and the popup is dismissed by an outside tap or by back alone — Compose's own `onDismissRequest`, unchanged. No group count enters the rule, no draft state exists and none was added, and the sort popup keeps closing on a choice (one choice, one job). The rule lives in `FilterControl`'s KDoc and in `docs/ui-lists-guidelines.md` beside its pointer to §2.10. `apk-build.bat` BUILD SUCCESSFUL with `app-debug.apk` produced and `:app:testDebugUnitTest` green; the Ask hop returned **ship** with three records for the plan's §7 — the popup standing over the list it filters, `expanded` being `remember`-only across a configuration change, and no dismiss affordance inside it beyond the platform's pair. Nothing here is device-validated → [`260929_FEAT_PLN_Ui_General_filter-popup-dismissal.md`](260929_FEAT_PLN_Ui_General_filter-popup-dismissal.md) §3 · §7
 
 - **selector-entry-order (2026-09-29)** — a selector's entries are now ordered once: the fixed ones first in their declared order, then the flagged ones by title. The alphabetical rule became one shared comparator, `titleOrder` in [`ListSortOrder.kt`](../../app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt:83) — `titleSortKey` case-folds the title, drops its leading non-letters and drops **one** configured word when the title *starts with* it and whitespace follows, so `Le Port` files under P while `Leman` and `Léman` keep their L — read by the lists' `TITLE` field and by the route ends' selector through the pure `routeEndEntries` beside `MarkerRouteFlags`, which `routeEndOptions` now uses so the dress stays the surface's own and the order is the rule's. The words are `title.sort.ignoredPrefixes=La,Le,Les` in `maro.properties`, parsed by `AppConfig.parseIgnoredPrefixes` and read per comparison, so the file stays the source of truth. `ListSortOrderTest`, `RouteEndEntriesTest` and `TitleSortPropertiesTest` pin the key's cases, the ends' order, and the shipped words against the code's default; `ui-lists-guidelines.md` gained the ignored-prefix section and §2.12 points at it. `:app:assembleDebug` SUCCESS and the full unit suite green — one corridor-budget case in `RouteAvoidEngineTest` failing once while a daemon started and passing alone and in the re-run — and the Ask hop returned **ship**, its three Low notes standing in the plan's §8 → [`260929_FEAT_PLN_Ui_General_selector-entry-order.md`](260929_FEAT_PLN_Ui_General_selector-entry-order.md) §3 · §6 · §8
 
@@ -169,6 +171,8 @@ controls differing only in what they announce).
 - Action table, code sites and the open checks: `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`.
 
 ## Docs
+- `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_selector-entry-order.md` — the selector's entry order, the shared title order and the ignored prefixes, with both its reviews
+- `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_filter-popup-dismissal.md` — the filter popup's dismissal, its review and what it leaves to the device
 - `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, swipe-to-delete
 - `docs/ui-component-guidelines.md` — canonical UI component patterns
 - `docs/ui-drawer-guidelines.md` — DrawerScaffold API

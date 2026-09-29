@@ -1,7 +1,7 @@
 # Plan — the filter popup's dismissal
 
-**Feature:** Ui_General · **Date:** 2026-09-29 · **Status:** in design — the discussion is captured here and
-nothing has been written to code.
+**Feature:** Ui_General · **Date:** 2026-09-29 · **Status:** shipped — the rule landed and both gates are green;
+the popup's dismissal itself stays the device pass's, as every popup's does.
 
 ## 1. The requirement
 
@@ -66,3 +66,28 @@ still applying live on each tap.
   `filterClosesOnChoice(axisCount)` idea died with the group count.
 - The behaviour itself — staying open across taps, closing on the outside tap and on back — is a device look,
   as every popup's dismissal is.
+
+## 7. Shipped, and the review (2026-09-29)
+
+**Shipped**: the `expanded = false` after `onFilterChange` is gone, with the KDoc above `FilterControl` stating
+the rule, and the rule itself landing in `docs/ui-lists-guidelines.md` beside its pointer to §2.10 — the sort
+popup named there as the other case. `apk-build.bat` BUILD SUCCESSFUL with `app-debug.apk` produced and
+`:app:testDebugUnitTest` green; nothing was added to the suite, the rule being a deletion with nothing left to
+pin.
+
+Verdict: **ship**, on the change set read as it stands.
+
+- **Verified rather than assumed.** `expanded` keeps exactly two writers — the icon sets it true and
+  `onDismissRequest` sets it false — so the popup can always be dismissed and nothing else in the file touches
+  it. The icon's active alpha and the popup's own ticks read the `filterState` parameter, so both answer live
+  as the taps land, and a gated axis re-evaluates while the popup stands. The icon's own tap is an outside tap
+  to the popup, so the icon closes what it opened rather than doing nothing. And `FilterControl`'s presence
+  depends on `filterAxes` alone, so a filter that empties the list cannot take the popup out of its own
+  composition.
+- **Record — the popup now stands over the list it filters**: to see the result the user dismisses it, or reads
+  the sliver past its edge. That is what "live update, popup open" means, written down so it is not mistaken
+  later for a regression.
+- **Record — `expanded` is `remember`-only**, so a configuration change still drops the popup. Pre-existing and
+  untouched by this pass, and no `rememberSaveable` was added on a guess.
+- **Record — there is no dismiss affordance inside the popup**: the outside tap and back are the only two, and
+  are now the only two. No header button was invented to fill the gap.

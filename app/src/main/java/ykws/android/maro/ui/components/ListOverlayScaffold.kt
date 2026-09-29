@@ -237,6 +237,13 @@ private fun SortControl(
 // Filter dropdown — combined filter menu with sections
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * **The filter popup, and what dismisses it** (2026-09-29): a filter is a set of groups and the user works
+ * through them in one visit, so a row tap writes its choice **live** and leaves the popup open — the list
+ * behind answers as the taps land — and the popup itself is dismissed by an **outside tap or by back**, which
+ * is the `Popup`'s own `onDismissRequest`. It holds no draft state and knows nothing of how many groups it
+ * was handed: one row, one write, the popup staying put.
+ */
 @Composable
 internal fun FilterControl(
     filterState: ListFilter,
@@ -295,8 +302,9 @@ internal fun FilterControl(
                                         enabled = !isDisabled,
                                         onClick = {
                                             val newAxes = if (option.isDefault) filterState.axes - axis.key else filterState.axes + (axis.key to option.value)
+                                            // A row tap writes the choice and nothing else: the popup stays open,
+                                            // and the outside tap or the back press is what dismisses it.
                                             onFilterChange(ListFilter(newAxes))
-                                            expanded = false
                                         }
                                     )
                                 }
