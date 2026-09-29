@@ -18,7 +18,9 @@
 
 **Verification.** `apk-build.bat` SUCCESSFUL at every hop; the route-scoped suites with [`OverlayPaintRankTest`](../../app/src/test/java/ykws/android/maro/ui/map/OverlayPaintRankTest.kt:1) green over **192 tests, 0 failures**. [`OverlayPaintRankTest`](../../app/src/test/java/ykws/android/maro/ui/map/OverlayPaintRankTest.kt:1)'s own header states the limit: `reorder`'s list surgery stays the device's, osmdroid overlays being unconstructible on the JVM.
 
-**Nothing was seen on the device.** The fix, the row and the restored opacities are unvalidated — the confirming pass over the whole map (the depth raster, the coastline and the marker band as well as the route) is owed, and the diagnostics that would have confirmed it were removed on the user's word before that pass ran.
+**Validated on the device** (the user's word, 2026-09-29): the fix, the Active route row and the untouched opacities are confirmed working, the pass covering the whole map — the depth raster, the coastline and the marker band as well as the route.
+
+**The two record lines beyond the read cap were repaired the same day**, with the recipe the standing todo prescribes — `findstr /N /C:"…"` to locate, the bytes brought back in chunks, a full-line patch: the Route row in `GLOBAL_CONTEXT.md` carries the 2026-09-29 find and the colour row with its `Modified` bumped, and this pass's `## Implemented` entry in the epic now reads validated with the diagnostics removed, its own contradiction about them closed.
 
 ## Target Files
 
@@ -33,4 +35,4 @@
 
 ## Next Step
 
-The Route walk at [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) is **open** — its cursor reads item 3, which is closed, so the field is stale and the first open item is **13** (the trigger's read of the end pair, moved out of its coroutine launch) — and an open walk blocks a further fold and any `#archive`. Behind it: the **confirming device pass** this change owes, the **frame-time measurement** (§6 O4 of the plan), the **Route summary row** in `GLOBAL_CONTEXT.md`, which no bake can match because it stands beyond the read cap — extract it with `findstr` first, as the standing todo says — and the record rows this session left untouched. The walk's own order then stands: item 14's never-re-reviewed folded fixes, Phase 5's marker weights, Change 4's fine band, the progressive-draw findings, the F1/F2 wording pair, the two long-line record rows, and the device passes — the fairing's, the drawer's, the acquisition's, the markers' two header actions, the arc's own readings and now this fix's.
+The Route walk at [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) is **open** — its cursor reads item 3, which is closed, so the field is stale and the first open item is **13** (the trigger's read of the end pair, moved out of its coroutine launch) — and an open walk blocks a further fold and any `#archive`. Behind it: the **frame-time measurement** (§6 O4 of the plan), which is a device reading and no build, and the two **record rows this session left untouched**. The walk's own order then stands: item 14's never-re-reviewed folded fixes, Phase 5's marker weights, Change 4's fine band, the progressive-draw findings, the F1/F2 wording pair, the two long-line record rows, and the device passes — the fairing's, the drawer's, the acquisition's, the markers' two header actions, the arc's own readings and now this fix's.

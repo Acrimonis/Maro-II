@@ -59,7 +59,7 @@
 
 ## Outcome
 
-**Built 2026-09-29, unvalidated.** `apk-build.bat` SUCCESSFUL; the route-scoped suites plus `OverlayPaintRankTest` green over 192 tests with 0 failures.
+**Built and validated 2026-09-29.** `apk-build.bat` SUCCESSFUL; the route-scoped suites plus `OverlayPaintRankTest` green over 192 tests with 0 failures; the device pass confirmed the same day (the user's word), and the whole change was committed in `4930d96`.
 
 - **Shipped**: `reorder` as a stable rank sort with nothing pinned by position and the identity walk deciding before any surgery; `paintRankOf` with its seven cases; the **Active route** row in Layers → Tracks → Tracks Appearance above *Routes*, its colour threaded to the pool, the provisional line and the toggle's acquiring face; the corrected sentences in `OverlayZOrder`, `AppConfig` and [`docs/color-scheme.md`](../../docs/color-scheme.md:142); **R81** in the master book, with the epic's key-file row and its `## Implemented` entry.
-- **Owed**: one confirming device pass — the band log must print `route_line` in the route tier — then the diagnostics' removal from both files, and the frame-time measurement. §6's O2, O3 and O4 stand until then.
+- **Closed with it**: the confirming device pass, the diagnostics' removal (O3) and the log levels O2 asked about — all three settled by the user's word and by the removal. **Owed**: the frame-time measurement alone, §6's O4.
