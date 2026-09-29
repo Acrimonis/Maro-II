@@ -599,6 +599,9 @@
     <string name="route_comment_ends">Route origin and destination</string>
     <string name="route_end_current">Current position</string>
     <string name="route_end_position">Marker position</string>
+    <!-- The fixed entries' own dress: a marker's name is data and cannot wear it, which is what tells the
+         two kinds of entry apart in the selector (§2.12). -->
+    <string name="route_end_fixed_fmt">-- %1$s --</string>
     <string name="route_action_arm">Route</string>
     <!-- R68 : la ligne d'état du résumé, au-dessus de ses lignes, quand un candidat fait gagner du temps. -->
     <string name="route_alternative_status">A faster route saves %1$s</string>

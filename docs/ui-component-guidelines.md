@@ -374,6 +374,13 @@ a switched-off row. The dropdown's menu ([§2.12](#212-dropdown-row--dropdownrow
 list popups read the rows and the constants but still state their own outer surface inline, and
 `PopupSurface` is there for them to move onto.
 
+**The dropdown's list is a wheel, and it is this family's one exception** (2026-09-29): `DropdownWheel`
+draws a snapped column of three to five rows where the centre slot is marked by the taken-choice face rather
+than a `✓`, and only that label is bold — so the wheel's row is not `PopupRow`, deliberately, and a change to
+the row family does not reach it. Its arithmetic is in
+[`WheelPolicy.kt`](../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt) and its rule of entry
+is §2.15's.
+
 **Overflow.** A popup wraps its own height and **scrolls** once its content exceeds the space it can
 occupy — a popup whose content fits stays exactly as tall as that content, and nothing is pushed past
 the screen edge. The bound is the window's own height less a reserve for the chrome the popup hangs
@@ -439,7 +446,12 @@ For a single choice whose option list may grow past the two or three segments a 
   review could see in the source and no parameter could override. The content is the family's own —
   `PopupSurface` outside, `PopupRow` for every option ([§2.10](#210-popup-styling-canonical)) — so 16dp/2dp
   padding, the 15sp Medium–SemiBold label and the 24dp `✓` box in `uiAccent` on the current option are one
-  implementation for all three lists.
+  implementation for all three lists. **Its body is a wheel** (2026-09-29), so that sentence is narrowed:
+  `DropdownWheel` draws a snapped column of three to five rows whose centre slot is the choice —
+  `uiSelectContainer` behind an accent rule above and below, only the centred label bold — where the drag
+  scrolls and snaps and **a tap does the choosing**. `PopupSurface` is its outer surface with
+  `scrollable = false`, the wheel owning the only scroll; its arithmetic lives in `WheelPolicy.kt`,
+  unit-tested beside it.
 - **Options** — `List<Pair<T, String>>`, the `CustomSortField` shape: the generic `T` is the value the
   caller persists and the strings are already-resolved labels, so the row never holds user-facing text.
 - **The box carries a name, and takes no caret** (2026-09-29) — a plain `Row` rather than a focusable
@@ -539,6 +551,14 @@ fault was cut short by the retirement rather than answered by it. **A list of ch
 ([§2.12](#212-dropdown-row--dropdownrow)) **or a bar** ([§2.7](#27-segmented-row--segmentedrow)); a
 drag-only control with no tap path carries an accessibility gap of its own, which is what its last section
 here had warned about. The row is kept as the record of a shape the app tried and withdrew, not as a recipe.
+
+**Re-entered deliberately on 2026-09-29, and this is its rule of entry.** The dropdown's list became a wheel
+([§2.12](#212-dropdown-row--dropdownrow)): a snapped column of three to five rows inside a popup, not a roller
+inside a row, and **a tap on a row is what chooses** — the drag only scrolls and snaps, and the band shows
+what a tap would take. So a list of choices is **a dropdown, a bar, or a wheel in a popup with a tap path**;
+a drag that commits on its own stays out. The root cause above was never established, so the honest reading
+is that the wheel re-enters the gesture and **guards** the commit, not that the shape is proven unrelated —
+and R70 stays retired and superseded, its shape being one visible row stepped on a drag.
 
 ---
 

@@ -57,12 +57,17 @@ private const val DISABLED_ALPHA = 0.4f
  * rim, an 8dp shadow, the given width, and a height bound it scrolls past rather than clipping. Inside is
  * [POPUP_PAD_DP] on all four sides and [POPUP_GROUP_GAP_DP] between groups, so a member passes its
  * sections and nothing else.
+ *
+ * **`scrollable = false` is for a member that scrolls itself** (2026-09-29): the wheel owns its own snap
+ * scroll, and nesting it inside this one would give two same-axis scrollers — two scroll nodes for a
+ * reader, and the outer one able to move the wheel under its own centre band.
  */
 @Composable
 internal fun PopupSurface(
     maxHeight: Dp,
     modifier: Modifier = Modifier,
     width: Dp = POPUP_WIDTH_DP.dp,
+    scrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -80,7 +85,7 @@ internal fun PopupSurface(
         Column(
             modifier = Modifier
                 .heightIn(max = maxHeight)
-                .verticalScroll(rememberScrollState())
+                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .padding(POPUP_PAD_DP.dp),
             verticalArrangement = Arrangement.spacedBy(POPUP_GROUP_GAP_DP.dp),
             content = content

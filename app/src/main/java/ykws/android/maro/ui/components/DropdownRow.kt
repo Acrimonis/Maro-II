@@ -58,12 +58,13 @@ private const val FIELD_BORDER_DP = 1
  * `contentDescription` together with `Role.DropdownList` — a label-less box would otherwise announce
  * nothing at all.
  *
- * **The list is a §2.10 popup the box itself positions** (2026-09-29): a [Popup] at the box's bottom-left,
- * its width the box's own measured width, its height bounded by `popupMaxHeightDp()`, its content a
- * [PopupSurface] of [PopupRow]s. Material 3's own menu was retired for it: `ExposedDropdownMenu` sized
- * itself from the anchor and then shifted to stay inside the window, which showed as a horizontal offset
- * against the box in landscape — placement we could neither see nor override. Nothing about the placement
- * is now out of our hands, and nothing M3 would colour can reach the value.
+ * **The list is a §2.10 popup the box itself positions, and its body is a wheel** (2026-09-29): a [Popup] at
+ * the box's bottom-left, its width the box's own measured width, its height bounded by `popupMaxHeightDp()`,
+ * carrying a [PopupSurface] with `scrollable = false` — the wheel owns the only scroll — whose content is a
+ * [DropdownWheel]. Material 3's own menu was retired for it: `ExposedDropdownMenu` sized itself from the
+ * anchor and then shifted to stay inside the window, which showed as a horizontal offset against the box in
+ * landscape — placement we could neither see nor override. Nothing about the placement is now out of our
+ * hands, and nothing M3 would colour can reach the value.
  *
  * The generic [T] is the option value the caller persists (the `CustomSortField` shape): the row never
  * holds user-facing text, the caller hands in already-resolved labels for each option and the selected
@@ -151,19 +152,16 @@ internal fun <T> DropdownRow(
                     onDismissRequest = { expanded = false },
                     properties = PopupProperties(focusable = true, usePlatformDefaultWidth = false)
                 ) {
-                    PopupSurface(maxHeight = menuMaxHeight, width = menuWidth) {
-                        PopupSectionCard {
-                            options.forEach { (value, optionLabel) ->
-                                PopupRow(
-                                    text = optionLabel,
-                                    selected = value == selected,
-                                    onClick = {
-                                        onSelect(value)
-                                        expanded = false
-                                    }
-                                )
+                    // The wheel owns the popup's scroll, so the surface does not add one of its own.
+                    PopupSurface(maxHeight = menuMaxHeight, width = menuWidth, scrollable = false) {
+                        DropdownWheel(
+                            labels = options.map { it.second },
+                            selectedIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0),
+                            onChoose = { index ->
+                                options.getOrNull(index)?.let { onSelect(it.first) }
+                                expanded = false
                             }
-                        }
+                        )
                     }
                 }
             }
