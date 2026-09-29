@@ -360,6 +360,12 @@ data class AppSettings(
     /** ARGB end colour of the route gradient — the oldest route. */
     val trackingColorRouteTo: Int = BuildConfig.TRACKING_COLOR_ROUTE_TO,
     /**
+     * ARGB colour of the line the app is following — the route's own line, seeded from
+     * `route.line.color` in `maro.properties`, which stays the one home for that fact. Settings'
+     * **Active route** row is what writes it.
+     */
+    val routeLineColor: Int = ykws.android.maro.config.AppConfig.routeLineColor,
+    /**
      * Transparency % (0-100) for the NEWEST past (history) track.
      * 0 = fully opaque, 100 = fully invisible.
      * Lower value = newest track more visible.
@@ -706,6 +712,11 @@ class SettingsManager(
         trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
         trackingColorRouteFrom = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_FROM, BuildConfig.TRACKING_COLOR_ROUTE_FROM),
         trackingColorRouteTo = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_TO, BuildConfig.TRACKING_COLOR_ROUTE_TO),
+        // The followed line's colour: seeded by the same `maro.properties` key its readers once read
+        // directly, so an install that never touched the row keeps painting exactly what it did.
+        routeLineColor = prefs.getInt(
+            KEY_ROUTE_LINE_COLOR, ykws.android.maro.config.AppConfig.routeLineColor
+        ),
         trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
         trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
         trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM),
@@ -872,6 +883,7 @@ class SettingsManager(
             .putInt(KEY_TRACKING_COLOR_PAST_TO, updated.trackingColorPastTo)
             .putInt(KEY_TRACKING_COLOR_ROUTE_FROM, updated.trackingColorRouteFrom)
             .putInt(KEY_TRACKING_COLOR_ROUTE_TO, updated.trackingColorRouteTo)
+            .putInt(KEY_ROUTE_LINE_COLOR, updated.routeLineColor)
             .putInt(KEY_TRACKING_TRANSPARENCY_NEWEST, updated.trackingTransparencyNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_OLDEST, updated.trackingTransparencyOldest)
             .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, updated.trackingTransparencyPinnedNewest)
@@ -1056,6 +1068,8 @@ class SettingsManager(
         /** The route colour pair's own keys, and the ladder's, beside their siblings'. */
         private const val KEY_TRACKING_COLOR_ROUTE_FROM = "tracking_color_route_from"
         private const val KEY_TRACKING_COLOR_ROUTE_TO = "tracking_color_route_to"
+        /** The followed route line's own colour, seeded from `maro.properties`' `route.line.color`. */
+        private const val KEY_ROUTE_LINE_COLOR = "route_line_color"
         private const val KEY_TRACKING_TRANSPARENCY_NEWEST = "tracking_transparency_newest"
         private const val KEY_TRACKING_TRANSPARENCY_OLDEST = "tracking_transparency_oldest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST = "tracking_transparency_pinned_newest"

@@ -410,6 +410,13 @@ private fun LayersSettings(
                         onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
                         onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                     )
+                    // The followed route's own line colour: **one key**, `route.line.color`, edited
+                    // here rather than duplicated — the row and the file's drawing value are one fact.
+                    ColorRow(
+                        label = stringResource(R.string.settings_color_active_route),
+                        color = settings.routeLineColor,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(routeLineColor = c) } }
+                    )
                     // The route pair joins the colour pairs, the tappable swatch being the whole
                     // control on each side as it is on the three above.
                     ColorPairRow(

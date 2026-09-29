@@ -119,9 +119,9 @@ object AppConfig {
      * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
      * against both the blue water and the amber tracks.
      *
-     * The line's three drawing values live here and in `maro.properties` alone, following the rule
-     * that every drawing value has one home: the overlay reads these and gains no Settings row until
-     * one is asked for.
+     * This colour is now the **seed** alone: the *Active route* Settings row holds the value the line
+     * is drawn in and reads this as its default. Its transparency and its width are the line's other
+     * two drawing values, and those still live here and in `maro.properties` alone, one home each.
      */
     var routeLineColor: Int = 0xFF2ECC71.toInt()
         private set
@@ -148,8 +148,10 @@ object AppConfig {
     /**
      * The route toggle's **navigating** face — `route.navigate.color`, the palette's `semantic.info`.
      *
-     * R51 gives the toggle three faces: off, acquiring and navigating. The **acquiring** face keeps the
-     * route line's own green ([routeLineColor]) and needs no key of its own, so only this blue is new.
+     * R51 gives the toggle three faces: off, acquiring and navigating. The **acquiring** face takes the
+     * *Active route* colour from Settings — the very value the line is drawn in — so it needs no key of
+     * its own and only this blue is new; [routeLineColor] is merely the seed that setting reads its
+     * default from.
      */
     var routeNavigateColor: Int = 0xFF1565C0.toInt()
         private set

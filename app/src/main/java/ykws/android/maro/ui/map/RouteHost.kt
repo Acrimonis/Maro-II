@@ -98,6 +98,8 @@ private const val ROUTE_TARGET_PULSE_FRAME_MS = 33L
  * @param speedKn    speed over ground (kn), fed to the pace window; null when nothing is moving.
  * @param positionRestricted true when the current position sits in a regulated zone or the band, so
  *                   the reading measures the limit rather than the boat and is dropped by [RoutePace].
+ * @param routeLineColor the followed line's own colour, read from Settings and seeded by
+ *                   `route.line.color` — the same value the toggle's acquiring face wears (R51).
  * @param onEndRoute runs when the mode ends — the toggle's off and the back key.
  */
 @Composable
@@ -115,6 +117,7 @@ internal fun RouteHost(
     positionRestricted: Boolean,
     setPaceKn: Float,
     mapCenterOffsetPx: Int,
+    routeLineColor: Int,
     viewModel: RouteViewModel,
     onEndRoute: () -> Unit
 ) {
@@ -207,7 +210,11 @@ internal fun RouteHost(
         }
     }
 
-    LaunchedEffect(mapView, state) {
+    // The colour rides in the keys (R51's drift): `Following` never re-emits while the boat moves, so
+    // a Settings edit recomposes this host without re-running the paint unless the colour is a key of
+    // its own — and the toggle, which reads the same value through Compose, would then move while the
+    // drawn line stood still.
+    LaunchedEffect(mapView, state, routeLineColor) {
         val mv = mapView ?: return@LaunchedEffect
         val pool = mv.overlays.filterIsInstance<Polyline>()
             .filter { it.title?.startsWith(ROUTE_LINE_TITLE) == true }
@@ -226,7 +233,7 @@ internal fun RouteHost(
         }
 
         val plan = state.plan
-        val colour = AppConfig.routeLineColor
+        val colour = routeLineColor
         val stroke = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
         // **The selected line at full strength, the others dimmed** (R54, R64): the plan's own key for
         // the line the selection stands on, and the one shared key for every line drawn beside it —
@@ -301,7 +308,7 @@ internal fun RouteHost(
     // A line the pipeline has not finished is not the plan: it draws into its own overlay at the line's
     // own colour and width with a provisional transparency, and it is hidden the moment progress clears
     // — on the answer and on an abort alike — so a partial line never outlives the search that drew it.
-    LaunchedEffect(mapView, progress) {
+    LaunchedEffect(mapView, progress, routeLineColor) {
         val mv = mapView ?: return@LaunchedEffect
         val line = mv.overlays.filterIsInstance<Polyline>()
             .firstOrNull { it.title == ROUTE_PROGRESS_TITLE } ?: return@LaunchedEffect
@@ -314,9 +321,9 @@ internal fun RouteHost(
             line.outlinePaint.apply {
                 color = AndroidColor.argb(
                     transparencyPctToAlpha(AppConfig.routeDimmedTransparencyPct),
-                    AndroidColor.red(AppConfig.routeLineColor),
-                    AndroidColor.green(AppConfig.routeLineColor),
-                    AndroidColor.blue(AppConfig.routeLineColor)
+                    AndroidColor.red(routeLineColor),
+                    AndroidColor.green(routeLineColor),
+                    AndroidColor.blue(routeLineColor)
                 )
                 strokeWidth = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
             }

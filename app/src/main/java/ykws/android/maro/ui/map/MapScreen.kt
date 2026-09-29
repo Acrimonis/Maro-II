@@ -2581,6 +2581,9 @@ fun MapScreen(
                             // with, so the ring the host paints and the point the press asks from
                             // cannot drift apart. One conversion, one home.
                             mapCenterOffsetPx = inspectOffsetPx,
+                            // The followed line's colour: the same settings value the toggle's
+                            // acquiring face wears, so the two cannot drift (R51).
+                            routeLineColor = appSettings.routeLineColor,
                             viewModel = routeViewModel,
                             onEndRoute = { leaveRouteMode() }
                             // The host composes nothing of its own and raises no panel: the aim ring is
@@ -4000,6 +4003,8 @@ private fun MapContent(
                         armed = routeArmed,
                         following = routeFollowing,
                         searching = routeSearching,
+                        // The acquiring face follows the line's own colour (R51).
+                        lineColor = appSettings.routeLineColor,
                         onToggle = onToggleRoute
                     )
                     LockScreenButton(
