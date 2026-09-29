@@ -10,7 +10,7 @@ import org.osmdroid.views.overlay.Polyline
 /**
  * Enforces the canonical map overlay z-order:
  *
- *   tile basemap (index 0) → base data layers → tracks → markers (top),
+ *   (osmdroid's own basemap) → base data layers → tracks → markers (top),
  *
  * and, **inside the track band**, three tiers bottom to top (2026-09-28):
  *
@@ -28,6 +28,7 @@ import org.osmdroid.views.overlay.Polyline
  * being drawn right now is the one whose newest points matter, so the recording keeps the top of the
  * band and the route green takes everything below it.
  */
+
 internal object OverlayZOrder {
 
     /**
@@ -72,6 +73,20 @@ internal object OverlayZOrder {
         else -> TrackTier.NONE
     }
 
+    /**
+     * The paint rank of one overlay: BASE 0 → STORED 1 → ROUTE 2 → LIVE 3 → MARKER 4, which is the
+     * order the list is painted in. The tier half **is** [trackTierOf]'s own ordinal — [TrackTier.NONE]
+     * is 0 and the three tiers follow in declaration order — so a reordering of the enum moves the
+     * classifier and the sorter together and this function restates neither; the marker rank alone is
+     * its own, sitting one above the top tier. Both inputs are what a JVM test can carry — a title, and
+     * the one type test osmdroid forces, the events overlay, whose classification never lived in its
+     * title.
+     */
+    internal fun paintRankOf(title: String?, isEventsOverlay: Boolean): Int = when {
+        isEventsOverlay || title?.startsWith("marker_") == true -> 4
+        else -> trackTierOf(title).ordinal
+    }
+
     /** Identifies overlays that belong to the track band. */
     fun isTrackOverlay(overlay: Overlay): Boolean = trackTierOf(titleOf(overlay)) != TrackTier.NONE
 
@@ -92,28 +107,30 @@ internal object OverlayZOrder {
 
     /**
      * Rebuilds [MapView.overlays] into the canonical order:
-     * tile → base (everything else) → tracks → markers.
-     * The tile overlay at index 0 is preserved, and so is the relative order within each band and each
-     * tier — a **stable** sort is what puts the three track tiers in order without disturbing what each
-     * of them already had.
+     * base (everything else) → tracks → markers.
+     *
+     * **Nothing is pinned by position**: the basemap is osmdroid's own `MapView` layer and this list
+     * holds no tile, so the first entry is simply whoever registered first — treating it as the tile
+     * was what buried the route's line under every base layer (the device's own log, 2026-09-29). The
+     * relative order within each band and each tier is preserved — a **stable** sort is what puts the
+     * bands and the three track tiers in order without disturbing what each of them already had.
      */
     fun reorder(mv: MapView) {
-        val overlays = mv.overlays
-        if (overlays.size <= 1) return
+        val all = mv.overlays.toList()
+        if (all.size <= 1) return
 
-        val tile = overlays.first()
-        val rest = overlays.drop(1).toList()
+        val ranks = all.map { paintRankOf(titleOf(it), it is MapEventsOverlay) }
+        // The ranks along the list **are** the test: the sort below is stable, so a list whose ranks
+        // never decrease is already the list that sort would hand back, identity included — a repaint
+        // that changes nothing therefore costs this one walk and no sort at all.
+        if ((1 until ranks.size).all { ranks[it - 1] <= ranks[it] }) return
 
-        // **The tiers are applied, not inherited**: no writer's timing can move the route's green under
-        // a track it did not paint over, nor the live recording under the route.
-        val tracks = rest.filter { isTrackOverlay(it) }
-            .sortedBy { trackTierOf(titleOf(it)).ordinal }
-        val markers = rest.filter { isMarkerOverlay(it) }
-        val base = rest.filterNot { isTrackOverlay(it) || isMarkerOverlay(it) }
+        // The permutation runs over `ranks`, not over a second `paintRankOf` per overlay: the walk
+        // above already priced every title, and `sortedBy` here is that same stable sort.
+        val ordered = all.indices.sortedBy { ranks[it] }.map { all[it] }
+        if (ordered.indices.all { ordered[it] === all[it] }) return
 
-        mv.overlays.removeAll(rest.toSet())
-        mv.overlays.addAll(base)
-        mv.overlays.addAll(tracks)
-        mv.overlays.addAll(markers)
+        mv.overlays.removeAll(all.toSet())
+        mv.overlays.addAll(ordered)
     }
 }

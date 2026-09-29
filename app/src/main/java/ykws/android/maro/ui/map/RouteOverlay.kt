@@ -220,9 +220,9 @@ internal fun routeAgeText(ageSeconds: Long): String {
  * exit dialog (R59). Like the inspect square it stays tappable while it is on: a gate must never trap
  * the user in a mode they cannot switch off.
  *
- * **It shows three faces** (R51): off; **acquiring**, the route's own green
- * ([`AppConfig.routeLineColor`]) with the pulsing dot; and **navigating**, the palette's blue
- * ([`AppConfig.routeNavigateColor`]) with the same dot (R58).
+ * **It shows three faces** (R51): off; **acquiring**, the followed line's own colour ([lineColor],
+ * read from Settings and seeded by `route.line.color`) with the pulsing dot; and **navigating**, the
+ * palette's blue ([`AppConfig.routeNavigateColor`]) with the same dot (R58).
  *
  * **One pulsing dot serves every toggle** (R69): the mark is a UI token of its own —
  * `ui.map.pulse.dot`, read by [`MapPulseDot`] rather than handed in — so the recording square and this
@@ -240,13 +240,14 @@ internal fun RouteToggleButton(
     armed: Boolean,
     following: Boolean,
     searching: Boolean,
+    lineColor: Int,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val face = when {
         !armed -> mapSurfaceFaceInactive()
         following -> mapSurfaceFaceActive(ComposeColor(AppConfig.routeNavigateColor))
-        else -> mapSurfaceFaceActive(ComposeColor(AppConfig.routeLineColor))
+        else -> mapSurfaceFaceActive(ComposeColor(lineColor))
     }
     val description = stringResource(R.string.cd_route_toggle)
     MapToggleSquare(

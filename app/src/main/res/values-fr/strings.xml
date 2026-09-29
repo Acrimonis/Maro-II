@@ -569,6 +569,7 @@
     <string name="settings_color_active_track">Trace active</string>
     <string name="settings_color_past_tracks">Traces passées</string>
     <string name="settings_color_pinned_tracks">Traces épinglées</string>
+    <string name="settings_color_active_route">Route active</string>
     <string name="settings_color_routes">Itinéraires</string>
     <string name="settings_routes_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
     <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>

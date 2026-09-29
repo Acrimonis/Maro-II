@@ -141,7 +141,8 @@ never a semantic hue: the fan's **parent button** and each of its children alike
 carried by its shape and its place in the stack, not by a colour (2026-09-29). The arc's Discard is no
 exception, its 25 % face included, and neither is the fan's parent: its three faces are told apart by the
 pulsing dot alone, so the mode's state lives on that dot and on the map's own route toggle, a square of
-its own that keeps R51's green and blue.
+its own whose **acquiring** face follows the *Active route* colour and whose **navigating** face keeps
+its own blue.
 
 ### Map Surface & Toggle Row
 

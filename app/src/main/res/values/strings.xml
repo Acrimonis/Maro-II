@@ -570,6 +570,7 @@
     <string name="settings_color_active_track">Active track</string>
     <string name="settings_color_past_tracks">Past tracks</string>
     <string name="settings_color_pinned_tracks">Pinned tracks</string>
+    <string name="settings_color_active_route">Active route</string>
     <string name="settings_color_routes">Routes</string>
     <string name="settings_routes_speed_color_label">Speed colours on routes</string>
     <string name="settings_routes_arrows_label">Arrows on routes</string>
