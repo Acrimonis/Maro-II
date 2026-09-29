@@ -1549,7 +1549,8 @@ private fun SystemSettings(
                 label = null,
                 options = RouteEngineChoice.all.map { it.id to stringResource(it.labelResId) },
                 selected = RouteEngineChoice.resolve(settings.routeEngineId).id,
-                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } }
+                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } },
+                accessibleName = stringResource(R.string.settings_section_route_algorithm)
             )
         }
 

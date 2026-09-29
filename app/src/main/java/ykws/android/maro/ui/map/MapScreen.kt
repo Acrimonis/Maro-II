@@ -4224,8 +4224,9 @@ internal val settingsTabLabels = listOf(
  * destination — and every marker flagged for that end after them.
  *
  * A flagged marker's label is its **own name**, which is data rather than UI text, while the two fixed
- * entries are `@StringRes` ids the drawer resolves: this is the one place the two shapes are folded into
- * the single label list `DropdownRow` takes.
+ * entries are `@StringRes` ids the drawer resolves and **wear the dashes** `route_end_fixed_fmt` puts round
+ * them, so a fixed entry is told from a marker at a glance: this is the one place the two shapes are folded
+ * into the single label list `DropdownRow` takes.
  */
 @Composable
 private fun routeEndOptions(
@@ -4239,7 +4240,9 @@ private fun routeEndOptions(
         )
         RouteEndSelection.End.DESTINATION ->
             listOf(RouteEndSelection.MarkerPosition to R.string.route_end_position)
-    }.map { (selection, resId) -> RouteEndOption(selection, stringResource(resId)) }
+    }.map { (selection, resId) ->
+        RouteEndOption(selection, stringResource(R.string.route_end_fixed_fmt, stringResource(resId)))
+    }
     val flagged = markers
         .filter { if (end == RouteEndSelection.End.START) it.routeOrigin else it.routeDestination }
         .map { RouteEndOption(RouteEndSelection.Marker(it.id), it.name) }

@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 
+/** The bar cells' own vertical padding — one fact for the two bars and the dropdown box. */
+internal const val BAR_CELL_PAD_VERTICAL_DP = 10
+
 /**
  * Multi-choice counterpart of [SegmentedRow] — **the same connected control, and deliberately so**: one
  * bar is the app's norm for a set of choices, whether they exclude each other or not (2026-09-28, settled
@@ -76,7 +79,7 @@ internal fun <T> MultiSelectRow(
                         role = Role.Checkbox,
                         onValueChange = { onToggle(value) }
                     )
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = BAR_CELL_PAD_VERTICAL_DP.dp),
                 contentAlignment = Alignment.Center
             ) {
                 // One centred group: the glyph rides beside the label rather than over it, so the label

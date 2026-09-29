@@ -595,10 +595,13 @@
     <!-- Les deux légendes courtes et fixes des rouleaux : la valeur prend le reste de la ligne (R70). -->
     <!-- L'en-tête de la sous-section : un seul commentaire nommant les deux champs du groupe — l'origine
          et la destination de la route — et c'est lui qui les identifie, aucune ligne déroulante ne portant
-         de libellé ; chaque ligne n'affiche que sa valeur, à droite. -->
+         de libellé ; chaque ligne n'affiche que sa valeur, dans sa propre boîte, à droite. -->
     <string name="route_comment_ends">Origine et destination de la route</string>
     <string name="route_end_current">Position actuelle</string>
     <string name="route_end_position">Position du repère</string>
+    <!-- L\'habit des entrées fixes : le nom d\'un repère est une donnée et ne peut pas le porter, et
+         c\'est ce qui distingue les deux sortes d\'entrée dans le sélecteur (§2.12). -->
+    <string name="route_end_fixed_fmt">-- %1$s --</string>
     <string name="route_action_arm">Route</string>
     <!-- R68 : la ligne d'état du résumé, au-dessus de ses lignes, quand un candidat fait gagner du temps. -->
     <string name="route_alternative_status">Un itinéraire plus rapide économise %1$s</string>

@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-28 20:34
+modified: 2026-09-29 07:10
 ---
 
 # Feature: Ui_General
@@ -58,6 +58,17 @@ The route's panel — the dashboard slot's own content — and the one exit dial
 - `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_route-dialog-alignment.md` — the panel, the doctrine and its revisions
 - `xTrack/Ui_General/260923_FEAT_PLN_Ui_General_dialog-option-row.md` — the option row and its gap
 - `docs/ui-component-guidelines.md` §5.6 · §5.8 — the two homes both rules live in
+
+### dropdown row
+
+The app's dropdown — label, optional description, and the value with its down-arrow on the right — is now Material 3's exposed dropdown box: the row is the anchor, the list is `ExposedDropdownMenu`, and every slot M3 would paint from `MaterialTheme.colorScheme` reads an `AppConfig` token instead, the menu taking §2.10's popup surface. All three call sites (the route's two ends in the menu drawer, the route algorithm in settings) go through the one control; the route ends stay label-less and value-only. §2.12's clause forbidding a control to paint a surface was retired with it.
+
+#### Docs
+- `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-exposed-menu.md` — the rewrite, the colour mapping and the retired clause
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the control, now M3-backed
+- `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the menu surface
 
 ## Walk
 **Level 1 — Date:** 2026-09-28 · **Source:** `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_edit-return-and-advance.md` · **Closed:** 2026-09-28 — all five items resolved by the user's word; nothing parked, nothing dropped

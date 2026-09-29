@@ -86,7 +86,7 @@ internal fun <T> SegmentedRow(
                             role = Role.RadioButton,
                             onClick = { onSelect(value) }
                         )
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = BAR_CELL_PAD_VERTICAL_DP.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     // One centred group: the glyph rides beside the label rather than over it, so the
