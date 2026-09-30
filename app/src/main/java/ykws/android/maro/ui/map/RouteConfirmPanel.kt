@@ -386,11 +386,13 @@ private fun PageBlock(
 
 /**
  * **One page's row**: which route it is, the description the engine declared it under, and its own
- * duration — the engine's figures, recomputed nowhere. A page that has not landed prints no duration.
+ * duration — the engine's figures, recomputed nowhere. A page that has not landed prints no duration,
+ * and a page with no description — a stored route's own, which never reaches this row because it is
+ * always the sole page — reads as empty rather than failing.
  */
 @Composable
 private fun pageRowText(index: Int, page: RoutePage): String {
-    val description = stringResource(page.descriptionResId)
+    val description = page.descriptionResId?.let { stringResource(it) } ?: ""
     val duration = page.plan?.durationSec?.let { routeSpanText(it) }
     return if (duration != null) {
         stringResource(R.string.route_page_fmt, index, description, duration)

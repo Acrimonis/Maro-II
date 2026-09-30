@@ -126,6 +126,6 @@ and the mode it ordered has shipped twice over since — the plan is history, no
 
 **Where the live state now lives.** The epic [`../FEAT_DSC_Route.md`](../FEAT_DSC_Route.md) — its three sections'
 rules, its isolation design, its key files and its `## Implemented` — carries the shipped behaviour; the shipped
-workflow is in [`../260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](../260924_FEAT_PLN_Route_acquisition-and-route-workflow.md);
-the requirement book this plan built against is still [`../260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../260922_FEAT_PLN_Route_ask-policy-and-target-validity.md);
+workflow is in [`260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md);
+the requirement book this plan built against is still [`260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](260922_FEAT_PLN_Route_ask-policy-and-target-validity.md);
 and the one open item, the duplicate save, is the epic's `## Todos`.

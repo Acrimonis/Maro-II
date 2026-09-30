@@ -39,6 +39,12 @@ data class CourseLeg(
  * session** (R25): `RouteViewModel` remembers which track each route of a session became, so a route
  * already saved is **renamed into a set rather than written a second time**, and the link dies with
  * the mode.
+ *
+ * **The two persisted end ids are the sole back-reference, and they point at markers, not at the
+ * route** (R82): [Track.routeStartMarkerId] and [Track.routeDestinationMarkerId] record which flagged
+ * marker each end stood on, so a later acquisition on the same two markers can pull this very line
+ * back. The live route object is still linked by nothing on the track — the session alone holds that—
+ * and these ids name the *ends*, which is why they travel even though the route does not.
  */
 object TrackFromCourse {
 
@@ -55,6 +61,10 @@ object TrackFromCourse {
      * @param name       the track's name; the Tracks feature's own auto-name by default, and a route
      *                   hands in its own when several are written by one action and each carries its
      *                   index ([routeTrackName]).
+     * @param routeStartMarkerId the flagged marker id the route's start end stood on, or `""` when
+     *                   that end was the boat's position or the standing marker position (R82).
+     * @param routeDestinationMarkerId the flagged marker id the route's destination end stood on, or
+     *                   `""` when it was not a marker.
      */
     fun build(
         start: RoutePoint,
@@ -62,7 +72,9 @@ object TrackFromCourse {
         pinned: Boolean = false,
         id: String = UUID.randomUUID().toString(),
         createdAtMs: Long = System.currentTimeMillis(),
-        name: String? = null
+        name: String? = null,
+        routeStartMarkerId: String = "",
+        routeDestinationMarkerId: String = ""
     ): Track {
         val distanceM = legs.sumOf { it.distanceM }
         val durationSec = legs.sumOf { it.durationSec }
@@ -72,8 +84,8 @@ object TrackFromCourse {
         var elapsedMs = 0L
         var previous = start
 
-        // The start carries the first leg's pace — a vertex describes the leg leaving it — and the
-        // destination carries the last leg's, so the mean over the vertices is the plan's own mean.
+        // The start carries the first leg's pace — a vertex describes the leg **arriving** at it, the
+        // start repeating leg 0's — and the destination carries the last leg's.
         for ((index, leg) in legs.withIndex()) {
             val legSpeedMps = if (leg.durationSec > 0.0) leg.distanceM / leg.durationSec else 0.0
             if (index == 0) points += plannedPoint(previous, legSpeedMps, 0L)
@@ -104,11 +116,15 @@ object TrackFromCourse {
             averageSpeedMps = averageMps,
             fastestSpeedMps = fastestMps,
             // The one thing that distinguishes a saved route from a recorded journey: it is a route.
-            route = true
+            route = true,
+            // The ends' identities, persisted on the track so a later acquisition on the same pair
+            // can pull this line back rather than search again (R82).
+            routeStartMarkerId = routeStartMarkerId,
+            routeDestinationMarkerId = routeDestinationMarkerId
         )
     }
 
-    /** One planned vertex: the point, the pace of the leg leaving it and its cumulative time. */
+    /** One planned vertex: the point, the pace the vertex carries and its cumulative time. */
     private fun plannedPoint(
         point: RoutePoint,
         speedMps: Double,

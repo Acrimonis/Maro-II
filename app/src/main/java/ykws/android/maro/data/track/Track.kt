@@ -23,6 +23,10 @@ import ykws.android.maro.data.model.ListableItem
  * @property pinned               Whether this track is pinned (always renders on map regardless of history count).
  * @property distanceNm           Cumulative distance in nautical miles.
  * @property navigatingDurationSec Total time actually under way (computed = elapsedWallClockSec - pausedDurationSec).
+ * @property routeStartMarkerId   The flagged marker id at a route's **start** end, or `""` when that end was not a
+ *                                marker — the persisted half of the end pair an acquisition matches on.
+ * @property routeDestinationMarkerId The flagged marker id at a route's **destination** end, or `""` when that end
+ *                                was not a marker.
  */
 @Serializable
 data class Track(
@@ -57,7 +61,20 @@ data class Track(
      * reader that hand-builds one from a loaded track (`OverlayLayer`), and reading the flag off that
      * summary rather than off the track it copied it from.
      */
-    @ProtoNumber(19) val route: Boolean = false
+    @ProtoNumber(19) val route: Boolean = false,
+    /**
+     * **The flagged marker at the route's start end**, or `""` when that end was not a marker —
+     * `RouteEndSelection.Marker` is the only end that carries an identity, so `CurrentPosition` and
+     * `MarkerPosition` leave this empty.
+     *
+     * A fresh number with a string default, so an old blob reads `""` unchanged and an older build
+     * still reads a new one. An empty string is the honest value for an absent field here — no marker
+     * recorded — unlike a missing bool whose absent `false` is wrong; routes saved before the field
+     * existed therefore simply never match, which is the accepted cost.
+     */
+    @ProtoNumber(20) val routeStartMarkerId: String = "",
+    /** **The flagged marker at the route's destination end**, or `""` when that end was not a marker. */
+    @ProtoNumber(21) val routeDestinationMarkerId: String = ""
 )
 
 /**
@@ -128,7 +145,16 @@ data class TrackSummary(
      * stamp that does not match rebuilds the index once, rather than leaving the filter answering
      * nothing for every route already stored.
      */
-    @ProtoNumber(19) val route: Boolean = false
+    @ProtoNumber(19) val route: Boolean = false,
+    /**
+     * [Track.routeStartMarkerId] projected in the index pass, so the acquisition's match runs over the
+     * summaries **with no track file loaded**. Empty string means "this end was not a marker"; an index
+     * written before the field existed decodes `""`, the honest value, so no version bump is owed and
+     * old routes simply never match.
+     */
+    @ProtoNumber(20) val routeStartMarkerId: String = "",
+    /** [Track.routeDestinationMarkerId] projected beside [routeStartMarkerId], the same way and for the same reader. */
+    @ProtoNumber(21) val routeDestinationMarkerId: String = ""
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment

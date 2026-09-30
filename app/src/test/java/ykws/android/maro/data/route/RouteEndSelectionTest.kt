@@ -174,4 +174,42 @@ class RouteEndSelectionTest {
             RouteEndSelection.eligibleMarkerIds(RouteEndSelection.End.DESTINATION, markers)
         )
     }
+
+    /**
+     * **The reverse pair is the flags' call, not the match's** (R86): the return trip is armable only
+     * when **each** of the two markers carries **both** flags, because a selector names a marker only
+     * while that end's own flag stands. The usual one-origin/one-destination setup therefore refuses the
+     * swap here, before the trigger, which is why the match needs no legality gate of its own.
+     */
+    @Test
+    fun `the reverse pair is unarmable unless both markers carry both flags`() {
+        val markers = listOf(
+            MarkerRouteFlags("origin-only", origin = true, destination = false),
+            MarkerRouteFlags("destination-only", origin = false, destination = true)
+        )
+        val startEligible = RouteEndSelection.eligibleMarkerIds(RouteEndSelection.End.START, markers)
+        val destinationEligible =
+            RouteEndSelection.eligibleMarkerIds(RouteEndSelection.End.DESTINATION, markers)
+
+        assertEquals("the usual pair arms one way", setOf("origin-only"), startEligible)
+        assertEquals("and the other end offers only its own", setOf("destination-only"), destinationEligible)
+        assertEquals(
+            "so the start cannot name the destination-only marker — the swap dies here",
+            RouteEndSelection.CurrentPosition,
+            RouteEndSelection.resolve(
+                RouteEndSelection.encode(RouteEndSelection.Marker("destination-only")),
+                RouteEndSelection.End.START,
+                startEligible
+            )
+        )
+        assertEquals(
+            "nor the destination the origin-only one",
+            RouteEndSelection.MarkerPosition,
+            RouteEndSelection.resolve(
+                RouteEndSelection.encode(RouteEndSelection.Marker("origin-only")),
+                RouteEndSelection.End.DESTINATION,
+                destinationEligible
+            )
+        )
+    }
 }

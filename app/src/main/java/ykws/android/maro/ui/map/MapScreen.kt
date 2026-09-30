@@ -1000,7 +1000,11 @@ fun MapScreen(
             routeBoatEnd,
             routeMarkerPositionEnd,
             routeMarkers
-        )
+        ),
+        // The identities behind the two points (R82), read in this same instant: only a flagged marker
+        // carries one, so the boat's and the standing positions leave these null.
+        startMarkerId = (routeStartSelection as? RouteEndSelection.Marker)?.markerId,
+        destinationMarkerId = (routeDestinationSelection as? RouteEndSelection.Marker)?.markerId
     )
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
     val isEstimating by viewModel.isEstimating.collectAsState()
@@ -1798,6 +1802,16 @@ fun MapScreen(
             }
 
             /**
+             * **The acquisition's short-pair refusal** — the one toast a press whose resolved ends sit
+             * within [AppConfig.routeMinAcquisitionLengthM] is answered with, raised by the arming guard
+             * and again where a matched file falls back to the search below.
+             */
+            fun refuseShortRoutePair() {
+                routeRefusalToast = context.getString(R.string.route_refusal_too_short)
+                routeRefusalToastAt = SystemClock.elapsedRealtime()
+            }
+
+            /**
              * **The mode's one trigger, behind both its doors** (R49, R50, R71, R73, D5).
              *
              * The map's square and the drawer's Route sub-section come here and mean one thing:
@@ -1818,13 +1832,28 @@ fun MapScreen(
              */
             fun armRouteMode() {
                 if (routeArmed) return
+                // The pair is read **once**, here, and handed to every path below (R71): the stored-route
+                // match and the search work from this one reading, so the points and the ids cannot drift
+                // within an arming.
+                val ends = routeEndsAtTrigger()
+                // **A stored route standing between the same two markers replaces the search** (R82), the
+                // return trip included (R86): the match runs over the summaries the index already carries,
+                // so it opens no track file, and a pair it answers is self-validating through the plan's
+                // two-point check — hence it skips the guard below, which applies again where the matched
+                // file cannot be read and the ordinary search takes over (§12).
+                val storedMatch = storedRouteMatch(
+                    trackViewModel.allSummaries.value,
+                    ends.startMarkerId,
+                    ends.destinationMarkerId
+                )
                 // The short-pair guard: a press whose resolved ends sit within the minimum distance is
                 // refused with a toast rather than armed — the search would answer a line too short to
-                // be a route.
-                val ends = routeEndsAtTrigger()
-                if (!routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)) {
-                    routeRefusalToast = context.getString(R.string.route_refusal_too_short)
-                    routeRefusalToastAt = SystemClock.elapsedRealtime()
+                // be a route. A stored match skips it, but only where the line is actually reused: the
+                // fallback raises it again (§12).
+                if (storedMatch == null &&
+                    !routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)
+                ) {
+                    refuseShortRoutePair()
                     return
                 }
                 // **The selection leaves before the mode arms** — the dashboard slot's R1 rule: the
@@ -1837,7 +1866,34 @@ fun MapScreen(
                 // lands on — the panel owns the dashboard slot — so the drawer is left as it was
                 // found, shut from the map and shut behind the press that armed inside it.
                 showTrackDrawer = false
-                routeSaveScope.launch { routeViewModel.arm(routeEndsAtTrigger()) }
+                routeSaveScope.launch {
+                    // A matched summary is loaded and rebuilt through the shipped inverse; a reverse match
+                    // is **mirrored** as the return trip (R86) instead, dated the arming instant and
+                    // carrying a null track id so its save door stays open (R87). A load that yields no
+                    // plan falls back to the search, so a broken file never arms nothing.
+                    val match = storedMatch?.summary?.id?.let { id ->
+                        trackViewModel.loadTrackDetail(id)?.let { track ->
+                            if (storedMatch.reversed) {
+                                mirroredPlanOf(track, System.currentTimeMillis())?.let {
+                                    StoredRouteMatch(plan = it, trackId = null)
+                                }
+                            } else {
+                                routePlanOf(track)?.let { StoredRouteMatch(it, id) }
+                            }
+                        }
+                    }
+                    // **The fallback is the search**, so the guard the stored line was to skip applies
+                    // again: a matched-but-unreadable file on a sub-minimum pair refuses rather than
+                    // arms a search, and the mode stands back down (§12).
+                    if (storedMatch != null && match == null &&
+                        !routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)
+                    ) {
+                        routeArmed = false
+                        refuseShortRoutePair()
+                        return@launch
+                    }
+                    routeViewModel.arm(ends, match)
+                }
             }
 
             /**
@@ -1950,6 +2006,9 @@ fun MapScreen(
             fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
                 val points = plan.points
                 if (points.size < 2) return
+                // **The armed pair is what the track records** (R82): read from the mode's own session
+                // rather than from the drawer, which may have moved since the line was armed.
+                val (startMarkerId, destinationMarkerId) = routeViewModel.armedMarkerIds()
                 val legs = points.drop(1).mapIndexed { index, point ->
                     TrackFromCourse.legBetween(
                         from = points[index],
@@ -1962,7 +2021,9 @@ fun MapScreen(
                     legs = legs,
                     pinned = pin,
                     createdAtMs = plan.computedAtMs,
-                    name = name ?: plan.trackName()
+                    name = name ?: plan.trackName(),
+                    routeStartMarkerId = startMarkerId ?: "",
+                    routeDestinationMarkerId = destinationMarkerId ?: ""
                 )
                 routeSaveScope.launch {
                     val writtenId = trackViewModel.saveBuiltTrack(track)

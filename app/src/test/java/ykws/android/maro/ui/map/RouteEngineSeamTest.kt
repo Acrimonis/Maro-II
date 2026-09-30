@@ -93,7 +93,7 @@ class RouteEngineSeamTest {
         val engine = ForeignEngine()
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
-        val lookupId = viewModel.pages.value.first().lookupId
+        val lookupId = viewModel.pages.value.first().lookupId!!
 
         engine.publish(lookupId, success(start, aim))
 
@@ -109,8 +109,8 @@ class RouteEngineSeamTest {
         val engine = ForeignEngine(computations = 2)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
-        val mainId = viewModel.pages.value[0].lookupId
-        val secondId = viewModel.pages.value[1].lookupId
+        val mainId = viewModel.pages.value[0].lookupId!!
+        val secondId = viewModel.pages.value[1].lookupId!!
         engine.publish(mainId, success(start, aim))
         engine.publish(secondId, success(start, shortcut))
 
@@ -129,7 +129,7 @@ class RouteEngineSeamTest {
         val engine = ForeignEngine()
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
-        val lookupId = viewModel.pages.value.first().lookupId
+        val lookupId = viewModel.pages.value.first().lookupId!!
 
         viewModel.end()
         assertEquals("the one disposal function cancelled the lookup", listOf(lookupId), engine.cancelled)

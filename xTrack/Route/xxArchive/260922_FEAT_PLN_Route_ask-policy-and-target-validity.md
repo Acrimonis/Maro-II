@@ -117,6 +117,7 @@ children and their enablement by phase — settled by the user's word of 2026-09
 
 | R81 | **The paint order is a rank over the whole list, and nothing is pinned** (2026-09-29) — `reorder` sorts every overlay by a rank derived from the same predicates the bands already use — base 0 · stored 1 · route 2 · live 3 · marker 4 — with a **stable** sort, so the base keeps registration order and each tier keeps the order its own writers left it; **the first entry is no longer treated as the map's basemap**, because this app's list holds none, and a list already in that order is left untouched. The rule exists because the first entry used to be pinned as if it were the tile, and it was the route's settled line: painted at index 0 under every base layer (the device's own log, 2026-09-29) |
 
+
 ## 2. The engine's interface
 
 - **Two entry points, one per end:** `onDestinationPositionChanged(newPosition)` while the destination is being acquired, `onOriginPositionChanged(newPosition)` while a route is followed — and now also on the acquisition's own entry, each acquisition's anchor being told before its first search.

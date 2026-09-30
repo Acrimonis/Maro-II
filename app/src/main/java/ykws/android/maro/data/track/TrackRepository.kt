@@ -337,7 +337,11 @@ class TrackRepository(
                         // The flag rides the pass that is already reading the whole track, so the lists
                         // and the map's action rules never need to load a track to know a route from a
                         // recording.
-                        route = track.route
+                        route = track.route,
+                        // The two ends ride the same pass: the acquisition's stored-route match reads
+                        // them off the summaries, so it never has to open a track file to find one.
+                        routeStartMarkerId = track.routeStartMarkerId,
+                        routeDestinationMarkerId = track.routeDestinationMarkerId
                     )
                 } catch (e: Exception) {
                     file.delete()

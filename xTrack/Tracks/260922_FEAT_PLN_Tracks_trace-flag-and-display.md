@@ -42,7 +42,7 @@ against the code as it stands on 2026-09-22, with nothing left open in it.
 
 ## 2. The requirements are not here
 
-- Every requirement of the trace work lives in the master book, [`../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md), as **R29 to R42**: the flag and its index, the export, the filter, the colour pair, the opacity ladder, the stroke, the count, the two gates and their senses, the card, the header, the two refusals, and the removals.
+- Every requirement of the trace work lives in the master book, [`../Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md), as **R29 to R42**: the flag and its index, the export, the filter, the colour pair, the opacity ladder, the stroke, the count, the two gates and their senses, the card, the header, the two refusals, and the removals. The book was retired to the archive on 2026-09-30.
 - The mechanism below is this plan's own and is written against that book — where the two disagree, the book wins and the disagreement is a defect in this file.
 
 ## 3. The flag and the index
@@ -257,7 +257,7 @@ against the code as it stands on 2026-09-22, with nothing left open in it.
 
 ## 13. What this plan is not
 
-- **Not a Route plan:** the requirements are the master book's, [`../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md); the Route feature's own build order — shipped on 2026-09-22 and since archived — sequenced the Route work first, because the two
+- **Not a Route plan:** the requirements are the master book's, [`../Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md); the Route feature's own build order — shipped on 2026-09-22 and since archived — sequenced the Route work first, because the two
   share `TrackFromCourse.kt` and `MapScreen.kt`: its save writes the flag this
   plan renames.
 - **Not a corpus entry yet:** the epic's `## Docs` pointer and the walk items land with the build, so this file
