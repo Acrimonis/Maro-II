@@ -1,10 +1,14 @@
 package ykws.android.maro.spatial
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
+import ykws.android.maro.R
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 
@@ -24,93 +28,84 @@ private const val DUMMY_LEG_PACE_KN = 15.0
  * It is a placeholder and it says so. It reads **no layer at all** — not the coastline, not the depth
  * grid, not the zones — so it can never be wrong about the water and never right about it either: the
  * line it answers runs over land, over shallows and through a regulated zone alike, because it does
- * not ask. What it is for is keeping the whole feature usable and observable while the search itself
- * is missing: the toggle, the aim, the phases, the refresh, the ladder, the save and the seam all work
- * exactly as they will over a real answer, so the next engine is a swap at one expression rather than
- * a rebuild of the feature.
+ * not ask.
  *
- * **It is a session, like the contract.** It holds both ends as it is told them: the origin arrives on
- * the arming frame, the destination with each aim, and during the following phase the origin moves
- * while the destination stands. Each entry point answers the line between the two ends it holds — from
- * the origin to the destination, so the polyline's own direction is the direction of travel — and
- * `null` while the other end is not held yet.
+ * **Its repair is a no-op and it says so.** The repair exists to move a land or too-shallow end to the
+ * nearest valid water, and a dummy has no water test to run it with: it cannot tell an invalid end
+ * apart from a valid one, so it moves nothing and refuses nothing. That is its honest state — a
+ * straight line is what it promised, over whatever the two ends stand on.
  *
- * **Readiness is immediate, and that is a property of this engine, not of the contract.** [prepare]
- * answers [RouteEngineState.Ready] the first time it is asked because there is nothing to wait for, so
- * the toggle is never disabled and the refusals [RouteUnavailableReason] names are unreachable while
- * this engine is the one installed. It judges nothing either — [validatePoint] answers `null` for every
- * point, so [RouteRefusalReason] has no producer here — and it is always [isReadyToRecompute], having
- * nothing to wait for.
+ * **One computation, one update.** [routesToCompute] declares a single computation; [startLookup]
+ * launches the one answer on an engine-owned scope and emits a single [RouteUpdate] whose `nextStage`
+ * is null — no stage exists to report — and whose `result` carries the straight line. [cancelLookup]
+ * has nothing to cancel, the answer having been emitted in the frame it was asked for.
  *
- * **What the answer means.** The polyline is the two ends, `distanceM` is the great-circle distance
- * between them, and the time is that distance at [DUMMY_LEG_PACE_KN] — a fiction of this class, fixed
- * so no setting moves a dummy route. Nothing else is answered: there is no destination to resolve, no
- * band to be in and no zone to cross.
- *
- * Coroutines and `StateFlow` only, like the contract's other implementations: no thread of its own and
- * a readiness the UI can collect.
+ * Coroutines and `Flow` only, like the contract's other implementations.
  */
 class RouteDummyEngine : RouteEngine {
 
-    /** It cannot be anything but ready — see the class note on what that does and does not promise. */
-    private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.Ready)
+    /** One per-engine channel, buffered so an emission never waits on the collector. */
+    private val _updates = MutableSharedFlow<RouteUpdate>(extraBufferCapacity = 64)
 
-    override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
+    override val updates: Flow<RouteUpdate> = _updates.asSharedFlow()
 
-    /**
-     * Always null, and that is the honest reading of this engine: it crosses no boundary of a
-     * pipeline it does not have, so the panel's sentence slot falls back on its plain searching word
-     * rather than naming a stage that was never entered, and no partial line is ever drawn.
-     */
-    override val progress: StateFlow<RouteProgress?> = MutableStateFlow(null).asStateFlow()
+    /** The lane the answer's own job runs on, beside the caller — an engine owns its compute. */
+    private val computeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /**
-     * The dummy computes nothing, so the empty set is the whole stream — the degenerate case the
-     * acquisition's candidate rows read as "no alternatives" without a computation behind it.
-     */
-    override val offers: StateFlow<List<RouteOffer>> = MutableStateFlow<List<RouteOffer>>(emptyList()).asStateFlow()
-
-    /** The end the mode froze when it was armed — told once, and held for the whole session. */
+    /** The two ends [routesToCompute] was last handed — the pair the one computation runs on. */
     private var origin: RoutePoint? = null
-
-    /** The aim last dragged — told with each ask, and held while the following phase moves the origin. */
     private var destination: RoutePoint? = null
 
-    override suspend fun prepare(): RouteEngineState {
-        _state.value = RouteEngineState.Ready
-        return RouteEngineState.Ready
+    /** The computation id and lookup id mints: fresh per declaration and per lookup. */
+    private var nextComputationId = 0L
+    private var nextLookupId = 0L
+
+    override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations {
+        this.origin = origin
+        this.destination = destination
+        val computation = RouteComputation(
+            id = RouteId(++nextComputationId),
+            // The description a user reads for the placeholder's one line is the engine's own label —
+            // the same "Straight line" the algorithm dropdown already carries.
+            descriptionResId = R.string.route_engine_dummy
+        )
+        return RouteDeclarations.Available(listOf(computation))
     }
 
-    /**
-     * A straight line runs over land, over shallows and through a zone alike — so it has nothing to
-     * refuse, and every point is usable water as far as this engine can tell. See the class note: the
-     * entry is accordingly unreachable while the dummy is installed.
-     */
-    override suspend fun validatePoint(point: RoutePoint): RouteRefusalReason? = null
-
-    /** Holds the origin; answers the line to the destination it holds, or `null` while it holds none. */
-    override suspend fun onOriginPositionChanged(newPosition: RoutePoint): RouteResult? {
-        origin = newPosition
-        return lineBetween(origin, destination)
+    override fun startLookup(computationId: RouteId): RouteId {
+        val lookupId = RouteId(++nextLookupId)
+        val from = origin
+        val to = destination
+        computeScope.launch {
+            val result = if (from != null && to != null) straightLine(from, to) else null
+            _updates.emit(
+                RouteUpdate(
+                    routeId = lookupId,
+                    stageDone = null,
+                    nextStage = null,
+                    line = result?.points ?: emptyList(),
+                    result = result,
+                    reason = null
+                )
+            )
+        }
+        return lookupId
     }
 
-    /** Holds the destination; answers the line from the origin it holds, or `null` while it holds none. */
-    override suspend fun onDestinationPositionChanged(newPosition: RoutePoint): RouteResult? {
-        destination = newPosition
-        return lineBetween(origin, destination)
+    override fun cancelLookup(id: RouteId) {
+        // The dummy's one answer is emitted in the frame it is asked for, so a cancelled id is one
+        // whose answer has already landed — there is nothing in flight to cancel, and no further
+        // update for that id can arrive.
     }
-
-    /** Nothing to wait for: a dummy route is answered in the frame it is asked for. */
-    override suspend fun isReadyToRecompute(): Boolean = true
 
     /**
      * The straight line between the two ends, timed at [DUMMY_LEG_PACE_KN] and nothing else.
      *
-     * `null` while either end is missing, which is the arming call — the origin told before any aim
-     * exists — and never a moment the feature can ask a route in.
+     * The polyline is the two ends, `distanceM` is the great-circle distance between them, and the
+     * time is that distance at the placeholder's own fixed fiction — so no setting moves a dummy
+     * route. Nothing was resolved and nothing crosses.
      */
-    private fun lineBetween(from: RoutePoint?, to: RoutePoint?): RouteResult? {
-        if (from == null || to == null) return null
+    private fun straightLine(from: RoutePoint, to: RoutePoint): RouteResult.Success {
         val metres = SpatialOperations.haversine(
             LatLng(from.latitude, from.longitude),
             LatLng(to.latitude, to.longitude)
@@ -121,9 +116,6 @@ class RouteDummyEngine : RouteEngine {
             legTimesSec = listOf(seconds),
             distanceM = metres,
             durationSec = seconds,
-            // Nothing was resolved, nothing crosses and the aim is where the line ends: the destination
-            // is the aimed point itself, so the pin is drawn where the user dragged. `destinationMoved`
-            // is the only reading left to answer, and a straight line resolves nothing.
             destinationMoved = false
         )
     }

@@ -5,17 +5,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RouteOfferSource
-import ykws.android.maro.data.model.routeCandidateSavingSec
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
@@ -68,11 +66,13 @@ import kotlin.math.min
  * **The avoid engine: avoid land, islands and hazard rings, and keep off water shallower than the
  * depth gate.**
  *
- * A session like the contract: it holds the origin told at arming and the destination told with
- * each aim, and answers the collision-free route between them — from the origin to the destination,
- * so the polyline's own direction is the direction of travel — or `null` while the other end is not
- * held. The pipeline is corridor-bounded grid A* plus a clearance taut pull, run on the
- * [AvoidWorld] the injected provider supplies.
+ * It answers [RouteEngine.routesToCompute] with a set of declared computations — the settled line
+ * first, then one per candidate pass `maro.properties` declares — after **repairing** the two ends:
+ * a point that is land or shallower than the minimum depth is moved to the nearest valid water on the
+ * sea side. A pair that cannot be repaired is refused with [RouteReason.CANNOT_REPAIR], and one whose
+ * judgement layers are absent is refused with [RouteReason.WORLD_NOT_READY]. The pipeline is
+ * corridor-bounded grid A* plus a clearance taut pull, run on the [AvoidWorld] the injected provider
+ * supplies.
  *
  * **One cost field, every source through it.** The sources are read as a [RouteCostField] — a `HARD`
  * wall the route may never cross, a `SOFT` price it may pay — and the rasterizer writes each cell once
@@ -93,26 +93,17 @@ import kotlin.math.min
  * alike — is ignored, with no confidence floor and no penalty. It is a coarse guard on the route being
  * written, not a fine sounding.
  *
- * **Readiness.** [prepare] fires the world's `load()` on a miss and latches [RouteEngineState.Ready]
- * once the coastline is in — plus the depth grid while `route.avoid.depthGate.enabled` is true; a
- * world that cannot become ready answers [RouteEngineState.Unavailable] with
- * [RouteUnavailableReason.COASTLINE_NOT_LOADED] or [RouteUnavailableReason.DEPTH_NOT_LOADED]. The
- * depth refusal is not decoration: with the gate on and no grid every cell reads unsurveyed and the
- * gate would be silently inert. [isReadyToRecompute] stays `true` — the engine reads nothing that
- * expires between asks.
+ * **The repair.** The first step of [routesToCompute]: each end that fails the engine's own water
+ * test — on the coastline, or shallower than the gate — is moved by an 8-direction ring sweep at a
+ * 25 m step growing to `route.repair.maxRadiusM` (default 200 m), the first valid point winning.
+ * Because the first valid point is the *nearest*, it is on the sea side by construction. The budget is
+ * the acceptance, not a value: the repair must answer in under 50 ms for one point, carried in the
+ * KDoc and proven by the step's own test.
  *
  * **What the answer means.** The emitted polyline starts at the raw start and ends at the raw aim
  * (`destinationMoved = false`, the pin stands on the aim); the snapped cells are only the search's
- * anchor. An end off the water the engine sees answers [RouteResult.OutsideWater], and an exhausted
- * search answers [RouteResult.NoPath] — retried once with the corridor reach doubled. Each leg is
- * timed at the pace in force, asked fresh per answer.
- *
- * **The berth carve (F7).** Each end is **approached**, not merely freed: after the rasterisation the
- * engine walks the eight compass directions from the end's own cell and opens the first straight
- * stretch reaching legal water through margin-water alone ([carveBerth]) — the depth gate, the
- * coastline and every hazard ring binding as they do everywhere. The stretch travels as a value, so
- * the grid opens its cells and the pull exempts its samples from the one shape, and an end the carve
- * cannot serve still refuses honestly rather than teaching the fence to yield.
+ * anchor. An exhausted search answers [RouteReason.NO_PATH] on the update flow — retried once with the
+ * corridor reach doubled. Each leg is timed at the pace in force, asked fresh per answer.
  *
  * **The λ loop, the growth and the fine pass.** A solve builds its grid **once** and prices the zones
  * at read time, which is what lets the λ loop (§3) re-solve cheaply: pass one is seeded from
@@ -124,22 +115,13 @@ import kotlin.math.min
  * the settled line, where a restrictive zone the coarse grid could not see around gets a local A* at
  * `route.avoid.fine.cellRatio`.
  *
- * **The instrument.** One line per phase, per ask, on the `MaroRoute` channel and on the level the
- * device's own log setting allows: `ASK` and `ENDS` for the two ends, `CORRIDOR` and `HARVEST` for the
- * cut box and its geometry, `GRID` for the raster's inventory with the start and aim cells' own
- * water/depth/state/limit reads — and their state **before and after** the forcing, which is the berth
- * defect's signature — `CARVE` per end with the direction, the cells opened and the metres, or `none`
- * with why it failed, `PASS i` per λ pass with the A\*'s own exhaustion reading on a failure, `GROW`
- * for the corridor's one growth step, `PROBE` for the forced-crossing question, `FINE` per crossing and
- * for the settled line, `PULLREF` for the chords the pull refused and by which of its two tests —
- * land and price — `LINE` for the answer's own figures, `OFFER` and `OFFERS` for the candidates, and
- * `STAGE` for each
- * stage publication, carrying the pass index. It is aggregates only — nothing is emitted inside the
- * A\*'s expansion loop and nothing per pull sample — every message is built **lazily** behind the
- * tag's level, and the payloads are counts and seconds rather than a dossier.
+ * **The candidate computations.** One per `route.avoid.candidate.passes` entry, each a separate
+ * lookup running the same pipeline with its own prices dropped — the speed zones by pricing them at
+ * λ = 0, the band by rasterizing without it. A pass whose price is not in force, or whose absent
+ * source is skipped, is not declared at all.
  *
- * Coroutines and `StateFlow` only: no thread of its own, and the search checks the calling job
- * between its expansions so a flung map never queues behind a computation nobody wants any more.
+ * Coroutines and `Flow` only: no thread of its own, and the search checks the calling job between its
+ * expansions so a flung map never queues behind a computation nobody wants any more.
  */
 class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
@@ -154,43 +136,40 @@ class RouteAvoidEngine(
     private val worldProvider: () -> AvoidWorld
 ) : RouteEngine {
 
-    /** Starts [RouteEngineState.NotReady]; only [prepare] moves it, as the contract reserves. */
-    private val _state = MutableStateFlow<RouteEngineState>(RouteEngineState.NotReady)
+    /** One per-engine channel, buffered so a stage emission never waits on the collector. */
+    private val _updates = MutableSharedFlow<RouteUpdate>(extraBufferCapacity = 64)
 
-    override val state: StateFlow<RouteEngineState> = _state.asStateFlow()
+    override val updates: Flow<RouteUpdate> = _updates.asSharedFlow()
 
-    /** The boundary the pipeline is at — with the line it holds — published and cleared with the call. */
-    private val _progress = MutableStateFlow<RouteProgress?>(null)
+    /** The lane every lookup's job runs on — an engine owns its compute. */
+    private val computeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    override val progress: StateFlow<RouteProgress?> = _progress.asStateFlow()
+    /** The in-flight lookup jobs, by lookup id; [cancelLookup] removes and cancels one. */
+    private val jobs = mutableMapOf<RouteId, Job>()
 
-    /**
-     * The offers for the settled answer, published when the background job that computes them lands —
-     * empty from the ask until then, and the set the acquisition's candidate rows and its next/prev
-     * pair read (R54).
-     */
-    private val _offers = MutableStateFlow<List<RouteOffer>>(emptyList())
+    /** The repaired pair the current declaration set runs on — set by [routesToCompute]. */
+    private var repairedOrigin: RoutePoint? = null
+    private var repairedDestination: RoutePoint? = null
 
-    override val offers: StateFlow<List<RouteOffer>> = _offers.asStateFlow()
+    /** The computations the last [routesToCompute] declared, by id. */
+    private var declarations: Map<RouteId, Computation> = emptyMap()
 
-    /**
-     * The lane the offers' own job runs on — a private, non-blocking scope beside the caller's solve,
-     * so the settled line never waits on the candidates. The job is cancelled at the top of every ask,
-     * which is what makes a new ask abort the in-flight offers the way it aborts the solve.
-     */
-    private val offersScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    /** The offers' own job, cancelled at the top of every ask and relaunched at answer time. */
-    private var offersJob: Job? = null
-
-    /** The end the mode froze when it was armed — told once, and held for the whole session. */
-    private var origin: RoutePoint? = null
-
-    /** The aim last dragged — told with each ask, and held while the following phase moves the origin. */
-    private var destination: RoutePoint? = null
+    /** The id and stage mints: fresh per declaration, lookup and computation. */
+    private var nextComputationId = 0L
+    private var nextLookupId = 0L
 
     /** The pass the instrument is on, reset at each solve so `STAGE` can carry its index. */
     private var passIndex = 0
+
+    /**
+     * The id of the **main** lookup's stage channel while it runs. Only the main publishes stages —
+     * a candidate's pass is logged, never narrated — so this field is touched by the main lookup
+     * alone and a concurrent candidate can never write the wrong id into its emissions.
+     */
+    private var mainLookupId: RouteId? = null
+
+    /** The stage the main lookup last published, so the finished-then-next pair can be completed. */
+    private var lastStage: RouteStage? = null
 
     /**
      * The instrument's **one gate**: the `MaroRoute` tag's own level, read once and remembered.
@@ -204,212 +183,155 @@ class RouteAvoidEngine(
         runCatching { Log.isLoggable(TAG, Log.INFO) }.getOrDefault(false)
     }
 
-    override suspend fun prepare(): RouteEngineState {
+    override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations {
         val world = worldProvider()
-        val ready = if (AppConfig.routeAvoidDepthGateEnabled) {
-            world.coastlineReady && world.depthReady
-        } else {
-            world.coastlineReady
+        // The repair judges by the coastline and the depth gate; without either layer a search would
+        // draw a line over what it cannot see, so the pair is refused by name rather than drawn blind.
+        if (!world.coastlineReady) return RouteDeclarations.Refused(RouteReason.WORLD_NOT_READY)
+        if (AppConfig.routeAvoidDepthGateEnabled && !world.depthReady) {
+            return RouteDeclarations.Refused(RouteReason.WORLD_NOT_READY)
         }
-        val next = if (ready) RouteEngineState.Ready else world.load()
-        _state.value = next
-        return next
+        val from = repair(origin, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
+        val to = repair(destination, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
+        repairedOrigin = from
+        repairedDestination = to
+        val computations = ArrayList<Computation>(3)
+        computations.add(Computation(RouteId(++nextComputationId), R.string.route_computation_main, null))
+        for (candidatePass in AppConfig.routeAvoidCandidatePasses) {
+            val spec = PassSpec(
+                dropsZones = RouteOfferSource.SPEED_ZONES in candidatePass.drops,
+                dropsBand = RouteOfferSource.ZONE300 in candidatePass.drops
+            )
+            if (!candidatePassRuns(spec, world)) continue
+            computations.add(Computation(RouteId(++nextComputationId), descriptionFor(spec), spec))
+        }
+        declarations = computations.associateBy { it.id }
+        return RouteDeclarations.Available(computations.map { RouteComputation(it.id, it.descriptionResId) })
+    }
+
+    override fun startLookup(computationId: RouteId): RouteId {
+        val lookupId = RouteId(++nextLookupId)
+        val computation = declarations[computationId]
+        jobs[lookupId] = computeScope.launch { runComputation(lookupId, computation) }
+        return lookupId
+    }
+
+    override fun cancelLookup(id: RouteId) {
+        jobs.remove(id)?.cancel()
     }
 
     /**
-     * **The ring asks the search's own question (F8)** — water, deep enough **and** an approach exists
-     * — and otherwise names which of the three failed.
-     *
-     * The middle read is the depth gate's own rule, taken from its one home so a green target and a
-     * barred cell can never disagree; the last is the **same bounded eight-direction scan the berth
-     * carve runs** ([carveBerth], on the lattice this point's own latitude gives), so a destination
-     * walled by land or by the gate turns red **while it is aimed** instead of answering an ask that
-     * was never going to be routable.
-     *
-     * The **margin is deliberately not asked here**: it is waived along the approach (F7), so it may
-     * never turn a target red. Reachability is the ask's question, not the ring's, and it is what the
-     * one refusal left behind still means.
+     * **One lookup, run on the engine's own lane.** The main computation publishes its stage pair and
+     * the settled result; a candidate publishes only its terminal update, the panel's stage line
+     * narrating the main's build alone.
      */
-    override suspend fun validatePoint(point: RoutePoint): RouteRefusalReason? {
+    private suspend fun runComputation(lookupId: RouteId, computation: Computation?) {
+        if (computation == null) return
+        val from = repairedOrigin ?: return
+        val to = repairedDestination ?: return
         val world = worldProvider()
-        val at = LatLng(point.latitude, point.longitude)
-        val water = world.isWater(at.latitude, at.longitude)
-        val depth = world.depthAt(at.latitude, at.longitude)
-        val gateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
-        val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        val marginM = AppConfig.routeAvoidObstacleMarginM
-        val depthOk = depthClearsGate(depth, gateActive, minDepthM)
-        // The approach is asked only where the two real barriers cleared: an off-water or too-shallow
-        // point is refused on that answer alone, and its approach reads `n/a`.
-        val approach = if (water && depthOk) {
-            val cellM = AppConfig.routeAvoidGridCellM
-            carveBerth(
-                world,
-                at,
-                marginM,
-                carveReachCells(marginM, cellM),
-                gateActive,
-                minDepthM,
-                metricCarveLattice(at, cellM)
-            ).reachable
-        } else {
-            null
-        }
-        val verdict = when {
-            !water -> RouteRefusalReason.OFF_WATER
-            !depthOk -> RouteRefusalReason.TOO_SHALLOW
-            approach == false -> RouteRefusalReason.NO_APPROACH
-            else -> null
-        }
-        trace {
-            "RING at=(${fmt(at.latitude, 5)},${fmt(at.longitude, 5)}) water=$water " +
-                "depth=${if (depth.hasData) "${fmt(depth.depthM.toDouble())}m" else "none"} " +
-                "approach=${approach?.toString() ?: "n/a"} verdict=${verdict?.name ?: "none"}"
-        }
-        return verdict
-    }
-
-    /** Holds the origin; answers the route to the destination it holds, or `null` while it holds none. */
-    override suspend fun onOriginPositionChanged(newPosition: RoutePoint): RouteResult? {
-        origin = newPosition
-        return routeBetween(origin, destination)
-    }
-
-    /** Holds the destination; answers the route from the origin it holds, or `null` while it holds none. */
-    override suspend fun onDestinationPositionChanged(newPosition: RoutePoint): RouteResult? {
-        destination = newPosition
-        return routeBetween(origin, destination)
-    }
-
-    /** The engine reads its layers live at each ask, so nothing expires between them. */
-    override suspend fun isReadyToRecompute(): Boolean = true
-
-    /**
-     * Both ends held and both on water → the pipeline; one end off water → [RouteResult.OutsideWater].
-     *
-     * The ask and its two ends are the instrument's first two lines, and the refusal's own line names
-     * **which** end and **which** refusal, the ring's question and the grid's being different ones.
-     */
-    private suspend fun routeBetween(from: RoutePoint?, to: RoutePoint?): RouteResult? {
-        if (from == null || to == null) return null
-        // A new ask aborts the offers the previous answer left in flight and clears the published set,
-        // exactly as the caller's own ask aborts the solve in flight (R4).
-        offersJob?.cancel()
-        offersJob = null
-        _offers.value = emptyList()
-        val world = worldProvider()
-        val startWater = world.isWater(from.latitude, from.longitude)
-        val aimWater = world.isWater(to.latitude, to.longitude)
-        trace {
-            "ASK from=(${fmt(from.latitude, 5)},${fmt(from.longitude, 5)}) " +
-                "to=(${fmt(to.latitude, 5)},${fmt(to.longitude, 5)}) " +
-                "pace=${fmt(paceKn())}kn budget=${slowWaterBudgetPct()}% " +
-                "lambda=${fmt(AppConfig.routeAvoidSpeedZoneSoftCostAversion, 2)}"
-        }
-        trace {
-            "ENDS start=${if (startWater) "water" else "land"} aim=${if (aimWater) "water" else "land"}" +
-                if (startWater && aimWater) ""
-                else " refusal=OutsideWater end=${if (!startWater) "start" else "aim"}"
-        }
-        if (!startWater || !aimWater) return RouteResult.OutsideWater
-        return search(world, from, to)
-    }
-
-    /**
-     * The corridor-bounded search, with **one growth step**: the corridor reach is doubled when the
-     * search found nothing at all — the shipped retry — when the line it found is still over its
-     * slow-water budget, and when it reports a **forced crossing**, because a wider corridor is the
-     * one step that can turn a crossing into a way around. A grown answer replaces the first **only
-     * when it does better** — a lower unmet share, or fewer forced-crossing zones — so a wide
-     * corridor can never leave the route worse than the narrow one did; and the cap is that single
-     * step, because each one multiplies the sweep roughly fourfold.
-     *
-     * **The region guard.** A wider reach past the app's own water buys nothing, so no growth runs
-     * once the first corridor box already equals [AvoidWorld.regionBounds] — the box the region would
-     * clamp any wider reach to.
-     *
-     * The pipeline is compute-only, so it runs on [Dispatchers.Default] — a slow corridor never blocks
-     * the main thread, and the caller's state writes resume on Main.
-     *
-     * The instrument's `GROW` line names the reason the wider reach was tried — `no-path`, `budget` or
-     * `crossing` — both answers' shares and which of them was kept, with `region-saturated` where the
-     * guard refused the growth outright.
-     */
-    private suspend fun search(world: AvoidWorld, from: RoutePoint, to: RoutePoint): RouteResult =
-        withContext(Dispatchers.Default) {
+        passIndex = 0
+        if (computation.pass == null) {
+            // The main is the only stage publisher, and its stage context is this lookup's alone. It is
+            // set **before** the search so the stage updates the search publishes carry this lookup's id,
+            // and the terminal update lands here with the last stage as the "just finished" one.
+            mainLookupId = lookupId
+            lastStage = null
             try {
-                val reach = AppConfig.routeAvoidCorridorReachM
-                val firstAnswer = searchOnce(world, from, to, reach)
-                val first = firstAnswer.result
-                if (first == null) {
-                    if (firstAnswer.regionSaturated) {
-                        trace { "GROW reason=no-path first=none grown=none kept=none region-saturated" }
-                        return@withContext RouteResult.NoPath
-                    }
-                    val grownAnswer = searchOnce(world, from, to, reach * 2.0)
-                    val grown = grownAnswer.result
-                    trace {
-                        "GROW reason=no-path first=none grown=${shareText(grown)} " +
-                            "kept=${if (grown == null) "none" else "grown"}"
-                    }
-                    val kept = grown ?: return@withContext RouteResult.NoPath
-                    launchOffers(grownAnswer.offerInputs)
-                    return@withContext kept
-                }
-                val overBudget = first.budgetUnmetZoneShare != null
-                val crossing = !overBudget && first.forcedCrossingZoneNames.isNotEmpty()
-                if (!overBudget && !crossing) {
-                    launchOffers(firstAnswer.offerInputs)
-                    return@withContext first
-                }
-                val reason = if (overBudget) "budget" else "crossing"
-                if (firstAnswer.regionSaturated) {
-                    trace {
-                        "GROW reason=$reason first=${shareText(first)} grown=none kept=first region-saturated"
-                    }
-                    launchOffers(firstAnswer.offerInputs)
-                    return@withContext first
-                }
-                val grownAnswer = searchOnce(world, from, to, reach * 2.0)
-                val grown = grownAnswer.result
-                val keepGrown = grown != null && when {
-                    overBudget -> shareRank(grown) < shareRank(first)
-                    else -> crossingBetter(grown, first)
-                }
-                trace {
-                    "GROW reason=$reason first=${shareText(first)} grown=${shareText(grown)} " +
-                        "kept=${if (keepGrown) "grown" else "first"}"
-                }
-                val kept = if (keepGrown) grown!! else first
-                launchOffers(if (keepGrown) grownAnswer.offerInputs else firstAnswer.offerInputs)
-                kept
+                val solve = search(world, from, to, null)
+                val result = solve.result
+                emitTerminal(lookupId, result, if (result == null) RouteReason.NO_PATH else null)
             } finally {
-                // The stage is cleared where the call really ends — an answer, a refusal and an
-                // abort alike — so the panel never names a search that is not running (R15).
-                publish(null, passIndex)
+                mainLookupId = null
+                lastStage = null
             }
+        } else {
+            val solve = search(world, from, to, computation.pass)
+            val result = solve.result
+            _updates.tryEmit(
+                RouteUpdate(
+                    routeId = lookupId,
+                    stageDone = null,
+                    nextStage = null,
+                    line = result?.points ?: emptyList(),
+                    result = result,
+                    reason = if (result == null) RouteReason.NO_PATH else null
+                )
+            )
         }
+    }
+
+    /**
+     * **One solve** — the main's corridor-bounded search with its one growth step, or a candidate's
+     * single pass at its own fixed λ.
+     */
+    private suspend fun search(
+        world: AvoidWorld,
+        from: RoutePoint,
+        to: RoutePoint,
+        pass: PassSpec?
+    ): SolveResult = withContext(Dispatchers.Default) {
+        if (pass != null) {
+            return@withContext searchOnce(world, from, to, AppConfig.routeAvoidCorridorReachM, pass)
+        }
+        val reach = AppConfig.routeAvoidCorridorReachM
+        val firstSolve = searchOnce(world, from, to, reach, null)
+        val first = firstSolve.result
+        if (first == null) {
+            if (firstSolve.regionSaturated) {
+                trace { "GROW reason=no-path first=none grown=none kept=none region-saturated" }
+                return@withContext SolveResult(null, true)
+            }
+            val grown = searchOnce(world, from, to, reach * 2.0, null).result
+            trace {
+                "GROW reason=no-path first=none grown=${shareText(grown)} " +
+                    "kept=${if (grown == null) "none" else "grown"}"
+            }
+            return@withContext SolveResult(grown, true)
+        }
+        val overBudget = first.budgetUnmetZoneShare != null
+        val crossing = !overBudget && first.forcedCrossingZoneNames.isNotEmpty()
+        if (!overBudget && !crossing) {
+            return@withContext SolveResult(first, firstSolve.regionSaturated)
+        }
+        val reason = if (overBudget) "budget" else "crossing"
+        if (firstSolve.regionSaturated) {
+            trace {
+                "GROW reason=$reason first=${shareText(first)} grown=none kept=first region-saturated"
+            }
+            return@withContext SolveResult(first, true)
+        }
+        val grown = searchOnce(world, from, to, reach * 2.0, null).result
+        val keepGrown = grown != null && when {
+            overBudget -> shareRank(grown) < shareRank(first)
+            else -> crossingBetter(grown, first)
+        }
+        trace {
+            "GROW reason=$reason first=${shareText(first)} grown=${shareText(grown)} " +
+                "kept=${if (keepGrown) "grown" else "first"}"
+        }
+        SolveResult(if (keepGrown) grown!! else first, true)
+    }
 
     /**
      * One solve: the corridor → the harvest → the grid, **once** → the ends' berth carve → the λ loop
-     * over the pipeline → the fine pass → the probe and the answer.
-     *
-     * The answer leaves **without its offers**: the inputs the offers' computation needs ride beside it
-     * as [SettledAnswer.offerInputs], and [search] starts the background job only once it knows which
-     * attempt was kept — so the settled line is returned before a single candidate is searched.
+     * over the pipeline → the fine pass → the probe and the answer. A candidate [pass] runs a single
+     * [runPass] at its own λ and leaves without the fine pass, the fairing and the probe — the body
+     * the offers lane used to run, now a lookup of its own.
      */
     private suspend fun searchOnce(
         world: AvoidWorld,
         from: RoutePoint,
         to: RoutePoint,
-        reach: Double
-    ): SettledAnswer {
+        reach: Double,
+        pass: PassSpec?
+    ): SolveResult {
         passIndex = 0
-        publish(RouteStage.CORRIDOR, passIndex)
+        publish(RouteStage.CORRIDOR, null)
         val corridor = corridorBox(from, to, world.regionBounds, reach)
         if (corridor == null) {
             trace { "CORRIDOR reach=${fmt(reach)}m box=empty clampedByRegion=n/a" }
-            return SettledAnswer(null, null, regionSaturated = false)
+            return SolveResult(null, false)
         }
         val box = corridor.box
         val regionSaturated = world.regionBounds != null && box == world.regionBounds
@@ -422,10 +344,6 @@ class RouteAvoidEngine(
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
         val cellM = AppConfig.routeAvoidGridCellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
-        // The zones arrive pre-filtered by the world (excluded ids dropped); each is priced once from
-        // the live pace, then rastered as a zone tag whose cost is the strictest limit in force.
-        // The zones are priced only while the feature is armed; with it off the corridor is coastline,
-        // depth and band alone, and every zone cell is open water.
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val pace = paceKn()
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
@@ -434,7 +352,7 @@ class RouteAvoidEngine(
             AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
         ).toDouble()
         val budget = budgetPct / 100.0
-        var lambda = AppConfig.routeAvoidSpeedZoneSoftCostAversion
+        var lambda = if (pass?.dropsZones == true) 0.0 else AppConfig.routeAvoidSpeedZoneSoftCostAversion
         trace {
             "HARVEST edges=${edges.size} openCoast=${openCoast.size} band=${fmt(world.bandWidthM)}m " +
                 "zones=[${zones.joinToString(", ") { "${it.name} ${fmt(it.speedLimitKn)}kn" }}] " +
@@ -444,38 +362,28 @@ class RouteAvoidEngine(
         // time round. It is therefore **λ-free and built once per solve** — the price is the A*'s own
         // read, so a further pass costs one multiply per expansion instead of the zone read again.
         val gridField =
-            costField(world, cellM, pace, withZones = false, withBand = true, zones = zones, lambda = lambda)
+            costField(world, cellM, pace, withZones = false, withBand = pass?.dropsBand != true, zones = zones, lambda = lambda)
         val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
-        publish(RouteStage.GRID, passIndex)
+        publish(RouteStage.GRID, null)
         val grid = rasterize(
             box, cellM, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
             zoneOutsideMarginM = zoneOutsideMarginM
         )
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
-        // Each end's state is read **before** the forcing, the forcing being what hides the berth
-        // defect: one freed cell whose every neighbour is barred looks like open water afterwards.
         val startStateBefore = grid.cell(startCell.row, startCell.col).state
         val aimStateBefore = grid.cell(aimCell.row, aimCell.col).state
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
-        // **The ends' disc (F7's second half)** — the pull exempts a disc of `marginM` around each end,
-        // so the grid's own exemption must cover the same disc or a freed end stays enclosed by the
-        // margin-land ring around it. Each candidate cell re-reads the world because a barred cell
-        // records *that* it is land, never *why*.
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
         openEndDisc(grid, world, from.toLatLng(), marginM, depthGateActive, minDepthM)
         openEndDisc(grid, world, to.toLatLng(), marginM, depthGateActive, minDepthM)
-        // **The berth carve (F7)** — the margin is the route's rule, not the destination's, so each end
-        // is granted an approach beside the one freed cell and the disc. The scan reads the world, never
-        // the grid's LAND state, which records *that* a cell is land and never *why*.
         val carveReach = carveReachCells(marginM, cellM)
         val startCarve =
             carveEnd(world, grid, startCell, from.toLatLng(), marginM, carveReach, depthGateActive)
         val aimCarve = carveEnd(world, grid, aimCell, to.toLatLng(), marginM, carveReach, depthGateActive)
         val approaches = EndApproaches(startCarve.points, aimCarve.points)
-        // The pull's refusals are counted once per answer, where the pull decides — never per sample.
         val refusals = PullRefusals()
         trace {
             "GRID ${inventory(grid)} " +
@@ -486,11 +394,6 @@ class RouteAvoidEngine(
         trace { carveLine("aim", aimCarve) }
         val start = from.toLatLng()
         val aim = to.toLatLng()
-        // The corner sets are geometry rather than price, so they are harvested **once** for every
-        // pass. The land set snaps within a cell's reach; the band set, armed with the zone, snaps at
-        // the band's own reach so a concave band is chorded; and the hug set moves a bend onto a ring's
-        // offset corners, its offset the outside margin's edge plus one cell so a bend lying a cell out
-        // is caught — a priced band's edge, never a clearance.
         val sets = ArrayList<CornerSet>(3)
         sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), cellM * 2.0))
         if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
@@ -506,6 +409,26 @@ class RouteAvoidEngine(
             )
         }
         val limitAt = limitAtFor(world)
+        // A candidate runs one pass at its own λ and leaves — the offers body, now a lookup.
+        if (pass != null) {
+            val single = runPass(
+                world, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
+                lambda, limitAt, zones, sets, publishStage = false,
+                approaches = approaches, refusals = refusals,
+                guardBand = pass.dropsBand != true
+            )
+            val timed = single.timed
+            if (timed == null) {
+                trace { "CANDIDATE lambda=${fmt(lambda, 2)} NO PATH" }
+                return SolveResult(null, regionSaturated)
+            }
+            val settled = success(timed, emptyList(), null)
+            trace {
+                "CANDIDATE lambda=${fmt(lambda, 2)} distance=${fmt(lineLengthM(timed.points))}m " +
+                    "duration=${fmt(timed.durationSec)}s"
+            }
+            return SolveResult(settled, regionSaturated)
+        }
         // **The λ loop (§3).** Pass one is seeded from `softCostAversion`, so the first line looks like
         // the shipped one. The share of its own time the line spends **slowed by** a zone — the
         // approach ramps outside a ring included, because the clock pays them — is read off the very
@@ -517,33 +440,34 @@ class RouteAvoidEngine(
         var passes = 0
         while (true) {
             passIndex = passes + 1
-            val pass = runPass(
+            val passReading = runPass(
                 world, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
                 lambda, limitAt, zones, sets, publishStage = true,
-                approaches = approaches, refusals = refusals
+                approaches = approaches, refusals = refusals,
+                guardBand = true
             )
             passes++
-            val timed = pass.timed
+            val timed = passReading.timed
             if (timed == null) {
                 trace {
                     "PASS $passes lambda=${fmt(lambda, 2)} NO PATH " +
-                        "expansions=${pass.search.expansions} passable=${pass.search.passableCells} " +
-                        "aimClosed=${pass.search.aimClosed} " +
+                        "expansions=${passReading.search.expansions} passable=${passReading.search.passableCells} " +
+                        "aimClosed=${passReading.search.aimClosed} " +
                         "aimCell=${grid.cell(aimCell.row, aimCell.col).state} " +
                         "aimLimit=${fmt(grid.zoneLimitKn(aimCell.row, aimCell.col))}kn"
                 }
-                return SettledAnswer(null, null, regionSaturated)
+                return SolveResult(null, regionSaturated)
             }
-            waypoints = pass.line
-            val share = pass.share
+            waypoints = passReading.line
+            val share = passReading.share
             val met = budgetMet(share, budgetPct)
             val corrected =
                 if (met || passes >= LAMBDA_PASSES || lambda <= 0.0 || budget <= 0.0) null
                 else lambda * share / budget
             trace {
-                "PASS $passes lambda=${fmt(lambda, 2)} path=${pass.pathCells} " +
-                    "pulled=${pass.pulledCount} snapped=${pass.snappedCount} final=${pass.finalCount} " +
-                    "distance=${fmt(lineLengthM(pass.line))}m duration=${fmt(timed.durationSec)}s " +
+                "PASS $passes lambda=${fmt(lambda, 2)} path=${passReading.pathCells} " +
+                    "pulled=${passReading.pulledCount} snapped=${passReading.snappedCount} final=${passReading.finalCount} " +
+                    "distance=${fmt(lineLengthM(passReading.line))}m duration=${fmt(timed.durationSec)}s " +
                     "share=${fmt(share, 2)} band=${bandVerdict(share, budgetPct)} " +
                     "corrected=${corrected?.let { fmt(it, 2) } ?: "none"}"
             }
@@ -552,7 +476,7 @@ class RouteAvoidEngine(
             lambda = corrected
         }
         // **The fine pass (§5)** — run here, after the loop, so the loop never pays for it.
-        publish(RouteStage.PULL, passIndex)
+        publish(RouteStage.PULL, null)
         val refined = finePass(
             world, box, waypoints, start, aim, pace, cellM, marginM, zoneOutsideMarginM, lambda,
             edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals
@@ -584,10 +508,8 @@ class RouteAvoidEngine(
         val capDeltaSec = fairedWithCap.durationSec - fairedNoCap.durationSec
         val durationSec = baseTimed.durationSec + capDeltaSec
         val timed = routeTimedLine(fairedWithCap, durationSec)
-        // The slow-water share is a verdict on the **drawn** line and is measured there.
         val finalShare = zoneSlowShare(fairedWithCap, pace)
         val distanceM = lineLengthM(reSearched)
-        // The probe runs **once**, against the settled line, so neither verdict is reported per pass.
         val forced = forcedCrossingNames(
             grid, zones, priced, cellM, pace, lambda, from, to, startCell, aimCell, reSearched
         )
@@ -604,21 +526,106 @@ class RouteAvoidEngine(
                 "budget=${if (budgetMet(finalShare, budgetPct)) "met" else "unmet"} " +
                 "forced=[${forced.joinToString(", ")}]"
         }
-        // The settled answer leaves with no offers: the candidates are computed on the background job
-        // [search] starts from [SettledAnswer.offerInputs], so the configured line reaches the map
-        // before a single candidate is searched.
         val settled = success(
             timed, forced, if (budgetMet(finalShare, budgetPct)) null else finalShare,
             distanceM = distanceM, durationSec = durationSec
         )
-        return SettledAnswer(
-            settled,
-            OfferInputs(
-                world, box, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, baseTimed.durationSec, limitAt
-            ),
-            regionSaturated
+        return SolveResult(settled, regionSaturated)
+    }
+
+    /**
+     * **The invalid-end repair** — an 8-direction ring sweep outward from [point], tested with the
+     * engine's own water test (on the coastline and deep enough for the gate), growing to
+     * `route.repair.maxRadiusM`. The first valid point wins; because it is the nearest, it is on the
+     * sea side by construction. `null` where no valid water exists within the sweep's radius — the
+     * caller answers [RouteReason.CANNOT_REPAIR].
+     *
+     * **Budget: under 50 ms for one point** — the sweep is at most 8 directions ×
+     * `maxRadiusM / stepM` rings, each a pair of layer reads, which is ~72 water tests at the shipped
+     * 200 m radius; the step's own test proves the ceiling.
+     */
+    private fun repair(point: RoutePoint, world: AvoidWorld): RoutePoint? {
+        if (validWater(point, world)) return point
+        val maxRadiusM = AppConfig.routeRepairMaxRadiusM
+        var ring = 1
+        while (ring * REPAIR_STEP_M <= maxRadiusM) {
+            val radiusM = ring * REPAIR_STEP_M
+            for (direction in 0 until REPAIR_DIRECTIONS) {
+                val bearing = direction * (360.0 / REPAIR_DIRECTIONS)
+                val moved = SpatialOperations.pointAlongBearing(point.latitude, point.longitude, bearing, radiusM)
+                val candidate = RoutePoint(moved.latitude, moved.longitude)
+                if (validWater(candidate, world)) return candidate
+            }
+            ring++
+        }
+        return null
+    }
+
+    /** The engine's own water test: on the coastline, and deep enough where the gate is armed. */
+    private fun validWater(point: RoutePoint, world: AvoidWorld): Boolean {
+        if (!world.isWater(point.latitude, point.longitude)) return false
+        val gateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val minDepthM = AppConfig.routeAvoidDepthGateMinM
+        return depthClearsGate(world.depthAt(point.latitude, point.longitude), gateActive, minDepthM)
+    }
+
+    /** Whether a candidate pass is declared at all — its dropped price in force, its absent source kept. */
+    private fun candidatePassRuns(spec: PassSpec, world: AvoidWorld): Boolean {
+        if (spec.dropsZones && !AppConfig.routeAvoidSpeedZoneEnabled) return false
+        if (spec.dropsBand && !AppConfig.routeAvoidZone300Enabled) return false
+        if (AppConfig.routeAvoidCandidateSkipAbsent) {
+            if (spec.dropsBand && world.bandWidthM <= 0.0) return false
+        }
+        return true
+    }
+
+    /** The description a candidate pass is declared under, read from the closed-set resource keys. */
+    private fun descriptionFor(spec: PassSpec): Int = when {
+        spec.dropsBand -> R.string.route_computation_no_zones_band
+        else -> R.string.route_computation_no_zones
+    }
+
+    /**
+     * Publishes the main lookup's stage pair — the stage just finished and the one about to run, with
+     * the line computed so far. A candidate's pass publishes nothing (the panel narrates the main's
+     * build alone); the no-op is deliberate and guarded by [mainLookupId].
+     */
+    private fun publish(stage: RouteStage?, points: List<RoutePoint>? = null) {
+        val lookupId = mainLookupId ?: return
+        if (stage == null) return
+        val done = lastStage
+        lastStage = stage
+        _updates.tryEmit(
+            RouteUpdate(
+                routeId = lookupId,
+                stageDone = done,
+                nextStage = stage,
+                line = points ?: emptyList(),
+                result = null,
+                reason = null
+            )
         )
+        trace {
+            "STAGE done=${done?.name ?: "none"} next=${stage.name}" +
+                if (points != null) " points=${points.size}" else ""
+        }
+    }
+
+    /** The terminal update: the last stage finished, `nextStage` null, the result or the reason. */
+    private fun emitTerminal(lookupId: RouteId, result: RouteResult.Success?, reason: RouteReason?) {
+        _updates.tryEmit(
+            RouteUpdate(
+                routeId = lookupId,
+                stageDone = lastStage,
+                nextStage = null,
+                line = result?.points ?: emptyList(),
+                result = result,
+                reason = reason
+            )
+        )
+        trace {
+            "DONE stage=${lastStage?.name ?: "none"} result=${result != null} reason=${reason?.name ?: "none"}"
+        }
     }
 
     /**
@@ -647,16 +654,17 @@ class RouteAvoidEngine(
     /**
      * One pass of the pipeline after the grid exists: the A\*, the taut pull, the corner snap and the
      * final pull — all of it through the pass's own [lambda]. It is shared by the λ loop, which runs it
-     * once or twice, and by the offers, which run it with one source's price dropped.
+     * once or twice, and by the candidate computations, which run it with one source's price dropped.
      *
      * The grid A* owns the order, the tangent corners own the exact points: pull the cell path taut,
      * then move each bend onto its nearest corner whose own set radius contains it when both
      * neighbouring legs stay clear, and pull once more. `null` where no path connects the two ends.
      *
-     * **[publishStage] is the offers' own door**, and it is the one behaviour the instrument changed:
+     * **[publishStage] is the candidates' own door**, and it is the one behaviour the instrument changed:
      * the λ passes and the fine pass move the panel's stage line, a candidate's pass does not, so the
-     * panel narrates the answer's build alone. Nothing is lost by it — the pass is logged all the same,
-     * on the `OFFER` line that reports its answer, its duration, its saving and whether it was kept.
+     * panel narrates the answer's build alone. [guardBand] drops the band's price from the pull's own
+     * field for a candidate that drops it, so the dropped price is dropped everywhere and not only in
+     * the grid's base.
      */
     private suspend fun runPass(
         world: AvoidWorld,
@@ -675,11 +683,12 @@ class RouteAvoidEngine(
         sets: List<CornerSet>,
         publishStage: Boolean,
         approaches: EndApproaches,
-        refusals: PullRefusals?
+        refusals: PullRefusals?,
+        guardBand: Boolean
     ): PassReading {
         val guardField =
-            costField(world, cellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
-        if (publishStage) publish(RouteStage.SEARCH, passIndex)
+            costField(world, cellM, pace, withZones = true, withBand = guardBand, zones = zones, lambda = lambda)
+        if (publishStage) publish(RouteStage.SEARCH, null)
         val search = AvoidSearch.search(
             grid, startCell, aimCell, Units.knotsToMps(pace),
             zonePriceSec = { interiorKn, collarKn ->
@@ -692,11 +701,11 @@ class RouteAvoidEngine(
         val path = search.path ?: return PassReading(search, emptyList(), null, 0.0, 0, 0)
         val coarse = path.map { grid.center(it.row, it.col) }
         val full = listOf(start) + coarse + listOf(aim)
-        if (publishStage) publish(RouteStage.PULL, passIndex, full.map { RoutePoint.of(it) })
+        if (publishStage) publish(RouteStage.PULL, full.map { RoutePoint.of(it) })
         val pulled = AvoidPull.pull(
             full, start, aim, marginM, guardField, approaches, refusals
         )
-        if (publishStage) publish(RouteStage.SNAP, passIndex, pulled.map { RoutePoint.of(it) })
+        if (publishStage) publish(RouteStage.SNAP, pulled.map { RoutePoint.of(it) })
         val snapped = snapToCorners(pulled, sets, marginM, guardField, start, aim, approaches)
         val final = AvoidPull.pull(
             snapped, start, aim, marginM, guardField, approaches, refusals
@@ -709,9 +718,6 @@ class RouteAvoidEngine(
      * One pass's own readings, returned rather than logged inside it: the caller that owns the decision
      * the pass leads to — the λ loop's correction, the offers' keep-or-drop — emits the pass's one line
      * where that decision is made, so the line carries the correction beside the pass that needed it.
-     *
-     * The counts are sizes of lists the pass already built, and [search] is the A\*'s own outcome, so
-     * nothing here is measured twice.
      */
     private data class PassReading(
         /** The A\*'s own outcome: the path, or the exhaustion reading that says why there is none. */
@@ -744,15 +750,11 @@ class RouteAvoidEngine(
      * the clearance the pull's margin reads — and the depth gate when it is enabled and the grid is
      * in, which the rasterizer paints cell by cell.
      *
-     * The gate is omitted while `route.avoid.depthGate.enabled` is false or the grid is out. The
-     * refusal in [prepare] is what makes the grid-out state unreachable while it is enabled: an
-     * ungated search would price unsounded water as open sea and call the answer a route.
-     *
      * The field is **rebuilt per λ pass** while the grid is not: [lambda] reaches the zone arm's own
      * closure, so a corrective pass costs a few lambdas rather than a second raster sweep. A field
      * built without zones has no arm to price, and λ is unread there.
      *
-     * [withBand] is the offers' own door: the band's price is written into the **grid's base** rather
+     * [withBand] is the candidates' own door: the band's price is written into the **grid's base** rather
      * than read per expansion, so a candidate that drops it needs a grid of its own, and this is the
      * one parameter that makes that grid's field.
      */
@@ -850,8 +852,6 @@ class RouteAvoidEngine(
                 }
             }
             val corner = nearest ?: continue
-            // A snap onto a band corner must not make the line cut through another priced band: the
-            // two new legs may cost no more than the span they replace, or the bend stays on the path.
             val hardClear =
                 AvoidPull.legClear(out[i - 1], corner, marginM, field, start, aim, approaches) &&
                     AvoidPull.legClear(corner, path[i + 1], marginM, field, start, aim, approaches)
@@ -870,14 +870,6 @@ class RouteAvoidEngine(
      * Whether the route was forced through a priced zone: with every restrictive zone's interior
      * blocked the corridor has no avoiding path, and the names reported are the restrictive zones the
      * drawn line enters. An ordinary priced crossing — a way around exists — reports nothing.
-     *
-     * The probe runs **once per solve**, after the λ loop and against the settled line, and it takes
-     * the blocking **off the one grid the search built**: a zone slower than the pace is a cell the
-     * grid's own limit answers, so the copy that marks those cells land replaces the second raster
-     * sweep this used to take. A zone at or above the pace is not restrictive and is never blocked.
-     *
-     * Its instrument line names the restrictive zones, whether the water still connects around them,
-     * how much of it the probe walked when it did not, and the forced crossing's own names.
      */
     private suspend fun forcedCrossingNames(
         grid: AvoidGrid,
@@ -919,9 +911,6 @@ class RouteAvoidEngine(
      * The answer: the line the loop settled, **already timed** under the limits in force — one clock
      * read serves the leg times, the per-leg speeds, the duration and the budget's own share, so none
      * of them can disagree — plus the budget's verdict, set only where the band was missed.
-     *
-     * The offers are **not** computed here: the answer ships with an empty set and the candidates
-     * arrive later on [offers], so the configured line is displayed before they are.
      */
     private fun success(
         timed: TimedLine,
@@ -939,8 +928,7 @@ class RouteAvoidEngine(
         // user dragged, and the snapped cell is only the search's anchor.
         destinationMoved = false,
         budgetUnmetZoneShare = budgetUnmetZoneShare,
-        forcedCrossingZoneNames = forcedCrossingZoneNames,
-        offers = emptyList()
+        forcedCrossingZoneNames = forcedCrossingZoneNames
     )
 
     /**
@@ -970,211 +958,7 @@ class RouteAvoidEngine(
         return shareRank(candidate) < shareRank(incumbent)
     }
 
-    /**
-     * One solve's answer and the inputs the offers' own computation needs later, kept apart so the
-     * settled line is returned at once while the candidates run behind it.
-     */
-    private data class SettledAnswer(
-        /** The settled line, or null where no path connects the two ends at this reach. */
-        val result: RouteResult.Success?,
-        /** The inputs the offers' background job reads, or null where there is no settled line. */
-        val offerInputs: OfferInputs?,
-        /** Whether this reach's corridor box already equals the world's own water — no growth buys more. */
-        val regionSaturated: Boolean
-    )
-
-    /**
-     * Everything the offers' computation reads, captured at answer time: the one grid the solve built,
-     * the corridor's geometry and the settled line's own duration, so the background job needs nothing
-     * the solve has moved past.
-     */
-    private data class OfferInputs(
-        val world: AvoidWorld,
-        val box: BBox,
-        val grid: AvoidGrid,
-        val startCell: CellIndex,
-        val aimCell: CellIndex,
-        val start: LatLng,
-        val aim: LatLng,
-        val pace: Double,
-        val cellM: Double,
-        val marginM: Double,
-        val zoneOutsideMarginM: Double,
-        val lambda: Double,
-        val edges: List<AvoidEdge>,
-        val openCoast: List<List<LatLng>>,
-        val capLatNorth: Double,
-        val priced: List<ZoneRing>,
-        val zones: List<SpeedZone>,
-        val sets: List<CornerSet>,
-        val settledSec: Double,
-        val limitAt: (LatLng) -> Double?
-    )
-
-    /**
-     * Starts the offers' background job for the answer that is about to be returned, leaving the
-     * settled line free to reach the map at once. The job runs on [offersScope] — a lane beside the
-     * solve — and the top of every ask cancels the one in flight, so a new ask aborts the offers the
-     * way it aborts the solve. The write is guarded by [isActive] so a job cancelled mid-flight never
-     * publishes the previous answer's candidates over the new ask's empty set.
-     */
-    private fun launchOffers(inputs: OfferInputs?) {
-        if (inputs == null) return
-        offersJob = offersScope.launch {
-            val candidates = offers(
-                inputs.world, inputs.box, inputs.grid, inputs.startCell, inputs.aimCell,
-                inputs.start, inputs.aim, inputs.pace, inputs.cellM, inputs.marginM,
-                inputs.zoneOutsideMarginM, inputs.lambda, inputs.edges, inputs.openCoast,
-                inputs.capLatNorth, inputs.priced, inputs.zones, inputs.sets,
-                inputs.settledSec, inputs.limitAt
-            )
-            if (isActive) _offers.value = candidates
-        }
-    }
-
-    /**
-     * **The offers (§8, R53, R61)** — the passes the file declares, in the order it declares them,
-     * computed **after** the answer is settled and on the solve's own cancellable job.
-     *
-     * Each pass is the same pipeline with its own prices dropped: the speed zones by pricing them at
-     * λ = 0 over the **same grid** — the limit is stored per cell and the price is the read, so this
-     * costs one search and nothing else — and the 300 m band by re-rasterizing the one field its price
-     * is written into, that price living in the grid's base rather than in a per-cell read. **The passes
-     * are cumulative** (R53): the second drops the zones' price as well, so it reads λ = 0 on its own
-     * grid and offers the line with no aversion left. A pass whose price is not in force, or whose
-     * source touches nothing in the box while `skipAbsent` holds, is skipped rather than run, and a
-     * candidate is kept **only where its clock beats the settled line's by the configured floor** —
-     * `route.avoid.candidate.minSavingPct` — or nothing at all.
-     *
-     * **Their passes publish no stage.** The panel's stage line narrates the answer's own build alone,
-     * so a candidate's pass leaves the channel untouched — the λ passes and the fine pass are the ones
-     * that move it. Nothing is lost: each candidate's pass is logged on the `OFFER` line that reports
-     * its answer, its duration, its saving and whether it was kept, so every pass is logged either way.
-     *
-     * Their **UI is the acquisition's own** (R74): the rows and the next/prev pair read the published
-     * set, so this ships the numbers and the lines those rows draw rather than waiting on a re-shell.
-     */
-    private suspend fun offers(
-        world: AvoidWorld,
-        box: BBox,
-        grid: AvoidGrid,
-        startCell: CellIndex,
-        aimCell: CellIndex,
-        start: LatLng,
-        aim: LatLng,
-        pace: Double,
-        cellM: Double,
-        marginM: Double,
-        zoneOutsideMarginM: Double,
-        lambda: Double,
-        edges: List<AvoidEdge>,
-        openCoast: List<List<LatLng>>,
-        capLatNorth: Double,
-        priced: List<ZoneRing>,
-        zones: List<SpeedZone>,
-        sets: List<CornerSet>,
-        settledSec: Double,
-        limitAt: (LatLng) -> Double?
-    ): List<RouteOffer> {
-        val out = ArrayList<RouteOffer>(2)
-        var candidates = 0
-        var ran = 0
-        for (candidatePass in AppConfig.routeAvoidCandidatePasses) {
-            candidates++
-            val dropsZones = RouteOfferSource.SPEED_ZONES in candidatePass.drops
-            val dropsBand = RouteOfferSource.ZONE300 in candidatePass.drops
-            // A price that is not in force has nothing to drop, so the pass would only re-draw the
-            // settled line — skipped whatever `skipAbsent` says.
-            if (dropsZones && !AppConfig.routeAvoidSpeedZoneEnabled) continue
-            if (dropsBand && !AppConfig.routeAvoidZone300Enabled) continue
-            if (AppConfig.routeAvoidCandidateSkipAbsent) {
-                if (dropsZones && zones.isEmpty()) continue
-                if (dropsBand && world.bandWidthM <= 0.0) continue
-            }
-            // **The band's price lives in the grid's base, the zones' in the per-cell read**: dropping
-            // the band needs a grid of its own, while dropping the zones alone is λ = 0 on the grid the
-            // solve already built — which is why the file is written cheapest first.
-            val passGrid = if (dropsBand) {
-                val bandField = costField(
-                    world, cellM, pace, withZones = false, withBand = false, zones = zones, lambda = lambda
-                )
-                rasterize(
-                    box, cellM, pace, marginM, edges, openCoast, capLatNorth, bandField, priced,
-                    zoneOutsideMarginM = zoneOutsideMarginM
-                ).also {
-                    it.forceFree(start.latitude, start.longitude)
-                    it.forceFree(aim.latitude, aim.longitude)
-                }
-            } else {
-                grid
-            }
-            ran++
-            val pass = runPass(
-                world, passGrid,
-                if (passGrid === grid) startCell else passGrid.cellOf(start.latitude, start.longitude),
-                if (passGrid === grid) aimCell else passGrid.cellOf(aim.latitude, aim.longitude),
-                start, aim, pace, cellM, marginM, zoneOutsideMarginM,
-                // Cumulative: a pass that drops the zones' price prices them at λ = 0.
-                if (dropsZones) 0.0 else lambda,
-                limitAt, zones, sets, publishStage = false,
-                approaches = EndApproaches.NONE, refusals = null
-            )
-            val kept = offer(candidatePass.source, pass.timed, settledSec)
-            trace { offerLine(candidatePass.source, pass.timed, settledSec, kept) }
-            kept?.let { out.add(it) }
-        }
-        trace { "OFFERS n=${out.size} candidates=$candidates ran=$ran settled=${fmt(settledSec)}s" }
-        return out
-    }
-
-    /** One candidate's own line: its answer, its duration, its saving and whether it was kept — and why not. */
-    private fun offerLine(
-        source: RouteOfferSource,
-        timed: TimedLine?,
-        settledSec: Double,
-        kept: RouteOffer?
-    ): String {
-        val duration = timed?.durationSec
-        val saving = duration?.let { settledSec - it }
-        val reason = when {
-            timed == null -> " reason=no-path"
-            kept == null -> " reason=no-saving"
-            else -> ""
-        }
-        return "OFFER source=$source answered=${timed != null} " +
-            "duration=${duration?.let { fmt(it) } ?: "none"}s " +
-            "saving=${saving?.let { fmt(it) } ?: "none"}s kept=${kept != null}$reason"
-    }
-
-    /**
-     * Keeps a candidate line only where it beats [settledSec] **by the configured floor** (R63) — the
-     * saving, or nothing. The rule itself lives in [`routeCandidateSavingSec`], so the floor the engine
-     * applies and the floor a test reads are one piece of arithmetic; what this function adds is the
-     * answer a saved candidate carries.
-     */
-    private fun offer(
-        source: RouteOfferSource,
-        timed: TimedLine?,
-        settledSec: Double
-    ): RouteOffer? {
-        if (timed == null) return null
-        val savingSec = routeCandidateSavingSec(
-            settledSec = settledSec,
-            candidateSec = timed.durationSec,
-            minSavingPct = AppConfig.routeAvoidCandidateMinSavingPct
-        ) ?: return null
-        return RouteOffer(
-            source = source,
-            points = timed.points.map { RoutePoint.of(it) },
-            legTimesSec = timed.legTimesSec,
-            legSpeedsMps = timed.legSpeedsMps,
-            distanceM = lineLengthM(timed.points),
-            durationSec = timed.durationSec,
-            savingSec = savingSec
-        )
-    }
-
-    /** The polyline's own length in metres — one home, read by the answer and by every offer alike. */
+    /** The polyline's own length in metres — one home, read by the answer and by every candidate alike. */
     private fun lineLengthM(points: List<LatLng>): Double {
         var total = 0.0
         for (i in 0 until points.size - 1) {
@@ -1186,22 +970,6 @@ class RouteAvoidEngine(
     /**
      * **The fine pass (§5)** — the refinement along the settled answer, run once and **after** the λ
      * loop, so the loop never pays for it.
-     *
-     * Its one re-solve is the **crossing**: on this coast the passages that matter are a few tens of
-     * metres wide, narrower than the coarse cell, so a grid built at `route.avoid.grid.cellM` cannot
-     * see the way around a zone the line runs into. Every restrictive zone the line enters is therefore
-     * re-solved locally at `route.avoid.fine.cellRatio` of the coarse cell, inside the zone's own box,
-     * and spliced in **only where that search answers** — a crossing it cannot improve is left as it
-     * stands. Its λ is the loop's own, so the refined line obeys the same budget.
-     *
-     * Then the whole line is pulled and snapped once more against the field that cell size prices,
-     * which is this section's "a pull and a snap only".
-     *
-     * **One deviation, named.** The plan's swath — the coarse line's own bounding box, re-rasterized at
-     * the fine cell — is **not** rasterized: nothing in this pipeline reads a grid to pull a chord. The
-     * clearance [AvoidPull] tests is the world's own coast distance, exact at every cell size, so a
-     * swath grid would be built and never read; the fine cell reaches the pull through the **field**
-     * the pull does read, and the passage-threading this section owes is the crossing's local A*.
      */
     private suspend fun finePass(
         world: AvoidWorld,
@@ -1250,11 +1018,9 @@ class RouteAvoidEngine(
     /**
      * **D8 — the fine re-search along the settled line.** The coarse grid closes any passage narrower
      * than roughly two cells, so a narrow channel the search would rather thread reads as land and the
-     * line is forced around it. This pass re-rasterizes a **swath** around the settled line — the coarse
-     * polyline's own bounding box inflated by half the plan's swath (`outsideMarginM + cellM`) and clamped
-     * to the corridor — at `route.avoid.fine.cellRatio`, re-runs the A*, and keeps the fine line **only
-     * where it is strictly faster** than the incumbent. The incumbent survives every tie, so a fine pass
-     * can never leave the route worse than the coarse one did.
+     * line is forced around it. This pass re-rasterizes a **swath** around the settled line at
+     * `route.avoid.fine.cellRatio`, re-runs the A*, and keeps the fine line **only where it is strictly
+     * faster** than the incumbent.
      */
     private suspend fun fineReSearch(
         world: AvoidWorld,
@@ -1302,7 +1068,8 @@ class RouteAvoidEngine(
             world, grid, grid.cellOf(start.latitude, start.longitude),
             grid.cellOf(aim.latitude, aim.longitude), start, aim, pace, fineCellM, marginM, outsideMarginM,
             lambda, limitAt, zones, sets, publishStage = false,
-            approaches = approaches, refusals = refusals
+            approaches = approaches, refusals = refusals,
+            guardBand = true
         )
         val fineTimed = pass.timed
         if (fineTimed == null) {
@@ -1335,18 +1102,7 @@ class RouteAvoidEngine(
 
     /**
      * The crossing's own **local A\***: the stretch of [line] standing inside [zone]'s box, cut out and
-     * re-solved at [fineCellM], with the two vertices flanking the cut as the splice's own ends. The box
-     * is the zone's bounding box inflated by the outside margin and one coarse cell and **clamped to the
-     * corridor**, so the local search can never wander past the search it refines.
-     *
-     * **F3 — the re-solve reaches the line's ends.** A stretch that begins at index 0 takes the raw
-     * [start] as its `from`, and one that ends at the last index takes the raw [aim] as its `to`; the
-     * splice then replaces the head or the tail instead of an interior stretch. It answers `null` where
-     * the box meets no corridor, holds no line point, or the fine grid finds no path.
-     *
-     * Its instrument line says which of those it was: the box and whether the corridor clamped it, the
-     * fine cell, the stretch's first and last indices, whether the local A\* answered, and whether the
-     * splice was taken — with the reason when it was not.
+     * re-solved at [fineCellM], with the two vertices flanking the cut as the splice's own ends.
      */
     internal suspend fun solveCrossing(
         world: AvoidWorld,
@@ -1389,9 +1145,6 @@ class RouteAvoidEngine(
             }
             return null
         }
-        // F3: a crossing that touches an end is re-solved from the raw start or to the raw aim, and the
-        // splice replaces the head or the tail instead of an interior stretch — the destination-side
-        // crossing, the case a user hits, is no longer refused by the line-end guard.
         val from = if (first == 0) start else line[first - 1]
         val to = if (last == line.size - 1) aim else line[last + 1]
         val base = costField(
@@ -1498,19 +1251,6 @@ class RouteAvoidEngine(
 
     // ── The instrument ─────────────────────────────────────────────────────────
 
-    /**
-     * Publishes the pipeline's boundary and logs the publication with the pass it belongs to, so the
-     * panel's stage line and the log tell the same story. `null` clears it — a stage left standing
-     * after the call that set it would be a lie on the panel.
-     */
-    private fun publish(stage: RouteStage?, pass: Int, points: List<RoutePoint>? = null) {
-        _progress.value = if (stage == null) null else RouteProgress(stage, points)
-        trace {
-            "STAGE pass=$pass stage=${stage?.name ?: "cleared"}" +
-                if (points != null) " points=${points.size}" else ""
-        }
-    }
-
     /** Emits one line on the route channel when its level is on, building [message] only then. */
     private inline fun trace(message: () -> String) {
         if (logEnabled) Log.i(TAG, message())
@@ -1581,12 +1321,6 @@ class RouteAvoidEngine(
     /**
      * **The berth carve (F7), read off one end** — the scan, then the cells it opens, then the stretch
      * the pull will read.
-     *
-     * The carve opens each intermediate cell with [AvoidGrid.openCarve], so the channel takes the
-     * grid's base cost and **keeps its zone limit**: only the shore margin is the courtesy this waives,
-     * and a zone standing in the berth still prices the cell the A\* reads. The returned stretch runs
-     * from the end's own point — never the cell's centre — so the pull exempts the water the boat
-     * actually travels, and the destination cell, being legal water already, is left untouched.
      */
     private fun carveEnd(
         world: AvoidWorld,
@@ -1656,8 +1390,27 @@ class RouteAvoidEngine(
     }
 }
 
+/** One solve's answer and whether its corridor already equals the region's own water. */
+private data class SolveResult(val result: RouteResult.Success?, val regionSaturated: Boolean)
+
+/** One declared computation — its id, its description and the prices a candidate drops. */
+private data class Computation(
+    val id: RouteId,
+    val descriptionResId: Int,
+    val pass: PassSpec?
+)
+
+/** The prices a candidate computation drops — the two soft sources, each or both. */
+private data class PassSpec(val dropsZones: Boolean, val dropsBand: Boolean)
+
 /** The λ loop's cap: one correction, so **two** solves at most on any one corridor. */
 private const val LAMBDA_PASSES = 2
+
+/** The repair's ring step (m) — a constant of the algorithm, not a key. */
+private const val REPAIR_STEP_M = 25.0
+
+/** The repair's directions per ring — the 8 compass bearings. */
+private const val REPAIR_DIRECTIONS = 8
 
 /**
  * The route mode's own log tag — the channel the refusals already ride, and the one `adb logcat -s`

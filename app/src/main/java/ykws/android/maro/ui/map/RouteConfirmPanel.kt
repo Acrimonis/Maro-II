@@ -32,7 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
+import kotlin.math.abs
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.RouteStage
@@ -45,80 +45,57 @@ import ykws.android.maro.ui.components.StatCell
 // The route acquisition's own dashboard — the panel the slot carries while a route is being acquired
 //
 // **The acquisition has its own surface, and it is this panel in the dashboard slot** (R74): the
-// status, the candidate rows and the three actions, with the drawer standing above it for the
-// parameters rather than instead of it. **Nothing else route-specific is ever composed** (R73): once
-// `Select route` is pressed the panel is gone and the ordinary dashboard returns, the toggle and the one
-// exit dialog being the mode's whole presence from then on.
+// status, the page rows and the three actions. **Nothing else route-specific is ever composed** (R73):
+// once `Select route` is pressed the panel is gone and the ordinary dashboard returns.
 //
-// **The anatomy.** A header row — the phase's title left, its short state word right, a top-right
-// reading that costs no line of its own, and the stage **inside that word** (`Acquiring (Search)…`
-// since 2026-09-28) — then the phase's comment, then the card's 0.5 dp rule, then the **refusal** the
-// state has to report, or the word a pair no route answers with, on the sentence line the panel already
-// carried, then the **selected** line's whole **data table** on the card's own cell ([StatCell]): the
-// two ends as their own labelled rows, `Dist · ETA` as one row of two. The four details R24 names are
-// all there. A **second rule** closes the table, the pin stands under it, and the actions are
-// **bottom-anchored**: the content scrolls in its own weighted block, so the outcomes sit at the
-// panel's foot however short the table is (a rule names the panel's own entry in
-// docs/ui-component-guidelines.md §5.8).
+// **The anatomy, rebuilt 2026-09-29.** A header row — the phase's title left, its short state word
+// right, the stage inside that word — then the **comparison** in the comment's old place, then the
+// card's 0.5 dp rule, then the **refusal** the state has to report, on the sentence line the panel
+// already carried, then the **selected** line's whole **data table** on the card's own cell, the pin,
+// and the page rows with their next/prev pair. The four details R24 names are all there.
 //
-// **The candidate rows appear only as the offers land** (R54). The engine computes them behind the
-// answer on its own lane, so the set opens at one — the settled line — and grows; the rows and the
-// next/prev pair stand only from the moment there is something to step through.
+// **The top area is §5's three things**: the title, the stage or refusal word, and the comparison once
+// a second finished page exists. The comment left with the seam rework.
 //
-// **A button's colour states its role, never its importance** (§5.6): the accent is the surface's own
-// outcome — `Select route` once a line stands — the outline is everything that neither writes nor
-// loses, and the red is the action that withholds the work — the panel's own **Discard route**, which
-// took the place of `Cancel` on 2026-09-28, as well as the exit dialog's.
-//
-// It reuses what already exists rather than re-drawing it: [ConfirmActionButton] for the outcomes,
-// [StatCell] for the readings and [RoutePinOption] for the pin, so the styling and the tick each keep
-// one home.
-//
-// **The panel never raises a dialog itself.** It owns no exit, so no dialog exists for it to raise.
+// **A button's colour states its role, never its importance** (§5.6).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * The acquisition's panel, for the dashboard slot.
  *
- * @param stage           the acquisition's own stage, or null when nothing is running (R15) — the stage
- *                        rides the header's own acquiring word, never a line of its own.
- * @param candidates      the lines the acquisition draws, the settled answer first (R53, R54).
- * @param selectedIndex   which of [candidates] the selection stands on — the table, the notes and the
- *                        saves all describe that one line.
- * @param pinned          the pin state the saves start with — held by the screen, because the exit
- *                        dialog's own save reads it and the dialog is the screen's.
- * @param frontSaved      whether the **selected** line is already written (R55): the one fact the save
- *                        action reads to grey itself.
- * @param onStepCandidate **next/prev**: steps the selection and loops it.
+ * @param stage           the main lookup's current stage, or null when nothing is running (R15).
+ * @param pages           the pages the acquisition draws, the main first — one per started lookup.
+ * @param selectedIndex   which of [pages] the selection stands on — the table and the saves describe
+ *                        that one page.
+ * @param pinned          the pin state the saves start with.
+ * @param frontSaved      whether the **selected** line is already written (R55).
+ * @param onStepPage      **next/prev**: steps the selection and loops it.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
- * @param onDiscard       **Discard route**: leaves the acquisition and turns the toggle off, asking
- *                        nothing (R57) — the red, and the act the `Cancel` it replaced performed.
- *
- * Renders nothing at all unless the machine is acquiring a route: the slot belongs to the dashboard
- * whenever no route is being acquired (R73).
+ * @param onDiscard       **Discard route**: leaves the acquisition and turns the toggle off (R57).
  */
 @Composable
 internal fun RouteConfirmationPanel(
     state: RouteState,
     stage: RouteStage?,
-    candidates: List<RoutePlan>,
+    pages: List<RoutePage>,
     selectedIndex: Int,
     pinned: Boolean,
     frontSaved: Boolean,
     onPinnedChange: (Boolean) -> Unit,
-    onStepCandidate: (Int) -> Unit,
+    onStepPage: (Int) -> Unit,
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
     onDiscard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val acquiring = state as? RouteState.Choosing ?: return
-    val selected = candidates.getOrNull(selectedIndex.coerceIn(0, (candidates.size - 1).coerceAtLeast(0)))
+    val clampedIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+    val selected = pages.getOrNull(clampedIndex)
+    val selectedPlan = selected?.plan
     // The header's short state word (R15): the acquisition says it is working only while it is, and the
-    // **stage rides inside that word** — `Acquiring (Search)…` — rather than on a sentence line of its
-    // own (2026-09-28, the user's word). A running search that publishes no stage — the dummy engine's
-    // own case — reads the plain word.
+    // **stage rides inside that word** — `Acquiring (Search)…`. A search that publishes no stage reads
+    // the plain word.
     val status = if (acquiring.searching) {
         stage?.let {
             stringResource(R.string.route_status_acquiring_stage, stringResource(it.labelResId))
@@ -126,42 +103,46 @@ internal fun RouteConfirmationPanel(
     } else {
         null
     }
-    val sentence = acquiringSentence(acquiring)
+    val refusal = acquiring.refusal ?: selected?.reason
+    val comparison = routeComparison(
+        selectedIndex = clampedIndex,
+        selectedDurationSec = selectedPlan?.durationSec,
+        mainDurationSec = pages.firstOrNull()?.plan?.durationSec
+    )
 
     PanelColumn(
         modifier = modifier,
         content = {
             PanelHeader(title = stringResource(R.string.route_acq_title), status = status)
-            PanelSentence(stringResource(R.string.route_acq_comment))
-            // The live sentence keeps its own slot under the rule, so the static comment above and the
-            // stage or the refusal below never stand together (R15).
-            sentence?.let {
-                PanelDivider()
-                PanelSentence(it)
+            // The comparison takes the comment's place once a second finished page exists.
+            comparison?.let {
+                PanelSentence(comparisonText(it))
             }
-            if (selected != null) {
+            // The live sentence keeps its own slot under the rule: the refusal the pair or the selected
+            // page answered with.
+            refusal?.let {
                 PanelDivider()
-                PanelDataTable(selected)
-                PlanNotes(selected)
+                PanelSentence(stringResource(it.labelResId))
+            }
+            if (selectedPlan != null) {
+                PanelDivider()
+                PanelDataTable(selectedPlan)
+                PlanNotes(selectedPlan)
                 PanelDivider()
                 RoutePinOption(pinned = pinned, onPinnedChange = onPinnedChange)
             }
-            // The candidates stand beside the settled line, and only once there is one to step to
-            // (R54): the engine's own offers arrive after the answer, so the block appears with them.
-            if (candidates.size > 1) {
+            // The pages stand beside the main, and only once there is one to step to: each page is a
+            // lookup of its own, so the block appears with the set.
+            if (pages.size > 1) {
                 PanelDivider()
-                CandidateBlock(
-                    candidates = candidates,
-                    selectedIndex = selectedIndex,
-                    onStepCandidate = onStepCandidate
+                PageBlock(
+                    pages = pages,
+                    selectedIndex = clampedIndex,
+                    onStepPage = onStepPage
                 )
             }
         },
         actions = {
-            // R55's own three, and **the forward pair shares one row** (2026-09-28, the user's word):
-            // `Save to track` beside `Select route`, each a weighted half 8 dp apart — the family's own
-            // geometry, which `ConfirmActionButton`'s modifier exists for — with the abort full width
-            // beneath them. The row gives back one line of height to the status and the table above it.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -170,7 +151,7 @@ internal fun RouteConfirmationPanel(
                     action = ConfirmAction(
                         label = stringResource(R.string.route_action_save_track),
                         role = ConfirmActionRole.SECONDARY,
-                        enabled = selected != null && !frontSaved,
+                        enabled = selectedPlan != null && !frontSaved,
                         onClick = onSaveTrack
                     ),
                     modifier = Modifier.weight(1f)
@@ -179,14 +160,12 @@ internal fun RouteConfirmationPanel(
                     action = ConfirmAction(
                         label = stringResource(R.string.route_action_select),
                         role = ConfirmActionRole.PRIMARY,
-                        enabled = selected != null,
+                        enabled = selectedPlan != null,
                         onClick = onSelectRoute
                     ),
                     modifier = Modifier.weight(1f)
                 )
             }
-            // The abort, red and last (R57): the same silent end the `Cancel` performed, under the exit
-            // dialog's own word for it — one act, one key, one colour, the loss painted last.
             ConfirmActionButton(
                 action = ConfirmAction(
                     label = stringResource(R.string.route_exit_discard),
@@ -203,10 +182,6 @@ internal fun RouteConfirmationPanel(
 
 /**
  * The panel's own surface: the dashboard's background on its own gutters.
- *
- * [content] is the block that scrolls — the header, the rules and the table — and it takes the slack,
- * which is what anchors [actions] to the panel's **bottom** however short the table is. A panel whose
- * content outgrows the slot scrolls inside its own block rather than pushing the outcomes off screen.
  */
 @Composable
 private fun PanelColumn(
@@ -236,12 +211,7 @@ private fun PanelColumn(
 
 /**
  * The panel's first row: the phase's title on the left and, where the phase has one, its **status** in
- * the right corner — the one reading that costs no line of its own, and the one the stage rides inside
- * while a search runs.
- *
- * The title keeps a single line and yields the width before the status does: a title that is cut is a
- * word a reader can finish, while a status read short would say the wrong thing about the route — so
- * the status ellipsises rather than being cut in silence.
+ * the right corner.
  */
 @Composable
 private fun PanelHeader(title: String, status: String?) {
@@ -265,15 +235,13 @@ private fun PanelHeader(title: String, status: String?) {
                 color = Color(AppConfig.uiDashboardTextPrimary),
                 fontSize = 13.sp,
                 maxLines = 1,
-                // The corner says the phase and its stage both, so it carries the longer reading of the
-                // two; a clipped status now reads as clipped (§5.8's one line).
                 overflow = TextOverflow.Ellipsis
             )
         }
     }
 }
 
-/** The panel's one sentence: the phase's comment, the running stage, or the state while nothing stands. */
+/** The panel's one sentence: the comparison, the refusal, or the state while nothing stands. */
 @Composable
 private fun PanelSentence(text: String) {
     Text(
@@ -294,23 +262,26 @@ private fun PanelDivider() {
 }
 
 /**
+ * **The comparison one finished page shows against the main** — "Route #n is taking x less or more",
+ * the flow's arithmetic of the selected page's own duration against the main's. The span is the
+ * absolute difference, and the direction is the sign: a faster page reads "less", a slower one "more".
+ */
+@Composable
+private fun comparisonText(comparison: RouteComparison): String {
+    val span = routeSpanText(abs(comparison.deltaSec))
+    val direction = stringResource(
+        if (comparison.deltaSec < 0.0) R.string.route_comparison_less else R.string.route_comparison_more
+    )
+    return stringResource(R.string.route_comparison_fmt, comparison.routeNumber, span, direction)
+}
+
+/**
  * **The route's data table** — the four details R24 names, on the card's own cell.
- *
- * The two ends take a **row each**, which is the width a four-decimal coordinate pair needs: the card's
- * cell gives the label a third and the value the rest, so the pair prints whole and the destination's
- * own note rides beside it when the engine resolved the end elsewhere. `Dist · ETA` then share one row
- * of halves, the two figures being short.
- *
- * The table describes the **selected** line (R67's own reading, one surface over): the draw, the table
- * and the save all follow the selection, so what a user reads is what a save would write.
  */
 @Composable
 private fun PanelDataTable(plan: RoutePlan) {
     val course = plan.remainingFrom(plan.start)
 
-    // **The card's own grid, two columns**: `Start` beside `Destination`, then `Dist` beside `ETA`, each
-    // reading on a cell of the same shape — label right-aligned in its third, value left-aligned in its
-    // two — and the rows touching, which is the tidy rhythm the tracks card's stats read with.
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) {
@@ -344,22 +315,18 @@ private fun PanelDataTable(plan: RoutePlan) {
 }
 
 /**
- * **The candidate rows, and the pair that steps them** (R54, R62).
+ * **The page rows, and the pair that steps them** (R54, R62).
  *
- * One row per line the engine offered beside the settled answer — never for the settled line itself,
- * which the table above already describes — each printing the engine's **own** figures: its duration
- * and what it saves, in time and as a share of the settled trip's clock, exactly as
- * [`routeCandidateText`] formats them. The UI recomputes nothing and asserts no basis of its own (R72):
- * what the engine measured is what is written down.
- *
- * The row the selection stands on takes `uiAccent`; the others stay in the card's own text colour, so
- * the emphasis follows the next/prev pair rather than moving the drawing (R54).
+ * One row per page after the main — never for the main itself, which the table above already
+ * describes — each printing the engine's **own** figures: its description and its duration, exactly as
+ * the engine published them. The row the selection stands on takes `uiAccent`; the others stay in the
+ * card's own text colour.
  */
 @Composable
-private fun CandidateBlock(
-    candidates: List<RoutePlan>,
+private fun PageBlock(
+    pages: List<RoutePage>,
     selectedIndex: Int,
-    onStepCandidate: (Int) -> Unit
+    onStepPage: (Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -373,7 +340,7 @@ private fun CandidateBlock(
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = { onStepCandidate(-1) }, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = { onStepPage(-1) }, modifier = Modifier.size(36.dp)) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     contentDescription = stringResource(R.string.cd_route_candidate_prev),
@@ -381,7 +348,7 @@ private fun CandidateBlock(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            IconButton(onClick = { onStepCandidate(1) }, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = { onStepPage(1) }, modifier = Modifier.size(36.dp)) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = stringResource(R.string.cd_route_candidate_next),
@@ -390,22 +357,21 @@ private fun CandidateBlock(
                 )
             }
         }
-        // The settled line is candidates[0] and the offers follow it, so the row's own number is its
-        // position in the set — `Route #1` is the first alternative the engine offered.
-        for (index in 1..candidates.lastIndex) {
-            val candidate = candidates[index]
-            val settled = candidates.first()
-            val selected = index == selectedIndex.coerceIn(0, candidates.lastIndex)
+        // The main is pages[0] and the candidates follow it, so the row's own number is its position
+        // in the set — `Route #1` is the first alternative the engine declared.
+        for (index in 1..pages.lastIndex) {
+            val page = pages[index]
+            val selected = index == selectedIndex.coerceIn(0, pages.lastIndex)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onStepCandidate(index - selectedIndex.coerceIn(0, candidates.lastIndex)) }
+                    .clickable { onStepPage(index - selectedIndex.coerceIn(0, pages.lastIndex)) }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = routeCandidateText(index, candidate, settled),
+                    text = pageRowText(index, page),
                     color = if (selected) Color(AppConfig.uiAccent)
                     else Color(AppConfig.uiDashboardTextPrimary),
                     fontSize = 13.sp,
@@ -419,39 +385,22 @@ private fun CandidateBlock(
 }
 
 /**
- * **One candidate's row** (R62): which alternative it is, the duration the engine gave it, and what it
- * saves against the settled trip — in time, and as a share of that trip's **own clock**.
- *
- * The UI asserts no basis of its own (R72): the saving is the difference between the two clocks the
- * engine published, and the denominator is the settled answer's own duration rather than a budget, a
- * band or a pace the surface would have to guess at. Nothing here is recomputed from the line — the
- * row prints what the engine measured.
+ * **One page's row**: which route it is, the description the engine declared it under, and its own
+ * duration — the engine's figures, recomputed nowhere. A page that has not landed prints no duration.
  */
 @Composable
-private fun routeCandidateText(index: Int, candidate: RoutePlan, settled: RoutePlan): String {
-    val savingSec = (settled.durationSec - candidate.durationSec).coerceAtLeast(0.0)
-    val sharePct = if (settled.durationSec > 0.0) {
-        (savingSec / settled.durationSec * 100.0).roundToInt()
+private fun pageRowText(index: Int, page: RoutePage): String {
+    val description = stringResource(page.descriptionResId)
+    val duration = page.plan?.durationSec?.let { routeSpanText(it) }
+    return if (duration != null) {
+        stringResource(R.string.route_page_fmt, index, description, duration)
     } else {
-        0
+        stringResource(R.string.route_page_fmt, index, description, "")
     }
-    return stringResource(
-        R.string.route_candidate_fmt,
-        index,
-        routeSpanText(candidate.durationSec),
-        routeSpanText(savingSec),
-        sharePct
-    )
 }
 
 /**
- * **The two notes a route can carry, and only where they are true**: the engine's own note that the
- * route really ends away from the end asked for — drawn as a bracketed footnote, the pair above it
- * being where the ends themselves read — and the crossing of a zone no way around avoids.
- *
- * **A crossing is said before the route is locked.** The panel is where the boat decides, so a route
- * that has to enter a zone — because no way around exists, or because one end of it stands inside —
- * names the zone it enters rather than presenting the crossing as an ordinary one.
+ * **The two notes a route can carry, and only where they are true**.
  */
 @Composable
 private fun PlanNotes(plan: RoutePlan) {
@@ -472,30 +421,4 @@ private fun PlanNotes(plan: RoutePlan) {
             modifier = Modifier.fillMaxWidth()
         )
     }
-}
-
-/**
- * The sentence the acquisition shows under the comment — the state's own words, or null when it has
- * nothing to add.
- *
- * A refused **anchor** outranks everything (there is no start to route from, and it reads as a line
- * about the position rather than on the destination, R7); a refused **destination** names its reason
- * with the outcomes hidden (R6); then the pair no route answers. **The stage is not here** (R15, as
- * rewritten 2026-09-28): it rides the header's own acquiring word, so a search simply running prints
- * nothing and the sentence line disappears with it. Nothing asked yet is the comment above alone.
- */
-@Composable
-private fun acquiringSentence(acquiring: RouteState.Choosing): String? = when {
-    acquiring.originRefusal != null -> stringResource(
-        R.string.route_origin_invalid,
-        stringResource(acquiring.originRefusal.labelResId)
-    )
-
-    acquiring.refusal != null -> stringResource(
-        R.string.route_destination_invalid,
-        stringResource(acquiring.refusal.labelResId)
-    )
-
-    acquiring.asked -> stringResource(R.string.route_no_route)
-    else -> null
 }

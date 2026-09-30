@@ -632,10 +632,13 @@
     <string name="route_action_save_track">Save to track</string>
     <string name="route_action_select">Select route</string>
     <string name="route_pin_label">Pin the track</string>
-    <string name="route_no_route">No water route here</string>
-    <!-- The refused end's two sentences — one per end, and the crosshair is the same on both. -->
-    <string name="route_destination_invalid">Destination invalid: %1$s</string>
-    <string name="route_origin_invalid">Position invalid: %1$s</string>
+    <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
+         CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
+         update flow. -->
+    <string name="route_reason_cannot_repair">No valid water near this point</string>
+    <string name="route_reason_world_not_ready">Water data is still loading</string>
+    <string name="route_reason_no_path">No route found</string>
+    <string name="route_reason_off_water">Outside the covered water</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
     <!-- The status with the stage the engine published while a search runs — `Acquiring (Search)…`
@@ -656,13 +659,6 @@
     <string name="route_exit_save">Save Route and exit</string>
     <string name="route_exit_continue">Continue Route</string>
     <string name="route_exit_discard">Discard Route</string>
-    <!-- Why a point is not usable water — one line per closed-set reason, as a fragment the
-         "invalid" sentence above completes. Both ends read the same set. The middle two are the
-         ring's own reads: the depth gate's rule, and whether a berth approach reaches legal water. -->
-    <string name="route_refusal_off_water">no water here</string>
-    <string name="route_refusal_too_shallow">too shallow here</string>
-    <string name="route_refusal_no_approach">no way in from here</string>
-    <string name="route_refusal_outside_coverage">outside the covered area</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
@@ -677,15 +673,6 @@
          price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
     <string name="route_budget_unmet">Slow-water budget not met</string>
     <string name="route_budget_unmet_desc">The route spends more of its time slowed by speed zones than the budget allows.</string>
-    <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
-         surface behind it may not be a mesh. -->
-    <string name="route_unavailable_region_not_baked">Routing unavailable for this region</string>
-    <!-- The replacement engine's own reason: the soundings are what hold a route off the shore, so no
-         route is offered until the depth grid has loaded. -->
-    <string name="route_unavailable_depth_not_loaded">Routing waits for the depth data</string>
-    <!-- The other half of that refusal: the wall is land dilated by the berth, so a route asked for
-         before the coastline lands would draw a line over the shore. -->
-    <string name="route_unavailable_coastline_not_loaded">Routing waits for the coastline</string>
     <string name="settings_route_pace_label">Free-water pace</string>
     <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
@@ -696,4 +683,16 @@
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
+    <!-- The computation descriptions a declared route is shown under: the main and the two candidate
+         passes. The wording is the spec's (2026-09-29). -->
+    <string name="route_computation_main">Full avoidance</string>
+    <string name="route_computation_no_zones">Ignore speed zones</string>
+    <string name="route_computation_no_zones_band">Ignore zones and 300 m band</string>
+    <!-- The panel's comparison once a second finished page exists — "Route #n is taking x less/more",
+         the flow's arithmetic of each route's duration against the selected one. -->
+    <string name="route_comparison_fmt">Route #%1$d is taking %2$s %3$s</string>
+    <string name="route_comparison_less">less</string>
+    <string name="route_comparison_more">more</string>
+    <!-- One page row in the panel: which route it is, its description and its own duration. -->
+    <string name="route_page_fmt">Route #%1$d · %2$s · %3$s</string>
 </resources>

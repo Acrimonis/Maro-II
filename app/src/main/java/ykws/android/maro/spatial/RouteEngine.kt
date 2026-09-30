@@ -1,255 +1,149 @@
 package ykws.android.maro.spatial
 
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import ykws.android.maro.R
-import ykws.android.maro.data.model.RouteOffer
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 
 /**
- * **The route's engine seam: a session, and the slot the next engine fills.**
+ * **The route's engine seam: a declaration of the routes an engine can compute, and one flow of
+ * updates per started lookup.**
  *
- * An engine is told where each end of the route is and answers what the water allows between them —
- * which is why this is a **session rather than a function**. It is told the origin once, when the mode
- * is armed, and the destination as the user drags it; during the following phase the origin moves and
- * the destination stands, and the reverse holds while the destination is being chosen. An engine that
- * is told one end moved **holds the other**, which is where a cache may live — the one thing a
- * `route(start, aim, pace)` signature could not offer, and the reason this interface replaced it.
+ * The seam was rebuilt on 2026-09-29 because the shape it had — a mode that placed a destination on
+ * the map and re-asked on a clock — is no longer the mode. Arming reads the drawer's pair once, so an
+ * engine is no longer a *session* told one end at a time; it is asked **which routes it can compute
+ * between two points**, and it answers a set of declared computations, each with its own id. Starting
+ * any of them needs only that id, because the whole set runs on the one pair the engine was handed.
  *
- * **What ships today are two placeholders.** [RouteDummyEngine] and [RouteAvoidEngine] both answer
- * one straight line from the origin to the destination, reading no coastline, no soundings and no
- * zone; they differ only in the pace they time that line at. The dummy prices at a fiction of its own
- * — 15 kn on every leg (R28) — so the app's own pace setting does not move a dummy route, while the
- * avoid engine prices at the pace in force. They exist so the feature stays whole — the toggle, the
- * aim, the phases, the refresh, the ladder, the save — while the two engines that came before them
- * were removed on 2026-09-22. Each of those is written up where it went:
- * `xTrack/Route/260922_FEAT_DOC_Route_mesh-engine.md` and `…_taut-tracer.md`.
+ * **The pair is repaired first.** The first step of [routesToCompute] is the invalid-end repair — a
+ * point that is land or shallower than the minimum depth is moved to the nearest valid water on the
+ * sea side — and a pair that cannot be repaired is refused by name rather than searched. The flow
+ * never sees the unrepaired points: they exist only inside the engine.
  *
- * **Where the next engine slots in.** An engine implements this interface and becomes one row of
- * [RouteEngineChoice]; the chosen id selects which one the app arms with, and nothing else in the app
- * changes. The toggle gates on [state], and everything downstream —
- * [`ykws.android.maro.ui.map.RoutePlan`], the trip figure, the save — reads the answer and that plan,
- * never an engine.
+ * **One callback shape carries everything the flow learns.** [updates] is the engine's own `Flow` of
+ * [RouteUpdate] values, each carrying the lookup's id, the stage just finished and the one about to
+ * run, the line computed so far, the finished result and the reason a lookup cannot be answered. A
+ * listener is rejected here on purpose: a listener would put unregister state in the flow, while a
+ * `Flow` is collected and the correlation is the id alone.
  *
- * **Cancellation is the caller's**, and it is load-bearing: the previous call is cancelled when a new
- * one starts, so a flung map never queues behind a computation nobody wants any more. An engine that
- * searches checks the calling job between its steps; the dummy has nothing to interrupt and says so
- * where it answers.
+ * **Disposal.** [cancelLookup] is the only disposal an engine performs; every other disposal is the
+ * flow asking. After a cancel, no further update for that id may arrive.
  *
- * Coroutines and `StateFlow` only: an engine holds no thread of its own and its readiness is a value
- * the UI can collect.
+ * **No engine holds a clock or a gate.** All three calls are plain, not `suspend` — [routesToCompute]
+ * is the repair plus a local configuration read, [startLookup] launches the job and returns, and
+ * [cancelLookup] cancels it. An engine that cannot answer does not gate the mode: the toggle arms and
+ * the status line says why. Coroutines and `Flow` only.
  */
 interface RouteEngine {
 
     /**
-     * What this engine can do right now — the feature's own gate, and [RouteEngineState.ready] is
-     * the single reading of it.
+     * **The routes this engine can compute between [origin] and [destination]**, after repairing the
+     * pair.
      *
-     * It is a stream rather than a query because readiness arrives late: an engine that must read a
-     * baked asset, or harvest a corridor, is not ready on the frame it is constructed. The dummy is the
-     * degenerate case of the stream — it is ready on the frame it is built — and that is a property of
-     * the dummy, not a licence for the next engine to assume it.
+     * The return is a sealed shape because the repair can refuse, and a refusal has to be said:
+     * [RouteDeclarations.Available] carries the computations — **first = main**, running all the
+     * default values — and [RouteDeclarations.Refused] carries the [RouteReason]. Each computation
+     * carries its own id, and [startLookup] needs only that id.
      */
-    val state: StateFlow<RouteEngineState>
+    fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations
 
     /**
-     * **The progress of the search running right now**, or null when nothing is running — the
-     * acquisition's own stage plus the line the pipeline holds at that instant, in one value.
-     *
-     * One emission per boundary the pipeline crosses, carrying the line the previous work produced:
-     * `PULL` carries the raw cell chain and `SNAP` the pulled line, while the three earlier boundaries
-     * carry no points at all — nothing has been computed yet. It is **null on every answer and on an
-     * abort**: a progress left standing after the call that set it would be a lie on the panel. An
-     * engine that crosses no boundary — the dummy, which computes nothing — simply never sets it, so
-     * the panel falls back on its own plain searching word and no partial line is ever drawn.
+     * **Starts one declared computation by its id**, and returns the id of the lookup it just
+     * launched. No points are passed: the whole set shares the repaired pair [routesToCompute] was
+     * handed, so the id is the only correlation the flow ever reads.
      */
-    val progress: StateFlow<RouteProgress?>
+    fun startLookup(computationId: RouteId): RouteId
 
     /**
-     * **The offers computed for the settled answer** — one candidate per pass the file declares, kept
-     * only where it clears the configured saving floor, empty while none has arrived and empty where
-     * none exists.
-     *
-     * It is a stream rather than a field of the result because the candidates are computed **after**
-     * the answer is returned, on a non-blocking job the engine owns: the settled line must reach the
-     * map first, and the offers arrive later, cleared and re-computed on every new ask. The dummy has
-     * nothing to compute and publishes the empty set for the whole session.
+     * **Ends a lookup by id**, and no further update for it may arrive afterwards. This is the only
+     * disposal an engine performs; every other disposal is the flow asking.
      */
-    val offers: StateFlow<List<RouteOffer>>
+    fun cancelLookup(id: RouteId)
 
-    /**
-     * Makes the engine ready if it can be, and reports what it reached.
-     *
-     * The caller asks once and reads the answer; an engine that is already ready returns immediately,
-     * and one that cannot be is [RouteEngineState.Unavailable] rather than an exception. It is
-     * separate from the two entry points so that the gate — not a search — is what moves the state.
-     *
-     * **What readiness does not promise.** [RouteEngineState.Ready] says the engine *can* answer; it
-     * says nothing about how much of the world the engine has read for itself. An engine that prices
-     * from live layers may answer **permissively** until those layers have landed — water where the
-     * coastline has not been read, no zone where the regulation has not — and it picks them up on a
-     * later search rather than blocking the first. An engine for which a permissive answer is not
-     * acceptable must not report [RouteEngineState.Ready] until it can answer honestly — a promise this
-     * interface leaves to the engine, because only it knows what it reads. The dummy takes the other
-     * extreme and reads nothing at all, which is why its answer is honest and useless in equal measure.
-     */
-    suspend fun prepare(): RouteEngineState
-
-    /**
-     * **The validity question — one point, one answer.** `null` when the point is usable water, or the
-     * id of the line a user reads when it is not, from the closed set [RouteRefusalReason].
-     *
-     * Whether a point is usable water is the algorithm's judgement and the feature only reports what it
-     * is given: the caller paints the crosshair and shows the sentence, and it never guesses. The
-     * **destination** is judged as it moves; the **origin** is judged **once, when the mode is armed,
-     * and never on a refresh** (R7) — the boat's own position is not a target being placed, and
-     * re-judging it while a route is followed would refuse a route the user already accepted.
-     *
-     * The dummy judges nothing: it answers `null` for every point, which makes every refusal below
-     * unreachable while it is the installed engine.
-     */
-    suspend fun validatePoint(point: RoutePoint): RouteRefusalReason?
-
-    /**
-     * The **origin** moved — the arming call and, later, the following mode's refresh (R9).
-     *
-     * An engine told this holds the destination it was last given; the answer is the route between the
-     * two, or `null` when it holds no destination yet, which is the arming call and nothing else: a
-     * position was *told*, and no route was asked for.
-     */
-    suspend fun onOriginPositionChanged(newPosition: RoutePoint): RouteResult?
-
-    /**
-     * The **destination** moved while it was being chosen (R8).
-     *
-     * An engine told this holds the origin it was last given; the answer is the route from that origin
-     * to [newPosition], or `null` when no origin is held — which cannot happen through the feature,
-     * the origin being told on the arming frame before any aim can be asked for.
-     */
-    suspend fun onDestinationPositionChanged(newPosition: RoutePoint): RouteResult?
-
-    /**
-     * **The refresh's veto, not its clock** (R11).
-     *
-     * The app owns when a refresh may be asked — its two thresholds are the app's own keys — and this
-     * answers only whether the engine can take the call. A `false` delays the refresh; it never
-     * triggers one, and it never fails a route: the standing line holds until a replacement arrives.
-     * The dummy is always ready to recompute, having nothing to wait for.
-     */
-    suspend fun isReadyToRecompute(): Boolean
-}
-
-/** What an engine can do right now — its readiness, as a value the toggle and the view model read. */
-sealed interface RouteEngineState {
-
-    /**
-     * Whether the engine can answer a route. **This is the feature's gate**, and it is a pure
-     * function of the state: the toggle opens for an engine that is ready and for no other, whichever
-     * engine it is.
-     */
-    val ready: Boolean
-
-    /** Nothing has been prepared yet — the ordinary state of an engine whose world is still being read. */
-    data object NotReady : RouteEngineState {
-        override val ready: Boolean get() = false
-    }
-
-    /**
-     * The engine can answer.
-     *
-     * A promise about *answering*, not about how much of the world the engine has already read: see
-     * [RouteEngine.prepare] for the permissive default a live-reading engine may answer with, and
-     * when it can be observed.
-     */
-    data object Ready : RouteEngineState {
-        override val ready: Boolean get() = true
-    }
-
-    /**
-     * The engine cannot answer, and [reason] says why **in a closed set rather than in free text** —
-     * so a caller can branch on it and the sentence a user reads is a resource, not a string built
-     * somewhere in the engine.
-     */
-    data class Unavailable(val reason: RouteUnavailableReason) : RouteEngineState {
-        override val ready: Boolean get() = false
-    }
+    /** The one channel every lookup's updates ride on, correlated by [RouteUpdate.routeId]. */
+    val updates: Flow<RouteUpdate>
 }
 
 /**
- * Why an engine cannot answer, as the closed set of things that can be wrong.
- *
- * Each entry carries the id of the line a user reads ([labelResId], resolved by the surface that
- * shows it — the `CustomSortField` shape), so no engine ever holds user-facing text and both locales
- * carry the key.
- *
- * **Nothing produces one of these today.** The dummy is ready on construction and can never answer
- * [RouteEngineState.Unavailable], so every entry below is unreachable while it is the installed engine;
- * they are kept because the toggle's refusal path, its snackbar and the two locales' strings are all
- * wired to this type, and because an engine that reads the water again will need exactly these
- * sentences. Its own KDoc says what each one meant to the engine that produced it, in the past tense,
- * rather than inventing a reading no code takes.
+ * **The id of one declared computation** — the handle [RouteEngine.startLookup] takes. A value class
+ * over a `Long`, minted by the engine that owns the declaration.
  */
-enum class RouteUnavailableReason(val labelResId: Int) {
-
-    /**
-     * The region has no baked routing fabric — the reason the removed mesh engine alone could give, and
-     * the reason the disabled toggle used to spell as "no mesh".
-     */
-    REGION_NOT_BAKED(R.string.route_unavailable_region_not_baked),
-
-    /**
-     * The depth grid is not in, and the removed corridor tracer would not answer without it: the wall a
-     * route is held off the shore by is the 2 m contour the soundings draw, so a search run before the
-     * grid landed would have priced unsounded water as open sea and called the answer a route.
-     */
-    DEPTH_NOT_LOADED(R.string.route_unavailable_depth_not_loaded),
-
-    /**
-     * The coastline is not in — the second half of that same refusal: the tracer's wall was land
-     * dilated by the berth, so a search run before the coastline landed would have read land as water
-     * and drawn a line over the shore as an ordinary route.
-     */
-    COASTLINE_NOT_LOADED(R.string.route_unavailable_coastline_not_loaded)
-}
+@JvmInline
+value class RouteId(val value: Long)
 
 /**
- * **Why a point is not usable water** — the closed set [RouteEngine.validatePoint] answers with.
- *
- * Shaped like [RouteUnavailableReason] and for the same reason: a reason is an id the surface resolves
- * ([labelResId]), never a string an engine built, so both locales carry the key and no engine holds
- * user-facing text. It answers about **one end**, and both ends read the same: a refused aim and a
- * refused origin paint the same crosshair (R27).
- *
- * **The avoid engine is the reader that produces them** — [RouteAvoidEngine.validatePoint] answers
- * `OFF_WATER`, `TOO_SHALLOW` or `NO_APPROACH` — while the dummy, which judges nothing, leaves every
- * entry unreachable when it is the installed engine. The ring's refused state, the panel's sentence
- * and the strings in both locales are wired to this type, so a new reason is one member here and its
- * fragment in each locale, and nothing else: the panel completes `route_destination_invalid` or
- * `route_origin_invalid` with whatever [labelResId] resolves to, whoever produced it.
+ * **One declared computation** — its own id and the id of the line a user reads as its description,
+ * minted and held by the engine. The `@StringRes` shape is the `CustomSortField` contract, so no
+ * engine holds user-facing text and both locales carry the key.
  */
-/**
- * **The progress of a running search** — the stage and the line the pipeline holds, in one value so
- * the panel's sentence and the drawn provisional line can never disagree ([RouteEngine.progress]).
- *
- * [points] is null where the boundary carries no line: the corridor, grid and search boundaries have
- * nothing computed yet, while `PULL` carries the raw cell chain and `SNAP` the pulled line. The
- * reference type is the domain's [RoutePoint], never a `GeoPoint` — osmdroid stays inside `RouteHost`.
- */
-data class RouteProgress(
-    /** The stage the acquisition has reached — the closed set the panel resolves to a label. */
-    val stage: RouteStage,
-    /** The line the pipeline holds at that instant, or null where none exists yet. */
-    val points: List<RoutePoint>?
+data class RouteComputation(
+    val id: RouteId,
+    val descriptionResId: Int
 )
 
 /**
- * **The stage an acquisition has reached** — the closed set the engine publishes while a search runs
- * ([RouteEngine.progress]), shaped like [RouteRefusalReason] so the label is an id the surface resolves
- * and no engine holds user-facing text.
+ * **What [RouteEngine.routesToCompute] answers** — a sealed shape so a refusal is a value and never
+ * an exception or a null the caller has to guess at.
+ */
+sealed interface RouteDeclarations {
+
+    /** The computations the engine can run, in the order it declares them — **first = main**. */
+    data class Available(val computations: List<RouteComputation>) : RouteDeclarations
+
+    /** The pair could not be repaired, or the world is not ready: [reason] names it. */
+    data class Refused(val reason: RouteReason) : RouteDeclarations
+}
+
+/**
+ * **Why a lookup cannot be answered** — the closed set the engine reports with, one variant per
+ * failure the flow has to tell apart.
  *
- * The five entries are the five boundaries the routing pipeline already crosses — the corridor it
- * bounds, the grid it rasterizes, the search it runs, the taut pull and the corner snap — so
- * publishing them costs one emission each rather than a new computation.
+ * Each entry carries the id of the line a user reads ([labelResId]), the `CustomSortField` shape, so
+ * no engine holds user-facing text and both locales carry the key. [CANNOT_REPAIR] and
+ * [WORLD_NOT_READY] answer at [RouteEngine.routesToCompute] — the repair's two — and [NO_PATH] and
+ * [OFF_WATER] answer on the update flow — the search's two.
+ */
+enum class RouteReason(val labelResId: Int) {
+
+    /** The repair could not move an end to valid water within the sweep's radius. */
+    CANNOT_REPAIR(R.string.route_reason_cannot_repair),
+
+    /** The coastline or the depth the repair judges by has not loaded. */
+    WORLD_NOT_READY(R.string.route_reason_world_not_ready),
+
+    /** The search found no route between the repaired ends. */
+    NO_PATH(R.string.route_reason_no_path),
+
+    /** The pair or the region the engine covers leaves no water to search. */
+    OFF_WATER(R.string.route_reason_off_water)
+}
+
+/**
+ * **One update the flow learns about a lookup** — the id, the stage pair, the line so far, the
+ * finished result and the reason a lookup cannot be answered.
+ *
+ * The stage pair is **finished-then-next**: [stageDone] names the boundary the pipeline just left,
+ * and [nextStage] the one it is about to enter — or `null` when the job is done, which is the
+ * terminal update that also carries [result] or [reason]. [stageDone] is `null` for an engine with no
+ * stage to report (the dummy). [line] is the line computed so far, a value for the flow to paint —
+ * never a drawing. [result] is `null` until done, and [reason] is `null` on success.
+ */
+data class RouteUpdate(
+    val routeId: RouteId,
+    val stageDone: RouteStage?,
+    val nextStage: RouteStage?,
+    val line: List<RoutePoint>,
+    val result: RouteResult.Success?,
+    val reason: RouteReason?
+)
+
+/**
+ * **The stage a search crosses** — the closed set an engine publishes while a lookup runs, shaped
+ * like [RouteReason] so the label is an id the surface resolves and no engine holds user-facing
+ * text.
+ *
+ * The five entries are the five boundaries the avoidance pipeline crosses — the corridor it bounds,
+ * the grid it rasterizes, the search it runs, the taut pull and the corner snap.
  */
 enum class RouteStage(val labelResId: Int) {
 
@@ -267,33 +161,4 @@ enum class RouteStage(val labelResId: Int) {
 
     /** Each bend is being moved onto its nearest tangent corner. */
     SNAP(R.string.route_stage_snap)
-}
-
-enum class RouteRefusalReason(val labelResId: Int) {
-
-    /**
-     * The point is not on water the engine can see: the removed corridor tracer raised this for either
-     * end before it built anything, because a line cannot be drawn from or to a place that is land.
-     */
-    OFF_WATER(R.string.route_refusal_off_water),
-
-    /**
-     * The point is water the depth layer knows to be under the route's gate — the reading a green ring
-     * used to hide while the search barred the cell anyway (F8). It is a statement about the data in
-     * hand, never about the sea.
-     */
-    TOO_SHALLOW(R.string.route_refusal_too_shallow),
-
-    /**
-     * The point is water, deep enough, and **no approach reaches legal water from it** within the
-     * berth carve's bounded scan — a berth walled by land or by the gate (F8). It is a red raised while
-     * aiming, so the ask that follows is owed only the reachability it alone can answer.
-     */
-    NO_APPROACH(R.string.route_refusal_no_approach),
-
-    /**
-     * The point lies outside the region the engine has read — beyond the box the removed engines cut
-     * for themselves, where no soundings, no shoreline and no zone exist at all.
-     */
-    OUTSIDE_COVERAGE(R.string.route_refusal_outside_coverage)
 }

@@ -73,13 +73,6 @@ object AppConfig {
         private set
 
     /**
-     * The floor a candidate's saving must clear to be offered, as a share of the settled trip's own
-     * clock — `route.avoid.candidate.minSavingPct`, clamped 0..100, **15** in force from 2026-09-28.
-     */
-    var routeAvoidCandidateMinSavingPct: Int = 15
-        private set
-
-    /**
      * Whether a pass whose source touches nothing in the corridor the solve already framed is skipped —
      * `route.avoid.candidate.skipAbsent`, default true.
      */
@@ -181,20 +174,13 @@ object AppConfig {
         private set
 
     /**
-     * The refused end's crosshair colour — `route.target.color`, default bold red spelled
-     * `#AARRGGBB` as the line's own key is.
+     * The invalid-end repair's maximum sweep radius (m) — `route.repair.maxRadiusM`, default 200.
      *
-     * One colour for both ends: a refused aim and a refused origin read the same.
+     * The one knob of the repair: a point that is land or shallower than the gate is moved by an
+     * 8-direction ring sweep at a 25 m step growing to this radius, the first valid water winning.
+     * The directions, the step and the sweep are constants of the algorithm, not keys.
      */
-    var routeTargetColor: Int = 0xFFD32F2F.toInt()
-        private set
-
-    /** Stroke width (dp) of the refused end's crosshair — `route.target.widthDp`. */
-    var routeTargetWidthDp: Float = 3f
-        private set
-
-    /** Pulse period (ms) of the refused crosshair's 1 -> 0.3 beat — `route.target.pulseMs`. */
-    var routeTargetPulseMs: Int = 800
+    var routeRepairMaxRadiusM: Double = 200.0
         private set
 
 
@@ -1663,17 +1649,13 @@ object AppConfig {
                 ?.let { routePinColor = it }
             props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
                 ?.let { routePinRingWidthDp = it.coerceIn(0f, 12f) }
-            // ── The route's anchor, its crosshair and its toggle's faces ───────
-            // Read here rather than beside the pace above: every one of them is a drawing or
-            // interaction value rather than a behaviour the spatial side reads.
+            // ── The route's anchor and the repair's one knob ───────
+            // Read here rather than beside the pace above: each is an interaction or drawing value
+            // rather than a behaviour the spatial side reads.
             props.getProperty("route.anchor.leadSec")?.toIntOrNull()
                 ?.let { routeAnchorLeadSec = it.coerceIn(0, 60) }
-            props.getProperty("route.target.color")?.let { parseColorOrNull(it) }
-                ?.let { routeTargetColor = it }
-            props.getProperty("route.target.widthDp")?.toFloatOrNull()
-                ?.let { routeTargetWidthDp = it.coerceIn(1f / 3f, 12f) }
-            props.getProperty("route.target.pulseMs")?.toIntOrNull()
-                ?.let { routeTargetPulseMs = it.coerceIn(100, 5_000) }
+            props.getProperty("route.repair.maxRadiusM")?.toDoubleOrNull()
+                ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine ratio Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
@@ -1745,9 +1727,6 @@ object AppConfig {
             //    unknown token leaves the shipped pair standing rather than half-reading the row.
             props.getProperty("route.avoid.candidate.passes")?.let { raw ->
                 parseCandidatePasses(raw)?.let { routeAvoidCandidatePasses = it }
-            }
-            props.getProperty("route.avoid.candidate.minSavingPct")?.toIntOrNull()?.let {
-                routeAvoidCandidateMinSavingPct = it.coerceIn(0, 100)
             }
             props.getProperty("route.avoid.candidate.skipAbsent")?.toBooleanStrictOrNull()?.let {
                 routeAvoidCandidateSkipAbsent = it

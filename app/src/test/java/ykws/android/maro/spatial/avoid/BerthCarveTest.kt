@@ -10,7 +10,6 @@ import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
-import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
 import kotlin.math.cos
@@ -161,6 +160,5 @@ class BerthCarveTest {
             else DepthSample(sounding.toFloat(), DepthSource.LITTO3D, 100, true)
         }
 
-        override suspend fun load(): RouteEngineState = RouteEngineState.Ready
     }
 }

@@ -1,6 +1,14 @@
 package ykws.android.maro.spatial.avoid
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,7 +23,8 @@ import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.RouteAvoidEngine
-import ykws.android.maro.spatial.RouteEngineState
+import ykws.android.maro.spatial.RouteDeclarations
+import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
@@ -275,33 +284,31 @@ class RouteZonePhase4Test {
     }
 
     @Test
-    fun aZoneBlockingTheWholeCorridorIsReportedAsAForcedCrossing() = runTest {
+    fun aZoneBlockingTheWholeCorridorIsReportedAsAForcedCrossing() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(paceKn = { 28.0 }, slowWaterBudgetPct = { 33 }, worldProvider = { world })
 
-        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))
 
-        assertEquals(listOf("Cap"), route.forcedCrossingZoneNames)
+        assertEquals(listOf("Cap"), route?.forcedCrossingZoneNames)
     }
 
     // ── The collar ────────────────────────────────────────────────────────────
 
     @Test
-    fun theLineDoesNotEnterAZoneItCouldHaveGoneAround() = runTest {
+    fun theLineDoesNotEnterAZoneItCouldHaveGoneAround() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(paceKn = { 28.0 }, slowWaterBudgetPct = { 33 }, worldProvider = { world })
 
-        engine.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-        val route = engine.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))
 
         assertFalse(
             "the pulled line never enters a zone it could have gone around",
-            lineEntersZone(route.points.map { it.toLatLng() }, zone)
+            lineEntersZone(route!!.points.map { it.toLatLng() }, zone)
         )
     }
 
@@ -456,6 +463,30 @@ class RouteZonePhase4Test {
         field.setDouble(AppConfig, value)
     }
 
+    /**
+     * Arms the engine on a pair and awaits the main lookup's terminal update, returning its result —
+     * `null` when the pair is refused or the search found no route.
+     */
+    private suspend fun solve(engine: RouteAvoidEngine, from: RoutePoint, to: RoutePoint): RouteResult.Success? = coroutineScope {
+        val declarations = engine.routesToCompute(from, to)
+        val available = declarations as? RouteDeclarations.Available ?: return@coroutineScope null
+        val main = available.computations.first()
+        val subscribed = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<RouteUpdate?>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) { done.complete(update); return@collect }
+                }
+        }
+        subscribed.await()
+        engine.startLookup(main.id)
+        val update = withTimeout(120_000) { done.await() }
+        collector.cancel()
+        update?.result
+    }
+
     private fun squareRing(centerLat: Double, centerLon: Double, half: Double): List<LatLng> = listOf(
         LatLng(centerLat - half, centerLon - half),
         LatLng(centerLat - half, centerLon + half),
@@ -496,7 +527,7 @@ class RouteZonePhase4Test {
      * budget also stops the loop after its first pass, so the two answers differ by the verdict alone.
      */
     @Test
-    fun theBudgetVerdictIsReportedOnlyWhenItIsMissed() = runTest {
+    fun theBudgetVerdictIsReportedOnlyWhenItIsMissed() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
 
@@ -505,16 +536,14 @@ class RouteZonePhase4Test {
             slowWaterBudgetPct = { 0 },
             worldProvider = { ZoneWorld(listOf(zone)) }
         )
-        crossed.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-        val unmet = crossed.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+        val unmet = solve(crossed, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))!!
 
         val allowed = RouteAvoidEngine(
             paceKn = { 28.0 },
             slowWaterBudgetPct = { 100 },
             worldProvider = { ZoneWorld(listOf(zone)) }
         )
-        allowed.onOriginPositionChanged(RoutePoint(43.5, 7.00))
-        val met = allowed.onDestinationPositionChanged(RoutePoint(43.5, 7.06)) as RouteResult.Success
+        val met = solve(allowed, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))!!
 
         assertTrue(
             "a crossing under a zero budget reports the share it spent",
@@ -559,7 +588,7 @@ class RouteZonePhase4Test {
     /** A water-everywhere world whose only source is its speed zones — the corridor reads no land or depth. */
     private class ZoneWorld(private val zones: List<SpeedZone>) : AvoidWorld {
         override val coastlineReady: Boolean get() = true
-        override val depthReady: Boolean get() = false
+        override val depthReady: Boolean get() = true
         override val bandWidthM: Double get() = 0.0
         override val regionBounds: BBox? get() = null
 
@@ -571,6 +600,5 @@ class RouteZonePhase4Test {
         override fun speedZonesIn(box: BBox): List<SpeedZone> = speedZonesInBox(zones, box, emptySet())
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(zones, emptySet(), latitude, longitude)
-        override suspend fun load(): RouteEngineState = RouteEngineState.Ready
     }
 }

@@ -34,7 +34,6 @@ class OverlayTrackTierTest {
         assertEquals(TrackTier.ROUTE, OverlayZOrder.trackTierOf(ROUTE_LINE_TITLE))
         assertEquals(TrackTier.ROUTE, OverlayZOrder.trackTierOf("${ROUTE_LINE_TITLE}_1"))
         assertEquals(TrackTier.ROUTE, OverlayZOrder.trackTierOf(ROUTE_PROGRESS_TITLE))
-        assertEquals(TrackTier.ROUTE, OverlayZOrder.trackTierOf(ROUTE_TARGET_TITLE))
     }
 
     @Test

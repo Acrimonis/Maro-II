@@ -42,7 +42,6 @@ class OverlayPaintRankTest {
         assertTrue(storedRanks.all { routeRank > it })
         // The route's own overlays share the rank: the pool, its candidates, the provisional line, the ring.
         assertEquals(routeRank, OverlayZOrder.paintRankOf(ROUTE_PROGRESS_TITLE, false))
-        assertEquals(routeRank, OverlayZOrder.paintRankOf(ROUTE_TARGET_TITLE, false))
     }
 
     @Test
