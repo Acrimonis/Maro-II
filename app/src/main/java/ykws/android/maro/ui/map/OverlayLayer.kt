@@ -153,6 +153,8 @@ internal fun OverlayLayer(
     onNavigateToTrack: (String) -> Unit = {},
     /** Opens the resume confirmation sheet; `fromList` selects which surface closes on confirm. */
     onResumeRequest: (String, Boolean) -> Unit = { _, _ -> },
+    /** Follows a saved route from its card — the route mode's own door, no confirmation sheet. */
+    onFollowRequest: (String, Boolean) -> Unit = { _, _ -> },
     onTrackPrev: () -> Unit = {},
     onTrackNext: () -> Unit = {},
     /**
@@ -565,6 +567,7 @@ internal fun OverlayLayer(
                             },
                             onShareGpx = { onShareTrack(track.id) },
                             onResumeTrack = { id -> onResumeRequest(id, false) },
+                            onFollowRoute = { id -> onFollowRequest(id, false) },
                             isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON,
                             onTap = null,
                             showChevron = false
@@ -681,6 +684,7 @@ internal fun OverlayLayer(
                             },
                             onShareGpx = { onShareTrack(track.id) },
                             onResumeTrack = { id -> onResumeRequest(id, false) },
+                            onFollowRoute = { id -> onFollowRequest(id, false) },
                             isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON,
                             onTap = null,
                             showChevron = false
@@ -770,6 +774,7 @@ internal fun OverlayLayer(
                 onDismiss = onDismissTrackHistory,
                 onNavigateToTrack = onNavigateToTrack,
                 onResumeTrack = { id -> onResumeRequest(id, true) },
+                onFollowTrack = { id -> onFollowRequest(id, true) },
                 onMergeTracks = { ids, name, keepOriginals ->
                     trackViewModel.mergeTracks(ids, name, keepOriginals)
                 },

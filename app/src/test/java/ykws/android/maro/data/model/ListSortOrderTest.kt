@@ -1,6 +1,7 @@
 package ykws.android.maro.data.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
 
@@ -39,8 +40,17 @@ class ListSortOrderTest {
 
     @Test
     fun `the title is read as it stands, and one word is dropped, not a stack`() {
-        assertEquals("le» port", titleSortKey("«Le» Port", shipped))
+        assertEquals("«le» port", titleSortKey("«Le» Port", shipped))
         assertEquals("les sables", titleSortKey("Les Les Sables", shipped))
+    }
+
+    @Test
+    fun `leading punctuation stays and sorts by its own codepoint`() {
+        assertEquals("--- la salis ---", titleSortKey("--- La Salis ---", shipped))
+        assertTrue(
+            "a leading dash files ahead of every letter",
+            titleSortKey("--- La Salis ---", shipped) < titleSortKey("Aiguille", shipped)
+        )
     }
 
     @Test

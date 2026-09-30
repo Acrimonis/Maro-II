@@ -771,6 +771,9 @@ fun MapScreen(
     }
     // Transient track-operation status banner (export/import in progress): null = hidden.
     var trackOpStatus by remember { mutableStateOf<String?>(null) }
+    // Transient route-acquisition refusal toast: null = hidden.
+    var routeRefusalToast by remember { mutableStateOf<String?>(null) }
+    var routeRefusalToastAt by remember { mutableStateOf(0L) }
 
     // ── Vertical snackbar stack state helpers ────────────────────────────
     fun enqueueSnack(snack: ActiveSnack) {
@@ -861,6 +864,12 @@ fun MapScreen(
             importBanner = null
         }
     }
+    LaunchedEffect(routeRefusalToastAt) {
+        if (routeRefusalToast != null) {
+            delay(2_000L)
+            routeRefusalToast = null
+        }
+    }
     // ── Background location permission dialog state (A2) ─────────────────
     var showBgLocationDialog by remember { mutableStateOf(false) }
     // ── Battery optimization dialog state (A4, triggered on recording start) ──
@@ -902,7 +911,10 @@ fun MapScreen(
     // back to its list's **first entry** — Current position for the start, Marker position for the
     // destination — the row then showing what it really holds and the dead id leaving the store (R66),
     // which is the write-back effect below.
-    val routeMarkers by markersViewModel.markers.collectAsState()
+    // The route ends read the **unfiltered** markers (the source of truth): a flag must select an end
+    // regardless of the list filter, and the R66 write-back must not purge a stored id before the load.
+    val routeMarkers by markersViewModel.allMarkers.collectAsState()
+    val markersLoaded by markersViewModel.markersLoaded.collectAsState()
     val routeMarkerFlags = routeMarkers.map { MarkerRouteFlags(it.id, it.routeOrigin, it.routeDestination) }
     val routeStartEligible = RouteEndSelection.eligibleMarkerIds(RouteEndSelection.End.START, routeMarkerFlags)
     val routeDestinationEligible =
@@ -937,12 +949,16 @@ fun MapScreen(
 
     // R66's own write: a stored value that no longer resolves is replaced by the resolution, so the
     // dead id leaves the store rather than being re-read on the next frame.
-    LaunchedEffect(routeStartSelection, routeStartStored, appSettings.gpsMode) {
+    LaunchedEffect(routeStartSelection, routeStartStored, appSettings.gpsMode, markersLoaded) {
+        // Never purge a stored marker id before the first load: an empty marker set at startup is the
+        // "not yet loaded" case, not a deleted flag, and overwriting it here is what erased the ends.
+        if (!markersLoaded) return@LaunchedEffect
         if (RouteEndSelection.encode(routeStartSelection) != routeStartStored) {
             storeRouteEnd(RouteEndSelection.End.START, routeStartSelection)
         }
     }
-    LaunchedEffect(routeDestinationSelection, routeDestinationStored, appSettings.gpsMode) {
+    LaunchedEffect(routeDestinationSelection, routeDestinationStored, appSettings.gpsMode, markersLoaded) {
+        if (!markersLoaded) return@LaunchedEffect
         if (RouteEndSelection.encode(routeDestinationSelection) != routeDestinationStored) {
             storeRouteEnd(RouteEndSelection.End.DESTINATION, routeDestinationSelection)
         }
@@ -1802,6 +1818,15 @@ fun MapScreen(
              */
             fun armRouteMode() {
                 if (routeArmed) return
+                // The short-pair guard: a press whose resolved ends sit within the minimum distance is
+                // refused with a toast rather than armed — the search would answer a line too short to
+                // be a route.
+                val ends = routeEndsAtTrigger()
+                if (!routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)) {
+                    routeRefusalToast = context.getString(R.string.route_refusal_too_short)
+                    routeRefusalToastAt = SystemClock.elapsedRealtime()
+                    return
+                }
                 // **The selection leaves before the mode arms** — the dashboard slot's R1 rule: the
                 // route panel wants the slot, so whatever selected-item card held it stands down first
                 // rather than being raced by the panel's composition.
@@ -1881,6 +1906,29 @@ fun MapScreen(
                     origin?.let {
                         mapView?.controller?.setCenter(GeoPoint(it.latitude, it.longitude))
                     }
+                }
+            }
+
+            /**
+             * **Follow a saved route** — the track card's door: the stored line becomes the followed
+             * route straight from Idle, with no engine ask. The press closes its own surface at once —
+             * the list, or the card whose `preNavigationState` restore is the refocus — and the route
+             * mode takes over with no second camera move. The track id rides the state so the exit
+             * dialog reads the followed route as already written and its third door as **Stop
+             * following**. A load that yields fewer than two points leaves the mode idle and arms
+             * nothing.
+             */
+            fun followSavedTrack(trackId: String, fromList: Boolean) {
+                if (routeArmed) return
+                // The press closes its surface at once; the card's close restore is the refocus, so
+                // nothing here moves the camera afterwards.
+                if (fromList) showTrackHistory = false else closeTrackDrawer()
+                if (inspectArmed) disarmInspectMode()
+                routeSaveScope.launch {
+                    val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
+                    val plan = routePlanOf(track) ?: return@launch
+                    routeArmed = true
+                    routeViewModel.followSavedRoute(plan, track.id)
                 }
             }
 
@@ -2512,6 +2560,7 @@ fun MapScreen(
                 showExitBanner = showExitBanner,
                 importBanner = importBanner,
                 trackOpStatus = trackOpStatus,
+                routeRefusalToast = routeRefusalToast,
                 rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
@@ -3269,6 +3318,7 @@ fun MapScreen(
             onTrackDrawerClose = { closeTrackDrawer() },
             onNavigateToTrack = { id -> openSelectedTrack(listOf(id)) },
             onResumeRequest = { id, fromList -> pendingResume = PendingTrackResume(id, fromList) },
+            onFollowRequest = { id, fromList -> followSavedTrack(id, fromList) },
             onMarkerSortStateChange = { newState ->
                 // R2: the sort rewrites the list world a list-opened marker walk reads; a map-opened one
                 // reads the map world and stays open.
@@ -3510,7 +3560,10 @@ fun MapScreen(
         // second track for one line.
         if (routeExitRequested) {
             val front = routeState.plan
-            val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front)
+            val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
+            // A followed saved route is already a track, so its save door stays grey and its third
+            // door reads "Stop following" rather than "Discard Route".
+            val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front) && followedTrackId == null
             ConfirmDialog(
                 title = stringResource(R.string.route_exit_title),
                 visible = true,
@@ -3533,7 +3586,10 @@ fun MapScreen(
                         role = ConfirmActionRole.SECONDARY
                     ) { routeExitRequested = false },
                     ConfirmAction(
-                        label = stringResource(R.string.route_exit_discard),
+                        label = stringResource(
+                            if (followedTrackId != null) R.string.route_exit_stop_following
+                            else R.string.route_exit_discard
+                        ),
                         role = ConfirmActionRole.DANGER
                     ) {
                         routeExitRequested = false
@@ -3739,6 +3795,7 @@ private fun MapContent(
     showExitBanner: Boolean,
     importBanner: ImportBannerState? = null,
     trackOpStatus: String? = null,
+    routeRefusalToast: String? = null,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
     autoFollowSuppressed: Boolean = false,
@@ -4273,6 +4330,14 @@ private fun MapContent(
 
         // ── Transient track-operation status banner (export/import in progress) ──
         trackOpStatus?.let { message ->
+            MapStatusBanner(
+                message = message,
+                tagsDrawn = bandTagsDrawn,
+                modifier = Modifier.align(Alignment.BottomStart)
+            )
+        }
+        // ── Transient route-acquisition refusal toast ──
+        routeRefusalToast?.let { message ->
             MapStatusBanner(
                 message = message,
                 tagsDrawn = bandTagsDrawn,

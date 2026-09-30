@@ -3,11 +3,13 @@ package ykws.android.maro.ui.map
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
@@ -297,5 +299,37 @@ class RoutePlanTest {
         )
 
         assertEquals(240.0, figure.etaSeconds, 1e-9)
+    }
+
+    /** A saved route reads back as the plan that wrote it — the follow door's round trip. */
+    @Test
+    fun aSavedRouteReadsBackAsThePlanThatWroteIt() {
+        val original = plan()
+        val track = TrackFromCourse.build(
+            start = p0,
+            legs = listOf(
+                TrackFromCourse.legBetween(p0, p1, 120.0),
+                TrackFromCourse.legBetween(p1, p2, 240.0)
+            ),
+            createdAtMs = computedAt
+        )
+
+        val rebuilt = routePlanOf(track)
+        assertNotNull("a route track rebuilds into a plan", rebuilt)
+        assertEquals(listOf(p0, p1, p2), rebuilt!!.points)
+        assertEquals(listOf(120.0, 240.0), rebuilt.legTimesSec)
+        assertEquals(computedAt, rebuilt.computedAtMs)
+        assertEquals(original.durationSec, rebuilt.durationSec, 1e-9)
+        assertEquals(original.distanceM, rebuilt.distanceM, 1e-3)
+        assertFalse(rebuilt.destinationMoved)
+        assertTrue(rebuilt.forcedCrossingZoneNames.isEmpty())
+    }
+
+    /** The short-pair guard reads the resolved distance: the same point refuses, a separated pair clears. */
+    @Test
+    fun theShortPairGuardReadsTheResolvedDistance() {
+        assertTrue(routeEndsClearMinimum(p0, p1, 100.0))
+        assertFalse(routeEndsClearMinimum(p0, p0, 100.0))
+        assertTrue(routeEndsClearMinimum(null, p1, 100.0))
     }
 }

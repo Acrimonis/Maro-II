@@ -153,6 +153,33 @@ class RouteAcquisitionTest {
         assertTrue("no page is left drawn", viewModel.pages.value.isEmpty())
         assertTrue("and the session went with it", viewModel.sessionRoutes().isEmpty())
     }
+
+    /** The track card's door: a saved route becomes the followed route straight from Idle. */
+    @Test
+    fun followSavedRouteEntersFollowingFromIdleCarryingTheTrackId() = runTest {
+        val engine = CountingEngine(computations = 1)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        val plan = RoutePlan(
+            start = start,
+            destination = aim,
+            destinationMoved = false,
+            points = listOf(start, aim),
+            legTimesSec = listOf(120.0),
+            distanceM = 1_000.0,
+            durationSec = 120.0,
+            computedAtMs = 0L
+        )
+
+        viewModel.followSavedRoute(plan, "track-1")
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals("the track id rides the state", "track-1", following.followedTrackId)
+        assertEquals("and the line is the stored plan", plan, following.plan)
+        assertTrue("no page survives the Idle entry", viewModel.pages.value.isEmpty())
+
+        viewModel.end()
+        assertTrue("ending returns to Idle", viewModel.state.value is RouteState.Idle)
+    }
 }
 
 /**

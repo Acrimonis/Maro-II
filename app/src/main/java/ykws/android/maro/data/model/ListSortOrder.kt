@@ -86,19 +86,20 @@ internal val titleOrder: Comparator<String> =
 /**
  * **The sort key of one title** — what "alphabetical on title" means here.
  *
- * It is the title case-folded and stripped of leading non-letters, as it always was, and since 2026-09-29 it
- * also drops one word from [ignoredPrefixes]: `Le Port` files under P. The user's own condition governs the
- * drop — the title must **start with** a configured word, character for character, and the character right
- * after it must be **whitespace** — so `Léman` (a different second character) and `Leman` (no whitespace after
- * `Le`) keep their L, a title that *is* the word has no next word to sort on and keeps itself, and `«Le» Port`
- * is read as it stands rather than after the dress has been stripped. One word is dropped, never a stack, and
- * the key then begins at the first character of the next word.
+ * It is the title case-folded, and since 2026-09-29 it drops one word from [ignoredPrefixes]: `Le Port`
+ * files under P. Leading punctuation stays and sorts by its own codepoint, so `--- La Salis ---` files
+ * ahead of every letter. The user's own condition governs the drop — the title must **start with** a
+ * configured word, character for character, and the character right after it must be **whitespace** — so
+ * `Léman` (a different second character) and `Leman` (no whitespace after `Le`) keep their L, a title that
+ * *is* the word has no next word to sort on and keeps itself, and `«Le» Port` keeps its dress and files
+ * by the `«` rather than by the `L`. One word is dropped, never a stack, and the key then begins at the
+ * first character of the next word.
  *
  * The set arrives as a parameter rather than read from `AppConfig`, so the rule is testable on its own.
  */
 internal fun titleSortKey(title: String, ignoredPrefixes: List<String>): String {
     val dropped = ignoredPrefixes.firstNotNullOfOrNull { prefix -> title.textAfterLeading(prefix) }
-    return (dropped ?: title).dropWhile { !it.isLetterOrDigit() }.lowercase()
+    return (dropped ?: title).lowercase()
 }
 
 /**

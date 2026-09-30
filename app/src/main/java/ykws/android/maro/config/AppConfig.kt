@@ -45,6 +45,13 @@ object AppConfig {
     var routeFreeWaterPaceKn = 28f
         private set
 
+    /**
+     * The shortest distance (m) between the two resolved ends the acquisition will arm on — below it
+     * the press is refused with a toast. Default 100, read from `route.min.acquisition.lengthM`.
+     */
+    var routeMinAcquisitionLengthM: Double = 100.0
+        private set
+
     /** Lowest free-water pace (kn) the setting accepts. */
     const val ROUTE_FREE_WATER_PACE_MIN_KN = 3f
 
@@ -1654,6 +1661,8 @@ object AppConfig {
             // rather than a behaviour the spatial side reads.
             props.getProperty("route.anchor.leadSec")?.toIntOrNull()
                 ?.let { routeAnchorLeadSec = it.coerceIn(0, 60) }
+            props.getProperty("route.min.acquisition.lengthM")?.toDoubleOrNull()
+                ?.let { routeMinAcquisitionLengthM = it.coerceAtLeast(0.0) }
             props.getProperty("route.repair.maxRadiusM")?.toDoubleOrNull()
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
