@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-28 20:35
+modified: 2026-09-30 19:49
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -194,6 +194,7 @@ explicit values/ViewModels + inline callbacks).
 - `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md` — px to dp: the paint-length inventory, the risk table and the review's findings
 - `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md` — Marker sizing curve and its tunable keys
 - `xTrack/UI_Map/260904_FEAT_PLN_UI_Map_marker-filter-map-and-dashboard-close.md` — the marker filter's map consequence and the panel's close, superseded in part 2026-09-28 by the map-opened exception
+- `xTrack/UI_Map/260930_FEAT_PLN_UI_Map_mapscreen-health-monolith.md` — MapScreen remaining-monolith remedy: five clusters, three tiers (T1 hoist the OverlayLayer callback bodies into named functions; T2 extract Inspect/Route/dashboard sessions; T3 optional route-exit-dialog move)
 
 ## Walk
 **Level 1 — Date:** 2026-09-17 · **Source:** `260917_FEAT_PLN_UI_Map_inspect-mode.md` · **Active:** closed
