@@ -2336,8 +2336,10 @@ fun MapScreen(
                     following && unwritten,
                     // Save to track — mirrors the panel's own face: a line stands and is unwritten.
                     unwritten,
-                    // Route — the same arming and the same source, asking for the search alone.
-                    !routeArmed,
+                    // Route — dual purpose: acquire while idle, and confirm the settled line once the
+                    // acquisition has one. The confirm half mirrors the panel's `Select route` face
+                    // (`selectedPlan != null`), and the acquire half is the ordinary arming.
+                    !routeArmed || (phase == RoutePhase.CHOOSING && routeSelectedLine != null),
                     // Route (auto) — the arming that takes the settled answer itself (R80), and an
                     // arming belongs to Idle alone (R65). Its source is **`routeArmed`**, not the phase:
                     // the flag is what the press reads and the only thing a restore brings back, so the
@@ -2346,9 +2348,10 @@ fun MapScreen(
                     !routeArmed
                 )
             }
-            // **The five actions, in that same list's order** (D5, R79): the two arming children differ
-            // by the auto-pick flag alone, the save pair mirror the panel's and the dialog's own saves,
-            // and the Discard is the dialog's third outcome without its question.
+            // **The five actions, in that same list's order** (D5, R79): the Route child acquires while
+            // idle and confirms the settled line during the acquisition, the Route (auto) child arms with
+            // the auto-pick flag, the save pair mirror the panel's and the dialog's own saves, and the
+            // Discard is the dialog's third outcome without its question.
             val routeFanActions: List<() -> Unit> = listOf(
                 { endRouteMode() },
                 {
@@ -2357,8 +2360,11 @@ fun MapScreen(
                 },
                 { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
                 {
-                    routeAutoPick = false
-                    armRouteMode()
+                    if (routeArmed) followRoute()
+                    else {
+                        routeAutoPick = false
+                        armRouteMode()
+                    }
                 },
                 {
                     routeAutoPick = true
