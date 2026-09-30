@@ -52,13 +52,12 @@ class CoastlineAppearancePropertiesTest {
     private val movedColourKeys = listOf(
         "map.coastline.mainland.color",
         "map.coastline.island.color",
-        "map.zone300.fill",
-        "map.zone300.boundary",
-        "map.hazard.disc.fill",
-        "map.hazard.outline",
-        "map.zoneAhead.line",
-        "map.zoneAhead.cone.fill",
-        "map.zoneAhead.cone.outline",
+        "map.zone300.boundary.color",
+        "map.hazard.disc.fill.color",
+        "map.hazard.outline.color",
+        "map.zoneAhead.line.color",
+        "map.zoneAhead.cone.fill.color",
+        "map.zoneAhead.cone.outline.color",
         "map.navigation.arrow.color",
         "map.navigation.line.color"
     )
@@ -116,7 +115,7 @@ class CoastlineAppearancePropertiesTest {
         )
         assertEquals(
             AppConfig.mapNavigationArrowFollowSpeedColour,
-            props.getProperty("map.navigation.arrow.followSpeedColour").trim().toBooleanStrict()
+            props.getProperty("map.navigation.arrow.followSpeedColor").trim().toBooleanStrict()
         )
         assertEquals(
             props.getProperty("map.navigation.line.widthDp").trim().toFloat(),

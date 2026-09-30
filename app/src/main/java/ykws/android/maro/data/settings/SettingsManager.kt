@@ -208,7 +208,7 @@ data class AppSettings(
     val navigationArrowTransparencyPct: Int = ykws.android.maro.config.AppConfig.mapNavigationArrowTransparencyPct,
     /** Cap arrow manual colour, painted while the Speed Colour mode is off. Seeded from `map.navigation.arrow.color`. */
     val navigationArrowColor: Int = ykws.android.maro.config.AppConfig.mapNavigationArrowColor,
-    /** Cap arrow colour mode — true follows the speed the boat carries. Seeded from `map.navigation.arrow.followSpeedColour`. */
+    /** Cap arrow colour mode — true follows the speed the boat carries. Seeded from `map.navigation.arrow.followSpeedColor`. */
     val navigationArrowFollowSpeedColour: Boolean =
         ykws.android.maro.config.AppConfig.mapNavigationArrowFollowSpeedColour,
     /** Show the hypsometric depth colour map and isobath contour overlays. */

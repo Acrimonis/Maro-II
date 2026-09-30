@@ -283,9 +283,9 @@ class TrackSpeedHeatmapTest {
     fun aMissingFamilyIndexEndsTheRamp() {
         val lookup: (String) -> String? = { key ->
             when {
-                key.startsWith("track.heatmap.family1") -> familyKey(key, maxKn = "5")
-                key.startsWith("track.heatmap.family2") -> familyKey(key, maxKn = "6")
-                key.startsWith("track.heatmap.family") -> null   // family3 is absent
+                key.startsWith("map.track.heatmap.family1") -> familyKey(key, maxKn = "5")
+                key.startsWith("map.track.heatmap.family2") -> familyKey(key, maxKn = "6")
+                key.startsWith("map.track.heatmap.family") -> null   // family3 is absent
                 else -> null
             }
         }
@@ -299,8 +299,8 @@ class TrackSpeedHeatmapTest {
     fun aMissingFamilyStepEndsTheRampRatherThanGuessingOne() {
         val lookup: (String) -> String? = { key ->
             when {
-                key.startsWith("track.heatmap.family2") && key.endsWith(".stepKn") -> null
-                key.startsWith("track.heatmap.family") -> familyKey(key, maxKn = "5")
+                key.startsWith("map.track.heatmap.family2") && key.endsWith(".stepKn") -> null
+                key.startsWith("map.track.heatmap.family") -> familyKey(key, maxKn = "5")
                 else -> null
             }
         }
@@ -486,7 +486,7 @@ class TrackSpeedHeatmapTest {
     @Test
     fun theWrittenTableCarriesItsPositionsAndItsTexts() {
         val written: (String) -> String? = { key ->
-            if (key == "track.heatmap.scaleTicks") "7:5,12:10,35:35" else null
+            if (key == "map.track.heatmap.scaleTicks") "7:5,12:10,35:35" else null
         }
 
         val ticks = parseHeatmapScaleTicks(written)
@@ -507,10 +507,10 @@ class TrackSpeedHeatmapTest {
     @Test
     fun anUnreadableRowEndsTheTable() {
         val noPosition: (String) -> String? = { key ->
-            if (key == "track.heatmap.scaleTicks") "seven:5,12:10" else null
+            if (key == "map.track.heatmap.scaleTicks") "seven:5,12:10" else null
         }
         val noText: (String) -> String? = { key ->
-            if (key == "track.heatmap.scaleTicks") "7:,12:10" else null
+            if (key == "map.track.heatmap.scaleTicks") "7:,12:10" else null
         }
 
         assertTrue(parseHeatmapScaleTicks(noPosition).isEmpty())
