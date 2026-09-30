@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-29 20:55
+modified: 2026-09-30 16:08
 ---
 
 # Feature: Route
@@ -126,6 +126,7 @@ Arrival carries no state and no cue: it is the trip cell reading zero while the 
 
 ## Docs
 
+- [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the next engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
 - [`260929_FEAT_PLN_Route_trigger-read-at-press.md`](260929_FEAT_PLN_Route_trigger-read-at-press.md) — the pair read at the press; in design, the build owed
 - [`260929_FEAT_PLN_Route_route-render-gates.md`](260929_FEAT_PLN_Route_route-render-gates.md) — shipped: the two Settings switches gate the menu's chips
 - [`260929_FEAT_PLN_Route_map-fan-add-route.md`](260929_FEAT_PLN_Route_map-fan-add-route.md) — shipped: the map's route fan, its unasked Discard and its auto-pick
@@ -187,3 +188,4 @@ The pointer index — one line per shipped pass, each pointing at the plan or do
 - The map's add-route fan, the unasked Discard and the auto-pick → [`260929_FEAT_PLN_Route_map-fan-add-route.md`](260929_FEAT_PLN_Route_map-fan-add-route.md)
 - The two render switches gate their chip for a route → [`260929_FEAT_PLN_Route_route-render-gates.md`](260929_FEAT_PLN_Route_route-render-gates.md)
 - The saved line became a route on the track side — the flag, the render pair, the filter and the card → [`../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md)
+- The engine's interface reworked — the pair repaired inside `routesToCompute`, declared computations, `startLookup(id)`, one id-carrying update flow, the page set and the comparison, the readiness gate and the refused crosshair retired → [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md)

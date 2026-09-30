@@ -1,18 +1,13 @@
 package ykws.android.maro.spatial.avoid
 
-import kotlinx.coroutines.flow.first
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.coastline.CoastlineRepository
 import ykws.android.maro.data.depth.DepthRepository
-import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
-import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
-import ykws.android.maro.spatial.RouteEngineState
-import ykws.android.maro.spatial.RouteUnavailableReason
 
 /** One coastline edge with the orientation of the polyline it belongs to. */
 data class AvoidEdge(
@@ -81,18 +76,6 @@ interface AvoidWorld {
      * or `null` outside all of them — the ETA's point read, taken along the emitted line.
      */
     fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? = null
-
-    /**
-     * Makes the layers the armed gates need ready if they can be, and reports what the engine
-     * reached. Fired by `prepare()` on a miss: an idle repository is loaded, a loading one is
-     * awaited, and the answer is [RouteEngineState.Ready] once the index — and, while
-     * `route.avoid.depthGate.enabled` is true, the grid — both exist, else
-     * [RouteEngineState.Unavailable] with [RouteUnavailableReason.COASTLINE_NOT_LOADED] or
-     * [RouteUnavailableReason.DEPTH_NOT_LOADED] — the coastline's name winning when neither is in,
-     * it being the layer everything else is read against. With the depth gate off the grid is neither
-     * loaded nor refused: the coastline alone makes the world ready.
-     */
-    suspend fun load(): RouteEngineState
 }
 
 /**
@@ -148,41 +131,4 @@ class LiveAvoidWorld(
 
     override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
-
-    override suspend fun load(): RouteEngineState {
-        loadCoastline()
-        if (!AppConfig.routeAvoidDepthGateEnabled) {
-            return if (coastlineReady) RouteEngineState.Ready
-            else RouteEngineState.Unavailable(RouteUnavailableReason.COASTLINE_NOT_LOADED)
-        }
-        loadDepth()
-        return when {
-            !coastlineReady ->
-                RouteEngineState.Unavailable(RouteUnavailableReason.COASTLINE_NOT_LOADED)
-            !depthReady ->
-                RouteEngineState.Unavailable(RouteUnavailableReason.DEPTH_NOT_LOADED)
-            else -> RouteEngineState.Ready
-        }
-    }
-
-    private suspend fun loadCoastline() {
-        when (val state = coastline.state.value) {
-            is CoastlineState.Loading ->
-                // A load is already in flight (the map's own cold-start load): wait for it rather
-                // than starting a second one.
-                coastline.state.first { it is CoastlineState.Ready || it is CoastlineState.Error }
-            is CoastlineState.Idle, is CoastlineState.Error -> coastline.loadCoastline()
-            is CoastlineState.Ready -> Unit
-        }
-    }
-
-    private suspend fun loadDepth() {
-        when (val state = depth.state.value) {
-            // The map's own cold-start load: wait for it rather than starting a second one.
-            is DepthState.Loading ->
-                depth.state.first { it is DepthState.Ready || it is DepthState.Error }
-            is DepthState.Idle, is DepthState.Error -> depth.loadDepth()
-            is DepthState.Ready -> Unit
-        }
-    }
 }

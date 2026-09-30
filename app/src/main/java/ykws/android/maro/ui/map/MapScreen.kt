@@ -6,7 +6,6 @@ import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
 import ykws.android.maro.spatial.RouteEngineChoice
-import ykws.android.maro.spatial.RouteEngineState
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.LiveAvoidWorld
 
@@ -629,13 +628,8 @@ fun MapScreen(
             factory = RouteViewModel.factory(routeEngineSelection)
         )
     val routeState by routeViewModel.state.collectAsState()
-    val routeEngineState by routeViewModel.engineState.collectAsState()
     val routePaceKn by routeViewModel.paceKn.collectAsState()
     var routeArmed by rememberSaveable { mutableStateOf(false) }
-    // The toggle's gate: the mode exists only where the route engine is ready, exactly as inspect's
-    // square exists only where something is inspectable. Which engine that is — and what makes it
-    // ready — is the engine's own answer; this reads the readiness and nothing else.
-    val routeAvailable = routeEngineState.ready
     val routeSaveScope = rememberCoroutineScope()
     // The pin the saves start with and the one exit dialog's open flag. Held by the screen rather than
     // by the panel because the dialog's **three doors** — the toggle's off, the panel's own Exit and
@@ -647,42 +641,25 @@ fun MapScreen(
     // settled line the instant that line exists and clears with it — on the selection, on an end and on a
     // new arming — so no later acquisition can inherit an intent nobody pressed for.
     var routeAutoPick by remember { mutableStateOf(false) }
-    // **The session's link table and the running stage**, read reactively: the first is the one fact
-    // the save actions grey themselves on (R55, R59) and the second is the acquisition's own progress
-    // (R15).
+    // **The session's link table, the main lookup's stage and its provisional line**, read reactively.
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
-    val routeProgress by routeViewModel.progress.collectAsState()
-    // The panel's sentence reads the stage arm; the host's provisional line reads the points arm.
-    val routeStage = routeProgress?.stage
-    // **The lines the acquisition draws and the selection walks** (R53, R54) — the settled answer
-    // first, then the engine's own candidates — and **the offers** behind them, whose figures R68's
-    // status line prints as the engine published them (R72).
-    val routeCandidates by routeViewModel.candidates.collectAsState()
-    val routeCandidateIndex by routeViewModel.candidateIndex.collectAsState()
-    val routeOffers by routeViewModel.offers.collectAsState()
+    val routeStage by routeViewModel.stage.collectAsState()
+    val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
+    // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
+    // first (index 0) — and the one the selection stands on.
+    val routePages by routeViewModel.pages.collectAsState()
+    val routeSelectedIndex by routeViewModel.selectedIndex.collectAsState()
     // **Is a search running?** — read once, because the toggle's dot, the panel's status word and the
-    // drawer's summary all branch on it, and the map content's own square sits outside the scope the
-    // panel is composed in.
+    // drawer's summary all branch on it.
     val routeSearching = (routeState as? RouteState.Choosing)?.searching == true
-    // **The selected line** — the one the table describes, the map paints at full strength and every
+    // **The selected page** — the one the table describes, the map paints at full strength and every
     // save writes (R54, R55): read from the same list the drawing reads, so the two cannot disagree.
-    val routeSelectedLine = routeCandidates.getOrNull(
-        routeCandidateIndex.coerceIn(0, (routeCandidates.size - 1).coerceAtLeast(0))
+    val routeSelectedPage = routePages.getOrNull(
+        routeSelectedIndex.coerceIn(0, (routePages.size - 1).coerceAtLeast(0))
     )
+    val routeSelectedLine = routeSelectedPage?.plan
     // **Is the selected line already written?** — the one fact the save actions grey themselves on.
-    // Read through the link table rather than a null check at each call site.
     val routeFrontSaved = routeSelectedLine?.let { routeSessionLinks[it] != null } == true
-    // **The refusal, held as the id of the line a user reads** (§17 item 3): the engine's closed-set
-    // reason carries a `@StringRes`, and the surface that shows it resolves it — so no engine holds
-    // user-facing text and both locales carry the key. It is transient, like the import's own feedback,
-    // and clears itself so a second tap is never read against a stale sentence.
-    var routeRefusalResId by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(routeRefusalResId) {
-        if (routeRefusalResId != null) {
-            delay(2_000L)
-            routeRefusalResId = null
-        }
-    }
 
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
@@ -1828,29 +1805,14 @@ fun MapScreen(
                 // **The selection leaves before the mode arms** — the dashboard slot's R1 rule: the
                 // route panel wants the slot, so whatever selected-item card held it stands down first
                 // rather than being raced by the panel's composition.
-                fun arm() {
-                    closeSelectedItemDashboards()
-                    if (inspectArmed) disarmInspectMode()
-                    routeArmed = true
-                    // **Neither door opens the drawer** (2026-09-28): the acquisition is what the press
-                    // lands on — the panel owns the dashboard slot — so the drawer is left as it was
-                    // found, shut from the map and shut behind the press that armed inside it.
-                    showTrackDrawer = false
-                    routeSaveScope.launch { routeViewModel.arm(routeEndsAtTrigger()) }
-                }
-                if (!routeAvailable) {
-                    routeSaveScope.launch {
-                        val reached = routeViewModel.prepareAgain()
-                        if (reached.ready) {
-                            arm()
-                        } else {
-                            routeRefusalResId =
-                                (reached as? RouteEngineState.Unavailable)?.reason?.labelResId
-                        }
-                    }
-                    return
-                }
-                arm()
+                closeSelectedItemDashboards()
+                if (inspectArmed) disarmInspectMode()
+                routeArmed = true
+                // **Neither door opens the drawer** (2026-09-28): the acquisition is what the press
+                // lands on — the panel owns the dashboard slot — so the drawer is left as it was
+                // found, shut from the map and shut behind the press that armed inside it.
+                showTrackDrawer = false
+                routeSaveScope.launch { routeViewModel.arm(routeEndsAtTrigger()) }
             }
 
             /**
@@ -2564,13 +2526,14 @@ fun MapScreen(
                         RouteHost(
                             mapView = mapView,
                             state = routeState,
-                            progress = routeProgress,
-                            // The lines the acquisition draws — the settled answer first, then the
-                            // engine's candidates — and the one the selection stands on: slot 0 of the
+                            // The pages the acquisition draws — the main first, then the engine's
+                            // declared candidates — and the one the selection stands on: slot 0 of the
                             // pool is painted at full strength, every other line at the shared dimming
                             // key (R54, R64).
-                            candidates = routeCandidates,
-                            selectedIndex = routeCandidateIndex,
+                            pages = routePages,
+                            selectedIndex = routeSelectedIndex,
+                            // The main lookup's partial line, drawn while the search runs.
+                            provisionalLine = routeProvisionalLine,
                             armed = routeArmed,
                             gpsMode = appSettings.gpsMode,
                             speedKn = navigationState.speedKnots,
@@ -2578,33 +2541,12 @@ fun MapScreen(
                             // boat, and RoutePace drops it for that reason.
                             positionRestricted = inZone300 || zoneSituation?.currentZone != null,
                             setPaceKn = appSettings.routeFreeWaterPaceKn,
-                            // The aim's own offset — **the same value** `inspectAnchor` reads the aim
-                            // with, so the ring the host paints and the point the press asks from
-                            // cannot drift apart. One conversion, one home.
-                            mapCenterOffsetPx = inspectOffsetPx,
                             // The followed line's colour: the same settings value the toggle's
                             // acquiring face wears, so the two cannot drift (R51).
                             routeLineColor = appSettings.routeLineColor,
                             viewModel = routeViewModel,
                             onEndRoute = { leaveRouteMode() }
-                            // The host composes nothing of its own and raises no panel: the aim ring is
-                            // an osmdroid overlay it owns, drawn in the track band under the markers,
-                            // so the boat paints over it; the route's confirmation is composed in the
-                            // dashboard slot below, from the same state the line and pin are drawn from.
                         )
-                        // **Where the refusal is shown** (§17 item 3): the mode's own slot, at the map's
-                        // foot beside the import's feedback — the place a transient line already lives,
-                        // so a refusal costs no screen and no panel. The line is the id the engine's
-                        // closed set carries, resolved by the surface that reads it.
-                        routeRefusalResId?.let { resId ->
-                            MapStatusBanner(
-                                message = stringResource(resId),
-                                // The band's one answer to "is the tag column there", so this line
-                                // clears it the way every other banner in the band does.
-                                tagsDrawn = bandTagsDrawn,
-                                modifier = Modifier.align(Alignment.BottomStart)
-                            )
-                        }
                     }
                 },
                 modifier = Modifier
@@ -2639,12 +2581,12 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
-                        candidates = routeCandidates,
-                        selectedIndex = routeCandidateIndex,
+                        pages = routePages,
+                        selectedIndex = routeSelectedIndex,
                         pinned = routePinned,
                         frontSaved = routeFrontSaved,
                         onPinnedChange = { routePinned = it },
-                        onStepCandidate = { delta -> routeViewModel.stepCandidate(delta) },
+                        onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
                         onDiscard = { endRouteMode() },
@@ -2677,12 +2619,12 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
-                        candidates = routeCandidates,
-                        selectedIndex = routeCandidateIndex,
+                        pages = routePages,
+                        selectedIndex = routeSelectedIndex,
                         pinned = routePinned,
                         frontSaved = routeFrontSaved,
                         onPinnedChange = { routePinned = it },
-                        onStepCandidate = { delta -> routeViewModel.stepCandidate(delta) },
+                        onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
                         onDiscard = { endRouteMode() },
@@ -3249,8 +3191,11 @@ fun MapScreen(
                 plannedDistanceNm = routeState.plan?.distanceNm,
                 plannedEtaSeconds = routeState.plan?.let { it.remainingFrom(it.start).durationSec },
                 remaining = routeTrip,
-                // R68: the best saving standing beside the answer, or null where none does.
-                alternativeSavingSec = routeOffers.maxOfOrNull { it.savingSec },
+                // The best saving standing beside the answer, or null where none does: the finished
+                // candidate pages' own durations against the main's.
+                alternativeSavingSec = routePages.drop(1).mapNotNull { it.plan?.durationSec }
+                    .maxOfOrNull { (routePages.firstOrNull()?.plan?.durationSec ?: 0.0) - it }
+                    ?.takeIf { it > 0.0 },
             ),
             markerList = MarkerListOverlayData(
                 markers = mgmtMarkers,

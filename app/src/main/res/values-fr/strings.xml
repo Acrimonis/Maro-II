@@ -633,9 +633,13 @@
     <string name="route_action_select">Sélectionner la route</string>
     <string name="route_pin_label">Épingler la trace</string>
     <string name="route_no_route">Aucune route navigable ici</string>
-    <!-- Les deux phrases d\'extrémité refusée — une par extrémité, et le réticule est le même. -->
-    <string name="route_destination_invalid">Destination invalide : %1$s</string>
-    <string name="route_origin_invalid">Position invalide : %1$s</string>
+    <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
+         une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,
+         NO_PATH et OFF_WATER sur le flux de mises à jour. -->
+    <string name="route_reason_cannot_repair">Aucune eau valide à proximité de ce point</string>
+    <string name="route_reason_world_not_ready">Les données d\'eau se chargent encore</string>
+    <string name="route_reason_no_path">Aucun itinéraire trouvé</string>
+    <string name="route_reason_off_water">Hors de la zone d\'eau couverte</string>
     <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
     <string name="route_following_active">Routage actif</string>
     <!-- Le statut avec l'étape que le moteur publie pendant une recherche — « Acquisition (Recherche)… »
@@ -657,14 +661,6 @@
     <string name="route_exit_save">Enregistrer la route dans les traces</string>
     <string name="route_exit_continue">Continuer la route</string>
     <string name="route_exit_discard">Abandonner la route</string>
-    <!-- Pourquoi un point n\'est pas de l\'eau navigable — une ligne par raison, en fragment que la
-         phrase « invalide » ci-dessus complète. Les deux extrémités lisent le même ensemble. Les deux
-         du milieu sont les lectures du réticule : la règle du seuil de profondeur, et l\'existence
-         d\'un accès vers de l\'eau libre. -->
-    <string name="route_refusal_off_water">pas d\'eau ici</string>
-    <string name="route_refusal_too_shallow">trop peu profond ici</string>
-    <string name="route_refusal_no_approach">aucun accès depuis ici</string>
-    <string name="route_refusal_outside_coverage">hors de la zone couverte</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
@@ -679,15 +675,6 @@
          price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
     <string name="route_budget_unmet">Budget d\'eau lente non respecté</string>
     <string name="route_budget_unmet_desc">Le trajet passe plus de temps que le budget ne l\'autorise au ralenti dans les zones de vitesse.</string>
-    <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
-         surface behind it may not be a mesh. -->
-    <string name="route_unavailable_region_not_baked">Routage indisponible pour cette région</string>
-    <!-- Le refus propre au moteur de remplacement : les sondages sont ce qui tient une route à distance
-         du rivage, donc aucune route n\'est proposée avant le chargement de la grille de profondeur. -->
-    <string name="route_unavailable_depth_not_loaded">Routage en attente des données de profondeur</string>
-    <!-- L\'autre moitié de ce refus : la paroi est la terre dilatée par le franc-bord, donc une route
-         demandée avant le chargement de la côte tracerait une ligne sur le rivage. -->
-    <string name="route_unavailable_coastline_not_loaded">Routage en attente du trait de côte</string>
     <string name="settings_route_pace_label">Allure en eau libre</string>
     <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
@@ -698,4 +685,16 @@
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
+    <!-- Les descriptions de calcul sous lesquelles une route déclarée est affichée : la principale et
+         les deux passes candidates. Le libellé est celui de la spécification (2026-09-29). -->
+    <string name="route_computation_main">Évitement complet</string>
+    <string name="route_computation_no_zones">Ignorer les zones de vitesse</string>
+    <string name="route_computation_no_zones_band">Ignorer les zones et la bande des 300 m</string>
+    <!-- La comparaison du panneau dès qu\'une seconde page terminée existe — « La route n°n met x de
+         moins/de plus », l\'arithmétique du flux entre la durée de chaque route et celle de la sélection. -->
+    <string name="route_comparison_fmt">La route n°%1$d met %2$s %3$s</string>
+    <string name="route_comparison_less">de moins</string>
+    <string name="route_comparison_more">de plus</string>
+    <!-- Une ligne de page dans le panneau : quelle route c\'est, sa description et sa propre durée. -->
+    <string name="route_page_fmt">Route n°%1$d · %2$s · %3$s</string>
 </resources>

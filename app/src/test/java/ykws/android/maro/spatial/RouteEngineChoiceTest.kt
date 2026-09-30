@@ -69,5 +69,4 @@ private class ChoiceWorld : AvoidWorld {
     override fun isWater(latitude: Double, longitude: Double): Boolean = true
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
     override fun depthAt(latitude: Double, longitude: Double): DepthSample = DepthSample.NONE
-    override suspend fun load(): RouteEngineState = RouteEngineState.Ready
 }

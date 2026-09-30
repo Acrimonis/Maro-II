@@ -1,27 +1,20 @@
-# Context Hydration — Route — 2026-09-29
+# Context Hydration — Route — 2026-09-30
 
-**Last Bake:** 2026-09-29 20:55 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-09-30 16:08 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** A state-and-design session run on the user's own commands — `#status`, `#doc update` reframed as an epic rewrite, the engine-interface review with its passes, and `#bake` — plus the explicit "update doc", "extend plan", "review plan" and "update plan" orders. No dependency was added, no machine-shaped data file was opened, and the device was never touched; every claim about the code (the seam's members, the repair branch in `routeBetween`, the harness's factory providers) followed the file read that settled it.
+**Directive trace:** The implement session ran on the user's own `#implement`; no dependency was added, no machine-shaped data file was opened, and the device was never touched. Every claim about the code followed the file read that settled it; the commit and the push are the user's own commands.
 
 ## State
 
-**The branch is `feature/route-apis`**; **nothing is built on it** — the session's changes are state and design alone.
-
-**The epic was rewritten as a state doc** — concept · current code · delta, with the requirement list called history, no rule restated and no requirement number repeated; its `## Implemented` is now a one-line-per-pass pointer index, and its history was dropped outright on the user's word.
-
-**The engine's interface was reworked, in design** — [`260929_FEAT_PLN_Route_engine-interface-rework.md`](260929_FEAT_PLN_Route_engine-interface-rework.md:1) carries the whole of it: `routesToCompute(origin, destination)` repairs the pair as its first step and returns the declared computations, `startLookup(id)` needs only the id, `cancelLookup(id)` is the only disposal an engine performs, and one update flow carries the id, the stage done, the next stage, the line, the result and the reason. The reason set is closed at `CANNOT_REPAIR` · `WORLD_NOT_READY` · `NO_PATH` · `OFF_WATER`; the repair is an 8-direction ring sweep to `route.repair.maxRadiusM=200` under 50 ms; the dismissal is parked; the two additions (the callback's fifth field and the sealed `RouteDeclarations`) and the comment leaving the panel's top are approved.
-
-**The walk is open** on its top Level 1, cursor **16**; the session did not move it. An open level blocks the fold and any `#archive`.
-
-**The Feature Summaries Route row stays beyond the read cap** — the bake's step 3 could not run, and the row is the standing global todo's subject.
+**The branch is `feature/route-apis`, and the engine-interface rework is built.** The seam is now `routesToCompute(origin, destination)` → declared computations → `startLookup(id)` → one id-carrying update flow, with the ring-sweep repair as the call's first step, the reason set closed at `CANNOT_REPAIR` · `WORLD_NOT_READY` · `NO_PATH` · `OFF_WATER`, the readiness gate and the refused crosshair retired, and the page set with the comparison in the panel. `gradlew :app:assembleDebug :app:testDebugUnitTest` is BUILD SUCCESSFUL with the whole unit suite green; nothing is device-validated.
 
 ## Target Files
 
-- [`260929_FEAT_PLN_Route_engine-interface-rework.md`](260929_FEAT_PLN_Route_engine-interface-rework.md:1) — the session's one design, in design, nothing built
-- [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md:1) — rewritten as a state doc this session
-- The code the plan will touch when it is built: `RouteEngine.kt` · `RouteDummyEngine.kt` · `RouteAvoidEngine.kt` · `RouteEngineChoice.kt` · `RouteViewModel.kt` · `MapScreen.kt` · `RouteHost.kt` · `RouteConfirmPanel.kt` · `RouteOverlay.kt`
+- `260929_FEAT_DOC_Route_engine-interface.md` — the implementation spec this session built
+- `spatial/RouteEngine.kt` · `RouteDummyEngine.kt` · `RouteAvoidEngine.kt` · `RouteEngineChoice.kt` — the seam and the two engines
+- `ui/map/RouteViewModel.kt` · `RouteConfirmPanel.kt` · `RouteHost.kt` · `RouteOverlay.kt` · `MapScreen.kt` — the flow
+- `config/AppConfig.kt` + `assets/maro.properties` + both `strings.xml` — the repair knob, the retired `route.target.*` keys and the new reason/computation strings
 
 ## Next Step
 
-Word the three avoid descriptions and the four reason labels in both locales, add the repair's own test that proves the 50 ms budget, then build the hops of the plan's §10 — each a build gate, the device pass staying the user's.
+The device pass — the user's own: arm a route and read the repaired pair, the pages and the comparison; then shorten the Feature Summaries Route row so the next bake can write it.
