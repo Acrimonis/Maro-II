@@ -184,14 +184,20 @@ internal fun RouteHost(
         val stroke = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
         val selectedAlpha = transparencyPctToAlpha(AppConfig.routeLineTransparencyPct)
         val dimmedAlpha = transparencyPctToAlpha(AppConfig.routeDimmedTransparencyPct)
+        // The followed route is drawn from the state alone: `Select route` clears the page set, so
+        // during navigation the pool reads the `Following` plan's own points rather than a page.
+        val followed = (state as? RouteState.Following)?.plan
 
         pool.forEachIndexed { index, line ->
-            val page = pages.getOrNull(index)
-            val points = page?.plan?.points
+            val points = if (followed != null) {
+                if (index == 0) followed.points else emptyList()
+            } else {
+                pages.getOrNull(index)?.plan?.points
+            }
             if (points == null || points.size < 2) {
                 line.setPoints(emptyList())
             } else {
-                val alpha = if (index == selectedIndex) selectedAlpha else dimmedAlpha
+                val alpha = if (followed != null || index == selectedIndex) selectedAlpha else dimmedAlpha
                 line.setPoints(points.map { GeoPoint(it.latitude, it.longitude) })
                 line.outlinePaint.apply {
                     color = AndroidColor.argb(
@@ -205,8 +211,9 @@ internal fun RouteHost(
             }
         }
 
-        // The pin marks the **selected** page's resolved destination.
-        val selected = pages.getOrNull(selectedIndex)?.plan
+        // The pin marks the selected line's resolved destination — the followed route's while
+        // navigating, the selected page's during the acquisition.
+        val selected = followed ?: pages.getOrNull(selectedIndex)?.plan
         if (selected != null && selected.points.size >= 2) {
             val density = mv.paintDensity
             val pinPx = (ROUTE_PIN_SIZE_DP * density).toInt().coerceAtLeast(1)

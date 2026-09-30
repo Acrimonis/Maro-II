@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import ykws.android.maro.config.AppConfig
@@ -264,7 +265,12 @@ class RouteViewModel(
 
     init {
         viewModelScope.launch {
+            // `distinctUntilChanged` keeps the one subscription to the engine's `updates` alive across a
+            // session: `session ?: selected` is the same engine object whether the session is open or not,
+            // and a `flatMapLatest` restart over a `replay = 0` shared flow would drop any update racing
+            // the re-subscribe.
             combine(selection, _sessionEngine) { selected, session -> session ?: selected }
+                .distinctUntilChanged()
                 .flatMapLatest { it.updates }
                 .collect { onUpdate(it) }
         }

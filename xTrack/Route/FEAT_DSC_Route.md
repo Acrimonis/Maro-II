@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-30 17:27
+modified: 2026-09-30 19:15
 ---
 
 # Feature: Route
@@ -168,3 +168,6 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The saved line became a route on the track side — the flag, the render pair, the filter and the card → [`../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md)
 - The engine's interface reworked — the pair repaired inside `routesToCompute`, declared computations, `startLookup(id)`, one id-carrying update flow, the page set and the comparison, the readiness gate and the refused crosshair retired → [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md)
 - The avoidance algorithm's design, folded into one document → [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md)
+- The route fan's "route" child gained its dual purpose — acquire while idle, select/confirm once the settled line stands
+- The acquisition's update stream stopped being torn down per arm — `distinctUntilChanged` keeps the one `updates` subscription alive, closing the drop window that left the mode searching with no stage, line or plan
+- The followed route is painted again — the pool reads the `Following` plan's own points once `Select route` clears the page set, and the pin lands on its resolved destination
