@@ -340,6 +340,7 @@
     <string name="resume_confirm_backup">Sauvegarder ce trajet avant de reprendre</string>
     <string name="track_backup_suffix">(sauvegarde)</string>
     <string name="cd_resume_recording">Reprendre l\'enregistrement</string>
+    <string name="cd_follow_route">Suivre l\'itinéraire</string>
     <string name="marker_color_title">Couleur du repère</string>
     <string name="marker_icon_title">Icône du repère</string>
     <string name="marker_icon_none">Aucune (✕)</string>
@@ -660,6 +661,7 @@
     <string name="route_exit_save">Enregistrer la route dans les traces</string>
     <string name="route_exit_continue">Continuer la route</string>
     <string name="route_exit_discard">Abandonner la route</string>
+    <string name="route_exit_stop_following">Arrêter de suivre</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>

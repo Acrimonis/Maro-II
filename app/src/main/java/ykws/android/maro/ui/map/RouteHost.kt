@@ -180,13 +180,14 @@ internal fun RouteHost(
             )
         }
 
+        // A followed route holds its plan in the state, not in the page set: `selectRoute()` and
+        // `followSavedRoute` both empty the pages, so slot 0 and the pin read the state to stay drawn.
+        val followed = (state as? RouteState.Following)?.plan
+
         val colour = routeLineColor
         val stroke = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
         val selectedAlpha = transparencyPctToAlpha(AppConfig.routeLineTransparencyPct)
         val dimmedAlpha = transparencyPctToAlpha(AppConfig.routeDimmedTransparencyPct)
-        // The followed route is drawn from the state alone: `Select route` clears the page set, so
-        // during navigation the pool reads the `Following` plan's own points rather than a page.
-        val followed = (state as? RouteState.Following)?.plan
 
         pool.forEachIndexed { index, line ->
             val points = if (followed != null) {

@@ -171,3 +171,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The route fan's "route" child gained its dual purpose — acquire while idle, select/confirm once the settled line stands
 - The acquisition's update stream stopped being torn down per arm — `distinctUntilChanged` keeps the one `updates` subscription alive, closing the drop window that left the mode searching with no stage, line or plan
 - The followed route is painted again — the pool reads the `Following` plan's own points once `Select route` clears the page set, and the pin lands on its resolved destination
+- The track card's follow door — the route icon in the resume slot follows a saved route as the active route, the followed line painted from the state, and the exit dialog's third door reads Stop following → [`260930_FEAT_PLN_Route_follow-saved-route-card.md`](260930_FEAT_PLN_Route_follow-saved-route-card.md)

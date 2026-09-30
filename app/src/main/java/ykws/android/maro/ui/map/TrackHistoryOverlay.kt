@@ -121,6 +121,7 @@ import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
 import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.ui.components.StatCell
+import ykws.android.maro.ui.icons.route
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -152,6 +153,7 @@ fun TrackHistoryOverlay(
     onDismiss: () -> Unit,
     onNavigateToTrack: (String) -> Unit = {},
     onResumeTrack: ((String) -> Unit)? = null,
+    onFollowTrack: ((String) -> Unit)? = null,
     onMergeTracks: ((Set<String>, String, Boolean) -> Unit)? = null,
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
@@ -400,6 +402,7 @@ fun TrackHistoryOverlay(
                 onTap = { onNavigateToTrack(summary.id) },
                 onLongPress = onLongPress,
                 onResumeTrack = onResumeTrack,
+                onFollowRoute = onFollowTrack,
                 isRecording = liveState?.state == TrackRecorderState.ON
             )
         },
@@ -477,6 +480,7 @@ internal fun TrackCardContent(
     onTap: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
     onResumeTrack: ((String) -> Unit)? = null,
+    onFollowRoute: ((String) -> Unit)? = null,
     isRecording: Boolean = false,
     showChevron: Boolean = true
 ) {
@@ -592,6 +596,21 @@ internal fun TrackCardContent(
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
                             contentDescription = stringResource(R.string.cd_resume_recording),
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                // A saved route never resumes; in that slot it offers the follow door instead, with
+                // the route icon and no recording guard of its own beyond the screen's.
+                if (summary.route && !isRecording && onFollowRoute != null) {
+                    IconButton(
+                        onClick = { onFollowRoute(summary.id) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = route,
+                            contentDescription = stringResource(R.string.cd_follow_route),
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(24.dp)
                         )

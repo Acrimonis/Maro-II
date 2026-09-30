@@ -182,7 +182,15 @@ sealed interface RouteState {
     }
 
     /** Navigating a route: [plan] is the **selected** line. */
-    data class Following(override val plan: RoutePlan) : RouteState {
+    data class Following(
+        override val plan: RoutePlan,
+        /**
+         * The stored track this route was followed from, or null when it came from an acquisition's
+         * `Select route`. The id greys the exit dialog's save door and reads **Stop following** on its
+         * third door, so a followed saved route is never written a second time.
+         */
+        val followedTrackId: String? = null
+    ) : RouteState {
         override val phase: RoutePhase get() = RoutePhase.FOLLOWING
     }
 }
@@ -390,6 +398,16 @@ class RouteViewModel(
         _stage.value = null
         _provisionalLine.value = emptyList()
         _state.value = RouteState.Following(selected)
+    }
+
+    /**
+     * **Follow a saved route** — the track card's door: the stored line becomes the followed route
+     * straight from Idle, with no engine ask and no session write. The track id rides the state so
+     * the exit dialog reads the followed route as already written.
+     */
+    fun followSavedRoute(plan: RoutePlan, trackId: String) {
+        if (_state.value !is RouteState.Idle) return
+        _state.value = RouteState.Following(plan, followedTrackId = trackId)
     }
 
     /** The page the selection stands on right now, or null while the set is empty. */

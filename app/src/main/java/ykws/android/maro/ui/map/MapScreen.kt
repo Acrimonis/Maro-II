@@ -1885,6 +1885,29 @@ fun MapScreen(
             }
 
             /**
+             * **Follow a saved route** — the track card's door: the stored line becomes the followed
+             * route straight from Idle, with no engine ask. The press closes its own surface at once —
+             * the list, or the card whose `preNavigationState` restore is the refocus — and the route
+             * mode takes over with no second camera move. The track id rides the state so the exit
+             * dialog reads the followed route as already written and its third door as **Stop
+             * following**. A load that yields fewer than two points leaves the mode idle and arms
+             * nothing.
+             */
+            fun followSavedTrack(trackId: String, fromList: Boolean) {
+                if (routeArmed) return
+                // The press closes its surface at once; the card's close restore is the refocus, so
+                // nothing here moves the camera afterwards.
+                if (fromList) showTrackHistory = false else closeTrackDrawer()
+                if (inspectArmed) disarmInspectMode()
+                routeSaveScope.launch {
+                    val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
+                    val plan = routePlanOf(track) ?: return@launch
+                    routeArmed = true
+                    routeViewModel.followSavedRoute(plan, track.id)
+                }
+            }
+
+            /**
              * Writes **one** route as an ordinary track, through `data/track`'s own repository. The
              * vertices carry the plan's own pace and cumulative time, so distance, duration and both
              * speed figures come out right with no second code path.
@@ -3269,6 +3292,7 @@ fun MapScreen(
             onTrackDrawerClose = { closeTrackDrawer() },
             onNavigateToTrack = { id -> openSelectedTrack(listOf(id)) },
             onResumeRequest = { id, fromList -> pendingResume = PendingTrackResume(id, fromList) },
+            onFollowRequest = { id, fromList -> followSavedTrack(id, fromList) },
             onMarkerSortStateChange = { newState ->
                 // R2: the sort rewrites the list world a list-opened marker walk reads; a map-opened one
                 // reads the map world and stays open.
@@ -3510,7 +3534,10 @@ fun MapScreen(
         // second track for one line.
         if (routeExitRequested) {
             val front = routeState.plan
-            val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front)
+            val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
+            // A followed saved route is already a track, so its save door stays grey and its third
+            // door reads "Stop following" rather than "Discard Route".
+            val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front) && followedTrackId == null
             ConfirmDialog(
                 title = stringResource(R.string.route_exit_title),
                 visible = true,
@@ -3533,7 +3560,10 @@ fun MapScreen(
                         role = ConfirmActionRole.SECONDARY
                     ) { routeExitRequested = false },
                     ConfirmAction(
-                        label = stringResource(R.string.route_exit_discard),
+                        label = stringResource(
+                            if (followedTrackId != null) R.string.route_exit_stop_following
+                            else R.string.route_exit_discard
+                        ),
                         role = ConfirmActionRole.DANGER
                     ) {
                         routeExitRequested = false

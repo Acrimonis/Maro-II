@@ -12,6 +12,7 @@ import java.util.Locale
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.data.track.Track
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.SpatialOperations
@@ -156,6 +157,33 @@ internal fun routeTripFigure(
         etaSeconds = etaSeconds,
         forcedCrossingZoneNames = plan.forcedCrossingZoneNames,
         computedAtMs = plan.computedAtMs
+    )
+}
+
+/**
+ * **A saved route read back as a plan** — the inverse of the save, so the track card's follow door
+ * has no second arithmetic. Points and per-leg times come from the vertices
+ * [`TrackFromCourse.build`] wrote; the acquisition-only facts are absent ([forcedCrossingZoneNames]
+ * empty, [destinationMoved] false), and the total duration is the track's own figure rather than a
+ * sum of the truncated per-leg milliseconds.
+ */
+internal fun routePlanOf(track: Track): RoutePlan? {
+    val points = track.trackPoints
+    if (points.size < 2) return null
+    val routePoints = points.map { RoutePoint(it.lat, it.lon) }
+    val legTimesSec = points.zipWithNext { from, to ->
+        ((to.timeOffsetMs - from.timeOffsetMs).coerceAtLeast(0L)) / 1000.0
+    }
+    return RoutePlan(
+        start = routePoints.first(),
+        destination = routePoints.last(),
+        destinationMoved = false,
+        points = routePoints,
+        legTimesSec = legTimesSec,
+        distanceM = Units.nauticalMilesToMetres(track.distanceNm.toDouble()),
+        durationSec = track.navigatingDurationSec.toDouble(),
+        forcedCrossingZoneNames = emptyList(),
+        computedAtMs = track.startTimeMs
     )
 }
 
