@@ -209,14 +209,17 @@ private fun segmentTimeM(
     return ((vTop - vStart) / accelMps2 + (distanceM - rampDist) / vTop) to vTop
 }
 
+/** A line's slow time split by what slowed it — a ring's interior, the band's width, and the ramps. */
+data class SlowShares(val zone: Double, val band: Double, val ramp: Double)
+
 /**
- * **The share of a route's own time it spends slowed** — the seconds its legs take beyond what the
- * same distance costs at [paceKn], summed, over the line's whole time.
+ * **The share of a route's own time it spends slowed, every source together** — the seconds its legs
+ * take beyond what the same distance costs at [paceKn], summed, over the line's whole time.
  *
  * The read is taken off the **timed legs** and never off the rings, which is what makes a leg on the
  * way into a zone count too: any metre run below the pace is slow water, whether it lies inside a ring
- * or on the approach to one. That is the quantity the budget is a share of, and the ETA already walks
- * it, so the two can never disagree.
+ * or on the approach to one. It is the **total**; [slowShares] splits it by the water that slowed the
+ * line, which is the reading the zone budget is keyed on.
  */
 fun zoneSlowShare(timed: TimedLine, paceKn: Double): Double {
     val total = timed.durationSec
@@ -229,6 +232,47 @@ fun zoneSlowShare(timed: TimedLine, paceKn: Double): Double {
         if (excess > 0.0) slow += excess
     }
     return (slow / total).coerceIn(0.0, 1.0)
+}
+
+/**
+ * **The shares of a route's own time it spends slowed, split by what slowed it** — a ring's interior
+ * ([SlowShares.zone]), the 300 m band's own width ([SlowShares.band]), and the approach and exit ramps
+ * standing outside both ([SlowShares.ramp]).
+ *
+ * The walk is the one [zoneSlowShare] makes, per timed leg: a leg's seconds beyond its own distance at
+ * [paceKn] are charged to the water standing at the leg's **midpoint** — [inZone] or [inBand], the
+ * caller's own reads of the ring interior and the band's width — and every other slow leg is a ramp.
+ * The band's own slow time therefore no longer drives the zone budget, and a ramp is told apart from
+ * the slow water it leads into.
+ */
+fun slowShares(
+    timed: TimedLine,
+    paceKn: Double,
+    inZone: (LatLng) -> Boolean,
+    inBand: (LatLng) -> Boolean
+): SlowShares {
+    val total = timed.durationSec
+    if (total <= 0.0 || timed.legTimesSec.isEmpty()) return SlowShares(0.0, 0.0, 0.0)
+    val paceMps = Units.knotsToMps(paceKn)
+    var zone = 0.0
+    var band = 0.0
+    var ramp = 0.0
+    for (i in 0 until timed.legTimesSec.size) {
+        val dist = SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+        val excess = timed.legTimesSec[i] - dist / paceMps
+        if (excess <= 0.0) continue
+        val mid = midpoint(timed.points[i], timed.points[i + 1])
+        when {
+            inZone(mid) -> zone += excess
+            inBand(mid) -> band += excess
+            else -> ramp += excess
+        }
+    }
+    return SlowShares(
+        (zone / total).coerceIn(0.0, 1.0),
+        (band / total).coerceIn(0.0, 1.0),
+        (ramp / total).coerceIn(0.0, 1.0)
+    )
 }
 
 /** The band the budget loop stops inside: a share this close to the budget is left alone (±20 %). */

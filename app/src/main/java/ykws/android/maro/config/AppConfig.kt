@@ -234,12 +234,13 @@ object AppConfig {
         private set
 
     /**
-     * The 300 m band's outside margin (m) — `route.avoid.zone300.outsideMarginM`, default 25, clamped
-     * 0.0..500.0. The ring between the band's own edge and this distance prices at the band's core cost
-     * times [routeAvoidZone300OutsideMarginCostFraction]; the band's own width prices at the full cost.
-     * It is a price band, never a clearance.
+     * The 300 m band's outside margin (m) — `route.avoid.zone300.outsideMarginM`, default 50, clamped
+     * 0.0..500.0: the shipped value in `maro.properties`, which is the source of truth for every value
+     * this code only falls back to. The ring between the band's own edge and this distance prices at the
+     * band's core cost times [routeAvoidZone300OutsideMarginCostFraction]; the band's own width prices at
+     * the full cost. It is a price band, never a clearance.
      */
-    var routeAvoidZone300OutsideMarginM: Double = 25.0
+    var routeAvoidZone300OutsideMarginM: Double = 50.0
         private set
 
     /**
@@ -272,36 +273,46 @@ object AppConfig {
         private set
 
     /**
-     * How much dearer the time spent inside the 300 m band is to the search — `route.avoid.zone300.softCostAversion`,
-     * a cost multiplier clamped 1.0..5.0. 1.0 prices the band as open water; the excess over 1.0 is the extra
-     * cost per metre inside it.
+     * **The 300 m band's own speed limit, in knots** — `route.avoid.zone300.limitKn`, default 5, clamped
+     * 1.0..40.0.
+     *
+     * It is the **law's rule, not a tuning knob**: the band carries an absolute limit, and what standing
+     * in it costs is that limit's time excess over the pace — the very quantity `zonePriceSec` prices a
+     * speed zone's own cell at — so a 5 kn band cell and a 5 kn ring cell cost the same, by construction.
+     * The clock reads it as well, and it does so whatever `route.avoid.zone300.enabled` says: that switch
+     * prices water, it never suspends the limit in force.
      */
-    var routeAvoidZone300SoftCostAversion: Double = 1.5
+    var routeAvoidZone300LimitKn: Double = 5.0
         private set
 
     /**
      * Whether the 300 m band is priced — `route.avoid.zone300.enabled`, default true. False prices the
-     * band as open water and writes no BAND tag, so `route.avoid.zone300.softCostAversion` stays the value
-     * that says how dear the band is when it is on.
+     * band as open water — its price is the band limit's excess under the price cursor, so it is the
+     * cursor's work this switch drops, and no BAND tag is written — while
+     * `route.avoid.zone300.limitKn` stays in force for the clock either way.
      */
     var routeAvoidZone300Enabled: Boolean = true
         private set
 
     /**
-     * Whether the speed zones are priced — `route.avoid.speedZone.enabled`, default false. False prices
-     * every zone as open water: the search does not bend around one, the trip clock reads the pace alone,
-     * and no forced crossing is reported. The counterpart of `route.avoid.zone300.enabled`.
+     * Whether the speed zones are priced — `route.avoid.speedZone.enabled`, code fallback false while the
+     * shipped value is true. False prices every zone as open water: the search does not bend around one,
+     * the trip clock reads the pace alone, and no forced crossing is reported. The counterpart of
+     * `route.avoid.zone300.enabled`.
      */
     var routeAvoidSpeedZoneEnabled: Boolean = false
         private set
 
     /**
-     * The speed-zone price cursor — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
-     * 0.0..5.0. A zone cell costs its base plus `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its
-     * true travel time and the search minimises real time — bending around a slow zone when the way around
-     * is faster — while at 0.0 the zone is priced as open water, reproducing the pre-phase-4 no-zone line,
-     * and a value above 1.0 bends harder. The cursor chooses the line and never touches the ETA — the clock
-     * stays physics.
+     * The price cursor — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped 0.0..5.0
+     * — a clamp on the configured value only: the loop's one correction re-derives λ from the measured
+     * share and is not clamped. **One cursor for slow water**: it multiplies the limit-keyed time excess
+     * of a speed zone and of the 300 m band alike, so the band's own multiplier
+     * (`route.avoid.zone300.softCostAversion`) is retired. A slow cell costs its base plus
+     * `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its true travel time and the search
+     * minimises real time — bending around a slow zone when the way around is faster — while at 0.0 the
+     * water is priced as open water, reproducing the pre-phase-4 no-zone line, and a value above 1.0
+     * bends harder. The cursor chooses the line and never touches the ETA — the clock stays physics.
      */
     var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
@@ -364,8 +375,12 @@ object AppConfig {
      * **The share of a trip the search may spend slowed by speed zones**, in per cent — the budget the
      * λ loop aims at. 0–100, default **33**: how much slow water a trip may use is a preference rather
      * than a tuning constant, which is why this one is a lever with a Settings row of its own rather
-     * than a value in the drawing family. A share still outside the loop's ±20 % band after its two
-     * passes is reported and never chased.
+     * than a value in the drawing family.
+     *
+     * The share it is a fraction of is the **zone share alone** — the line's seconds inside a ring, from
+     * `slowShares`. The band's slow seconds and the approach ramps' are read apart and never drive the
+     * budget, so band-only slowness cannot move λ. A share still outside the loop's ±20 % band after its
+     * two passes is reported and never chased.
      */
     var routeAvoidSpeedZoneTimeBudgetPct: Int = 33
         private set
@@ -1681,7 +1696,8 @@ object AppConfig {
             props.getProperty("route.avoid.zone300.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
                 routeAvoidZone300OutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
             }
-            // Parsed and left unread until Change 4's fine band reads it.
+            // The fine pass reads it: a restrictive zone the coarse line enters is re-solved locally at
+            // this cell, and the settled line is pulled and snapped against the field this size prices.
             props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
                 routeAvoidFineCellRatio = it.coerceIn(
                     ROUTE_AVOID_FINE_CELL_RATIO_MIN,
@@ -1697,8 +1713,8 @@ object AppConfig {
             props.getProperty("route.avoid.depthGate.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMarginM = it.coerceIn(0.0, 200.0)
             }
-            props.getProperty("route.avoid.zone300.softCostAversion")?.toDoubleOrNull()?.let {
-                routeAvoidZone300SoftCostAversion = it.coerceIn(1.0, 5.0)
+            props.getProperty("route.avoid.zone300.limitKn")?.toDoubleOrNull()?.let {
+                routeAvoidZone300LimitKn = it.coerceIn(1.0, 40.0)
             }
             props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidZone300Enabled = it

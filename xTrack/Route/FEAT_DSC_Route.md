@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-30 21:15
+modified: 2026-09-30 21:43
 ---
 
 # Feature: Route
@@ -23,14 +23,14 @@ Set a destination and have the app draw the route from the boat's position to it
 - **The engine may offer candidates beside the settled answer** — the passes `route.avoid.candidate.passes` declares run after it on the engine's own lane, and the rows print the engine's own duration and saving.
 - **The drawing is the selected line, with the others dimmed further** — the selected line is drawn at the route's own transparency during the acquisition and once confirmed, and every line beside it wears the one shared dimming key. **No ladder of superseded lines exists.**
 - **The acquisition owns three outcomes** — `Save to track` (the selected line, greyed once written), `Select route` (navigation on it, the other candidates dropped) and the red `Discard route` (leaves, asking nothing). Once selected there is no panel at all: the ordinary dashboard returns, and the mode's presence is the line, the toggle and the one exit dialog `Save Route to Track · Continue route · Discard Route`.
-- **Speeds come from where the line is** — in open water the pace is the free-water pace setting; at a point inside the 300 m band or a regulated speed zone the speed is that limit, and the clock follows the limit in force. The **dummy's fixed 15 kn** is the placeholder's own fiction and the one place this does not hold.
+- **Speeds come from where the line is** — in open water the pace is the free-water pace setting; at a point inside the 300 m band or a regulated speed zone the speed is that limit, the strictest one where both hold, and the clock follows the limit in force. The band's own limit is read **whatever its price switch says**: `route.avoid.zone300.enabled` prices water, it never suspends a limit. The **dummy's fixed 15 kn** is the placeholder's own fiction and the one place this does not hold.
 - **An end the boat stands on may need moving** — where the origin or the destination is the boat's own position and that point is not valid water (land, or shallower than the minimum depth), the point is **moved to the nearest valid water on the sea side**. This replaces the refused-end crosshair, whose mark, beat and three `route.target.*` keys leave with it.
 - **A saved route is an ordinary track carrying the `route` flag** — listed, exported, drawn and deleted like any other.
 
 ## Current state of the code
 
 - **The seam** — [`RouteEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:66) publishes `progress: StateFlow<RouteProgress?>`, one emission carrying the stage the pipeline has entered and the line it holds, cleared on every answer and every abort; readiness (`NotReady` · `Ready` · `Unavailable(reason)`), the two position entry points, the validity question and the readiness promise sit beside it, and their **relevance is under review** — the current flow arms on the drawer's pair and calls them only as the pipeline needs.
-- **Two engines ship** — the `dummy` is one straight segment at its own fixed 15 kn, ready on construction, judging nothing and answering a null progress flow ([`RouteDummyEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt:65)); the `avoid` crosses five boundaries — corridor · grid · search · pull · snap — publishing each one's stage and geometry, the raw cell chain at pull and the pulled line at snap ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1506)). `route.engine.id` names the shipped one and an unclaimed id falls back to it.
+- **Two engines ship** — the `dummy` is one straight segment at its own fixed 15 kn, ready on construction, judging nothing and answering a null progress flow ([`RouteDummyEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt:65)); the `avoid` crosses five boundaries — corridor · grid · search · pull · snap — publishing each one's stage and geometry, the raw cell chain at pull and the pulled line at snap ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1623)). `route.engine.id` names the shipped one and an unclaimed id falls back to it.
 - **The avoid engine's world is ten files** — tagged costed cells, an 8-neighbour A\*, a source-parameterized taut pull, a berth carve, one cost field whose base is always set and whose sources only add, the fairing fitter, the clock that obeys the limit in force, the tangent corners and the zone geometry ([`spatial/avoid/`](../../app/src/main/java/ykws/android/maro/spatial/avoid)).
 - **The view model is the mode's whole state** — Idle · Choosing · Following with no arrival state, one worker per ask, the plan and its `remainingFrom` projection, the session's route-to-track link and the save predicate ([`RouteViewModel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt:349)).
 - **One file touches osmdroid** — the pool and the pin are attached once and mutated in place, and the paint order is applied as a rank over the whole list so nothing is pinned by position ([`RouteHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt:69), [`OverlayZOrder.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt:85)).
@@ -38,7 +38,7 @@ Set a destination and have the app draw the route from the boat's position to it
 - **The feature's pure rules have one home** — the candidate set the selection walks, the auto-pick's one-shot, the next/prev wrap, the trip figure and the point's printed form ([`RouteOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:54)).
 - **Every value lives in the properties file** — the line's colour, transparency and width, the shared dimming key, the navigate colour, the pin and the avoid family's margins, gates and prices, all read through [`AppConfig`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:126); the app's own rows are the engine dropdown, the free-water pace and the **Active route** colour.
 - **Still in the code and on the removal list** — the refused-end crosshair with its `route.target.*` keys (replaced by the sea-side move above), the route opacity-ladder keys `tracking.transparency.routeFrom` / `routeTo` (the dimming key covers the need), and the seam members the current flow does not lean on, which the user will re-evaluate.
-- **Known limits** — the dummy promises nothing about water and no setting moves it; the progressive-draw plan's build order still names `route.progress.transparencyPct`, retired on 2026-09-28 for the shared `route.dimmed.transparencyPct`, so the plan's text is the stale one and not the tree; and `route.avoid.fine.cellRatio` is called unread by its parse comment ([`AppConfig.kt:1694`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:1694)) while the engine reads it at two sites ([:1226](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1226), [:1279](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1279)).
+- **Known limits** — the dummy promises nothing about water and no setting moves it; the progressive-draw plan's build order still names `route.progress.transparencyPct`, retired on 2026-09-28 for the shared `route.dimmed.transparencyPct`, so the plan's text is the stale one and not the tree; and `route.avoid.fine.cellRatio`'s parse comment and its property now agree that the fine pass reads it.
 
 ### Placement and the three seams
 
@@ -149,7 +149,7 @@ The live numbered requirements — added after the master book was retired on 20
 
 **Level 1 — Date:** 2026-09-28 · **Source:** the pending set — the drawer plan's steps first, then the standing items the two 2026-09-28 plans and the ui-flow plan's §11 name, in ship order · **Cursor:** 21 · **Closed:** 2026-09-30 — closed by decision
 - Note: items 1–13 are **closed** (2026-09-28 · 2026-09-29) — the drawer plan's steps 1 and 3–9, the roller's three points closed by its retirement with the component, and item 13, whose design is [`260929_FEAT_PLN_Route_trigger-read-at-press.md`](260929_FEAT_PLN_Route_trigger-read-at-press.md) with the build owed.
-- [ ] 14 · **Parked 2026-09-29** — Phase 5's marker weights — avoid-only, the weight scaling the per-metre price inside a circle's radius or a corridor's band and never replacing the base, [`AvoidCell.sourceCostM`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidGrid.kt:25) being the trap the plan names — merged with the shipped marker scale's wall into one scale at that time, and the review over Phase 6's folded fixes, whose first point is the fairing's shipped values read against the plan's own table
+- [ ] 14 · **Parked 2026-09-29** — Phase 5's marker weights — avoid-only, the weight scaling the per-metre price inside a circle's radius or a corridor's band and never replacing the base, [`AvoidCell`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidGrid.kt:66) being the trap the plan names — merged with the shipped marker scale's wall into one scale at that time, and the review over Phase 6's folded fixes, whose first point is the fairing's shipped values read against the plan's own table
 - [ ] 15 · **Parked 2026-09-29** — Change 4: the fine band, its mechanism and its width — the code already re-solves at the ratio, so the item is a decision about the record
 - [x] 16 · The progressive-draw plan's remaining review findings — closed 2026-09-30: flicker forgotten; the staircase folded as an obligatory step of the algorithm; the unmeasured PULL cost and the re-emit pin deferred to the next route-acquisition-algorithm chunk; the aim beat and the 55 % face died with the rework
 - [x] 17 · The F1 and F2 wording pair of the standoff register — dropped 2026-09-30: deferred to the next route-acquisition-algorithm chunk
@@ -158,6 +158,26 @@ The live numbered requirements — added after the master book was retired on 20
 - [x] 20 · The Phase 6 device pass — the fairing, its four keys and the GPX acceptance (the user's own) — dropped 2026-09-30: stays owed to the user, recorded in the Delta's "Owed device passes"
 - [x] 21 · The saved-route ends bake — fold the pair on the track and its summary, the directional arming match, the reverse pair taken mirrored and the shut save door into the epic's `## Implemented` and the hydration → [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md)
 - Closed 2026-09-30 by decision: 16 resolved, 17 dropped to the algorithm chunk, 18 dropped (recorded in the Delta), 19 absorbed, 20 dropped as the owed device pass, 21 absorbed by the bake itself, which this closure unblocked; 14 and 15 stay parked under it.
+
+**Level 1 — Date:** 2026-09-30 · **Source:** [`260930_FEAT_PLN_Route_avoid-shortest-exit.md`](260930_FEAT_PLN_Route_avoid-shortest-exit.md:1) — its decisions and phases, in the order they gate; the band's law added the same evening · **Cursor:** 1
+- [ ] 1 · **D4** — the fine band: change the code or change the record
+- [ ] 2 · **Phase 0** — measure λ, the three shares, in-zone metres and the PULL cost; repair the record — **the trace half shipped 2026-09-30**: `PASS`, `PASSKEEP` and `LINE` carry λ, the band's priced λ, the three shares and in-zone metres; the PULL device measurement and D4 stay owed
+- [x] 3 · **Phase 1** — split the share three ways; the loop reads the zone share alone — shipped 2026-09-30
+- [x] 4 · **D6** — one weight for all slow water, or a weight per source — settled 2026-09-30: one cursor prices every slow source and the band's own key is retired
+- [x] 5 · **D7** — the band's outside margin: keep it as a gradient, and at what fraction — settled 2026-09-30: the collar keeps its own fraction over the limit in force
+- [x] 6 · **D8** — the clock and the band: does the reported time pay 5 kn inside it, switch or no switch — confirmed 2026-09-30 as shipped: it pays the band's limit, switch or no switch
+- [x] 7 · **Phase 1b** — the band's law: its own limit, one price law, the clock, the tests, the record — shipped 2026-09-30
+- [ ] 8 · **D1** — the budget's authority: the loop's target, or a ceiling only reported
+- [ ] 9 · **Phase 2** — own the cursor: `softCostAversion` means one thing where it is read
+- [x] 10 · **Phase 3** — keep the better pass, compared by share, then in-zone metres, then time — shipped 2026-09-30, ticked ahead of the cursor on the user's word
+- [ ] 11 · **D2** — the fairing's no-price rule: keep it, or refuse a ring
+- [ ] 12 · **Phase 4** — make the tail λ-aware: the fine splice and the fairing — its splice half shipped 2026-09-30; the fairing half waits on D2
+- [ ] 13 · **D3** — the hard mode's face, since it changes what a number does — re-judged after Phase 1b
+- [ ] 14 · **Phase 5** — the earliest exit as the range's hard mode, gated by the forced-crossing probe
+- [ ] 15 · **D5** — marker weights now, or behind the regional grid
+- [ ] 16 · **Phase 6** — the regional coarse grid
+- [ ] 17 · **Phase 7** — the parked algorithm items: the marker weights and Phase 6's fairing review
+- Parked beneath: the closed level above carries items 14 and 15, each with its resume condition; a fresh set was built rather than resuming them.
 
 ## Implemented
 
@@ -190,3 +210,5 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The track card's follow door — the route icon in the resume slot follows a saved route as the active route, the followed line painted from the state, and the exit dialog's third door reads Stop following → [`260930_FEAT_PLN_Route_follow-saved-route-card.md`](260930_FEAT_PLN_Route_follow-saved-route-card.md)
 - The route ends survive restart and a sub-100 m pair refuses arming — `allMarkers` read, the write-back gated on the marker load, and the pure distance gate with its toast → [`260930_FEAT_PLN_Route_end-persistence-and-short-guard.md`](260930_FEAT_PLN_Route_end-persistence-and-short-guard.md)
 - A saved route keeps its two flagged ends and is found by them — the ids on the track and its summary, the arming match that answers a stored line with no search and a shut save door, and the reverse pair answered by mirroring the stored line at its own times → [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md)
+- The 300 m band's own limit became its price — the zones' one law and no aversion key — and the clock reads that limit whatever the price switch says, shipped ahead of the cursor
+- The band's limit became a **limit on the grid**, priced per expansion so its price follows the corrected λ; the slow time split **zone · band · ramp** with the loop's budget keyed on the zone share alone; the cape's bend pinned on the derived exchange rate → [`260930_FEAT_PLN_Route_avoid-shortest-exit.md`](260930_FEAT_PLN_Route_avoid-shortest-exit.md)

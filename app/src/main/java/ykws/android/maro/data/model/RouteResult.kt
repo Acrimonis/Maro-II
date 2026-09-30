@@ -65,11 +65,12 @@ sealed interface RouteResult {
         val durationSec: Double,
         val destinationMoved: Boolean,
         /**
-         * The share of the trip's own time it spends slowed by speed zones, set **only** where the
-         * slow-water budget was missed: `null` means the line is inside the budget, a value means it is
-         * over it and the overrun is reported rather than refused. Deliberately apart from
-         * [forcedCrossingZoneNames]: one says a way around existed and the price could not reach it,
-         * the other that no way around exists at all.
+         * The **zone share** of the trip's own time — the seconds it spends slowed inside a ring, set
+         * **only** where the slow-water budget was missed: `null` means the line is inside the budget, a
+         * value means it is over it and the overrun is reported rather than refused. The band's slow
+         * seconds and the approach ramps' are read apart from this figure and never drive the budget, so
+         * band-only slowness cannot move it. Deliberately apart from [forcedCrossingZoneNames]: one says a
+         * way around existed and the price could not reach it, the other that no way around exists at all.
          */
         val budgetUnmetZoneShare: Double? = null,
         val forcedCrossingZoneNames: List<String> = emptyList()

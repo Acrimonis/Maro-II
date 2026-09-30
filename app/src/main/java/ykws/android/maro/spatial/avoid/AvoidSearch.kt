@@ -10,10 +10,13 @@ import kotlin.math.sqrt
  * Corridor-bounded A* over [AvoidGrid]: eight neighbours, a diagonal costing `√2` of its own cell — a
  * diagonal covering `√2` cells of distance and time alike — and a g-cost in **seconds**.
  *
- * A cell costs its own `sourceCostSec` plus, where the grid stores a zone **limit**, the seconds that
- * limit costs, which the caller prices through [zonePriceSec]. The price is the caller's because the
- * unit's scaling is the engine's: one multiplier over the time excess a slow cell carries, so
- * re-pricing a whole grid is one multiply per expansion and the search holds no scaling of its own.
+ * A cell costs its own `sourceCostSec` plus, where the grid stores a **limit in force**, the seconds
+ * that limit costs, which the caller prices through [zonePriceSec]. The grid stores the **strictest**
+ * limit per cell — a ring's own interior or the band's own width, whichever is slower — beside the two
+ * outside-margin limits, so a band and a ring over the same slow water cost it once and the band's price
+ * follows the pass's cursor exactly as a ring's. The price is the caller's because the unit's scaling is
+ * the engine's: one multiplier over the time excess a slow cell carries, so re-pricing a whole grid is
+ * one multiply per expansion and the search holds no scaling of its own.
  * The heuristic is a **time bound** — `haversine / paceMps` — admissible however dear a cell becomes,
  * since the base is one cell of water at that same pace. [LAND] is impassable; everything else is
  * priced.
@@ -54,16 +57,18 @@ object AvoidSearch {
      * @param paceMps the pace the heuristic bounds time with — the same pace the grid's base cost was
      *   built from, so the bound stays admissible.
      * @param zonePriceSec the seconds a cell carrying these limits costs over its open-water base: the
-     *   interior limit priced in full and the outside-margin (collar) limit priced at the caller's
-     *   fraction — the caller's one price, so re-pricing is one multiply per expansion and the search
-     *   holds no scaling of its own. A grid with no zone ever calls it, the default answering nothing.
+     *   strictest limit in force priced in full, the ring's outside-margin limit and the band's each at
+     *   its own fraction — the caller's one price, so re-pricing is one multiply per expansion and the
+     *   search holds no scaling of its own. A grid with no limit ever calls it, the default answering
+     *   nothing.
      */
     suspend fun search(
         grid: AvoidGrid,
         start: CellIndex,
         aim: CellIndex,
         paceMps: Double,
-        zonePriceSec: (interiorLimitKn: Double, collarLimitKn: Double) -> Double = { _, _ -> 0.0 },
+        zonePriceSec: (interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
+            { _, _, _ -> 0.0 },
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
     ): SearchOutcome {
         val cols = grid.cols
@@ -107,11 +112,12 @@ object AvoidSearch {
                 if (closed[nIdx]) continue
                 val cell = grid.cell(nr, nc)
                 if (!cell.passable) continue
-                val interiorLimitKn = grid.zoneLimitKn(nr, nc)
+                val interiorLimitKn = grid.limitKn(nr, nc)
                 val collarLimitKn = grid.collarLimitKn(nr, nc)
+                val bandCollarLimitKn = grid.bandCollarLimitKn(nr, nc)
                 val cellSec =
-                    if (interiorLimitKn > 0.0 || collarLimitKn > 0.0) {
-                        cell.sourceCostSec + zonePriceSec(interiorLimitKn, collarLimitKn)
+                    if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
+                        cell.sourceCostSec + zonePriceSec(interiorLimitKn, collarLimitKn, bandCollarLimitKn)
                     } else {
                         cell.sourceCostSec
                     }
