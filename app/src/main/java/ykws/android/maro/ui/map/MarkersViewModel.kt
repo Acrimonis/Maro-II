@@ -215,6 +215,11 @@ class MarkersViewModel(
     /** Unfiltered marker list — source of truth for whereAmI matching and reloads. */
     val allMarkers: StateFlow<List<UserMarker>> = _allMarkers.asStateFlow()
 
+    private val _markersLoaded = MutableStateFlow(false)
+
+    /** True once the first repository load has landed — the gate the route-end write-back reads. */
+    val markersLoaded: StateFlow<Boolean> = _markersLoaded.asStateFlow()
+
     /** Loaded user markers (reactive, filtered + sorted by the LIST filter). */
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()
@@ -323,8 +328,6 @@ class MarkersViewModel(
 
     // ── Init ──────────────────────────────────────────────────────────────
 
-    private var isLoaded = false
-
     /**
      * Injects shared settings flow + updater from NavigationViewModel.
      * Must be called once by MapScreen before the ViewModel is used.
@@ -335,7 +338,7 @@ class MarkersViewModel(
         _markerLayerState.value = flow.value.markerLayerState
         viewModelScope.launch {
             flow.collect { settings ->
-                if (isLoaded) {
+                if (_markersLoaded.value) {
                     applyFilterSort(settings.markerListFilter, settings.markerListSort)
                 }
                 _markerLayerState.value = settings.markerLayerState
@@ -361,7 +364,7 @@ class MarkersViewModel(
             _allMarkers.value = loaded
             // Initial sort: no filter applied until observeSettings wires up the flow
             _markers.value = sortMarkers(loaded, ykws.android.maro.data.model.ListSortState())
-            isLoaded = true
+            _markersLoaded.value = true
         }
         // Keep _allMarkers fresh after service-side writes (AutoMarkerManager).
         //

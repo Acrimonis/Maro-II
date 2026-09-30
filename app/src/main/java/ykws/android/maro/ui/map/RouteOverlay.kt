@@ -188,6 +188,15 @@ internal fun routePlanOf(track: Track): RoutePlan? {
 }
 
 /**
+ * **The short-pair guard** — whether the two resolved ends clear the minimum distance the acquisition
+ * arms on. Null ends clear it: a missing end is the trigger's own refusal path, not a distance one.
+ */
+internal fun routeEndsClearMinimum(start: RoutePoint?, destination: RoutePoint?, minLengthM: Double): Boolean {
+    if (start == null || destination == null) return true
+    return SpatialOperations.haversine(start.toLatLng(), destination.toLatLng()) >= minLengthM
+}
+
+/**
  * **One point as the panel prints it** — three decimals, with a dot decimal separator in every locale.
  */
 internal fun routeCoordinate(point: RoutePoint): String =

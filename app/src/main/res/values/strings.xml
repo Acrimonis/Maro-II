@@ -661,6 +661,7 @@
     <string name="route_exit_continue">Continue Route</string>
     <string name="route_exit_discard">Discard Route</string>
     <string name="route_exit_stop_following">Stop following</string>
+    <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>

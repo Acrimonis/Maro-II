@@ -324,4 +324,12 @@ class RoutePlanTest {
         assertFalse(rebuilt.destinationMoved)
         assertTrue(rebuilt.forcedCrossingZoneNames.isEmpty())
     }
+
+    /** The short-pair guard reads the resolved distance: the same point refuses, a separated pair clears. */
+    @Test
+    fun theShortPairGuardReadsTheResolvedDistance() {
+        assertTrue(routeEndsClearMinimum(p0, p1, 100.0))
+        assertFalse(routeEndsClearMinimum(p0, p0, 100.0))
+        assertTrue(routeEndsClearMinimum(null, p1, 100.0))
+    }
 }
