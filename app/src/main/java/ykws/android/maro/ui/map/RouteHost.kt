@@ -1,6 +1,5 @@
 package ykws.android.maro.ui.map
 
-import android.graphics.Canvas
 import android.graphics.drawable.GradientDrawable
 import android.util.Log
 import androidx.activity.compose.BackHandler

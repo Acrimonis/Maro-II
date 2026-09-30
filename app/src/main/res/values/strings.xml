@@ -632,7 +632,6 @@
     <string name="route_action_save_track">Save to track</string>
     <string name="route_action_select">Select route</string>
     <string name="route_pin_label">Pin the track</string>
-    <string name="route_no_route">No water route here</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
          update flow. -->

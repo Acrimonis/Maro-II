@@ -2366,11 +2366,11 @@ fun MapScreen(
                 }
             )
             // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **settled
-            // line has landed** — `plan != null` — and never on "a non-empty candidate set", which is
-            // the same moment one emission later. Index 0 of the drawn set *is* the settled answer
-            // ([`routeCandidateLines`] puts it first) and the arming resets the index, so the panel's own
-            // `selectRoute()` takes exactly that line and the shell's follow hand-over follows. The flag
-            // is cleared before the selection, so no second pass can take it.
+            // line has landed** — `plan != null` — and never on "a non-empty page set", which is the
+            // same moment one emission later. Index 0 of the page set *is* the main answer and the
+            // arming resets the index, so the panel's own `selectRoute()` takes exactly that line and
+            // the shell's follow hand-over follows. The flag is cleared before the selection, so no
+            // second pass can take it.
             LaunchedEffect(routeState, routeAutoPick) {
                 if (routeAutoPickReady(routeAutoPick, routeState)) {
                     routeAutoPick = false

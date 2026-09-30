@@ -1,6 +1,5 @@
 package ykws.android.maro.spatial.avoid
 
-import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.coastline.CoastlineRepository
 import ykws.android.maro.data.depth.DepthRepository
 import ykws.android.maro.data.model.DepthSample

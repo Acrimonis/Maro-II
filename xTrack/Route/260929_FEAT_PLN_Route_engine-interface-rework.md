@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the engine's interface: it repairs the pair, declares its routes, the flow paints them
 
-**Date:** 2026-09-29 · **Status:** in design — nothing built. Every requirement below is the user's word of 2026-09-29 (rev 4): the
+**Date:** 2026-09-29 · **Status:** built 2026-09-30 — superseded by the spec. Every requirement below is the user's word of 2026-09-29 (rev 4): the
 fifteen functional expectations, their verdicts, the flow he set out, the answers he gave on the passes since, and the shuffle he made after
 the independent review. Where a reading is the agent's it says so.
 

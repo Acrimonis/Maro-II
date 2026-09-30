@@ -632,7 +632,6 @@
     <string name="route_action_save_track">Enregistrer dans les traces</string>
     <string name="route_action_select">Sélectionner la route</string>
     <string name="route_pin_label">Épingler la trace</string>
-    <string name="route_no_route">Aucune route navigable ici</string>
     <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
          une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,
          NO_PATH et OFF_WATER sur le flux de mises à jour. -->

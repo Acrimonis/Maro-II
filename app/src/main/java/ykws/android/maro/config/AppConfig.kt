@@ -73,13 +73,6 @@ object AppConfig {
         private set
 
     /**
-     * The floor a candidate's saving must clear to be offered, as a share of the settled trip's own
-     * clock — `route.avoid.candidate.minSavingPct`, clamped 0..100, **15** in force from 2026-09-28.
-     */
-    var routeAvoidCandidateMinSavingPct: Int = 15
-        private set
-
-    /**
      * Whether a pass whose source touches nothing in the corridor the solve already framed is skipped —
      * `route.avoid.candidate.skipAbsent`, default true.
      */
@@ -1734,9 +1727,6 @@ object AppConfig {
             //    unknown token leaves the shipped pair standing rather than half-reading the row.
             props.getProperty("route.avoid.candidate.passes")?.let { raw ->
                 parseCandidatePasses(raw)?.let { routeAvoidCandidatePasses = it }
-            }
-            props.getProperty("route.avoid.candidate.minSavingPct")?.toIntOrNull()?.let {
-                routeAvoidCandidateMinSavingPct = it.coerceIn(0, 100)
             }
             props.getProperty("route.avoid.candidate.skipAbsent")?.toBooleanStrictOrNull()?.let {
                 routeAvoidCandidateSkipAbsent = it
