@@ -27,9 +27,26 @@ data class ZoneRing(
 )
 
 /**
+ * **The 300 m band's law as the rasterizer writes it**: the width (m) inside which the band's limit is
+ * in force, the limit (kn) itself, and the outside margin (m) beyond that width — the strip priced at
+ * the band's own fraction. It is a law, never a price: the rasterizer writes the limit and nothing of
+ * the price cursor, so the grid stays λ-free and the A\* prices every band cell at read time exactly
+ * as it prices a ring's.
+ */
+data class BandLaw(
+    val widthM: Double,
+    val limitKn: Double,
+    val outsideMarginM: Double
+)
+
+/**
  * The tagged cell state. A cell is never a bare blocked boolean: it carries one of the four tags
  * plus a source cost **in seconds**, so stage 2's band and stage 3's zones add a tag and a cost
  * without reworking the rasterizer or the A*. Stage 1 uses [FREE] and [LAND] only.
+ *
+ * [BAND] marks the band's **law water** — the cells inside its own width, where the band's limit is in
+ * force — and never the outside margin, which carries a price but no limit. [ZONE] marks a ring's
+ * interior. A cell inside both wears the dearest tag, [ZONE].
  */
 enum class AvoidCellState { FREE, LAND, BAND, ZONE }
 
@@ -92,6 +109,20 @@ class AvoidGrid(
      */
     private val collarLimitKn = DoubleArray(rows * cols)
 
+    /**
+     * The 300 m band's **own width limit** (kn) standing on each cell, 0.0 where none does. Kept beside
+     * [zoneLimitKn] so the cell's tag can say which law stands on it, while [limitKn] answers the
+     * **strictest of the two** — the one limit the A\* prices in full, so a band and a ring over the
+     * same slow water never charge it twice.
+     */
+    private val bandLimitKn = DoubleArray(rows * cols)
+
+    /**
+     * The 300 m band's **outside-margin limit** (kn) standing on each cell, 0.0 where none does: the
+     * water beyond the band's width and within its reach, priced at the band's own fraction.
+     */
+    private val bandCollarLimitKn = DoubleArray(rows * cols)
+
     fun index(row: Int, col: Int): Int = row * cols + col
 
     fun inBounds(row: Int, col: Int): Boolean = row in 0 until rows && col in 0 until cols
@@ -102,14 +133,38 @@ class AvoidGrid(
     /** The outside-margin limit standing on this cell (kn), or 0.0 where none does. */
     fun collarLimitKn(row: Int, col: Int): Double = collarLimitKn[index(row, col)]
 
-    /** The cell's own cost and tag: the base plus the field's prices, and `ZONE` where a limit stands. */
+    /** The band's own width limit at this cell (kn), or 0.0 where the width does not cover it. */
+    fun bandLimitKn(row: Int, col: Int): Double = bandLimitKn[index(row, col)]
+
+    /** The band's outside-margin limit at this cell (kn), or 0.0 where the collar does not reach it. */
+    fun bandCollarLimitKn(row: Int, col: Int): Double = bandCollarLimitKn[index(row, col)]
+
+    /**
+     * **The strictest limit in force at this cell** (kn), or 0.0 where none stands: a ring's own interior
+     * limit or the band's own width limit, whichever is slower. This is the one limit the A\* prices at
+     * read time, so two sources over the same slow water cost it once and the band's price follows the
+     * pass's λ exactly as a ring's does.
+     */
+    fun limitKn(row: Int, col: Int): Double {
+        val i = index(row, col)
+        val zone = zoneLimitKn[i]
+        val band = bandLimitKn[i]
+        return when {
+            zone <= 0.0 -> band
+            band <= 0.0 -> zone
+            else -> min(zone, band)
+        }
+    }
+
+    /** The cell's own cost and tag: `ZONE` where a ring's limit stands, else `BAND` on the band's law water. */
     fun cell(row: Int, col: Int): AvoidCell {
         val i = index(row, col)
         val base = cells[i]
-        return if (base.state != AvoidCellState.LAND && zoneLimitKn[i] > 0.0) {
-            base.copy(state = AvoidCellState.ZONE)
-        } else {
-            base
+        if (base.state == AvoidCellState.LAND) return base
+        return when {
+            zoneLimitKn[i] > 0.0 -> base.copy(state = AvoidCellState.ZONE)
+            bandLimitKn[i] > 0.0 -> base.copy(state = AvoidCellState.BAND)
+            else -> base
         }
     }
 
@@ -151,6 +206,31 @@ class AvoidGrid(
     }
 
     /**
+     * Writes the band's **own width limit** onto a passable cell, keeping the strictest in force. A cell
+     * already [AvoidCellState.LAND] stays land — the band is a law on water, never on the shore.
+     */
+    fun applyBandLimit(row: Int, col: Int, limitKn: Double) {
+        require(limitKn > 0.0) { "the band always carries a positive limit" }
+        val i = index(row, col)
+        if (cells[i].state == AvoidCellState.LAND) return
+        val current = bandLimitKn[i]
+        bandLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
+    }
+
+    /**
+     * Writes the band's **outside-margin limit** onto a passable cell, keeping the strictest in force.
+     * A cell already [AvoidCellState.LAND] stays land, and a cell inside the band's width keeps both, the
+     * width's full price winning over this margin's fraction.
+     */
+    fun applyBandCollarLimit(row: Int, col: Int, limitKn: Double) {
+        require(limitKn > 0.0) { "the band always carries a positive limit" }
+        val i = index(row, col)
+        if (cells[i].state == AvoidCellState.LAND) return
+        val current = bandCollarLimitKn[i]
+        bandCollarLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
+    }
+
+    /**
      * Adds one source's price (s) to a passable cell and raises its tag to [tag] where that tag is the
      * dearest in force — the **only** way a cost reaches a cell, so a source can add and can never
      * replace the base. A cell already land keeps its state: a wall is not priced.
@@ -180,6 +260,8 @@ class AvoidGrid(
         cells[i] = AvoidCell(AvoidCellState.FREE, baseCostSec)
         zoneLimitKn[i] = 0.0
         collarLimitKn[i] = 0.0
+        bandLimitKn[i] = 0.0
+        bandCollarLimitKn[i] = 0.0
     }
 
     /**
@@ -216,6 +298,8 @@ class AvoidGrid(
             }
             copy.zoneLimitKn[i] = limit
             copy.collarLimitKn[i] = collarLimitKn[i]
+            copy.bandLimitKn[i] = bandLimitKn[i]
+            copy.bandCollarLimitKn[i] = bandCollarLimitKn[i]
         }
         return copy
     }
@@ -242,6 +326,9 @@ class AvoidGrid(
  * The three passes above are the coastline's own hard source *materialized* — one sweep over the
  * harvested geometry rather than a water query per cell — which is what keeps a ~33 000-cell corridor
  * inside its budget.
+ *
+ * The band and the zones are written as **limits**, never as a price: the A\* prices them at read time,
+ * so the grid is λ-free and built once, and a band cell follows the pass's cursor exactly as a ring's.
  */
 fun rasterize(
     box: BBox,
@@ -254,7 +341,8 @@ fun rasterize(
     field: RouteCostField = RouteCostField.EMPTY,
     zones: List<ZoneRing> = emptyList(),
     blockZones: Boolean = false,
-    zoneOutsideMarginM: Double = 0.0
+    zoneOutsideMarginM: Double = 0.0,
+    band: BandLaw? = null
 ): AvoidGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -321,7 +409,48 @@ fun rasterize(
         fillZonesEvenOdd(grid, zones, blockZones, zoneOutsideMarginM, mPerDegLat, mPerDegLon)
     }
 
+    // 6. The band's law, written as limits: the water inside the band's width carries the band's own
+    //    limit, the strip between that width and its reach carries the band's collar limit. The A*
+    //    prices the width's limit in full and the collar's at the band's fraction, so the band's price
+    //    follows the pass's cursor exactly as a ring's does, and the strictest limit wins where the band
+    //    and a ring overlap.
+    if (band != null && band.widthM > 0.0 && band.limitKn > 0.0) {
+        writeBandLaw(grid, edges, openCoast, band, mPerDegLat, mPerDegLon)
+    }
+
     return grid
+}
+
+/**
+ * Writes the band's law onto the grid, swept over the harvested coastline edges — the very geometry the
+ * margin band uses, so the band's water and the land's can never disagree about where the coast is. A
+ * cell whose centre stands inside the band's width carries the band's limit; a cell inside the outside
+ * margin beyond it carries the band's collar limit; everything further carries nothing.
+ */
+private fun writeBandLaw(
+    grid: AvoidGrid,
+    edges: List<AvoidEdge>,
+    openCoast: List<List<LatLng>>,
+    band: BandLaw,
+    mPerDegLat: Double,
+    mPerDegLon: Double
+) {
+    val reachM = bandReachM(band.widthM, band.outsideMarginM)
+    fun paint(edge: AvoidEdge) {
+        forEachCellNear(grid, edge, reachM, mPerDegLat, mPerDegLon) { r, c, distanceM ->
+            if (insideBandWidthM(distanceM, band.widthM)) {
+                grid.applyBandLimit(r, c, band.limitKn)
+            } else {
+                grid.applyBandCollarLimit(r, c, band.limitKn)
+            }
+        }
+    }
+    for (edge in edges) paint(edge)
+    for (polyline in openCoast) {
+        for (i in 0 until polyline.size - 1) {
+            paint(AvoidEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST))
+        }
+    }
 }
 
 /**

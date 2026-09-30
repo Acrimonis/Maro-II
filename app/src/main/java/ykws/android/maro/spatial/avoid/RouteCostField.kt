@@ -89,25 +89,13 @@ data class RouteCostAtPoint(
 fun baseCostSec(cellM: Double, paceKn: Double): Double = cellM / Units.knotsToMps(paceKn)
 
 /**
- * **The depth gate as a hard source** — one home for the rule, so the engine and its tests read the
- * same wall.
- *
- * A known depth below [minDepthM] is a wall; everything else is ignored — deeper water, a coarse
- * source's reading at or above the threshold and **NoData alike**, with no confidence floor and no
- * penalty. It is a coarse guard on the route being written, not a fine sounding: [depthMAt] answers
- * `NaN` for an unsurveyed point, which this gate does not block.
- *
- * The clearance it declares is 0 m where it blocks and nothing everywhere else, so the pull refuses a
- * chord through a shallow cell while the rest of the field's clearance stays the coastline's own.
+ * **Whether a point [distanceM] off the coast stands inside the band's own width** — the water the
+ * band's limit governs, and the water the band's price charges in full. One home for that boundary:
+ * the band's price asks it for its full-price arm and the clock asks it for the band's limit in
+ * force, so the two can never disagree about which water the band is. The strip between the width and
+ * the band's reach is the **collar** — priced at a fraction, and never carrying the band's limit.
  */
-/**
- * **The priced band's per-cell price, in seconds** — the base time one cell of open water costs,
- * scaled by how much dearer the time spent inside the band is ([softCostAversion]; 1.0 prices it as
- * open water). One home, read by the rasterizer's band sweep and by the pull's own band source alike,
- * so the grid and the chord guard can never disagree about what a metre in the band is worth.
- */
-fun bandPriceSec(cellM: Double, paceKn: Double, softCostAversion: Double): Double =
-    baseCostSec(cellM, paceKn) * (softCostAversion - 1.0)
+fun insideBandWidthM(distanceM: Double, bandWidthM: Double): Boolean = distanceM <= bandWidthM
 
 /**
  * The price of standing in one speed-zone cell, in seconds: the cell's **time excess** over the limit
@@ -156,9 +144,43 @@ fun zonePriceAtLimits(
 )
 
 /**
+ * **The one slow-water price, read by the search and the pull's guard alike, over every source.** A cell
+ * carrying the strictest limit in force pays that limit's **full** time excess; a ring's outside margin
+ * pays its own limit's excess times [collarFraction], the band's its own times [bandCollarFraction]; and
+ * the dearest of the three is the price.
+ *
+ * [interiorLimitKn] is the **strictest limit in force** — a ring's own limit or the band's own width,
+ * whichever is slower, or 0.0 where none stands — so a band and a ring over the same slow water cost it
+ * once instead of twice. The limits are handed in by whoever knows them: the A\* reads them off the
+ * grid's stored limits, the pull's guard off the same point geometry, and both hand this function the
+ * same values, which is what keeps the search and the guard from ever disagreeing.
+ */
+fun slowWaterPriceAt(
+    cellM: Double,
+    paceKn: Double,
+    k: Double,
+    interiorLimitKn: Double,
+    collarLimitKn: Double,
+    bandCollarLimitKn: Double,
+    collarFraction: Double,
+    bandCollarFraction: Double
+): Double = max(
+    if (interiorLimitKn > 0.0) zonePriceSec(cellM, paceKn, interiorLimitKn, k) else 0.0,
+    max(
+        if (collarLimitKn > 0.0) zoneCollarPriceSec(cellM, paceKn, collarLimitKn, k, collarFraction) else 0.0,
+        if (bandCollarLimitKn > 0.0) {
+            zoneCollarPriceSec(cellM, paceKn, bandCollarLimitKn, k, bandCollarFraction)
+        } else {
+            0.0
+        }
+    )
+)
+
+/**
  * The 300 m band's price at one distance: the band's own width pays the full [fullSec], the outside
  * margin between that width and the band's reach pays [fullSec] × [costFraction], and everything
- * beyond pays nothing. One home for the split, read by the field's band source and by its tests.
+ * beyond pays nothing. One home for the split, read by the field's band source and by its tests; the
+ * band's own water is [insideBandWidthM]'s call, never a second test written here.
  */
 fun bandPriceAt(
     bandWidthM: Double,
@@ -167,7 +189,7 @@ fun bandPriceAt(
     costFraction: Double,
     distanceM: Double
 ): Double = when {
-    distanceM <= bandWidthM -> fullSec
+    insideBandWidthM(distanceM, bandWidthM) -> fullSec
     distanceM <= bandReachM(bandWidthM, outsideMarginM) -> fullSec * costFraction
     else -> 0.0
 }
@@ -179,6 +201,18 @@ fun bandPriceAt(
  */
 fun bandReachM(bandWidthM: Double, marginM: Double): Double = bandWidthM + marginM
 
+/**
+ * **The depth gate as a hard source** — one home for the rule, so the engine and its tests read the
+ * same wall.
+ *
+ * A known depth below [minDepthM] is a wall; everything else is ignored — deeper water, a coarse
+ * source's reading at or above the threshold and **NoData alike**, with no confidence floor and no
+ * penalty. It is a coarse guard on the route being written, not a fine sounding: [depthMAt] answers
+ * `NaN` for an unsurveyed point, which this gate does not block.
+ *
+ * The clearance it declares is 0 m where it blocks and nothing everywhere else, so the pull refuses a
+ * chord through a shallow cell while the rest of the field's clearance stays the coastline's own.
+ */
 fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostSource.Hard {
     // The rule itself is [depthClearsGate]'s, read by the ring's validity question and by the berth
     // carve as well: one home, so a walled cell, a red target and a carve can never disagree.

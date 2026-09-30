@@ -11,6 +11,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.After
@@ -29,9 +30,12 @@ import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.bandReachM
 import ykws.android.maro.spatial.avoid.EndApproaches
+import ykws.android.maro.spatial.avoid.insideBandWidthM
 import ykws.android.maro.spatial.avoid.speedZonesInBox
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
+import ykws.android.maro.spatial.avoid.TimedLine
 import ykws.android.maro.spatial.avoid.ZoneRing
+import ykws.android.maro.spatial.avoid.zoneSlowShare
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -487,6 +491,13 @@ class RouteAvoidEngineTest {
         assertEquals("the gate off prices the shallow patch as open water", listOf(origin, aim), route.points)
     }
 
+    /**
+     * The cape acceptance, with a **magnitude**: the band's limit, the pace and λ derive the exchange
+     * rate the search is expected to honour — a band metre is worth `(pace / limit − 1) × λ` detour
+     * metres — and the priced route's detour must stay within the worth of the band water its straight
+     * line spends. The rate, the worth and the band stretch are all named in the assertion, so the bend
+     * can neither vanish nor drift silently.
+     */
     @Test
     fun zone300OffRoutesThroughTheBandAtOpenWaterCost() = runBlocking {
         val coast = listOf(LatLng(43.52, 6.98), LatLng(43.52, 7.08))
@@ -495,13 +506,42 @@ class RouteAvoidEngineTest {
         val straight = SpatialOperations.haversine(start.toLatLng(), aim.toLatLng())
 
         setAvoidSwitch("routeAvoidZone300Enabled", true)
-        val on = success(solve(newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }, start, aim))
-        assertTrue("the priced band bends the line offshore", on.distanceM > straight + 10.0)
+        val world = FakeWorld(band = 300.0, openCoast = mutableListOf(coast))
+        val on = success(solve(newEngine { world }, start, aim))
+        val rate = (paceKn / AppConfig.routeAvoidZone300LimitKn - 1.0) *
+            AppConfig.routeAvoidSpeedZoneSoftCostAversion
+        val straightBandM = bandWidthMetres(world, listOf(start.toLatLng(), aim.toLatLng()))
+        val worthM = rate * straightBandM
+        assertTrue(
+            "the straight line lies inside the band's width, so its stretch is the price's own water",
+            straightBandM > straight * 0.99
+        )
+        assertTrue("the priced band bends the line offshore", on.distanceM > straight)
+        assertTrue(
+            "the bend (${on.distanceM - straight} m) honours the exchange rate: at most ${worthM} m, the " +
+                "worth of the ${straightBandM} m of band water at $rate detour metres per band metre",
+            on.distanceM - straight <= worthM + 1.0
+        )
 
         setAvoidSwitch("routeAvoidZone300Enabled", false)
         val flat = success(solve(newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }, start, aim))
         assertEquals("the band off prices the water as open sea", listOf(start, aim), flat.points)
         assertEquals(straight, flat.distanceM, 1e-6)
+    }
+
+    /** The metres of a line whose own middle stands inside the band's width — the engine's own test. */
+    private fun bandWidthMetres(world: FakeWorld, points: List<LatLng>): Double {
+        var total = 0.0
+        for (i in 0 until points.size - 1) {
+            val mid = LatLng(
+                (points[i].latitude + points[i + 1].latitude) / 2.0,
+                (points[i].longitude + points[i + 1].longitude) / 2.0
+            )
+            if (insideBandWidthM(world.distanceToCoastM(mid.latitude, mid.longitude), world.bandWidthM)) {
+                total += SpatialOperations.haversine(points[i], points[i + 1])
+            }
+        }
+        return total
     }
 
     @Test
@@ -534,6 +574,42 @@ class RouteAvoidEngineTest {
         assertEquals("a priced band is a price, never a wall", listOf(origin, aim), route.points)
     }
 
+    /**
+     * **The band's limit is law, not price.** A leg standing inside the band's own width is timed at
+     * the band's limit **whatever the price switch says** — `route.avoid.zone300.enabled` prices water,
+     * it never suspends the limit in force (D8). The leg is straight and wholly inside the band, so the
+     * clock's own arithmetic is the expectation: one boundary split, one cruise at the limit.
+     *
+     * **Its slow time is the band's, not a zone's.** All of the line's slowness lies in the band's width,
+     * so the **zone** share — the quantity the budget is keyed on — is zero, and the answer reports no
+     * unmet budget however slow the clock has become. The band's share lives on the trace instead.
+     */
+    @Test
+    fun theBandLimitSlowsTheClockWhateverThePriceSwitchSays() = runBlocking {
+        val coast = listOf(LatLng(43.52, 6.98), LatLng(43.52, 7.08))
+        val start = RoutePoint(43.518, 7.00)
+        val aim = RoutePoint(43.518, 7.06)
+        val dist = SpatialOperations.haversine(start.toLatLng(), aim.toLatLng())
+        val bandLimitKn = AppConfig.routeAvoidZone300LimitKn
+        val bandSec = dist / Units.knotsToMps(bandLimitKn)
+        val paceSec = dist / Units.knotsToMps(paceKn)
+
+        assertTrue(
+            "the pin is a real difference: the band's limit is slower than the injected pace",
+            bandSec > paceSec * 1.5
+        )
+
+        setAvoidSwitch("routeAvoidZone300Enabled", false)
+        val off = success(solve(newEngine { FakeWorld(band = 300.0, openCoast = mutableListOf(coast)) }, start, aim))
+
+        assertEquals("the price off, the line is the straight one", listOf(start, aim), off.points)
+        assertEquals("and the clock still pays the band's own limit", bandSec, off.durationSec, 1e-6)
+        assertNull(
+            "a line whose slowness is all band reports zone share 0, so the budget is not unmet",
+            off.budgetUnmetZoneShare
+        )
+    }
+
     // ── The fine-cell ratio, shipped and unread until Change 4 ───────────────────
 
     @Test
@@ -549,6 +625,84 @@ class RouteAvoidEngineTest {
             20.0,
             AppConfig.routeAvoidGridCellM * shipped,
             1e-9
+        )
+    }
+
+    // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────
+
+    /**
+     * The comparator's stated order, both outcomes and the tie-breaks: the smaller **zone share** wins
+     * even when the clock is worse, a pass that is faster but spends more time in a zone loses, and at
+     * an equal share the fewer in-zone metres win before the clock does.
+     */
+    @Test
+    fun theLoopKeepsTheBetterPassAndNeverTheLastOne() {
+        val engine = newEngine()
+
+        assertTrue(
+            "a corrective pass with a smaller zone share wins although it is slower on the clock",
+            engine.betterPass(
+                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
+                RouteAvoidEngine.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
+            )
+        )
+        assertFalse(
+            "a corrective pass that is faster but spends more time in a zone loses to the incumbent",
+            engine.betterPass(
+                RouteAvoidEngine.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
+                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
+            )
+        )
+        assertTrue(
+            "at an equal share the fewer in-zone metres win, before the clock",
+            engine.betterPass(
+                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
+                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
+            )
+        )
+    }
+
+    // ── The fine re-search's priced splice (Phase 4) ────────────────────────────
+
+    /**
+     * The re-search's guard: a fine line **faster on the clock but slower-water** is refused — the clock
+     * alone is λ-blind, and splicing that line would undo the λ loop — while the same shorter line run
+     * at the pace is spliced. The two timed lines are built here, not timed through the world, so the
+     * share is the test's own arithmetic.
+     */
+    @Test
+    fun theFineReSearchRefusesAFasterLineThatIsSlowerWater() {
+        val engine = newEngine()
+        val paceMps = Units.knotsToMps(paceKn)
+        val fineA = LatLng(43.5000, 7.0000)
+        val fineB = LatLng(43.5000, 7.0050)
+        val fineLeg = SpatialOperations.haversine(fineA, fineB)
+        val incumbentA = LatLng(43.5000, 7.0000)
+        val incumbentB = LatLng(43.5000, 7.0135)
+        val incumbent = TimedLine(
+            listOf(incumbentA, incumbentB),
+            listOf(SpatialOperations.haversine(incumbentA, incumbentB) / paceMps)
+        )
+        // The fine line runs its own leg at half the pace: strictly faster than the incumbent, and slow.
+        val slowFine = TimedLine(listOf(fineA, fineB), listOf(fineLeg / (paceMps * 0.5)))
+
+        assertTrue(
+            "the fine line is strictly faster on the clock",
+            slowFine.durationSec < incumbent.durationSec
+        )
+        assertTrue(
+            "and it spends a share of its own time slowed",
+            zoneSlowShare(slowFine, paceKn) > 0.0
+        )
+        assertFalse(
+            "so the guard refuses the faster line that is slower-water",
+            engine.fineSpliceBetter(slowFine, incumbent, paceKn)
+        )
+
+        val cleanFine = TimedLine(listOf(fineA, fineB), listOf(fineLeg / paceMps))
+        assertTrue(
+            "the same shorter line run at the pace is spliced",
+            engine.fineSpliceBetter(cleanFine, incumbent, paceKn)
         )
     }
 

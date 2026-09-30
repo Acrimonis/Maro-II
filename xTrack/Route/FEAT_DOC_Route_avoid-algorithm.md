@@ -45,8 +45,14 @@ consumers. Every source **adds** to a base; none may lower it, so no passable ce
 - **Depth gate** — a bilinear read per cell centre; a known depth below `route.avoid.depthGate.minM`
   paints the cell land, ANDed with the coastline's water. NoData, coarse and deeper water are ignored —
   it is a coarse guard, not a fine sounding. The fairing keeps `route.avoid.depthGate.marginM` off it.
-- **300 m band** — a soft source, never a wall: a start already inside is priced, not refused. Its
-  price lives in the grid's base, switched by `route.avoid.zone300.enabled`.
+- **300 m band** — a price, never a wall: a start already inside is priced, not refused. It carries its
+  own absolute limit (`route.avoid.zone300.limitKn`) and is priced by the **same law as a speed zone** —
+  that limit's time excess under the price cursor, so a 5 kn band cell and a 5 kn ring cell cost the
+  same — the width in full and its outside margin at the configured fraction. Its **limit lives on the
+  grid**, priced per expansion by the A\* exactly as a ring's, so the band's price follows the corrected
+  λ and the strictest limit wins where the band and a ring overlap; `route.avoid.zone300.enabled`
+  switches that price. The limit is read by the clock **whatever that switch says**, a limit being law
+  and the switch only pricing water.
 - **Speed zones** — a soft source priced per read; the grid stores the **limit** per cell, never a
   finished price, so a λ change costs one multiply per cell. Excluded ids are dropped before fill,
   ETA and report. Switched by `route.avoid.speedZone.enabled`.
@@ -55,12 +61,15 @@ consumers. Every source **adds** to a base; none may lower it, so no passable ce
 
 ## The λ loop and the budget
 
-One solve builds its grid **once** and prices the zones at read time. Pass one seeds λ from
-`route.avoid.speedZone.softCostAversion`; the share of the line's own time spent **slowed by** a zone —
-the approach ramps included — is read off the clock that timed it; outside the ±20 % band of
-`route.avoid.speedZone.timeBudgetPct` one correction `λ₁ = λ₀ × (share / budget)` runs, then a second
-solve, then stop (**two passes cap**). A share still out is **reported** (`budgetUnmetZoneShare`),
-never chased and never refused.
+One solve builds its grid **once** and stores the band's and the rings' **limits** on it, priced at read
+time. Pass one seeds λ from `route.avoid.speedZone.softCostAversion`; the line's own clock gives its slow
+time split three ways — the **zone share** inside a ring, the band share inside the band's width, and the
+ramp share on the approach ramps standing outside both — and the zone share alone is corrected: outside
+the ±20 % band of `route.avoid.speedZone.timeBudgetPct` one correction `λ₁ = λ₀ × (zone share / budget)`
+runs, then a second solve, then stop (**two passes cap**). The **better of the two passes is kept** — lower
+zone share first, then fewer metres inside a zone, then the shorter clock — so a correction that answers
+worse cannot replace the line pass one found, and only the kept pass's λ reaches what follows it. A share
+still out is **reported** (`budgetUnmetZoneShare`, the zone share), never chased and never refused.
 
 ## The standoff, and its retirement
 
@@ -82,8 +91,10 @@ order, the tangent corners own the exact points.
 
 The coarse cell closes any passage narrower than roughly two cells. The fine pass re-rasterizes a swath
 around the settled line at `route.avoid.fine.cellRatio` (0.40 → 20 m at 50 m) and keeps the fine line
-**only where it is strictly faster**; the crossing's local A\* re-solves a zone the line enters, inside
-the zone's own box, spliced only where it answers.
+**only where it is strictly faster and no worse in slow share** — the clock alone would let the tail undo
+the λ loop's own choice; the crossing's local A\* re-solves a zone the line enters, inside the zone's own
+box, spliced only where it answers, and its price is the loop's own λ, so that splice is price-driven
+rather than clock-driven.
 
 ## The corridor growth
 

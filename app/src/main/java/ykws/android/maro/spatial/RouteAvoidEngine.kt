@@ -22,6 +22,7 @@ import ykws.android.maro.spatial.avoid.AvoidGrid
 import ykws.android.maro.spatial.avoid.AvoidPull
 import ykws.android.maro.spatial.avoid.AvoidSearch
 import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.avoid.BandLaw
 import ykws.android.maro.spatial.avoid.BerthCarve
 import ykws.android.maro.spatial.avoid.AvoidCellState
 import ykws.android.maro.spatial.avoid.AvoidEdge
@@ -30,13 +31,13 @@ import ykws.android.maro.spatial.avoid.ZoneRing
 import ykws.android.maro.spatial.avoid.RouteCostField
 import ykws.android.maro.spatial.avoid.RouteCostSource
 import ykws.android.maro.spatial.avoid.SearchOutcome
+import ykws.android.maro.spatial.avoid.SlowShares
 import ykws.android.maro.spatial.avoid.TangentCorners
 import ykws.android.maro.spatial.avoid.EndApproaches
 import ykws.android.maro.spatial.avoid.PullRefusals
 import ykws.android.maro.spatial.avoid.RouteCurveFitter
 import ykws.android.maro.spatial.avoid.TimedLine
 import ykws.android.maro.spatial.avoid.bandPriceAt
-import ykws.android.maro.spatial.avoid.bandPriceSec
 import ykws.android.maro.spatial.avoid.bandReachM
 import ykws.android.maro.spatial.avoid.bbox
 import ykws.android.maro.spatial.avoid.budgetMet
@@ -45,10 +46,13 @@ import ykws.android.maro.spatial.avoid.carveReachCells
 import ykws.android.maro.spatial.avoid.depthClearsGate
 import ykws.android.maro.spatial.avoid.depthGateSource
 import ykws.android.maro.spatial.avoid.forcedCrossingZoneNames
+import ykws.android.maro.spatial.avoid.insideBandWidthM
 import ykws.android.maro.spatial.avoid.lineEntersZone
 import ykws.android.maro.spatial.avoid.metricCarveLattice
 import ykws.android.maro.spatial.avoid.openEndDisc
 import ykws.android.maro.spatial.avoid.rasterize
+import ykws.android.maro.spatial.avoid.slowShares
+import ykws.android.maro.spatial.avoid.slowWaterPriceAt
 import ykws.android.maro.spatial.avoid.speedZoneCollarLimitKnAt
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
 import ykws.android.maro.spatial.avoid.timeLineWithLimits
@@ -78,14 +82,20 @@ import kotlin.math.min
  * wall the route may never cross, a `SOFT` price it may pay — and the rasterizer writes each cell once
  * with a base cost to which a source may only add. Stage 1's land is the field's first hard wall,
  * materialized by the geometry sweep; the 3 m depth gate is the second, rastered cell by cell; and the
- * 300 m band (phase 3) is the first **price** — a soft source the route may pay, never a wall — with
- * the regulated speed zones (phase 4) to land as prices on the same chain.
+ * 300 m band (phase 3) and the regulated speed zones (phase 4) land as **limits on the grid**, priced by
+ * the A\* per expansion and by the pull's guard per point — never as a price baked into the base.
  *
- * **The band.** The layer's own width off the coast, priced at `route.avoid.zone300.softCostAversion`: the
- * field's own soft source writes the price once, and the pull refuses a chord whose own price
- * exceeds the cell path's over the span it would replace. A start or aim already inside the band is
- * accepted, so a berth in a marina basin is priced rather than refused. The whole band is switched
- * by `route.avoid.zone300.enabled`.
+ * **The band.** The layer's own width off the coast, carrying its own absolute limit
+ * (`route.avoid.zone300.limitKn`) and priced by the **same law as a speed zone**: a metre inside it
+ * costs that limit's time excess over the pace, scaled by the pass's λ, so a 5 kn band cell and a
+ * 5 kn ring cell cost the same by construction. The band's limit is written onto the grid's own band
+ * cells — the width in full, the outside margin at the band's fraction — so the A\* prices it per
+ * expansion and the band's price **follows the corrected λ exactly as a ring's does**, the strictest
+ * limit winning where the band and a ring overlap. The pull's guard prices the same law off the point
+ * geometry and refuses a chord whose own price exceeds the cell path's over the span it would replace.
+ * A start or aim already inside the band is accepted, so a berth in a marina basin is priced rather
+ * than refused. `route.avoid.zone300.enabled` switches the **price** alone: the clock reads the band's
+ * limit either way, an absolute limit never being suspended by a tuning switch.
  *
  * **The depth gate.** A bilinear depth read per cell centre: a known depth below
  * `route.avoid.depthGate.minM` paints the cell land, ANDed with the coastline's own water through the
@@ -105,15 +115,20 @@ import kotlin.math.min
  * anchor. An exhausted search answers [RouteReason.NO_PATH] on the update flow — retried once with the
  * corridor reach doubled. Each leg is timed at the pace in force, asked fresh per answer.
  *
- * **The λ loop, the growth and the fine pass.** A solve builds its grid **once** and prices the zones
- * at read time, which is what lets the λ loop (§3) re-solve cheaply: pass one is seeded from
- * `route.avoid.speedZone.softCostAversion`, the line's own clock gives the share of the trip it spends
- * slowed, and a share leaving the ±20 % band of `route.avoid.speedZone.timeBudgetPct` is corrected
- * once — λ₁ = λ₀ × (share / budget) — with two passes as the cap; a share still out is **reported** on
- * the answer and never chased. Where the budget is still unmet the corridor is grown one step (§7),
- * the wider answer kept only when it does better. The fine pass (§5) then runs **after** the loop, on
- * the settled line, where a restrictive zone the coarse grid could not see around gets a local A* at
- * `route.avoid.fine.cellRatio`.
+ * **The λ loop, the growth and the fine pass.** A solve builds its grid **once** and stores the band's
+ * and the rings' **limits** on it, which is what lets the λ loop (§3) re-solve cheaply and price every
+ * slow cell, the band's included, at the new λ: pass one is seeded from
+ * `route.avoid.speedZone.softCostAversion`, the line's own clock gives its slow time split three ways —
+ * inside a ring, inside the band's own width, and on the ramps standing outside both — and the **zone
+ * share** alone drives the correction. A zone share leaving the ±20 % band of
+ * `route.avoid.speedZone.timeBudgetPct` is corrected once — λ₁ = λ₀ × (zone share / budget) — with two
+ * passes as the cap; a share still out is **reported** on the answer and never chased. Of the two passes
+ * **the better is kept** — [betterPass]'s own order: the smaller zone share, then the fewer metres
+ * inside a zone, then the shorter clock — and the λ the tail reads is **that** pass's, so a correction
+ * that answered worse never undoes the better line. Where the budget is still unmet the corridor is
+ * grown one step (§7), the wider answer kept only when it does better. The fine pass (§5) then runs
+ * **after** the loop, on the settled line, where a restrictive zone the coarse grid could not see
+ * around gets a local A* at `route.avoid.fine.cellRatio`.
  *
  * **The candidate computations.** One per `route.avoid.candidate.passes` entry, each a separate
  * lookup running the same pipeline with its own prices dropped — the speed zones by pricing them at
@@ -352,22 +367,28 @@ class RouteAvoidEngine(
             AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
         ).toDouble()
         val budget = budgetPct / 100.0
-        var lambda = if (pass?.dropsZones == true) 0.0 else AppConfig.routeAvoidSpeedZoneSoftCostAversion
+        // **One cursor for every slow source.** The loop corrects it, and it is the λ the band's price
+        // and a zone's are both read at, so the band follows a correction exactly as a ring does. A
+        // candidate that drops one source's price drops its **limit from the grid**, never the cursor.
+        var lambda = AppConfig.routeAvoidSpeedZoneSoftCostAversion
         trace {
             "HARVEST edges=${edges.size} openCoast=${openCoast.size} band=${fmt(world.bandWidthM)}m " +
                 "zones=[${zones.joinToString(", ") { "${it.name} ${fmt(it.speedLimitKn)}kn" }}] " +
                 "cell=${fmt(cellM)}m margin=${fmt(marginM)}m outsideMargin=${fmt(zoneOutsideMarginM)}m"
         }
-        // The grid takes the ring and the **limit**: what a slow cell is, never what it costs this
-        // time round. It is therefore **λ-free and built once per solve** — the price is the A*'s own
-        // read, so a further pass costs one multiply per expansion instead of the zone read again.
-        val gridField =
-            costField(world, cellM, pace, withZones = false, withBand = pass?.dropsBand != true, zones = zones, lambda = lambda)
-        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
+        // The grid takes the rings, the band and the **limits**: what a slow cell is, never what it costs
+        // this time round. It is therefore **λ-free and built once per solve** — the price is the A*'s
+        // own read, so a further pass costs one multiply per expansion and the band's price follows the
+        // corrected λ with every other slow source.
+        val gridField = costField(world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
+        val priced =
+            if (pass?.dropsZones == true) emptyList()
+            else zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
+        val bandSpec = if (pass?.dropsBand == true) null else bandLaw(world)
         publish(RouteStage.GRID, null)
         val grid = rasterize(
             box, cellM, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
-            zoneOutsideMarginM = zoneOutsideMarginM
+            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec
         )
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
@@ -409,13 +430,14 @@ class RouteAvoidEngine(
             )
         }
         val limitAt = limitAtFor(world)
-        // A candidate runs one pass at its own λ and leaves — the offers body, now a lookup.
+        // A candidate runs one pass at its own λ and leaves — the offers body, now a lookup. The source
+        // it drops is dropped from the grid and from the guard alike, never by lowering the shared cursor.
         if (pass != null) {
             val single = runPass(
                 world, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
                 lambda, limitAt, zones, sets, publishStage = false,
                 approaches = approaches, refusals = refusals,
-                guardBand = pass.dropsBand != true
+                guardZones = pass.dropsZones != true, guardBand = pass.dropsBand != true
             )
             val timed = single.timed
             if (timed == null) {
@@ -436,21 +458,30 @@ class RouteAvoidEngine(
         // corrected once, λ₁ = λ₀ × (share / budget), and the pipeline runs again; and two passes is
         // the cap whatever the band says, a share still out being reported rather than chased. Only
         // the price moves between passes — the grid and the corner sets stand exactly as they were.
+        //
+        // **The better pass is the one kept.** A corrective pass replaces the incumbent only where
+        // [betterPass] says it is the better answer, and the λ the tail reads is **that** pass's: a
+        // correction that answered worse — a higher zone share, or the same share spending more metres
+        // inside a zone — cannot reach the fine pass, the fine re-search or the probe by being last.
         var waypoints = emptyList<LatLng>()
+        var keptLambda = lambda
+        var keptZoneShare = 0.0
+        var keptCost: PassCost? = null
         var passes = 0
         while (true) {
             passIndex = passes + 1
+            val passLambda = lambda
             val passReading = runPass(
                 world, grid, startCell, aimCell, start, aim, pace, cellM, marginM, zoneOutsideMarginM,
-                lambda, limitAt, zones, sets, publishStage = true,
+                passLambda, limitAt, zones, sets, publishStage = true,
                 approaches = approaches, refusals = refusals,
-                guardBand = true
+                guardZones = true, guardBand = true
             )
             passes++
             val timed = passReading.timed
             if (timed == null) {
                 trace {
-                    "PASS $passes lambda=${fmt(lambda, 2)} NO PATH " +
+                    "PASS $passes lambda=${fmt(passLambda, 2)} NO PATH " +
                         "expansions=${passReading.search.expansions} passable=${passReading.search.passableCells} " +
                         "aimClosed=${passReading.search.aimClosed} " +
                         "aimCell=${grid.cell(aimCell.row, aimCell.col).state} " +
@@ -458,22 +489,42 @@ class RouteAvoidEngine(
                 }
                 return SolveResult(null, regionSaturated)
             }
-            waypoints = passReading.line
-            val share = passReading.share
-            val met = budgetMet(share, budgetPct)
+            val shares = passReading.shares
+            val zoneShare = shares.zone
+            val zoneM = zoneMetres(zones, passReading.line)
+            val cost = PassCost(zoneShare, zoneM, timed.durationSec)
+            val incumbent = keptCost
+            val keep = incumbent == null || betterPass(cost, incumbent)
+            if (keep) {
+                waypoints = passReading.line
+                keptLambda = passLambda
+                keptZoneShare = zoneShare
+                keptCost = cost
+            }
+            val met = budgetMet(zoneShare, budgetPct)
             val corrected =
-                if (met || passes >= LAMBDA_PASSES || lambda <= 0.0 || budget <= 0.0) null
-                else lambda * share / budget
+                if (met || passes >= LAMBDA_PASSES || passLambda <= 0.0 || budget <= 0.0) null
+                else passLambda * zoneShare / budget
             trace {
-                "PASS $passes lambda=${fmt(lambda, 2)} path=${passReading.pathCells} " +
+                "PASS $passes lambda=${fmt(passLambda, 2)} bandLambda=${fmt(passLambda, 2)} " +
+                    "path=${passReading.pathCells} " +
                     "pulled=${passReading.pulledCount} snapped=${passReading.snappedCount} final=${passReading.finalCount} " +
                     "distance=${fmt(lineLengthM(passReading.line))}m duration=${fmt(timed.durationSec)}s " +
-                    "share=${fmt(share, 2)} band=${bandVerdict(share, budgetPct)} " +
+                    "zoneShare=${fmt(zoneShare, 2)} bandShare=${fmt(shares.band, 2)} rampShare=${fmt(shares.ramp, 2)} " +
+                    "zoneMetres=${fmt(zoneM)}m keep=${if (keep) "yes" else "no"} " +
+                    "budget=${bandVerdict(zoneShare, budgetPct)} " +
                     "corrected=${corrected?.let { fmt(it, 2) } ?: "none"}"
             }
             if (met) break
             if (corrected == null) break
             lambda = corrected
+        }
+        // **The tail reads the kept pass**, never the last one run — its λ, its line and its zone share.
+        // The band was priced at that very same λ, one cursor pricing every slow source.
+        lambda = keptLambda
+        trace {
+            "PASSKEEP passes=$passes lambda=${fmt(keptLambda, 2)} bandLambda=${fmt(keptLambda, 2)} " +
+                "zoneShare=${fmt(keptZoneShare, 2)}"
         }
         // **The fine pass (§5)** — run here, after the loop, so the loop never pays for it.
         publish(RouteStage.PULL, null)
@@ -508,12 +559,13 @@ class RouteAvoidEngine(
         val capDeltaSec = fairedWithCap.durationSec - fairedNoCap.durationSec
         val durationSec = baseTimed.durationSec + capDeltaSec
         val timed = routeTimedLine(fairedWithCap, durationSec)
-        val finalShare = zoneSlowShare(fairedWithCap, pace)
+        val finalShares = slowShares(fairedWithCap, pace, inZone = inZone(zones), inBand = inBand(world))
         val distanceM = lineLengthM(reSearched)
         val forced = forcedCrossingNames(
             grid, zones, priced, cellM, pace, lambda, from, to, startCell, aimCell, reSearched
         )
-        val bandM = bandMetres(world, timed.points)
+        val bandLawM = bandMetres(world, timed.points)
+        val bandPricedM = bandPricedMetres(world, timed.points)
         val slowM = slowMetres(timed, pace)
         trace {
             "PULLREF land=${refusals.land} price=${refusals.price}"
@@ -521,13 +573,16 @@ class RouteAvoidEngine(
         trace {
             "LINE distance=${fmt(distanceM)}m duration=${fmt(durationSec)}s " +
                 "legs=${timed.legTimesSec.size} " +
-                "bandMetres=${fmt(bandM)}m bandShare=${fmt(shareOf(bandM, distanceM), 2)} " +
-                "slowMetres=${fmt(slowM)}m slowShare=${fmt(finalShare, 2)} " +
-                "budget=${if (budgetMet(finalShare, budgetPct)) "met" else "unmet"} " +
+                "bandMetres=${fmt(bandLawM)}m bandPricedMetres=${fmt(bandPricedM)}m " +
+                "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(fairedWithCap, pace), 2)} " +
+                "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +
+                "rampShare=${fmt(finalShares.ramp, 2)} " +
+                "searchedShare=${fmt(keptZoneShare, 2)} " +
+                "budget=${if (budgetMet(finalShares.zone, budgetPct)) "met" else "unmet"} " +
                 "forced=[${forced.joinToString(", ")}]"
         }
         val settled = success(
-            timed, forced, if (budgetMet(finalShare, budgetPct)) null else finalShare,
+            timed, forced, if (budgetMet(finalShares.zone, budgetPct)) null else finalShares.zone,
             distanceM = distanceM, durationSec = durationSec
         )
         return SolveResult(settled, regionSaturated)
@@ -662,9 +717,10 @@ class RouteAvoidEngine(
      *
      * **[publishStage] is the candidates' own door**, and it is the one behaviour the instrument changed:
      * the λ passes and the fine pass move the panel's stage line, a candidate's pass does not, so the
-     * panel narrates the answer's build alone. [guardBand] drops the band's price from the pull's own
-     * field for a candidate that drops it, so the dropped price is dropped everywhere and not only in
-     * the grid's base.
+     * panel narrates the answer's build alone. [guardZones] and [guardBand] drop one source's price from
+     * the pull's own field for a candidate that drops it — the grid's own limits were dropped by the
+     * caller — so the dropped price is dropped from the search and the guard alike. One cursor prices
+     * both sources, so a candidate never names a second λ.
      */
     private suspend fun runPass(
         world: AvoidWorld,
@@ -684,21 +740,27 @@ class RouteAvoidEngine(
         publishStage: Boolean,
         approaches: EndApproaches,
         refusals: PullRefusals?,
-        guardBand: Boolean
+        guardZones: Boolean = true,
+        guardBand: Boolean = true
     ): PassReading {
         val guardField =
-            costField(world, cellM, pace, withZones = true, withBand = guardBand, zones = zones, lambda = lambda)
+            costField(
+                world, cellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
+                lambda = lambda
+            )
         if (publishStage) publish(RouteStage.SEARCH, null)
         val search = AvoidSearch.search(
             grid, startCell, aimCell, Units.knotsToMps(pace),
-            zonePriceSec = { interiorKn, collarKn ->
-                zonePriceAtLimits(
-                    cellM, pace, interiorKn, collarKn, lambda,
-                    AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction
+            zonePriceSec = { interiorKn, collarKn, bandCollarKn ->
+                slowWaterPriceAt(
+                    cellM, pace, lambda, interiorKn, collarKn, bandCollarKn,
+                    AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
+                    AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
             }
         )
-        val path = search.path ?: return PassReading(search, emptyList(), null, 0.0, 0, 0)
+        val path = search.path
+            ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)
         val coarse = path.map { grid.center(it.row, it.col) }
         val full = listOf(start) + coarse + listOf(aim)
         if (publishStage) publish(RouteStage.PULL, full.map { RoutePoint.of(it) })
@@ -711,7 +773,8 @@ class RouteAvoidEngine(
             snapped, start, aim, marginM, guardField, approaches, refusals
         )
         val timed = timeLineWithLimits(final, pace, limitAt)
-        return PassReading(search, final, timed, zoneSlowShare(timed, pace), pulled.size, snapped.size)
+        val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
+        return PassReading(search, final, timed, shares, pulled.size, snapped.size)
     }
 
     /**
@@ -730,8 +793,12 @@ class RouteAvoidEngine(
         val line: List<LatLng>,
         /** That same line already timed under the limits in force, or `null` where the A\* answered nothing. */
         val timed: TimedLine?,
-        /** The share of the line's own time it spends slowed, 0.0 on a failing pass. */
-        val share: Double,
+        /**
+         * The line's slow time split by what slowed it; the **zone** share is the λ loop's own quantity,
+         * the band's and the ramps' read beside it so neither can drive a ring's correction. Zeroes on a
+         * failing pass.
+         */
+        val shares: SlowShares,
         /** How many waypoints the first pull left — the pass's own pulled count. */
         val pulledCount: Int,
         /** How many the corner snap left. */
@@ -750,13 +817,16 @@ class RouteAvoidEngine(
      * the clearance the pull's margin reads — and the depth gate when it is enabled and the grid is
      * in, which the rasterizer paints cell by cell.
      *
-     * The field is **rebuilt per λ pass** while the grid is not: [lambda] reaches the zone arm's own
+     * The field is **rebuilt per λ pass** while the grid is not: [lambda] reaches the soft arm's own
      * closure, so a corrective pass costs a few lambdas rather than a second raster sweep. A field
-     * built without zones has no arm to price, and λ is unread there.
+     * built for a grid carries **no soft source at all** — the band's and the rings' limits live on the
+     * grid and the A\* prices them — so a grid's field is its hard walls alone.
      *
-     * [withBand] is the candidates' own door: the band's price is written into the **grid's base** rather
-     * than read per expansion, so a candidate that drops it needs a grid of its own, and this is the
-     * one parameter that makes that grid's field.
+     * [withZones] and [withBand] are the guard's own doors: a candidate that drops one source's price
+     * drops it here too, so the dropped price is dropped from the search and the pull alike. The two
+     * arms are combined with **max, never summed** — the band's own price and a ring's are one law off
+     * one cursor, so a band cell and a ring cell of the same limit cost the same and two sources over
+     * one cell charge it once.
      */
     private fun costField(
         world: AvoidWorld,
@@ -767,7 +837,7 @@ class RouteAvoidEngine(
         zones: List<SpeedZone>,
         lambda: Double
     ): RouteCostField {
-        val sources = ArrayList<RouteCostSource>(4)
+        val sources = ArrayList<RouteCostSource>(3)
         sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
         if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
             sources.add(
@@ -777,45 +847,49 @@ class RouteAvoidEngine(
                 }
             )
         }
-        if (withBand && AppConfig.routeAvoidZone300Enabled) {
-            val bandM = world.bandWidthM
-            val bandSec = bandPriceSec(cellM, pace, AppConfig.routeAvoidZone300SoftCostAversion)
-            if (bandM > 0.0 && bandSec > 0.0) {
-                sources.add(
-                    RouteCostSource.Soft(
-                        priceSec = { p ->
-                            bandPriceAt(
-                                bandM,
-                                AppConfig.routeAvoidZone300OutsideMarginM,
-                                bandSec,
-                                AppConfig.routeAvoidZone300OutsideMarginCostFraction,
-                                world.distanceToCoastM(p.latitude, p.longitude)
-                            )
-                        },
-                        tag = AvoidCellState.BAND
-                    )
-                )
-            }
-        }
-        // The zone source — read by the pull and the snap, never per grid cell. It hands [zonePriceAtLimits]
-        // the same two limits the A* reads off the grid, so the guard and the search price a point alike:
-        // the interior in full, the outside margin at the configured fraction.
-        if (withZones && AppConfig.routeAvoidSpeedZoneEnabled) {
-            val outsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
-            val costFraction = AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction
+        val bandM = world.bandWidthM
+        val bandPriced = withBand && AppConfig.routeAvoidZone300Enabled && bandM > 0.0
+        val zonesPriced = withZones && AppConfig.routeAvoidSpeedZoneEnabled && zones.isNotEmpty()
+        if (bandPriced || zonesPriced) {
+            // **One arm, one price law.** The band's limit's time excess and a zone's are the same
+            // quantity through the same function, and the two arms are combined with `max`: a 5 kn band
+            // cell and a 5 kn ring cell cost the same, the band follows the pass's λ with every other
+            // slow source, and two sources over one cell charge it once rather than twice.
+            // `zone300.softCostAversion` is retired.
+            val bandOutsideMarginM = AppConfig.routeAvoidZone300OutsideMarginM
+            val bandFraction = AppConfig.routeAvoidZone300OutsideMarginCostFraction
+            val bandSec = zonePriceSec(cellM, pace, AppConfig.routeAvoidZone300LimitKn, lambda)
+            val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
+            val zoneFraction = AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction
             val scopedZones = zones
             sources.add(
                 RouteCostSource.Soft(
                     priceSec = { p ->
-                        val interiorLimit =
-                            strictestLimitKnAt(scopedZones, emptySet(), p.latitude, p.longitude)
-                        val collarLimit = speedZoneCollarLimitKnAt(
-                            scopedZones, emptySet(), p.latitude, p.longitude, outsideMarginM
-                        )
-                        zonePriceAtLimits(
-                            cellM, pace, interiorLimit ?: 0.0, collarLimit ?: 0.0, lambda, costFraction
-                        )
+                        val bandPrice =
+                            if (bandPriced && bandSec > 0.0) {
+                                bandPriceAt(
+                                    bandM, bandOutsideMarginM, bandSec, bandFraction,
+                                    world.distanceToCoastM(p.latitude, p.longitude)
+                                )
+                            } else {
+                                0.0
+                            }
+                        val zonePrice =
+                            if (zonesPriced) {
+                                val interiorLimit =
+                                    strictestLimitKnAt(scopedZones, emptySet(), p.latitude, p.longitude)
+                                val collarLimit = speedZoneCollarLimitKnAt(
+                                    scopedZones, emptySet(), p.latitude, p.longitude, zoneOutsideMarginM
+                                )
+                                zonePriceAtLimits(
+                                    cellM, pace, interiorLimit ?: 0.0, collarLimit ?: 0.0, lambda, zoneFraction
+                                )
+                            } else {
+                                0.0
+                            }
+                        max(bandPrice, zonePrice)
                     },
+                    // The guard reads a price, never a cell's tag, so one arm's tag stands for both.
                     tag = AvoidCellState.ZONE
                 )
             )
@@ -910,7 +984,7 @@ class RouteAvoidEngine(
     /**
      * The answer: the line the loop settled, **already timed** under the limits in force — one clock
      * read serves the leg times, the per-leg speeds, the duration and the budget's own share, so none
-     * of them can disagree — plus the budget's verdict, set only where the band was missed.
+     * of them can disagree — plus the budget's verdict, set only where the **zone share** was missed.
      */
     private fun success(
         timed: TimedLine,
@@ -933,18 +1007,68 @@ class RouteAvoidEngine(
 
     /**
      * The limit in force at a point — the clock's own read, and **λ-free by construction**: the ETA
-     * obeys the limits and never the price, so the reported time cannot move with the loop's λ. The
-     * switch turns the source off whole, so with the zones off the clock reads the pace alone.
+     * obeys the limits and never the price, so the reported time cannot move with the loop's λ.
+     *
+     * It answers the **strictest limit in force**: the 300 m band's own limit inside the band's width,
+     * a speed zone's own limit inside its ring while the zone source is armed, and the lesser of the
+     * two where both hold. The band's read is **the same test the band's price makes** —
+     * [insideBandWidthM] over the world's own distance read — so the search and the clock can never
+     * disagree about which water is the band. Per D8 the band's read stands whatever
+     * `route.avoid.zone300.enabled` says: that switch prices water, it never suspends the law.
      */
-    private fun limitAtFor(world: AvoidWorld): (LatLng) -> Double? =
-        if (AppConfig.routeAvoidSpeedZoneEnabled) {
-            { p -> world.zoneLimitKnAt(p.latitude, p.longitude) }
-        } else {
-            { _ -> null }
+    private fun limitAtFor(world: AvoidWorld): (LatLng) -> Double? {
+        val bandM = world.bandWidthM
+        val bandLimitKn = AppConfig.routeAvoidZone300LimitKn
+        val zonesPriced = AppConfig.routeAvoidSpeedZoneEnabled
+        return { p ->
+            val zoneLimit = if (zonesPriced) world.zoneLimitKnAt(p.latitude, p.longitude) else null
+            val bandLimit =
+                if (bandM > 0.0 &&
+                    insideBandWidthM(world.distanceToCoastM(p.latitude, p.longitude), bandM)
+                ) bandLimitKn else null
+            when {
+                zoneLimit == null -> bandLimit
+                bandLimit == null -> zoneLimit
+                else -> min(zoneLimit, bandLimit)
+            }
         }
+    }
 
     /** A pass's unmet share, ranked so a **met** answer always wins: `-1` means "met". */
     private fun shareRank(result: RouteResult.Success): Double = result.budgetUnmetZoneShare ?: -1.0
+
+    /**
+     * **The λ loop's keep rule** — one pass against another, in a **stated order**: the **smaller zone
+     * share** first, because that is the quantity the loop's λ is there to buy down; then the **fewer
+     * metres inside a zone**, the same objective read in metres rather than in seconds; and only then
+     * the **shorter clock**, so a corrective pass keeps a longer line wherever it is no worse on the
+     * zone. Pure and total, so a pair of passes ranks with no grid, world or trace in hand.
+     */
+    internal fun betterPass(candidate: PassCost, incumbent: PassCost): Boolean {
+        if (candidate.zoneShare != incumbent.zoneShare) return candidate.zoneShare < incumbent.zoneShare
+        if (candidate.zoneMetresM != incumbent.zoneMetresM) return candidate.zoneMetresM < incumbent.zoneMetresM
+        return candidate.durationSec < incumbent.durationSec
+    }
+
+    /** One pass's own three figures, in [betterPass]'s own order — the comparator's whole input. */
+    internal data class PassCost(
+        /** The pass line's **zone share** — [slowShares]'s ring-interior reading, the quantity λ buys down. */
+        val zoneShare: Double,
+        /** The pass line's own metres standing inside a priced zone's interior. */
+        val zoneMetresM: Double,
+        /** The pass line's own clock, in seconds. */
+        val durationSec: Double
+    )
+
+    /**
+     * **The fine re-search's keep rule** — the fine line replaces the incumbent only where it is
+     * strictly faster **and** no worse in its **slow share**, both read off the same two timed lines
+     * with [zoneSlowShare]. The clock alone is λ-blind: a fine line quicker on the clock but spending
+     * more of its own time slowed would undo the λ loop the moment it is spliced.
+     */
+    internal fun fineSpliceBetter(fine: TimedLine, incumbent: TimedLine, paceKn: Double): Boolean =
+        fine.durationSec < incumbent.durationSec &&
+            zoneSlowShare(fine, paceKn) <= zoneSlowShare(incumbent, paceKn)
 
     /**
      * The crossing keep rule: a grown answer is kept only where it has **fewer forced-crossing zones**
@@ -1020,7 +1144,9 @@ class RouteAvoidEngine(
      * than roughly two cells, so a narrow channel the search would rather thread reads as land and the
      * line is forced around it. This pass re-rasterizes a **swath** around the settled line at
      * `route.avoid.fine.cellRatio`, re-runs the A*, and keeps the fine line **only where it is strictly
-     * faster** than the incumbent.
+     * faster** than the incumbent **and no worse in its slow share** — the clock alone is λ-blind, so a
+     * finer line quicker on the clock but spending more of its own time slowed would undo the λ loop
+     * the moment it is spliced. [fineSpliceBetter] holds the rule, read off the two timed lines.
      */
     private suspend fun fineReSearch(
         world: AvoidWorld,
@@ -1050,12 +1176,10 @@ class RouteAvoidEngine(
             trace { "FINE research box=empty spliced=no" }
             return line
         }
-        val base = costField(
-            world, fineCellM, pace, withZones = false, withBand = true, zones = zones, lambda = lambda
-        )
+        val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
-            zoneOutsideMarginM = outsideMarginM
+            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
         )
         grid.forceFree(start.latitude, start.longitude)
         grid.forceFree(aim.latitude, aim.longitude)
@@ -1069,7 +1193,7 @@ class RouteAvoidEngine(
             grid.cellOf(aim.latitude, aim.longitude), start, aim, pace, fineCellM, marginM, outsideMarginM,
             lambda, limitAt, zones, sets, publishStage = false,
             approaches = approaches, refusals = refusals,
-            guardBand = true
+            guardZones = true, guardBand = true
         )
         val fineTimed = pass.timed
         if (fineTimed == null) {
@@ -1077,10 +1201,12 @@ class RouteAvoidEngine(
             return line
         }
         val coarseTimed = timeLineWithLimits(line, pace, limitAt)
-        val better = fineTimed.durationSec < coarseTimed.durationSec
+        val better = fineSpliceBetter(fineTimed, coarseTimed, pace)
         trace {
             "FINE research answered=true spliced=$better " +
-                "fine=${fmt(fineTimed.durationSec)}s coarse=${fmt(coarseTimed.durationSec)}s"
+                "fine=${fmt(fineTimed.durationSec)}s coarse=${fmt(coarseTimed.durationSec)}s " +
+                "fineShare=${fmt(zoneSlowShare(fineTimed, pace), 2)} " +
+                "coarseShare=${fmt(zoneSlowShare(coarseTimed, pace), 2)}"
         }
         return if (better) pass.line else line
     }
@@ -1147,15 +1273,13 @@ class RouteAvoidEngine(
         }
         val from = if (first == 0) start else line[first - 1]
         val to = if (last == line.size - 1) aim else line[last + 1]
-        val base = costField(
-            world, fineCellM, pace, withZones = false, withBand = true, zones = zones, lambda = lambda
-        )
+        val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val guard = costField(
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda
         )
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
-            zoneOutsideMarginM = outsideMarginM
+            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
         )
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
@@ -1164,10 +1288,11 @@ class RouteAvoidEngine(
             grid.cellOf(from.latitude, from.longitude),
             grid.cellOf(to.latitude, to.longitude),
             Units.knotsToMps(pace),
-            zonePriceSec = { interiorKn, collarKn ->
-                zonePriceAtLimits(
-                    fineCellM, pace, interiorKn, collarKn, lambda,
-                    AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction
+            zonePriceSec = { interiorKn, collarKn, bandCollarKn ->
+                slowWaterPriceAt(
+                    fineCellM, pace, lambda, interiorKn, collarKn, bandCollarKn,
+                    AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
+                    AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
             }
         )
@@ -1264,9 +1389,6 @@ class RouteAvoidEngine(
     private fun boxText(box: BBox): String =
         "(${fmt(box.latSouth, 5)}..${fmt(box.latNorth, 5)},${fmt(box.lonWest, 5)}..${fmt(box.lonEast, 5)})"
 
-    /** A ratio, with a zero-length line reading 0 rather than a NaN. */
-    private fun shareOf(part: Double, whole: Double): Double = if (whole > 0.0) part / whole else 0.0
-
     /** Which side of the budget's ±20 % band a share sat on. */
     private fun bandVerdict(share: Double, budgetPct: Double): String = when {
         withinBudgetBand(share, budgetPct) -> "in"
@@ -1361,8 +1483,89 @@ class RouteAvoidEngine(
         return "CARVE end=$end dir=${direction.label} cells=$cells length=${fmt(carve.lengthM)}m"
     }
 
-    /** The metres of a line whose own middle stands inside the priced 300 m band's reach. */
+    /**
+     * The metres of a line whose own middle stands inside a priced zone's **interior** — the λ loop's
+     * second figure, its share's own objective read in metres rather than in seconds. The test is the
+     * world's own interior read, so the outside margin is a price and never a metre counted here.
+     */
+    private fun zoneMetres(zones: List<SpeedZone>, points: List<LatLng>): Double {
+        if (zones.isEmpty()) return 0.0
+        var total = 0.0
+        for (i in 0 until points.size - 1) {
+            val mid = LatLng(
+                (points[i].latitude + points[i + 1].latitude) / 2.0,
+                (points[i].longitude + points[i + 1].longitude) / 2.0
+            )
+            if (strictestLimitKnAt(zones, emptySet(), mid.latitude, mid.longitude) != null) {
+                total += SpatialOperations.haversine(points[i], points[i + 1])
+            }
+        }
+        return total
+    }
+
+    /**
+     * **The ring water, as the share split reads it** — a point inside any priced zone's own ring. It is
+     * the world's own interior read, so a collar is a price and never a metre charged to a ring.
+     */
+    private fun inZone(zones: List<SpeedZone>): (LatLng) -> Boolean =
+        { p -> strictestLimitKnAt(zones, emptySet(), p.latitude, p.longitude) != null }
+
+    /**
+     * **The band's law water, as the share split reads it** — a point inside the band's own width. The
+     * exact test the clock and the price make ([insideBandWidthM]), so the split never charges the band
+     * for water the band's limit does not govern.
+     */
+    private fun inBand(world: AvoidWorld): (LatLng) -> Boolean =
+        { p ->
+            world.bandWidthM > 0.0 &&
+                insideBandWidthM(world.distanceToCoastM(p.latitude, p.longitude), world.bandWidthM)
+        }
+
+    /**
+     * The band's law for the rasterizer, or `null` where it is not priced: its own width and limit and
+     * the outside margin beyond it. `route.avoid.zone300.enabled` gates it — the switch prices the band,
+     * so a priced band is a band whose limit the grid stores; the clock's own read is untouched by the
+     * switch (`limitAtFor`).
+     */
+    private fun bandLaw(world: AvoidWorld): BandLaw? =
+        if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
+            BandLaw(
+                widthM = world.bandWidthM,
+                limitKn = AppConfig.routeAvoidZone300LimitKn,
+                outsideMarginM = AppConfig.routeAvoidZone300OutsideMarginM
+            )
+        } else {
+            null
+        }
+
+    /**
+     * The metres of a line whose own middle stands inside the band's own **width** — the law's water,
+     * whose limit the clock pays, read through the very test the price and the clock make
+     * ([insideBandWidthM]). It is the law's water alone; the priced reach beside it is
+     * [bandPricedMetres], so one figure never stands for both.
+     */
     private fun bandMetres(world: AvoidWorld, points: List<LatLng>): Double {
+        if (world.bandWidthM <= 0.0) return 0.0
+        val bandM = world.bandWidthM
+        var total = 0.0
+        for (i in 0 until points.size - 1) {
+            val mid = LatLng(
+                (points[i].latitude + points[i + 1].latitude) / 2.0,
+                (points[i].longitude + points[i + 1].longitude) / 2.0
+            )
+            if (insideBandWidthM(world.distanceToCoastM(mid.latitude, mid.longitude), bandM)) {
+                total += SpatialOperations.haversine(points[i], points[i + 1])
+            }
+        }
+        return total
+    }
+
+    /**
+     * The metres of a line whose own middle stands within the band's **priced reach** — the width and its
+     * outside margin together, the water the band's law prices at some fraction. Reported beside
+     * [bandMetres]'s bare law water so the priced strip and the limit's water are told apart.
+     */
+    private fun bandPricedMetres(world: AvoidWorld, points: List<LatLng>): Double {
         if (world.bandWidthM <= 0.0) return 0.0
         val reachM = bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300OutsideMarginM)
         var total = 0.0
