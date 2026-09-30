@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-30 16:08
+modified: 2026-09-30 17:27
 ---
 
 # Feature: Route
@@ -126,66 +126,45 @@ Arrival carries no state and no cue: it is the trip cell reading zero while the 
 
 ## Docs
 
-- [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the next engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
-- [`260929_FEAT_PLN_Route_trigger-read-at-press.md`](260929_FEAT_PLN_Route_trigger-read-at-press.md) — the pair read at the press; in design, the build owed
-- [`260929_FEAT_PLN_Route_route-render-gates.md`](260929_FEAT_PLN_Route_route-render-gates.md) — shipped: the two Settings switches gate the menu's chips
-- [`260929_FEAT_PLN_Route_map-fan-add-route.md`](260929_FEAT_PLN_Route_map-fan-add-route.md) — shipped: the map's route fan, its unasked Discard and its auto-pick
-- [`260929_FEAT_PLN_Route_active-route-z-order-and-colour.md`](260929_FEAT_PLN_Route_active-route-z-order-and-colour.md) — shipped: the paint order as a rank, and the Active route colour row
-- [`260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md`](260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md) — shipped: the ends into the drawer, the candidates' rows
-- [`260928_FEAT_PLN_Route_subsection-and-control-model.md`](260928_FEAT_PLN_Route_subsection-and-control-model.md) — shipped: the sub-section in the Navigation card
-- [`260928_FEAT_PLN_Route_drawer-refinements.md`](260928_FEAT_PLN_Route_drawer-refinements.md) — shipped: the dropdowns, the selected face, one head
-- [`260928_FEAT_PLN_Route_acquisition-face-and-map-order.md`](260928_FEAT_PLN_Route_acquisition-face-and-map-order.md) — shipped: the acquisition's words, the row, the door, the band's tiers
-- [`260926_FEAT_PLN_Route_menu-mode-summary.md`](260926_FEAT_PLN_Route_menu-mode-summary.md) — shipped: the mode summary, the remainder from the line
-- [`260926_FEAT_PLN_Route_panel-on-the-drawer-shell.md`](260926_FEAT_PLN_Route_panel-on-the-drawer-shell.md) — the panel on the drawer shell
-- [`260926_FEAT_PLN_Route_regional-coarse-grid.md`](260926_FEAT_PLN_Route_regional-coarse-grid.md) — a regional coarse grid
-- [`260926_FEAT_PLN_Route_speed-zone-full-fix.md`](260926_FEAT_PLN_Route_speed-zone-full-fix.md) — the speed zone's full fix
-- [`260926_FEAT_PLN_Route_speed-zone-standoff-alternatives.md`](260926_FEAT_PLN_Route_speed-zone-standoff-alternatives.md) — the standoff's alternatives
-- [`260925_FEAT_PLN_Route_progressive-draw.md`](260925_FEAT_PLN_Route_progressive-draw.md) — shipped 2026-09-27; its open points and pins above
-- [`260925_FEAT_PLN_Route_avoid-switches-and-zone-tangent.md`](260925_FEAT_PLN_Route_avoid-switches-and-zone-tangent.md) — the depth and zone switches, the tangent, the fine precision
-- [`260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md`](260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md) — phases 2–6: the cost field, the gate, the band, the zones, the fairing
-- [`260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md) — shipped: the explicit phases and the anchor's lead
-- [`260924_FEAT_PLN_Route_algorithm-harness.md`](260924_FEAT_PLN_Route_algorithm-harness.md) — shipped: several engines behind one seam
-- [`260924_FEAT_PLN_Route_avoid-land-stage.md`](260924_FEAT_PLN_Route_avoid-land-stage.md) — shipped: the avoid engine's stage 1
-- [`260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md`](260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md) — shipped: grid A\* plus the verified corner snap
-- [`260924_FEAT_DOC_Route_avoid-algorithm-phase1.md`](260924_FEAT_DOC_Route_avoid-algorithm-phase1.md) — the avoidance algorithm's phase 1
-- [`260923_FEAT_PLN_Route_aim-target-under-the-boat.md`](260923_FEAT_PLN_Route_aim-target-under-the-boat.md) — shipped: the aim ring among the map's own layers
-- [`260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](260922_FEAT_PLN_Route_ask-policy-and-target-validity.md) — the 2026-09-22 requirement list, largely superseded; history, not the rules' home
-- [`260922_FEAT_DOC_Route_mesh-engine.md`](260922_FEAT_DOC_Route_mesh-engine.md) · [`260922_FEAT_DOC_Route_taut-tracer.md`](260922_FEAT_DOC_Route_taut-tracer.md) — the two removed engines as they were
-- Six plans are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
+- [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
+- [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — **the avoidance algorithm's design of record**, folded from the archived phase and zone plans: the pipeline, the cost field, the λ loop, the standoff's retirement, the fairing and the evidence
+- Twenty-five plans and documents are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk
 
-**Level 1 — Date:** 2026-09-28 · **Source:** the pending set — the drawer plan's steps first, then the standing items the two 2026-09-28 plans and the ui-flow plan's §11 name, in ship order · **Cursor:** 16 · **Closed:** —
+**Level 1 — Date:** 2026-09-28 · **Source:** the pending set — the drawer plan's steps first, then the standing items the two 2026-09-28 plans and the ui-flow plan's §11 name, in ship order · **Cursor:** 18 · **Closed:** 2026-09-30 — closed by decision
 - Note: items 1–13 are **closed** (2026-09-28 · 2026-09-29) — the drawer plan's steps 1 and 3–9, the roller's three points closed by its retirement with the component, and item 13, whose design is [`260929_FEAT_PLN_Route_trigger-read-at-press.md`](260929_FEAT_PLN_Route_trigger-read-at-press.md) with the build owed.
 - [ ] 14 · **Parked 2026-09-29** — Phase 5's marker weights — avoid-only, the weight scaling the per-metre price inside a circle's radius or a corridor's band and never replacing the base, [`AvoidCell.sourceCostM`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidGrid.kt:25) being the trap the plan names — merged with the shipped marker scale's wall into one scale at that time, and the review over Phase 6's folded fixes, whose first point is the fairing's shipped values read against the plan's own table
 - [ ] 15 · **Parked 2026-09-29** — Change 4: the fine band, its mechanism and its width — the code already re-solves at the ratio, so the item is a decision about the record
-- [ ] 16 · The progressive-draw plan's remaining review findings — its §10 list folded, its open points and pins above
-- [ ] 17 · The F1 and F2 wording pair of the standoff register
-- [ ] 18 · The record repairs — the `GLOBAL_CONTEXT.md` Route row, extracted with `findstr` first; the epic's own line was delivered by this rewrite
-- [ ] 19 · The bake, with the standing items carried into the hydration
-- [ ] 20 · The Phase 6 device pass — the fairing, its four keys and the GPX acceptance (the user's own)
+- [x] 16 · The progressive-draw plan's remaining review findings — closed 2026-09-30: flicker forgotten; the staircase folded as an obligatory step of the algorithm; the unmeasured PULL cost and the re-emit pin deferred to the next route-acquisition-algorithm chunk; the aim beat and the 55 % face died with the rework
+- [x] 17 · The F1 and F2 wording pair of the standoff register — dropped 2026-09-30: deferred to the next route-acquisition-algorithm chunk
+- [x] 18 · The record repairs — the `GLOBAL_CONTEXT.md` Route row, extracted with `findstr` first; the epic's own line was delivered by this rewrite — dropped 2026-09-30: the row shortening stays recorded in the Delta's "The record" note
+- [x] 19 · The bake, with the standing items carried into the hydration — closed 2026-09-30: the bake ran and re-runs after the archive
+- [x] 20 · The Phase 6 device pass — the fairing, its four keys and the GPX acceptance (the user's own) — dropped 2026-09-30: stays owed to the user, recorded in the Delta's "Owed device passes"
+- Closed 2026-09-30 by decision: 16 resolved, 17 dropped to the algorithm chunk, 18 dropped (recorded in the Delta), 19 absorbed, 20 dropped as the owed device pass.
 
 ## Implemented
 
-The pointer index — one line per shipped pass, each pointing at the plan or document that specifies it:
+The pointer index — one line per shipped pass; the archived pointers are dropped and the bare one-liner stays:
 
-- The mode's build: the toggle, the panel, the pin, the trip figure and the save → [`260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](260922_FEAT_PLN_Route_ask-policy-and-target-validity.md)
-- Both engines removed and a straight-line placeholder shipped in their place → [`260922_FEAT_DOC_Route_mesh-engine.md`](260922_FEAT_DOC_Route_mesh-engine.md) · [`260922_FEAT_DOC_Route_taut-tracer.md`](260922_FEAT_DOC_Route_taut-tracer.md)
-- The aim ring moved under the boat as the map's own overlay → [`260923_FEAT_PLN_Route_aim-target-under-the-boat.md`](260923_FEAT_PLN_Route_aim-target-under-the-boat.md)
-- Several engines behind one seam, chosen in Settings → [`260924_FEAT_PLN_Route_algorithm-harness.md`](260924_FEAT_PLN_Route_algorithm-harness.md)
-- The avoid engine's stage 1: land avoided by grid A\* and a taut pull → [`260924_FEAT_PLN_Route_avoid-land-stage.md`](260924_FEAT_PLN_Route_avoid-land-stage.md)
-- The taut pull's rework: grid A\* plus a verified corner snap, the ANR closed → [`260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md`](260924_FEAT_PLN_Route_tangent-dichotomy-prototype.md)
-- The avoid engine's phases 2–6: one cost field, the depth gate, the band, the zones and the fairing → [`260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md`](260924_FEAT_PLN_Route_avoid-soft-sources-and-curves.md)
-- The depth and zone switches and the band's tangent look-ahead → [`260925_FEAT_PLN_Route_avoid-switches-and-zone-tangent.md`](260925_FEAT_PLN_Route_avoid-switches-and-zone-tangent.md)
-- The acquisition workflow rebuilt: explicit phases, no timer, the anchor's lead → [`260924_FEAT_PLN_Route_acquisition-and-route-workflow.md`](260924_FEAT_PLN_Route_acquisition-and-route-workflow.md)
-- The drawer's route group became a read-only mode summary, and the remainder is measured from the line → [`260926_FEAT_PLN_Route_menu-mode-summary.md`](260926_FEAT_PLN_Route_menu-mode-summary.md)
-- The line drawn as the engine builds it, in its own overlay → [`260925_FEAT_PLN_Route_progressive-draw.md`](260925_FEAT_PLN_Route_progressive-draw.md)
-- The ends moved into the drawer, the acquisition armed on the stored pair, the candidates given their rows → [`260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md`](260928_FEAT_PLN_Route_ui-flow-and-candidate-routes.md)
-- The Route sub-section joined the Navigation card and actions parted from selections → [`260928_FEAT_PLN_Route_subsection-and-control-model.md`](260928_FEAT_PLN_Route_subsection-and-control-model.md)
-- The drawer's refinements: the selected face, one head, the two shapes that stopped being actions → [`260928_FEAT_PLN_Route_drawer-refinements.md`](260928_FEAT_PLN_Route_drawer-refinements.md)
-- The acquisition's own face, the toggle's door and the track band's three tiers → [`260928_FEAT_PLN_Route_acquisition-face-and-map-order.md`](260928_FEAT_PLN_Route_acquisition-face-and-map-order.md)
-- The paint order became a rank over the whole list, and the Active route colour gained its row → [`260929_FEAT_PLN_Route_active-route-z-order-and-colour.md`](260929_FEAT_PLN_Route_active-route-z-order-and-colour.md)
-- The map's add-route fan, the unasked Discard and the auto-pick → [`260929_FEAT_PLN_Route_map-fan-add-route.md`](260929_FEAT_PLN_Route_map-fan-add-route.md)
-- The two render switches gate their chip for a route → [`260929_FEAT_PLN_Route_route-render-gates.md`](260929_FEAT_PLN_Route_route-render-gates.md)
+- The mode's build: the toggle, the panel, the pin, the trip figure and the save
+- Both engines removed and a straight-line placeholder shipped in their place
+- The aim ring moved under the boat as the map's own overlay
+- Several engines behind one seam, chosen in Settings
+- The avoid engine's stage 1: land avoided by grid A\* and a taut pull
+- The taut pull's rework: grid A\* plus a verified corner snap, the ANR closed
+- The avoid engine's phases 2–6: one cost field, the depth gate, the band, the zones and the fairing
+- The depth and zone switches and the band's tangent look-ahead
+- The acquisition workflow rebuilt: explicit phases, no timer, the anchor's lead
+- The drawer's route group became a read-only mode summary, and the remainder is measured from the line
+- The line drawn as the engine builds it, in its own overlay
+- The ends moved into the drawer, the acquisition armed on the stored pair, the candidates given their rows
+- The Route sub-section joined the Navigation card and actions parted from selections
+- The drawer's refinements: the selected face, one head, the two shapes that stopped being actions
+- The acquisition's own face, the toggle's door and the track band's three tiers
+- The paint order became a rank over the whole list, and the Active route colour gained its row
+- The map's add-route fan, the unasked Discard and the auto-pick
+- The two render switches gate their chip for a route
 - The saved line became a route on the track side — the flag, the render pair, the filter and the card → [`../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](../Tracks/260922_FEAT_PLN_Tracks_trace-flag-and-display.md)
 - The engine's interface reworked — the pair repaired inside `routesToCompute`, declared computations, `startLookup(id)`, one id-carrying update flow, the page set and the comparison, the readiness gate and the refused crosshair retired → [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md)
+- The avoidance algorithm's design, folded into one document → [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md)
