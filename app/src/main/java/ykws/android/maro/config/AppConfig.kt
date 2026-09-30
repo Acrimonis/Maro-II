@@ -489,7 +489,7 @@ object AppConfig {
     // trigger's quiet time; the sweep, the ordering, the metric and the walk are all structural.
 
     /** Quiet time (ms) the map must stand still after a genuine finger lift before the highlighted
-     *  item is picked. Default 666. Set via `ui.map.inspect.dwell.ms`. */
+     *  item is picked. Default 666. Set via `map.inspect.dwellMs`. */
     var uiMapInspectDwellMs: Long = 666L
         private set
 
@@ -551,7 +551,7 @@ object AppConfig {
     var semanticInactive: Int = 0x33FFFFFF.toInt()
         private set
 
-    /** Default proximity range (m) for Pin-type user markers. Set via `marker.proximity.pin_m` in maro.properties. */
+    /** Default proximity range (m) for Pin-type user markers. Set via `marker.proximity.pinM` in maro.properties. */
     var markerProximityPinM: Double = 200.0
         private set
     /** Direction-arrow density speed floor (kn) — below this, arrows use min spacing. */
@@ -569,11 +569,11 @@ object AppConfig {
         private set
     /** Chevron tempering knee (dp): at or below this core a chevron is drawn at the core itself.
      *  Default 3.3333333 — the 10 px the table stated on the 3× device it was tuned on.
-     *  Set via `track.arrow.scaleKnee`. */
+     *  Set via `map.track.arrow.scaleKnee`. */
     var trackArrowScaleKneeDp: Float = 10f / 3f
         private set
     /** Chevron tempering factor above the knee: the core becomes `knee + (core − knee) × temper`.
-     *  Default 0.5. Set via `track.arrow.temper`. */
+     *  Default 0.5. Set via `map.track.arrow.temper`. */
     var trackArrowTemper: Float = 0.5f
         private set
 
@@ -583,28 +583,28 @@ object AppConfig {
     // were chosen on, and the caller multiplies by the density at the paint site — and every default
     // mirrors the shipped file key for key.
     /** Stroke width (dp) of the live recording line, its GAP bridges and its trailing segment.
-     *  Default 4 (the 12 px of the 3× reference). Set via `track.width.live`. */
+     *  Default 4 (the 12 px of the 3× reference). Set via `map.track.width.live`. */
     var trackWidthLiveDp: Float = 4f
         private set
     /** Stroke width (dp) of the selected stored track's core. Default 3.3333333 (the 10 px of the 3×
-     *  reference). Set via `track.width.selected`. */
+     *  reference). Set via `map.track.width.selected`. */
     var trackWidthSelectedDp: Float = 10f / 3f
         private set
     /** Stroke width (dp) of the newest history track. Default 3.6666667 (the 11 px of the 3×
-     *  reference). Set via `track.width.newest`. */
+     *  reference). Set via `map.track.width.newest`. */
     var trackWidthNewestDp: Float = 11f / 3f
         private set
     /** Stroke width (dp) of every pinned track. Default 3 (the 9 px of the 3× reference).
-     *  Set via `track.width.pinned`. */
+     *  Set via `map.track.width.pinned`. */
     var trackWidthPinnedDp: Float = 3f
         private set
     /** Stroke width (dp) of every other history track. Default 2.6666667 (the 8 px of the 3×
-     *  reference). Set via `track.width.history`. */
+     *  reference). Set via `map.track.width.history`. */
     var trackWidthHistoryDp: Float = 8f / 3f
         private set
     /** Stroke width (dp) of every route's line — a route. It joins the same table and is taken
      *  whatever the pin says, the route role having its own stroke rather than the pinned or history
-     *  one. Default 2.6666667 (the 8 px of the 3× reference). Set via `track.width.route`. */
+     *  one. Default 2.6666667 (the 8 px of the 3× reference). Set via `map.track.width.route`. */
     var trackWidthRouteDp: Float = 8f / 3f
         private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
@@ -614,7 +614,7 @@ object AppConfig {
      *  while a selection's chevrons take half its excess over the line's own width as the outward
      *  offset of their dark V from the coloured one — 1 dp at the shipped pair, which clears the
      *  coloured centreline by 0.167 dp. Default 5.3333335 (the 16 px of the 3× reference).
-     *  Set via `track.width.selected.casing`. */
+     *  Set via `map.track.width.selected.casing`. */
     var trackWidthSelectedCasingDp: Float = 16f / 3f
         private set
 
@@ -625,7 +625,7 @@ object AppConfig {
      *  Default: the seven families the shipped file holds, mirrored key for key — flat green inside
      *  the 5 kn limit, the two 30 % tolerance changeovers at 0.25 and 0.5, then 13 / 22 / 32 / 70 kn.
      *  The file is the source of truth and this default follows it, not the reverse.
-     *  Set via `track.heatmap.familyN.*` / `.unknownColor`. */
+     *  Set via `map.track.heatmap.familyN.*` / `.unknown.color`. */
     var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
         families = listOf(
             HeatmapFamily(5f, 0xFF1A6B1A.toInt(), 0xFF2AAB2A.toInt(), 1.0f),    // flat green inside the 5 kn limit
@@ -644,7 +644,7 @@ object AppConfig {
      *  specification — every row prints, with no rule dropping or merging one — so the text may
      *  deliberately differ from the position, and the first two rows carry a compliance limit off its
      *  own boundary by design. Default: the five rows the shipped file holds, mirrored key for key.
-     *  Set via `track.heatmap.scaleTicks`; the table's last position is the bar's own top. */
+     *  Set via `map.track.heatmap.scaleTicks`; the table's last position is the bar's own top. */
     var trackHeatmapScaleTicks: List<HeatmapScaleTick> = listOf(
         HeatmapScaleTick(7f, "5"),
         HeatmapScaleTick(13f, "10"),
@@ -654,22 +654,22 @@ object AppConfig {
     )
         private set
     /** Foot of the legend's scale (kn): the bar runs from here to the tick table's last position.
-     *  Default 2, mirroring the shipped file. Set via `track.heatmap.scaleMinKn`; an absent key
+     *  Default 2, mirroring the shipped file. Set via `map.track.heatmap.scaleMinKn`; an absent key
      *  leaves this default standing. */
     var trackHeatmapScaleMinKn: Float = 2f
         private set
-    /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
+    /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zoneMultiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
         private set
     /** Share of the smaller displayed map dimension a selected corridor fills when its dashboard
-     *  opens. Set via `marker.focus.corridor_share` in maro.properties. */
+     *  opens. Set via `marker.focus.corridorShare` in maro.properties. */
     var markerFocusCorridorShare: Double = 0.50
         private set
-    /** The same measure for a selected Circle zone. Set via `marker.focus.zone_share`. */
+    /** The same measure for a selected Circle zone. Set via `marker.focus.zoneShare`. */
     var markerFocusZoneShare: Double = 0.30
         private set
     /** Nominal footprint (metres) a selected Pin frames, standing in for the default zone's
-     *  diameter. Set via `marker.focus.pin_footprint_m`. */
+     *  diameter. Set via `marker.focus.pinFootprintM`. */
     var markerFocusPinFootprintM: Double = 200.0
         private set
 
@@ -680,7 +680,7 @@ object AppConfig {
     /** Auto-marker icon transparency on map (0-100, 0=opaque, 100=invisible). */
     var boatMarkerIdleTransparencyPct: Int = 50
 
-    /** Proximity range (m) for 🕐 auto-marker pins. Set via `track.boatMarker.autoMarker.proximityM` in maro.properties. */
+    /** Proximity range (m) for 🕐 auto-marker pins. Set via `marker.autoMarker.proximityM` in maro.properties. */
     var boatMarkerAutoMarkerProximityM: Double = 300.0
         private set
 
@@ -833,7 +833,7 @@ object AppConfig {
         private set
     /** Cap arrow colour mode: true = the colour follows the speed the boat carries, read from the
      *  track speed ramp; false = the arrow's own colour key. Default false.
-     *  Set via `map.navigation.arrow.followSpeedColour` in maro.properties. */
+     *  Set via `map.navigation.arrow.followSpeedColor` in maro.properties. */
     var mapNavigationArrowFollowSpeedColour: Boolean = false
         private set
     /** Navigation direction line colour — the opaque hue; its alpha has one home in the transparency
@@ -850,7 +850,7 @@ object AppConfig {
         private set
 
     /** Speed (knots) at which the map look-ahead offset reaches its maximum.
-     *  Default 20.0. Set via `map.offset.lookahead.maxspeedKn` in maro.properties.
+     *  Default 20.0. Set via `map.offset.lookahead.maxSpeedKn` in maro.properties.
      *  Range: 1–50. */
     var mapOffsetLookaheadMaxSpeedKn: Double = 20.0
         private set
@@ -1014,61 +1014,60 @@ object AppConfig {
         private set
 
     // ── Map overlay colours ───────────────────────────────────────────────────
-    /** Hazard disc fill colour. Default #FFFFE800. Set via `map.hazard.disc.fill` in maro.properties. */
+    /** Hazard disc fill colour. Default #FFFFE800. Set via `map.hazard.disc.fill.color` in maro.properties. */
     var mapHazardDiscFill: Int = 0xFFFFE800.toInt()
         private set
-    /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline` in maro.properties. */
+    /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline.color` in maro.properties. */
     var mapHazardOutline: Int = 0xFF000000.toInt()
         private set
-    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line` in maro.properties. */
+    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line.color` in maro.properties. */
     var mapZoneAheadLine: Int = 0xCC4CAF50.toInt()
         private set
-    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill` in maro.properties. */
+    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill.color` in maro.properties. */
     var mapZoneAheadConeFill: Int = 0xFFFFEB00.toInt()
         private set
-    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline` in maro.properties. */
+    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline.color` in maro.properties. */
     var mapZoneAheadConeOutline: Int = 0xFFFFC800.toInt()
         private set
-    /** Zone300 fill colour (~19 % alpha, vestigial — the fill's alpha comes from the transparency setting).
-     *  Default #30E53935. Set via `map.zone300.fill` in maro.properties. */
-    var mapZone300Fill: Int = 0x30E53935.toInt()
-        private set
     /** Zone300 boundary colour — the seed of `AppSettings.zone300Color`. Default #FFE53935.
-     *  Set via `map.zone300.boundary` in maro.properties. */
+     *  Set via `map.zone300.boundary.color` in maro.properties. The band's water-only fill
+     *  colour is that same setting and this file carries no fill key. */
     var mapZone300Boundary: Int = 0xFFE53935.toInt()
         private set
     /** Gold wash over the boat, pulsed by an accepted Where-Am-I tap — the gold the
      *  Where-Am-I result already uses, plain and opaque. The overlay beats it once, up to
      *  [mapMarkerTapFlashAlpha] and back out to nothing.
-     *  Set via `map.marker.tap.flash.color` in maro.properties. */
+     *  Set via `map.sprite.tap.flash.color` in maro.properties. */
     var mapMarkerTapFlashColor: Int = 0xFFFFD700.toInt()
         private set
 
     /** Ceiling the accepted tap's beat rises to, on the 0.0–1.0 scale the `*.alpha` keys share —
      *  clamped to 0–1 so the drawn alpha can never exceed it. Default 0.33, the shipped file's own
      *  value: the file is the source of truth and this default follows it. The alpha's one carrier:
-     *  the flash colour is opaque. Set via `map.marker.tap.flash.alpha` in maro.properties. */
+     *  the flash colour is opaque. Set via `map.sprite.tap.flash.alpha` in maro.properties. */
     var mapMarkerTapFlashAlpha: Float = 0.33f
         private set
 
     /** Diameter (dp) of the boat's round tap zone — fixed at any zoom, never following the sprite.
-     *  Default 48. Set via `map.marker.tap.zoneDiameterDp` in maro.properties. */
+     *  Default 48. Set via `map.sprite.tap.zoneDiameterDp` in maro.properties. */
     var mapMarkerTapZoneDiameterDp: Float = 48f
         private set
 
     /** Diameter (dp) of the accepted tap's pulse disc — twice the zone, so it haloes the hull.
-     *  Default 96. Set via `map.marker.tap.flashDiameterDp` in maro.properties. */
+     *  Default 96. Set via `map.sprite.tap.flashDiameterDp` in maro.properties. */
     var mapMarkerTapFlashDiameterDp: Float = 96f
         private set
 
     /** Total duration (ms) of the accepted tap's single beat — the rise, then the way back out.
-     *  Default 540. Set via `map.marker.tap.flashDurationMs` in maro.properties. */
-    var mapMarkerTapFlashDurationMs: Long = 540L
+     *  Default 666, the shipped file's own value. Set via `map.sprite.tap.flashDurationMs`
+     *  in maro.properties. */
+    var mapMarkerTapFlashDurationMs: Long = 666L
         private set
 
     /** Where the beat peaks, as a fraction of its duration — clamped to 0–1 so the rise can never
-     *  overrun the beat. Default 0.3333. Set via `map.marker.tap.flashPeakRatio` in maro.properties. */
-    var mapMarkerTapFlashPeakRatio: Float = 0.3333f
+     *  overrun the beat. Default 0.20, the shipped file's own value. Set via
+     *  `map.sprite.tap.flashPeakRatio` in maro.properties. */
+    var mapMarkerTapFlashPeakRatio: Float = 0.20f
         private set
 
     /** Exponent of the growth curve the centre sprite (boat / land dot), the wizard's crosshair and
@@ -1077,20 +1076,20 @@ object AppConfig {
      *  map. What it multiplies is the base pair of accessors below; the reference zoom, the coast-shrink
      *  pair and the arrow's own speed clamps stay code constants in `ui/map/MapOverlays.kt`.
      *  Default 0.35, settled 2026-09-19 for the 11–20 zoom range.
-     *  Set via `map.marker.size.zoomExponent` in maro.properties. */
+     *  Set via `map.sprite.size.zoomExponent` in maro.properties. */
     var mapMarkerSizeZoomExponent: Float = 0.35f
         private set
 
     /** Base dp of the boat sprite at the reference zoom — the size the exponent and the distance ramp
      *  then move. Default 36.8, raised 15 % from 32 on 2026-09-19. Clamped to 1–128 so a stray value
-     *  cannot collapse the layout or fill the screen. Set via `map.marker.size.boatBaseDp` in
+     *  cannot collapse the layout or fill the screen. Set via `map.sprite.size.boatBaseDp` in
      *  maro.properties. */
     var mapMarkerSizeBoatBaseDp: Float = 36.8f
         private set
 
     /** Base dp of the land dot at the reference zoom, kept at 0.25 × the boat's so the two read as one
      *  marker in two states. Default 9.2, raised 15 % from 8. Clamped to 1–128 like the boat's.
-     *  Set via `map.marker.size.dotBaseDp` in maro.properties. */
+     *  Set via `map.sprite.size.dotBaseDp` in maro.properties. */
     var mapMarkerSizeDotBaseDp: Float = 9.2f
         private set
 
@@ -1324,39 +1323,39 @@ object AppConfig {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
             }
             // ── User marker proximity defaults ──────────────────────────────────
-            props.getProperty("marker.proximity.pin_m")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.proximity.pinM")?.toDoubleOrNull()?.let {
                 markerProximityPinM = it.coerceAtLeast(0.0)
             }
-            props.getProperty("marker.proximity.zone_multiplier")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.proximity.zoneMultiplier")?.toDoubleOrNull()?.let {
                 markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
             }
             // ── Marker focus framing ────────────────────────────────────────────
-            props.getProperty("marker.focus.corridor_share")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.focus.corridorShare")?.toDoubleOrNull()?.let {
                 markerFocusCorridorShare = it.coerceIn(0.1, 1.0)
             }
-            props.getProperty("marker.focus.zone_share")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.focus.zoneShare")?.toDoubleOrNull()?.let {
                 markerFocusZoneShare = it.coerceIn(0.1, 1.0)
             }
-            props.getProperty("marker.focus.pin_footprint_m")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.focus.pinFootprintM")?.toDoubleOrNull()?.let {
                 markerFocusPinFootprintM = it.coerceIn(20.0, 2000.0)
             }
             // ── Auto-marker idle tracking ───────────────────────────────────
-            props.getProperty("track.boatMarker.autoMarker.idleThresholdSec")?.toLongOrNull()?.let {
+            props.getProperty("marker.autoMarker.idleThresholdSec")?.toLongOrNull()?.let {
                 boatMarkerIdleThresholdSec = it.coerceIn(10, 600)
             }
-            props.getProperty("track.boatMarker.autoMarker.minDurationSec")?.toLongOrNull()?.let {
+            props.getProperty("marker.autoMarker.minDurationSec")?.toLongOrNull()?.let {
                 boatMarkerAutoMarkerMinDurationSec = it.coerceIn(30, 3600)
             }
-            props.getProperty("track.boatMarker.autoMarker.transparency")?.toIntOrNull()?.let {
+            props.getProperty("marker.autoMarker.transparencyPct")?.toIntOrNull()?.let {
                 boatMarkerIdleTransparencyPct = it.coerceIn(0, 100)
             }
-            props.getProperty("track.boatMarker.autoMarker.proximityM")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.autoMarker.proximityM")?.toDoubleOrNull()?.let {
                 boatMarkerAutoMarkerProximityM = it.coerceAtLeast(0.0)
             }
-            props.getProperty("track.boatMarker.autoMarker.dedupRadiusM")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.autoMarker.dedupRadiusM")?.toDoubleOrNull()?.let {
                 boatMarkerAutoMarkerDedupRadiusM = it.coerceAtLeast(1.0)
             }
-            props.getProperty("track.boatMarker.autoMarker.minTravelBetweenStopsM")?.toDoubleOrNull()?.let {
+            props.getProperty("marker.autoMarker.minTravelBetweenStopsM")?.toDoubleOrNull()?.let {
                 boatMarkerMinTravelBetweenStopsM = it.coerceAtLeast(1.0)
             }
 
@@ -1394,24 +1393,24 @@ object AppConfig {
                 .coerceIn(powerScreenGraceMinMinutes, powerScreenGraceMaxMinutes)
 
             // ── Track direction arrows (speed-based density) ────────────────
-            props.getProperty("track.direction.speedFloorKn")?.toFloatOrNull()?.let {
+            props.getProperty("map.track.direction.speedFloorKn")?.toFloatOrNull()?.let {
                 trackDirectionSpeedFloorKn = it.coerceIn(2f, 64f)
             }
-            props.getProperty("track.direction.speedCeilingKn")?.toFloatOrNull()?.let {
+            props.getProperty("map.track.direction.speedCeilingKn")?.toFloatOrNull()?.let {
                 trackDirectionSpeedCeilingKn = it.coerceIn(2f, 64f)
             }
-            props.getProperty("track.direction.minSpacingDp")?.toIntOrNull()?.let {
+            props.getProperty("map.track.direction.minSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMinSpacingDp = it.coerceIn(4, 640)
             }
-            props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
+            props.getProperty("map.track.direction.maxSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
             // Chevron tempering: the knee is a core width in dp, the temper a fraction of the excess
             // above it. Read against the widths it compares with, so the boundary moves with them.
-            props.getProperty("track.arrow.scaleKnee")?.toFloatOrNull()?.let {
+            props.getProperty("map.track.arrow.scaleKnee")?.toFloatOrNull()?.let {
                 trackArrowScaleKneeDp = it.coerceAtLeast(0f)
             }
-            props.getProperty("track.arrow.temper")?.toFloatOrNull()?.let {
+            props.getProperty("map.track.arrow.temper")?.toFloatOrNull()?.let {
                 trackArrowTemper = it.coerceIn(0f, 1f)
             }
 
@@ -1419,13 +1418,13 @@ object AppConfig {
             // Clamped where a value could break the draw — a width at or below the 1 px floor of the
             // old unit, expressed here in dp, is not drawable, and a width past this bound would
             // swallow the map. An unreadable value leaves the default.
-            props.getProperty("track.width.live")?.toFloatOrNull()?.let { trackWidthLiveDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("track.width.selected")?.toFloatOrNull()?.let { trackWidthSelectedDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewestDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("track.width.route")?.toFloatOrNull()?.let { trackWidthRouteDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("track.width.selected.casing")?.toFloatOrNull()?.let {
+            props.getProperty("map.track.width.live")?.toFloatOrNull()?.let { trackWidthLiveDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.selected")?.toFloatOrNull()?.let { trackWidthSelectedDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.newest")?.toFloatOrNull()?.let { trackWidthNewestDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.route")?.toFloatOrNull()?.let { trackWidthRouteDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.selected.casing")?.toFloatOrNull()?.let {
                 trackWidthSelectedCasingDp = it.coerceAtLeast(1f / 3f)
             }
 
@@ -1459,7 +1458,7 @@ object AppConfig {
                     trackHeatmapScaleTicks = ticks
                 }
             }
-            props.getProperty("track.heatmap.unknownColor")?.let { parseColorOrNull(it) }?.let {
+            props.getProperty("map.track.heatmap.unknown.color")?.let { parseColorOrNull(it) }?.let {
                 trackHeatmapRamp = trackHeatmapRamp.copy(unknownArgb = it)
             }
 
@@ -1511,7 +1510,7 @@ object AppConfig {
             // ── Inspect mode ─────────────────────────────────────────────────
             // The clamp keeps a malformed file from breaking the trigger: a dwell of zero would pick
             // on the first frame of every pan.
-            props.getProperty("ui.map.inspect.dwell.ms")?.toLongOrNull()?.let {
+            props.getProperty("map.inspect.dwellMs")?.toLongOrNull()?.let {
                 uiMapInspectDwellMs = it.coerceIn(0L, 5_000L)
             }
             // ── List title sort ──────────────────────────────────────────────
@@ -1528,15 +1527,15 @@ object AppConfig {
             props.getProperty("ui.map.overlay.line.spacing")?.toFloatOrNull()?.let { uiMapOverlayLineSpacing = it }
             // ── Boat tap feedback ────────────────────────────────────────────
             // The ratio is clamped so the beat's peak can never overrun its own duration.
-            props.getProperty("map.marker.tap.zoneDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapZoneDiameterDp = it }
-            props.getProperty("map.marker.tap.flashDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapFlashDiameterDp = it }
-            props.getProperty("map.marker.tap.flashDurationMs")?.toLongOrNull()?.let { mapMarkerTapFlashDurationMs = it }
-            props.getProperty("map.marker.tap.flashPeakRatio")?.toFloatOrNull()?.let { mapMarkerTapFlashPeakRatio = it.coerceIn(0f, 1f) }
+            props.getProperty("map.sprite.tap.zoneDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapZoneDiameterDp = it }
+            props.getProperty("map.sprite.tap.flashDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapFlashDiameterDp = it }
+            props.getProperty("map.sprite.tap.flashDurationMs")?.toLongOrNull()?.let { mapMarkerTapFlashDurationMs = it }
+            props.getProperty("map.sprite.tap.flashPeakRatio")?.toFloatOrNull()?.let { mapMarkerTapFlashPeakRatio = it.coerceIn(0f, 1f) }
             // Clamped so the curve can never grow the overlays faster than the ground itself.
-            props.getProperty("map.marker.size.zoomExponent")?.toFloatOrNull()?.let { mapMarkerSizeZoomExponent = it.coerceIn(0f, 1f) }
+            props.getProperty("map.sprite.size.zoomExponent")?.toFloatOrNull()?.let { mapMarkerSizeZoomExponent = it.coerceIn(0f, 1f) }
             // Clamped positive: a zero or negative dp breaks the layout rather than merely looking wrong.
-            props.getProperty("map.marker.size.boatBaseDp")?.toFloatOrNull()?.let { mapMarkerSizeBoatBaseDp = it.coerceIn(1f, 128f) }
-            props.getProperty("map.marker.size.dotBaseDp")?.toFloatOrNull()?.let { mapMarkerSizeDotBaseDp = it.coerceIn(1f, 128f) }
+            props.getProperty("map.sprite.size.boatBaseDp")?.toFloatOrNull()?.let { mapMarkerSizeBoatBaseDp = it.coerceIn(1f, 128f) }
+            props.getProperty("map.sprite.size.dotBaseDp")?.toFloatOrNull()?.let { mapMarkerSizeDotBaseDp = it.coerceIn(1f, 128f) }
 
             // ── Semantic colours ──────────────────────────────────────────────────
             props.getProperty("semantic.danger")?.let { parseColorOrNull(it) }?.let { semanticDanger = it }
@@ -1583,7 +1582,7 @@ object AppConfig {
             // 0–100 % spans are the sliders' own facts, applied once where the setting is read.
             props.getProperty("map.navigation.arrow.widthDp")?.toFloatOrNull()?.let { mapNavigationArrowWidthDp = it }
             props.getProperty("map.navigation.arrow.transparencyPct")?.toIntOrNull()?.let { mapNavigationArrowTransparencyPct = it }
-            props.getProperty("map.navigation.arrow.followSpeedColour")?.toBooleanStrictOrNull()?.let {
+            props.getProperty("map.navigation.arrow.followSpeedColor")?.toBooleanStrictOrNull()?.let {
                 mapNavigationArrowFollowSpeedColour = it
             }
             props.getProperty("map.navigation.line.color")?.let { parseColorOrNull(it) }?.let { mapNavigationLineColor = it }
@@ -1591,7 +1590,7 @@ object AppConfig {
             props.getProperty("map.navigation.line.transparencyPct")?.toIntOrNull()?.let { mapNavigationLineTransparencyPct = it }
 
             // ── Map look-ahead offset (dynamic speed-based center shift) ──
-            props.getProperty("map.offset.lookahead.maxspeedKn")?.toDoubleOrNull()?.let {
+            props.getProperty("map.offset.lookahead.maxSpeedKn")?.toDoubleOrNull()?.let {
                 mapOffsetLookaheadMaxSpeedKn = it.coerceIn(1.0, 50.0)
             }
             props.getProperty("map.offset.lookahead.boatFromBottomPct")?.toIntOrNull()?.let {
@@ -1762,15 +1761,14 @@ object AppConfig {
             props.getProperty("regulatedZone.type.other")?.let { parseColorOrNull(it) }?.let { regulatedZoneTypeOther = it }
 
             // ── Map overlays ──────────────────────────────────────────────────
-            props.getProperty("map.hazard.disc.fill")?.let { parseColorOrNull(it) }?.let { mapHazardDiscFill = it }
-            props.getProperty("map.hazard.outline")?.let { parseColorOrNull(it) }?.let { mapHazardOutline = it }
-            props.getProperty("map.zoneAhead.line")?.let { parseColorOrNull(it) }?.let { mapZoneAheadLine = it }
-            props.getProperty("map.zoneAhead.cone.fill")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeFill = it }
-            props.getProperty("map.zoneAhead.cone.outline")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeOutline = it }
-            props.getProperty("map.zone300.fill")?.let { parseColorOrNull(it) }?.let { mapZone300Fill = it }
-            props.getProperty("map.zone300.boundary")?.let { parseColorOrNull(it) }?.let { mapZone300Boundary = it }
-            props.getProperty("map.marker.tap.flash.color")?.let { parseColorOrNull(it) }?.let { mapMarkerTapFlashColor = it }
-            props.getProperty("map.marker.tap.flash.alpha")?.toFloatOrNull()?.let { mapMarkerTapFlashAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("map.hazard.disc.fill.color")?.let { parseColorOrNull(it) }?.let { mapHazardDiscFill = it }
+            props.getProperty("map.hazard.outline.color")?.let { parseColorOrNull(it) }?.let { mapHazardOutline = it }
+            props.getProperty("map.zoneAhead.line.color")?.let { parseColorOrNull(it) }?.let { mapZoneAheadLine = it }
+            props.getProperty("map.zoneAhead.cone.fill.color")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeFill = it }
+            props.getProperty("map.zoneAhead.cone.outline.color")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeOutline = it }
+            props.getProperty("map.zone300.boundary.color")?.let { parseColorOrNull(it) }?.let { mapZone300Boundary = it }
+            props.getProperty("map.sprite.tap.flash.color")?.let { parseColorOrNull(it) }?.let { mapMarkerTapFlashColor = it }
+            props.getProperty("map.sprite.tap.flash.alpha")?.toFloatOrNull()?.let { mapMarkerTapFlashAlpha = it.coerceIn(0f, 1f) }
 
             // ── Progress/error overlay ────────────────────────────────────────
             props.getProperty("ui.progress.accent")?.let { parseColorOrNull(it) }?.let { uiProgressAccent = it }

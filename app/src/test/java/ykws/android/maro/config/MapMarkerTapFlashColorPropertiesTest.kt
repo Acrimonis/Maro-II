@@ -46,9 +46,9 @@ class MapMarkerTapFlashColorPropertiesTest {
 
     @Test
     fun theShippedFlashTokenAgreesWithTheCodesOwnDefault() {
-        val token = shippedProperties().getProperty("map.marker.tap.flash.color")
+        val token = shippedProperties().getProperty("map.sprite.tap.flash.color")
 
-        assertNotNull("maro.properties must carry map.marker.tap.flash.color", token)
+        assertNotNull("maro.properties must carry map.sprite.tap.flash.color", token)
         assertEquals(
             "the shipped token and AppConfig.mapMarkerTapFlashColor must name the same colour",
             AppConfig.mapMarkerTapFlashColor,
@@ -58,9 +58,9 @@ class MapMarkerTapFlashColorPropertiesTest {
 
     @Test
     fun theShippedFlashAlphaAgreesWithTheCodesOwnDefault() {
-        val token = shippedProperties().getProperty("map.marker.tap.flash.alpha")
+        val token = shippedProperties().getProperty("map.sprite.tap.flash.alpha")
 
-        assertNotNull("maro.properties must carry map.marker.tap.flash.alpha", token)
+        assertNotNull("maro.properties must carry map.sprite.tap.flash.alpha", token)
         assertEquals(
             "the shipped token and AppConfig.mapMarkerTapFlashAlpha must name the same alpha",
             AppConfig.mapMarkerTapFlashAlpha.toDouble(),

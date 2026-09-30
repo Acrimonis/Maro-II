@@ -210,15 +210,15 @@ original 9 sp type and 3×1 dp padding — a reported risk rather than a second 
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.*`, except the
 families re-homed below to [`maro.properties`](../app/src/main/assets/maro.properties)
 
-**Re-homed:** `map.marker.tap.flash.color` and `.alpha` are the flash's functional settings rather than
+**Re-homed:** `map.sprite.tap.flash.color` and `.alpha` are the flash's functional settings rather than
 palette tokens, and ship in [`maro.properties`](../app/src/main/assets/maro.properties) →
 `AppConfig.mapMarkerTapFlash*`, beside the tap zone and the beat's timing.
 
 **Also in `maro.properties` (2026-09-19):** the coastline, hazard-disc, zone-ahead and 300 m-band colour
 keys below — each one parameterises a rendering behaviour rather than naming a palette role. Their key
 names are unchanged, and their values and the render widths beside them
-(`map.coastline.widthPx`, `map.coastline.transparencyPct`, `map.zone300.boundary.widthPx`,
-`map.regulatedZone.outline.widthPx`) are read in
+(`map.coastline.widthDp`, `map.coastline.transparencyPct`, `map.zone300.boundary.widthDp`,
+`map.regulatedZone.outline.widthDp`) are read in
 [`maro.properties`](../app/src/main/assets/maro.properties), not restated here.
 
 ### Coastlines
@@ -232,23 +232,22 @@ names are unchanged, and their values and the render widths beside them
 
 | Token | Usage |
 |---|---|
-| `map.hazard.disc.fill` | Vivid yellow fill for offshore danger discs |
-| `map.hazard.outline` | Black outline ring + cross |
+| `map.hazard.disc.fill.color` | Vivid yellow fill for offshore danger discs |
+| `map.hazard.outline.color` | Black outline ring + cross |
 
 ### Zone-Ahead Line & Cone
 
 | Token | Usage |
 |---|---|
-| `map.zoneAhead.line` | Dashed line to zone intersection — alias of the palette's success role |
-| `map.zoneAhead.cone.fill` | Translucent yellow cone fill |
-| `map.zoneAhead.cone.outline` | Cone outline |
+| `map.zoneAhead.line.color` | Dashed line to zone intersection — alias of the palette's success role |
+| `map.zoneAhead.cone.fill.color` | Translucent yellow cone fill |
+| `map.zoneAhead.cone.outline.color` | Cone outline |
 
 ### 300 m Band
 
 | Token | Usage |
 |---|---|
-| `map.zone300.fill` | Water-only fill — its packed alpha is vestigial; the fill's alpha comes from the transparency setting |
-| `map.zone300.boundary` | Seaward boundary line — also the seed of the `zone300Color` setting |
+| `map.zone300.boundary.color` | Seaward boundary line — also the seed of the `zone300Color` setting. The band's water-only fill is that same setting, so this file carries no fill key |
 
 ### Depth Overlay
 

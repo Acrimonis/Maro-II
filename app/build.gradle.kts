@@ -100,20 +100,16 @@ android {
         fun propLong(key: String, default: Long): Long =
             maroProps[key]?.toLongOrNull() ?: default
 
-        buildConfigField("boolean", "LAYER_ZONE300_DEFAULT", propBool("layer.zone300.default", true).toString())
-        buildConfigField("boolean", "LAYER_REGULATED_ZONES_DEFAULT", propBool("layer.regulatedZones.default", false).toString())
-        buildConfigField("boolean", "LAYER_COASTLINE_DEFAULT", propBool("layer.coastline.default", true).toString())
-        buildConfigField("boolean", "LAYER_LOW_DEPTH_DEFAULT", propBool("layer.lowDepthWarning.default", true).toString())
-
-        // ── Icon background opacity from maro.properties ─────────────────
-        buildConfigField("int", "ICON_BACK_ACTIVE_ALPHA", (propInt("icon.back.active.transparency", 75) * 255 / 100).toString())
-        buildConfigField("int", "ICON_BACK_INACTIVE_ALPHA", (propInt("icon.back.inactive.transparency", 50) * 255 / 100).toString())
+        buildConfigField("boolean", "LAYER_ZONE300_DEFAULT", propBool("layer.zone300", true).toString())
+        buildConfigField("boolean", "LAYER_REGULATED_ZONES_DEFAULT", propBool("layer.regulatedZone", false).toString())
+        buildConfigField("boolean", "LAYER_COASTLINE_DEFAULT", propBool("layer.coastline", true).toString())
+        buildConfigField("boolean", "LAYER_LOW_DEPTH_DEFAULT", propBool("layer.lowDepth", true).toString())
 
         // ── Regulated zone bake-time filtering from maro.properties ──────
         buildConfigField("double", "REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M",
-            propDouble("regulatedZones.defaultVesselLengthM", 6.0).toString())
+            propDouble("regulatedZone.defaultVesselLengthM", 6.0).toString())
         buildConfigField("String", "REGULATED_ZONES_FILTERED_TYPES",
-            "\"${propString("regulatedZones.filteredTypes", "ENVIRONMENTAL,FISHING_PROHIBITED,OTHER")}\"")
+            "\"${propString("regulatedZone.filteredTypes", "ENVIRONMENTAL,FISHING_PROHIBITED,OTHER")}\"")
 
         // ── Speed zone hysteresis from maro.properties ──────────────────
         buildConfigField("double", "SPEED_ZONE_HYSTERESIS_M",
@@ -129,40 +125,40 @@ android {
                 .coerceAtLeast(10.0).toString())
 
         // ── Track recording defaults from maro.properties ──────────
-        buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("track.originLat.default", 43.55).toString())
-        buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("track.originLon.default", 7.00).toString())
-        buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("track.geofenceRadiusM", 500.0).toString())
-        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("track.enabled.default", false).toString())
+        buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("tracking.originLat", 43.55).toString())
+        buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("tracking.originLon", 7.00).toString())
+        buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("tracking.geofenceRadiusM", 500.0).toString())
+        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("tracking.enabled", false).toString())
 
         // ── Track rendering defaults from maro.properties ──────────
-        buildConfigField("int", "TRACKING_RENDER_NB", propInt("tracking.render.nb", 5).coerceIn(0, 20).toString())
+        buildConfigField("int", "TRACKING_RENDER_NB", propInt("map.track.renderCount", 5).coerceIn(0, 20).toString())
         // The active line's colour: its property key went with the three dead ones below, so the build
         // script's literal is its only default — the Settings row owns the user's own choice.
         buildConfigField("int", "TRACKING_COLOR_ACTIVE", 0xFF1565C0.toInt().toString())
-        buildConfigField("int", "TRACKING_COLOR_PAST_FROM", propInt("tracking.color.pastFrom", 0xFF1565C0.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_PAST_TO", propInt("tracking.color.pastTo", 0xFF0000FF.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PAST_FROM", propColor("tracking.color.pastFrom", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PAST_TO", propColor("tracking.color.pastTo", 0xFF0000FF.toInt()).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_FROM", propInt("tracking.transparency.from", 20).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_TO", propInt("tracking.transparency.to", 80).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_FROM", propInt("tracking.transparency.pinnedFrom", 0).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_TO", propInt("tracking.transparency.pinnedTo", 20).toString())
-        buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propInt("tracking.color.pinnedFrom", 0xFFFF6F00.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propInt("tracking.color.pinnedTo", 0xFFFF8F00.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propColor("tracking.color.pinnedFrom", 0xFFFF6F00.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propColor("tracking.color.pinnedTo", 0xFFFF8F00.toInt()).toString())
 
         // ── The route role's own values: its pair, its ladder, its count and its two gates ──
         buildConfigField("int", "TRACKING_COLOR_ROUTE_FROM",
-            propColor("tracking.color.routeFrom", 0xFF1565C0.toInt()).toString())
+            propColor("route.color.from", 0xFF1565C0.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_ROUTE_TO",
-            propColor("tracking.color.routeTo", 0xFF0000FF.toInt()).toString())
+            propColor("route.color.to", 0xFF0000FF.toInt()).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_ROUTE_FROM",
-            propInt("tracking.transparency.routeFrom", 20).toString())
+            propInt("route.transparency.from", 20).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_ROUTE_TO",
-            propInt("tracking.transparency.routeTo", 80).toString())
+            propInt("route.transparency.to", 80).toString())
         buildConfigField("int", "TRACKING_ROUTE_RENDER_NB",
-            propInt("tracking.route.render.nb", 5).coerceIn(0, 20).toString())
+            propInt("route.renderCount", 5).coerceIn(0, 20).toString())
         buildConfigField("boolean", "TRACKING_ROUTE_ALLOW_SPEED_COLOR",
-            propBool("tracking.route.allowSpeedColor", false).toString())
+            propBool("route.allowSpeedColor", false).toString())
         buildConfigField("boolean", "TRACKING_ROUTE_ALLOW_SPEED_ARROWS",
-            propBool("tracking.route.allowSpeedArrows", true).toString())
+            propBool("route.allowSpeedArrows", true).toString())
         // R42's report channel: the colour keys [propColor] could not read, comma-joined and empty when
         // it read them all, for the app to say at start. Declared after every propColor call above, so
         // the list is complete before it is published.
@@ -187,9 +183,9 @@ android {
 
         // ── User marker proximity defaults from maro.properties ──────────
         buildConfigField("double", "MARKER_PROXIMITY_PIN_M",
-            propDouble("marker.proximity.pin_m", 200.0).toString())
+            propDouble("marker.proximity.pinM", 200.0).toString())
         buildConfigField("double", "MARKER_PROXIMITY_ZONE_MULTIPLIER",
-            propDouble("marker.proximity.zone_multiplier", 3.0).toString())
+            propDouble("marker.proximity.zoneMultiplier", 3.0).toString())
     }
 
     compileOptions {
