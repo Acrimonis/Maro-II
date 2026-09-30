@@ -62,7 +62,7 @@ The word **trace** named the second one and is now gone from the code, the keys,
 
 ## 8. The living records that move
 
-- **The Route book, §1.2 and R29–R42** ([`260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md:46)) — the section's title and every requirement's wording, both locales' keys included. These are the feature's requirements, not a record, so they are rewritten.
+- **The Route book, §1.2 and R29–R42** ([`xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md:46)) — the section's title and every requirement's wording, both locales' keys included. These are the feature's requirements, not a record, so they are rewritten. The book was retired to the archive on 2026-09-30; its requirements added since live in [`FEAT_DSC_Route.md`](../Route/FEAT_DSC_Route.md).
 - **The epic's living rules** ([`FEAT_DSC_Tracks.md`](FEAT_DSC_Tracks.md) and [`FEAT_DSC_Route.md`](../Route/FEAT_DSC_Route.md)) — the sentences that name the flag, the filter axis and the settings rows.
 - [`docs/ui-component-guidelines.md:682`](../../docs/ui-component-guidelines.md:682) — `the track and trace cards' grids` reads `the track and route cards'`.
 - **Not moved:** the shipped plan [`260922_FEAT_PLN_Tracks_trace-flag-and-display.md`](260922_FEAT_PLN_Tracks_trace-flag-and-display.md) and the epic's `## Implemented` entries — they record what shipped under the word of the day, and its pointer stays valid. The `#9` palette key names of that pass are internal to it.

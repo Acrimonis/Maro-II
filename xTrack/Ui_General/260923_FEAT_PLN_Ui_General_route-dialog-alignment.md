@@ -4,7 +4,7 @@
 **Focus:** Ui_General · general (`feature/filter-scroll`).
 **Surfaces:** the panel that owns the dashboard slot in both phases ([`RouteConfirmPanel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt:63)) and the one exit dialog the screen hosts ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3241)).
 **The model for the naming:** the recording exit dialog ([`MapDialogHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapDialogHost.kt:66)) — `Save track` accent · `Continue recording` outlined · `Discard track` red.
-**Owner of the words:** the Route feature's requirement book — R16, R17, R23, R24 of [`260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md:32) — so the book and the epic move with this change.
+**Owner of the words:** the Route feature's requirement book — R16, R17, R23, R24 of [`xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`](../Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md:32) — so the book and the epic move with this change; the book was retired to the archive on 2026-09-30 and requirements added since live in [`FEAT_DSC_Route.md`](../Route/FEAT_DSC_Route.md).
 
 ---
 
@@ -104,7 +104,7 @@ Tighter by subtraction: four 13 sp lines — `Start : 43.1234, 7.1234`, `Destina
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the exit dialog's order, roles and names.
 - `app/src/main/res/values/strings.xml` and `values-fr/strings.xml` — the renamed keys, the ends format, the three label keys that lose their readers, and the route readers `action_cancel` gives up.
 - `docs/ui-component-guidelines.md`, `docs/ui-drawer-guidelines.md` — §5.6, the new §5.8, §9's pointer.
-- `xTrack/Route/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` (R16, R17, R23) and `xTrack/Route/FEAT_DSC_Route.md` (its four repeats).
+- `xTrack/Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md` (R16, R17, R23) and `xTrack/Route/FEAT_DSC_Route.md` (its four repeats).
 - Test: the ends formatter's unit test, beside the card's formatters' own.
 
 ## 7. Strings

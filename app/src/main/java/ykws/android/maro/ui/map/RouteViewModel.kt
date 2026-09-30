@@ -198,11 +198,33 @@ sealed interface RouteState {
 /**
  * **The two ends the drawer's selectors resolved at the trigger** (R44, R46, R71), read by the screen
  * at the instant the acquisition is armed.
+ *
+ * `start` and `destination` are the resolved **points**; `startMarkerId` and `destinationMarkerId` are
+ * the **identities** behind them, non-null only where the selection was a flagged
+ * [ykws.android.maro.data.route.RouteEndSelection.Marker] (R82). Both are read in the same instant, so
+ * a later drawer change cannot re-point the standing line nor re-pair its stored match.
  */
 data class RouteEnds(
     val start: RoutePoint?,
     val fallbackStart: RoutePoint?,
-    val destination: RoutePoint?
+    val destination: RoutePoint?,
+    /** The flagged marker id the start end stood on, or null when it was the boat's or a standing position. */
+    val startMarkerId: String? = null,
+    /** The flagged marker id the destination end stood on, or null when it was not a marker. */
+    val destinationMarkerId: String? = null
+)
+
+/**
+ * **A stored route matched to the armed pair** (R82, R86) — the line rebuilt from its track, handed to
+ * [RouteViewModel.arm] so the acquisition lands on the stored line instead of searching.
+ *
+ * [trackId] is the track the line is already written as for the exact pair, so the save door is shut
+ * (R85); it is **null for the return trip** (R87), whose mirrored plan is a new line no track holds, so
+ * the session registers it with no link and the save door stays open.
+ */
+data class StoredRouteMatch(
+    val plan: RoutePlan,
+    val trackId: String?
 )
 
 /**
@@ -255,6 +277,14 @@ class RouteViewModel(
     /** The pace the trip figure plans at (kn) — set pace, or the boat's own once it has evidence. */
     val paceKn: StateFlow<Double> = _paceKn.asStateFlow()
 
+    /**
+     * The armed pair's marker ids (R82): set by [arm] from the ends it was handed and cleared by [end],
+     * so the save site reads the pair the standing line was armed on rather than re-resolving the
+     * drawer — which may since have moved.
+     */
+    private var armedStartMarkerId: String? = null
+    private var armedDestinationMarkerId: String? = null
+
     /** The session's routes and, for the ones already written, the track each became (R25). */
     private val session = LinkedHashMap<RoutePlan, String?>()
 
@@ -292,8 +322,17 @@ class RouteViewModel(
      * and each declared computation is started as a lookup — the main first, the rest after it. A
      * refused pair arms the toggle and the status line carries the reason: no engine answer gates the
      * mode.
+     *
+     * **[storedMatch]** replaces the search (R82): where a saved route already stands between the same
+     * two markers, the line rebuilt from it lands as the sole, settled page — no lookup started, no
+     * engine asked. Its plan is registered in the session **under the very instance the page carries**,
+     * so `isRouteSaved` reads it through the same equality with no new predicate — shut for the exact
+     * pair, whose track id is carried (R85), and **open for the mirrored return trip** (R87), a new line
+     * no track holds and whose match therefore carries a null track id. [RouteState.Choosing.start] is
+     * the **line's own first point** rather than the marker's current position, which may have moved
+     * since the save.
      */
-    suspend fun arm(ends: RouteEnds) {
+    suspend fun arm(ends: RouteEnds, storedMatch: StoredRouteMatch? = null) {
         if (_state.value !is RouteState.Idle) return
         clearSession()
         _sessionEngine.value = selection.value
@@ -303,8 +342,21 @@ class RouteViewModel(
         _provisionalLine.value = emptyList()
         lookupPages.clear()
         cancelledLookups.clear()
+        armedStartMarkerId = ends.startMarkerId
+        armedDestinationMarkerId = ends.destinationMarkerId
         val start = ends.start
         val destination = ends.destination
+        if (storedMatch != null) {
+            putSession(storedMatch.plan, storedMatch.trackId)
+            _pages.value = listOf(RoutePage(plan = storedMatch.plan))
+            _state.value = RouteState.Choosing(
+                start = storedMatch.plan.start,
+                plan = storedMatch.plan,
+                searching = false,
+                asked = true
+            )
+            return
+        }
         if (start == null || destination == null) {
             _state.value = RouteState.Choosing(start = start, plan = null)
             return
@@ -418,6 +470,9 @@ class RouteViewModel(
     /** The selected page's plan, or null while it has none. */
     fun selectedPlan(): RoutePlan? = selectedPage()?.plan
 
+    /** The two marker ids the armed line stood between, or nulls when an end was not a marker (R82). */
+    fun armedMarkerIds(): Pair<String?, String?> = armedStartMarkerId to armedDestinationMarkerId
+
     /** The panel's Exit — the acquisition's own door, and every other ending (R57). */
     fun end() {
         disposeLookups()
@@ -430,6 +485,8 @@ class RouteViewModel(
         cancelledLookups.clear()
         _state.value = RouteState.Idle
         _sessionEngine.value = null
+        armedStartMarkerId = null
+        armedDestinationMarkerId = null
     }
 
     /** **The one disposal function** — the only thing that calls `cancelLookup`, for every in-flight id. */

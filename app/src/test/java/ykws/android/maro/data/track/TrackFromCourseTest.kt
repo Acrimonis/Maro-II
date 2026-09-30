@@ -115,4 +115,21 @@ class TrackFromCourseTest {
             ).name)
         )
     }
+
+    /** The pair the save is handed is the pair the track keeps; an end that was not a marker stays empty (R82). */
+    @Test
+    fun theTwoEndIdsRideTheBuiltTrack() {
+        val track = TrackFromCourse.build(
+            start = p0,
+            legs = legs(),
+            createdAtMs = t0,
+            routeStartMarkerId = "m-start",
+            routeDestinationMarkerId = "m-dest"
+        )
+
+        assertEquals("m-start", track.routeStartMarkerId)
+        assertEquals("m-dest", track.routeDestinationMarkerId)
+        assertEquals("", build().routeStartMarkerId)
+        assertEquals("", build().routeDestinationMarkerId)
+    }
 }

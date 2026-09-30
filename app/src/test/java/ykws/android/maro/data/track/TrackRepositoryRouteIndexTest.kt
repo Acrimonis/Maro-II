@@ -80,4 +80,25 @@ class TrackRepositoryRouteIndexTest {
         )
         assertEquals(SUMMARY_INDEX_VERSION, rewritten.version)
     }
+
+    /**
+     * The two end ids ride the same pass as the flag (R82): the acquisition's stored-route match reads
+     * them off the summaries, so without this copy it would see empty ids and never find anything.
+     */
+    @Test
+    fun theSummaryCarriesTheTwoEndIdsFromTheSamePass() = runBlocking {
+        repo.save(
+            track("route-1", route = true).copy(
+                routeStartMarkerId = "m-start",
+                routeDestinationMarkerId = "m-dest"
+            )
+        )
+        repo.save(track("recording-1"))
+
+        val summaries = repo.listTracks().associateBy { it.id }
+
+        assertEquals("m-start", summaries.getValue("route-1").routeStartMarkerId)
+        assertEquals("m-dest", summaries.getValue("route-1").routeDestinationMarkerId)
+        assertEquals("an ordinary track carries the empty sentinel", "", summaries.getValue("recording-1").routeStartMarkerId)
+    }
 }

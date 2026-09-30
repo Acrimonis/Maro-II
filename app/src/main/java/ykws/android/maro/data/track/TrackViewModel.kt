@@ -243,9 +243,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * the card's three cells, its creation stamp, its refused Resume and its merge candidacy all read
      * that one flag through `TrackSummary`.
      *
-     * Saving is explicit: nothing on the track points back at the route — the fields were deliberately
-     * left alone, a track being a stored journey — and the **mode's own session** keeps the link
-     * instead, so a route already saved is renamed into a set rather than written a second time.
+     * Saving is explicit: nothing on the track points back at the **route** — the fields were
+     * deliberately left alone, a track being a stored journey — and the **mode's own session** keeps
+     * that link instead, so a route already saved is renamed into a set rather than written a second
+     * time. The one thing the track does carry is the two **end ids** `TrackFromCourse` persisted,
+     * which name the markers the route stood between and never the route object itself.
      */
     suspend fun saveBuiltTrack(track: Track): String {
         repository.save(track)

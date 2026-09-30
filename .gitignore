@@ -29,6 +29,7 @@ local.properties
 *.log
 
 # Kotlin
+.kotlin/
 *.kotlin_module
 
 # Misc
