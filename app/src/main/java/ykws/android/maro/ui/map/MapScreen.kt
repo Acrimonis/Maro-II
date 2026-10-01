@@ -200,6 +200,9 @@ import ykws.android.maro.ui.components.LocalConfirmDialogHost
 import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
+import ykws.android.maro.data.track.TrackViewModel
+import ykws.android.maro.data.model.ListFilter
+import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
@@ -207,6 +210,18 @@ import ykws.android.maro.ui.map.toMarkerSnapshot
 
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
+
+/**
+ * R2's scope-close entry point — [MapScreen]'s local `closeDashboardsForScopeChange` — as a value, so
+ * the hoisted top-level callbacks (code-health step 3, tier 1) can receive it as a parameter: a
+ * top-level function cannot call a local one.
+ */
+private typealias CloseDashboards = (
+    markerListWorld: Boolean,
+    markerMapWorld: Boolean,
+    trackListWorld: Boolean,
+    trackMapWorld: Boolean,
+) -> Unit
 
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
 internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
@@ -758,6 +773,17 @@ fun MapScreen(
         if (trackScopeClosed(trackDrawerState.source, inListWorld = trackListWorld, inMapWorld = trackMapWorld)) {
             closeTrackDrawer()
         }
+    }
+
+    // The R2 entry point handed to the hoisted callbacks below (a top-level function cannot call a
+    // local one). Rebuilt with the composition exactly as each call site's own lambda always was.
+    val closeDashboards: CloseDashboards = { markerListWorld, markerMapWorld, trackListWorld, trackMapWorld ->
+        closeDashboardsForScopeChange(
+            markerListWorld = markerListWorld,
+            markerMapWorld = markerMapWorld,
+            trackListWorld = trackListWorld,
+            trackMapWorld = trackMapWorld
+        )
     }
 
     // Single-GPX import whose match dialog is pending a Duplicate / Override / Cancel choice.
@@ -3170,22 +3196,9 @@ fun MapScreen(
             ),
             onGpsModeChange = onGpsModeChange,
             onAutoShowMasterChange = { v -> viewModel.updateSettings { it.copy(autoShowMasterOverride = v) } },
-            onToggleMarkerZones = {
-                Log.d("MaroMapRefresh", "MenuDrawer toggle: markerZonesVisible ${appSettings.markerZonesVisible} -> ${!appSettings.markerZonesVisible}")
-                viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
-                mapView?.invalidate()
-            },
-            onTrackArrowsChange = { arrows ->
-                // D3: one writer for the pair; the map reads the axes and the eye's own override never
-                // touches either of them. Each chip folds into its own `copy`, so a tap never rewrites
-                // the axis the user did not touch.
-                viewModel.updateSettings { it.copy(trackArrows = arrows) }
-                mapView?.invalidate()
-            },
-            onTrackColoursChange = { colours ->
-                viewModel.updateSettings { it.copy(trackColours = colours) }
-                mapView?.invalidate()
-            },
+            onToggleMarkerZones = { toggleMarkerZones(viewModel, appSettings, mapView) },
+            onTrackArrowsChange = { arrows -> applyTrackArrowsChange(viewModel, mapView, arrows) },
+            onTrackColoursChange = { colours -> applyTrackColoursChange(viewModel, mapView, colours) },
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openSelectedTrack(listOf(action.id))
@@ -3204,80 +3217,19 @@ fun MapScreen(
                 trackListState = trackListState,
             ),
             onTrackSortStateChange = { newState ->
-                // R2: the sort rewrites the list world the open track walk reads — and, when the link is
-                // on, the map world with it, so a linked write closes a menu- or spy-opened card too.
-                closeDashboardsForScopeChange(
-                    trackListWorld = true,
-                    trackMapWorld = appSettings.trackFilterLinked
-                )
-                viewModel.updateSettings { it.copy(trackListSort = newState) }
-                trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
-                mapView?.invalidate()
+                applyTrackSortChange(viewModel, appSettings, trackViewModel, mapView, closeDashboards, newState)
             },
             onTrackFilterChange = { newFilter ->
-                // R2: the list filter rewrites the list world the open track walk reads — and the map
-                // world with it when the link is on, closing a menu- or spy-opened card too.
-                closeDashboardsForScopeChange(
-                    trackListWorld = true,
-                    trackMapWorld = appSettings.trackFilterLinked
-                )
-                viewModel.updateSettings { s ->
-                    if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
-                    else s.copy(trackListFilter = newFilter)
-                }
-                trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
+                applyTrackFilterChange(viewModel, appSettings, trackViewModel, closeDashboards, newFilter)
             },
-            onTrackReset = {
-                // R2: the reset rewrites the list world the open track walk reads — and the map world
-                // with it when the link is on, closing a menu- or spy-opened card too.
-                closeDashboardsForScopeChange(
-                    trackListWorld = true,
-                    trackMapWorld = appSettings.trackFilterLinked
-                )
-                val resetFilter = ykws.android.maro.data.model.ListFilter()
-                viewModel.updateSettings { s ->
-                    if (s.trackFilterLinked) s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter, trackMapFilter = resetFilter)
-                    else s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter)
-                }
-                trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
-                // List reset clears the session boost only when the map filter is linked (it moved too).
-                if (appSettings.trackFilterLinked) trackViewModel.clearRenderBoost()
-                mapView?.invalidate()
-            },
+            onTrackReset = { applyTrackReset(viewModel, appSettings, trackViewModel, mapView, closeDashboards) },
             // ── Track map referential (menu filter) + link ────────────────
             onTrackMapFilterChange = { newFilter ->
-                val linked = appSettings.trackFilterLinked
-                // R2: the map write rewrites the map world every menu- and spy-opened card walks, so it
-                // closes those; while the link is on it moves the list world with it, closing a
-                // list-opened card too. Unlinked it is display-only for the list world.
-                closeDashboardsForScopeChange(trackListWorld = linked, trackMapWorld = true)
-                viewModel.updateSettings { s ->
-                    if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
-                    else s.copy(trackMapFilter = newFilter)
-                }
-                if (linked) trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
-                mapView?.invalidate()
+                applyTrackMapFilterChange(viewModel, appSettings, trackViewModel, mapView, closeDashboards, newFilter)
             },
-            onTrackMapReset = {
-                val resetFilter = ykws.android.maro.data.model.ListFilter()
-                val linked = appSettings.trackFilterLinked
-                // R2: a map reset rewrites the map world, closing every menu- and spy-opened card; a
-                // linked reset moves the list world with it and closes a list-opened card too.
-                closeDashboardsForScopeChange(trackListWorld = linked, trackMapWorld = true)
-                viewModel.updateSettings { s ->
-                    if (s.trackFilterLinked) s.copy(trackListFilter = resetFilter, trackMapFilter = resetFilter)
-                    else s.copy(trackMapFilter = resetFilter)
-                }
-                if (linked) trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
-                // The map reset always invalidates the session boost.
-                trackViewModel.clearRenderBoost()
-                mapView?.invalidate()
-            },
+            onTrackMapReset = { applyTrackMapReset(viewModel, appSettings, trackViewModel, mapView, closeDashboards) },
             trackFilterLinked = appSettings.trackFilterLinked,
-            onToggleTrackLink = {
-                // Pure flip: no filter carry-over. Next linked edit writes both.
-                viewModel.updateSettings { s -> s.copy(trackFilterLinked = !s.trackFilterLinked) }
-            },
+            onToggleTrackLink = { toggleTrackFilterLink(viewModel) },
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             settings = SettingsOverlayData(
@@ -3359,86 +3311,26 @@ fun MapScreen(
                 walkHeld = inspectHandoff != null,
                 trackColours = appSettings.trackColours,
                 eyeOverride = appSettings.trackSelectionBanded,
-                onToggleEyeOverride = {
-                    // D10: the eye moves the selected track's fill alone, never the colours flag every
-                    // other track renders by. With Colours off it turns the ramp on for this one track,
-                    // with Colours on it turns this track off it, and from the first tap the value is
-                    // the user's own: the flag stops reaching it. The tap's algebra lives in
-                    // `selectionBandedAfterTap`, where it is unit-tested.
-                    viewModel.updateSettings {
-                        it.copy(
-                            trackSelectionBanded = selectionBandedAfterTap(
-                                appSettings.trackSelectionBanded,
-                                appSettings.trackColours
-                            )
-                        )
-                    }
-                    mapView?.invalidate()
-                },
+                onToggleEyeOverride = { toggleSelectedTrackEye(viewModel, appSettings, mapView) },
             ),
             onTrackDrawerClose = { closeTrackDrawer() },
             onNavigateToTrack = { id -> openSelectedTrack(listOf(id)) },
             onResumeRequest = { id, fromList -> pendingResume = PendingTrackResume(id, fromList) },
             onFollowRequest = { id, fromList -> followSavedTrack(id, fromList) },
             onMarkerSortStateChange = { newState ->
-                // R2: the sort rewrites the list world a list-opened marker walk reads; a map-opened one
-                // reads the map world and stays open.
-                closeDashboardsForScopeChange(markerListWorld = true)
-                viewModel.updateSettings { it.copy(markerListSort = newState) }
-                markersViewModel.refreshSort(newState)
+                applyMarkerSortChange(viewModel, markersViewModel, closeDashboards, newState)
             },
             onMarkerFilterChange = { newFilter ->
-                android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
-                // R2: the list filter rewrites the list world a list-opened marker walk reads.
-                closeDashboardsForScopeChange(markerListWorld = true)
-                viewModel.updateSettings { s ->
-                    if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
-                    else s.copy(markerListFilter = newFilter)
-                }
-                markersViewModel.refreshSort(filter = newFilter)
+                applyMarkerFilterChange(viewModel, markersViewModel, closeDashboards, newFilter)
             },
-            onMarkerReset = {
-                android.util.Log.d("MaroMapRefresh", "onMarkerReset")
-                // R2: the reset rewrites the list world a list-opened marker walk reads.
-                closeDashboardsForScopeChange(markerListWorld = true)
-                val resetFilter = ykws.android.maro.data.model.ListFilter()
-                viewModel.updateSettings { s ->
-                    if (s.markerFilterLinked) s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter, markerMapFilter = resetFilter)
-                    else s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter)
-                }
-                markersViewModel.refreshSort(filter = resetFilter)
-            },
+            onMarkerReset = { applyMarkerReset(viewModel, markersViewModel, closeDashboards) },
             // ── Marker map referential (menu filter) + link ───────────────
             onMarkerMapFilterChange = { newFilter ->
-                val linked = appSettings.markerFilterLinked
-                // R2: a map-opened marker card stands — its item is not the filter's business — while
-                // the spy card, whose walk is bounded by the map filter, still closes here. The view
-                // model then re-tests the linked list world too — a map write need not pass through
-                // `refreshSort`, which is why the control reports here as well.
-                closeDashboardsForScopeChange(markerMapWorld = true)
-                viewModel.updateSettings { s ->
-                    if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
-                    else s.copy(markerMapFilter = newFilter)
-                }
-                markersViewModel.onMapReferentialChanged()
-                if (linked) markersViewModel.refreshSort(filter = newFilter)
+                applyMarkerMapFilterChange(viewModel, appSettings, markersViewModel, closeDashboards, newFilter)
             },
-            onMarkerMapReset = {
-                // R2: a map-opened marker card stands, while the spy card still closes.
-                closeDashboardsForScopeChange(markerMapWorld = true)
-                val resetFilter = ykws.android.maro.data.model.ListFilter()
-                viewModel.updateSettings { s ->
-                    if (s.markerFilterLinked) s.copy(markerListFilter = resetFilter, markerMapFilter = resetFilter)
-                    else s.copy(markerMapFilter = resetFilter)
-                }
-                markersViewModel.onMapReferentialChanged()
-                if (appSettings.markerFilterLinked) markersViewModel.refreshSort(filter = resetFilter)
-            },
+            onMarkerMapReset = { applyMarkerMapReset(viewModel, appSettings, markersViewModel, closeDashboards) },
             markerFilterLinked = appSettings.markerFilterLinked,
-            onToggleMarkerLink = {
-                // Pure flip: no filter carry-over. Next linked edit writes both.
-                viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
-            },
+            onToggleMarkerLink = { toggleMarkerFilterLink(viewModel) },
             onCreateFirst = {
                 // R1: the wizard takes the dashboard slot — the other dashboard closes first.
                 closeSelectedItemDashboards()
@@ -3783,6 +3675,268 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
+}
+
+// ── OverlayLayer callback bodies, hoisted out of the call site (code-health step 3, tier 1) ──
+// Move, don't rewrite: each body is the lambda's own, its captures threaded as explicit parameters so
+// the top-level reference stays stable and OverlayLayer's parameter skipping is preserved.
+
+/** The menu's Markers-zones toggle: one settings write, one log line, one repaint. */
+private fun toggleMarkerZones(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    mapView: MapView?
+) {
+    Log.d("MaroMapRefresh", "MenuDrawer toggle: markerZonesVisible ${appSettings.markerZonesVisible} -> ${!appSettings.markerZonesVisible}")
+    viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
+    mapView?.invalidate()
+}
+
+/** The menu's Arrows chip (D3). */
+private fun applyTrackArrowsChange(
+    viewModel: NavigationViewModel,
+    mapView: MapView?,
+    arrows: Boolean
+) {
+    // D3: one writer for the pair; the map reads the axes and the eye's own override never
+    // touches either of them. Each chip folds into its own `copy`, so a tap never rewrites
+    // the axis the user did not touch.
+    viewModel.updateSettings { it.copy(trackArrows = arrows) }
+    mapView?.invalidate()
+}
+
+/** The menu's Colours chip (D3) — the same single owner the arrows axis has. */
+private fun applyTrackColoursChange(
+    viewModel: NavigationViewModel,
+    mapView: MapView?,
+    colours: Boolean
+) {
+    viewModel.updateSettings { it.copy(trackColours = colours) }
+    mapView?.invalidate()
+}
+
+/** The track list/map link toggle. */
+private fun toggleTrackFilterLink(viewModel: NavigationViewModel) {
+    // Pure flip: no filter carry-over. Next linked edit writes both.
+    viewModel.updateSettings { s -> s.copy(trackFilterLinked = !s.trackFilterLinked) }
+}
+
+/** The marker list/map link toggle. */
+private fun toggleMarkerFilterLink(viewModel: NavigationViewModel) {
+    // Pure flip: no filter carry-over. Next linked edit writes both.
+    viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
+}
+
+/** The track drawer's eye override (D10). */
+private fun toggleSelectedTrackEye(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    mapView: MapView?
+) {
+    // D10: the eye moves the selected track's fill alone, never the colours flag every
+    // other track renders by. With Colours off it turns the ramp on for this one track,
+    // with Colours on it turns this track off it, and from the first tap the value is
+    // the user's own: the flag stops reaching it. The tap's algebra lives in
+    // `selectionBandedAfterTap`, where it is unit-tested.
+    viewModel.updateSettings {
+        it.copy(
+            trackSelectionBanded = selectionBandedAfterTap(
+                appSettings.trackSelectionBanded,
+                appSettings.trackColours
+            )
+        )
+    }
+    mapView?.invalidate()
+}
+
+/** R2 + the track list sort. */
+private fun applyTrackSortChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    trackViewModel: TrackViewModel,
+    mapView: MapView?,
+    closeDashboards: CloseDashboards,
+    newState: ListSortState
+) {
+    // R2: the sort rewrites the list world the open track walk reads — and, when the link is
+    // on, the map world with it, so a linked write closes a menu- or spy-opened card too.
+    closeDashboards(false, false, true, appSettings.trackFilterLinked)
+    viewModel.updateSettings { it.copy(trackListSort = newState) }
+    trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
+    mapView?.invalidate()
+}
+
+/** R2 + the track list filter. */
+private fun applyTrackFilterChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    trackViewModel: TrackViewModel,
+    closeDashboards: CloseDashboards,
+    newFilter: ListFilter
+) {
+    // R2: the list filter rewrites the list world the open track walk reads — and the map
+    // world with it when the link is on, closing a menu- or spy-opened card too.
+    closeDashboards(false, false, true, appSettings.trackFilterLinked)
+    viewModel.updateSettings { s ->
+        if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
+        else s.copy(trackListFilter = newFilter)
+    }
+    trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
+}
+
+/** R2 + the track list reset. */
+private fun applyTrackReset(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    trackViewModel: TrackViewModel,
+    mapView: MapView?,
+    closeDashboards: CloseDashboards
+) {
+    // R2: the reset rewrites the list world the open track walk reads — and the map world
+    // with it when the link is on, closing a menu- or spy-opened card too.
+    closeDashboards(false, false, true, appSettings.trackFilterLinked)
+    val resetFilter = ykws.android.maro.data.model.ListFilter()
+    viewModel.updateSettings { s ->
+        if (s.trackFilterLinked) s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter, trackMapFilter = resetFilter)
+        else s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter)
+    }
+    trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
+    // List reset clears the session boost only when the map filter is linked (it moved too).
+    if (appSettings.trackFilterLinked) trackViewModel.clearRenderBoost()
+    mapView?.invalidate()
+}
+
+/** R2 + the track map-referential filter. */
+private fun applyTrackMapFilterChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    trackViewModel: TrackViewModel,
+    mapView: MapView?,
+    closeDashboards: CloseDashboards,
+    newFilter: ListFilter
+) {
+    val linked = appSettings.trackFilterLinked
+    // R2: the map write rewrites the map world every menu- and spy-opened card walks, so it
+    // closes those; while the link is on it moves the list world with it, closing a
+    // list-opened card too. Unlinked it is display-only for the list world.
+    closeDashboards(false, true, linked, true)
+    viewModel.updateSettings { s ->
+        if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
+        else s.copy(trackMapFilter = newFilter)
+    }
+    if (linked) trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
+    mapView?.invalidate()
+}
+
+/** R2 + the track map-referential reset. */
+private fun applyTrackMapReset(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    trackViewModel: TrackViewModel,
+    mapView: MapView?,
+    closeDashboards: CloseDashboards
+) {
+    val resetFilter = ykws.android.maro.data.model.ListFilter()
+    val linked = appSettings.trackFilterLinked
+    // R2: a map reset rewrites the map world, closing every menu- and spy-opened card; a
+    // linked reset moves the list world with it and closes a list-opened card too.
+    closeDashboards(false, true, linked, true)
+    viewModel.updateSettings { s ->
+        if (s.trackFilterLinked) s.copy(trackListFilter = resetFilter, trackMapFilter = resetFilter)
+        else s.copy(trackMapFilter = resetFilter)
+    }
+    if (linked) trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
+    // The map reset always invalidates the session boost.
+    trackViewModel.clearRenderBoost()
+    mapView?.invalidate()
+}
+
+/** R2 + the marker list sort. */
+private fun applyMarkerSortChange(
+    viewModel: NavigationViewModel,
+    markersViewModel: MarkersViewModel,
+    closeDashboards: CloseDashboards,
+    newState: ListSortState
+) {
+    // R2: the sort rewrites the list world a list-opened marker walk reads; a map-opened one
+    // reads the map world and stays open.
+    closeDashboards(true, false, false, false)
+    viewModel.updateSettings { it.copy(markerListSort = newState) }
+    markersViewModel.refreshSort(newState)
+}
+
+/** R2 + the marker list filter. */
+private fun applyMarkerFilterChange(
+    viewModel: NavigationViewModel,
+    markersViewModel: MarkersViewModel,
+    closeDashboards: CloseDashboards,
+    newFilter: ListFilter
+) {
+    android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
+    // R2: the list filter rewrites the list world a list-opened marker walk reads.
+    closeDashboards(true, false, false, false)
+    viewModel.updateSettings { s ->
+        if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
+        else s.copy(markerListFilter = newFilter)
+    }
+    markersViewModel.refreshSort(filter = newFilter)
+}
+
+/** R2 + the marker list reset. */
+private fun applyMarkerReset(
+    viewModel: NavigationViewModel,
+    markersViewModel: MarkersViewModel,
+    closeDashboards: CloseDashboards
+) {
+    android.util.Log.d("MaroMapRefresh", "onMarkerReset")
+    // R2: the reset rewrites the list world a list-opened marker walk reads.
+    closeDashboards(true, false, false, false)
+    val resetFilter = ykws.android.maro.data.model.ListFilter()
+    viewModel.updateSettings { s ->
+        if (s.markerFilterLinked) s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter, markerMapFilter = resetFilter)
+        else s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter)
+    }
+    markersViewModel.refreshSort(filter = resetFilter)
+}
+
+/** R2 + the marker map-referential filter. */
+private fun applyMarkerMapFilterChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    markersViewModel: MarkersViewModel,
+    closeDashboards: CloseDashboards,
+    newFilter: ListFilter
+) {
+    val linked = appSettings.markerFilterLinked
+    // R2: a map-opened marker card stands — its item is not the filter's business — while
+    // the spy card, whose walk is bounded by the map filter, still closes here. The view
+    // model then re-tests the linked list world too — a map write need not pass through
+    // `refreshSort`, which is why the control reports here as well.
+    closeDashboards(false, true, false, false)
+    viewModel.updateSettings { s ->
+        if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
+        else s.copy(markerMapFilter = newFilter)
+    }
+    markersViewModel.onMapReferentialChanged()
+    if (linked) markersViewModel.refreshSort(filter = newFilter)
+}
+
+/** R2 + the marker map-referential reset. */
+private fun applyMarkerMapReset(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    markersViewModel: MarkersViewModel,
+    closeDashboards: CloseDashboards
+) {
+    // R2: a map-opened marker card stands, while the spy card still closes.
+    closeDashboards(false, true, false, false)
+    val resetFilter = ykws.android.maro.data.model.ListFilter()
+    viewModel.updateSettings { s ->
+        if (s.markerFilterLinked) s.copy(markerListFilter = resetFilter, markerMapFilter = resetFilter)
+        else s.copy(markerMapFilter = resetFilter)
+    }
+    markersViewModel.onMapReferentialChanged()
+    if (appSettings.markerFilterLinked) markersViewModel.refreshSort(filter = resetFilter)
 }
 
 // ── Map content area (shared by landscape & portrait) ────────────────────────
