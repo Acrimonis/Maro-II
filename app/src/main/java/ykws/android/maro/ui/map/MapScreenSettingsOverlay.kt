@@ -84,17 +84,22 @@ import ykws.android.maro.ui.components.Expander
 import ykws.android.maro.ui.components.NestedCard
 import ykws.android.maro.ui.components.SliderRow
 import ykws.android.maro.ui.components.ToggleRow
+import ykws.android.maro.ui.components.MultiSelectRow
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionButton
+import ykws.android.maro.ui.components.ConfirmActionRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    onGpsModeChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
+    onImportTracks: () -> Unit = {},
+    onExportAllTracks: () -> Unit = {},
     displayScrollState: ScrollState,
     navigationScrollState: ScrollState,
     positionScrollState: ScrollState,
@@ -173,9 +178,9 @@ internal fun SettingsOverlay(
                         .padding(horizontal = 24.dp)
                 ) {
                     when (page) {
-                        0 -> LayersSettings(settings, onUpdateSettings, displayScrollState)
+                        0 -> LayersSettings(settings, onUpdateSettings, onImportTracks, onExportAllTracks, displayScrollState)
                         1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
-                        2 -> PositionSettings(settings, onUpdateSettings, onGpsModeChange, onDismiss, positionScrollState)
+                        2 -> PositionSettings(settings, onUpdateSettings, positionScrollState)
                         3 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState)
                     }
                 }
@@ -194,12 +199,16 @@ internal fun SettingsOverlay(
     }
 }
 
+private enum class DisplayTrackAxis { ARROWS, COLOURS }
+
 // ── Layers tab ────────────────────────────────────────────────────────────
 
 @Composable
 private fun LayersSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onImportTracks: () -> Unit,
+    onExportAllTracks: () -> Unit,
     scrollState: ScrollState
 ) {
     val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
@@ -427,7 +436,50 @@ private fun LayersSettings(
                         onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteTo = c) } }
                     )
 
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Expander(
+                label = stringResource(R.string.settings_tracks_direction_settings_label),
+                expanded = settingsVm.isExpanded("track_direction"),
+                onToggle = { settingsVm.setExpanded("track_direction", !settingsVm.isExpanded("track_direction")) }
+            ) {
+                Spacer(Modifier.height(4.dp))
+                NestedCard {
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_tracks_speed_display_label)
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    MultiSelectRow(
+                        options = listOf(
+                            DisplayTrackAxis.ARROWS to stringResource(R.string.menu_render_arrows),
+                            DisplayTrackAxis.COLOURS to stringResource(R.string.menu_render_colours)
+                        ),
+                        isOn = { axis ->
+                            when (axis) {
+                                DisplayTrackAxis.ARROWS -> settings.trackArrows
+                                DisplayTrackAxis.COLOURS -> settings.trackColours
+                            }
+                        },
+                        onToggle = { axis ->
+                            when (axis) {
+                                DisplayTrackAxis.ARROWS -> onUpdateSettings { it.copy(trackArrows = !it.trackArrows) }
+                                DisplayTrackAxis.COLOURS -> onUpdateSettings { it.copy(trackColours = !it.trackColours) }
+                            }
+                        }
+                    )
+
                     SectionDivider()
+
+                    SubSectionHeader(
+                        title = stringResource(R.string.route_trip_title)
+                    )
+
+                    Spacer(Modifier.height(8.dp))
 
                     // The route's two rendering gates, each gating its drawer chip: the colour one
                     // bands a route only while the Colours chip is on too, the arrow one can only
@@ -442,18 +494,9 @@ private fun LayersSettings(
                         checked = settings.routeSpeedArrows,
                         onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
                     )
-                }
-            }
 
-            Spacer(Modifier.height(8.dp))
+                    SectionDivider()
 
-            Expander(
-                label = stringResource(R.string.settings_tracks_direction_settings_label),
-                expanded = settingsVm.isExpanded("track_direction"),
-                onToggle = { settingsVm.setExpanded("track_direction", !settingsVm.isExpanded("track_direction")) }
-            ) {
-                Spacer(Modifier.height(4.dp))
-                NestedCard {
                     SubSectionHeader(
                         title = stringResource(R.string.settings_tracks_direction_density_label)
                     )
@@ -515,6 +558,29 @@ private fun LayersSettings(
                 }
             }
 
+            SectionDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.action_export),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onExportAllTracks
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.action_import),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onImportTracks
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             Spacer(Modifier.height(4.dp))
         }
 
@@ -525,6 +591,12 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_markers_desc))
+            ToggleRow(
+                label = stringResource(R.string.menu_show_zones),
+                checked = settings.markerZonesVisible,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(markerZonesVisible = on) } }
+            )
+            SectionDivider()
             Expander(
                 label = stringResource(R.string.settings_marker_rendering_label),
                 expanded = settingsVm.isExpanded("markers_rendering"),
@@ -1047,6 +1119,104 @@ private fun NavigationSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
+        // ── Route ─────────────────────────────────────────────────────────────
+        // The free-water pace: the trip figure's own setting, and the third of the three seams. The
+        // bounds are read from AppConfig, where they live beside the accessor, so the slider, the
+        // properties loader and the settings clamp cannot disagree about 3 and 40.
+        SectionHeader(title = stringResource(R.string.route_trip_title))
+
+        CardArea {
+            SliderRow(
+                label = stringResource(R.string.settings_route_pace_label),
+                description = stringResource(R.string.settings_route_pace_desc),
+                valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
+                value = settings.routeFreeWaterPaceKn,
+                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
+                steps = (AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
+                    .toInt() - 1,
+                onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
+            )
+
+            SectionDivider()
+
+            // The slow-water budget: how much of a trip may be spent slowed by speed zones, as a share of
+            // its time. A route still over it is **reported and never refused**, so this is a preference
+            // rather than a gate — and its bounds are read from AppConfig, where they live beside the
+            // accessor, so the slider, the properties loader and the settings clamp cannot disagree.
+            SliderRow(
+                label = stringResource(R.string.settings_route_budget_label),
+                description = stringResource(R.string.settings_route_budget_desc),
+                valueLabel = stringResource(
+                    R.string.settings_value_percent,
+                    settings.routeSlowWaterBudgetPct
+                ),
+                value = settings.routeSlowWaterBudgetPct.toFloat(),
+                valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
+                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
+                steps = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX -
+                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
+                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Stop detection ──────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_idle_section_label))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            ToggleRow(
+                label = stringResource(R.string.settings_stop_enable_label),
+                description = stringResource(R.string.settings_stop_enable_desc),
+                checked = settings.stopDetectionEnabled,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
+            )
+
+            if (settings.stopDetectionEnabled) {
+                Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+
+                Expander(
+                    label = stringResource(R.string.settings_stop_thresholds_label),
+                    expanded = settingsVm.isExpanded("stop_thresholds"),
+                    onToggle = { settingsVm.setExpanded("stop_thresholds", !settingsVm.isExpanded("stop_thresholds")) }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    NestedCard {
+                        SliderRow(
+                            label = stringResource(R.string.settings_window_label),
+                            description = stringResource(R.string.settings_window_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.stopDetectionTimeSec),
+                            value = settings.stopDetectionTimeSec.toFloat(),
+                            valueRange = 10f..90f,
+                            steps = 15,
+                            onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionTimeSec = (v / 5f).roundToInt() * 5) } }
+                        )
+                        SectionDivider()
+                        SliderRow(
+                            label = stringResource(R.string.settings_adaptive_dist_label),
+                            description = stringResource(R.string.settings_adaptive_dist_desc),
+                            valueLabel = stringResource(R.string.settings_value_meters, settings.stopDetectionDistanceM),
+                            value = settings.stopDetectionDistanceM.toFloat(),
+                            valueRange = 10f..30f,
+                            steps = 3,
+                            onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionDistanceM = (v / 5f).roundToInt() * 5) } }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+
+                ToggleRow(
+                    label = stringResource(R.string.settings_stop_delay_label),
+                    description = stringResource(R.string.settings_stop_delay_desc),
+                    checked = settings.stopDetectionDelayGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
         // ── Orientation aids ────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_orientation))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
@@ -1283,47 +1453,6 @@ private fun NavigationSettings(
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
-    // ── Route ─────────────────────────────────────────────────────────────
-    // The free-water pace: the trip figure's own setting, and the third of the three seams. The
-    // bounds are read from AppConfig, where they live beside the accessor, so the slider, the
-    // properties loader and the settings clamp cannot disagree about 3 and 40.
-    SectionHeader(title = stringResource(R.string.route_trip_title))
-
-    CardArea {
-        SliderRow(
-            label = stringResource(R.string.settings_route_pace_label),
-            description = stringResource(R.string.settings_route_pace_desc),
-            valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
-            value = settings.routeFreeWaterPaceKn,
-            valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
-            steps = (AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
-                .toInt() - 1,
-            onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
-        )
-
-        SectionDivider()
-
-        // The slow-water budget: how much of a trip may be spent slowed by speed zones, as a share of
-        // its time. A route still over it is **reported and never refused**, so this is a preference
-        // rather than a gate — and its bounds are read from AppConfig, where they live beside the
-        // accessor, so the slider, the properties loader and the settings clamp cannot disagree.
-        SliderRow(
-            label = stringResource(R.string.settings_route_budget_label),
-            description = stringResource(R.string.settings_route_budget_desc),
-            valueLabel = stringResource(
-                R.string.settings_value_percent,
-                settings.routeSlowWaterBudgetPct
-            ),
-            value = settings.routeSlowWaterBudgetPct.toFloat(),
-            valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
-                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
-            steps = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX -
-                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
-            onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
-        )
-    }
-
-    Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_map_offset_label))
@@ -1370,7 +1499,25 @@ private fun NavigationSettings(
 private fun PositionSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    onGpsModeChange: (Boolean) -> Unit,
+    scrollState: ScrollState
+) {
+    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+
+    }
+}
+
+// ── System tab ───────────────────────────────────────────────────────────
+
+@Composable
+private fun SystemSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
     onDismiss: () -> Unit,
     scrollState: ScrollState
 ) {
@@ -1380,22 +1527,46 @@ private fun PositionSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Position source (Demo <-> GPS) ────────────────────────────
+        // ── Language ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_language))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            SegmentedRow(
+                options = listOf(
+                    // (code, label) — endonyms (English/Français) read the same in every locale.
+                    "system" to stringResource(R.string.settings_language_system),
+                    "en" to stringResource(R.string.settings_language_english),
+                    "fr" to stringResource(R.string.settings_language_french)
+                ),
+                selected = settings.languageCode,
+                onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Route algorithm ──────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_route_algorithm))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            CardDescription(stringResource(R.string.settings_route_algorithm_desc))
+            DropdownRow(
+                label = null,
+                options = RouteEngineChoice.all.map { it.id to stringResource(it.labelResId) },
+                selected = RouteEngineChoice.resolve(settings.routeEngineId).id,
+                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } },
+                accessibleName = stringResource(R.string.settings_section_route_algorithm)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Navigation (GPS tuning) ─────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_position))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            ToggleRow(
-                label = stringResource(R.string.settings_gps_mode_label),
-                description = stringResource(R.string.settings_gps_mode_desc),
-                checked = settings.gpsMode,
-                onCheckedChange = { checked ->
-                    onGpsModeChange(checked)
-                    onDismiss()
-                }
-            )
-
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
             Expander(
                 label = stringResource(R.string.settings_gps_tuning_label),
                 expanded = settingsVm.isExpanded("gps_tuning"),
@@ -1450,115 +1621,6 @@ private fun PositionSettings(
                     )
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
-
-        // ── Stop detection ──────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_idle_section_label))
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-
-        CardArea {
-            ToggleRow(
-                label = stringResource(R.string.settings_stop_enable_label),
-                description = stringResource(R.string.settings_stop_enable_desc),
-                checked = settings.stopDetectionEnabled,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
-            )
-
-            if (settings.stopDetectionEnabled) {
-                Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-
-                Expander(
-                    label = stringResource(R.string.settings_stop_thresholds_label),
-                    expanded = settingsVm.isExpanded("stop_thresholds"),
-                    onToggle = { settingsVm.setExpanded("stop_thresholds", !settingsVm.isExpanded("stop_thresholds")) }
-                ) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    NestedCard {
-                        SliderRow(
-                            label = stringResource(R.string.settings_window_label),
-                            description = stringResource(R.string.settings_window_desc),
-                            valueLabel = stringResource(R.string.settings_value_seconds, settings.stopDetectionTimeSec),
-                            value = settings.stopDetectionTimeSec.toFloat(),
-                            valueRange = 10f..90f,
-                            steps = 15,
-                            onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionTimeSec = (v / 5f).roundToInt() * 5) } }
-                        )
-                        SectionDivider()
-                        SliderRow(
-                            label = stringResource(R.string.settings_adaptive_dist_label),
-                            description = stringResource(R.string.settings_adaptive_dist_desc),
-                            valueLabel = stringResource(R.string.settings_value_meters, settings.stopDetectionDistanceM),
-                            value = settings.stopDetectionDistanceM.toFloat(),
-                            valueRange = 10f..30f,
-                            steps = 3,
-                            onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionDistanceM = (v / 5f).roundToInt() * 5) } }
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-
-                ToggleRow(
-                    label = stringResource(R.string.settings_stop_delay_label),
-                    description = stringResource(R.string.settings_stop_delay_desc),
-                    checked = settings.stopDetectionDelayGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
-    }
-}
-
-// ── System tab ───────────────────────────────────────────────────────────
-
-@Composable
-private fun SystemSettings(
-    settings: AppSettings,
-    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
-    onDismiss: () -> Unit,
-    scrollState: ScrollState
-) {
-    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-    ) {
-        // ── Language ──────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_language))
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-
-        CardArea {
-            SegmentedRow(
-                options = listOf(
-                    // (code, label) — endonyms (English/Français) read the same in every locale.
-                    "system" to stringResource(R.string.settings_language_system),
-                    "en" to stringResource(R.string.settings_language_english),
-                    "fr" to stringResource(R.string.settings_language_french)
-                ),
-                selected = settings.languageCode,
-                onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
-
-        // ── Route algorithm ──────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_route_algorithm))
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        CardArea {
-            CardDescription(stringResource(R.string.settings_route_algorithm_desc))
-            DropdownRow(
-                label = null,
-                options = RouteEngineChoice.all.map { it.id to stringResource(it.labelResId) },
-                selected = RouteEngineChoice.resolve(settings.routeEngineId).id,
-                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } },
-                accessibleName = stringResource(R.string.settings_section_route_algorithm)
-            )
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))

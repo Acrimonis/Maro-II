@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.graphics.Color
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.markers.UserMarker
@@ -51,15 +50,6 @@ data class OverlayChrome(
  */
 @Immutable
 data class MenuOverlayData(
-    val gpsMode: Boolean,
-    val autoShowMasterVisible: Boolean,
-    val autoShowMasterOverride: Boolean,
-    val gpsToggleColor: Color,
-    val markerZonesVisible: Boolean,
-    /** The arrows axis the menu's first chip reads and writes (D5). */
-    val trackArrows: Boolean,
-    /** The colours axis its second chip reads and writes — the same single owner (D5). */
-    val trackColours: Boolean,
     val firstTrackId: String?,
     val firstMarkerId: String?,
     val trackMapFilterState: ListFilter,

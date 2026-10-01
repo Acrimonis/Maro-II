@@ -65,7 +65,6 @@ data class AppSettings(
     val zone300AutoShow: Boolean = true,
     val speedZoneAutoShow: Boolean = true,
     val regulatedZoneAutoShow: Boolean = true,
-    val autoShowMasterOverride: Boolean = true,
     val gpsMode: Boolean = false,
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
@@ -521,7 +520,6 @@ class SettingsManager(
         zone300AutoShow = prefs.getBoolean(KEY_ZONE300_AUTOSHOW, true),
         speedZoneAutoShow = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW, true),
         regulatedZoneAutoShow = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW, true),
-        autoShowMasterOverride = prefs.getBoolean(KEY_AUTO_SHOW_MASTER_OVERRIDE, true),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 1),
@@ -775,7 +773,6 @@ class SettingsManager(
             .putBoolean(KEY_ZONE300_AUTOSHOW, updated.zone300AutoShow)
             .putBoolean(KEY_SPEED_ZONE_AUTOSHOW, updated.speedZoneAutoShow)
             .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW, updated.regulatedZoneAutoShow)
-            .putBoolean(KEY_AUTO_SHOW_MASTER_OVERRIDE, updated.autoShowMasterOverride)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
@@ -930,7 +927,6 @@ class SettingsManager(
         private const val KEY_ZONE300_AUTOSHOW = "zone300_autoshow"
         private const val KEY_SPEED_ZONE_AUTOSHOW = "speed_zone_autoshow"
         private const val KEY_REGULATED_ZONE_AUTOSHOW = "regulated_zone_autoshow"
-        private const val KEY_AUTO_SHOW_MASTER_OVERRIDE = "auto_show_master_override"
         private const val KEY_GPS_MODE = "gps_mode"
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"

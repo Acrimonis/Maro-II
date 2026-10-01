@@ -43,16 +43,11 @@ import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.MarkerCreateAction
-import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
-import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
-
-/** The two render axes the Tracks rendering row toggles, in the order the twin box draws them (D5). */
-private enum class TrackAxis { ARROWS, COLOURS }
 
 /**
  * Menu slide panel — pure content composable.
@@ -71,30 +66,12 @@ private enum class TrackAxis { ARROWS, COLOURS }
 @Composable
 fun MenuDrawerOverlay(
     isOpen: Boolean,
-    gpsMode: Boolean,
-    onGpsModeChange: (Boolean) -> Unit,
-    autoShowMasterVisible: Boolean = false,
-    autoShowMasterOverride: Boolean = true,
-    onAutoShowMasterChange: (Boolean) -> Unit = {},
-    gpsToggleColor: Color,
     recorderState: TrackRecorderUiState,
     onViewTrackList: () -> Unit,
     onManageMarkers: () -> Unit = {},
     onCreateMarker: () -> Unit = {},
     onOpenFirstTrack: (() -> Unit)? = null,
     onOpenFirstMarker: (() -> Unit)? = null,
-    markerZonesVisible: Boolean = true,
-    onToggleMarkerZones: () -> Unit = {},
-    /** The arrows axis the twin box's first chip shows (D5). */
-    trackArrows: Boolean = false,
-    /** The colours axis its second chip shows — the same two flags the map renders by. */
-    trackColours: Boolean = true,
-    /** The arrows chip's writer: the menu owns both axes, and nothing else writes either (D3). */
-    onTrackArrowsChange: (Boolean) -> Unit = {},
-    /** The colours chip's writer, the other half of that same single owner (D3). */
-    onTrackColoursChange: (Boolean) -> Unit = {},
-    onImportTracks: () -> Unit = {},
-    onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
     /**
@@ -155,14 +132,6 @@ fun MenuDrawerOverlay(
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            // GPS mode — keeps its dynamic status colour.
-            ToggleRow(
-                label = stringResource(R.string.settings_gps_mode_label),
-                checked = gpsMode,
-                onCheckedChange = onGpsModeChange,
-                checkedColor = gpsToggleColor
-            )
-
             // ── The mode's summary: what a route is doing, and what it costs ──
             // The mode's own switch stays the map control stack's square as well as the Route
             // sub-section's action, and this block carries no action of its own — the panel's three
@@ -170,8 +139,8 @@ fun MenuDrawerOverlay(
             // while the drawer stands over the panel, and R67 keeps it **in the same card** as the
             // sub-section below rather than absorbed by it.
             if (routeSummaryVisible) {
-                SectionDivider()
                 RouteSummaryBlock(routeSummary)
+                SectionDivider()
             }
 
             // ── ROUTE sub-section: a route's two ends, and the action that arms the acquisition ──
@@ -180,7 +149,6 @@ fun MenuDrawerOverlay(
             // beside them is the second door onto the same arming the map's square performs (R49). It
             // stands **inside** the Navigation card under a sub-section header, and it stands always;
             // what gates is the summary above it.
-            SectionDivider()
             // The head is one comment naming the group's two fields — the route's **origin and
             // destination** (2026-09-28) — and it is what identifies them: neither dropdown row carries a
             // label of its own, each showing only its value on the right, and no rule separates the two
@@ -192,19 +160,6 @@ fun MenuDrawerOverlay(
                 fontWeight = FontWeight.Medium
             )
             RouteEndsSection(routeSummary)
-
-            // ── Auto-show zones: the master switch the settings' own approach reveal obeys ──
-            // Moved to the card's foot on 2026-09-28, the user's word: the route's parameters stand above
-            // it, so the card reads mode → parameters → the reveal that serves them. The row itself is
-            // untouched — same label, same preference, same gate.
-            if (autoShowMasterVisible) {
-                SectionDivider()
-                ToggleRow(
-                    label = stringResource(R.string.settings_autoshow_master_label),
-                    checked = autoShowMasterOverride,
-                    onCheckedChange = onAutoShowMasterChange
-                )
-            }
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -301,73 +256,6 @@ fun MenuDrawerOverlay(
                 }
             }
 
-            // ── Tracks rendering: two independent axes ────────────────────
-            // D5: the row replaces the retired "Show dir & speed" one in its own slot, so no other row
-            // moves, and the live block sits at the card's head. One chip per axis, each on or off by
-            // itself, so all four combinations are states: neither, arrows only, colours only, both.
-            SectionDivider()
-            // A standing sub-section again since 2026-09-28: the collapse came out and the group sits
-            // open in the card under its own caption, the settings' rows being the shape it follows —
-            // nothing about the two axes is hidden behind a chevron.
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = AppConfig.uiPaddingToggleVertical.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.menu_tracks_rendering),
-                    color = Color(AppConfig.uiTextMuted),
-                    fontSize = AppConfig.uiFontDescSize.sp
-                )
-                Spacer(Modifier.height(6.dp))
-                MultiSelectRow(
-                    options = listOf(
-                        TrackAxis.ARROWS to stringResource(R.string.menu_render_arrows),
-                        TrackAxis.COLOURS to stringResource(R.string.menu_render_colours)
-                    ),
-                    isOn = { axis ->
-                        when (axis) {
-                            TrackAxis.ARROWS -> trackArrows
-                            TrackAxis.COLOURS -> trackColours
-                        }
-                    },
-                    onToggle = { axis ->
-                        when (axis) {
-                            TrackAxis.ARROWS -> onTrackArrowsChange(!trackArrows)
-                            TrackAxis.COLOURS -> onTrackColoursChange(!trackColours)
-                        }
-                    }
-                )
-            }
-
-            // ── Import / Export pair ───────────────────────
-            // Both wear the **outlined role**, side by side (2026-09-28): the pair is neither the
-            // drawer's own outcome nor a loss, so neither takes the accent fill, which stays the
-            // surface's action alone (§5.6, §5.9). The glyphs left with `ActionRow`, which had no icon
-            // slot and no other call site, so the component went with them.
-            SectionDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ConfirmActionButton(
-                    action = ConfirmAction(
-                        label = stringResource(R.string.action_export),
-                        role = ConfirmActionRole.SECONDARY,
-                        onClick = onExportAllTracks
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-                ConfirmActionButton(
-                    action = ConfirmAction(
-                        label = stringResource(R.string.action_import),
-                        role = ConfirmActionRole.SECONDARY,
-                        onClick = onImportTracks
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -451,13 +339,6 @@ fun MenuDrawerOverlay(
                 }
             }
 
-            SectionDivider()
-
-            ToggleRow(
-                label = stringResource(R.string.menu_show_zones),
-                checked = markerZonesVisible,
-                onCheckedChange = { onToggleMarkerZones() }
-            )
         }
     }
 }
@@ -469,8 +350,8 @@ fun MenuDrawerOverlay(
  * never committing reliably — and one action, standing **inside** the Navigation card under a comment
  * naming the group's two roles. The entries arrive already labelled — two of them are `@StringRes`-backed
  * words and the rest are markers' own names, which is data rather than UI text — so each row's own label is
- * its role and the value rides on its right. The action is §5.6's own rendering of an outcome, so the
- * drawer's primary action and the panel's are the same control.
+ * its role and the value rides on its right. The action wears the same outlined `SECONDARY` face as the
+ * Import/Export pair, so the drawer's Route door and the panel's are still the same control.
  */
 @Composable
 private fun RouteEndsSection(section: RouteSummaryData) {
@@ -504,7 +385,7 @@ private fun RouteEndsSection(section: RouteSummaryData) {
             ConfirmActionButton(
                 action = ConfirmAction(
                     label = stringResource(R.string.route_action_arm),
-                    role = ConfirmActionRole.PRIMARY,
+                    role = ConfirmActionRole.SECONDARY,
                     onClick = section.onArm
                 ),
                 modifier = Modifier.fillMaxWidth(0.5f)
