@@ -787,7 +787,7 @@ class NavigationViewModel(
                 }
 
                 // ── Global approach re-display gate (shared by band + regulated) ──
-                val globalEnabled = (if (cfg.gpsMode) cfg.approachAutoShowGps else cfg.approachAutoShowDemo) && cfg.autoShowMasterOverride
+                val globalEnabled = if (cfg.gpsMode) cfg.approachAutoShowGps else cfg.approachAutoShowDemo
 
                 // ── 300m zone auto-show (uses generalized decision) ─────────
                 if (!(globalEnabled && cfg.zone300AutoShow)) {

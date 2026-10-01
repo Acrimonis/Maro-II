@@ -36,7 +36,6 @@
     <string name="settings_redisplay_dist_desc">How close before the zone reappears</string>
     <string name="settings_redisplay_time_label">Reveal time</string>
     <string name="settings_redisplay_time_desc">How many seconds away (at current speed) before it reappears</string>
-    <string name="settings_autoshow_master_label">Auto-show zones</string>
     <string name="settings_gps_mode_label">GPS mode</string>
     <string name="settings_gps_mode_desc">Follow your GPS position and orient the map (otherwise demo mode)</string>
     <string name="settings_recenter_label">Recenter delay</string>

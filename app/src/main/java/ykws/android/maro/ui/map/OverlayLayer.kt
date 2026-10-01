@@ -118,8 +118,6 @@ internal fun OverlayLayer(
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
     onGpsModeChange: (Boolean) -> Unit,
-    onAutoShowMasterChange: (Boolean) -> Unit = {},
-    onToggleMarkerZones: () -> Unit = {},
     /** The menu's arrows chip (D5): one half of the pair that writes the two render axes. */
     onTrackArrowsChange: (Boolean) -> Unit = {},
     /** The menu's colours chip (D5): the other half of that same writer. */
@@ -194,11 +192,6 @@ internal fun OverlayLayer(
     val drawerState = chrome.drawerState
     val dialogScrimActive = chrome.dialogScrimActive
     val routeSummaryVisible = chrome.routeSummaryVisible
-    val gpsMode = menu.gpsMode
-    val autoShowMasterVisible = menu.autoShowMasterVisible
-    val autoShowMasterOverride = menu.autoShowMasterOverride
-    val gpsToggleColor = menu.gpsToggleColor
-    val markerZonesVisible = menu.markerZonesVisible
     val trackArrows = menu.trackArrows
     val trackColours = menu.trackColours
     val firstTrackId = menu.firstTrackId
@@ -370,12 +363,6 @@ internal fun OverlayLayer(
                 isOpen = true,
                 routeSummary = routeSummary,
                 routeSummaryVisible = routeSummaryVisible,
-                gpsMode = gpsMode,
-                onGpsModeChange = onGpsModeChange,
-                autoShowMasterVisible = autoShowMasterVisible,
-                autoShowMasterOverride = autoShowMasterOverride,
-                onAutoShowMasterChange = onAutoShowMasterChange,
-                gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
                 trackCount = trackMapCount,
                 markerCount = markerMapCount,
@@ -409,8 +396,6 @@ internal fun OverlayLayer(
                 markerFilterLinked = markerFilterLinked,
                 onToggleMarkerLink = onToggleMarkerLink,
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
-                markerZonesVisible = markerZonesVisible,
-                onToggleMarkerZones = onToggleMarkerZones,
                 trackArrows = trackArrows,
                 trackColours = trackColours,
                 onTrackArrowsChange = onTrackArrowsChange,

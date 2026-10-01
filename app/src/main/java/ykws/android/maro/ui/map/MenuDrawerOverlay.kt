@@ -46,7 +46,6 @@ import ykws.android.maro.ui.components.MarkerCreateAction
 import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
-import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
@@ -71,20 +70,12 @@ private enum class TrackAxis { ARROWS, COLOURS }
 @Composable
 fun MenuDrawerOverlay(
     isOpen: Boolean,
-    gpsMode: Boolean,
-    onGpsModeChange: (Boolean) -> Unit,
-    autoShowMasterVisible: Boolean = false,
-    autoShowMasterOverride: Boolean = true,
-    onAutoShowMasterChange: (Boolean) -> Unit = {},
-    gpsToggleColor: Color,
     recorderState: TrackRecorderUiState,
     onViewTrackList: () -> Unit,
     onManageMarkers: () -> Unit = {},
     onCreateMarker: () -> Unit = {},
     onOpenFirstTrack: (() -> Unit)? = null,
     onOpenFirstMarker: (() -> Unit)? = null,
-    markerZonesVisible: Boolean = true,
-    onToggleMarkerZones: () -> Unit = {},
     /** The arrows axis the twin box's first chip shows (D5). */
     trackArrows: Boolean = false,
     /** The colours axis its second chip shows — the same two flags the map renders by. */
@@ -155,14 +146,6 @@ fun MenuDrawerOverlay(
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            // GPS mode — keeps its dynamic status colour.
-            ToggleRow(
-                label = stringResource(R.string.settings_gps_mode_label),
-                checked = gpsMode,
-                onCheckedChange = onGpsModeChange,
-                checkedColor = gpsToggleColor
-            )
-
             // ── The mode's summary: what a route is doing, and what it costs ──
             // The mode's own switch stays the map control stack's square as well as the Route
             // sub-section's action, and this block carries no action of its own — the panel's three
@@ -170,8 +153,8 @@ fun MenuDrawerOverlay(
             // while the drawer stands over the panel, and R67 keeps it **in the same card** as the
             // sub-section below rather than absorbed by it.
             if (routeSummaryVisible) {
-                SectionDivider()
                 RouteSummaryBlock(routeSummary)
+                SectionDivider()
             }
 
             // ── ROUTE sub-section: a route's two ends, and the action that arms the acquisition ──
@@ -180,7 +163,6 @@ fun MenuDrawerOverlay(
             // beside them is the second door onto the same arming the map's square performs (R49). It
             // stands **inside** the Navigation card under a sub-section header, and it stands always;
             // what gates is the summary above it.
-            SectionDivider()
             // The head is one comment naming the group's two fields — the route's **origin and
             // destination** (2026-09-28) — and it is what identifies them: neither dropdown row carries a
             // label of its own, each showing only its value on the right, and no rule separates the two
@@ -192,19 +174,6 @@ fun MenuDrawerOverlay(
                 fontWeight = FontWeight.Medium
             )
             RouteEndsSection(routeSummary)
-
-            // ── Auto-show zones: the master switch the settings' own approach reveal obeys ──
-            // Moved to the card's foot on 2026-09-28, the user's word: the route's parameters stand above
-            // it, so the card reads mode → parameters → the reveal that serves them. The row itself is
-            // untouched — same label, same preference, same gate.
-            if (autoShowMasterVisible) {
-                SectionDivider()
-                ToggleRow(
-                    label = stringResource(R.string.settings_autoshow_master_label),
-                    checked = autoShowMasterOverride,
-                    onCheckedChange = onAutoShowMasterChange
-                )
-            }
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -451,13 +420,6 @@ fun MenuDrawerOverlay(
                 }
             }
 
-            SectionDivider()
-
-            ToggleRow(
-                label = stringResource(R.string.menu_show_zones),
-                checked = markerZonesVisible,
-                onCheckedChange = { onToggleMarkerZones() }
-            )
         }
     }
 }

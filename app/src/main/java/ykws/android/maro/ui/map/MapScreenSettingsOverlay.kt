@@ -525,6 +525,12 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_markers_desc))
+            ToggleRow(
+                label = stringResource(R.string.menu_show_zones),
+                checked = settings.markerZonesVisible,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(markerZonesVisible = on) } }
+            )
+            SectionDivider()
             Expander(
                 label = stringResource(R.string.settings_marker_rendering_label),
                 expanded = settingsVm.isExpanded("markers_rendering"),
