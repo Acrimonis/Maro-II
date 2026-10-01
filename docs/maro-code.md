@@ -21,7 +21,7 @@
 | `data/power/` | Power management: framework-free screen-hold policy + its Android keeper | `PowerPolicy.kt`, `PowerKeeper.kt` |
 | `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt`, `RouteEngine.kt`, `RouteAvoidEngine.kt`, `Units.kt` |
 | `spatial/avoid/` | The avoid route engine's own world — the unified cost field, the corridor grid, the A* and the taut pull | `RouteCostField.kt`, `AvoidWorld.kt`, `AvoidGrid.kt`, `AvoidSearch.kt`, `AvoidPull.kt`, `TangentCorners.kt` |
-| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerColors.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
+| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerColors.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt`, `MapOverlayData.kt`, `MapScreenChrome.kt`, `MapDashboardController.kt`, `MapLockLayer.kt`, `MapRouteEffects.kt` |
 | `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmDialog.kt`, `IconPickerDialog.kt` |
 | `ui/markers/wizard/` | Marker creation wizard (multi-step form) | `WizardTopBar.kt`, `WizardButtonRow.kt`, `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
 | `ui/icons/` | Material Symbols as standalone ImageVector .kt files | `ActivityZone.kt`, `AddLocationAlt.kt`, `FilterAlt.kt`, `LocationOn.kt`, `WhereToVote.kt`, etc. |
@@ -56,7 +56,7 @@
 |-------|---------|------|
 | `MainActivity.kt` | `ykws/android/maro/` | Single-activity entry, Compose host |
 | `AppConfig.kt` | `config/` | Central config constants — extents, thresholds, tuning |
-| `MapScreen.kt` | `ui/map/` | Root Compose orchestration shell (drawer visibility, back handler, `MapContent` slot, `OverlayLayer` call); settings subtree, map overlays, and effect clusters extracted to sibling files (see MapScreen Decomposition below) |
+| `MapScreen.kt` | `ui/map/` | Root Compose orchestration shell (chrome state holder, back handler, `MapContent` slot, `OverlayLayer` call); data builders, map overlays, and effect clusters extracted to sibling files (see MapScreen Decomposition below) |
 | `CoastlineSpatialIndex.kt` | `spatial/` | Nearest-coastline queries, `isOnWater()`, distance-to-coast |
 | `DepthRepository.kt` | `data/depth/` | Depth data load + query (memory-mapped, async) |
 | `DepthViewModel.kt` | `ui/map/` | Depth state: color ramp selection, danger depth, rendering triggers |
@@ -78,25 +78,30 @@
 | `GpsLocationSource.kt` | `data/location/` | GPS location provider (real + demo mode) |
 | `PowerKeeper.kt` | `data/power/` | Power management: gathers the inputs and publishes the screen-hold / keep-alive decision; its pure, framework-free half is `PowerPolicy.kt` |
 
-## MapScreen Decomposition (2026-09 refactor)
+## MapScreen Decomposition (2026-09 → 2026-10 refactor)
 
-`ui/map/MapScreen.kt` is an orchestration shell (~2.5k lines) whose concerns were extracted to
-same-package files (step 1 settings extraction + step 2 orchestration-monolith refactor, zero behavior
-change):
+`ui/map/MapScreen.kt` is an orchestration shell (`fun MapScreen` 505–3471; file 4,527 reader lines) whose
+concerns were extracted to same-package files (step 1 settings extraction + step 2 orchestration-monolith
+refactor + step 3 mapscreen-health migration, zero behavior change):
 
 | File | Owns |
 |------|------|
-| `MapScreen.kt` | Orchestration shell: drawer-visibility flags, click-n-move, back-handler ladder, `MapContent` stable slot, `OverlayLayer` invocation, snackbar/dialog/import state hoisting |
+| `MapScreen.kt` | Orchestration shell: chrome state holder, click-n-move, back-handler ladder, `MapContent` stable slot, `OverlayLayer` invocation, snackbar/dialog/import state hoisting |
+| `MapOverlayData.kt` | The five `OverlayLayer` data-construction builders (`MenuOverlayData`, `TrackListOverlayData`, `SettingsOverlayData`, `MarkerListOverlayData`, `TrackInfoOverlayData`) |
+| `MapScreenChrome.kt` | The eight written chrome values in one `@Stable` holder (`showSettings`, `showTrackDrawer`, `showTrackHistory`, `showMarkerManagement`, `navigateToTarget`, `selectedTab`, `pendingResume`, `trackOpStatus`) with a `Saver` serialising `selectedTab` alone |
+| `MapDashboardController.kt` | The snackbar stack (public `activeSnacks`, overflow queue, `enqueue`/`remove`) |
+| `MapRouteEffects.kt` | Route engine/end effect clusters |
+| `MapLockLayer.kt` | Screen-lock scrim, mirrored controls and lock banner |
 | `MapScreenSettingsOverlay.kt` | Settings overlay subtree (4 tabs) |
 | `MapGpsFollowEffects.kt` | GPS auto-follow DR, heading-up, zoom re-apply effect clusters |
 | `MapTrackOverlayEffects.kt` | History/pinned track overlay diff + live-recording polyline effects |
 | `MapMarkerEffects.kt` | Marker wiring (settings bridge, idle callback, cleanup) + debug-segment effects |
 | `MapServiceEffects.kt` | Notification/water-state service intents + unconditional demo sample feed |
 | `MapDepthRasterEffects.kt` | Depth/raster lazy-init (output contract) + regulated-zones loader |
-| `MapDialogHost.kt` | Windowed dialogs/sheets: exit/stop-recording, recovery, permission, source-switch, battery |
-| `MapSnackbarHost.kt` | Snackbar stack render (render-only; queue stays hoisted in MapScreen) |
+| `MapDialogHost.kt` | Windowed dialogs/sheets: exit/stop-recording, recovery, permission, source-switch, battery, route-exit and resume dialogs |
+| `MapSnackbarHost.kt` | Snackbar stack render (render-only; queue stays in `MapDashboardController`) |
 | `MapImportConflictHost.kt` | GPX import Duplicate/Override/Cancel conflict path |
-| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` — 60 params total (6 bundles + explicit values/ViewModels + inline callbacks) |
+| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` — 66 params total (6 bundles + explicit values/ViewModels + inline callbacks) |
 
 ## Dependency Flow
 

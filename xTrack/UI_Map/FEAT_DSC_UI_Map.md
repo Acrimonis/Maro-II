@@ -175,6 +175,8 @@ explicit values/ViewModels + inline callbacks).
 
 - **whereami tap zone + debug-ray clearing (2026-09-18, `feature/where-are-zone-trans`)** — the boat's touch box became a fixed radial circle on the sprite's visual centre with a gold pulse beneath it, the rays clearing on the drawer-state funnel and on the rays toggle, `MarkerMatcher`'s global debugger and its three writers retired for a per-call one, and `marker.debug.rays.enabled` dropped for the setting alone. This feature's half is the two map files the source plan names, whose owners' pointers it left to their next bake — this one → `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md`
 
+- **mapscreen-health remedy (2026-10-01, `feature/mapscreen-health`)** — the remaining monolith decomposed in four self-validated migration phases with zero behavior change: Bodies hoisted the two eligible `OverlayLayer` callback bodies, Builders moved five data constructions to `MapOverlayData.kt`, Chrome folded the eight written chrome values into an `@Stable MapScreenChrome` with a `Saver` serialising `selectedTab` alone, and Close re-measured every anchor. `fun MapScreen` 3,000 → 2,967 (505–3471); `apk-build.bat` and the scoped `ui.map` + `config` unit run green each phase → `xTrack/UI_Map/260930_FEAT_PLN_UI_Map_mapscreen-health-monolith.md`
+
 ## Todos
 - [ ] Device pass against the plan's two tables — the sprite at levels 19 and 20 offshore and inshore, and the 15 % raise on the base pair at each level → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
 - [ ] Second-density check for the dp pass — an emulator at 1× or 2× showing the strokes scale, since on the 3× tuning phone this change is invisible by design → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
@@ -194,7 +196,7 @@ explicit values/ViewModels + inline callbacks).
 - `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md` — px to dp: the paint-length inventory, the risk table and the review's findings
 - `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md` — Marker sizing curve and its tunable keys
 - `xTrack/UI_Map/260904_FEAT_PLN_UI_Map_marker-filter-map-and-dashboard-close.md` — the marker filter's map consequence and the panel's close, superseded in part 2026-09-28 by the map-opened exception
-- `xTrack/UI_Map/260930_FEAT_PLN_UI_Map_mapscreen-health-monolith.md` — MapScreen remaining-monolith remedy: five clusters, three tiers (T1 hoist the OverlayLayer callback bodies into named functions; T2 extract Inspect/Route/dashboard sessions; T3 optional route-exit-dialog move)
+- `xTrack/UI_Map/260930_FEAT_PLN_UI_Map_mapscreen-health-monolith.md` — MapScreen remaining-monolith remedy (implemented): four migration phases — Bodies, Builders, Chrome, Close — with the ladder staying in MapScreen
 
 ## Walk
 **Level 1 — Date:** 2026-09-17 · **Source:** `260917_FEAT_PLN_UI_Map_inspect-mode.md` · **Active:** closed

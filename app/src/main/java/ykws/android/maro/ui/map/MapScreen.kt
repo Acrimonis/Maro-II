@@ -168,6 +168,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
+import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
@@ -190,17 +191,14 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
-import ykws.android.maro.ui.components.ConfirmAction
-import ykws.android.maro.ui.components.ConfirmActionRole
-import ykws.android.maro.ui.components.ConfirmDialog
 import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
-import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.data.track.TrackViewModel
+import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.spatial.SpatialOperations
@@ -240,7 +238,7 @@ private const val TOP_TOGGLE_LOCK_SLOT = 4
  * this value's dependency: hiding that square takes the slot down by one, so the locked-screen mirror
  * stays over the original. [topToggleSlotOffset] still owns the arithmetic.
  */
-private fun lockSlot(earthWaterShown: Boolean): Int =
+internal fun lockSlot(earthWaterShown: Boolean): Int =
     if (earthWaterShown) TOP_TOGGLE_LOCK_SLOT else TOP_TOGGLE_LOCK_SLOT - 1
 
 /**
@@ -263,7 +261,7 @@ private val PORTRAIT_CHROME_TIGHTENING = 6.dp
  * own [TOP_TOGGLE_GUTTER], since the strip sits as far below the row as its buttons do from each other.
  */
 @Composable
-private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current) {
+internal fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current) {
     val statusBar = WindowInsets.statusBars.getTop(this).toDp()
     if (isLandscape) statusBar else (statusBar - PORTRAIT_CHROME_TIGHTENING).coerceAtLeast(0.dp)
 }
@@ -300,7 +298,7 @@ internal const val DIRECTION_SPEED_MAX_KN = 64f
  * one over, null for the list world — and [source] says which world that is, so a card opened from a
  * list keeps walking the list even while the mode is armed (plan §5).
  */
-private data class NavigateTarget(
+internal data class NavigateTarget(
     val geoPoint: GeoPoint,
     val markerId: String,
     val worldIds: List<String>? = null,
@@ -318,7 +316,7 @@ private data class TrackNavigateState(
 )
 
 /** Track info drawer state — no scrim, map stays interactive. */
-private data class TrackDrawerState(
+internal data class TrackDrawerState(
     val isOpen: Boolean = false,
     val track: ykws.android.maro.data.track.Track? = null,
     val mapWasInteracted: Boolean = false,
@@ -524,12 +522,8 @@ fun MapScreen(
     val regulatedZoneOverlay by viewModel.regulatedZoneOverlayVisible.collectAsState()
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
+    val chrome = rememberSaveable(saver = MapScreenChrome.Saver) { MapScreenChrome() }
     var expandedFanId by remember { mutableStateOf<ControlId?>(null) }
-    var showTrackDrawer by remember { mutableStateOf(false) }
-    var showTrackHistory by remember { mutableStateOf(false) }
-    var showMarkerManagement by remember { mutableStateOf(false) }
-    var navigateToTarget by remember { mutableStateOf<NavigateTarget?>(null) }
     // ── Screen-lock state (splash-proof touch guard) ────────────────────
     var screenLocked by rememberSaveable { mutableStateOf(false) }
     // Lock/unlock transient banner: null = hidden, true = locked, false = unlocked.
@@ -629,15 +623,11 @@ fun MapScreen(
                 )
         )
     }
-    LaunchedEffect(appSettings.routeEngineId) {
-        routeEngineSelection.value =
-            RouteEngineChoice.resolve(appSettings.routeEngineId)
-                .factory(
-                    { appSettings.routeFreeWaterPaceKn.toDouble() },
-                    { appSettings.routeSlowWaterBudgetPct },
-                    avoidWorldProvider
-                )
-    }
+    MapRouteEngineEffect(
+        appSettings = appSettings,
+        routeEngineSelection = routeEngineSelection,
+        avoidWorldProvider = avoidWorldProvider
+    )
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
             factory = RouteViewModel.factory(routeEngineSelection)
@@ -669,9 +659,7 @@ fun MapScreen(
     val routeSearching = (routeState as? RouteState.Choosing)?.searching == true
     // **The selected page** — the one the table describes, the map paints at full strength and every
     // save writes (R54, R55): read from the same list the drawing reads, so the two cannot disagree.
-    val routeSelectedPage = routePages.getOrNull(
-        routeSelectedIndex.coerceIn(0, (routePages.size - 1).coerceAtLeast(0))
-    )
+    val routeSelectedPage = selectedPageOrNull(routePages, routeSelectedIndex)
     val routeSelectedLine = routeSelectedPage?.plan
     // **Is the selected line already written?** — the one fact the save actions grey themselves on.
     val routeFrontSaved = routeSelectedLine?.let { routeSessionLinks[it] != null } == true
@@ -679,8 +667,8 @@ fun MapScreen(
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
     val markerListState = rememberLazyListState()
-    val activeSnacks = remember { androidx.compose.runtime.mutableStateListOf<ActiveSnack>() }
-    val queuedSnacks = remember { androidx.compose.runtime.mutableStateListOf<ActiveSnack>() }
+    val dashboardController = remember { MapDashboardController() }
+    val activeSnacks = dashboardController.activeSnacks
     val pendingDeleteIds = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
@@ -795,26 +783,15 @@ fun MapScreen(
         importBanner = banner
         importBannerAt = SystemClock.elapsedRealtime()
     }
-    // Transient track-operation status banner (export/import in progress): null = hidden.
-    var trackOpStatus by remember { mutableStateOf<String?>(null) }
     // Transient route-acquisition refusal toast: null = hidden.
     var routeRefusalToast by remember { mutableStateOf<String?>(null) }
     var routeRefusalToastAt by remember { mutableStateOf(0L) }
 
-    // ── Vertical snackbar stack state helpers ────────────────────────────
-    fun enqueueSnack(snack: ActiveSnack) {
-        if (activeSnacks.size < 3) activeSnacks.add(snack)
-        else queuedSnacks.add(snack)
-    }
-
-    fun promoteQueued() {
-        while (activeSnacks.size < 3 && queuedSnacks.isNotEmpty()) {
-            activeSnacks.add(queuedSnacks.removeAt(0))
-        }
-    }
+    // ── Vertical snackbar stack state helpers (the queue itself lives in MapDashboardController) ──
+    fun enqueueSnack(snack: ActiveSnack) = dashboardController.enqueue(snack)
 
     fun onSnackUndo(snack: ActiveSnack) {
-        activeSnacks.remove(snack)
+        dashboardController.remove(snack)
         when (snack) {
             is ActiveSnack.TrackDelete -> {
                 pendingDeleteIds.remove("t:${snack.id}")
@@ -844,11 +821,10 @@ fun MapScreen(
             }
             is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
         }
-        promoteQueued()
     }
 
     fun onSnackTimeout(snack: ActiveSnack) {
-        activeSnacks.remove(snack)
+        dashboardController.remove(snack)
         when (snack) {
             is ActiveSnack.TrackDelete -> {
                 pendingDeleteIds.remove("t:${snack.id}")
@@ -860,11 +836,9 @@ fun MapScreen(
             }
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
         }
-        promoteQueued()
     }
 
     val anyFanExpanded = expandedFanId != null
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
     val positionScrollState = rememberScrollState()
@@ -911,23 +885,13 @@ fun MapScreen(
      */
     val routeStart = dashboardPositionFor(mapCenter, gpsPosition, appSettings.gpsMode)
 
-    /**
-     * **The anchor's own reading** (R3): the boat's position with the course and speed the lead is
-     * projected from, or **null wherever they cannot be trusted**.
-     *
-     * This is the freshness gate the plan leaves to the surface that owns the fix, and it carries
-     * demo mode's exclusion with it: a demo position is the map centre and its pan-derived speed is
-     * suspended while aiming, so there is no boat to project and no lead to take. A null here is read
-     * as "the live fix and no lead" by the host and by the two acquisitions the panel opens, all of
-     * which fall back rather than inventing a start.
-     */
-    val routeLeadFix: RouteFix? = if (appSettings.gpsMode && !gpsStale) {
-        RouteFix(
-            position = RoutePoint(routeStart.latitude, routeStart.longitude),
-            courseDeg = navigationState.bearingDeg.toDouble(),
-            speedKn = navigationState.speedKnots?.toDouble()
-        )
-    } else null
+    val routeLeadFix: RouteFix? = routeLeadFixOf(
+        appSettings.gpsMode,
+        gpsStale,
+        routeStart,
+        navigationState.bearingDeg.toDouble(),
+        navigationState.speedKnots?.toDouble()
+    )
 
     // ── The Route section's standing pair (R44–R48, R66) ─────────────────────────
     // **A route's two ends are chosen in the drawer and read at the trigger** (R44, R71): each selector
@@ -973,22 +937,17 @@ fun MapScreen(
         }
     }
 
-    // R66's own write: a stored value that no longer resolves is replaced by the resolution, so the
-    // dead id leaves the store rather than being re-read on the next frame.
-    LaunchedEffect(routeStartSelection, routeStartStored, appSettings.gpsMode, markersLoaded) {
-        // Never purge a stored marker id before the first load: an empty marker set at startup is the
-        // "not yet loaded" case, not a deleted flag, and overwriting it here is what erased the ends.
-        if (!markersLoaded) return@LaunchedEffect
-        if (RouteEndSelection.encode(routeStartSelection) != routeStartStored) {
-            storeRouteEnd(RouteEndSelection.End.START, routeStartSelection)
-        }
-    }
-    LaunchedEffect(routeDestinationSelection, routeDestinationStored, appSettings.gpsMode, markersLoaded) {
-        if (!markersLoaded) return@LaunchedEffect
-        if (RouteEndSelection.encode(routeDestinationSelection) != routeDestinationStored) {
-            storeRouteEnd(RouteEndSelection.End.DESTINATION, routeDestinationSelection)
-        }
-    }
+    // R66's own write lives in the route-effects host; the store itself stays here, because the
+    // route ends panel calls it too.
+    MapRouteEndEffects(
+        routeStartSelection = routeStartSelection,
+        routeStartStored = routeStartStored,
+        routeDestinationSelection = routeDestinationSelection,
+        routeDestinationStored = routeDestinationStored,
+        gpsMode = appSettings.gpsMode,
+        markersLoaded = markersLoaded,
+        onStoreEnd = { end, selection -> storeRouteEnd(end, selection) }
+    )
 
     /**
      * **The boat's own end**: the fix led `route.anchor.leadSec` where the course and speed are
@@ -1110,12 +1069,12 @@ fun MapScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            trackOpStatus = context.getString(R.string.importing_tracks)
+            chrome.trackOpStatus = context.getString(R.string.importing_tracks)
             trackScope.launch(Dispatchers.IO) {
                 try {
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     if (bytes == null) {
-                        withContext(Dispatchers.Main) { trackOpStatus = null }
+                        withContext(Dispatchers.Main) { chrome.trackOpStatus = null }
                         return@launch
                     }
                     val isZip = bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
@@ -1123,27 +1082,27 @@ fun MapScreen(
                     if (isZip) {
                         val result = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
                         withContext(Dispatchers.Main) {
-                            trackOpStatus = null
+                            chrome.trackOpStatus = null
                             showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
                         }
                     } else {
                         val match = trackViewModel.peekImportMatch(bytes, extension)
                         if (match != null) {
                             withContext(Dispatchers.Main) {
-                                trackOpStatus = null
+                                chrome.trackOpStatus = null
                                 pendingTrackImport = PendingTrackImport(bytes, extension, match.name)
                             }
                         } else {
                             val result = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
                             withContext(Dispatchers.Main) {
-                                trackOpStatus = null
+                                chrome.trackOpStatus = null
                                 showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
                             }
                         }
                     }
                 } catch (_: Exception) {
                     withContext(Dispatchers.Main) {
-                        trackOpStatus = null
+                        chrome.trackOpStatus = null
                         showImportBanner(ImportBannerState.Failed)
                     }
                 }
@@ -1393,7 +1352,7 @@ fun MapScreen(
     val paintedTrackIds = remember { mutableStateOf(setOf<String>()) }
     MapTrackOverlayHistoryDiff(
         mapView = mapView,
-        showSettings = showSettings,
+        showSettings = chrome.showSettings,
         highlightedTrackId = highlightedTrackId,
         trackArrows = appSettings.trackArrows,
         trackColours = appSettings.trackColours,
@@ -1464,8 +1423,6 @@ fun MapScreen(
     var showExitDialog by remember { mutableStateOf(false) }
     // Stop-recording confirmation (🐾 icon + menu drawer stop) — same 3-way sheet as exit.
     var showStopRecordingSheet by remember { mutableStateOf(false) }
-    // Resume confirmation: non-null while the dialog awaits the Resume/Cancel choice.
-    var pendingResume by remember { mutableStateOf<PendingTrackResume?>(null) }
 
     // ── Ladder confirm-dialog host ───────────────────────────────────────
     // Sink for ConfirmRequests raised by drawer-hosted surfaces (batch delete, merge). Their own
@@ -1480,7 +1437,7 @@ fun MapScreen(
     // confirmations (batch delete, merge) stay behind their open drawer, which the guard excludes.
     val anyConfirmDialogOpen = showExitDialog || showStopRecordingSheet ||
         pendingGpsModeToggle != null || recoveryTrack != null ||
-        pendingTrackImport != null || pendingResume != null
+        pendingTrackImport != null || chrome.pendingResume != null
 
     Box(
         modifier = modifier
@@ -1493,22 +1450,22 @@ fun MapScreen(
         }
 
         // ── Intercept system back when settings are open ──────────────────
-        if (showSettings) {
-            BackHandler { showSettings = false }
+        if (chrome.showSettings) {
+            BackHandler { chrome.showSettings = false }
         }
 
         // ── Intercept system back when track history is open ──────────────
-        if (showTrackHistory) {
-            BackHandler { showTrackHistory = false }
+        if (chrome.showTrackHistory) {
+            BackHandler { chrome.showTrackHistory = false }
         }
 
         // ── Intercept system back when marker management is open ───────────
-        if (showMarkerManagement) {
-            BackHandler { showMarkerManagement = false }
+        if (chrome.showMarkerManagement) {
+            BackHandler { chrome.showMarkerManagement = false }
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings && !showTrackHistory && !showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen && !anyConfirmDialogOpen) {
+        BackHandler(enabled = !chrome.showSettings && !chrome.showTrackHistory && !chrome.showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen && !anyConfirmDialogOpen) {
             val now = SystemClock.elapsedRealtime()
             val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
             if (now - lastBackAt <= 2_000L) {
@@ -1671,7 +1628,7 @@ fun MapScreen(
                     if (!appSettings.tracksVisible) {
                         viewModel.updateSettings { it.copy(tracksVisible = true) }
                     }
-                    showTrackHistory = false
+                    chrome.showTrackHistory = false
                 }
                 if (candidates.isEmpty()) {
                     onNone()
@@ -1732,7 +1689,7 @@ fun MapScreen(
             }
 
             /**
-             * The canonical marker selection: the camera through [navigateToTarget] — animate for a pin,
+             * The canonical marker selection: the camera through [MapScreenChrome.navigateToTarget] — animate for a pin,
              * zoom-to-fit for a circle or a corridor — then the drawer, on the walk world the target
              * carries. [walkWorld] hands over the frozen ladder and the inspect source; null keeps the
              * list world, so a list-opened marker card behaves exactly as it does today.
@@ -1768,8 +1725,8 @@ fun MapScreen(
                 // drawer, unless a cross-type step is holding it until this card lands (plan §5).
                 if (closeTrackCard) closeTrackDrawer()
                 markersViewModel.showLayer()
-                showMarkerManagement = false
-                navigateToTarget = NavigateTarget(
+                chrome.showMarkerManagement = false
+                chrome.navigateToTarget = NavigateTarget(
                     geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
                     markerId = id,
                     worldIds = walkWorld,
@@ -1891,7 +1848,7 @@ fun MapScreen(
                 // **Neither door opens the drawer** (2026-09-28): the acquisition is what the press
                 // lands on — the panel owns the dashboard slot — so the drawer is left as it was
                 // found, shut from the map and shut behind the press that armed inside it.
-                showTrackDrawer = false
+                chrome.showTrackDrawer = false
                 routeSaveScope.launch {
                     // A matched summary is loaded and rebuilt through the shipped inverse; a reverse match
                     // is **mirrored** as the return trip (R86) instead, dated the arming instant and
@@ -1981,7 +1938,7 @@ fun MapScreen(
             fun followRoute() {
                 val origin = (routeState as? RouteState.Choosing)?.start
                 routeViewModel.selectRoute()
-                showTrackDrawer = false
+                chrome.showTrackDrawer = false
                 if (appSettings.gpsMode) {
                     viewModel.recenterNow()
                 } else {
@@ -2004,7 +1961,7 @@ fun MapScreen(
                 if (routeArmed) return
                 // The press closes its surface at once; the card's close restore is the refocus, so
                 // nothing here moves the camera afterwards.
-                if (fromList) showTrackHistory = false else closeTrackDrawer()
+                if (fromList) chrome.showTrackHistory = false else closeTrackDrawer()
                 if (inspectArmed) disarmInspectMode()
                 routeSaveScope.launch {
                     val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
@@ -2226,8 +2183,8 @@ fun MapScreen(
             }
 
             // ── F2b: Pause auto-follow timer while any drawer is open ──
-            val anyDrawerOpen = showSettings || showTrackDrawer || showTrackHistory ||
-                showMarkerManagement || trackDrawerState.isOpen || trackNavigateState != null ||
+            val anyDrawerOpen = chrome.showSettings || chrome.showTrackDrawer || chrome.showTrackHistory ||
+                chrome.showMarkerManagement || trackDrawerState.isOpen || trackNavigateState != null ||
                 drawerState !is MarkerDrawerState.Hidden
             LaunchedEffect(anyDrawerOpen) {
                 viewModel.setDrawerOpen(anyDrawerOpen)
@@ -2350,8 +2307,8 @@ fun MapScreen(
             // "A panel owns the screen": the menu, settings, the two lists and the layer fan. While
             // one of them is open the trigger clock is suspended and its close starts a fresh wait
             // (§5); the fan is in the set because its own scrim owns the map for as long as it shows.
-            val inspectPanelOpen = showSettings || showTrackDrawer || showTrackHistory ||
-                showMarkerManagement || anyFanExpanded
+            val inspectPanelOpen = chrome.showSettings || chrome.showTrackDrawer || chrome.showTrackHistory ||
+                chrome.showMarkerManagement || anyFanExpanded
             MapInspectEffects(
                 mapView = mapView,
                 armed = inspectArmed,
@@ -2574,9 +2531,9 @@ fun MapScreen(
                 // R1 keep: the menu is a panel over the map, not an occupant of the dashboard slot, so the
                 // selection survives it and returns when the menu closes (OverlayLayer stands the detail
                 // slots down while a panel is open).
-                onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
-                showTrackDrawer = showTrackDrawer,
-                showTrackHistory = showTrackHistory,
+                onOpenTrackDrawer = { chrome.showTrackDrawer = !chrome.showTrackDrawer },
+                showTrackDrawer = chrome.showTrackDrawer,
+                showTrackHistory = chrome.showTrackHistory,
                 trackRecorderState = trackRecorderState,
                 trackSummaries = trackSummaries,
                 recoveryTrack = recoveryTrack,
@@ -2604,7 +2561,7 @@ fun MapScreen(
                     }
                 },
                 onStopRecording = { showStopRecordingSheet = true },
-                onDismissTrackHistory = { showTrackHistory = false },
+                onDismissTrackHistory = { chrome.showTrackHistory = false },
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
                     if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
@@ -2646,7 +2603,7 @@ fun MapScreen(
                 onDismissFan = { expandedFanId = null },
                 showExitBanner = showExitBanner,
                 importBanner = importBanner,
-                trackOpStatus = trackOpStatus,
+                trackOpStatus = chrome.trackOpStatus,
                 routeRefusalToast = routeRefusalToast,
                 rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
@@ -2993,8 +2950,8 @@ fun MapScreen(
         }
 
         // ── Click-N-Move: sequential navigate flow ──────────────────────────
-        LaunchedEffect(navigateToTarget) {
-            val target = navigateToTarget ?: return@LaunchedEffect
+        LaunchedEffect(chrome.navigateToTarget) {
+            val target = chrome.navigateToTarget ?: return@LaunchedEffect
             val mv = mapView
             if (mv != null) {
                 // 1. Focus the marker through the one framing rule, recording the id so the select
@@ -3031,7 +2988,7 @@ fun MapScreen(
                 abandonInspectOpen()
             }
 
-            navigateToTarget = null
+            chrome.navigateToTarget = null
         }
 
         // ── Track Click-N-Move: zoom-to-fit flow ─────────────────────────
@@ -3068,7 +3025,7 @@ fun MapScreen(
             // has settled — the open landed, no navigate target in flight and no zoom-to-fit pending —
             // a centre change is the user's own move, and the close leaves the frame alone.
             if (inspectCardOpen && inspectHandoff == null &&
-                trackNavigateState == null && navigateToTarget == null
+                trackNavigateState == null && chrome.navigateToTarget == null
             ) {
                 inspectMapMovedByUser = true
             }
@@ -3092,35 +3049,29 @@ fun MapScreen(
         // order stands in for it.
         val menuMidnightMs = ykws.android.maro.data.model.todayMidnightMs()
         // The menu's own track referential (plan §4): the map-filtered stored set, in the collection's
-        // own order — the menu carries a filter and a count but no order of its own, so the collection's
-        // order stands in for it. The chevron's first id is read from it, and the whole list is what its
-        // card is handed.
-        val menuTrackIds = allTrackSummaries
-            .filter { !it.isLive && it.matchesFilter(appSettings.trackMapFilter, menuMidnightMs) }
-            .map { it.id }
+        // own order. The chevron's first id is read from it, and the whole list is what its card is handed.
+        val menuTrackIds = menuTrackIdsOf(allTrackSummaries, appSettings.trackMapFilter, menuMidnightMs)
         val firstTrackId = menuTrackIds.firstOrNull()
         val firstMarkerId = mapMarkersState.firstOrNull()?.id
 
         // Menu (map-referential) track counter: stored non-live tracks matching the map filter —
         // pinned included (they always render). Render-cap divergence is acceptable.
-        val trackMapVisibleCount = allTrackSummaries.count {
-            !it.isLive && it.matchesFilter(appSettings.trackMapFilter, menuMidnightMs)
-        }
+        val trackMapVisibleCount =
+            trackMapVisibleCountOf(allTrackSummaries, appSettings.trackMapFilter, menuMidnightMs)
 
         // The track drawer's walk world (plan §4): the world its opener handed over — the frozen inspect
         // ladder, or the menu chevron's map-referential list — and the list world the drawer derives
         // itself everywhere else, which is what keeps a list-opened track on the list even while the mode
         // is armed. The drawer's own pill ends and both walk buttons read it.
-        val trackListIds = trackDrawerState.walkWorld
-            ?: trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
+        val trackListIds = trackListIdsOf(trackDrawerState.walkWorld, trackSummaries, pendingDeleteIds)
 
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
         OverlayLayer(
             chrome = OverlayChrome(
-                showSettings = showSettings,
-                showTrackDrawer = showTrackDrawer,
-                showTrackHistory = showTrackHistory,
-                showMarkerManagement = showMarkerManagement,
+                showSettings = chrome.showSettings,
+                showTrackDrawer = chrome.showTrackDrawer,
+                showTrackHistory = chrome.showTrackHistory,
+                showMarkerManagement = chrome.showMarkerManagement,
                 showWizard = showWizard,
                 wizardStep = wizardStep,
                 drawerState = drawerState,
@@ -3134,26 +3085,20 @@ fun MapScreen(
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
-            onDismissSettings = { showSettings = false },
-            onDismissMenu = { showTrackDrawer = false },
-            onDismissTrackHistory = { showTrackHistory = false },
-            onDismissMarkerManagement = { showMarkerManagement = false },
+            onDismissSettings = { chrome.showSettings = false },
+            onDismissMenu = { chrome.showTrackDrawer = false },
+            onDismissTrackHistory = { chrome.showTrackHistory = false },
+            onDismissMarkerManagement = { chrome.showMarkerManagement = false },
             onWizardCancel = { markersViewModel.wizardCancel() },
-            onMarkerDrawerClose = {
-                // While an inspect open is in flight this card is the predecessor held for it: its
-                // close — Back or the header cross — would empty the slot the successor is about to
-                // fill, so the surface is inert for that window and closes normally once the swap has
-                // landed (plan §5).
-                if (inspectHandoff == null) markersViewModel.closeDrawer()
-            },
+            onMarkerDrawerClose = { closeMarkerDrawerUnlessHandoff(inspectHandoff, markersViewModel) },
             // The marker card's merged walk while it is inspect-opened; null leaves it on its own world.
             markerInspectWalk = inspectWalk,
             // R1: the drawer Edit path needs only the track half closed — the marker half is replaced
             // by the wizard's own MarkerDrawerState, so the marker being edited is never closed.
             onMarkerWizardEntry = { closeTrackDrawer() },
-            onOpenTrackHistoryFromMenu = { showTrackHistory = true },
-            onOpenMarkerManagementFromMenu = { showMarkerManagement = true },
-            onOpenSettingsFromMenu = { showSettings = true },
+            onOpenTrackHistoryFromMenu = { chrome.showTrackHistory = true },
+            onOpenMarkerManagementFromMenu = { chrome.showMarkerManagement = true },
+            onOpenSettingsFromMenu = { chrome.showSettings = true },
             // The track chevron hands its card the menu's own map-referential list (plan §4): a door of
             // the item's-list kind hands over its list, so the card walks the menu's filter rather than
             // the list world, and a map-filter write closes it ([TrackCardSource.MENU]).
@@ -3179,19 +3124,12 @@ fun MapScreen(
             },
             markersViewModel = markersViewModel,
             trackViewModel = trackViewModel,
-            menu = MenuOverlayData(
-                gpsMode = appSettings.gpsMode,
-                autoShowMasterVisible = if (appSettings.gpsMode) appSettings.approachAutoShowGps else appSettings.approachAutoShowDemo,
-                autoShowMasterOverride = appSettings.autoShowMasterOverride,
+            menu = buildMenuOverlayData(
+                appSettings = appSettings,
                 gpsToggleColor = gpsToggleColor,
-                markerZonesVisible = appSettings.markerZonesVisible,
-                trackArrows = appSettings.trackArrows,
-                trackColours = appSettings.trackColours,
                 firstTrackId = firstTrackId,
                 firstMarkerId = firstMarkerId,
-                trackMapFilterState = appSettings.trackMapFilter,
-                trackMapCount = trackMapVisibleCount,
-                markerMapFilterState = appSettings.markerMapFilter,
+                trackMapVisibleCount = trackMapVisibleCount,
                 markerMapCount = mapMarkersState.size,
             ),
             onGpsModeChange = onGpsModeChange,
@@ -3202,8 +3140,8 @@ fun MapScreen(
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openSelectedTrack(listOf(action.id))
-                    is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope, onProgress = { trackOpStatus = it })
-                    is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope, onProgress = { trackOpStatus = it })
+                    is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope, onProgress = { chrome.trackOpStatus = it })
+                    is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope, onProgress = { chrome.trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState, reloadFromDisk = false)
@@ -3211,9 +3149,8 @@ fun MapScreen(
                     else -> {}
                 }
             },
-            trackList = TrackListOverlayData(
-                trackSortState = appSettings.trackListSort,
-                trackFilterState = appSettings.trackListFilter,
+            trackList = buildTrackListOverlayData(
+                appSettings = appSettings,
                 trackListState = trackListState,
             ),
             onTrackSortStateChange = { newState ->
@@ -3232,19 +3169,15 @@ fun MapScreen(
             onToggleTrackLink = { toggleTrackFilterLink(viewModel) },
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
-            settings = SettingsOverlayData(
-                selectedTab = selectedTab,
+            settings = buildSettingsOverlayData(
+                selectedTab = chrome.selectedTab,
                 displayScrollState = displayScrollState,
                 navigationScrollState = navigationScrollState,
                 positionScrollState = positionScrollState,
                 systemScrollState = systemScrollState,
             ),
-            onTabChange = { selectedTab = it },
-            onRegenerateRasters = { steps ->
-                val waterTest: (Double, Double) -> Boolean =
-                    if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> false }
-                depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
-            },
+            onTabChange = { chrome.selectedTab = it },
+            onRegenerateRasters = { steps -> regenerateRasterLayers(state, viewModel, depthViewModel, context, appSettings, steps) },
             boatPosition = gpsPosition ?: mapCenter,
             routeSummary = RouteSummaryData(
                 startOptions = routeEndOptions(RouteEndSelection.End.START, routeMarkers),
@@ -3265,16 +3198,15 @@ fun MapScreen(
                     .maxOfOrNull { (routePages.firstOrNull()?.plan?.durationSec ?: 0.0) - it }
                     ?.takeIf { it > 0.0 },
             ),
-            markerList = MarkerListOverlayData(
+            markerList = buildMarkerListOverlayData(
                 markers = mgmtMarkers,
-                markerSortState = appSettings.markerListSort,
-                markerFilterState = appSettings.markerListFilter,
+                appSettings = appSettings,
                 markerListState = markerListState,
             ),
             trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
             onOpenMarkerTrack = { trackId ->
                 // Switch from a marker surface to the owning track's detail drawer.
-                navigateToTarget = null
+                chrome.navigateToTarget = null
                 openSelectedTrack(listOf(trackId))
             },
             onMarkerAction = { action ->
@@ -3285,7 +3217,7 @@ fun MapScreen(
                         // stands down, so no stale selection survives into the wizard. The door is the
                         // list's own (plan §4): this edit's ending is the one that door has always had.
                         closeSelectedItemDashboards()
-                        showMarkerManagement = false
+                        chrome.showMarkerManagement = false
                         markersViewModel.startWizard(action.id, WizardDoor.LIST)
                     }
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> {
@@ -3301,21 +3233,16 @@ fun MapScreen(
                 }
             },
             // ── Track info drawer ─────────────────────────────────────────
-            trackInfo = TrackInfoOverlayData(
-                showTrackInfoDrawer = trackDrawerState.isOpen,
-                trackInfoDrawerData = trackDrawerState.track,
+            trackInfo = buildTrackInfoOverlayData(
+                trackDrawerState = trackDrawerState,
                 trackListIds = trackListIds,
-                currentTrackIndex = trackListIds.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
-                // An in-flight inspect open holds this card as its predecessor: both walk buttons grey
-                // out for that window rather than letting a second step cancel the pending landing (§5).
-                walkHeld = inspectHandoff != null,
-                trackColours = appSettings.trackColours,
-                eyeOverride = appSettings.trackSelectionBanded,
+                inspectHandoff = inspectHandoff,
+                appSettings = appSettings,
                 onToggleEyeOverride = { toggleSelectedTrackEye(viewModel, appSettings, mapView) },
             ),
             onTrackDrawerClose = { closeTrackDrawer() },
             onNavigateToTrack = { id -> openSelectedTrack(listOf(id)) },
-            onResumeRequest = { id, fromList -> pendingResume = PendingTrackResume(id, fromList) },
+            onResumeRequest = { id, fromList -> chrome.pendingResume = PendingTrackResume(id, fromList) },
             onFollowRequest = { id, fromList -> followSavedTrack(id, fromList) },
             onMarkerSortStateChange = { newState ->
                 applyMarkerSortChange(viewModel, markersViewModel, closeDashboards, newState)
@@ -3334,7 +3261,7 @@ fun MapScreen(
             onCreateFirst = {
                 // R1: the wizard takes the dashboard slot — the other dashboard closes first.
                 closeSelectedItemDashboards()
-                showMarkerManagement = false
+                chrome.showMarkerManagement = false
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
@@ -3383,7 +3310,7 @@ fun MapScreen(
                     }
                 }
             },
-            onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope, onProgress = { trackOpStatus = it }) },
+            onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope, onProgress = { chrome.trackOpStatus = it }) },
             onDeleteTrack = { id ->
                 val track = trackDrawerState.track
                 enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
@@ -3491,7 +3418,18 @@ fun MapScreen(
             closeBatteryOptDialog = { showBatteryOptDialog = false },
             onBatteryOptPrompted = {
                 viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
-            }
+            },
+            // ── The route's one exit dialog (R59) — the dialog itself lives in the host ──
+            routeExitRequested = routeExitRequested,
+            routeState = routeState,
+            routeViewModel = routeViewModel,
+            onDismissExit = { routeExitRequested = false },
+            onSaveRoute = { plan -> saveRouteTrack(plan, routePinned) },
+            onEndRoute = { endRouteMode() },
+            // ── Resume confirmation — its retained copy moved with the dialog ──
+            resumeTarget = chrome.pendingResume,
+            onClearResume = { chrome.pendingResume = null },
+            onResumed = { fromList -> if (fromList) chrome.showTrackHistory = false else closeTrackDrawer() }
         )
 
         // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) — host in MapImportConflictHost ──
@@ -3501,170 +3439,33 @@ fun MapScreen(
             trackViewModel = trackViewModel,
             trackScope = trackScope,
             clearPending = { pendingTrackImport = null },
-            setTrackOpStatus = { trackOpStatus = it },
+            setTrackOpStatus = { chrome.trackOpStatus = it },
             showImportBanner = { b -> showImportBanner(b) }
         )
-
-        // ── The route's one exit dialog (R59) — hosted here, asked by the toggle and the back key ───
-        // Both doors raise this same dialog, and it reads in the order every action surface takes
-        // (ui-component-guidelines §5.6): the affirmative first, the neutral stay, the loss last —
-        // **Save Route to Track** · **Continue route** · **Discard Route**. Its save writes the followed
-        // route and is **disabled while that route already has its track**, so no second press writes a
-        // second track for one line.
-        if (routeExitRequested) {
-            val front = routeState.plan
-            val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
-            // A followed saved route is already a track, so its save door stays grey and its third
-            // door reads "Stop following" rather than "Discard Route".
-            val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front) && followedTrackId == null
-            ConfirmDialog(
-                title = stringResource(R.string.route_exit_title),
-                visible = true,
-                onDismiss = { routeExitRequested = false },
-                message = null,
-                options = null,
-                actions = listOf(
-                    // The accent is the dialog's own outcome: it writes the route the toggle follows.
-                    ConfirmAction(
-                        label = stringResource(R.string.route_exit_save),
-                        role = ConfirmActionRole.PRIMARY,
-                        enabled = frontUnwritten
-                    ) {
-                        routeExitRequested = false
-                        if (front != null) saveRouteTrack(front, routePinned)
-                        endRouteMode()
-                    },
-                    ConfirmAction(
-                        label = stringResource(R.string.route_exit_continue),
-                        role = ConfirmActionRole.SECONDARY
-                    ) { routeExitRequested = false },
-                    ConfirmAction(
-                        label = stringResource(
-                            if (followedTrackId != null) R.string.route_exit_stop_following
-                            else R.string.route_exit_discard
-                        ),
-                        role = ConfirmActionRole.DANGER
-                    ) {
-                        routeExitRequested = false
-                        endRouteMode()
-                    }
-                )
-            )
-        }
-
-        // ── Resume confirmation dialog (optional backup) — hosted outside the drawers so closing the
-        //    source surface cannot drop it. `resumeTarget` drives dismissal; the retained copy keeps
-        //    the dialog mounted while it animates out. ──
-        val resumeBackupSuffix = stringResource(R.string.track_backup_suffix)
-        val resumeTarget = pendingResume
-        var resumeRetained by remember { mutableStateOf<PendingTrackResume?>(null) }
-        LaunchedEffect(resumeTarget) {
-            if (resumeTarget != null) resumeRetained = resumeTarget
-        }
-        if (resumeRetained != null) {
-            var backup by remember(resumeTarget?.trackId) { mutableStateOf(true) }
-            ConfirmDialog(
-                title = stringResource(R.string.resume_confirm_title),
-                visible = resumeTarget != null,
-                onDismiss = { pendingResume = null },
-                message = stringResource(R.string.resume_confirm_message),
-                options = {
-                    OptionRow(
-                        label = stringResource(R.string.resume_confirm_backup),
-                        checked = backup,
-                        onCheckedChange = { backup = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                },
-                actions = listOf(
-                    ConfirmAction(stringResource(R.string.action_resume), ConfirmActionRole.PRIMARY) {
-                        resumeRetained?.let { pending ->
-                            trackViewModel.resumeTrack(
-                                pending.trackId,
-                                if (backup) resumeBackupSuffix else null
-                            )
-                            if (pending.fromList) showTrackHistory = false else closeTrackDrawer()
-                        }
-                        pendingResume = null
-                    },
-                    ConfirmAction(stringResource(R.string.action_cancel), ConfirmActionRole.SECONDARY) {
-                        pendingResume = null
-                    }
-                )
-            )
-        }
 
         // ── Hoisted list-drawer confirmations (merge / batch delete) ──────────
         // Painted on the ladder so their scrim covers the drawers and the map, while the source
         // drawer stays open behind them.
         ConfirmRequestHost(state = confirmDialogHost)
 
-        // ── Screen lock: full-screen input scrim + top-most unlock button ──
-        //     The scrim consumes every pointer event so nothing below it (map,
-        //     dashboard, drawers, controls) receives touch while locked. The
-        //     duplicate button sits above the scrim so the lock can be toggled off.
-        val lockTopInset = chromeTopInset(isLandscape)
-        if (screenLocked) {
-            LockScrim(
-                onInterceptedTap = {
-                    lockBanner = true
-                    lockBannerAt = SystemClock.elapsedRealtime()
-                }
-            )
-        }
-        // Locked-overlay controls sit inside the map area: mirror MapContent's
-        // dashboard padding (portrait: bottom; landscape: start) so the duplicate
-        // lock button, zoom controls, and banner align over the originals.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    if (isLandscape)
-                        PaddingValues(start = landscapeDashboardWidth, top = 0.dp, end = 0.dp, bottom = 0.dp)
-                    else
-                        PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = portraitDashboardHeight)
-                )
-        ) {
-            if (screenLocked) {
-                LockScreenButton(
-                    locked = true,
-                    onClick = onToggleScreenLock,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(
-                            top = lockTopInset,
-                            // The arithmetic's one home, over the slot the row actually drew: the
-                            // earth/water square is the one the setting can take away.
-                            start = topToggleSlotOffset(lockSlot(appSettings.showLandWaterIcon))
-                        )
-                )
-                ZoomControls(
-                    onZoomIn = {
-                        mapView?.let { mv ->
-                            mv.controller.zoomIn()
-                            viewModel.updateZoomLevel(mv.zoomLevelDouble)
-                        }
-                    },
-                    onZoomOut = {
-                        mapView?.let { mv ->
-                            mv.controller.zoomOut()
-                            viewModel.updateZoomLevel(mv.zoomLevelDouble)
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 6.dp, bottom = 6.dp),
-                    doubleTap = true
-                )
+        // ── Screen lock: the scrim, its mirrored controls and the lock banner ──
+        //     Painted last, after the overlay ladder, so the scrim sits above every drawer and the map.
+        MapLockLayer(
+            screenLocked = screenLocked,
+            lockBanner = lockBanner,
+            bandTagsDrawn = bandTagsDrawn,
+            isLandscape = isLandscape,
+            portraitDashboardHeight = portraitDashboardHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            mapView = mapView,
+            viewModel = viewModel,
+            appSettings = appSettings,
+            onToggleScreenLock = onToggleScreenLock,
+            onInterceptedTap = {
+                lockBanner = true
+                lockBannerAt = SystemClock.elapsedRealtime()
             }
-            if (lockBanner != null) {
-                LockBanner(
-                    locked = lockBanner == true,
-                    tagsDrawn = bandTagsDrawn,
-                    modifier = Modifier.align(Alignment.BottomStart)
-                )
-            }
-        }
+        )
     }
 }
 }
@@ -3676,6 +3477,70 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
+// ── Derived values, hoisted out of the body (code-health step 3, tier 1 A) ──
+// Pure and argument-explicit, so each answer has one home and can be unit-tested without a composition.
+
+/** The selected route page (R54, R55): the index clamped into the pages, or null when there are none. */
+private fun <T> selectedPageOrNull(pages: List<T>, index: Int): T? =
+    pages.getOrNull(index.coerceIn(0, (pages.size - 1).coerceAtLeast(0)))
+
+/**
+ * **The anchor's own reading** (R3): the boat's position with the course and speed the lead is projected
+ * from, or **null wherever they cannot be trusted**.
+ *
+ * The freshness gate is the caller's own — a demo position is the map centre and its pan-derived speed is
+ * suspended while aiming, so there is no boat to project and no lead to take. A null here is read as "the
+ * live fix and no lead" by the host and by the two acquisitions the panel opens, all of which fall back
+ * rather than inventing a start.
+ */
+private fun routeLeadFixOf(
+    gpsMode: Boolean,
+    gpsStale: Boolean,
+    position: LatLng,
+    courseDeg: Double,
+    speedKn: Double?
+): RouteFix? = if (gpsMode && !gpsStale) {
+    RouteFix(
+        position = RoutePoint(position.latitude, position.longitude),
+        courseDeg = courseDeg,
+        speedKn = speedKn
+    )
+} else null
+
+/**
+ * The menu's own track referential (plan §4): the map-filtered stored set, in the collection's own order —
+ * the menu carries a filter and a count but no order of its own, so the collection's order stands in.
+ */
+private fun menuTrackIdsOf(
+    allTrackSummaries: List<TrackSummary>,
+    mapFilter: ListFilter,
+    midnightMs: Long
+): List<String> = allTrackSummaries
+    .filter { !it.isLive && it.matchesFilter(mapFilter, midnightMs) }
+    .map { it.id }
+
+/**
+ * Menu (map-referential) track counter: stored non-live tracks matching the map filter — pinned included
+ * (they always render). Render-cap divergence is acceptable.
+ */
+private fun trackMapVisibleCountOf(
+    allTrackSummaries: List<TrackSummary>,
+    mapFilter: ListFilter,
+    midnightMs: Long
+): Int = allTrackSummaries.count { !it.isLive && it.matchesFilter(mapFilter, midnightMs) }
+
+/**
+ * The track drawer's walk world (plan §4): the world its opener handed over — the frozen inspect ladder,
+ * or the menu chevron's map-referential list — else the list world the drawer derives itself everywhere
+ * else, which is what keeps a list-opened track on the list even while the mode is armed.
+ */
+private fun trackListIdsOf(
+    walkWorld: List<String>?,
+    trackSummaries: List<TrackSummary>,
+    pendingDeleteIds: List<String>
+): List<String> = walkWorld
+    ?: trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
 
 // ── OverlayLayer callback bodies, hoisted out of the call site (code-health step 3, tier 1) ──
 // Move, don't rewrite: each body is the lambda's own, its captures threaded as explicit parameters so
@@ -3937,6 +3802,32 @@ private fun applyMarkerMapReset(
     }
     markersViewModel.onMapReferentialChanged()
     if (appSettings.markerFilterLinked) markersViewModel.refreshSort(filter = resetFilter)
+}
+
+/** The Settings "Regenerate" body: one water-test over the ready state, one regeneration call. */
+private fun regenerateRasterLayers(
+    state: CoastlineState,
+    viewModel: NavigationViewModel,
+    depthViewModel: DepthViewModel,
+    context: Context,
+    appSettings: AppSettings,
+    steps: List<RasterCache.Step>
+) {
+    val waterTest: (Double, Double) -> Boolean =
+        if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> false }
+    depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
+}
+
+/** The marker drawer's close, held inert while an inspect open is in flight. */
+private fun closeMarkerDrawerUnlessHandoff(
+    inspectHandoff: InspectHandoff?,
+    markersViewModel: MarkersViewModel
+) {
+    // While an inspect open is in flight this card is the predecessor held for it: its
+    // close — Back or the header cross — would empty the slot the successor is about to
+    // fill, so the surface is inert for that window and closes normally once the swap has
+    // landed (plan §5).
+    if (inspectHandoff == null) markersViewModel.closeDrawer()
 }
 
 // ── Map content area (shared by landscape & portrait) ────────────────────────
