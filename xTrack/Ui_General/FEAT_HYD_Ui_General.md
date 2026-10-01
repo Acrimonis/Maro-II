@@ -1,32 +1,34 @@
-# Context Hydration — Ui_General — 2026-09-29
+# Context Hydration — Ui_General — 2026-10-01
 
-**Last Bake:** 2026-09-29 17:22 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-01 20:16 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met and none stopped this session — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, each pass on `#impl`, the commit on `#commit`, this bake on `#bake`), the device was never touched (builds only), and every claim written about the code rests on a file read in the session. The gaps left open are named: the wheel guard's read-back timing is reasoned rather than measured, and the three passes' behaviour on a device is owed.
+**Directive trace:** All five covered action classes were met and none stopped this session — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, each pass on the user's explicit approval, the commit on `#commit`), the device was never touched (builds only), and every claim written about the code rests on a file read in the session. The gaps left open are named: every UI change in this pass is build- and unit-test-validated only, nothing device-validated, and the Feature Summaries row and Focus History prune remain blocked by the long-line cap recorded in the Global Todos.
 
 ## State
 
-One branch, `feature/dropdown-sel`, cut from `origin/develop` on the user's `#new`: the dropdown wheel's selection was fixed, then two UI passes followed it — one shared title order for the lists and the route ends' selector, and a filter popup that no longer closes on a row tap.
+One branch, `feature/ui-shuffle`, cut from `origin/develop` on `#new` and rebased onto `db0a01f` on `#merge`: one day of menu-and-settings reshuffling, shipped in a run of small passes.
 
-**The wheel lands the entry the box shows.** [`DropdownWheel`](../../app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt) no longer hands a *relative* quantity to `scrollToItem`'s absolute offset — the form that put the band `(slots − 1)/2` entries past the box, clamped onto the last entry. It scrolls **by** the entry's own distance on the slot grid from the popup's rest frame ([`wheelTargetScrollPx()`](../../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt)), then reads the row the band names from the first laid-out frame and closes the gap once ([`wheelCorrectionSlots()`](../../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt)), and [`DropdownRow`](../../app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt) resolves the option index **once** for both the box's word and the wheel's entry. The Ask hop returned **revise**: one High left standing — a stale frame read would double the landing — plus one Medium and four Lows, in the plan's §9.
+**The menu's Navigation card was trimmed.** The GPS-mode toggle and the Auto-show zones master switch left the right-side menu; the route summary and route-ends block now stand alone in that card, and the master switch's backing field `autoShowMasterOverride` was deleted from `AppSettings` so the NavigationViewModel gate follows the per-mode `approachAutoShowGps` / `approachAutoShowDemo` alone.
 
-**One title order, two readers.** The route ends' selector takes the fixed entries first in their declared order and the flagged ones by title, through the pure [`routeEndEntries()`](../../app/src/main/java/ykws/android/maro/data/route/RouteEndSelection.kt) beside `MarkerRouteFlags`; the lists' `TITLE` field reads the same comparator, [`titleOrder`](../../app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt), whose key [`titleSortKey()`](../../app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) drops **one** configured word under the user's own condition — the title starts with it character for character and whitespace follows, the key then beginning at the next word — so `Le Port` files under P while `Leman` and `Léman` keep their L. The words are `title.sort.ignoredPrefixes=La,Le,Les` in [`maro.properties`](../../app/src/main/assets/maro.properties), parsed by `AppConfig.parseIgnoredPrefixes` and read per comparison. Two reviews folded; both gates green; committed as `01b2524`.
+**Show zones re-homed.** The menu's Markers "Show zones" toggle moved to Settings → Layers → Markers, above *Markers Appearance*, still on the persisted `markerZonesVisible` preference and the `menu_show_zones` label.
 
-**A filter row tap leaves the popup open.** `FilterControl`'s `expanded = false` after `onFilterChange` went: the filter applies **live** on each tap, the list answering behind the standing popup, and the popup is dismissed by an outside tap or by back alone — Compose's own `onDismissRequest`. No group count enters the rule and no draft state exists. Verdict **ship**, with three records: the popup standing over the list it filters, `expanded` being `remember`-only across a configuration change, and no dismiss affordance inside it beyond the platform's pair.
+**Tracks rendering and Import/Export moved into Settings.** The menu's `Display Tracks with:` twin-box and its Import/Export pair left the menu's Tracks card (which keeps only live stats and the Track List row) and landed in Settings → Layers → Tracks; the twin-box was then re-organized into a titled **Speed Display** subsection inside *Track Speed and Direction*, the route gates (Speed colours on routes, Arrows on routes) into a **Route** subsection below it, and the chip option renamed "Speed Colors" / "Couleurs de vitesse". The menu's Route arm button now wears the same `SECONDARY` face as Import/Export.
 
-**Carried.** The route-dialogs section still holds its two open todos: the device pass over the panel, the exit dialog and the aim ring, and the removal of the three diagnostic log lines in `RouteHost` once that pass has answered.
+**The Settings tabs were reordered.** The Route section (free-water pace + slow-water budget) now leads the Navigation tab; Stop detection moved beneath it from Position; the GPS-mode row left Settings Position and the Navigation/GPS-tuning group moved to Settings System above Screen, leaving the Position tab empty. The dead `onGpsModeChange` chain was trimmed through `SettingsOverlay` / `OverlayLayer` / `MapScreen` and `settings_gps_mode_desc` removed from both locales.
+
+`gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL on every pass; `TrackRenderStringsTest` re-pinned to the new heading.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt` · `DropdownWheel.kt` · `DropdownRow.kt` — the landing, the one comparison, and the single resolution
-- `app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt` — `titleOrder`, `titleSortKey`, the lists' `TITLE` branch
-- `app/src/main/java/ykws/android/maro/data/route/RouteEndSelection.kt` — `routeEndEntries`, beside `MarkerRouteFlags`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeEndOptions`, now ordered by the shared rule
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` · `app/src/main/assets/maro.properties` — `titleSortIgnoredPrefixes` and its parse
-- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `FilterControl`'s dismissal
-- Tests: `WheelPolicyTest`, `ListSortOrderTest`, `RouteEndEntriesTest`, `TitleSortPropertiesTest`
-- Docs: `docs/ui-lists-guidelines.md` (the ignored-prefix rule and the filter popup's dismissal), `docs/ui-component-guidelines.md` §2.10 · §2.12
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — Navigation card trim, Show zones and Tracks/Import-Export removal, Route arm face
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — Tracks card rework (Speed Display, Route subsection), Navigation/Position/System reorder
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` · `OverlayLayerParams.kt` · `MapOverlayData.kt` — menu-data plumbing shrinkage
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — dead helpers and the `onGpsModeChange` arg
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `autoShowMasterOverride` removal
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — per-mode auto-show gate
+- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — Speed Display heading, Speed Colors chip, dead strings removed
+- `app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt` — heading pin
 
 ## Next Step
 
-The device passes the three passes owe: the wheel opening on the entry the box shows at three, four and five-plus entries — with the High finding's hardening (two reads a frame apart) still unbuilt; the marker list on Title and the route ends' selector both filing `Le Port` under P; and the filter popup staying open across taps, closing on the outside tap and on back. Then the carried work of the route-dialogs section above, and the wheel plan's §9 findings, none of which are folded.
+The device pass over the reorganized Settings tabs and the trimmed menu — the empty Position tab, the Navigation/System re-homes, the Speed Display and Route subsections, and the re-faced Route arm — is owed; nothing here is device-validated.

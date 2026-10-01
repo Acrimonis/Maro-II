@@ -37,7 +37,6 @@
     <string name="settings_redisplay_time_label">Reveal time</string>
     <string name="settings_redisplay_time_desc">How many seconds away (at current speed) before it reappears</string>
     <string name="settings_gps_mode_label">GPS mode</string>
-    <string name="settings_gps_mode_desc">Follow your GPS position and orient the map (otherwise demo mode)</string>
     <string name="settings_recenter_label">Recenter delay</string>
     <string name="settings_recenter_desc">Time before GPS recenters after a manual pan</string>
     <string name="settings_section_layers">Layers</string>
@@ -311,11 +310,10 @@
 
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Tracks</string>
-    <string name="menu_show_zones">Show zones</string>
-    <string name="menu_tracks_rendering">Display Tracks with:</string>
     <string name="menu_render_arrows">Arrows</string>
-    <string name="menu_render_colours">Colours</string>
+    <string name="menu_render_colours">Speed Colors</string>
     <string name="menu_manage_markers">Markers</string>
+    <string name="menu_show_zones">Display Markers Zones</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>
     <string name="track_stat_state">State</string>
@@ -387,6 +385,7 @@
     <string name="settings_tracks_desc">Recorded tracks on the map</string>
     <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
     <string name="settings_tracks_direction_settings_label">Track Speed and Direction</string>
+    <string name="settings_tracks_speed_display_label">Speed Display</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>
     <string name="settings_tracks_direction_density_uniform">Uniform</string>
     <string name="settings_tracks_direction_density_speed">Speed-based</string>

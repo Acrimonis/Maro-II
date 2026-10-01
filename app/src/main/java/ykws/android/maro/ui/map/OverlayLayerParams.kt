@@ -50,10 +50,6 @@ data class OverlayChrome(
  */
 @Immutable
 data class MenuOverlayData(
-    /** The arrows axis the menu's first chip reads and writes (D5). */
-    val trackArrows: Boolean,
-    /** The colours axis its second chip reads and writes — the same single owner (D5). */
-    val trackColours: Boolean,
     val firstTrackId: String?,
     val firstMarkerId: String?,
     val trackMapFilterState: ListFilter,

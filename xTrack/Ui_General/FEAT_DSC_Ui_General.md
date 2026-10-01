@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-29 17:22
+modified: 2026-10-01 20:16
 ---
 
 # Feature: Ui_General
@@ -109,6 +109,20 @@ controls differing only in what they announce).
 - `docs/ui-component-guidelines.md` §5.6 · §5.9 — the doctrine and the tiers, its only home
 
 ## Implemented
+
+- **stop-detection-move (2026-10-01)** — Stop detection moved from Position into Navigation, below Route and above Orientation aids, leaving the Position tab empty. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL → [261001_FEAT_PLN_Ui_General_stop-detection-move.md](261001_FEAT_PLN_Ui_General_stop-detection-move.md)
+
+- **position-system-rehome (2026-10-01)** — the GPS-mode row left Settings Position; the Navigation group (GPS tuning) moved to Settings System above Screen; the dead `onGpsModeChange` chain was trimmed through SettingsOverlay/OverlayLayer/MapScreen and `settings_gps_mode_desc` removed from both locales. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL → [261001_FEAT_PLN_Ui_General_position-system-rehome.md](261001_FEAT_PLN_Ui_General_position-system-rehome.md)
+
+- **navigation-route-top (2026-10-01)** — the Route section (free-water pace + slow-water budget) now leads the Settings Navigation tab, above Orientation aids, re-indented to the Column level. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL → [261001_FEAT_PLN_Ui_General_navigation-route-top.md](261001_FEAT_PLN_Ui_General_navigation-route-top.md)
+
+- **route-subsection (2026-10-01)** — the route rendering gates (Speed colours on routes, Arrows on routes) moved out of Tracks Appearance into a titled "Route" `SubSectionHeader` subsection directly below Speed Display inside Track Speed and Direction, reusing `route_trip_title`. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL → [261001_FEAT_PLN_Ui_General_route-subsection.md](261001_FEAT_PLN_Ui_General_route-subsection.md)
+
+- **speed-display-subsection (2026-10-01)** — the Display Tracks chips moved inside the Track Speed and Direction card as a titled "Speed Display" `SubSectionHeader` subsection above Arrow density; `settings_tracks_speed_display_label` added to both locales, the dead `menu_tracks_rendering` removed, and the `TrackRenderStringsTest` pin moved to the new heading. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL → [261001_FEAT_PLN_Ui_General_speed-display-subsection.md](261001_FEAT_PLN_Ui_General_speed-display-subsection.md)
+
+- **tracks-card-tweaks (2026-10-01)** — Display Tracks moved between the two expanders and Import/Export, the chip renamed "Speed Colors" / "Couleurs de vitesse", and the menu's Route arm now wears the same `SECONDARY` face as Import/Export. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL → [261001_FEAT_PLN_Ui_General_tracks-card-tweaks.md](261001_FEAT_PLN_Ui_General_tracks-card-tweaks.md)
+
+- **menu-tracks-shuffle (2026-10-01)** — the menu's Tracks rendering and Import/Export moved into Settings. The Display Tracks twin-box now stands above *Tracks Appearance* in the Layers-tab Tracks card, writing `trackArrows` / `trackColours` through `onUpdateSettings`, and the Import/Export pair stands below *Track Speed and Direction*, threaded as `onImportTracks` / `onExportAllTracks` through `SettingsOverlay` and `LayersSettings`. The menu's Tracks card keeps only live stats and the Track List row; the dead plumbing — the `TrackAxis` enum, the menu parameters, `MenuOverlayData.trackArrows` / `trackColours`, the `OverlayLayer` reads and args, and `MapScreen`'s two apply helpers — was deleted. `gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL; the Ask hop's F1 (race-free `!it.*` writers) and F2 (vertical padding) closed in a Code hop → [261001_FEAT_PLN_Ui_General_menu-tracks-shuffle.md](261001_FEAT_PLN_Ui_General_menu-tracks-shuffle.md)
 
 - **title-sort-keeps-punctuation (2026-09-30)** — the shared title sort keeps leading punctuation, so `--- La Salis ---` files ahead of every letter and `«Le» Port` keeps its dress.
 

@@ -22,8 +22,6 @@ internal fun buildMenuOverlayData(
     trackMapVisibleCount: Int,
     markerMapCount: Int,
 ): MenuOverlayData = MenuOverlayData(
-    trackArrows = appSettings.trackArrows,
-    trackColours = appSettings.trackColours,
     firstTrackId = firstTrackId,
     firstMarkerId = firstMarkerId,
     trackMapFilterState = appSettings.trackMapFilter,

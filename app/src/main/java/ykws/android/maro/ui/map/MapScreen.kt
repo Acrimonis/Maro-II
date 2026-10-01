@@ -3117,9 +3117,6 @@ fun MapScreen(
                 trackMapVisibleCount = trackMapVisibleCount,
                 markerMapCount = mapMarkersState.size,
             ),
-            onGpsModeChange = onGpsModeChange,
-            onTrackArrowsChange = { arrows -> applyTrackArrowsChange(viewModel, mapView, arrows) },
-            onTrackColoursChange = { colours -> applyTrackColoursChange(viewModel, mapView, colours) },
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openSelectedTrack(listOf(action.id))
@@ -3528,29 +3525,6 @@ private fun trackListIdsOf(
 // ── OverlayLayer callback bodies, hoisted out of the call site (code-health step 3, tier 1) ──
 // Move, don't rewrite: each body is the lambda's own, its captures threaded as explicit parameters so
 // the top-level reference stays stable and OverlayLayer's parameter skipping is preserved.
-
-/** The menu's Arrows chip (D3). */
-private fun applyTrackArrowsChange(
-    viewModel: NavigationViewModel,
-    mapView: MapView?,
-    arrows: Boolean
-) {
-    // D3: one writer for the pair; the map reads the axes and the eye's own override never
-    // touches either of them. Each chip folds into its own `copy`, so a tap never rewrites
-    // the axis the user did not touch.
-    viewModel.updateSettings { it.copy(trackArrows = arrows) }
-    mapView?.invalidate()
-}
-
-/** The menu's Colours chip (D3) — the same single owner the arrows axis has. */
-private fun applyTrackColoursChange(
-    viewModel: NavigationViewModel,
-    mapView: MapView?,
-    colours: Boolean
-) {
-    viewModel.updateSettings { it.copy(trackColours = colours) }
-    mapView?.invalidate()
-}
 
 /** The track list/map link toggle. */
 private fun toggleTrackFilterLink(viewModel: NavigationViewModel) {

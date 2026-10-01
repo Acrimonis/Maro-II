@@ -36,7 +36,6 @@
     <string name="settings_redisplay_time_label">Délai de réaffichage</string>
     <string name="settings_redisplay_time_desc">Combien de secondes avant (à la vitesse actuelle) la zone réapparaît</string>
     <string name="settings_gps_mode_label">Mode GPS</string>
-    <string name="settings_gps_mode_desc">Suivre votre position GPS et orienter la carte (sinon mode démo)</string>
     <string name="settings_recenter_label">Délai de recentrage</string>
     <string name="settings_recenter_desc">Temps avant recentrage GPS après un déplacement manuel</string>
     <string name="settings_section_layers">Calques</string>
@@ -310,11 +309,10 @@
 
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Traces</string>
-    <string name="menu_show_zones">Afficher les zones</string>
-    <string name="menu_tracks_rendering">Afficher les traces avec :</string>
     <string name="menu_render_arrows">Flèches</string>
-    <string name="menu_render_colours">Couleurs</string>
+    <string name="menu_render_colours">Couleurs de vitesse</string>
     <string name="menu_manage_markers">Repères</string>
+    <string name="menu_show_zones">Afficher les Zones des Repères</string>
     <string name="track_status_recording">● Enregistrement</string>
     <string name="track_status_idle">● En attente</string>
     <string name="track_stat_state">État</string>
@@ -386,6 +384,7 @@
     <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
     <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
     <string name="settings_tracks_direction_settings_label">Direction et Vitesse de direction</string>
+    <string name="settings_tracks_speed_display_label">Affichage de la vitesse</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
     <string name="settings_tracks_direction_density_uniform">Uniforme</string>
     <string name="settings_tracks_direction_density_speed">Selon la vitesse</string>

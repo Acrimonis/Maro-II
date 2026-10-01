@@ -117,11 +117,6 @@ internal fun OverlayLayer(
      * drawer reads it; the mode's own state lives in `RouteViewModel`.
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
-    onGpsModeChange: (Boolean) -> Unit,
-    /** The menu's arrows chip (D5): one half of the pair that writes the two render axes. */
-    onTrackArrowsChange: (Boolean) -> Unit = {},
-    /** The menu's colours chip (D5): the other half of that same writer. */
-    onTrackColoursChange: (Boolean) -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -192,8 +187,6 @@ internal fun OverlayLayer(
     val drawerState = chrome.drawerState
     val dialogScrimActive = chrome.dialogScrimActive
     val routeSummaryVisible = chrome.routeSummaryVisible
-    val trackArrows = menu.trackArrows
-    val trackColours = menu.trackColours
     val firstTrackId = menu.firstTrackId
     val firstMarkerId = menu.firstMarkerId
     val trackMapFilterState = menu.trackMapFilterState
@@ -396,12 +389,6 @@ internal fun OverlayLayer(
                 markerFilterLinked = markerFilterLinked,
                 onToggleMarkerLink = onToggleMarkerLink,
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
-                trackArrows = trackArrows,
-                trackColours = trackColours,
-                onTrackArrowsChange = onTrackArrowsChange,
-                onTrackColoursChange = onTrackColoursChange,
-                onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
-                onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
         }
 
@@ -839,7 +826,8 @@ internal fun OverlayLayer(
             SettingsOverlay(
                 settings = appSettings,
                 onUpdateSettings = onUpdateSettings,
-                onGpsModeChange = onGpsModeChange,
+                onImportTracks = { onDismissSettings(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
+                onExportAllTracks = { onDismissSettings(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) },
                 onDismiss = onDismissSettings,
                 selectedTab = selectedTab,
                 onTabChange = onTabChange,

@@ -7,9 +7,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The render-control string set, tied to the two files that carry it: the caption and the two option
- * labels exist in both locales, the retired triple's label is gone from both, and the Settings heading
- * is renamed in both.
+ * The render-control string set, tied to the two files that carry it: the Speed Display heading and the
+ * two option labels exist in both locales, the retired triple's label is gone from both, and the
+ * Settings heading is renamed in both.
  *
  * The XML is read as text — no Android resource machinery — with the same file-first convention
  * `HeatmapRampPropertiesTest` uses, so the test CWD is the `app` module while `maro.repoDir` is
@@ -33,9 +33,9 @@ class TrackRenderStringsTest {
         listOf("values", "values-fr").map { it to stringsText(it) }
 
     @Test
-    fun bothLocalesCarryTheCaptionAndTheTwoOptionLabels() {
+    fun bothLocalesCarryTheDisplayHeadingAndTheTwoOptionLabels() {
         val expected = listOf(
-            "menu_tracks_rendering",
+            "settings_tracks_speed_display_label",
             "menu_render_arrows",
             "menu_render_colours"
         )
