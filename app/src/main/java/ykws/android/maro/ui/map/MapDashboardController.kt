@@ -1,0 +1,36 @@
+package ykws.android.maro.ui.map
+
+import androidx.compose.runtime.mutableStateListOf
+
+/**
+ * The map dashboard's own state — the vertical snackbar stack's three slots and its overflow queue
+ * (code-health step 3, tier 2 D): the queue's arithmetic leaves [`MapScreen`](MapScreen.kt)'s body so the
+ * screen keeps only the domain handlers that consume it. Held by the screen in a `remember`, so its lists
+ * survive recomposition exactly as the two `mutableStateListOf`s did.
+ */
+internal class MapDashboardController {
+    /** The visible stack, in draw order; the snackbar host paints it. */
+    val activeSnacks = mutableStateListOf<ActiveSnack>()
+
+    /** The overflow waiting for a free slot. */
+    private val queuedSnacks = mutableStateListOf<ActiveSnack>()
+
+    /** Adds a snack, or queues it once the three visible slots are taken. */
+    fun enqueue(snack: ActiveSnack) {
+        if (activeSnacks.size < 3) activeSnacks.add(snack)
+        else queuedSnacks.add(snack)
+    }
+
+    /** Pulls the queue forward into every free slot. */
+    fun promote() {
+        while (activeSnacks.size < 3 && queuedSnacks.isNotEmpty()) {
+            activeSnacks.add(queuedSnacks.removeAt(0))
+        }
+    }
+
+    /** Removes a snack and refills its slot from the queue — the whole removal in one place. */
+    fun remove(snack: ActiveSnack) {
+        activeSnacks.remove(snack)
+        promote()
+    }
+}
