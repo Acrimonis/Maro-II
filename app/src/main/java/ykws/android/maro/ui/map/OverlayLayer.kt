@@ -134,7 +134,7 @@ internal fun OverlayLayer(
     appSettings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     settings: SettingsOverlayData,
-    onTabChange: (Int) -> Unit,
+    onTabChange: (SettingsTab) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
 
     // ── Marker drawer data ───────────────────────────────────────────────
@@ -194,9 +194,9 @@ internal fun OverlayLayer(
     val markerMapFilterState = menu.markerMapFilterState
     val markerMapCount = menu.markerMapCount
     val selectedTab = settings.selectedTab
-    val displayScrollState = settings.displayScrollState
+    val layersScrollState = settings.layersScrollState
     val navigationScrollState = settings.navigationScrollState
-    val positionScrollState = settings.positionScrollState
+    val routingScrollState = settings.routingScrollState
     val systemScrollState = settings.systemScrollState
     val showTrackInfoDrawer = trackInfo.showTrackInfoDrawer
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
@@ -831,9 +831,9 @@ internal fun OverlayLayer(
                 onDismiss = onDismissSettings,
                 selectedTab = selectedTab,
                 onTabChange = onTabChange,
-                displayScrollState = displayScrollState,
+                layersScrollState = layersScrollState,
                 navigationScrollState = navigationScrollState,
-                positionScrollState = positionScrollState,
+                routingScrollState = routingScrollState,
                 systemScrollState = systemScrollState,
                 onRegenerateRasters = onRegenerateRasters
             )

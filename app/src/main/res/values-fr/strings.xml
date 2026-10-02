@@ -23,8 +23,9 @@
     <string name="settings_back">Retour</string>
     <string name="settings_section_language">Langue</string>
     <string name="settings_language_system">Système</string>
-    <string name="settings_section_position">Navigation</string>
-    <string name="settings_redisplay_label">Zones de vitesse auto</string>
+    <string name="settings_section_position_source">Navigation</string>
+    <string name="settings_section_gps_tuning">Navigation</string>
+    <string name="settings_section_redisplay">Zones de vitesse auto</string>
     <string name="settings_redisplay_enable_gps">Activer en mode GPS</string>
     <string name="settings_redisplay_enable_demo">Activer en mode démo</string>
     <string name="settings_redisplay_zone300">Zone 300 m</string>
@@ -38,11 +39,9 @@
     <string name="settings_gps_mode_label">Mode GPS</string>
     <string name="settings_recenter_label">Délai de recentrage</string>
     <string name="settings_recenter_desc">Temps avant recentrage GPS après un déplacement manuel</string>
-    <string name="settings_section_layers">Calques</string>
-    <string name="settings_section_navigation">Navigation</string>
     <string name="settings_tab_layers">Calques</string>
     <string name="settings_tab_navigation">Navigation</string>
-    <string name="settings_tab_position">Position</string>
+    <string name="settings_tab_routing">Routage</string>
     <string name="settings_tab_system">Système</string>
     <string name="settings_section_orientation">Aides à la navigation</string>
     <string name="settings_low_depth_settings_label">Alerte hauts-fonds</string>
@@ -51,7 +50,7 @@
     <string name="settings_track_settings_label">Rendu des traces</string>
     <string name="settings_gps_tuning_label">Réglages GPS</string>
     <string name="settings_alert_settings_label">Réglages d\'alerte</string>
-    <string name="settings_map_offset_label">Décalage de carte automatique</string>
+    <string name="settings_section_map_offset">Décalage de carte automatique</string>
     <string name="settings_map_offset_gps_desc">Décaler le centre de la carte vers l\'avant en navigation GPS</string>
     <string name="settings_map_offset_demo_label">Mode démo</string>
     <string name="settings_map_offset_demo_desc">Décaler le centre de la carte vers l\'avant en navigation libre</string>
@@ -69,6 +68,7 @@
     <string name="settings_regen_warning_label">Alerte faible profondeur</string>
     <string name="settings_regen_warning_desc">Reconstruire l\'alerte magenta des hauts-fonds</string>
     <string name="settings_coastline_label">Trait de côte</string>
+    <string name="settings_section_coastline">Trait de côte</string>
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
     <string name="settings_coastline_appearance_label">Apparence du trait de côte</string>
     <string name="settings_coastline_width_desc">Épaisseur du trait de côte (dp)</string>
@@ -77,8 +77,9 @@
     <string name="settings_coastline_colors_desc">Continental à gauche, île à droite</string>
     <string name="settings_coastline_pair_label">Continental / île</string>
     <string name="settings_land_water_icon_label">Afficher l\'icône terre/eau</string>
+    <string name="settings_section_land_water_icon">Afficher l\'icône terre/eau</string>
     <string name="settings_land_water_icon_desc">L\'icône indique si le bateau se trouve sur l\'eau ou sur terre, et elle est masquée lorsqu\'elle est désactivée</string>
-    <string name="settings_zone300_label">Zone des 300 m</string>
+    <string name="settings_section_zone300">Zone des 300 m</string>
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
@@ -88,11 +89,11 @@
     <string name="settings_regulated_zones_outline_width_desc">Épaisseur des contours des zones réglementées (dp)</string>
     <string name="settings_width_label">Épaisseur du trait</string>
     <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
-    <string name="settings_regulated_zones_label">Zones réglementées</string>
+    <string name="settings_section_regulated_zones">Zones réglementées</string>
     <string name="settings_regulated_zones_desc">Afficher les zones réglementées (vitesse, mouillage, etc.) sur la carte</string>
     <string name="settings_regulated_zones_appearance_label">Apparence des zones réglementées</string>
     <string name="settings_regulated_zones_transparency_desc" formatted="false">Transparence du remplissage et du contour des zones réglementées (0% = opaque, 100% = invisible)</string>
-    <string name="settings_danger_zones_label">Zones de danger</string>
+    <string name="settings_section_danger_zones">Zones de danger</string>
     <string name="settings_danger_zones_desc">Surligner les hauts-fonds qui pourraient échouer le bateau</string>
     <string name="settings_low_depth_warning_label">Alerte faible profondeur</string>
     <string name="settings_low_depth_warning_desc">Surligner les hauts-fonds dangereux</string>
@@ -116,8 +117,7 @@
     <string name="settings_speed_colour_label">Couleur selon la vitesse</string>
     <string name="settings_default_colour_label">Couleur par défaut</string>
     <string name="settings_value_dp_fmt">%.2f dp</string>
-    <string name="settings_emodnet_section_label">Seuil hauts-fonds (EMODnet)</string>
-    <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
+    <string name="settings_depth_cutoff_expander">Seuil hauts-fonds (EMODnet)</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>
     <string name="settings_section_screen">Écran</string>
@@ -138,8 +138,7 @@
     <string name="settings_sub_render_desc">Nombre de redessins de la carte par seconde en suivi GPS</string>
     <string name="settings_fps_label">Taux de rafraîchissement carte</string>
     <string name="settings_fps_desc">Plus bas = moins de batterie, animation moins fluide</string>
-    <string name="settings_idle_section_label">Détection d\'arrêt</string>
-    <string name="settings_idle_section_desc">Détecter quand le bateau est à l\'arrêt et économiser la batterie en espaçant les fixes GPS</string>
+    <string name="settings_section_stop_detection">Détection d\'arrêt</string>
     <string name="settings_stop_enable_label">Activer la détection d\'arrêt</string>
     <string name="settings_stop_enable_desc">Détecter quand le bateau est à l\'arrêt. Cela permet aussi d\'économiser la batterie sur l\'acquisition GPS.</string>
     <string name="settings_stop_delay_label">Espacer le GPS à l\'arrêt</string>
@@ -149,7 +148,6 @@
     <string name="settings_window_desc">Combien de temps le bateau doit rester dans la distance adaptative avant d\'être considéré à l\'arrêt</string>
     <string name="settings_adaptive_dist_label">Distance adaptative</string>
     <string name="settings_adaptive_dist_desc">Jusqu\'où le bateau peut se déplacer dans le temps adaptatif avant d\'être considéré à l\'arrêt</string>
-    <string name="settings_section_advanced">Avancé</string>
     <string name="settings_alert_label">Alerte zone 300 m</string>
     <string name="settings_alert_desc">Réaffiche automatiquement la zone des 300 m masquée à l\'approche de la côte</string>
     <string name="settings_alert_dist_label">Distance d\'alerte</string>
@@ -349,6 +347,7 @@
 
     <!-- Filter axes and options -->
     <string name="filter_axis_date_range">Période</string>
+    <string name="filter_axis_position">Position</string>
     <string name="filter_option_last_week">7 derniers jours</string>
     <string name="filter_option_last_2_weeks">14 derniers jours</string>
     <string name="filter_option_last_month">30 derniers jours</string>
@@ -373,7 +372,7 @@
     <string name="filter_option_route_role">Origine ou destination</string>
     <string name="filter_option_no_route_role">Sans rôle de route</string>
     <string name="color_picker_title">Choisir une couleur</string>
-    <string name="settings_depth_label">Carte de profondeur</string>
+    <string name="settings_section_depth_map">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
     <string name="action_regenerate">Régénérer</string>
 
@@ -437,7 +436,7 @@
     <string name="settings_reg_alert_gps_desc">Afficher les zones réglementées à l\'approche</string>
     <string name="settings_reg_alert_demo_label">Alerte zone réglementée (Démo)</string>
     <string name="settings_reg_alert_demo_desc">Afficher les zones réglementées en naviguant vers une zone</string>
-    <string name="settings_regenerate_layers">Régénérer les couches</string>
+    <string name="settings_section_regenerate_layers">Régénérer les couches</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Annuler</string>
@@ -572,6 +571,8 @@
     <string name="settings_color_routes">Itinéraires</string>
     <string name="settings_routes_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
     <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>
+    <string name="settings_section_appearance">Apparence</string>
+    <string name="settings_section_routing_tuning">Réglages</string>
     <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->
     <string name="startup_colour_value_unreadable">Valeur de couleur illisible dans maro.properties (%1$s) — la couleur par défaut a été utilisée.</string>
     <!-- D4 : un identifiant de moteur de route qu\'aucune ligne ne revendique est retombé sur le défaut. -->

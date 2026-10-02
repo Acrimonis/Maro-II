@@ -98,6 +98,7 @@ A toggle is a **row**, never a card. The rendering is identical whether the card
 |---------|-------|
 | Label | 16sp Medium, `uiTextPrimary` (`ui.font.toggle.size`) |
 | Description | 13sp, `uiTextMuted` (`ui.font.desc.size`) — **optional**; omit the parameter for label-only rows |
+| Label style (`labelStyle`) | `ToggleLabelStyle.ROW` (**default**) — 16sp Medium `uiTextPrimary`; `ToggleLabelStyle.COMMENT` — the name drawn in the **description's own typography**, 13sp `uiTextMuted` regular, for a row whose name comments under a title the block already carries (§2.9). Its one use is the Routing tab's Appearance block. |
 | Leading icon (`leadingIcon`) | **optional** `@Composable (() -> Unit)?` slot rendered **before** the label column with the standard 8dp gap (precedent: `CategoryToggleGroup`'s icon/strike overlay) |
 | Label→control gap | `${ui.spacing.label.control}` (16dp) |
 | Control | `Switch` with accent colours (`uiAccent`) |
@@ -112,7 +113,7 @@ Row(
 ) {
     leadingIcon?.let { it(); Spacer(Modifier.width(8.dp)) }        // optional slot
     Column(Modifier.weight(1f)) {
-        Text(label,       color = uiTextPrimary, fontSize = 16.sp, fontWeight = Medium)
+        Text(label,       color = labelColor, fontSize = labelSize, fontWeight = labelWeight)  // ROW: primary/16sp/Medium · COMMENT: muted/13sp/Normal
         if (description != null) Text(description, color = uiTextMuted, fontSize = 13.sp)
     }
     Spacer(Modifier.width(16.dp))
@@ -126,7 +127,7 @@ The row carries **no** background, radius or surface of its own — the enclosin
 
 Same model as the toggle (§2.1): a slider is a **row**, not a card — label (16sp Medium `uiTextPrimary`), description (13sp `uiTextMuted`), right-aligned value (bold `ui.value.text`, `${ui.font.value.size}`) and the slider — with **no surface of its own**; the enclosing `CardArea`/`NestedCard` owns the box (§2.3).
 
-Examples in Settings: Marker halo size and Point/icon zoom (Layers → Markers), Idle threshold / Min duration / Dedup radius (Markers), EMODnet cutoff (Layers → Depth), re-display distance and time (Navigation → Auto-show zones), boat offset (Navigation → Automatic map offset), recenter distance (Position), window and adaptive distance (System → Power saving), FPS (System).
+Examples in Settings: Marker halo size and Point/icon zoom (Layers → Markers), Idle threshold / Min duration / Dedup radius (Markers), EMODnet cutoff (Layers → Depth Map), re-display distance and time (Navigation → Auto-show Speed Zones), boat offset (Navigation → Automatic map offset), recenter distance (System → GPS tuning), window and adaptive distance (System → Power saving), FPS (System).
 
 Row padding: **vertical only** — like every row it carries **no horizontal padding** of its own; the container owns the inset (§2.0). Label-left / value-right share one line; for a **two-thumb** slider use `RangeSliderRow` (§2.8).
 
@@ -161,7 +162,7 @@ CardArea {
 }
 ```
 
-**Worked examples:** Coastline = `CardArea { ToggleRow(…) }` — one section, no divider. Orientation aids = three rows with two `SectionDivider`s — one section per control. Auto-show zones = two rows 8dp apart (one section) + `SectionDivider` + one row (second section).
+**Worked examples:** Coastline = `CardArea { ToggleRow(…) }` — one section, no divider. Orientation aids = three rows with two `SectionDivider`s — one section per control. Auto-show zones = two rows 8dp apart (one section) + `SectionDivider` + one row (second section). The Routing tab = the *Route* block (pace and budget sliders) then the *Appearance* block, one `CardArea` of two comment-named toggle rows 8dp apart (§2.1) — a block per purpose, a card per block.
 
 **No settings visibility is conditional on another setting's state.** Settings are always shown; a toggle controls *behavior*, never *visibility*. E.g. the GPS-tuning expander is always visible regardless of GPS mode — the GPS mode toggle only controls whether GPS tuning takes effect, not whether the expander renders. Do not wrap a setting or expander in `if (someOtherSetting)`.
 
@@ -332,6 +333,8 @@ The two-thumb row: optional label/description, a **mandatory** value line, and t
 
 **`CardDescription` vs `SubSectionHeader(title, description = …)`:** `CardDescription` = an explanation under a `SectionHeader`, dropped into the top of a card before its controls. `SubSectionHeader` = a **titled** sub-section **inside** a card/expander, whose 13sp `ui.text.secondary` description labels that group. Both are kept.
 
+**A comment-styled row name is not a heading.** `ToggleRow(labelStyle = ToggleLabelStyle.COMMENT)` draws a row's *name* in the description's typography because the block's own `SectionHeader` heads it — the name comments, so no `SubSectionHeader` is stacked above it. The white-heading sentence above is untouched: no heading is ever dimmed, and this dims a row name that was never a heading.
+
 ### 2.10 Popup Styling (canonical)
 
 Filter/sort and other popup menus follow the settings-page hierarchy. This is the canonical
@@ -405,7 +408,8 @@ The Settings overlay tab bar is Material 3's **`SecondaryScrollableTabRow`** —
 | Cells | **custom**, never M3 `Tab` — `Box` + `selectable(selected = …, role = Role.Tab, onClick = …)`, padding 8dp horizontal × 14dp vertical |
 | Indicator | M3's default secondary indicator — spans the whole cell and animates |
 | Label | `${ui.font.tab.size}` (18sp) **SemiBold**; accent + **Bold** when selected, `uiTextSecondary` otherwise |
-| State | **`selectedTab` is the single source of truth**: `pageCount` derives from `settingsTabLabels`, and **no pager→tab write-back exists** while `userScrollEnabled = false` — a returning swipe needs one, reading `settledPage` and never `currentPage` |
+| Tabs | `SettingsTab` (`ui/map/SettingsTab.kt`) — the enum is a tab's one home: its `labelRes`, its display order, the pager's `pageCount` (`SettingsTab.entries.size`) and the scroll-state mapping all derive from it, so a tab is never addressed by a bare index |
+| State | **`selectedTab: SettingsTab` is the single source of truth**: `pageCount` derives from `SettingsTab.entries`, and **no pager→tab write-back exists** while `userScrollEnabled = false` — a returning swipe needs one, reading `settledPage` and never `currentPage` |
 
 Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum width, which wrapped the "Navigation" label and left side gaps, and `PrimaryTabRow`'s default indicator is a fixed ~24dp stub. Cells sized to their label keep the whole strip visible on a 360dp screen, with horizontal scrolling acting only as the safety net for large accessibility font scale.
 
