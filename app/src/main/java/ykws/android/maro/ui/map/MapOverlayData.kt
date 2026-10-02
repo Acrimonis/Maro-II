@@ -42,16 +42,16 @@ internal fun buildTrackListOverlayData(
 
 /** The settings surface's data bundle, moved verbatim from the `OverlayLayer` call site. */
 internal fun buildSettingsOverlayData(
-    selectedTab: Int,
-    displayScrollState: ScrollState,
+    selectedTab: SettingsTab,
+    layersScrollState: ScrollState,
     navigationScrollState: ScrollState,
-    positionScrollState: ScrollState,
+    routingScrollState: ScrollState,
     systemScrollState: ScrollState,
 ): SettingsOverlayData = SettingsOverlayData(
     selectedTab = selectedTab,
-    displayScrollState = displayScrollState,
+    layersScrollState = layersScrollState,
     navigationScrollState = navigationScrollState,
-    positionScrollState = positionScrollState,
+    routingScrollState = routingScrollState,
     systemScrollState = systemScrollState,
 )
 

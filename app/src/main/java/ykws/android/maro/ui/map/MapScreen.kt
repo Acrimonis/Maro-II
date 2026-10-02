@@ -839,9 +839,9 @@ fun MapScreen(
     }
 
     val anyFanExpanded = expandedFanId != null
-    val displayScrollState = rememberScrollState()
+    val layersScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
-    val positionScrollState = rememberScrollState()
+    val routingScrollState = rememberScrollState()
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
@@ -3151,9 +3151,9 @@ fun MapScreen(
             onUpdateSettings = viewModel::updateSettings,
             settings = buildSettingsOverlayData(
                 selectedTab = chrome.selectedTab,
-                displayScrollState = displayScrollState,
+                layersScrollState = layersScrollState,
                 navigationScrollState = navigationScrollState,
-                positionScrollState = positionScrollState,
+                routingScrollState = routingScrollState,
                 systemScrollState = systemScrollState,
             ),
             onTabChange = { chrome.selectedTab = it },
@@ -4400,14 +4400,6 @@ private fun MapContent(
 }
 
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
-
-// Tab definitions for the settings page.
-internal val settingsTabLabels = listOf(
-    R.string.settings_tab_layers,
-    R.string.settings_tab_navigation,
-    R.string.settings_tab_position,
-    R.string.settings_tab_system
-)
 
 // ── The Route section's two ends (R44–R46) ──────────────────────────────────
 

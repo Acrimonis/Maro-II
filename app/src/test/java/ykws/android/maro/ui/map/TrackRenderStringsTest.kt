@@ -106,4 +106,57 @@ class TrackRenderStringsTest {
             }
         }
     }
+
+    @Test
+    fun theTabSweepCarriesItsNewKeysAndRetiresTheOldOnesInBothLocales() {
+        // The tab order and header sweep: every renamed group key must exist in both locales, and every
+        // key it replaced must be gone — the retired half is what stops a forgotten reader from silently
+        // relabelling another surface, since a stale key left behind matches nothing.
+        val expected = listOf(
+            "settings_tab_routing",
+            "filter_axis_position",
+            "settings_section_regulated_zones",
+            "settings_section_zone300",
+            "settings_section_coastline",
+            "settings_section_land_water_icon",
+            "settings_section_danger_zones",
+            "settings_section_depth_map",
+            "settings_section_redisplay",
+            "settings_section_map_offset",
+            "settings_section_stop_detection",
+            "settings_section_regenerate_layers",
+            "settings_section_gps_tuning",
+            "settings_section_position_source",
+            "settings_section_appearance",
+            "settings_section_routing_tuning",
+            "settings_depth_cutoff_expander"
+        )
+        val retired = listOf(
+            "settings_tab_position",
+            "settings_section_layers",
+            "settings_section_navigation",
+            "settings_section_advanced",
+            "settings_section_position",
+            "settings_emodnet_section_label",
+            "settings_emodnet_section_desc",
+            "settings_idle_section_label",
+            "settings_idle_section_desc",
+            "settings_regulated_zones_label",
+            "settings_zone300_label",
+            "settings_danger_zones_label",
+            "settings_depth_label",
+            "settings_redisplay_label",
+            "settings_map_offset_label",
+            "settings_regenerate_layers"
+        )
+
+        bothLocales().forEach { (locale, xml) ->
+            expected.forEach { key ->
+                assertTrue("$key is missing from $locale", xml.contains("name=\"$key\""))
+            }
+            retired.forEach { key ->
+                assertFalse("$key is still declared in $locale", xml.contains("name=\"$key\""))
+            }
+        }
+    }
 }

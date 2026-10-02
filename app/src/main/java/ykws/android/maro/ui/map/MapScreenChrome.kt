@@ -2,7 +2,6 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
@@ -14,7 +13,7 @@ import androidx.compose.runtime.setValue
  */
 @Stable
 internal class MapScreenChrome(
-    selectedTab: Int = 0,
+    selectedTab: SettingsTab = SettingsTab.LAYERS,
 ) {
     var showSettings by mutableStateOf(false)
     var showTrackDrawer by mutableStateOf(false)
@@ -22,7 +21,7 @@ internal class MapScreenChrome(
     var showMarkerManagement by mutableStateOf(false)
     var navigateToTarget by mutableStateOf<NavigateTarget?>(null)
 
-    var selectedTab by mutableIntStateOf(selectedTab)
+    var selectedTab by mutableStateOf(selectedTab)
 
     /** Resume confirmation: non-null while the dialog awaits the Resume/Cancel choice. */
     var pendingResume by mutableStateOf<PendingTrackResume?>(null)
@@ -35,10 +34,18 @@ internal class MapScreenChrome(
          * Serialises [selectedTab] alone: it is the one `rememberSaveable` member, and the other seven
          * are plain `remember` — saving them would make them survive process death, which they did not
          * before this fold.
+         *
+         * The tab is stored by **name**, never by index, so reordering the tabs cannot re-interpret a
+         * restored selection; an unknown name falls back to the first tab.
          */
-        val Saver: Saver<MapScreenChrome, Int> = Saver(
-            save = { it.selectedTab },
-            restore = { MapScreenChrome(selectedTab = it) },
+        val Saver: Saver<MapScreenChrome, String> = Saver(
+            save = { it.selectedTab.name },
+            restore = { name ->
+                MapScreenChrome(
+                    selectedTab = SettingsTab.entries.firstOrNull { tab -> tab.name == name }
+                        ?: SettingsTab.LAYERS
+                )
+            },
         )
     }
 }

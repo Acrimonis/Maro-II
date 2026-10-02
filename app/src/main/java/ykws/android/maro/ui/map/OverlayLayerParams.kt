@@ -68,10 +68,10 @@ data class MenuOverlayData(
  */
 @Immutable
 data class SettingsOverlayData(
-    val selectedTab: Int,
-    val displayScrollState: ScrollState,
+    val selectedTab: SettingsTab,
+    val layersScrollState: ScrollState,
     val navigationScrollState: ScrollState,
-    val positionScrollState: ScrollState,
+    val routingScrollState: ScrollState,
     val systemScrollState: ScrollState,
 )
 
