@@ -93,10 +93,10 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 |---|---------|------|-----------|-------|--------|-----------|
 | 1 | Scrim | — (inline in OverlayLayer) | any drawer/settings/wizard open **and no dialog visible** | hard toggle (no animation) | none | `fillMaxSize` |
 | 2 | Wizard (landscape) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
-| 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight`; no keyboard offset of its own — the platform's pan positions it, as it positions the track card's inline fields |
+| 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `dashboardBaseHeight`; no keyboard offset of its own — the platform's pan positions it, as it positions the track card's inline fields |
 | 3 | Menu | `MenuDrawerOverlay.kt` | `showTrackDrawer` | `FROM_RIGHT` | `LEFT` | `TopEnd`, 75% width |
 | 4 | Marker (landscape) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
-| 4 | Marker (portrait) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight` |
+| 4 | Marker (portrait) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `dashboardBaseHeight` |
 | 5 | TrackHistory | `TrackHistoryOverlay.kt` | `showTrackHistory` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 6 | MarkerManagement | `MarkerManagementOverlay.kt` | `showMarkerManagement` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 7 | Settings | `SettingsOverlay` (in `MapScreenSettingsOverlay.kt`) | `showSettings` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
@@ -113,15 +113,15 @@ Formula) and the dialog scrim read the same token.
 ### Portrait Drawer Height Floor
 
 **A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
-`maxOf(portraitDashboardHeight, <content height>)` — the dashboard height is a floor, so the drawer either
+`maxOf(dashboardBaseHeight, <content height>)` — the dashboard height is a floor, so the drawer either
 matches the dashboard or grows taller to fit its content. It must never render shorter than the dashboard
 (otherwise its top edge would sit lower than the dashboard's top).
 
 - The portrait Track detail drawer ([`OverlayLayer.kt`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt))
-  follows this rule via `maxOf(portraitDashboardHeight, …)`.
+  follows this rule via `maxOf(dashboardBaseHeight, …)`.
 - The portrait marker detail drawer ([`MarkerDrawer.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt))
   follows it via the wrap-content floor: `ViewingContent` passes
-  `wrapContentMinHeight = portraitDashboardHeight` to [`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt),
+  `wrapContentMinHeight = dashboardBaseHeight` to [`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt),
   which floors the wrap Column with `heightIn(min = …)` (do NOT add `wrapContentHeight()` — it
   overrides the incoming minimum, letting content win over the floor).
 - Marker `Viewing` wrap-content is **portrait-only** (`wrapContent = !isLandscape`).
@@ -337,7 +337,7 @@ Row(
                 // ... more action icons
             }
             // Open-details chevron — canonical 28dp muted, plain Icon (not IconButton).
-            // Gated by showChevron (false in detail-drawer / MeasureHeight contexts).
+            // Gated by showChevron (false in the detail-drawer contexts).
             if (showChevron) {
                 Icon(KeyboardArrowRight, cd_view, uiTextMuted, 28dp)
             }
@@ -411,17 +411,24 @@ Row(
 ```kotlin
 @Composable
 fun DrawerScaffold(
-    title: String,
-    onClose: () -> Unit,
+    title: String = "",
+    onClose: (() -> Unit)? = null,
+    showBack: Boolean = true,
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
-    headerVerticalPadding: Dp = 6.dp,
+    headerVerticalPadding: Dp = AppConfig.uiPaddingHeaderVertical.dp,
+    header: (@Composable ColumnScope.() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
     suppressOverscrollWhenFits: Boolean = false,
     bottomAnchoredContent: Boolean = false,
+    wrapContent: Boolean = false,
+    wrapContentMinHeight: Dp = 0.dp,
     statusBarsInset: Boolean = false,
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    backgroundColor: Color = Color(AppConfig.uiBackground),
+    wrapContentMaxHeight: Dp? = null,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
     footer: @Composable ColumnScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
@@ -430,17 +437,24 @@ fun DrawerScaffold(
 
 Parameter | Default | Purpose |
 |-----------|---------|---------|
-`title` | *(required)* | Header title text (17sp Bold, single-line, ellipsis overflow) |
-`onClose` | *(required)* | Back-button callback |
+`title` | `""` | Header title text, used only when no `header` slot is supplied (17sp Bold, single-line, ellipsis overflow) |
+`onClose` | `null` | Back-button callback; required only while a header is drawn — a header-less panel omits it, and `title` with it |
+`showBack` | `true` | `false` = the header keeps its title and drops the back button |
 `modifier` | `Modifier` | Outer modifier on the root `Box` |
 `headerActions` | `{}` | Composable slot in the header `Row` (right-aligned) |
 `headerHorizontalPadding` | `24.dp` | Horizontal padding for the header `Row` |
-`headerVerticalPadding` | `6.dp` | Vertical padding for the header `Row` |
+`headerVerticalPadding` | `AppConfig.uiPaddingHeaderVertical.dp` | Vertical padding for the header `Row` |
+`header` | `null` | Optional header slot; null draws today's `DrawerHeader` when `onClose` is supplied, and no header at all otherwise |
 `contentPadding` | `PaddingValues(horizontal = 12.dp)` | Padding around the scrollable content body |
 `scrollable` | `true` | `true` = `verticalScroll` around content; `false` = static body |
 `suppressOverscrollWhenFits` | `false` | `true` = disables overscroll while body content fits the viewport |
 `bottomAnchoredContent` | `false` | `true` = bottom-aligns the scrollable body content |
+`wrapContent` | `false` | `true` = the panel sizes to its content, floored at `wrapContentMinHeight` |
+`wrapContentMinHeight` | `0.dp` | The floor the wrap-content panel never renders shorter than — the dashboard base size for the bottom panels |
 `statusBarsInset` | `false` | `true` = applies `.windowInsetsPadding(statusBars)` after background |
+`onMeasuredHeight` | `null` | Optional report of the panel's measured height, from **both** branches — what the map's band reads in portrait |
+`backgroundColor` | `AppConfig.uiBackground` | The visible panel's background; the dashboard passes its own `ui.dashboard.background` |
+`wrapContentMaxHeight` | `null` | Optional ceiling for the panel, so a taller one's body scrolls instead of covering the map strip; null keeps the full-screen ceiling |
 `shape` | `RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)` | Clip shape for the root `Box` |
 `footer` | `{}` | Composable slot rendered below the scrollable body |
 

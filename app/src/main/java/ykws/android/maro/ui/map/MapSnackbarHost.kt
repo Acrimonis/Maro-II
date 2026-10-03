@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,18 +28,23 @@ import ykws.android.maro.R
 internal fun MapSnackbarHost(
     activeSnacks: List<ActiveSnack>,
     isLandscape: Boolean,
-    portraitDashboardHeight: Dp,
+    /**
+     * The live dashboard band (Phase 2), taken as a [State] so the band's animation re-runs this
+     * host rather than `MapScreen`'s body (F6).
+     */
+    dashboardBandHeight: State<Dp>,
     landscapeDashboardWidth: Dp,
     onUndo: (ActiveSnack) -> Unit,
     onTimeout: (ActiveSnack) -> Unit,
     onSecondAction: (ActiveSnack) -> Unit = {}
 ) {
+    val bandHeight = dashboardBandHeight.value
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(
-                    bottom = if (isLandscape) 0.dp else portraitDashboardHeight,
+                    bottom = if (isLandscape) 0.dp else bandHeight,
                     start = if (isLandscape) landscapeDashboardWidth else 0.dp
                 )
                 .padding(start = 12.dp, end = RIGHT_CONTROL_COLUMN_INSET),

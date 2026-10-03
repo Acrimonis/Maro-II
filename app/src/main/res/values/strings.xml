@@ -183,7 +183,6 @@
     <string name="dash_empty">—</string>
     <string name="dash_zone_title">300m zone</string>
     <string name="dash_not_at_sea">On land</string>
-    <string name="dash_out_of_zone">Out of zone</string>
     <string name="dash_in_zone">IN ZONE!</string>
     <string name="dash_zone_speed_limit">5 kn max — %1$s</string>
     <string name="dash_speed_suffix_warn">" · ⚠ %.1f kn"</string>
@@ -201,8 +200,6 @@
     <string name="dash_speed_title">Speed</string>
     <string name="dash_demo_mode">demo mode</string>
     <string name="dash_5kn_in_zone">5 kn max in zone</string>
-    <string name="dash_valid_ok">✓ Data validated (RMSE %.1f m)</string>
-    <string name="dash_valid_incomplete">⚠ Validation incomplete (RMSE %.1f m)</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolated</string>
     <string name="dash_value_speed_limit">%.0f kn</string>

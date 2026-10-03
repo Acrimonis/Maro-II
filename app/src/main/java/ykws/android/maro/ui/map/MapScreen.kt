@@ -28,6 +28,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
@@ -94,6 +95,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -198,6 +201,7 @@ import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
+import ykws.android.maro.ui.components.bandHeightFor
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.data.track.TrackViewModel
@@ -277,6 +281,51 @@ internal fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.curren
  * that gutter in either one.
  */
 private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_GUTTER
+
+/**
+ * The dashboard band's one home (F6): the heights the open bottom dashboards report are written here
+ * by `DrawerScaffold`'s measurement, and read only by [rememberDashboardBandHeight]'s small animation
+ * scope — never by `MapScreen`'s body — so a measurement frame cannot re-run the whole file.
+ *
+ * The base is both the initial value and the floor (R2); the ceiling and the coercion into
+ * `[base, maxHeight − chromeTopInset]` live in [rememberDashboardBandHeight] (R5).
+ */
+@Stable
+internal class DashboardBandState(val baseHeight: Dp) {
+    /** The open non-route bottom dashboard's measured height; the base while none is open. */
+    var measuredBottom: Dp by mutableStateOf(baseHeight)
+
+    /** The route confirmation panel's measured height, read only while it owns the slot. */
+    var measuredRoute: Dp by mutableStateOf(baseHeight)
+}
+
+/**
+ * Animates the band target derived from [band] and returns it as a [State], so the reads the map, the
+ * snackbar host and the lock layer make are theirs rather than `MapScreen`'s (F6). The target is the
+ * open panel's measured height (the route panel's own while it owns the slot), coerced into
+ * `[baseHeight, ceiling]` (R5); the base stands in landscape.
+ */
+@Composable
+private fun rememberDashboardBandHeight(
+    band: DashboardBandState,
+    isLandscape: Boolean,
+    routeOwnsSlot: Boolean,
+    ceiling: Dp,
+): State<Dp> {
+    val target = if (isLandscape) band.baseHeight else bandHeightFor(
+        base = band.baseHeight,
+        measured = maxOf(
+            band.measuredBottom,
+            if (routeOwnsSlot) band.measuredRoute else band.baseHeight
+        ),
+        ceiling = ceiling
+    )
+    return animateDpAsState(
+        targetValue = target,
+        animationSpec = tween(durationMillis = 250),
+        label = "dashboardBand"
+    )
+}
 
 /**
  * Computed polyline rendering appearance: ARGB colour plus [strokeWidth], which is dp like every
@@ -1558,15 +1607,34 @@ fun MapScreen(
         // The dashboard panel is overlaid via Modifier.align() in the orientation branch.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
-            val portraitDashboardHeight = maxWidth * 3 / 5
+            // The one base size (R2): today's regular dashboard height, the floor every bottom
+            // dashboard uses — one named value instead of four hand-copied Dp constants (V5).
+            val dashboardBaseHeight = maxWidth * 3 / 5
             val landscapeDashboardWidth = maxHeight * 100 / 100
+            // The slot belongs to the route only while it is being acquired (R73, R74) — read here,
+            // above the band, whose route half is part of the map geometry.
+            val routeOwnsSlot = routeDisplayArmed && routeState is RouteState.Choosing
+
+            // ── Phase 2: the map follows a growing dashboard (portrait only, R5) ──
+            // The band's one home (F6): the scaffold writes each open bottom dashboard's measured
+            // height into this holder, and only its small animation scope reads those writes — so a
+            // measurement frame no longer re-runs this whole body. The holder is keyed on the base,
+            // which moves with rotation, so a rotation cannot reuse a stale over-ceiling measurement
+            // (F9) — and only rotation, an IME resize leaving the base alone.
+            val dashboardBand = remember(dashboardBaseHeight) { DashboardBandState(dashboardBaseHeight) }
+            val bandCeiling = (maxHeight - chromeTopInset(isLandscape)).coerceAtLeast(dashboardBaseHeight)
+            val dashboardBandHeight = rememberDashboardBandHeight(
+                band = dashboardBand,
+                isLandscape = isLandscape,
+                routeOwnsSlot = routeOwnsSlot,
+                ceiling = bandCeiling
+            )
 
             // ── Dynamic map offset from speed — configurable via maro.properties ──
-            //     MapContent already has bottom padding equal to dashboard height,
-            //     so the MapView only fills the visible area. Offset is relative
-            //     to that visible height (full height in landscape).
-            val visibleMapHeightDp = if (isLandscape) maxHeight
-                else maxHeight - portraitDashboardHeight
+            //     MapContent already has bottom padding equal to the band, so the MapView only fills
+            //     the visible area. Offset is relative to that visible height (full height in
+            //     landscape), and the band is read through this derived State at the map's offset
+            //     site rather than here, so the band's animation does not re-run this body (F6).
             val boatFromBottomPct = appSettings.mapOffsetBoatFromBottomPct
             val maxMapShift = ((50 - boatFromBottomPct) / 100.0).coerceIn(0.0, 0.45)
             val fullOffsetSpeedKn = AppConfig.mapOffsetLookaheadMaxSpeedKn
@@ -1582,12 +1650,17 @@ fun MapScreen(
             val targetFraction = if (effectiveSpeedKn != null)
                 ((effectiveSpeedKn / fullOffsetSpeedKn.toFloat()).coerceIn(0f, 1f))
             else 0f
-            val animatedFraction by animateFloatAsState(
+            val animatedFraction = animateFloatAsState(
                 targetValue = targetFraction,
                 animationSpec = tween(durationMillis = 2000, easing = FastOutSlowInEasing),
                 label = "mapOffsetFraction"
             )
-            val mapCenterOffsetDp = (animatedFraction * visibleMapHeightDp.value * maxMapShift.toFloat()).dp
+            val mapCenterOffsetDp = remember(isLandscape, maxHeight, maxMapShift) {
+                derivedStateOf {
+                    val visibleMapHeight = if (isLandscape) maxHeight else maxHeight - dashboardBandHeight.value
+                    (animatedFraction.value * visibleMapHeight.value * maxMapShift.toFloat()).dp
+                }
+            }
 
             // ── The bottom-left tag stack's own set, and the band's one tag answer ─────────────────
             // The raw zones filtered by boat size and per-category visibility: one home, because the
@@ -1606,7 +1679,10 @@ fun MapScreen(
             // The offset in pixels is what the anchor needs: `mapView.mapCenter` is the *plain* screen
             // centre, so the geo point under the marker is read at `centre + offset` — the check behind
             // that is recorded on `inspectAnchor`, whose fallback is the implementation.
-            val inspectOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() }
+            val bandDensity = LocalDensity.current
+            val inspectOffsetPx = remember(bandDensity) {
+                derivedStateOf { with(bandDensity) { mapCenterOffsetDp.value.roundToPx() } }
+            }
 
             // ── The selected-item opener, above the mode that calls it ─────────────────────────────
             // The mode's pick and every step call it directly and a local function cannot be
@@ -1907,7 +1983,7 @@ fun MapScreen(
                 inspectMapMovedByUser = false
                 inspectCapturedDemoCenter = if (appSettings.gpsMode) null else {
                     mapView?.let { mv ->
-                        inspectAnchor(mv, inspectOffsetPx)?.let { GeoPoint(it.latitude, it.longitude) }
+                        inspectAnchor(mv, inspectOffsetPx.value)?.let { GeoPoint(it.latitude, it.longitude) }
                     }
                 }
                 viewModel.armInspect()
@@ -2462,7 +2538,7 @@ fun MapScreen(
             MapInspectEffects(
                 mapView = mapView,
                 armed = inspectArmed,
-                centerOffsetPx = inspectOffsetPx,
+                centerOffsetPx = { inspectOffsetPx.value },
                 markers = inspectMarkerCandidates,
                 trackIds = inspectTrackIds,
                 trackViewModel = trackViewModel,
@@ -2861,12 +2937,9 @@ fun MapScreen(
                         )
                     }
                 },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        if (isLandscape) PaddingValues(start = landscapeDashboardWidth, top = 0.dp, end = 0.dp, bottom = 0.dp)
-                        else PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = portraitDashboardHeight)
-                    ),
+                modifier = Modifier.fillMaxSize(),
+                dashboardBandHeight = dashboardBandHeight,
+                landscapeDashboardWidth = landscapeDashboardWidth,
                 mapCenterOffsetDp = mapCenterOffsetDp
         )
 
@@ -2874,8 +2947,7 @@ fun MapScreen(
             // **The slot belongs to the route only while it is being acquired** (R73, R74): the panel
             // is where the outcomes are taken from, so it needs no floating surface to be reached —
             // and once `Select route` is pressed the ordinary dashboard returns, which is the whole of
-            // what the navigation phase adds.
-            val routeOwnsSlot = routeDisplayArmed && routeState is RouteState.Choosing
+            // what the navigation phase adds. `routeOwnsSlot` is declared above, with the band.
             // The drawer's summary stands in the **routing phase alone** (D5): the acquisition's status
             // — the acquiring word and the engine's stage — lives on the panel, so the gate reads the
             // followed route rather than the slot-and-search pair.
@@ -2899,7 +2971,7 @@ fun MapScreen(
                         partialDrawn = routePartialDrawn,
                         committed = routeCommitted,
                         isLandscape = true,
-                        portraitDashboardHeight = portraitDashboardHeight,
+                        dashboardBaseHeight = dashboardBaseHeight,
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
@@ -2920,6 +2992,8 @@ fun MapScreen(
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
                         routeTrip = routeTrip,
+                        dashboardBaseHeight = dashboardBaseHeight,
+                        isLandscape = true,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -2938,7 +3012,9 @@ fun MapScreen(
                         partialDrawn = routePartialDrawn,
                         committed = routeCommitted,
                         isLandscape = false,
-                        portraitDashboardHeight = portraitDashboardHeight,
+                        dashboardBaseHeight = dashboardBaseHeight,
+                        onMeasuredHeight = { dashboardBand.measuredRoute = it },
+                        panelMaxHeight = bandCeiling,
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
@@ -2958,10 +3034,12 @@ fun MapScreen(
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
                         routeTrip = routeTrip,
+                        dashboardBaseHeight = dashboardBaseHeight,
+                        panelMaxHeight = bandCeiling,
+                        isLandscape = false,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(portraitDashboardHeight)
                     )
                 }
             }
@@ -3298,8 +3376,10 @@ fun MapScreen(
                 routeSummaryVisible = routeSummaryVisible,
             ),
             isLandscape = isLandscape,
-            portraitDashboardHeight = portraitDashboardHeight,
+            dashboardBaseHeight = dashboardBaseHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
+            panelMaxHeight = bandCeiling,
+            onDashboardMeasuredHeight = { dashboardBand.measuredBottom = it },
             onDismissSettings = { chrome.showSettings = false },
             onDismissMenu = { chrome.showTrackDrawer = false },
             onDismissTrackHistory = { chrome.showTrackHistory = false },
@@ -3564,7 +3644,7 @@ fun MapScreen(
         MapSnackbarHost(
             activeSnacks = activeSnacks,
             isLandscape = isLandscape,
-            portraitDashboardHeight = portraitDashboardHeight,
+            dashboardBandHeight = dashboardBandHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
             // The route discard's toast is answered here, inside the route block where the disposal
             // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
@@ -3686,7 +3766,7 @@ fun MapScreen(
             lockBanner = lockBanner,
             bandTagsDrawn = bandTagsDrawn,
             isLandscape = isLandscape,
-            portraitDashboardHeight = portraitDashboardHeight,
+            dashboardBandHeight = dashboardBandHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
             mapView = mapView,
             viewModel = viewModel,
@@ -4107,7 +4187,12 @@ private fun MapContent(
     screenLocked: Boolean = false,
     onToggleScreenLock: () -> Unit = {},
     modifier: Modifier = Modifier,
-    mapCenterOffsetDp: Dp = 0.dp,
+    /** The live band, read here so its animation re-runs the map, not `MapScreen` (F6). */
+    dashboardBandHeight: State<Dp>,
+    /** The landscape left column's width, read here for the map's start-edge padding (F6). */
+    landscapeDashboardWidth: Dp = 0.dp,
+    /** The live centre offset, read here by the map and its overlays (F6). */
+    mapCenterOffsetDp: State<Dp>,
     /** True while inspect mode is armed: the sleuth square's active face. */
     inspectArmed: Boolean = false,
     /** False while the mode is disarmed and nothing is inspectable — the square carries no tap. */
@@ -4136,12 +4221,20 @@ private fun MapContent(
      */
     routeHost: (@Composable () -> Unit)? = null,
 ) {
-    Box(modifier = modifier.clipToBounds()) {
+    val bandHeight = dashboardBandHeight.value
+    Box(
+        modifier = modifier
+            .padding(
+                if (isLandscape) PaddingValues(start = landscapeDashboardWidth)
+                else PaddingValues(bottom = bandHeight)
+            )
+            .clipToBounds()
+    ) {
         // ── Top inset: one home for the arithmetic, so the toggle row, the lock button and the
         // legend all start from the same place. ──
         val density = LocalDensity.current
         val topInset = chromeTopInset(isLandscape)
-        val centerOffsetYPx = with(density) { mapCenterOffsetDp.roundToPx() }
+        val centerOffsetYPx = with(density) { mapCenterOffsetDp.value.roundToPx() }
 
         // Memoize per state instance so panning (which does not change state) keeps a
         // stable list identity → no spurious overlay rebuilds.
@@ -4236,7 +4329,7 @@ private fun MapContent(
                 color = appSettings.navigationLineColor,
                 transparencyPct = appSettings.navigationLineTransparencyPct,
                 modifier = Modifier.fillMaxSize(),
-                centerOffsetYDp = mapCenterOffsetDp
+                centerOffsetYDp = mapCenterOffsetDp.value
             )
         }
 
@@ -4250,7 +4343,7 @@ private fun MapContent(
             followSpeedColour = appSettings.navigationArrowFollowSpeedColour,
             gpsStale = gpsStale,
             modifier = Modifier.fillMaxSize(),
-            centerOffsetYDp = mapCenterOffsetDp
+            centerOffsetYDp = mapCenterOffsetDp.value
         )
 
         CenterMarkerOverlay(
@@ -4267,7 +4360,7 @@ private fun MapContent(
                 else { onWhereAmI(); true }
             },
             modifier = Modifier.align(Alignment.Center),
-            centerOffsetYDp = mapCenterOffsetDp
+            centerOffsetYDp = mapCenterOffsetDp.value
         )
 
         // ── The route mode's own chrome and map objects, in the shell's one call ──

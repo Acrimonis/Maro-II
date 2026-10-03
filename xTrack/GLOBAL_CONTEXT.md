@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-03 14:29 UTC] Ui_Dashboard — the whole bottom dashboard family on one auto-resizing frame with one base size and one map ceiling, its corners square at every size after the device look rejected the round-once-grown effect, then the walk's residue landed: the dead probe, the badge residue and the stray landscape measurement gone, and the inset tightened → xTrack/Ui_Dashboard/FEAT_HYD_Ui_Dashboard.md
 - [2026-10-03 12:03 UTC] Route — the selected route is reinforced by a derived edge from the one `ui.reinforce.darkenPct` lever in both phases, with the followed line split at the boat so the run behind fades and the run ahead stays strong (R93) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 08:29 UTC] Route — `feature/route-n-floOow`: every discard a two-phase gesture with an undo toast, the fan closing on acquire/follow, and every explicit arming re-searching (R91, R92) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 03:14 UTC] Route — the three-route ladder shipped: three fixed-aversion rungs over one shared grid, the Driving-preference cursor, tolerance-based collapse, a three-stop Settings cursor, and the candidate-pass apparatus retired; committed `5e6211fa` → xTrack/Route/FEAT_HYD_Route.md
@@ -51,32 +52,32 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
+| Ui_Dashboard | Main dashboard UI layout and HUD display — every portrait dashboard rides one auto-resizing frame with one base size and one map ceiling, a taller one pushing the map rather than covering it, and the corners square at every size after the device look rejected the round-once-grown effect — detail in [`FEAT_DSC_Ui_Dashboard.md`](xTrack/Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) | 2026-05-15 00:00 | 2026-10-03 17:51 | active |
 | Route | Set a destination and have the app draw the route from the boat to it; the acquisition offers three fixed-aversion rungs over one shared grid, the selected line is reinforced by a derived edge in both phases with the followed line fading behind the boat, and every discard is a two-phase gesture with an undo toast — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 13:57 | active |
-| ColorManagement | Centralised colour palette — all tokens in `colors.properties` with alias interpolation — [`color-scheme.md`](docs/color-scheme.md) | 2026-06-16 14:05 | 2026-09-16 15:00 | active |
-| Documentation | README, FAQs, setup guides, architecture docs, and plans cleanup | 2026-06-11 06:42 | 2026-09-04 22:36 | active |
-| WorkflowImprovement | xTrack `#` command system and rule-book governance — detail in [`FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) | 2026-06-03 00:00 | 2026-09-19 09:31 | active |
-| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-09-04 22:36 | active |
-| Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
-| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-09-04 22:36 | active |
-| GPS | GPS plugin with demo mode, heading/COG compass, geolocation, auto-follow spring-back hold | 2026-05-10 00:00 | 2026-09-04 22:36 | active |
-| UI_Map | Map rendering, depth colour layer, overlays, inspect mode, the px→dp pass — detail in [`FEAT_DSC_UI_Map.md`](xTrack/UI_Map/FEAT_DSC_UI_Map.md) | 2026-05-10 00:00 | 2026-09-19 13:21 | active |
-| Performance | Battery optimization, adaptive GPS tuning, power management, the map layer cost pass — detail in [`FEAT_DSC_Performance.md`](xTrack/Performance/FEAT_DSC_Performance.md) | 2026-05-20 00:00 | 2026-09-20 13:50 | active |
-| BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-09-04 22:36 | active |
-| DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-09-04 22:36 | active |
 | Ui_General | App-lifecycle UX — back, insets, lists, drawers, banners, the dashboard close rules — detail in [`FEAT_DSC_Ui_General.md`](xTrack/Ui_General/FEAT_DSC_Ui_General.md) | 2026-06-08 16:43 | 2026-09-28 19:45 | active |
+| Markers | User markers (Pin/Circle/Corridor), where-am-I, the wizard shell — detail in [`FEAT_DSC_Markers.md`](xTrack/Markers/FEAT_DSC_Markers.md) | 2026-06-22 11:52 | 2026-09-28 19:45 | active |
+| Tracks | Track recording, the two render axes, the speed heatmap, the trace flag — detail in [`FEAT_DSC_Tracks.md`](xTrack/Tracks/FEAT_DSC_Tracks.md) | 2026-06-15 00:00 | 2026-09-23 06:50 | active |
+| Performance | Battery optimization, adaptive GPS tuning, power management, the map layer cost pass — detail in [`FEAT_DSC_Performance.md`](xTrack/Performance/FEAT_DSC_Performance.md) | 2026-05-20 00:00 | 2026-09-20 13:50 | active |
 | Ui_Settings | Settings page UI — row families, transparency paradigm, stroke widths, the px→dp migration — detail in [`FEAT_DSC_Ui_Settings.md`](xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md) | 2026-06-09 15:28 | 2026-09-19 13:50 | active |
+| UI_Map | Map rendering, depth colour layer, overlays, inspect mode, the px→dp pass — detail in [`FEAT_DSC_UI_Map.md`](xTrack/UI_Map/FEAT_DSC_UI_Map.md) | 2026-05-10 00:00 | 2026-09-19 13:21 | active |
+| WorkflowImprovement | xTrack `#` command system and rule-book governance — detail in [`FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) | 2026-06-03 00:00 | 2026-09-19 09:31 | active |
 | Navigation | Navigation aids — heading/speed arrow and direction line, auto-show zones | 2026-06-10 08:40 | 2026-09-16 17:10 | active |
 | RegulatedZones | Maritime regulatory zones — multi-source normalization, sealed classification, icon mapping | 2026-06-11 18:00 | 2026-09-16 17:10 | active |
-| ArcLayout | Layer toggle arc menu — pure-Compose semicircle fan-out | 2026-06-13 07:34 | 2026-09-06 21:19 | active |
+| ColorManagement | Centralised colour palette — all tokens in `colors.properties` with alias interpolation — [`color-scheme.md`](docs/color-scheme.md) | 2026-06-16 14:05 | 2026-09-16 15:00 | active |
 | ZoneTile | Zone information tiles and map overlay rendering | 2026-06-17 09:45 | 2026-09-16 06:31 | active |
-| Tracks | Track recording, the two render axes, the speed heatmap, the trace flag — detail in [`FEAT_DSC_Tracks.md`](xTrack/Tracks/FEAT_DSC_Tracks.md) | 2026-06-15 00:00 | 2026-09-23 06:50 | active |
-| CheckDev | Dev-branch health monitoring — remote branch state, ahead/behind analysis | 2026-06-20 11:42 | 2026-06-20 11:42 | active |
-| Health | Application health monitoring — diagnostics, crash reporting, telemetry | 2026-06-20 11:42 | 2026-06-20 11:42 | active |
-| Markers | User markers (Pin/Circle/Corridor), where-am-I, the wizard shell — detail in [`FEAT_DSC_Markers.md`](xTrack/Markers/FEAT_DSC_Markers.md) | 2026-06-22 11:52 | 2026-09-28 19:45 | active |
-| Ui_Menu | Hamburger menu drawer — position source, track recording, marker management | 2026-07-05 06:57 | 2026-09-11 15:23 | active |
+| Tasker | External automation bridge — publishes the boat's water state; architecture approved, not implemented | 2026-09-12 08:50 | 2026-09-12 08:50 | active |
 | Mergitur | Three-branch integration COMPLETE into `feature/mergitur` | 2026-09-11 20:04 | 2026-09-11 20:57 | active |
 | TracksImport | Derived map track visibility, shared `MapSelectionPolicy`, GPX off-route cleanup harness | 2026-09-11 20:28 | 2026-09-11 20:28 | active |
-| Tasker | External automation bridge — publishes the boat's water state; architecture approved, not implemented | 2026-09-12 08:50 | 2026-09-12 08:50 | active |
+| Ui_Menu | Hamburger menu drawer — position source, track recording, marker management | 2026-07-05 06:57 | 2026-09-11 15:23 | active |
+| ArcLayout | Layer toggle arc menu — pure-Compose semicircle fan-out | 2026-06-13 07:34 | 2026-09-06 21:19 | active |
+| Documentation | README, FAQs, setup guides, architecture docs, and plans cleanup | 2026-06-11 06:42 | 2026-09-04 22:36 | active |
+| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-09-04 22:36 | active |
+| GPS | GPS plugin with demo mode, heading/COG compass, geolocation, auto-follow spring-back hold | 2026-05-10 00:00 | 2026-09-04 22:36 | active |
+| BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-09-04 22:36 | active |
+| DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-09-04 22:36 | active |
+| Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
+| CheckDev | Dev-branch health monitoring — remote branch state, ahead/behind analysis | 2026-06-20 11:42 | 2026-06-20 11:42 | active |
+| Health | Application health monitoring — diagnostics, crash reporting, telemetry | 2026-06-20 11:42 | 2026-06-20 11:42 | active |
 
 ## Global Todos
 

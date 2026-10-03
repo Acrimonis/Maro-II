@@ -113,7 +113,21 @@ internal fun MarkerDrawer(
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
     onWizardEntry: () -> Unit = {},
-    minPanelHeight: Dp = 0.dp,
+    /**
+     * The panel's floor in portrait: the base every bottom dashboard is held at (R2). Stated at each
+     * call rather than defaulting to a collapsing `0.dp` (G4) — the portrait caller passes
+     * `dashboardBaseHeight`, while the landscape caller passes `0.dp` explicitly, its non-wrap frame
+     * ignoring the floor.
+     */
+    minPanelHeight: Dp,
+    /** Optional report of the open panel's measured height in portrait (Phase 2). */
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    /**
+     * The portrait frame's own ceiling (F5) — the band cap the map leaves, under which a taller
+     * card's body scrolls instead of covering the map strip. Null keeps the full-screen ceiling;
+     * landscape ignores it, its frame being untouched.
+     */
+    panelMaxHeight: Dp? = null,
     /**
      * The inspect cursor's own Prev/Next, non-null exactly while this card was opened by an inspect
      * pick: the merged ladder's walk then replaces the marker walk, ends and taps alike.
@@ -123,7 +137,7 @@ internal fun MarkerDrawer(
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
 
-    // Top corners are square (no rounded top edge) per user preference.
+    // Every portrait bottom panel is square at the top; landscape keeps its own right-edge shape.
     val panelShape = if (isLandscape) RoundedCornerShape(bottomStart = 16.dp)
         else RoundedCornerShape(0.dp)
 
@@ -134,8 +148,8 @@ internal fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight, walk)
-        is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight, onMeasuredHeight, panelMaxHeight, walk)
+        is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape, minPanelHeight, onMeasuredHeight, panelMaxHeight)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
 }
@@ -155,7 +169,9 @@ private fun ViewingContent(
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
     onWizardEntry: () -> Unit = {},
-    minPanelHeight: Dp = 0.dp,
+    minPanelHeight: Dp,
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    panelMaxHeight: Dp? = null,
     walk: InspectWalk? = null
 ) {
     val markers by viewModel.markers.collectAsState()
@@ -228,6 +244,8 @@ private fun ViewingContent(
         // drawer covers the entire left dashboard column (top-to-bottom).
         wrapContent = !isLandscape,
         wrapContentMinHeight = if (isLandscape) 0.dp else minPanelHeight,
+        onMeasuredHeight = onMeasuredHeight,
+        wrapContentMaxHeight = panelMaxHeight,
         // Landscape (non-wrap): bottom-align the card above the prev/next footer, mirroring the
         // track drawer. Ignored in portrait wrap mode (whole panel is already bottom-aligned).
         bottomAnchoredContent = true,
@@ -253,8 +271,7 @@ private fun ViewingContent(
 
 /**
  * The marker detail drawer's content stack: the optional distance-to-boat line plus the
- * [MarkerCardContent] (with its belongs-to-track row). Shared by the [DrawerScaffold] body
- * and the [MeasureHeight] probe so both render the exact same content at the same width.
+ * [MarkerCardContent] (with its belongs-to-track row).
  */
 @Composable
 private fun MarkerDetailContent(
@@ -331,7 +348,10 @@ private fun MatchResultContent(
     onClose: () -> Unit,
     boatPosition: LatLng? = null,
     shape: Shape,
-    isLandscape: Boolean
+    isLandscape: Boolean,
+    minPanelHeight: Dp,
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    panelMaxHeight: Dp? = null
 ) {
     val result by viewModel.matchResult.collectAsState()
 
@@ -340,6 +360,13 @@ private fun MatchResultContent(
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
         scrollable = true,
+        // Portrait wraps and floors at the base, on the same path its sibling detail cards use, so
+        // the caller's slot carries no height of its own (R1, R2). Landscape keeps its own face.
+        wrapContent = !isLandscape,
+        wrapContentMinHeight = if (isLandscape) 0.dp else minPanelHeight,
+        bottomAnchoredContent = !isLandscape,
+        onMeasuredHeight = onMeasuredHeight,
+        wrapContentMaxHeight = panelMaxHeight,
         statusBarsInset = isLandscape,
         shape = shape,
         contentPadding = PaddingValues(horizontal = 12.dp)

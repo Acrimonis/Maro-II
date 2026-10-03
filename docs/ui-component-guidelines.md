@@ -696,7 +696,7 @@ default on) hides the square, and the row's `Arrangement.spacedBy` closes the ga
 `lockMirrorStartOffset()` reads the same flag, because the row's order is what the duplicate's offset
 depends on. When locked, the overlay recreates the same controls above the input-blocking scrim
 (duplicate unlock button, `ZoomControls`, `LockBanner`); those duplicates must live inside a `Box`
-padded exactly like `MapContent`'s dashboard padding (portrait: bottom = `portraitDashboardHeight`;
+padded exactly like `MapContent`'s dashboard padding (portrait: bottom = `dashboardBaseHeight`;
 landscape: start = `landscapeDashboardWidth`) so they align over the originals in both orientations.
 The locked zoom controls accept a double-tap only (single splash taps are ignored).
 
@@ -865,7 +865,7 @@ At defaults on a 411 dp screen the pill centres at `W/2 − 13` (192.5 dp) with 
 The dashboard slot's content while a route is being acquired
 ([`RouteConfirmPanel.kt`](../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt)). It is the
 shared [`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) with
-`showBack = false`, `wrapContent = !isLandscape`, `wrapContentMinHeight = portraitDashboardHeight` and the
+`showBack = false`, `wrapContent = !isLandscape`, `wrapContentMinHeight = dashboardBaseHeight` and the
 actions in its `footer`, so it auto-grows to its content like the other selected-item dashboards.
 
 | Block | Spec |

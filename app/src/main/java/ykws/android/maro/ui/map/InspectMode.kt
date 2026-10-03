@@ -371,7 +371,11 @@ internal suspend fun warmInspectCandidates(
 internal fun MapInspectEffects(
     mapView: MapView?,
     armed: Boolean,
-    centerOffsetPx: Int,
+    /**
+     * The map's live centre offset in px, taken as a provider so the band's animation re-runs the
+     * map's own readers rather than this call site's argument (F6).
+     */
+    centerOffsetPx: () -> Int,
     markers: List<UserMarker>,
     trackIds: List<String>,
     trackViewModel: TrackViewModel,
@@ -434,7 +438,7 @@ internal fun MapInspectEffects(
             // One motion handler for pan and zoom alike: both reset the trigger clock, and both the
             // anchor and the viewport are re-read from the projection on every one of them.
             fun refreshMotion() {
-                anchor.value = inspectAnchor(mv, offsetState.value)
+                anchor.value = inspectAnchor(mv, offsetState.value())
                 viewport.value = mv.boundingBox?.let {
                     InspectBounds(it.latNorth, it.lonEast, it.latSouth, it.lonWest)
                 }

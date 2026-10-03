@@ -1,7 +1,5 @@
 package ykws.android.maro.ui.map
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,11 +27,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +49,6 @@ import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
-import ykws.android.maro.ui.components.MeasureHeight
 import ykws.android.maro.ui.icons.Speed
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
@@ -87,8 +82,20 @@ internal fun OverlayLayer(
     chrome: OverlayChrome,
     // ── Layout ───────────────────────────────────────────────────────────
     isLandscape: Boolean,
-    portraitDashboardHeight: Dp,
+    /** The dashboard's base height — the portrait floor every panel uses (R2, R6). */
+    dashboardBaseHeight: Dp,
     landscapeDashboardWidth: Dp,
+    /**
+     * The one portrait band ceiling (F5), computed by `MapScreen` — threaded to every portrait
+     * bottom panel so a taller one's body scrolls instead of covering the map strip. Null keeps
+     * the full-screen ceiling; landscape ignores it, its frame being untouched.
+     */
+    panelMaxHeight: Dp? = null,
+    /**
+     * The open portrait bottom dashboard's measured height, surfaced to the map (Phase 2). The base
+     * is reported while nothing is open, so the band returns to the floor.
+     */
+    onDashboardMeasuredHeight: ((Dp) -> Unit)? = null,
 
     // ── Callbacks ────────────────────────────────────────────────────────
     onDismissSettings: () -> Unit,
@@ -263,6 +270,17 @@ internal fun OverlayLayer(
     // so the dashboard returns when the panel closes.
     val panelOwnsRegion = showTrackDrawer || showSettings || showTrackHistory || showMarkerManagement
 
+    // ── The open portrait bottom dashboard's measured height (Phase 2) ─────────────────
+    // Each wrap-content bottom panel reports its own measured height, and the base is reported
+    // while none is open so the map band returns to the floor (R5, R6).
+    val portraitBottomDashboardOpen = !isLandscape && !panelOwnsRegion && (
+        showWizard || showTrackInfoDrawer ||
+            drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult
+        )
+    LaunchedEffect(portraitBottomDashboardOpen) {
+        if (!portraitBottomDashboardOpen) onDashboardMeasuredHeight?.invoke(dashboardBaseHeight)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // ── 1. Scrim (hard toggle — no animation) ────────────────────────
         if (showScrim) {
@@ -312,7 +330,7 @@ internal fun OverlayLayer(
                         step = activeStep,
                         totalSteps = totalSteps,
                         stepIndex = stepIndex,
-                        portraitDashboardHeight = portraitDashboardHeight
+                        dashboardBaseHeight = dashboardBaseHeight
                     )
                 }
             } else {
@@ -333,7 +351,9 @@ internal fun OverlayLayer(
                         step = activeStep,
                         totalSteps = totalSteps,
                         stepIndex = stepIndex,
-                        portraitDashboardHeight = portraitDashboardHeight
+                        dashboardBaseHeight = dashboardBaseHeight,
+                        onMeasuredHeight = onDashboardMeasuredHeight,
+                        panelMaxHeight = panelMaxHeight
                     )
                 }
             }
@@ -416,6 +436,9 @@ internal fun OverlayLayer(
                     trackTitleLookup = trackTitleLookup,
                     onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
                     onWizardEntry = onMarkerWizardEntry,
+                    // Landscape's non-wrap frame ignores the floor; stated explicitly so no
+                    // default can silently drop R2 (G4).
+                    minPanelHeight = 0.dp,
                     walk = markerInspectWalk
                 )
             }
@@ -424,11 +447,12 @@ internal fun OverlayLayer(
                 visible = drawerState is MarkerDrawerState.MatchResult && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(portraitDashboardHeight),
+                    .fillMaxWidth(),
                 slideDirection = SlideDirection.FROM_BOTTOM,
                 shadowEdge = ShadowEdge.TOP
             ) {
+                // The card wraps and floors at the base inside its own frame, like its siblings
+                // (R1, R2) — the slot carries no height of its own any more.
                 MarkerDrawer(
                     viewModel = markersViewModel,
                     isLandscape = false,
@@ -437,7 +461,10 @@ internal fun OverlayLayer(
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
                     onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
-                    onWizardEntry = onMarkerWizardEntry
+                    onWizardEntry = onMarkerWizardEntry,
+                    minPanelHeight = dashboardBaseHeight,
+                    onMeasuredHeight = onDashboardMeasuredHeight,
+                    panelMaxHeight = panelMaxHeight
                 )
             }
         }
@@ -558,6 +585,9 @@ internal fun OverlayLayer(
                         trackTitleLookup = trackTitleLookup,
                         onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
                         onWizardEntry = onMarkerWizardEntry,
+                        // Landscape's non-wrap frame ignores the floor; stated explicitly so no
+                        // default can silently drop R2 (G4).
+                        minPanelHeight = 0.dp,
                         walk = markerInspectWalk
                     )
                 }
@@ -586,24 +616,15 @@ internal fun OverlayLayer(
                     route = it.route
                 )
             }
-            var cardHeight by remember { mutableStateOf(0.dp) }
-            var footerMeasuredHeight by remember { mutableStateOf(0.dp) }
-            // Header is 48dp (DrawerHeader heightIn min) incl. its 6dp bottom padding (post-header gap).
-            // Render-measure-resize: size the drawer to header + card + measured footer so the card sits
-            // right below the header with a ~6dp gap and no leftover scroll.
-            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerMeasuredHeight)
-            val animatedHeight by animateDpAsState(targetHeight, tween(250))
-
             // The portrait half of the one selected-item slot: the slot stays mounted and only its
-            // content and its measured height change (the landscape half is declared above).
+            // content changes (the landscape half is declared above). Whatever it renders — the
+            // track card or a marker card — floors and caps inside its own scaffold, so the slot
+            // carries no height of its own and the frame is the one home of the panel's height.
             DrawerSlot(
                 visible = (markerCardOpen || showTrackInfoDrawer) && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    // Only the track panel measures itself; the marker panel keeps the wrap-content
-                    // sizing it has always had, floored at the dashboard height.
-                    .then(if (showTrackInfoDrawer) Modifier.height(animatedHeight) else Modifier),
+                    .fillMaxWidth(),
                 slideDirection = SlideDirection.FROM_BOTTOM,
                 shadowEdge = ShadowEdge.TOP
             ) {
@@ -611,10 +632,19 @@ internal fun OverlayLayer(
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
+                        // The portrait track card wears the same wrap-content frame as its siblings
+                        // (R1, R2): it floors at the base, caps at the band ceiling (R5, F5) and
+                        // reports its own measured height to the map, so the frame — not a probe —
+                        // holds the card's height (G3).
+                        wrapContent = true,
+                        wrapContentMinHeight = dashboardBaseHeight,
+                        onMeasuredHeight = onDashboardMeasuredHeight,
+                        wrapContentMaxHeight = panelMaxHeight,
                         bottomAnchoredContent = true,
                         suppressOverscrollWhenFits = true,
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+                        // Square top corners, like every portrait bottom panel.
+                        shape = RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
                                 bandedOn = eyeOverride ?: trackInfoColours,
@@ -676,45 +706,12 @@ internal fun OverlayLayer(
                         onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
                         onWizardEntry = onMarkerWizardEntry,
                         // Portrait marker detail drawer must never be smaller than the original
-                        // dashboard — its wrap-content panel floors at portraitDashboardHeight.
-                        minPanelHeight = portraitDashboardHeight,
+                        // dashboard — its wrap-content panel floors at dashboardBaseHeight.
+                        minPanelHeight = dashboardBaseHeight,
+                        onMeasuredHeight = onDashboardMeasuredHeight,
+                        panelMaxHeight = panelMaxHeight,
                         walk = markerInspectWalk
                     )
-                }
-            }
-
-            MeasureHeight(onMeasured = { cardHeight = it }) {
-                if (summary != null) {
-                    Box(Modifier.padding(start = 12.dp, end = 12.dp)) {
-                        TrackCardContent(
-                            summary = summary,
-                            dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = trackAccent,
-                            onUpdateTrack = { _, _, _, _ -> },
-                            onShareGpx = {},
-                            onTap = null,
-                            showChevron = false
-                        )
-                    }
-                }
-            }
-
-            // Render-measure-resize for the Prev/Next footer (mirrors the real footer structure).
-            // NOTE: MeasureHeight measures only measurables[0], so the footer must be a single Column child.
-            MeasureHeight(onMeasured = { footerMeasuredHeight = it }) {
-                if (trackListIds.size > 1) {
-                    Column {
-                        Spacer(Modifier.height(10.dp))
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                Text(stringResource(R.string.action_previous), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                Text(stringResource(R.string.action_next), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                    }
                 }
             }
         }
