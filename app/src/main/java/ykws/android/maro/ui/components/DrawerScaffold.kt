@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
-import androidx.compose.ui.graphics.Shape
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DrawerHeader — canonical drawer header promoted from MarkerDrawer.kt
@@ -133,8 +132,9 @@ fun DrawerHeader(
  *                else Column(contentPadding) { content() }
  * ```
  *
- * @param title                    Header title text.
- * @param onClose                  Back-button / dismiss callback.
+ * @param title                    Header title text (used only when no [header] slot is supplied).
+ * @param onClose                  Back-button / dismiss callback. Required only while a header is
+ *                                 drawn: a header-less panel omits it, and omits [title] with it.
  * @param modifier                 Outer Modifier applied to the root Box.
  * @param headerActions            Composable slot in the header Row (right side).
  * @param headerHorizontalPadding  Horizontal padding for the header Row (default 24dp).
@@ -145,18 +145,32 @@ fun DrawerHeader(
  *                                 body content fits the viewport (no scroll range).
  * @param statusBarsInset          If true, applies .windowInsetsPadding(statusBars)
  *                                 after the background (for full-screen drawer panels).
+ * @param header                   Optional header slot, defaulting to today's [DrawerHeader] when
+ *                                 the caller supplies [onClose]. Null with no [onClose] draws no
+ *                                 header at all — the title-less dashboard's mode.
+ * @param onMeasuredHeight         Optional report of the panel's own measured height (header +
+ *                                 body + footer, floored at [wrapContentMinHeight] in wrap mode),
+ *                                 read by the map's band in portrait. Both branches report it.
+ * @param backgroundColor          Background colour of the visible panel (default the shared
+ *                                 [AppConfig.uiBackground] token). A dashboard passes its own
+ *                                 `ui.dashboard.background` so the frame change keeps it (F4).
+ * @param wrapContentMaxHeight     Optional ceiling for the visible wrap-content panel: a taller
+ *                                 panel's body scrolls (when [scrollable]) instead of covering the
+ *                                 map strip below it (F5). Null keeps the full-screen ceiling, which
+ *                                 is every caller that does not pass a cap.
  * @param shape                    Clip shape for the root Box (default left-side drawer).
  * @param content                  Body content, in a [ColumnScope].
  */
 @Composable
 fun DrawerScaffold(
-    title: String,
-    onClose: () -> Unit,
+    title: String = "",
+    onClose: (() -> Unit)? = null,
     showBack: Boolean = true,
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
     headerVerticalPadding: Dp = AppConfig.uiPaddingHeaderVertical.dp,
+    header: (@Composable ColumnScope.() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
     suppressOverscrollWhenFits: Boolean = false,
@@ -164,13 +178,37 @@ fun DrawerScaffold(
     wrapContent: Boolean = false,
     wrapContentMinHeight: Dp = 0.dp,
     statusBarsInset: Boolean = false,
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    backgroundColor: ComposeColor = ComposeColor(AppConfig.uiBackground),
+    wrapContentMaxHeight: Dp? = null,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
     footer: @Composable ColumnScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
+    // The optional header slot: the caller's own, else today's [DrawerHeader] when a close callback
+    // is supplied, else nothing at all — which is how the title-less dashboard wears this frame.
+    val hc: (@Composable ColumnScope.() -> Unit)? = when {
+        header != null -> header
+        onClose != null -> {
+            {
+                DrawerHeader(
+                    title = title,
+                    onClose = onClose,
+                    showBack = showBack,
+                    actions = headerActions,
+                    horizontalPadding = headerHorizontalPadding,
+                    verticalPadding = headerVerticalPadding
+                )
+            }
+        }
+        else -> null
+    }
+
+    // The non-wrap panel keeps the full screen, exactly as before (W1): the ceiling is the wrap
+    // branch's alone now (R5), so a landscape caller can never be silently shrunk by a portrait cap.
     val bgModifier = Modifier
         .fillMaxSize()
-        .background(ComposeColor(AppConfig.uiBackground), shape)
+        .background(backgroundColor, shape)
 
     Box(
         modifier = modifier
@@ -184,8 +222,8 @@ fun DrawerScaffold(
     ) {
         if (wrapContent) {
             // Wrap-content mode: the panel sizes to its content's natural height — no fixed
-            // height formula, no MeasureHeight probe. The root Box stays fillMaxSize() as the
-            // bounded parent / screen (see above); the inner Column wraps at natural height and
+            // height formula. The root Box stays fillMaxSize() as the bounded parent / screen (see
+            // above); the inner Column wraps at natural height and
             // carries the background + shape clip so the visible panel collapses to content.
             // Header + footer stay fixed at natural height. The body wraps at natural height but
             // is scrollable ONLY if it exceeds the available screen height (heightIn(max) +
@@ -199,8 +237,13 @@ fun DrawerScaffold(
                 var headerHeight by remember { mutableStateOf(0.dp) }
                 var bodyHeight by remember { mutableStateOf(0.dp) }
                 var footerHeight by remember { mutableStateOf(0.dp) }
+                // The panel's own ceiling (F5): the caller's cap, itself bounded by the screen and
+                // floored at the base, so a taller dashboard's body scrolls rather than covering
+                // the map strip below it. No cap keeps the full screen, exactly as before.
+                val frameCeiling = minOf(maxHeight, wrapContentMaxHeight ?: maxHeight)
+                    .coerceAtLeast(wrapContentMinHeight)
                 val availableBodyHeight =
-                    (maxHeight - headerHeight - footerHeight).coerceAtLeast(0.dp)
+                    (frameCeiling - headerHeight - footerHeight).coerceAtLeast(0.dp)
                 // Whatever the card falls short of the floor by, and only that.
                 val bottomSlack = (wrapContentMinHeight - headerHeight - bodyHeight - footerHeight)
                     .coerceAtLeast(0.dp)
@@ -208,23 +251,21 @@ fun DrawerScaffold(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = wrapContentMinHeight)
+                        .heightIn(min = wrapContentMinHeight, max = frameCeiling)
+                        .onSizeChanged {
+                            onMeasuredHeight?.invoke(with(density) { it.height.toDp() })
+                        }
                         .align(Alignment.BottomCenter)
-                        .background(ComposeColor(AppConfig.uiBackground), shape)
+                        .background(backgroundColor, shape)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
-                    ) {
-                        DrawerHeader(
-                            title = title,
-                            onClose = onClose,
-                            showBack = showBack,
-                            actions = headerActions,
-                            horizontalPadding = headerHorizontalPadding,
-                            verticalPadding = headerVerticalPadding
-                        )
+                    if (hc != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
+                        ) {
+                            hc()
+                        }
                     }
                     if (bottomAnchoredContent && bottomSlack > 0.dp) {
                         Spacer(Modifier.height(bottomSlack))
@@ -270,15 +311,19 @@ fun DrawerScaffold(
                 }
             }
         } else {
-            Column(modifier = Modifier.fillMaxSize()) {
-                DrawerHeader(
-                    title = title,
-                    onClose = onClose,
-                    showBack = showBack,
-                    actions = headerActions,
-                    horizontalPadding = headerHorizontalPadding,
-                    verticalPadding = headerVerticalPadding
-                )
+            val density = LocalDensity.current
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // G3: the non-wrap panel reports its own measured height too, so the map band
+                    // reads the frame's measurement whichever branch the open panel runs.
+                    .onSizeChanged {
+                        onMeasuredHeight?.invoke(with(density) { it.height.toDp() })
+                    }
+            ) {
+                if (hc != null) {
+                    Column(modifier = Modifier.fillMaxWidth()) { hc() }
+                }
                 Box(
                     modifier = Modifier
                         .weight(1f)

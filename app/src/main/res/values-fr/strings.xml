@@ -182,7 +182,6 @@
     <string name="dash_empty">—</string>
     <string name="dash_zone_title">Zone 300m</string>
     <string name="dash_not_at_sea">À terre</string>
-    <string name="dash_out_of_zone">Hors zone</string>
     <string name="dash_in_zone">EN ZONE !</string>
     <string name="dash_zone_speed_limit">5 nœuds max — %1$s</string>
     <string name="dash_speed_suffix_warn">" · ⚠ %.1f kn"</string>
@@ -200,8 +199,6 @@
     <string name="dash_speed_title">Vitesse</string>
     <string name="dash_demo_mode">mode démo</string>
     <string name="dash_5kn_in_zone">5 kn max en zone</string>
-    <string name="dash_valid_ok">✓ Données validées (RMSE %.1f m)</string>
-    <string name="dash_valid_incomplete">⚠ Validation incomplète (RMSE %.1f m)</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolé</string>
     <string name="dash_value_speed_limit">%.0f kn</string>
@@ -699,9 +696,9 @@
     <string name="route_engine_avoid">Évitement</string>
     <!-- Les descriptions de calcul sous lesquelles un barreau déclaré est affiché : les trois aversions
          fixes de l\'échelle — nulle, médiane et maximale. -->
-    <string name="route_computation_through">À travers les zones lentes</string>
+    <string name="route_computation_through">Rapide</string>
     <string name="route_computation_balanced">Équilibré</string>
-    <string name="route_computation_around">Contourner les zones lentes</string>
+    <string name="route_computation_around">Plaisir</string>
     <string name="route_collapsed_note">Toutes les préférences donnent cette même ligne</string>
     <!-- La comparaison du panneau dès qu\'une seconde page terminée existe — « La route n°n met x de
          moins/de plus », l\'arithmétique du flux entre la durée de chaque route et celle de la sélection. -->

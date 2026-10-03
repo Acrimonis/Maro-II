@@ -79,7 +79,11 @@ import ykws.android.maro.ui.components.DrawerScaffold
  *                        before the search lands.
  * @param committed       whether an early `Select route` is waiting on the main line's finalization.
  * @param isLandscape     whether the device is in landscape orientation.
- * @param portraitDashboardHeight the dashboard height the panel floors at in portrait.
+ * @param dashboardBaseHeight the dashboard's base height — the floor the panel uses in portrait.
+ * @param onMeasuredHeight optional report of the open panel's measured height (Phase 2).
+ * @param panelMaxHeight  the portrait frame's own ceiling (F5) — the band cap the map leaves,
+ *                        under which a taller panel's body scrolls instead of covering the map
+ *                        strip. Null keeps the full-screen ceiling; landscape ignores it.
  * @param onStepPage      **next/prev**: steps the selection and loops it.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
@@ -96,7 +100,9 @@ internal fun RouteConfirmationPanel(
     partialDrawn: Boolean,
     committed: Boolean,
     isLandscape: Boolean,
-    portraitDashboardHeight: Dp,
+    dashboardBaseHeight: Dp,
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    panelMaxHeight: Dp? = null,
     onStepPage: (Int) -> Unit,
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
@@ -121,8 +127,9 @@ internal fun RouteConfirmationPanel(
     val canSelect = selectedPlan != null || (partialDrawn && !committed)
     val canSave = (selectedPlan != null || partialDrawn) && !frontSaved
 
+    // Square top corners in portrait; landscape keeps its own right-edge shape untouched.
     val shape = if (isLandscape) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
-        else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        else RoundedCornerShape(0.dp)
 
     DrawerScaffold(
         title = stringResource(R.string.route_acq_title),
@@ -155,8 +162,10 @@ internal fun RouteConfirmationPanel(
         suppressOverscrollWhenFits = true,
         bottomAnchoredContent = true,
         wrapContent = !isLandscape,
-        wrapContentMinHeight = if (isLandscape) 0.dp else portraitDashboardHeight,
+        wrapContentMinHeight = if (isLandscape) 0.dp else dashboardBaseHeight,
         statusBarsInset = isLandscape,
+        onMeasuredHeight = onMeasuredHeight,
+        wrapContentMaxHeight = panelMaxHeight,
         shape = shape,
         footer = {
             Row(

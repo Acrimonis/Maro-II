@@ -17,6 +17,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.route.RoutePace
+import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.RouteDeclarations
 import ykws.android.maro.spatial.RouteEngine
@@ -296,7 +297,10 @@ data class StoredRouteMatch(
 class RouteViewModel(
 
     /** The selection of the engine the chosen algorithm builds, handed in by whoever builds the VM. */
-    private val selection: StateFlow<RouteEngine>
+    private val selection: StateFlow<RouteEngine>,
+
+    /** The live persisted settings — the seat reads the user's slow-water preference from here. */
+    private val settings: StateFlow<AppSettings> = MutableStateFlow(AppSettings())
 ) : ViewModel() {
 
     /** The engine the running session was armed with, or null while the mode is idle. */
@@ -315,6 +319,9 @@ class RouteViewModel(
     /** Which page the selection stands on: the one the buttons act on and the map paints at full strength. */
     private val _selectedIndex = MutableStateFlow(0)
     val selectedIndex: StateFlow<Int> = _selectedIndex.asStateFlow()
+
+    /** The preferred rung's ladder index, stored at arming — the seat's target, re-applied on every landing. */
+    private var preferredRungIndex: Int = MAIN_INDEX
 
     /** The main lookup's current stage — the panel's `Acquiring (stage)…` word. */
     private val _stage = MutableStateFlow<RouteStage?>(null)
@@ -429,16 +436,16 @@ class RouteViewModel(
                         descriptionResId = computation.descriptionResId
                     )
                 }
-                // D12: the Driving-preference cursor names the ladder's initial rung — meaningful
-                // for its three pages alone; any other computation count keeps the main. The seat
-                // rides `routeSeatedIndex`, so the seating rule has one home; nothing has landed yet,
-                // so the predicate answers that declaration unchanged.
-                val preferredIndex = if (_pages.value.size == ROUTE_LADDER_RUNG_COUNT) {
-                    routeRungIndex(AppConfig.routeAvoidSpeedZoneSoftCostAversion)
+                // The Driving-preference names the ladder's initial rung — meaningful for its three
+                // pages alone; any other computation count keeps the main. The seat resolves through
+                // the ETA view, so while nothing has landed the preference's row stays highlighted as
+                // computing.
+                preferredRungIndex = if (_pages.value.size == ROUTE_LADDER_RUNG_COUNT) {
+                    routeRungIndex(settings.value.routeSlowWaterAversion.toDouble())
                 } else {
                     MAIN_INDEX
                 }
-                _selectedIndex.value = routeSeatedIndex(_pages.value.map { it.plan != null }, preferredIndex)
+                _selectedIndex.value = routeEtaSeatedIndex(_pages.value, preferredRungIndex)
                 _state.value = RouteState.Choosing(
                     start = start, plan = null, searching = true, asked = true, refusal = null
                 )
@@ -475,15 +482,15 @@ class RouteViewModel(
                     _stage.value = update.nextStage
                     if (update.nextStage == null) _provisionalLine.value = emptyList()
                 }
-                // D15: re-seat the selection on the nearest surviving rung, then let the seat
-                // predicate settle it on the survivors — a mapped index on a landed row stays, one
-                // left on a pending row steps to the nearest that has landed.
-                val mapped = when {
-                    _selectedIndex.value > index -> _selectedIndex.value - 1
-                    _selectedIndex.value == index -> _selectedIndex.value.coerceAtMost(newPages.size - 1)
-                    else -> _selectedIndex.value
+                // D15: re-map the preferred rung across the removal, then re-seat through the ETA
+                // view — a folded preference lands on its survivor, a surviving one on its shifted
+                // page, and neither leaves the selection on a missing page.
+                preferredRungIndex = when {
+                    preferredRungIndex > index -> preferredRungIndex - 1
+                    preferredRungIndex == index -> survivorIndex
+                    else -> preferredRungIndex
                 }.coerceIn(0, (newPages.size - 1).coerceAtLeast(0))
-                _selectedIndex.value = routeSeatedIndex(newPages.map { it.plan != null }, mapped)
+                _selectedIndex.value = routeEtaSeatedIndex(newPages, preferredRungIndex)
                 syncChoosing(newPages)
                 return
             }
@@ -501,9 +508,9 @@ class RouteViewModel(
                     _provisionalLine.value = update.line
                 }
             }
-            // The seat re-reads on every landing: the standing selection keeps a landed row, while
-            // one left on a page whose plan has not landed steps to the nearest row that has.
-            _selectedIndex.value = routeSeatedIndex(newPages.map { it.plan != null }, _selectedIndex.value)
+            // The seat re-reads on every landing: the preference's rung when it has landed, else the
+            // nearest landed row in the ETA view — the selection settles as the pages land.
+            _selectedIndex.value = routeEtaSeatedIndex(newPages, preferredRungIndex)
             syncChoosing(newPages)
             // Early select: once the committed main line lands, the mode follows it. A refusal
             // instead un-commits, leaving the acquisition standing on the reason.
@@ -538,7 +545,7 @@ class RouteViewModel(
         // empty row while a line stands beside it" still holds when the row the seat stepped onto
         // refuses last.
         if (update.reason != null) {
-            _selectedIndex.value = routeSeatedIndex(newPages.map { it.plan != null }, _selectedIndex.value)
+            _selectedIndex.value = routeEtaSeatedIndex(newPages, preferredRungIndex)
         }
         syncChoosing(newPages)
         // A committed main answered with a refusal un-commits instead of following (same rule as a landing).
@@ -586,10 +593,12 @@ class RouteViewModel(
      * nothing to step through and the press is ignored.
      */
     fun stepPage(delta: Int) {
-        val count = _pages.value.size
-        if (count <= 1 || delta == 0) return
-        _selectedIndex.value = routeStepIndex(_selectedIndex.value, delta, count)
-        syncChoosing(_pages.value)
+        val pages = _pages.value
+        if (pages.size <= 1 || delta == 0) return
+        val order = routeEtaOrder(pages)
+        val standing = order.indexOf(_selectedIndex.value).coerceIn(0, order.lastIndex)
+        _selectedIndex.value = order[routeStepIndex(standing, delta, order.size)]
+        syncChoosing(pages)
     }
 
     /**
@@ -687,6 +696,7 @@ class RouteViewModel(
         _sessionEngine.value = null
         armedStartMarkerId = null
         armedDestinationMarkerId = null
+        preferredRungIndex = MAIN_INDEX
     }
 
     /** **The one disposal function** — the only thing that calls `cancelLookup`, for every in-flight id. */
@@ -751,13 +761,16 @@ class RouteViewModel(
          * Factory for [RouteViewModel]. The selection is handed in rather than chosen here, and that
          * is the seam.
          */
-        fun factory(selection: StateFlow<RouteEngine>): ViewModelProvider.Factory =
+        fun factory(
+            selection: StateFlow<RouteEngine>,
+            settings: StateFlow<AppSettings>
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(
                     modelClass: Class<T>,
                     extras: CreationExtras
-                ): T = RouteViewModel(selection) as T
+                ): T = RouteViewModel(selection, settings) as T
             }
     }
 }

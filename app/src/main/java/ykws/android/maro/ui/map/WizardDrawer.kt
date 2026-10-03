@@ -52,7 +52,7 @@ import ykws.android.maro.ui.markers.wizard.steps.TypeSelectStep
  * progress; the body carries the step; the footer carries the three actions.
  *
  * The frame is the dashboards' frame. In portrait the panel wraps its card, floored at
- * [portraitDashboardHeight] so it is never shorter than the dashboard it replaces, and it is
+ * [dashboardBaseHeight] so it is never shorter than the dashboard it replaces, and it is
  * bottom-anchored by the scaffold; in landscape it is the full-height left column with its content
  * bottom-anchored above the buttons.
  *
@@ -62,7 +62,12 @@ import ykws.android.maro.ui.markers.wizard.steps.TypeSelectStep
  * @param step                     The current wizard step (non-null, guaranteed by caller).
  * @param totalSteps               Total number of steps in the sequence.
  * @param stepIndex                0-based index of the current step.
- * @param portraitDashboardHeight  The dashboard height the panel floors at in portrait.
+ * @param dashboardBaseHeight      The dashboard's base height — the floor the panel uses in portrait.
+ * @param onMeasuredHeight         Optional report of the open panel's measured height (Phase 2).
+ * @param panelMaxHeight           The portrait frame's own ceiling (F5) — the band cap the map
+ *                                 leaves, under which a taller step's body scrolls instead of
+ *                                 covering the map strip. Null keeps the full-screen ceiling;
+ *                                 landscape ignores it, its frame being untouched.
  */
 @Composable
 fun WizardDrawer(
@@ -72,7 +77,9 @@ fun WizardDrawer(
     step: WizardStep,
     totalSteps: Int,
     stepIndex: Int,
-    portraitDashboardHeight: Dp
+    dashboardBaseHeight: Dp,
+    onMeasuredHeight: ((Dp) -> Unit)? = null,
+    panelMaxHeight: Dp? = null
 ) {
     // ── Keyboard: none of the wizard's own. The window takes the platform's pan, exactly as the
     // track card's inline fields do, so the content is pushed up and the buttons ride clear of the
@@ -82,8 +89,9 @@ fun WizardDrawer(
     val isLastStep = stepIndex >= totalSteps - 1
     val isFirstStep = stepIndex <= 0
 
+    // Square top corners in portrait; landscape keeps its own right-edge shape untouched.
     val drawerShape = if (isLandscape) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
-        else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        else RoundedCornerShape(0.dp)
 
     // Create or edit — the drawer state already holds which, and the header says it.
     val drawerState by viewModel.drawerState.collectAsState()
@@ -103,8 +111,10 @@ fun WizardDrawer(
         // the card directly above the footer, the slack between the header and the card.
         bottomAnchoredContent = true,
         wrapContent = !isLandscape,
-        wrapContentMinHeight = if (isLandscape) 0.dp else portraitDashboardHeight,
+        wrapContentMinHeight = if (isLandscape) 0.dp else dashboardBaseHeight,
         statusBarsInset = isLandscape,
+        onMeasuredHeight = onMeasuredHeight,
+        wrapContentMaxHeight = panelMaxHeight,
         shape = drawerShape,
         footer = {
             WizardActions(

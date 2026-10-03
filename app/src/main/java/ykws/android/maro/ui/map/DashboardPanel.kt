@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -36,10 +37,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
+import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
@@ -68,8 +71,6 @@ private object DashboardColors {
     val speedSafe get() = Color(AppConfig.uiDashboardStatusSuccess)      // alias to success
     val speedCaution get() = Color(AppConfig.uiDashboardStatusWarning)   // alias to warning
     val speedDanger get() = Color(AppConfig.uiDashboardStatusError)      // alias to error
-    val validationOk get() = Color(AppConfig.uiDashboardStatusSuccess)   // alias to success
-    val validationWarn get() = Color(AppConfig.uiDashboardStatusWarning) // alias to warning
     val zoneEntry get() = Color(AppConfig.uiDashboardStatusWarning)      // alias to warning
     val zoneExit get() = Color(AppConfig.uiDashboardStatusSuccess)       // alias to success
 
@@ -86,7 +87,7 @@ private object DashboardColors {
  * speed limit, heading-aware distance ahead, and speed compliance.
  *
  * Each card shows its value as large as the cell allows; the label and context are small and
- * subdued. The validation badge (when present) sits below the grid.
+ * subdued.
  *
  * Read-only — no action buttons or toggles. See global rule: action controls live in the
  * map overlay area, never in the dashboard.
@@ -107,75 +108,160 @@ fun DashboardPanel(
      * epic's placement, not this component's choice.
      */
     routeTrip: RouteTripFigure? = null,
+    /**
+     * The dashboard slot's base height — the floor of the shared frame in portrait (R2). Required
+     * rather than defaulting to a collapsing `0.dp`: its only caller is `MapScreen`, which always
+     * knows the value (F9).
+     */
+    dashboardBaseHeight: Dp,
+    /**
+     * The portrait frame's own ceiling (F5) — the band cap the map leaves for the panel. A taller
+     * dashboard's body then scrolls rather than covering the map strip. Null keeps the full-screen
+     * ceiling; landscape ignores it, its frame being untouched (F1).
+     */
+    panelMaxHeight: Dp? = null,
+    /** True in landscape (R5), where the panel keeps its own full-height column frame. */
+    isLandscape: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .background(DashboardColors.background)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+    // The frame's vertical padding lives once (F3): both the scaffold's contentPadding and the
+    // grid's bounded height derive from it, so editing one cannot mis-size the panel.
+    val padV = 2.dp
+    // The frame's horizontal padding lives once (W20): both branches read it, so editing one
+    // cannot desync the orientations' outer insets.
+    val padH = 4.dp
+    // The grid's nine shared arguments, hoisted so the two invocations differ only by the modifier
+    // (F9): the landscape column weighs it, the portrait frame gives it the base-derived height.
+    val grid: @Composable (Modifier) -> Unit = { gridModifier ->
+        DashboardIndicatorGrid(
+            state = state,
+            isWater = isWater,
+            distanceToShore = distanceToShore,
+            depthSample = depthSample,
+            speedKnots = speedKnots,
+            zoneSituation = zoneSituation,
+            autoRevealDistanceM = autoRevealDistanceM,
+            autoRevealTimeS = autoRevealTimeS,
+            routeTrip = routeTrip,
+            modifier = gridModifier
+        )
+    }
+    if (isLandscape) {
+        // Landscape keeps the panel's original frame: the bare full-height column the caller sizes.
+        // Its insets read the same `padV` portrait uses (G5), so editing one cannot desync the two
+        // orientations' vertical padding.
+        Box(
+            modifier = modifier
+                .background(DashboardColors.background)
+                .padding(horizontal = padH, vertical = padV),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // ── 2×2 indicator grid ─────────────────────────────────────────
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    DistanceCard(
-                        distanceToShore = distanceToShore,
-                        isWater = isWater,
-                        state = state,
-                        zoneSituation = zoneSituation,
-                        autoRevealDistanceM = autoRevealDistanceM,
-                        autoRevealTimeS = autoRevealTimeS,
-                        routeTrip = routeTrip,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                    SpeedLimitCard(
-                        state = state,
-                        isWater = isWater,
-                        speedKnots = speedKnots,
-                        zoneSituation = zoneSituation,
-                        autoRevealDistanceM = autoRevealDistanceM,
-                        autoRevealTimeS = autoRevealTimeS,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    DepthCard(
-                        depthSample = depthSample,
-                        isWater = isWater,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                    SpeedCard(
-                        speedKnots = speedKnots,
-                        activeSpeedLimitKn = zoneSituation?.currentZone?.speedLimitKn,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                }
+                grid(Modifier.weight(1f))
             }
+        }
+    } else {
+        // Portrait wears the shared auto-resizing frame (R1): the scaffold supplies the padding the
+        // panel used to draw, and keeps the dashboard's own background token through its parameter
+        // (F4). The grid fills the base-height floor less that same vertical padding (F3), so the
+        // cards keep the exact split they had when the panel carried its own fixed height.
+        DrawerScaffold(
+            wrapContent = true,
+            wrapContentMinHeight = dashboardBaseHeight,
+            bottomAnchoredContent = true,
+            scrollable = false,
+            contentPadding = PaddingValues(horizontal = padH, vertical = padV),
+            backgroundColor = DashboardColors.background,
+            wrapContentMaxHeight = panelMaxHeight,
+            // The base dashboard never grows — F3 pins its grid to the base height — so its top
+            // corners are square at every size.
+            shape = RoundedCornerShape(0.dp),
+            modifier = modifier
+        ) {
+            grid(
+                Modifier
+                    .fillMaxWidth()
+                    .height((dashboardBaseHeight - padV * 2).coerceAtLeast(0.dp))
+            )
+        }
+    }
+}
+
+/**
+ * The 2×2 indicator grid, shared by the landscape column face and the portrait frame. Its caller
+ * gives it a bounded height — a weight in the column, an explicit height in the frame — so the two
+ * rows split that height and each card fills its cell exactly as before (R4).
+ */
+@Composable
+private fun DashboardIndicatorGrid(
+    state: CoastlineState,
+    isWater: Boolean,
+    distanceToShore: Double?,
+    depthSample: DepthSample?,
+    speedKnots: Float?,
+    zoneSituation: ZoneSituation?,
+    autoRevealDistanceM: Float,
+    autoRevealTimeS: Float,
+    routeTrip: RouteTripFigure?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            DistanceCard(
+                distanceToShore = distanceToShore,
+                isWater = isWater,
+                state = state,
+                zoneSituation = zoneSituation,
+                autoRevealDistanceM = autoRevealDistanceM,
+                autoRevealTimeS = autoRevealTimeS,
+                routeTrip = routeTrip,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+            SpeedLimitCard(
+                state = state,
+                isWater = isWater,
+                speedKnots = speedKnots,
+                zoneSituation = zoneSituation,
+                autoRevealDistanceM = autoRevealDistanceM,
+                autoRevealTimeS = autoRevealTimeS,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            DepthCard(
+                depthSample = depthSample,
+                isWater = isWater,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+            SpeedCard(
+                speedKnots = speedKnots,
+                activeSpeedLimitKn = zoneSituation?.currentZone?.speedLimitKn,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
         }
     }
 }
@@ -610,7 +696,6 @@ private fun SpeedLimitCard(
         DashboardCard(
             title = stringResource(R.string.dash_zone_title),
             value = stringResource(R.string.dash_not_at_sea),
-            subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
             titleColor = dull,
             valueColor = dull,
@@ -724,7 +809,6 @@ private fun DepthCard(
         DashboardCard(
             title = stringResource(R.string.dash_depth_title),
             value = stringResource(R.string.dash_not_at_sea),
-            subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
             titleColor = dull,
             valueColor = dull,

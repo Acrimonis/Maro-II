@@ -117,6 +117,7 @@ class RouteEngineSeamTest {
         engine.publish(secondId, success(start, shortcut))
 
         viewModel.stepPage(1)
+        assertEquals("a step walks the ETA view to the faster candidate", 1, viewModel.selectedIndex.value)
         viewModel.selectRoute()
 
         val following = viewModel.state.value as RouteState.Following
