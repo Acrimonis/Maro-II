@@ -270,3 +270,38 @@ per metre — and the band's own key and clamp either retire (D6) or lose their 
 - Every phase's gate is the same pair — `gradlew :app:assembleDebug :app:testDebugUnitTest` — plus the
   device pass it names; nothing here is device-validated by the agent, and no phase is started without an
   explicit order for it.
+
+## Outcome
+
+Shipped 2026-09-30 on `feature/avoid-I`, then parked: **Phase 1** (the share split zone · band · ramp, the
+loop and the budget key read on the zone share alone), **Phase 1b** (the band's law — its own 5 kn stored
+on the grid beside a ring's and priced per expansion, the clock reading the strictest limit in force, one
+price for every slow source), **Phase 3** (the pure `betterPass`/`PassCost` comparator that keeps the
+better pass) and **Phase 4's splice half** (`fineSpliceBetter`, strictly faster and no worse a slow share);
+**Phase 0's trace half** (`PASS`/`PASSKEEP`/`LINE` carry λ, the band's priced λ, the three shares and
+in-zone metres) and the record sweep also shipped. **D6** settled as one cursor for every slow source,
+**D7** as the collar keeping its own fraction, **D8** confirmed as shipped. Build and the touched suites
+green throughout; nothing device-validated by the agent.
+
+The rest of the plan was **parked rather than dropped** when the epic's open walk level closed by decision
+on 2026-10-03. Each carried point keeps its resume condition here, so nothing depends on this archived body:
+
+- **Item 1 · D4 — the fine band:** decide whether to change the code or change the record — the engine
+  already re-solves at `route.avoid.fine.cellRatio`.
+- **Item 2 · Phase 0's remainder:** measure the `PULL` boundary's mapping cost on the device against the
+  ≤ 500 ms budget, and settle D4 with it.
+- **Item 8 · D1 — the budget's authority:** decide whether `timeBudgetPct` stays the loop's target or
+  becomes a ceiling only reported, leaving `softCostAversion` to mean what it says.
+- **Item 9 · Phase 2 — own the cursor:** make `softCostAversion` mean one thing where it is read, gated by
+  D1.
+- **Item 11 · D2 — the fairing's no-price rule:** keep it and accept that a bow may enter a zone, or make
+  the fitter refuse a ring.
+- **Item 12 · Phase 4's fairing half:** make the tail λ-aware per D2 — its splice half already shipped.
+- **Item 13 · D3 — the hard mode's face** (user-visible): ship "as short as possible" as the top of the
+  aversion range or as its own setting.
+- **Item 14 · Phase 5:** the earliest exit as the range's hard mode, gated by the forced-crossing probe.
+- **Item 15 · D5 — marker weights:** merge Phase 5's marker weights with the shipped marker scale now, or
+  behind the regional grid.
+- **Item 16 · Phase 6:** the regional coarse grid.
+- **Item 17 · Phase 7:** the parked algorithm items — the marker weights and the review over Phase 6's
+  folded fixes.

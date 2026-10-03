@@ -235,3 +235,14 @@ three rungs directly, and removed: the `route.avoid.candidate.passes` and
 KDoc, rewritten into a ladder paragraph. Still owed from the same demotion: the engine's
 ignored `aversionKn`/`slowWaterBudgetPct` params, the test-only `betterPass`/`PassCost`/
 `fineSpliceBetter`, and the dead slow-water budget chain.
+
+## Outcome
+
+Shipped, then re-modelled. The three-dial plan its Phases 0, A, B and D built on 2026-10-02 — the
+single-line baseline, the aversion seam with its Settings row, the property and description rewrite, and
+the surfaced overrun — was **superseded by the Final arbitration of 2026-10-03**: one **Driving-preference**
+cursor over a fixed three-rung ladder (around · balanced · through) computed as acquisition pages over the
+one shared grid, the cursor picking the initial rung and collapsed rungs deduped to the nearest survivor
+(D10–D15). **Phase F** (the ladder, engine-side) shipped 2026-10-03, and the **candidate-pass apparatus was
+retired** with it. **D2, D3 and D4 and Phase C are superseded** by the arbitration; D1, D5, D6, D8, D9 and
+D10–D15 stand. Build and the full unit suite green; the ladder's per-rung device cost stays owed.

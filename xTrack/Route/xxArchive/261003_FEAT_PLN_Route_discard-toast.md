@@ -46,3 +46,16 @@ Every route-mode **discard** becomes a two-phase gesture: the display updates at
 
 - Amend **R57** (back ends the mode), **R59/R60** (the exit dialog's doors) and **R79** (the fan's Discard asks nothing) — each describes an immediate ending — and add one new requirement for the two-phase discard.
 - Update the snackbar dismiss rule wherever the UI docs state it.
+
+## Outcome
+
+Shipped 2026-10-03: every route-mode discard is now **two-phase** — the panel and the line leave and the
+toggle reads off at the press while `routeArmed`/`routeState` and the engine stay live underneath, and the
+real disposal (`endRouteMode()` plus `cancelLookup`) runs on the toast's dismissal: its timeout, a
+horizontal swipe, a second back press, or **New acquisition**; **Undo** restores the panel, line, toggle
+and selection with nothing recomputed. The new `ActiveSnack.RouteDiscard` carries acquisition-versus-followed,
+`SnackRow` gained its optional second action and the swipe that takes the timeout's own path, and a new
+arming commits the window before it arms through the `forceFresh` flag, so only the autoselect consults the
+stored-route pull-back. Every discarding door — the panel's Discard, the fan's Discard, the toggle-off, the
+back key and the exit dialog's Discard — routes through the window; `Save+Exit` and `Select` never toast.
+Build and suites green after the review-fix hop; the user's device pass stays owed.

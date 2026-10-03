@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-03 14:10
+modified: 2026-10-03 14:54
 ---
 
 # Feature: Route
@@ -127,6 +127,12 @@ The live numbered requirements — added after the master book was retired on 20
 
 - [ ] **The multi-route save, withdrawn 2026-09-24** — the exit dialog no longer offers to write the session's routes; resolve later whether it comes back and, if it does, what names its files.
 
+## Rules
+
+- A pair whose ends stand closer than `route.min.acquisition.lengthM` refuses to arm, with a toast, rather than being searched.
+- The drawer's eligible ends are built from the unfiltered marker source `allMarkers`, so no list filter narrows what the two selectors offer.
+- A saved route opens from the track card's resume slot as the active route, and that session's exit dialog reads **Stop following**.
+
 ## Key Files
 
 - `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` — the seam: readiness, the two position entry points, the validity question, the readiness promise, and the `progress` flow carrying `RouteProgress(stage, points)`, cleared on every answer and every abort
@@ -154,12 +160,9 @@ The live numbered requirements — added after the master book was retired on 20
 
 ## Docs
 
-- [`261002_FEAT_PLN_Route_functional-flow.md`](261002_FEAT_PLN_Route_functional-flow.md) — the early select, the early save's growing draft, and the acquisition panel's swipe pager
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — **the avoidance algorithm's design of record**, folded from the archived phase and zone plans: the pipeline, the cost field, the λ loop, the standoff's retirement, the fairing and the evidence
-- [`261002_FEAT_PLN_Route_aversion-and-slow-water-model.md`](261002_FEAT_PLN_Route_aversion-and-slow-water-model.md) — the slow-water model: the three-route ladder over one shared grid, the Driving-preference cursor, the tolerance-based collapse, and the retired candidate-pass apparatus
-- [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md) — the saved-route ends: the pair on the track and its summary, the directional flagged-marker match that replaces the search, the reverse pair taken mirrored, and the shut save door
-- Thirty-one files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
+- Thirty-nine files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk
 
@@ -172,10 +175,10 @@ The live numbered requirements — added after the master book was retired on 20
 - [x] 18 · The record repairs — the `GLOBAL_CONTEXT.md` Route row, extracted with `findstr` first; the epic's own line was delivered by this rewrite — dropped 2026-09-30: the row shortening stays recorded in the Delta's "The record" note
 - [x] 19 · The bake, with the standing items carried into the hydration — closed 2026-09-30: the bake ran and re-runs after the archive
 - [x] 20 · The Phase 6 device pass — the fairing, its four keys and the GPX acceptance (the user's own) — dropped 2026-09-30: stays owed to the user, recorded in the Delta's "Owed device passes"
-- [x] 21 · The saved-route ends bake — fold the pair on the track and its summary, the directional arming match, the reverse pair taken mirrored and the shut save door into the epic's `## Implemented` and the hydration → [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md)
+- [x] 21 · The saved-route ends bake — fold the pair on the track and its summary, the directional arming match, the reverse pair taken mirrored and the shut save door into the epic's `## Implemented` and the hydration → [`xxArchive/260930_FEAT_PLN_Route_saved-route-ends.md`](xxArchive/260930_FEAT_PLN_Route_saved-route-ends.md)
 - Closed 2026-09-30 by decision: 16 resolved, 17 dropped to the algorithm chunk, 18 dropped (recorded in the Delta), 19 absorbed, 20 dropped as the owed device pass, 21 absorbed by the bake itself, which this closure unblocked; 14 and 15 stay parked under it.
 
-**Level 1 — Date:** 2026-09-30 · **Source:** [`260930_FEAT_PLN_Route_avoid-shortest-exit.md`](260930_FEAT_PLN_Route_avoid-shortest-exit.md:1) — its decisions and phases, in the order they gate; the band's law added the same evening · **Cursor:** 1
+**Level 1 — Date:** 2026-09-30 · **Source:** [`xxArchive/260930_FEAT_PLN_Route_avoid-shortest-exit.md`](xxArchive/260930_FEAT_PLN_Route_avoid-shortest-exit.md:1) — its decisions and phases, in the order they gate; the band's law added the same evening · **Cursor:** 1 · **Closed:** 2026-10-03 — closed by decision
 - [ ] 1 · **D4** — the fine band: change the code or change the record
 - [ ] 2 · **Phase 0** — measure λ, the three shares, in-zone metres and the PULL cost; repair the record — **the trace half shipped 2026-09-30**: `PASS`, `PASSKEEP` and `LINE` carry λ, the band's priced λ, the three shares and in-zone metres; the PULL device measurement and D4 stay owed
 - [x] 3 · **Phase 1** — split the share three ways; the loop reads the zone share alone — shipped 2026-09-30
@@ -194,6 +197,7 @@ The live numbered requirements — added after the master book was retired on 20
 - [ ] 16 · **Phase 6** — the regional coarse grid
 - [ ] 17 · **Phase 7** — the parked algorithm items: the marker weights and Phase 6's fairing review
 - Parked beneath: the closed level above carries items 14 and 15, each with its resume condition; a fresh set was built rather than resuming them.
+- Closed 2026-10-03 by decision, which unblocks the archive: items 3, 4, 5, 6, 7 and 10 shipped; **items 1, 2, 8, 9 and 11–17 are parked rather than dropped**, each keeping its text here and its resume condition in the archived plan's `## Outcome`.
 
 ## Implemented
 
@@ -223,17 +227,17 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The route fan's "route" child gained its dual purpose — acquire while idle, select/confirm once the settled line stands
 - The acquisition's update stream stopped being torn down per arm — `distinctUntilChanged` keeps the one `updates` subscription alive, closing the drop window that left the mode searching with no stage, line or plan
 - The followed route is painted again — the pool reads the `Following` plan's own points once `Select route` clears the page set, and the pin lands on its resolved destination
-- The track card's follow door — the route icon in the resume slot follows a saved route as the active route, the followed line painted from the state, and the exit dialog's third door reads Stop following → [`260930_FEAT_PLN_Route_follow-saved-route-card.md`](260930_FEAT_PLN_Route_follow-saved-route-card.md)
-- The route ends survive restart and a sub-100 m pair refuses arming — `allMarkers` read, the write-back gated on the marker load, and the pure distance gate with its toast → [`260930_FEAT_PLN_Route_end-persistence-and-short-guard.md`](260930_FEAT_PLN_Route_end-persistence-and-short-guard.md)
-- A saved route keeps its two flagged ends and is found by them — the ids on the track and its summary, the autoselect arming's match that answers a stored line with no search and a shut save door, and the reverse pair answered by mirroring the stored line at its own times → [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md)
+- The track card's follow door — the route icon in the resume slot follows a saved route as the active route, the followed line painted from the state, and the exit dialog's third door reads Stop following
+- The route ends survive restart and a sub-100 m pair refuses arming — `allMarkers` read, the write-back gated on the marker load, and the pure distance gate with its toast
+- A saved route keeps its two flagged ends and is found by them — the ids on the track and its summary, the autoselect arming's match that answers a stored line with no search and a shut save door, and the reverse pair answered by mirroring the stored line at its own times
 - The 300 m band's own limit became its price — the zones' one law and no aversion key — and the clock reads that limit whatever the price switch says, shipped ahead of the cursor
-- The band's limit became a **limit on the grid**, priced per expansion so its price follows the corrected λ; the slow time split **zone · band · ramp** with the loop's budget keyed on the zone share alone; the cape's bend pinned on the derived exchange rate → [`260930_FEAT_PLN_Route_avoid-shortest-exit.md`](260930_FEAT_PLN_Route_avoid-shortest-exit.md)
-- A route is selectable and saveable while its line is still drawing — an early select commits the main, cancels the candidates and follows the line when it lands; an early save writes the partial line and grows the same track id at each iteration until the full line is written; the acquisition panel became a swipe pager and stopped repeating the ends → [`261002_FEAT_PLN_Route_functional-flow.md`](261002_FEAT_PLN_Route_functional-flow.md)
-- The acquisition panel rode the shared `DrawerScaffold` and became a paging three-column table — the description, the route's Dist · ETA as value · unit pairs, and a candidate's delta with the forced-crossing note, the selected row on the taken-choice face — with `Save to track` · `Select route` · `Discard route` in one weighted row → [`261002_FEAT_PLN_Route_functional-flow.md`](261002_FEAT_PLN_Route_functional-flow.md)
-- The slow-water dials rework — the aversion exposed as a Settings dial seeded from `softCostAversion` and read live at every solve, the overrun surfaced, the empty candidate-pass no-op fixed, the fine pass made λ-respecting, and the providers re-pointed at the live settings; Phases 0/A/B/D shipped, Phase C superseded → [`261002_FEAT_PLN_Route_aversion-and-slow-water-model.md`](261002_FEAT_PLN_Route_aversion-and-slow-water-model.md)
-- The three-route ladder — the acquisition computes three fixed-λ rungs (around · balanced · through) over one shared grid, the Driving-preference cursor picks the initial rung, and collapsed rungs drop with the nearest survivor selected → [`261002_FEAT_PLN_Route_aversion-and-slow-water-model.md`](261002_FEAT_PLN_Route_aversion-and-slow-water-model.md)
-- The candidate-pass apparatus retired — its keys, accessors, parser and `RouteOffer` model removed as dead once the ladder declared its rungs directly → [`261002_FEAT_PLN_Route_aversion-and-slow-water-model.md`](261002_FEAT_PLN_Route_aversion-and-slow-water-model.md)
+- The band's limit became a **limit on the grid**, priced per expansion so its price follows the corrected λ; the slow time split **zone · band · ramp** with the loop's budget keyed on the zone share alone; the cape's bend pinned on the derived exchange rate
+- A route is selectable and saveable while its line is still drawing — an early select commits the main, cancels the candidates and follows the line when it lands; an early save writes the partial line and grows the same track id at each iteration until the full line is written; the acquisition panel became a swipe pager and stopped repeating the ends
+- The acquisition panel rode the shared `DrawerScaffold` and became a paging three-column table — the description, the route's Dist · ETA as value · unit pairs, and a candidate's delta with the forced-crossing note, the selected row on the taken-choice face — with `Save to track` · `Select route` · `Discard route` in one weighted row
+- The slow-water dials rework — the aversion exposed as a Settings dial seeded from `softCostAversion` and read live at every solve, the overrun surfaced, the empty candidate-pass no-op fixed, the fine pass made λ-respecting, and the providers re-pointed at the live settings; Phases 0/A/B/D shipped, Phase C superseded
+- The three-route ladder — the acquisition computes three fixed-λ rungs (around · balanced · through) over one shared grid, the Driving-preference cursor picks the initial rung, and collapsed rungs drop with the nearest survivor selected
+- The candidate-pass apparatus retired — its keys, accessors, parser and `RouteOffer` model removed as dead once the ladder declared its rungs directly
 - The route fan closes when the acquire (`Route`) or follow (`Route auto`) child is pressed and stays open on the other three — the five children fire their action, and the arc otherwise closes on the back key, the scrim or the parent anchor's own toggle (R91)
-- Every route discard became a two-phase gesture (R92) — the display ends at once while the engine keeps running, and the toast's Undo restores exactly or its timeout, a horizontal swipe or New acquisition confirms the real disposal; each handler acts only on the window's own toast, an inspect arming commits a standing window before it disarms the route, and `SnackRow`'s swipe threshold is 48 dp either way → [`261003_FEAT_PLN_Route_discard-toast.md`](261003_FEAT_PLN_Route_discard-toast.md)
+- Every route discard became a two-phase gesture (R92) — the display ends at once while the engine keeps running, and the toast's Undo restores exactly or its timeout, a horizontal swipe or New acquisition confirms the real disposal; each handler acts only on the window's own toast, an inspect arming commits a standing window before it disarms the route, and `SnackRow`'s swipe threshold is 48 dp either way
 - Every explicit arming forces the fresh multi-route acquisition (R83, R92) — the fan's `Route`, the toggle and the drawer's Route action pass `forceFresh = true` so the stored-route pull-back belongs to the autoselect (`Route auto`) arming alone, which still follows a saved line directly; the acquisition comment and R92's child names follow
-- The selected route is reinforced by shape and opacity (R93) — a derived under-stroke in both phases from the one `ui.reinforce.darkenPct` lever and `reinforcedColor`, and a boat-split follow line off `RoutePlan.splitAt` → [`261003_FEAT_PLN_Route_selected-route-reinforcement.md`](261003_FEAT_PLN_Route_selected-route-reinforcement.md)
+- The selected route is reinforced by shape and opacity (R93) — a derived under-stroke in both phases from the one `ui.reinforce.darkenPct` lever and `reinforcedColor`, and a boat-split follow line off `RoutePlan.splitAt`

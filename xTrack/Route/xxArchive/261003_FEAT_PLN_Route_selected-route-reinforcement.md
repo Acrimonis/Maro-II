@@ -148,3 +148,17 @@ In [`RouteHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.k
   [`MarkerAppearance.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MarkerAppearance.kt:121) and
   [`MarkerOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt:963) — recorded as
   findings, untouched here.
+
+## Outcome
+
+Shipped and device-validated 2026-10-03: the selected route is reinforced by a **derived under-stroke** in
+both phases — the acquisition's selected rung and the followed line — its colour the line's own pushed
+toward black by the one lever `ui.reinforce.darkenPct` through the new pure `reinforcedColor`, its width the
+new `route.line.casing.widthDp` seeded 8 dp over the 6 dp core. While `Following` the line splits at the
+boat off the new `RoutePlan.splitAt` (with `remainingFrom` refactored onto it, so the nearest-leg projection
+has one home), the travelled run wearing `route.dimmed.transparencyPct` and the remaining run at full
+strength under the edge. `RouteHost` attaches `route_casing` and `route_travelled` before the pool, keys the
+paint on a split identity so a stationar boat never repaints, and takes the boat fix as one new
+`boatPosition` parameter. Build and the suites green; the edge's contrast, the paint order inside the route
+tier, the split's join, the arrival repaint, the degenerate start and the demo-mode marker all validated by
+the user's own pass (R93).
