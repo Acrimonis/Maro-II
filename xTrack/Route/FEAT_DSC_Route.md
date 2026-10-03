@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-30 21:43
+modified: 2026-10-03 02:17
 ---
 
 # Feature: Route
@@ -88,7 +88,7 @@ Arrival carries no state and no cue: it is the trip cell reading zero while the 
 - The route opacity ladder: `tracking.transparency.routeFrom` / `routeTo` and any row reading them.
 - The seam members the current flow does not use — parked for the user's re-evaluation rather than deleted blind.
 
-**Owed device passes** — the Phase 6 fairing with its four keys and the GPX acceptance; the route fan's arc, enablement and auto-pick; the acquisition's face, the toggle's door and the paint order; the progressive draw's staircase and its 55 % face; the confirming pass after the paint-order repair and the **Active route** colour row.
+**Owed device passes** — the Phase 6 fairing with its four keys and the GPX acceptance; the route fan's arc, enablement and auto-pick; the acquisition's face, the toggle's door and the paint order; the progressive draw's staircase and its 55 % face; the confirming pass after the paint-order repair and the **Active route** colour row; the acquisition panel's paging table with its early select and early save.
 
 **The progressive draw's open points** — the flicker on a sub-second ask, the angular staircase, the `PULL` boundary's mapping cost unmeasured against the ≤ 500 ms budget, and whether the aim beat should stop while a partial line draws, with its retry pin and the device reading owed ([`260925_FEAT_PLN_Route_progressive-draw.md`](260925_FEAT_PLN_Route_progressive-draw.md:112)).
 
@@ -108,6 +108,9 @@ The live numbered requirements — added after the master book was retired on 20
 - **R85 — A re-acquired line's save door stays shut** (2026-09-30) — the matched track id is what the rebuilt plan is already written as, registered in the mode's session at arming, so `isRouteSaved` reads true with **no new predicate** and the save writes nothing a second time.
 - **R86 — The reverse pair is matched and mirrored** (2026-09-30) — **extends R84's directional rule** with the return trip: the swap is answered by **mirroring the line**, not by refusing it, so a stored line whose marker pair is the armed pair **reversed** is taken at its own stored figures rather than searched, an end pair being two markers and the water between them the same water the other way. `storedRouteMatch` runs a second pass after the exact pair finds nothing, newest `startTimeMs` first, and answers it with `reversed` set; `mirroredPlanOf(track, nowMs)` is **exactly the forward inverse with its lists reversed** — `routePlanOf`'s points and leg times reversed, so mirrored leg *k* is stored leg *n−1−k* and the stored milliseconds carry over with no pace arithmetic redone — and it returns null under two points.
 - **R87 — A mirrored line is a new plan with an open save door** (2026-09-30) — it takes the **arming instant** for its name and registers no session link, because the track that exists holds the other direction: `armRouteMode` passes a **null track id**, so `isRouteSaved` reads false and saving writes a new track.
+- **R88 — A route is selectable while its line is still drawing** (2026-10-02) — `Select route` opens once the main lookup has a drawable partial line (≥ 2 provisional points), and the press **commits** the main instead of freezing it: the candidate lookups are cancelled, the main keeps running, and the mode enters `Following` with the landed line the moment it lands; a refusal un-commits rather than following.
+- **R89 — A route is saveable while its line is still drawing** (2026-10-02) — `Save to track` opens on the same partial line, writes it immediately, and **re-saves the same track id at each main iteration** — a fixed id, `createdAtMs` and name, only the points and legs growing — until the landed full line is written once more and the session links the landed plan to the draft, shutting the save door.
+- **R90 — The acquisition panel is the shared dashboard scaffold with a paging summary table** (2026-10-02, amended 2026-10-03) — the panel rides [`DrawerScaffold`](app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt:149) with `showBack = false`, `wrapContent = !isLandscape` and `wrapContentMinHeight = portraitDashboardHeight`, so it auto-grows to its content instead of scrolling internally; the header carries the title and, at its trailing edge, the stage status and the ‹ › dots; the body is a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as value · unit pairs (value right-aligned, unit left-aligned, a placeholder while it waits), and a candidate's delta against the main with the forced-crossing note — with a hairline between the columns, wrapping top-aligned rows, the selected row on the taken-choice face (a `ui.select.container` fill, its `ui.accent` edge, white bold text) whose corners adapt to the row's position, and the whole table paging laterally by swipe or the header's ‹ › pair; the top Dist · ETA display, the start/destination coordinates and the pin option are gone; the three actions — Save · Select · Discard — share one weighted bottom row, and the destination-moved note follows only while a plan stands.
 
 ## Todos
 
@@ -140,6 +143,7 @@ The live numbered requirements — added after the master book was retired on 20
 
 ## Docs
 
+- [`261002_FEAT_PLN_Route_functional-flow.md`](261002_FEAT_PLN_Route_functional-flow.md) — the early select, the early save's growing draft, and the acquisition panel's swipe pager
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — **the avoidance algorithm's design of record**, folded from the archived phase and zone plans: the pipeline, the cost field, the λ loop, the standoff's retirement, the fairing and the evidence
 - [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md) — the saved-route ends: the pair on the track and its summary, the directional flagged-marker match that replaces the search, the reverse pair taken mirrored, and the shut save door
@@ -212,3 +216,5 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - A saved route keeps its two flagged ends and is found by them — the ids on the track and its summary, the arming match that answers a stored line with no search and a shut save door, and the reverse pair answered by mirroring the stored line at its own times → [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md)
 - The 300 m band's own limit became its price — the zones' one law and no aversion key — and the clock reads that limit whatever the price switch says, shipped ahead of the cursor
 - The band's limit became a **limit on the grid**, priced per expansion so its price follows the corrected λ; the slow time split **zone · band · ramp** with the loop's budget keyed on the zone share alone; the cape's bend pinned on the derived exchange rate → [`260930_FEAT_PLN_Route_avoid-shortest-exit.md`](260930_FEAT_PLN_Route_avoid-shortest-exit.md)
+- A route is selectable and saveable while its line is still drawing — an early select commits the main, cancels the candidates and follows the line when it lands; an early save writes the partial line and grows the same track id at each iteration until the full line is written; the acquisition panel became a swipe pager and stopped repeating the ends → [`261002_FEAT_PLN_Route_functional-flow.md`](261002_FEAT_PLN_Route_functional-flow.md)
+- The acquisition panel rode the shared `DrawerScaffold` and became a paging three-column table — the description, the route's Dist · ETA as value · unit pairs, and a candidate's delta with the forced-crossing note, the selected row on the taken-choice face — with `Save to track` · `Select route` · `Discard route` in one weighted row → [`261002_FEAT_PLN_Route_functional-flow.md`](261002_FEAT_PLN_Route_functional-flow.md)

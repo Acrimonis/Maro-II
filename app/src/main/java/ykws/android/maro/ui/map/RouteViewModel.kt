@@ -176,7 +176,9 @@ sealed interface RouteState {
         override val plan: RoutePlan?,
         val searching: Boolean = false,
         val asked: Boolean = false,
-        val refusal: RouteReason? = null
+        val refusal: RouteReason? = null,
+        /** Early select: the user committed to the main line, which is still finishing. */
+        val committed: Boolean = false
     ) : RouteState {
         override val phase: RoutePhase get() = RoutePhase.CHOOSING
     }
@@ -413,6 +415,21 @@ class RouteViewModel(
             }
         }
         syncChoosing(newPages)
+        // Early select: once the committed main line lands, the mode follows it. A refusal
+        // instead un-commits, leaving the acquisition standing on the reason.
+        if (index == MAIN_INDEX && update.nextStage == null) {
+            val choosing = _state.value as? RouteState.Choosing ?: return
+            if (choosing.committed) {
+                val landed = updated.plan
+                if (landed != null) {
+                    _pages.value = emptyList()
+                    _selectedIndex.value = 0
+                    _state.value = RouteState.Following(landed)
+                } else {
+                    _state.value = choosing.copy(committed = false)
+                }
+            }
+        }
     }
 
     /** Re-reads the Choosing phase's plan, searching flag and refusal from the page set. */
@@ -442,14 +459,35 @@ class RouteViewModel(
      * lookups it did not take and enters navigation.
      */
     fun selectRoute() {
-        _state.value as? RouteState.Choosing ?: return
-        val selected = selectedPlan() ?: return
-        disposeLookups()
-        _pages.value = emptyList()
+        val choosing = _state.value as? RouteState.Choosing ?: return
+        val selected = selectedPlan()
+        if (selected != null) {
+            disposeLookups()
+            _pages.value = emptyList()
+            _selectedIndex.value = 0
+            _stage.value = null
+            _provisionalLine.value = emptyList()
+            _state.value = RouteState.Following(selected)
+            return
+        }
+        // Early select: the main's partial line is the committed track. The candidates are dropped
+        // now, the main keeps running, and the mode follows the line the moment it lands.
+        if (choosing.committed || _provisionalLine.value.size < 2) return
+        commitToMain()
+        _state.value = choosing.copy(committed = true)
+    }
+
+    /** Early select's own disposal: cancels the candidates and keeps the main lookup running. */
+    private fun commitToMain() {
+        val active = _sessionEngine.value ?: return
+        for ((lookupId, index) in lookupPages) {
+            if (index != MAIN_INDEX) {
+                active.cancelLookup(lookupId)
+                cancelledLookups += lookupId
+            }
+        }
+        _pages.value = _pages.value.take(1)
         _selectedIndex.value = 0
-        _stage.value = null
-        _provisionalLine.value = emptyList()
-        _state.value = RouteState.Following(selected)
     }
 
     /**

@@ -629,8 +629,8 @@
     <!-- The acquisition's own three actions (R55, rewritten 2026-09-28): the save writes the
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
          asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
-    <string name="route_action_save_track">Save to track</string>
-    <string name="route_action_select">Select route</string>
+    <string name="route_action_save_track">Save</string>
+    <string name="route_action_select">Select</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
@@ -646,6 +646,7 @@
     <string name="route_status_acquiring">Acquiring…</string>
     <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
     <string name="route_status_active">Route active</string>
+    <string name="route_status_selected">Selected — finishing the line…</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -658,12 +659,16 @@
     <string name="route_exit_title">Leave the Route mode?</string>
     <string name="route_exit_save">Save Route and exit</string>
     <string name="route_exit_continue">Continue Route</string>
-    <string name="route_exit_discard">Discard Route</string>
+    <string name="route_exit_discard">Discard</string>
     <string name="route_exit_stop_following">Stop following</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_summary_distance_value_fmt">%1$.1f</string>
+    <string name="route_summary_distance_unit">NM</string>
+    <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
+    <string name="route_summary_eta_unit">min</string>
     <!-- The drawer summary's sub-title over the boat-relative pair: what is left to travel. -->
     <string name="route_trip_remaining">Remaining</string>
     <string name="route_trip_ago">%1$s ago</string>

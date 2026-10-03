@@ -274,9 +274,8 @@ all of them: `SegmentedRow(options, selected, onSelect, captions = null)`.
 - **Unselected segments are outlined** (1dp `uiDividerColor`); the selected segment wears the **tonal
   container** (`ui.select.container`, the accent at 30 %), a **1dp `ui.accent` border on its own cell** —
   square by design, the parent's rounded clip shaping its outer end — `uiTextPrimary` Bold text and a
-  **check glyph in `ui.value.text`**. The 20 % container read too faint on the device, so it rose
-  (2026-09-28). The accent **fill** is the **action's**, reserved for it (§5.6, §5.9), so a selected
-  choice no longer wears the same face as a primary button — see the note below the two components.
+  **check glyph in `ui.value.text`**. The accent **fill** is the **action's**, reserved for it (§5.6, §5.9),
+  so a selected choice never wears the same face as a primary button — see the note below the two components.
 - **Accessibility** — `selectableGroup()` on the row plus `Role.RadioButton` per segment, so the control
   is announced as "n of m, selected" instead of as unrelated buttons.
 - **`captions`** (optional) — one 12sp `uiTextMuted` line under each segment (per-stop numbers,
@@ -291,8 +290,7 @@ all of them: `SegmentedRow(options, selected, onSelect, captions = null)`.
 For choices that do **not** exclude each other — two or more flags, each on or off by itself (the menu
 drawer's Arrows and Colours are the shipped case): `MultiSelectRow(options, isOn, onToggle)`.
 
-- **The same connected control as §2.7, and deliberately so** (2026-09-28, by the user's word against a
-  day of separate pills): **one bar is the app's norm for a set of choices**, whether or not they exclude
+- **The same connected control as §2.7, and deliberately so**: **one bar is the app's norm for a set of choices**, whether or not they exclude
   each other — the language selector's own shape, which every multiple-choice control follows. What differs
   between the two is what they **do**, never how they look.
 - **The on-face is the app's taken-choice face**, shared with §2.7's selected segment on purpose —
@@ -355,7 +353,7 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 | Token | Value | Role |
 |-------|-------|------|
 | Popup bg | `uiBackground` | Outer Surface |
-| Popup border | `uiAccent`, 1dp | The edge the dropdown box and the bars' taken cells wear too (2026-09-29) |
+| Popup border | `uiAccent`, 1dp | The edge the dropdown box and the bars' taken cells wear too |
 | Card bg | `uiCardBackground` | Per-section card |
 | Section title | `uiDashboardTextMuted`, 16sp, SemiBold | Popup-only: deliberately dimmer than the settings `SubSectionHeader`, which is `uiTextPrimary` (§2.9). Sharing the dashboard muted token here is a known token-scope wart — a future pass may migrate popups to `uiTextPrimary`. |
 | Row text | `uiTextPrimary`, 15sp, Medium (selected: SemiBold) | |
@@ -366,7 +364,7 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 
 All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) + `.alpha(activeAlpha/inactiveAlpha)` per [`FanIconComponents.kt`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt).
 
-**One row serves the whole family** (2026-09-29). Every member draws its rows through `PopupRow`, its
+**One row serves the whole family.** Every member draws its rows through `PopupRow`, its
 groups through `PopupSectionCard`, its section titles through `PopupSectionTitle` and its outer surface
 through **`PopupSurface`** — `uiBackground` on a 12dp corner behind the 1dp **`uiAccent` rim**, an 8dp
 shadow, the family's **12dp inset on all four sides** and a height bound it scrolls past — all in
@@ -377,12 +375,12 @@ a switched-off row. The dropdown's menu ([§2.12](#212-dropdown-row--dropdownrow
 list popups read the rows and the constants but still state their own outer surface inline, and
 `PopupSurface` is there for them to move onto.
 
-**The dropdown's list is a wheel, and it is this family's one exception** (2026-09-29): `DropdownWheel`
+**The dropdown's list is a wheel, and it is this family's one exception**: `DropdownWheel`
 draws a snapped column of three to five rows where the centre slot is marked by the taken-choice face rather
 than a `✓`, and only that label is bold — so the wheel's row is not `PopupRow`, deliberately, and a change to
 the row family does not reach it. Its arithmetic is in
 [`WheelPolicy.kt`](../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt) and its rule of entry
-is §2.15's. **It lands the entry it is given** (2026-09-29): the popup scrolls by that entry's own distance on
+is §2.15's. **It lands the entry it is given**: the popup scrolls by that entry's own distance on
 the slot grid, from the rest frame it opens in, and then compares the row the band names with the entry the
 caller holds — once per open. §2.12 states what the control shows.
 
@@ -429,7 +427,7 @@ For a single choice whose option list may grow past the two or three segments a 
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The box is the control, the anchor and the tap target** (2026-09-29) — a `Row` holds the value and the
+- **The box is the control, the anchor and the tap target** — a `Row` holds the value and the
   arrow and is the one tap that opens the list, the same single-target rule `OptionRow` follows, now scoped
   to the box rather than the row. It carries `clickable`, the call site's `accessibleName` as its
   `contentDescription` and `Role.DropdownList`, and it reports its own measured size, so nothing about the
@@ -437,14 +435,14 @@ For a single choice whose option list may grow past the two or three segments a 
 - **Label and description sit above the field** — same type as §2.1/§2.2, both optional (`null` at every
   call site today, where a section header or the drawer's comment already names the control). The row
   paints nothing of its own: the call site supplies the `CardArea`/`NestedCard` (§2.0).
-- **The box is the bars' own base** (2026-09-29) — `uiRadiusCard` behind the **1dp `uiAccent` edge** a
+- **The box is the bars' own base** — `uiRadiusCard` behind the **1dp `uiAccent` edge** a
   `MultiSelectRow`'s on half or a `SegmentedRow`'s selected cell wears, with their **10dp vertical
   padding** and no surface of its own. The value reads `uiTextPrimary` at `${ui.font.value.size}` Bold on one
   line, ellipsised when a marker's own name is long, and the arrow is the app's `KeyboardArrowDown` in
   `uiAccent`. **Its height is that padding's consequence, not a number** — the same way the bars get
   theirs — which is what M3's `OutlinedTextField` could not give: its internal padding, 56dp floor, caret
   and theme selection highlight are all gone with it.
-- **The list is a §2.10 popup the box itself positions** (2026-09-29) — a `Popup` at the box's **bottom
+- **The list is a §2.10 popup the box itself positions** — a `Popup` at the box's **bottom
   left**, as wide as the box's own measured width and bounded in height by `popupMaxHeightDp()`, so it
   opens flush under the box in either orientation and can never reach past the space the box already fits.
   **Why it is not M3's menu:** `ExposedDropdownMenu` sized itself from the anchor and then shifted to stay
@@ -452,13 +450,13 @@ For a single choice whose option list may grow past the two or three segments a 
   review could see in the source and no parameter could override. The content is the family's own —
   `PopupSurface` outside, `PopupRow` for every option ([§2.10](#210-popup-styling-canonical)) — so 16dp/2dp
   padding, the 15sp Medium–SemiBold label and the 24dp `✓` box in `uiAccent` on the current option are one
-  implementation for all three lists. **Its body is a wheel** (2026-09-29), so that sentence is narrowed:
+  implementation for all three lists. **Its body is a wheel**, so that sentence is narrowed:
   `DropdownWheel` draws a snapped column of three to five rows whose centre slot is the choice —
   `uiSelectContainer` behind an accent rule above and below, only the centred label bold — where the drag
   scrolls and snaps and **a tap does the choosing**. `PopupSurface` is its outer surface with
   `scrollable = false`, the wheel owning the only scroll; its arithmetic lives in `WheelPolicy.kt`,
   unit-tested beside it.
-- **The selection is resolved once, and the popup names the row it lands on** (2026-09-29) — one index feeds
+- **The selection is resolved once, and the popup names the row it lands on** — one index feeds
   the box's word and the wheel's entry alike, and the wheel reaches that entry by scrolling *by* its own
   distance on the slot grid from the popup's rest frame, then comparing the row the band names with the entry
   the caller holds, once per open. A value the options do not carry therefore reads the same on both surfaces
@@ -468,7 +466,7 @@ For a single choice whose option list may grow past the two or three segments a 
   caller persists and the strings are already-resolved labels, so the row never holds user-facing text. The
   order they arrive in is the **caller's** own — the alphabetical order a list and a flag-driven selector
   share, ignored articles and all, lives in [`ui-lists-guidelines.md`](ui-lists-guidelines.md).
-- **The box carries a name, and takes no caret** (2026-09-29) — a plain `Row` rather than a focusable
+- **The box carries a name, and takes no caret** — a plain `Row` rather than a focusable
   field, so nothing enters the surface's traversal with a caret. A **required `accessibleName`** is the one
   string each call site hands it, set as the node's `contentDescription`, because a label-less box would
   otherwise announce nothing at all; what is announced with it is the device pass's to confirm.
@@ -555,24 +553,12 @@ sections divided by the vertical rule (§2.6), each side taking the share of the
 - **A comment wraps rather than being cut** — no `maxLines` on a section's comment; keep the wording
   short enough for the column instead of trimming it with an ellipsis.
 
-### 2.15 Retired — the roller (`RollerRow`)
+### 2.15 Rule of Entry — a wheel in a popup
 
-**The roller was retired on 2026-09-28, by the user's word, and its component deleted.** It showed one entry
-at a time and stepped under a **vertical drag** inside its own bounds (R70's own shape, the drawer's Route
-sub-section its only call site); in the hand its drag never committed reliably — the marked entry and the
-committed one disagreed — and the instrumented trace that was to settle which of its two mechanisms was at
-fault was cut short by the retirement rather than answered by it. **A list of choices is a dropdown**
-([§2.12](#212-dropdown-row--dropdownrow)) **or a bar** ([§2.7](#27-segmented-row--segmentedrow)); a
-drag-only control with no tap path carries an accessibility gap of its own, which is what its last section
-here had warned about. The row is kept as the record of a shape the app tried and withdrew, not as a recipe.
-
-**Re-entered deliberately on 2026-09-29, and this is its rule of entry.** The dropdown's list became a wheel
-([§2.12](#212-dropdown-row--dropdownrow)): a snapped column of three to five rows inside a popup, not a roller
-inside a row, and **a tap on a row is what chooses** — the drag only scrolls and snaps, and the band shows
-what a tap would take. So a list of choices is **a dropdown, a bar, or a wheel in a popup with a tap path**;
-a drag that commits on its own stays out. The root cause above was never established, so the honest reading
-is that the wheel re-enters the gesture and **guards** the commit, not that the shape is proven unrelated —
-and R70 stays retired and superseded, its shape being one visible row stepped on a drag.
+The dropdown's list is a **wheel** ([§2.12](#212-dropdown-row--dropdownrow)): a snapped column of three to
+five rows inside a popup, and **a tap on a row is what chooses** — the drag only scrolls and snaps, and the
+band shows what a tap would take. So a list of choices is **a dropdown, a bar, or a wheel in a popup with a
+tap path**; a drag that commits on its own stays out.
 
 ---
 
@@ -748,15 +734,13 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
   label; `SECONDARY` = a **full action button on the accent at 50 %** (`ui.action.neutral.background`) with a
   **2 dp `ui.accent` rim at full opacity** and the same **white bold label** — the fill's weight states the
-  rank, and the rim, accent against grey, states that the control can be taken (2026-09-28: outlines at 1 dp
-  and 2 dp read too faint, a navy body read as another family, a tonal fill as another species, and a
-  borderless 66 % fill as one too — the rim over a half-strength body is what settled it).
+  rank, and the rim, accent against grey, states that the control can be taken.
 - **A disabled action is the same control with a different face — the whole app's rule, not this
-  surface's** (2026-09-24, generalised 2026-09-26): any action with `enabled = false` reads as the
+  surface's**: any action with `enabled = false` reads as the
   **outlined role, its label in `uiTextMuted` and its outline in `uiDividerColor`, and no accent
   surviving it** — which is what keeps the accent meaning *the surface's own outcome* rather than being
-  dimmed into ambiguity. **Since the live faces carry the accent in fill and rim (2026-09-28), those two
-  tokens are the whole of the disabled signal**: a control that cannot be taken is the only one **with
+  dimmed into ambiguity. **The live faces carry the accent in fill and rim, and those two tokens are the
+  whole of the disabled signal**: a control that cannot be taken is the only one **with
   neither a fill nor a drop of accent**, its 1 dp grey outline against the middle action's **2 dp accent
   rim**. One implementation draws it: `ConfirmActionButton`
   ([`ui/components/ConfirmDialog.kt`](../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt)),
@@ -765,12 +749,10 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   are §2.7's own unselected-segment ones, so the face adds no palette entry, and Compose announces
   `enabled = false` natively, so nothing custom rides accessibility. A greyed button promises nothing,
   saying only *not yet*.
-- **A button's colour states its role, never its importance** (2026-09-23): the **accent** is the
+- **A button's colour states its role, never its importance**: the **accent** is the
   surface's own outcome — the action the surface exists for, one per surface; the **red** is the action
   that withholds the work; the **50 % accent under an accent rim** is the middle door, **whatever is not the surface's own
-  outcome and not a loss, whether it writes elsewhere or not** (corrected 2026-09-28: the Menu's Export
-  writes a GPX and its Import writes tracks in, and both are the track list's own work rather than the
-  drawer's, which is what a door looks like) — the door that leaves a mode included. The order
+  outcome and not a loss, whether it writes elsewhere or not — the door that leaves a mode included. The order
   **affirmative → neutral → destructive** governs a surface's
   **stacked** actions; where a requirement fixes a row's own order, that order stands — the route
   panel's two grids fix theirs, `Acquire route` · `Confirm` · `Save track` · `Exit` in the acquisition
@@ -806,9 +788,8 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 
 The map's bottom band carries five banner instances — the exit toast (`Press back again to exit` /
 `Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay` and `ErrorOverlay`
-— and all five paint one skin through one control. This entry is the family's **only** home: the five
-paint sites used to carry the same block with two contradicting KDocs, so every instance reads these
-rules and none is exempt.
+— and all five paint one skin through one control. This entry is the family's **only** home, and every
+instance reads these rules — none is exempt.
 
 Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt) (`MapBanner`,
 `MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
@@ -871,39 +852,25 @@ Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapCont
 | Right control column | 82 dp | `RIGHT_CONTROL_COLUMN_INSET`, reserved by the caller |
 
 At defaults on a 411 dp screen the pill centres at `W/2 − 13` (192.5 dp) with a tag up and `W/2 − 38`
-(167.5 dp) with none; before this pass it sat at `W/2 − 79` in both states, having reserved the control
-column twice. The centring has no Compose harness in this repo (`app/src` carries `main/` and `test/`
-only), so it is a device judgement; the inset arithmetic is covered by
+(167.5 dp) with none. The centring has no Compose harness in this repo (`app/src` carries `main/` and
+`test/` only), so it is a device judgement; the inset arithmetic is covered by
 [`BannerStartInsetTest`](../app/src/test/java/ykws/android/maro/ui/map/BannerStartInsetTest.kt).
 
 ---
 
 ### 5.8 Route Panel — `RouteConfirmationPanel`
 
-The dashboard slot's content while a route is aimed or followed (`RouteConfirmPanel.kt`), in both
-orientations. It is **not a dialog and never becomes one** — it is the slot's own content, because a
-floating dialog cannot be aimed under. Its anatomy is the list card's (see §9 of
-[`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)):
+The dashboard slot's content while a route is being acquired
+([`RouteConfirmPanel.kt`](../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt)). It is the
+shared [`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) with
+`showBack = false`, `wrapContent = !isLandscape`, `wrapContentMinHeight = portraitDashboardHeight` and the
+actions in its `footer`, so it auto-grows to its content like the other selected-item dashboards.
 
-| Block | Font / token | Source |
-|---|---|---|
-| Header row | Title 15 sp SemiBold `uiDashboardTextPrimary` on the left; the phase's **status** 13 sp `uiDashboardTextPrimary` in the right corner | `Route acquisition` beside `Acquiring…` while an acquisition runs, `Routing active` beside `Route active` while a route is followed — one reading that costs no line, and the acquisition carries no status when nothing is running |
-| Comment | 13 sp `uiDashboardTextPrimary` | the acquisition's own static line — `Place the destination, then acquire the route` — drawn under the header, one line of what the phase asks of the user |
-| Stage · sentence | 13 sp `uiDashboardTextPrimary` | the live line's own slot, under a divider: the **stage** the engine publishes while an acquisition runs (`Corridor` · `Grid` · `Search` · `Pull` · `Snap`), else the refusal's sentence, else the plain searching word — never together with the comment above, the two slots being mutually exclusive (R15) |
-| Divider | 0.5 dp `uiDividerColor` | the card's own divider, on the panel's 6 dp stack rhythm; drawn where a plan stands and where the live sentence has something to say |
-| Data table | `StatCell`, **two columns × two rows** | `Start` beside `Destination`, then `Dist` beside `ETA`, each on a cell of the card's own shape and the rows touching — the tracks card's own grid at two columns; the coordinates print to **three decimals**, the precision that column's width allows |
-| Notes | 12 sp | under the table, each only where it is true: the engine's note that the route ends away from the aim, bracketed, and the forced crossing |
-| Second divider | 0.5 dp `uiDividerColor` | closes the table, above the controls and the actions |
-| Candidates | 13 sp `uiDashboardTextPrimary`, the selected row on `uiAccent` · `KeyboardArrowLeft` / `KeyboardArrowRight` `IconButton`s | **only while the engine has offered something** (R54): a `Alternatives` title with the next/prev pair beside it, then one row per candidate printing `Route #n · <duration> · saves <x> (y %)` — the engine's own figures, recomputed nowhere (R62, R72). A tap on a row seats the selection on it through the same step the pair takes, and the selection moves the emphasis and the drawing's own full-strength line, never the geometry (R54) |
-| Pin · actions | `RoutePinOption` — §5.6's `OptionRow`, the panel's own 15 sp · `ConfirmActionButton` | **the acquisition is the panel's only phase** (R73): the three actions are `Save to track` · `Select route` · `Cancel`, stacked full width, and only the enabled set changes — the save greyed once the **selected** line is written, `Select route` enabled only while a line stands (R55–R57). The accent is the surface's own forward action, `Select route`, and a disabled save wears §5.6's disabled face rather than vanishing; the actions are **bottom-anchored**, the table scrolling in a weighted block so the outcomes sit at the panel's foot however short it is |
-
-`StatCell` ([`ui/components/StatCell.kt`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt))
-is the app's **one** rendering of a reading — the track and route cards' grids and this panel read it,
-so what a figure the app shows twice shares is the **cell's typography**, not the figures' own wording:
-the card prints `4.20 nm` where the panel prints the dashboard's `4.2 NM`, each surface keeping its own
-print. The panel's 16 dp / 12 dp gutters and the choosing phase's 2×2 action grid are unchanged, so
-the portrait slot's height budget is untouched; its scroll now lives in the weighted content block,
-which is what anchors the actions to the panel's foot.
+| Block | Spec |
+|---|---|
+| Header | the title; its trailing slot carries the stage status and the ‹ › dots (shown while more than one route stands) |
+| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
+| Footer | `Save to track` · `Select route` · `Discard route` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER |
 
 ---
 
@@ -922,10 +889,6 @@ and this table is the one place that names them.
 | 2 | **Icon-only button**, 40–48 dp | A control belonging to a header or a card's chrome — link, filter reset, gear, chevrons | `IconButton` |
 | 3 | **Map status square acting as a button** | A mode's own on/off that also reports a state — GPS, tracking, lock, recenter | `MapToggleSquare` family (§5.5) |
 | 4 | **Row-level action** | An action belonging to a list row — swipe, chevron gutter, header trash, Undo / Clear / Select-all | per list (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)) |
-
-**What was the fifth tier retired on 2026-09-28**: the bare label + icon tap row (`ActionRow`) served the
-Menu's Import/Export pair alone, and once the pair moved onto tier 1's outlined role the component had no
-call site left, so the tier and the component went together.
 
 **Selections are not actions.** The accent **fill** belongs to an action, and a **selection wears a marker
 instead**: a chosen choice takes the tonal container `ui.select.container` — the accent at **30 %** — with a

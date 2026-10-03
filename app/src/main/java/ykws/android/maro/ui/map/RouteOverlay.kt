@@ -220,6 +220,42 @@ internal fun mirroredPlanOf(track: Track, nowMs: Long): RoutePlan? {
 }
 
 /**
+ * **A partial plan from the main lookup's provisional points** — the early-save's own line.
+ *
+ * The points are the provisional line as drawn so far, the start is the acquisition's anchor
+ * (falling back to the line's first point), and every leg's time is the segment distance at
+ * [paceKn] — the planned pace, since a partial line carries no zone-aware times. The plan is
+ * dated [nowMs], which the draft's whole life reuses so its name and id stay one identity.
+ */
+internal fun partialPlanOf(
+    points: List<RoutePoint>,
+    start: RoutePoint?,
+    paceKn: Double,
+    nowMs: Long
+): RoutePlan? {
+    if (points.size < 2) return null
+    val paceMps = if (paceKn > 0.0) Units.knotsToMps(paceKn) else 0.0
+    var distanceM = 0.0
+    val legTimesSec = ArrayList<Double>(points.size - 1)
+    for (i in 0 until points.size - 1) {
+        val segM = SpatialOperations.haversine(points[i].toLatLng(), points[i + 1].toLatLng())
+        distanceM += segM
+        legTimesSec += if (paceMps > 0.0) segM / paceMps else 0.0
+    }
+    return RoutePlan(
+        start = start ?: points.first(),
+        destination = points.last(),
+        destinationMoved = false,
+        points = points,
+        legTimesSec = legTimesSec,
+        distanceM = distanceM,
+        durationSec = legTimesSec.sum(),
+        forcedCrossingZoneNames = emptyList(),
+        computedAtMs = nowMs
+    )
+}
+
+/**
  * **The stored-route match's answer** (R82, R86) — the summary the armed pair resolved to and which pass
  * found it: [reversed] false for the exact pair, true when the return trip matched the pair the other
  * way. The summary rather than the rebuilt plan, because the plan is built once the track is loaded.

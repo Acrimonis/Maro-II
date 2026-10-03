@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,6 +25,7 @@ import ykws.android.maro.spatial.RouteDeclarations
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteReason
+import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -151,6 +153,60 @@ class RouteEngineSeamTest {
         assertTrue("no lookup was started", engine.started.isEmpty())
         assertTrue("and no page exists", viewModel.pages.value.isEmpty())
     }
+
+    /** An early `Select route` commits to the partial main, drops the candidates and follows on landing. */
+    @Test
+    fun earlySelectCommitsAndFollowsWhenTheMainLands() = runTest {
+        val engine = ForeignEngine(computations = 2)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val mainId = viewModel.pages.value[0].lookupId!!
+        val secondId = viewModel.pages.value[1].lookupId!!
+        engine.publishPartial(mainId, listOf(start, RoutePoint(43.5050, 7.0040)))
+
+        viewModel.selectRoute()
+
+        val choosing = viewModel.state.value as RouteState.Choosing
+        assertTrue("the early select committed the main", choosing.committed)
+        assertTrue("the candidate lookup was cancelled", secondId in engine.cancelled)
+        assertFalse("the main lookup keeps running", mainId in engine.cancelled)
+        assertEquals("only the main page remains", 1, viewModel.pages.value.size)
+
+        engine.publish(mainId, success(start, aim))
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals("the landed main line became the followed route", listOf(start, aim), following.plan.points)
+    }
+
+    /** `Select route` with no partial line and no plan changes nothing. */
+    @Test
+    fun selectingWithNoPlanAndNoPartialLineDoesNothing() = runTest {
+        val engine = ForeignEngine()
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+
+        viewModel.selectRoute()
+
+        val choosing = viewModel.state.value as RouteState.Choosing
+        assertFalse("nothing was committed", choosing.committed)
+        assertEquals("no plan appeared", null, choosing.plan)
+    }
+
+    /** A committed main answered with a refusal un-commits instead of following. */
+    @Test
+    fun aCommittedMainRefusalUnCommits() = runTest {
+        val engine = ForeignEngine()
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val mainId = viewModel.pages.value[0].lookupId!!
+        engine.publishPartial(mainId, listOf(start, RoutePoint(43.5050, 7.0040)))
+        viewModel.selectRoute()
+
+        engine.publish(mainId, null, RouteReason.WORLD_NOT_READY)
+
+        val choosing = viewModel.state.value as RouteState.Choosing
+        assertFalse("a refused committed main un-commits", choosing.committed)
+    }
 }
 
 /**
@@ -197,6 +253,20 @@ private class ForeignEngine(
                 line = result?.points ?: emptyList(),
                 result = result,
                 reason = reason
+            )
+        )
+    }
+
+    /** A mid-search update: a partial line and a stage, no result — the early-select's own reading. */
+    fun publishPartial(id: RouteId, line: List<RoutePoint>) {
+        _updates.tryEmit(
+            RouteUpdate(
+                routeId = id,
+                stageDone = null,
+                nextStage = RouteStage.PULL,
+                line = line,
+                result = null,
+                reason = null
             )
         )
     }

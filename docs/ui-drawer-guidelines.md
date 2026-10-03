@@ -3,9 +3,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-09-21 — the inside-column clause became the clearance rule: every banner in the band clears the bottom-left zone tag column when one is drawn and the right control column always, an inside-column overlay adding no `end` reserve of its own; the outside-column branch stays, with its live users named; the banner family's rules moved to `docs/ui-component-guidelines.md` §5.7.
-> **Previous:** 2026-09-17 — the Layer 0 tree states the Earth/Water status icon as hidden while the Layers tab's "Show Land/Water Icon" setting is off.
-> **Previous:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
+> **Updated:** 2026-09-21.
 
 ---
 
@@ -95,7 +93,7 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 |---|---------|------|-----------|-------|--------|-----------|
 | 1 | Scrim | — (inline in OverlayLayer) | any drawer/settings/wizard open **and no dialog visible** | hard toggle (no animation) | none | `fillMaxSize` |
 | 2 | Wizard (landscape) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
-| 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight`; no keyboard offset of its own — the platform's pan positions it, as it positions the track card's inline fields (P7a, 2026-09-26) |
+| 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight`; no keyboard offset of its own — the platform's pan positions it, as it positions the track card's inline fields |
 | 3 | Menu | `MenuDrawerOverlay.kt` | `showTrackDrawer` | `FROM_RIGHT` | `LEFT` | `TopEnd`, 75% width |
 | 4 | Marker (landscape) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
 | 4 | Marker (portrait) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight` |
@@ -125,7 +123,7 @@ matches the dashboard or grows taller to fit its content. It must never render s
   follows it via the wrap-content floor: `ViewingContent` passes
   `wrapContentMinHeight = portraitDashboardHeight` to [`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt),
   which floors the wrap Column with `heightIn(min = …)` (do NOT add `wrapContentHeight()` — it
-  overrides the incoming minimum, letting content win over the floor; verified on-device 2026-09-08).
+  overrides the incoming minimum, letting content win over the floor).
 - Marker `Viewing` wrap-content is **portrait-only** (`wrapContent = !isLandscape`).
 
 ### Landscape Full-Column Coverage
@@ -263,11 +261,11 @@ The card surface primitive (`uiCardBackground`, 12dp radius, Wide 16×10 / Tight
 is canonical in [`ui-component-guidelines.md` §2.0](ui-component-guidelines.md#20-card-surface-primitive-authority).
 This section keeps only the **drawer-specific** rules layered on top of that surface:
 
-- **Between sections:** `uiSpacingSectionGap` (14dp) — the shared Settings rhythm; the old drawer-internal 8dp inter-card gap is retired (no other drawer stacks legacy §8 cards).
+- **Between sections:** `uiSpacingSectionGap` (14dp) — the shared Settings rhythm.
 - **Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`; switch rows inherit Material3 `Switch`'s minimum interactive size.
-- **Divider internal spacing:** §9 list-item cards only — their horizontal dividers use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation). Grouped drawer cards (e.g. the Menu drawer) use the shared `SectionDivider` (§2.6 of the component guidelines).
-- **Action rows:** the drawer's one pair, the Menu's Import/Export, wears §5.9 tier 1's `ConfirmActionButton` in the **middle** role — the accent at **50 %** (`ui.action.neutral.background`) under a **2dp `ui.accent` rim at full opacity**, with the primary's white bold label — side by side, weighted halves 8dp apart (2026-09-28, re-faced five times that day and settled here); the bare label + icon tap row and its `ActionRow` retired with the glyphs, the pair being neither the drawer's outcome nor a loss — and both acts are the track list's, which the drawer only opens a door onto. Bare icon-only buttons use `Modifier.size(48.dp)`.
-- **A group reached every time stays open:** the Tracks card's `Display Tracks with:` pair stands as a sub-section under its own caption rather than behind a chevron (the collapse of 2026-09-28 was withdrawn the same day), `Expander` + `NestedCard` remaining the recipe for a group that is genuinely optional — its open/closed state then held by the drawer that owns the row.
+- **Divider internal spacing:** §9 list-item cards only — their horizontal dividers use `Spacer(2.dp)` above and below. Grouped drawer cards (e.g. the Menu drawer) use the shared `SectionDivider` (§2.6 of the component guidelines).
+- **Action rows:** the drawer's one pair, the Menu's Import/Export, wears §5.9 tier 1's `ConfirmActionButton` in the **middle** role — the accent at **50 %** (`ui.action.neutral.background`) under a **2dp `ui.accent` rim at full opacity**, with the primary's white bold label — side by side, weighted halves 8dp apart. Bare icon-only buttons use `Modifier.size(48.dp)`.
+- **A group reached every time stays open:** the Tracks card's `Display Tracks with:` pair stands as a sub-section under its own caption rather than behind a chevron, `Expander` + `NestedCard` remaining the recipe for a group that is genuinely optional — its open/closed state then held by the drawer that owns the row.
 - **Panel background:** `uiBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
 
 ---
@@ -276,7 +274,7 @@ This section keeps only the **drawer-specific** rules layered on top of that sur
 
 **The Menu drawer's one input group, standing inside the Navigation card** (`MenuDrawerOverlay.RouteEndsSection`,
 R44–R49): a route's two ends, chosen here rather than placed on the map, and one action that arms the
-acquisition on the pair standing in them. Since 2026-09-28 it is a **sub-section of the Navigation card**
+acquisition on the pair standing in them. It is a **sub-section of the Navigation card**
 rather than a top-level section with a card of its own (D2) — the drawer's first section is titled
 Navigation — so it is set off by a `SectionDivider` and **headed by one comment naming the group's two
 fields**: `route_comment_ends` reads `Route origin and destination` (`Origine et destination de la route`),
@@ -284,31 +282,28 @@ fields**: `route_comment_ends` reads `Route origin and destination` (`Origine et
 its value**, inside its own field box (§2.12). **A rule separates nothing inside the group either**: no `SectionDivider`
 between the two rows, so the card's order is GPS mode → the summary (conditional) → one divider → the comment
 → the two value-only dropdowns → the arm action, **one block**, with **auto-show zones at the card's foot**
-(moved below the Route sub-section on 2026-09-28: the mode's parameters stand before the reveal that serves
-them, and that row's label, preference, callback and gate are untouched by the move). It remains the
+(the mode's parameters stand before the reveal that serves them). It remains the
 drawer's only
 group that **writes** mode state rather than reading it; the summary stays read-only (R67).
 
-- **Two `DropdownRow`s, one per end** (2026-09-28), **label-less and back to back**: the shared control of
+- **Two `DropdownRow`s, one per end**, **label-less and back to back**: the shared control of
   [`ui-component-guidelines.md` §2.12](ui-component-guidelines.md#212-dropdown-row--dropdownrow), each row
-  `label = null` so it shows **only the value**, still under the comment that names both fields — the wheel
-  of R70 retired (its drag never committing reliably; a wheel's own rule of entry is §2.15's, and since
-  2026-09-29 the ends' lists open as a wheel through the control), **the rule between the rows withdrawn**,
-  and no per-row label duplicating what the heading already says. Since 2026-09-29 the value stands inside
-  the control's own box on the bars' base — `uiRadiusCard` behind the accent edge (§2.12) — rather than bare
-  on the row, so the ends read as two boxes under the comment.
+  `label = null` so it shows **only the value**, still under the comment that names both fields — the ends'
+  lists open as a wheel through the control (§2.12), **no rule between the rows**, and no per-row label
+  duplicating what the heading already says. The value stands inside the control's own box on the bars'
+  base — `uiRadiusCard` behind the accent edge (§2.12) — so the ends read as two boxes under the comment.
 - **Entries are ordered and the first is the fallback** (R66): the fixed words first — `Current
-  position`, `Marker position`, each **wearing the dashes** `-- … --` since 2026-09-29 so a fixed entry is
+  position`, `Marker position`, each **wearing the dashes** `-- … --` so a fixed entry is
   told from a marker at a glance — then every marker the end's own flag names, in the marker list's own
   order. A marker's own name is **data rather than a label**, so it arrives already resolved and undressed,
   while the fixed entries are `@StringRes` ids the sub-section resolves through `route_end_fixed_fmt`; the
   two shapes meet in one label list here and nowhere else.
-- **One action below them, on the row's right half** (2026-09-28), reading `Route`, on §5.6's own
+- **One action below them, on the row's right half**, reading `Route`, on §5.6's own
   `ConfirmActionButton` in the primary role, so the drawer's forward action and the panel's are the same
   control. It takes half the row because `ConfirmActionButton` resolves its own `fillMaxWidth()` against
   the max it is handed, which an `End`-arranged row sets at 0.5 — no change to the shared component. It is
-  the second door onto the arming the map's square performs — the two mean one thing (R49) — and since
-  2026-09-28 the doors **no longer part on the drawer**: the **square** arms from the closed map leaving it
+  the second door onto the arming the map's square performs — the two mean one thing (R49) — and the doors
+  **do not part on the drawer**: the **square** arms from the closed map leaving it
   closed, this action arms and shuts the one it was pressed in, and the route panel — its status, its
   sentence, its table and its three actions — is what the user lands on either way (D5, R73).
 - **The sub-section stands always**, whether or not a route runs: the pair is what an arming reads, and
@@ -476,7 +471,7 @@ SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body)
 ### Not Migrated
 
 `ListOverlayScaffold` is not migrated — it already has its own fixed-header structure (fixed header plus
-section label/sort/filter controls). `WizardDrawer` **is** a `DrawerScaffold` since 2026-09-26 and reads
+section label/sort/filter controls). `WizardDrawer` **is** a `DrawerScaffold` and reads
 through it exactly as §3's second row and §6's header table describe: the title and the dot progress in
 the header, the three actions in `footer`, no frame of its own.
 Settings uses the shared `DrawerHeader` for its header row but keeps its own tab bar + `HorizontalPager` body

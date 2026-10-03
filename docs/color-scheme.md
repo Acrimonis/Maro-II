@@ -138,7 +138,7 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 
 **Every glyph in a round map button wears `ui.button.icon`** — the near-white above, over the navy fill — and
 never a semantic hue: the fan's **parent button** and each of its children alike, so a mark's meaning is
-carried by its shape and its place in the stack, not by a colour (2026-09-29). The arc's Discard is no
+carried by its shape and its place in the stack, not by a colour. The arc's Discard is no
 exception, its 25 % face included, and neither is the fan's parent: its three faces are told apart by the
 pulsing dot alone, so the mode's state lives on that dot and on the map's own route toggle, a square of
 its own whose **acquiring** face follows the *Active route* colour and whose **navigating** face keeps
@@ -179,16 +179,9 @@ The overlay cards keep their text tokens; the surface never dims their content:
 | `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts |
 | `ui.map.overlay.line.spacing` | `2` dp | Gap between two rows of the zone-info line |
 
-**Retired in the map-surface normalization (2026-09-16):** `ui.map.toggle.inactive.background` and
-`ui.map.overlay.background` (two names for the one fill), `ui.map.toggle.active.background.alpha` (the
-active weight, now `ui.map.surface.active.alpha`), `ui.map.toggle.inactive.icon.alpha` (the glyph dim, now
-`ui.map.surface.inactive.content.alpha`), `ui.map.toggle.corner.radius`, `ui.map.overlay.corner.radius`,
-`ui.map.overlay.padding` and `ui.map.overlay.border.color` / `.border.width` — each one a duplicate of a
-`ui.map.surface.*` row above. The rectangles read `AppConfig.uiMapSurface*` through `MapSurface`, and
-`AppConfig.uiMapSurfaceInactive` is the single colour accessor they share.
-
-**Converged values:** the overlay family's single 10 sp / 6 dp pair replaces the zone-info line's
-original 9 sp type and 3×1 dp padding — a reported risk rather than a second key.
+The rectangles read `AppConfig.uiMapSurface*` through `MapSurface`, and
+`AppConfig.uiMapSurfaceInactive` is the single colour accessor they share. The overlay family's single
+10 sp / 6 dp pair is the zone-info line's typography.
 
 ---
 
@@ -210,11 +203,11 @@ original 9 sp type and 3×1 dp padding — a reported risk rather than a second 
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.*`, except the
 families re-homed below to [`maro.properties`](../app/src/main/assets/maro.properties)
 
-**Re-homed:** `map.sprite.tap.flash.color` and `.alpha` are the flash's functional settings rather than
-palette tokens, and ship in [`maro.properties`](../app/src/main/assets/maro.properties) →
+`map.sprite.tap.flash.color` and `.alpha` are the flash's functional settings rather than palette tokens,
+and ship in [`maro.properties`](../app/src/main/assets/maro.properties) →
 `AppConfig.mapMarkerTapFlash*`, beside the tap zone and the beat's timing.
 
-**Also in `maro.properties` (2026-09-19):** the coastline, hazard-disc, zone-ahead and 300 m-band colour
+**Also in `maro.properties`:** the coastline, hazard-disc, zone-ahead and 300 m-band colour
 keys below — each one parameterises a rendering behaviour rather than naming a palette role. Their key
 names are unchanged, and their values and the render widths beside them
 (`map.coastline.widthDp`, `map.coastline.transparencyPct`, `map.zone300.boundary.widthDp`,
@@ -306,9 +299,6 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | Land (active) | `status.earthWater.land` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
 | Inactive | `status.earthWater.inactive` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No reader — the square resolves water or land only, so the inactive wing is gone (D5) |
 
-**Retired in the map-surface normalization (2026-09-16):** `status.gps.alpha.active` and
-`status.gps.alpha.dimmed` — the zone-tag column's fill weight is now `ui.map.surface.active.alpha`.
-
 ---
 
 ## 7. Settings Overlay
@@ -348,7 +338,7 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
 | `ui.accent` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Switch thumb/track, slider, buttons, selected tab indicator — the **action's** fill (one per surface, §5.6) |
-| `ui.select.container` | `#4D1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.3;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Selected-state container for a connected group of choices — a `SegmentedRow` segment and a `MultiSelectRow` on half (§2.7 / §2.7b), with the check glyph in `ui.value.text` and a 1dp `ui.accent` border on the selected cell. The 20 % weight read too faint on the device, so it rose to 30 % (2026-09-28). The accent fill stays the action's |
+| `ui.select.container` | `#4D1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.3;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Selected-state container for a connected group of choices — a `SegmentedRow` segment and a `MultiSelectRow` on half (§2.7 / §2.7b), with the check glyph in `ui.value.text` and a 1dp `ui.accent` border on the selected cell. The accent fill stays the action's |
 | `ui.action.neutral.background` | `#801565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | The **middle action's background** — the accent's own RGB at 50 %, worn by a full action button that carries a **2 dp `ui.accent` rim at full opacity** and the primary's white bold label (§5.6 / §5.9, tier 1). The body's weight states the rank; the rim states that the control can be taken |
 | `ui.value.text` | `#FF48a7f5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#48a7f5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Slider value readouts (small bold value text) |
 | `ui.switch.track.inactive` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Switch track when unchecked (20% white) |
