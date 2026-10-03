@@ -11,8 +11,9 @@ import ykws.android.maro.spatial.SpatialOperations
  * **The fan's *Route (auto)* child** (R80) — arming with the intent to take the first answer, read the
  * way the machine sees it: the one-shot keys on the **main line existing** (`Choosing.plan != null`)
  * and never on "a non-empty page set". Index 0 of the page set *is* the main, which the arming puts
- * first, so the panel's own `selectRoute()` is the whole selection path and no candidate is ever
- * needed for the child to keep its word.
+ * first; the seat may have followed the first landing onto a candidate (R94), so the child names
+ * **index 0** through `selectMainRoute()` rather than riding the seat — no candidate landing is ever
+ * needed, or allowed, to move the line it takes.
  */
 class RouteAutoPickTest {
 

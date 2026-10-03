@@ -208,8 +208,10 @@ sealed interface RouteState {
     }
 
     /**
-     * **Acquiring the route**, from [start]: [plan] is the selected page's line, or null while nothing
-     * has landed.
+     * **Acquiring the route**, from [start]: [plan] is the **main's** line — index 0, the settled
+     * answer the `Route auto` child waits on (R80) and the dashboard's planned figures read — or null
+     * while nothing has landed. The page the seat stands on is a separate fact
+     * ([RouteViewModel.selectedIndex]); a candidate landing first never moves this.
      *
      * [start] is the acquisition's **anchor**, resolved once from the drawer's standing pair at the
      * instant the acquisition was armed (R44, R71) and held for the whole acquisition. It is null
@@ -427,13 +429,16 @@ class RouteViewModel(
                         descriptionResId = computation.descriptionResId
                     )
                 }
-                // D12: the Driving-preference cursor picks the initial rung — meaningful for the
-                // ladder's three pages alone; any other computation count keeps the main at index 0.
-                _selectedIndex.value = if (_pages.value.size == ROUTE_LADDER_RUNG_COUNT) {
+                // D12: the Driving-preference cursor names the ladder's initial rung — meaningful
+                // for its three pages alone; any other computation count keeps the main. The seat
+                // rides `routeSeatedIndex`, so the seating rule has one home; nothing has landed yet,
+                // so the predicate answers that declaration unchanged.
+                val preferredIndex = if (_pages.value.size == ROUTE_LADDER_RUNG_COUNT) {
                     routeRungIndex(AppConfig.routeAvoidSpeedZoneSoftCostAversion)
                 } else {
-                    0
+                    MAIN_INDEX
                 }
+                _selectedIndex.value = routeSeatedIndex(_pages.value.map { it.plan != null }, preferredIndex)
                 _state.value = RouteState.Choosing(
                     start = start, plan = null, searching = true, asked = true, refusal = null
                 )
@@ -470,12 +475,15 @@ class RouteViewModel(
                     _stage.value = update.nextStage
                     if (update.nextStage == null) _provisionalLine.value = emptyList()
                 }
-                // D15: re-seat the selection on the nearest surviving rung.
-                _selectedIndex.value = when {
+                // D15: re-seat the selection on the nearest surviving rung, then let the seat
+                // predicate settle it on the survivors — a mapped index on a landed row stays, one
+                // left on a pending row steps to the nearest that has landed.
+                val mapped = when {
                     _selectedIndex.value > index -> _selectedIndex.value - 1
                     _selectedIndex.value == index -> _selectedIndex.value.coerceAtMost(newPages.size - 1)
                     else -> _selectedIndex.value
                 }.coerceIn(0, (newPages.size - 1).coerceAtLeast(0))
+                _selectedIndex.value = routeSeatedIndex(newPages.map { it.plan != null }, mapped)
                 syncChoosing(newPages)
                 return
             }
@@ -493,6 +501,9 @@ class RouteViewModel(
                     _provisionalLine.value = update.line
                 }
             }
+            // The seat re-reads on every landing: the standing selection keeps a landed row, while
+            // one left on a page whose plan has not landed steps to the nearest row that has.
+            _selectedIndex.value = routeSeatedIndex(newPages.map { it.plan != null }, _selectedIndex.value)
             syncChoosing(newPages)
             // Early select: once the committed main line lands, the mode follows it. A refusal
             // instead un-commits, leaving the acquisition standing on the reason.
@@ -522,6 +533,13 @@ class RouteViewModel(
                 _provisionalLine.value = update.line
             }
         }
+        // A refusal is terminal for that page — it will never hold a line — so the seat cannot wait
+        // for a landing to step off it. Re-seat before `syncChoosing`, so R94's "never parks on an
+        // empty row while a line stands beside it" still holds when the row the seat stepped onto
+        // refuses last.
+        if (update.reason != null) {
+            _selectedIndex.value = routeSeatedIndex(newPages.map { it.plan != null }, _selectedIndex.value)
+        }
         syncChoosing(newPages)
         // A committed main answered with a refusal un-commits instead of following (same rule as a landing).
         if (index == MAIN_INDEX && update.nextStage == null) {
@@ -545,12 +563,19 @@ class RouteViewModel(
         pages.forEachIndexed { i, page -> page.lookupId?.let { lookupPages[it] = i } }
     }
 
-    /** Re-reads the Choosing phase's plan, searching flag and refusal from the page set. */
+    /**
+     * Re-reads the Choosing phase's plan, searching flag and refusal from the page set.
+     *
+     * [RouteState.Choosing.plan] is the **main's** — index 0's, the settled answer the auto-pick waits
+     * on (R80) — never the seat's: the seat is a separate fact, so a candidate that landed first
+     * cannot move the answer. The refusal stays the **selected** page's, which is the one the panel
+     * is describing.
+     */
     private fun syncChoosing(pages: List<RoutePage>) {
         val choosing = _state.value as? RouteState.Choosing ?: return
         val selected = pages.getOrNull(_selectedIndex.value)
         _state.value = choosing.copy(
-            plan = selected?.plan,
+            plan = pages.getOrNull(MAIN_INDEX)?.plan,
             searching = pages.any { it.plan == null && it.reason == null },
             refusal = selected?.reason ?: choosing.refusal
         )
@@ -568,12 +593,36 @@ class RouteViewModel(
     }
 
     /**
-     * **`Select route`** (R56) — writes nothing, makes the **selected** line the route, drops the
-     * lookups it did not take and enters navigation.
+     * **`Select route`** (R56) — the **seat's** page: writes nothing, makes the chosen line the route,
+     * drops the lookups it did not take and enters navigation. The seat is the page the selection
+     * stands on (R94), so the panel's own door follows what the reader picked.
+     *
+     * The entry point is a name of its own rather than an index argument: naming the main is
+     * [selectMainRoute]'s sentence, so no caller can reach index 0 without saying so.
      */
     fun selectRoute() {
+        followPage(_selectedIndex.value)
+    }
+
+    /**
+     * **The fan's *Route auto* child** (R80) — **the main, named**: the one-shot promises the settled
+     * answer whatever page the seat followed onto, so it takes index 0 and never the seat's candidate.
+     */
+    fun selectMainRoute() {
+        followPage(MAIN_INDEX)
+    }
+
+    /**
+     * The one selection body both doors share: the named page's plan becomes the followed route, or —
+     * where that page has not landed — the early-select path commits the **main's** partial line
+     * (R88). The page is only ever the seat's or the main's, so no pending page can silently commit
+     * the main.
+     */
+    private fun followPage(pageIndex: Int) {
         val choosing = _state.value as? RouteState.Choosing ?: return
-        val selected = selectedPlan()
+        val selected = _pages.value
+            .getOrNull(pageIndex.coerceIn(0, (_pages.value.size - 1).coerceAtLeast(0)))
+            ?.plan
         if (selected != null) {
             disposeLookups()
             _pages.value = emptyList()

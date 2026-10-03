@@ -2041,12 +2041,15 @@ fun MapScreen(
              * route-specific stands once this returns, the toggle's blue face and the one exit dialog
              * being the mode's whole presence from here on.
              *
+             * [selectMain] names **index 0** instead of the seat, for the auto-pick alone (R80): the
+             * one-shot promises the main, and no candidate that landed first may move it.
+             *
              * R18's camera return is the screen's, released on this same frame: the current fix in GPS
              * mode, the anchor coordinate in demo mode.
              */
-            fun followRoute() {
+            fun followRoute(selectMain: Boolean = false) {
                 val origin = (routeState as? RouteState.Choosing)?.start
-                routeViewModel.selectRoute()
+                if (selectMain) routeViewModel.selectMainRoute() else routeViewModel.selectRoute()
                 chrome.showTrackDrawer = false
                 if (appSettings.gpsMode) {
                     viewModel.recenterNow()
@@ -2627,15 +2630,15 @@ fun MapScreen(
                 }
             )
             // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **settled
-            // line has landed** — `plan != null` — and never on "a non-empty page set", which is the
-            // same moment one emission later. Index 0 of the page set *is* the main answer and the
-            // arming resets the index, so the panel's own `selectRoute()` takes exactly that line and
-            // the shell's follow hand-over follows. The flag is cleared before the selection, so no
-            // second pass can take it.
+            // line has landed** — `plan != null`, which is the **main's** (index 0) — and never on "a
+            // non-empty page set", which is the same moment one emission later. `selectMain` names
+            // index 0 so the selection takes exactly that line even where the seat followed onto a
+            // candidate that landed first; the shell's follow hand-over follows. The flag is cleared
+            // before the selection, so no second pass can take it.
             LaunchedEffect(routeState, routeAutoPick) {
                 if (routeAutoPickReady(routeAutoPick, routeState)) {
                     routeAutoPick = false
-                    followRoute()
+                    followRoute(selectMain = true)
                 }
             }
             // The early save's growth: each main iteration re-saves the same draft id with the line
