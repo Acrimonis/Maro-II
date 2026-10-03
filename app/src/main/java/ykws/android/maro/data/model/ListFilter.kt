@@ -171,7 +171,7 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
     ),
     FilterAxisSpec(
         key = "position",
-        labelResId = R.string.settings_tab_position,
+        labelResId = R.string.filter_axis_position,
         options = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("WATER", R.string.filter_option_on_water),

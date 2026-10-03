@@ -24,8 +24,9 @@
     <string name="settings_back">Back</string>
     <string name="settings_section_language">Language</string>
     <string name="settings_language_system">System</string>
-    <string name="settings_section_position">Navigation</string>
-    <string name="settings_redisplay_label">Auto-show Speed Zones</string> 
+    <string name="settings_section_position_source">Navigation</string>
+    <string name="settings_section_gps_tuning">Navigation</string>
+    <string name="settings_section_redisplay">Auto-show Speed Zones</string>
     <string name="settings_redisplay_enable_gps">Enable in GPS mode</string>
     <string name="settings_redisplay_enable_demo">Enable in demo mode</string>
     <string name="settings_redisplay_zone300">300 m zone</string>
@@ -39,11 +40,9 @@
     <string name="settings_gps_mode_label">GPS mode</string>
     <string name="settings_recenter_label">Recenter delay</string>
     <string name="settings_recenter_desc">Time before GPS recenters after a manual pan</string>
-    <string name="settings_section_layers">Layers</string>
-    <string name="settings_section_navigation">Navigation</string>
     <string name="settings_tab_layers">Layers</string>
     <string name="settings_tab_navigation">Navigation</string>
-    <string name="settings_tab_position">Position</string>
+    <string name="settings_tab_routing">Routing</string>
     <string name="settings_tab_system">System</string>
     <string name="settings_section_orientation">Orientation aids</string>
     <string name="settings_low_depth_settings_label">Shallow-water warning</string>
@@ -52,7 +51,7 @@
     <string name="settings_track_settings_label">Tracks Appearance</string>
     <string name="settings_gps_tuning_label">GPS tuning</string>
     <string name="settings_alert_settings_label">Alert settings</string>
-    <string name="settings_map_offset_label">Automatic map offset</string>
+    <string name="settings_section_map_offset">Automatic map offset</string>
     <string name="settings_map_offset_gps_desc">Shift map center ahead when navigating with GPS</string>
     <string name="settings_map_offset_demo_label">Demo mode</string>
     <string name="settings_map_offset_demo_desc">Shift map center ahead when panning in free mode</string>
@@ -70,6 +69,7 @@
     <string name="settings_regen_warning_label">Low-depth warning overlay</string>
     <string name="settings_regen_warning_desc">Rebuild the shallow-water magenta hazard overlay</string>
     <string name="settings_coastline_label">Coastline</string>
+    <string name="settings_section_coastline">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
     <string name="settings_coastline_appearance_label">Coastline Appearance</string>
     <string name="settings_coastline_width_desc">Width of the coastline stroke (dp)</string>
@@ -78,8 +78,9 @@
     <string name="settings_coastline_colors_desc">Mainland on the left, island on the right</string>
     <string name="settings_coastline_pair_label">Mainland / island</string>
     <string name="settings_land_water_icon_label">Show Land/Water Icon</string>
+    <string name="settings_section_land_water_icon">Show Land/Water Icon</string>
     <string name="settings_land_water_icon_desc">The square shows whether the boat is over water or land, and is hidden when off</string>
-    <string name="settings_zone300_label">300m Zone</string>
+    <string name="settings_section_zone300">300m Zone</string>
     <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
     <string name="settings_zone300_color_label">Zone color</string>
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
@@ -89,11 +90,11 @@
     <string name="settings_regulated_zones_outline_width_desc">Width of the regulated zone outlines (dp)</string>
     <string name="settings_width_label">Stroke width</string>
     <string name="settings_auto_markers_label">Marker Auto Creation management</string>
-    <string name="settings_regulated_zones_label">Regulated zones</string>
+    <string name="settings_section_regulated_zones">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
     <string name="settings_regulated_zones_appearance_label">Regulated Zones Appearance</string>
     <string name="settings_regulated_zones_transparency_desc" formatted="false">Regulated zone fill and border transparency (0% = opaque, 100% = invisible)</string>
-    <string name="settings_danger_zones_label">Danger Zones</string>
+    <string name="settings_section_danger_zones">Danger Zones</string>
     <string name="settings_danger_zones_desc">Highlight shallow water that could ground your boat</string>
     <string name="settings_low_depth_warning_label">Low-depth warning</string>
     <string name="settings_low_depth_warning_desc">Highlight dangerously shallow water</string>
@@ -117,8 +118,7 @@
     <string name="settings_speed_colour_label">Speed Colour</string>
     <string name="settings_default_colour_label">Default colour</string>
     <string name="settings_value_dp_fmt">%.2f dp</string>
-    <string name="settings_emodnet_section_label">Shallow cutoff (EMODnet)</string>
-    <string name="settings_emodnet_section_desc">Coarse EMODnet data is unreliable in very shallow water near rocks and the coast</string>
+    <string name="settings_depth_cutoff_expander">Shallow cutoff (EMODnet)</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
     <string name="settings_emodnet_cutoff_desc">Hide EMODnet depths shallower than this (shown as no data). 0 = off</string>
     <string name="settings_section_screen">Screen</string>
@@ -139,8 +139,7 @@
     <string name="settings_sub_render_desc">Number of map redraws per second while GPS-following</string>
     <string name="settings_fps_label">Map refresh rate</string>
     <string name="settings_fps_desc">Lower = less battery, less smooth animation</string>
-    <string name="settings_idle_section_label">Stop detection</string>
-    <string name="settings_idle_section_desc">Detect when the boat is stationary and save battery by spacing out GPS fixes</string>
+    <string name="settings_section_stop_detection">Stop detection</string>
     <string name="settings_stop_enable_label">Enable stop detection</string>
     <string name="settings_stop_enable_desc">Detect when boat is stationary. Doing so will also allow to save battery on GPS acquisition.</string>
     <string name="settings_stop_delay_label">Delay GPS when still</string>
@@ -150,7 +149,6 @@
     <string name="settings_window_desc">How long the boat must stay within the adaptive distance before being considered stopped</string>
     <string name="settings_adaptive_dist_label">Adaptive distance</string>
     <string name="settings_adaptive_dist_desc">How far the boat can move within the adaptive time before being considered stopped</string>
-    <string name="settings_section_advanced">Advanced</string>
     <string name="settings_alert_label">300 m zone alert</string>
     <string name="settings_alert_desc">Automatically re-shows the hidden 300 m zone when approaching the coast</string>
     <string name="settings_alert_dist_label">Alert distance</string>
@@ -350,6 +348,7 @@
 
     <!-- Filter axes and options -->
     <string name="filter_axis_date_range">Date Range</string>
+    <string name="filter_axis_position">Position</string>
     <string name="filter_option_last_week">Last week</string>
     <string name="filter_option_last_2_weeks">Last 2 weeks</string>
     <string name="filter_option_last_month">Last month</string>
@@ -374,7 +373,7 @@
     <string name="filter_option_route_role">Origin or Dest</string>
     <string name="filter_option_no_route_role">No route role</string>
     <string name="color_picker_title">Pick color</string>
-    <string name="settings_depth_label">Depth Map</string>
+    <string name="settings_section_depth_map">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
     <string name="action_regenerate">Regenerate</string>
 
@@ -438,7 +437,7 @@
     <string name="settings_reg_alert_gps_desc">Auto-show regulated zones when approaching a speed-enforced zone</string>
     <string name="settings_reg_alert_demo_label">Regulated zone alert (Demo)</string>
     <string name="settings_reg_alert_demo_desc">Auto-show regulated zones when panning toward a speed-enforced zone</string>
-    <string name="settings_regenerate_layers">Regenerate Layers</string>
+    <string name="settings_section_regenerate_layers">Regenerate Layers</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>
@@ -573,6 +572,8 @@
     <string name="settings_color_routes">Routes</string>
     <string name="settings_routes_speed_color_label">Speed colours on routes</string>
     <string name="settings_routes_arrows_label">Arrows on routes</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_routing_tuning">Tuning</string>
     <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->
     <string name="startup_colour_value_unreadable">Unreadable colour value in maro.properties (%1$s) — the default colour was used.</string>
     <!-- D4: a persisted route-engine id nothing claims fell back to the default, and the app says so at start. -->
@@ -628,8 +629,8 @@
     <!-- The acquisition's own three actions (R55, rewritten 2026-09-28): the save writes the
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
          asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
-    <string name="route_action_save_track">Save to track</string>
-    <string name="route_action_select">Select route</string>
+    <string name="route_action_save_track">Save</string>
+    <string name="route_action_select">Select</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
@@ -645,6 +646,7 @@
     <string name="route_status_acquiring">Acquiring…</string>
     <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
     <string name="route_status_active">Route active</string>
+    <string name="route_status_selected">Selected — finishing the line…</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -657,12 +659,16 @@
     <string name="route_exit_title">Leave the Route mode?</string>
     <string name="route_exit_save">Save Route and exit</string>
     <string name="route_exit_continue">Continue Route</string>
-    <string name="route_exit_discard">Discard Route</string>
+    <string name="route_exit_discard">Discard</string>
     <string name="route_exit_stop_following">Stop following</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_summary_distance_value_fmt">%1$.1f</string>
+    <string name="route_summary_distance_unit">NM</string>
+    <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
+    <string name="route_summary_eta_unit">min</string>
     <!-- The drawer summary's sub-title over the boat-relative pair: what is left to travel. -->
     <string name="route_trip_remaining">Remaining</string>
     <string name="route_trip_ago">%1$s ago</string>

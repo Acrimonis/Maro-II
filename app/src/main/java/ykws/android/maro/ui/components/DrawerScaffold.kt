@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.Shape
 fun DrawerHeader(
     title: String,
     onClose: () -> Unit,
+    showBack: Boolean = true,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
     horizontalPadding: Dp = 24.dp,
@@ -80,25 +81,27 @@ fun DrawerHeader(
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Plain clickable 32dp circle (not IconButton) so the Material3 minimum
-        // interactive-size backing does not overflow the 48dp header row and clip
-        // the button's top edge.
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(ComposeColor(AppConfig.uiSwitchTrackInactive))
-                .clickable(onClick = onClose),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.cd_close),
-                tint = ComposeColor(AppConfig.uiTextPrimary),
-                modifier = Modifier.size(18.dp)
-            )
+        if (showBack) {
+            // Plain clickable 32dp circle (not IconButton) so the Material3 minimum
+            // interactive-size backing does not overflow the 48dp header row and clip
+            // the button's top edge.
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(ComposeColor(AppConfig.uiSwitchTrackInactive))
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_close),
+                    tint = ComposeColor(AppConfig.uiTextPrimary),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(16.dp))
         }
-        Spacer(Modifier.width(16.dp))
         Text(
             text = title,
             color = ComposeColor(AppConfig.uiTextPrimary),
@@ -149,6 +152,7 @@ fun DrawerHeader(
 fun DrawerScaffold(
     title: String,
     onClose: () -> Unit,
+    showBack: Boolean = true,
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
@@ -216,6 +220,7 @@ fun DrawerScaffold(
                         DrawerHeader(
                             title = title,
                             onClose = onClose,
+                            showBack = showBack,
                             actions = headerActions,
                             horizontalPadding = headerHorizontalPadding,
                             verticalPadding = headerVerticalPadding
@@ -269,6 +274,7 @@ fun DrawerScaffold(
                 DrawerHeader(
                     title = title,
                     onClose = onClose,
+                    showBack = showBack,
                     actions = headerActions,
                     horizontalPadding = headerHorizontalPadding,
                     verticalPadding = headerVerticalPadding

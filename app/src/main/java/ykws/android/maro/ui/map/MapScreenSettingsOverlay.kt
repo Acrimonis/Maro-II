@@ -83,6 +83,7 @@ import ykws.android.maro.ui.components.SectionHeader
 import ykws.android.maro.ui.components.Expander
 import ykws.android.maro.ui.components.NestedCard
 import ykws.android.maro.ui.components.SliderRow
+import ykws.android.maro.ui.components.ToggleLabelStyle
 import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.ConfirmAction
@@ -95,23 +96,23 @@ internal fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onDismiss: () -> Unit,
-    selectedTab: Int,
-    onTabChange: (Int) -> Unit,
+    selectedTab: SettingsTab,
+    onTabChange: (SettingsTab) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
     onImportTracks: () -> Unit = {},
     onExportAllTracks: () -> Unit = {},
-    displayScrollState: ScrollState,
+    layersScrollState: ScrollState,
     navigationScrollState: ScrollState,
-    positionScrollState: ScrollState,
+    routingScrollState: ScrollState,
     systemScrollState: ScrollState,
 ) {
-    val pagerState = rememberPagerState(pageCount = { settingsTabLabels.size })
+    val pagerState = rememberPagerState(pageCount = { SettingsTab.entries.size })
 
     // One direction only — the pager is not user-scrollable, so it never moves on its own and
     // selectedTab is the single source of truth, which is why no pager-to-tab write-back
     // exists here (docs/ui-component-guidelines.md 2.11).
     LaunchedEffect(selectedTab) {
-        pagerState.animateScrollToPage(selectedTab)
+        pagerState.animateScrollToPage(selectedTab.ordinal)
     }
 
     Box(
@@ -134,25 +135,25 @@ internal fun SettingsOverlay(
             // ── Tab bar — scrollable, content-sized cells + full-cell underline ──
             val tabColor = ComposeColor(AppConfig.uiAccent)
             SecondaryScrollableTabRow(
-                selectedTabIndex = selectedTab,
+                selectedTabIndex = selectedTab.ordinal,
                 containerColor = ComposeColor(AppConfig.uiBackground),
                 edgePadding = 24.dp,
                 divider = {},
             ) {
-                settingsTabLabels.forEachIndexed { index, labelRes ->
-                    val isSelected = selectedTab == index
+                SettingsTab.entries.forEach { tab ->
+                    val isSelected = selectedTab == tab
                     Box(
                         modifier = Modifier
                             .selectable(
                                 selected = isSelected,
                                 role = Role.Tab,
-                                onClick = { onTabChange(index) }
+                                onClick = { onTabChange(tab) }
                             )
                             .padding(horizontal = 8.dp, vertical = 14.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(labelRes),
+                            text = stringResource(tab.labelRes),
                             color = if (isSelected) tabColor else ComposeColor(AppConfig.uiTextSecondary),
                             fontSize = AppConfig.uiFontTabSize.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
@@ -177,11 +178,17 @@ internal fun SettingsOverlay(
                         .fillMaxSize()
                         .padding(horizontal = 24.dp)
                 ) {
-                    when (page) {
-                        0 -> LayersSettings(settings, onUpdateSettings, onImportTracks, onExportAllTracks, displayScrollState)
-                        1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
-                        2 -> PositionSettings(settings, onUpdateSettings, positionScrollState)
-                        3 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState)
+                    // One mapping: the tab names both its content and its own scroll state, so no
+                    // argument order carries meaning and the order lives in SettingsTab alone.
+                    when (val tab = SettingsTab.entries[page]) {
+                        SettingsTab.LAYERS -> LayersSettings(
+                            settings, onUpdateSettings, onImportTracks, onExportAllTracks, layersScrollState
+                        )
+                        SettingsTab.ROUTING -> RoutingSettings(settings, onUpdateSettings, routingScrollState)
+                        SettingsTab.NAVIGATION -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
+                        SettingsTab.SYSTEM -> SystemSettings(
+                            settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState
+                        )
                     }
                 }
             }
@@ -476,28 +483,6 @@ private fun LayersSettings(
                     SectionDivider()
 
                     SubSectionHeader(
-                        title = stringResource(R.string.route_trip_title)
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // The route's two rendering gates, each gating its drawer chip: the colour one
-                    // bands a route only while the Colours chip is on too, the arrow one can only
-                    // veto the Arrows chip's chevrons (R37, R38).
-                    ToggleRow(
-                        label = stringResource(R.string.settings_routes_speed_color_label),
-                        checked = settings.routeSpeedColor,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedColor = on) } }
-                    )
-                    ToggleRow(
-                        label = stringResource(R.string.settings_routes_arrows_label),
-                        checked = settings.routeSpeedArrows,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
-                    )
-
-                    SectionDivider()
-
-                    SubSectionHeader(
                         title = stringResource(R.string.settings_tracks_direction_density_label)
                     )
 
@@ -745,7 +730,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Regulated zones ─────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_regulated_zones_label))
+        SectionHeader(title = stringResource(R.string.settings_section_regulated_zones))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_regulated_zones_desc))
@@ -850,7 +835,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── 300m Band ───────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_zone300_label))
+        SectionHeader(title = stringResource(R.string.settings_section_zone300))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_zone300_desc))
@@ -922,7 +907,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Coastline — the only on/off without a map-fan button ───────
-        SectionHeader(title = stringResource(R.string.settings_coastline_label))
+        SectionHeader(title = stringResource(R.string.settings_section_coastline))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             ToggleRow(
@@ -991,7 +976,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Land/Water icon — the row square's own on/off ──────────────
-        SectionHeader(title = stringResource(R.string.settings_land_water_icon_label))
+        SectionHeader(title = stringResource(R.string.settings_section_land_water_icon))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             ToggleRow(
@@ -1005,7 +990,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Danger Zones (was: low-depth warning) ──────────────────────
-        SectionHeader(title = stringResource(R.string.settings_danger_zones_label))
+        SectionHeader(title = stringResource(R.string.settings_section_danger_zones))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_danger_zones_desc))
@@ -1081,11 +1066,11 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Depth — EMODnet shallow filter ─────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_depth_label))
+        SectionHeader(title = stringResource(R.string.settings_section_depth_map))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_depth_desc))
-            Expander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
+            Expander(label = stringResource(R.string.settings_depth_cutoff_expander), expanded = settingsVm.isExpanded("depth_cutoff"),
                 onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
             ) {
                 Spacer(Modifier.height(8.dp))
@@ -1119,69 +1104,8 @@ private fun NavigationSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Route ─────────────────────────────────────────────────────────────
-        // The free-water pace: the trip figure's own setting, and the third of the three seams. The
-        // bounds are read from AppConfig, where they live beside the accessor, so the slider, the
-        // properties loader and the settings clamp cannot disagree about 3 and 40.
-        SectionHeader(title = stringResource(R.string.route_trip_title))
-
-        CardArea {
-            SliderRow(
-                label = stringResource(R.string.settings_route_pace_label),
-                description = stringResource(R.string.settings_route_pace_desc),
-                valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
-                value = settings.routeFreeWaterPaceKn,
-                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
-                steps = (AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
-                    .toInt() - 1,
-                onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
-            )
-
-            SectionDivider()
-
-            // The slow-water budget: how much of a trip may be spent slowed by speed zones, as a share of
-            // its time. A route still over it is **reported and never refused**, so this is a preference
-            // rather than a gate — and its bounds are read from AppConfig, where they live beside the
-            // accessor, so the slider, the properties loader and the settings clamp cannot disagree.
-            SliderRow(
-                label = stringResource(R.string.settings_route_budget_label),
-                description = stringResource(R.string.settings_route_budget_desc),
-                valueLabel = stringResource(
-                    R.string.settings_value_percent,
-                    settings.routeSlowWaterBudgetPct
-                ),
-                value = settings.routeSlowWaterBudgetPct.toFloat(),
-                valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
-                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
-                steps = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX -
-                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
-                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
-            )
-
-            SectionDivider()
-
-            // The aversion dial: how hard the search bends away from slow water. It is the preference
-            // dial of the slow-water model, seeded from `route.avoid.speedZone.softCostAversion` and
-            // clamped to the same 0..5 span the properties loader accepts.
-            SliderRow(
-                label = stringResource(R.string.settings_route_aversion_label),
-                description = stringResource(R.string.settings_route_aversion_desc),
-                valueLabel = stringResource(
-                    R.string.settings_route_aversion_value_fmt,
-                    settings.routeSlowWaterAversion
-                ),
-                value = settings.routeSlowWaterAversion,
-                valueRange = AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat()..
-                    AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat(),
-                steps = 4,
-                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterAversion = v) } }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
-
         // ── Stop detection ──────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_idle_section_label))
+        SectionHeader(title = stringResource(R.string.settings_section_stop_detection))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
@@ -1391,7 +1315,7 @@ private fun NavigationSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Re-display on approach ─────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_redisplay_label))
+        SectionHeader(title = stringResource(R.string.settings_section_redisplay))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
@@ -1474,7 +1398,7 @@ private fun NavigationSettings(
 
 
     // ── Automatic map offset ──────────────────────────────────────────────
-    SectionHeader(title = stringResource(R.string.settings_map_offset_label))
+    SectionHeader(title = stringResource(R.string.settings_section_map_offset))
 
     CardArea {
         // GPS mode toggle
@@ -1512,21 +1436,103 @@ private fun NavigationSettings(
 }
 }
 
-// ── Position tab ───────────────────────────────────────────────────────────
+// ── Routing tab ────────────────────────────────────────────────────────────
 
 @Composable
-private fun PositionSettings(
+private fun RoutingSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     scrollState: ScrollState
 ) {
-    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
+        // ── Tuning ────────────────────────────────────────────────────────────
+        // The free-water pace: the trip figure's own setting, and the third of the three seams. The
+        // bounds are read from AppConfig, where they live beside the accessor, so the slider, the
+        // properties loader and the settings clamp cannot disagree about 3 and 40.
+        SectionHeader(title = stringResource(R.string.settings_section_routing_tuning))
 
+        CardArea {
+            SliderRow(
+                label = stringResource(R.string.settings_route_pace_label),
+                description = stringResource(R.string.settings_route_pace_desc),
+                valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
+                value = settings.routeFreeWaterPaceKn,
+                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
+                steps = (AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
+                    .toInt() - 1,
+                onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
+            )
+
+            SectionDivider()
+
+            // The slow-water budget: how much of a trip may be spent slowed by speed zones, as a share of
+            // its time. A route still over it is **reported and never refused**, so this is a preference
+            // rather than a gate — and its bounds are read from AppConfig, where they live beside the
+            // accessor, so the slider, the properties loader and the settings clamp cannot disagree.
+            SliderRow(
+                label = stringResource(R.string.settings_route_budget_label),
+                description = stringResource(R.string.settings_route_budget_desc),
+                valueLabel = stringResource(
+                    R.string.settings_value_percent,
+                    settings.routeSlowWaterBudgetPct
+                ),
+                value = settings.routeSlowWaterBudgetPct.toFloat(),
+                valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
+                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
+                steps = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX -
+                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
+                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
+            )
+
+            SectionDivider()
+
+            // The aversion dial: how hard the search bends away from slow water. It is the preference
+            // dial of the slow-water model, seeded from `route.avoid.speedZone.softCostAversion` and
+            // clamped to the same 0..5 span the properties loader accepts.
+            SliderRow(
+                label = stringResource(R.string.settings_route_aversion_label),
+                description = stringResource(R.string.settings_route_aversion_desc),
+                valueLabel = stringResource(
+                    R.string.settings_route_aversion_value_fmt,
+                    settings.routeSlowWaterAversion
+                ),
+                value = settings.routeSlowWaterAversion,
+                valueRange = AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat()..
+                    AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat(),
+                steps = 4,
+                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterAversion = v) } }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Appearance ────────────────────────────────────────────────────────
+        // The route's two rendering gates, each gating its drawer chip: the colour one bands a route
+        // only while the Colours chip is on too, the arrow one can only veto the Arrows chip's
+        // chevrons (R37, R38). Their names are comments — the block's own title heads them — so both
+        // rows ask for the comment label style rather than the row norm.
+        SectionHeader(title = stringResource(R.string.settings_section_appearance))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            ToggleRow(
+                label = stringResource(R.string.settings_routes_speed_color_label),
+                labelStyle = ToggleLabelStyle.COMMENT,
+                checked = settings.routeSpeedColor,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedColor = on) } }
+            )
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+            ToggleRow(
+                label = stringResource(R.string.settings_routes_arrows_label),
+                labelStyle = ToggleLabelStyle.COMMENT,
+                checked = settings.routeSpeedArrows,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
+            )
+        }
     }
 }
 
@@ -1581,8 +1587,8 @@ private fun SystemSettings(
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
-        // ── Navigation (GPS tuning) ─────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_position))
+        // ── GPS tuning ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_gps_tuning))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
@@ -1743,7 +1749,7 @@ private fun SystemSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Regenerate Layers ─────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
+        SectionHeader(title = stringResource(R.string.settings_section_regenerate_layers))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             ToggleRow(

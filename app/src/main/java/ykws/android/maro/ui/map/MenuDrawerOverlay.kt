@@ -127,7 +127,7 @@ fun MenuDrawerOverlay(
         }
     ) {
         // ── POSITION SOURCE section ──────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_position))
+        SectionHeader(title = stringResource(R.string.settings_section_position_source))
 
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
