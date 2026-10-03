@@ -20,11 +20,10 @@ sealed interface RouteResult {
      *
      * @property points            the polyline, start first and the resolved destination last.
      * @property distanceM         total length in metres.
-     * @property durationSec       the route's planned seconds: the **pre-fairing** line's own clock at
-     *                             the limits in force, plus the resolved bends' cap delta — the plan's
-     *                             "base and the delta", never a re-cost of the fairing's geometry. It is
-     *                             therefore not the drawn polyline's own clock; [legTimesSec] is folded
-     *                             to sum to it.
+     * @property durationSec       the route's planned seconds: the drawn line's own clock at the limits
+     *                             in force, each leg timed at the limit in force at its midpoint and
+     *                             capped by the pace. [legTimesSec] sums to it exactly, with no fairing
+     *                             residual.
      * @property destinationMoved  true when the aimed destination resolved elsewhere — land, or
      *                             another stretch of water — and the route ends at the closest
      *                             point of the boat's own stretch instead.
@@ -42,23 +41,23 @@ sealed interface RouteResult {
         /**
          * The planned time of each leg, in the same order as [points] — `legTimesSec[i]` is the time
          * the plan allots the leg from `points[i]` to `points[i + 1]`, so the list is one shorter
-         * than the polyline and the cumulative sum is [durationSec]. Where the faired line shortened
-         * the drawn geometry, the fairing's residual is folded into the **last** leg, so that leg alone
-         * carries the reported figure rather than the drawn line's own profile.
+         * than the polyline and the cumulative sum is exactly [durationSec]: the drawn line is its own
+         * clock, with no fairing residual to fold anywhere.
          *
-         * It is what makes the plan's own pace recoverable per leg — the speed the engine intended,
-         * neither the cruise speed nor the limit — and it is exposed here rather than recomputed by
-         * a caller because the limit resolution behind it is the engine's own work: a second
-         * spelling outside would be a second answer waiting to disagree.
+         * It is what makes the plan's own pace recoverable per leg — the enforced limit in force at the
+         * leg's midpoint, capped by the pace — and it is exposed here rather than recomputed by a caller
+         * because the limit resolution behind it is the engine's own work: a second spelling outside
+         * would be a second answer waiting to disagree.
          */
         val legTimesSec: List<Double> = emptyList(),
         /**
-         * **The pace made good** over each leg, in m/s, beside [legTimesSec] and in the same order —
+         * **The speed made good** over each leg, in m/s, beside [legTimesSec] and in the same order —
          * one set of numbers the drawn line, the panel's figures and the saved track all read.
          *
-         * A leg carrying a ramp reports the average of its own profile rather than either end of it,
-         * because the clock is what derives it: `distance / time`. It is the engine's own reading and
-         * never a second computation by a caller, for the same reason the leg times are.
+         * It is the enforced limit in force at the leg's midpoint, capped by the pace — the clock is
+         * what derives it, `distance / time`, so it always equals the clock beside it. It is the
+         * engine's own reading and never a second computation by a caller, for the same reason the leg
+         * times are.
          */
         val legSpeedsMps: List<Double> = emptyList(),
         val distanceM: Double,

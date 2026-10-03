@@ -208,6 +208,7 @@ class RouteZonePhase4Test {
         assertEquals(listOf(a, b), timed.points)
         assertEquals(1, timed.legTimesSec.size)
         assertEquals("the whole leg is timed at the 5 kn limit", dist / Units.knotsToMps(5.0), timed.legTimesSec[0], 1e-6)
+        assertEquals("and its made-good speed is the enforced limit", Units.knotsToMps(5.0), timed.legSpeedsMps[0], 1e-9)
     }
 
     @Test
@@ -225,9 +226,9 @@ class RouteZonePhase4Test {
     }
 
     @Test
-    fun theDecelIsPaidBeforeTheBoundary() {
-        // 28 kn into a 5 kn ring across 43.503 N: the leg that ends on the boundary is the outer one,
-        // so that is where the boat slows — 28 kn to 5 kn at 0.5 m/s² is about 200 m and 24 s.
+    fun eachLegRidesAtTheLimitInForceAtItsMidpoint() {
+        // 28 kn into a 5 kn ring across 43.503 N: the boundary vertex splits the line, and each leg's
+        // made-good speed is exactly the limit in force at its midpoint — the pace outside, the limit in.
         val a = LatLng(43.500, 7.030)
         val b = LatLng(43.506, 7.030)
         val limitKnAt: (LatLng) -> Double? = { p -> if (p.latitude >= 43.503) 5.0 else null }
@@ -236,24 +237,12 @@ class RouteZonePhase4Test {
         val limitMps = Units.knotsToMps(5.0)
         val outerM = SpatialOperations.haversine(timed.points[0], timed.points[1])
         val innerM = SpatialOperations.haversine(timed.points[1], timed.points[2])
-        val decelSec = (paceMps - limitMps) / 0.5
 
         assertEquals("the boundary vertex splits the line in two", 3, timed.points.size)
-        assertTrue(
-            "the outer leg pays the decel before the ring",
-            timed.legTimesSec[0] > outerM / paceMps + decelSec - 1.0
-        )
-        assertEquals(
-            "so the boat enters the ring already at the limit and cruises it",
-            innerM / limitMps,
-            timed.legTimesSec[1],
-            1e-6
-        )
-        val steeper = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, accelMps2 = 1.0)
-        assertTrue(
-            "and the rate is the key's: a steeper brake finishes sooner and crawls longer",
-            steeper.legTimesSec[0] > timed.legTimesSec[0]
-        )
+        assertEquals("the outer leg rides at the pace", outerM / paceMps, timed.legTimesSec[0], 1e-6)
+        assertEquals("and its made-good speed is the pace", paceMps, timed.legSpeedsMps[0], 1e-9)
+        assertEquals("the inner leg rides at the 5 kn limit", innerM / limitMps, timed.legTimesSec[1], 1e-6)
+        assertEquals("and its made-good speed is the enforced limit", limitMps, timed.legSpeedsMps[1], 1e-9)
     }
 
     // ── Exclusion ─────────────────────────────────────────────────────────────

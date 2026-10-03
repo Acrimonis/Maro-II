@@ -343,6 +343,14 @@ object AppConfig {
         private set
 
     /**
+     * The fraction of the half-segment a corner's racing line reaches along each leg —
+     * `route.turn.reachFraction`, default 1.0, clamped 0.0..1.0. 1.0 curves all the way to the
+     * neighbouring apex's midpoint; a smaller value leaves a straight run between corners.
+     */
+    var routeTurnReachFraction: Double = 1.0
+        private set
+
+    /**
      * **The share of a trip the search may spend slowed by speed zones**, in per cent — the budget the
      * λ loop aims at. 0–100, default **33**: how much slow water a trip may use is a preference rather
      * than a tuning constant, which is why this one is a lever with a Settings row of its own rather
@@ -1744,6 +1752,9 @@ object AppConfig {
             }
             props.getProperty("route.turn.minSpeedKn")?.toDoubleOrNull()?.let {
                 routeTurnMinSpeedKn = it.coerceIn(2.0, 10.0)
+            }
+            props.getProperty("route.turn.reachFraction")?.toDoubleOrNull()?.let {
+                routeTurnReachFraction = it.coerceIn(0.0, 1.0)
             }
             props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
                 routeAvoidSpeedZoneTimeBudgetPct =

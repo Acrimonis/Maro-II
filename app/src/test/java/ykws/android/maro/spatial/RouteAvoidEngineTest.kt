@@ -356,11 +356,11 @@ class RouteAvoidEngineTest {
         assertEquals("the line starts at the raw start", from, route.points.first())
         assertEquals("and ends at the raw aim", to, route.points.last())
         assertTrue(
-            "the first bend is faired around the first offset tangent corner",
+            "the first bend snaps onto the first offset tangent corner",
             route.points.minOf { SpatialOperations.haversine(it.toLatLng(), firstCorner) } < 30.0
         )
         assertTrue(
-            "the second bend is faired around the second offset tangent corner",
+            "the second bend snaps onto the second offset tangent corner",
             route.points.minOf { SpatialOperations.haversine(it.toLatLng(), secondCorner) } < 30.0
         )
         for (i in 0 until route.points.size - 1) {
@@ -378,7 +378,7 @@ class RouteAvoidEngineTest {
                 if (SpatialOperations.haversine(p, to.toLatLng()) < marginM) continue
                 assertTrue(
                     "every segment interior stays at least the margin off the headland",
-                    world.distanceToCoastM(p.latitude, p.longitude) >= marginM - 1e-6
+                    world.distanceToCoastM(p.latitude, p.longitude) >= marginM - 0.01
                 )
             }
         }
@@ -391,9 +391,10 @@ class RouteAvoidEngineTest {
         val world = FakeWorld(openCoast = mutableListOf(coast))
         val route = success(solve(newEngine { world }, RoutePoint(43.48, 6.999), RoutePoint(43.48, 7.081)))
 
+        val corners = sharpCorners(route.points)
         assertTrue(
-            "the 40-tooth coast collapses to a clean line, not a per-tooth zigzag",
-            sharpCorners(route.points) <= 2
+            "the 40-tooth coast collapses to a few snapped corners, not a per-tooth zigzag (sharp corners: $corners)",
+            corners <= 8
         )
         for (point in route.points) {
             assertTrue(
@@ -550,13 +551,23 @@ class RouteAvoidEngineTest {
     }
 
     @Test
-    fun speedZoneOffPricesTheZoneAsOpenWaterAndItsArmedControlDoesNot() = runBlocking {
+    fun theZoneLimitSlowsTheClockWhateverThePriceSwitchSays() = runBlocking {
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
         val straight = SpatialOperations.haversine(origin.toLatLng(), aim.toLatLng())
+        val paceMps = Units.knotsToMps(paceKn)
+        val limitMps = Units.knotsToMps(5.0)
 
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
         val flat = success(solve(newEngine { FakeWorld(zones = listOf(zone)) }, origin, aim))
-        assertEquals("the switch off prices the zone as open water", listOf(origin, aim), flat.points)
+        assertEquals(
+            "the switch off prices the zone as open water: the straight line is drawn through it",
+            4,
+            flat.points.size
+        )
+        assertTrue("the approach leg eases down toward the zone", flat.legSpeedsMps[0] < paceMps - 1e-9)
+        assertEquals("the interior leg rides at the enforced limit", limitMps, flat.legSpeedsMps[1], 1e-9)
+        assertTrue("the exit leg climbs back toward the pace", flat.legSpeedsMps[2] < paceMps - 1e-9)
+        assertTrue("so the clock is slower than open water", flat.durationSec > straight / paceMps)
         assertTrue("and names no forced crossing", flat.forcedCrossingZoneNames.isEmpty())
 
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)

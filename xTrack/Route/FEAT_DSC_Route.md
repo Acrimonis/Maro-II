@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-03 21:35
+modified: 2026-10-03 23:31
 ---
 
 # Feature: Route
@@ -31,7 +31,7 @@ Set a destination and have the app draw the route from the boat's position to it
 
 - **The seam** — [`RouteEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:66) publishes `progress: StateFlow<RouteProgress?>`, one emission carrying the stage the pipeline has entered and the line it holds, cleared on every answer and every abort; readiness (`NotReady` · `Ready` · `Unavailable(reason)`), the two position entry points, the validity question and the readiness promise sit beside it, and their **relevance is under review** — the current flow arms on the drawer's pair and calls them only as the pipeline needs.
 - **Two engines ship** — the `dummy` is one straight segment at its own fixed 15 kn, ready on construction, judging nothing and answering a null progress flow ([`RouteDummyEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt:65)); the `avoid` crosses five boundaries — corridor · grid · search · pull · snap — publishing each one's stage and geometry, the raw cell chain at pull and the pulled line at snap ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1623)). `route.engine.id` names the shipped one and an unclaimed id falls back to it.
-- **The avoid engine's world is ten files** — tagged costed cells, an 8-neighbour A\*, a source-parameterized taut pull, a berth carve, one cost field whose base is always set and whose sources only add, the fairing fitter, the clock that obeys the limit in force, the tangent corners and the zone geometry ([`spatial/avoid/`](../../app/src/main/java/ykws/android/maro/spatial/avoid)).
+- **The avoid engine's world is ten files** — tagged costed cells, an 8-neighbour A\*, a source-parameterized taut pull, a berth carve, one cost field whose base is always set and whose sources only add, the racing-line corner pass, the clock that obeys the limit in force, the tangent corners and the zone geometry ([`spatial/avoid/`](../../app/src/main/java/ykws/android/maro/spatial/avoid)).
 - **The view model is the mode's whole state** — Idle · Choosing · Following with no arrival state, one worker per ask, the plan and its `remainingFrom` projection, the session's route-to-track link and the save predicate ([`RouteViewModel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt:349)).
 - **One file touches osmdroid** — the pool and the pin are attached once and mutated in place, and the paint order is applied as a rank over the whole list so nothing is pinned by position ([`RouteHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt:69), [`OverlayZOrder.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt:85)).
 - **The panel is the acquisition's whole surface** — the stage rides the header's acquiring word, the sentence line carries a refusal or the no-route word, the selected line's details sit on the shared reading cell with the pin under them, and the rung rows carry next/prev over three bottom-anchored actions ([`RouteConfirmPanel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt:102)).
@@ -53,7 +53,7 @@ data/model/    RoutePoint.kt, RouteResult.kt
 data/route/    RouteEndSelection.kt, RoutePace.kt
 spatial/       RouteEngine.kt, RouteDummyEngine.kt, RouteEngineChoice.kt, SpatialOperations.kt, Units.kt
 spatial/avoid/ AvoidWorld.kt, AvoidGrid.kt, AvoidSearch.kt, AvoidPull.kt, BerthCarve.kt,
-               RouteCostField.kt, RouteCurveFitter.kt, RouteEta.kt, TangentCorners.kt, ZoneGeometry.kt
+               RouteCostField.kt, RouteCornerPass.kt, RouteEta.kt, TangentCorners.kt, ZoneGeometry.kt
 ui/map/        RouteViewModel.kt, RouteHost.kt, RouteOverlay.kt, RouteConfirmPanel.kt, MapPulseDot.kt
 ```
 
@@ -141,9 +141,9 @@ The live numbered requirements — added after the master book was retired on 20
 
 - `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` — the seam: readiness, the two position entry points, the validity question, the readiness promise, and the `progress` flow carrying `RouteProgress(stage, points)`, cleared on every answer and every abort
 - `app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt` — one straight segment at a fixed 15 kn, ready on construction, refusing nothing, a null progress flow
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the five-boundary pipeline and its one `publish(stage, pass, points)`, the sources and their switches, the candidates' own lane, the forced crossing's names, the fairing and the clock
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the five-boundary pipeline and its one `publish(stage, pass, points)`, the sources and their switches, the candidates' own lane, the forced crossing's names and the clock
 - `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt` — an id, a label id and a factory per engine, resolved from the setting at one expression
-- `app/src/main/java/ykws/android/maro/spatial/avoid/` — `AvoidWorld`, `AvoidGrid`, `AvoidSearch`, `AvoidPull`, `BerthCarve`, `RouteCostField`, `RouteCurveFitter`, `RouteEta`, `TangentCorners`, `ZoneGeometry`
+- `app/src/main/java/ykws/android/maro/spatial/avoid/` — `AvoidWorld`, `AvoidGrid`, `AvoidSearch`, `AvoidPull`, `BerthCarve`, `RouteCostField`, `RouteCornerPass`, `RouteEta`, `TangentCorners`, `ZoneGeometry`
 - `app/src/main/java/ykws/android/maro/data/model/RouteResult.kt`, `RoutePoint.kt`, `RouteOffer.kt` — the domain: the polyline, the per-leg times, the length, the duration, the offers, and the refusals `OutsideWater` · `NoPath`
 - `app/src/main/java/ykws/android/maro/data/route/RouteEndSelection.kt` — the eligible ends built from the marker flags and the fallback of a selection that stops resolving
 - `app/src/main/java/ykws/android/maro/data/route/RoutePace.kt` — the pace reduction over samples outside the zones and the band
@@ -156,7 +156,7 @@ The live numbered requirements — added after the master book was retired on 20
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/maro.properties` (every route value, the new `route.line.casing.widthDp` among them) + `app/src/main/assets/ui.properties` (the one reinforcement lever `ui.reinforce.darkenPct`) — where every route value lives
 - `app/src/main/java/ykws/android/maro/ui/color/ColorReinforcement.kt` — `reinforcedColor`: the pure, RGB-only darkening a user-picked colour's derived reinforcement edge takes, the caller reading the lever (R93)
 - `app/src/test/java/ykws/android/maro/spatial/` — `RouteDummyEngineTest`, `RouteAvoidEngineTest`, `RouteEngineChoiceTest`, `PrebakedCoastline`, `CoastlinePointWalkTest`
-- `app/src/test/java/ykws/android/maro/spatial/avoid/` — eight suites: stage 1, the cost field, the depth gate, the band's cost, the berth carve, the fairing, the zone phase 4, the tangent corners
+- `app/src/test/java/ykws/android/maro/spatial/avoid/` — nine suites: stage 1, the cost field, the depth gate, the band's cost, the berth carve, the corner pass, the speed profile, the zone phase 4, the tangent corners
 - `app/src/test/java/ykws/android/maro/ui/map/` — `RouteAcquisitionTest`, `RouteEngineSeamTest`, `RoutePlanTest`, `RouteStoredMatchTest`, `RouteMirrorPlanTest`
 - `app/src/main/java/ykws/android/maro/data/track/Track.kt` — the `route` flag and the two persisted end ids (`routeStartMarkerId`, `routeDestinationMarkerId`) a saved route carries
 - `app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt` — the save that writes the two end ids on the built track
@@ -166,6 +166,7 @@ The live numbered requirements — added after the master book was retired on 20
 
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — **the avoidance algorithm's design of record**, folded from the archived phase and zone plans: the pipeline, the cost field, the λ loop, the standoff's retirement, the fairing and the evidence
+- [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md) — the clock's enforced-limit rework, the curve fitter's removal, and the two post-passes: the racing-line corner pass and the speed profile
 - Thirty-nine files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk
@@ -247,3 +248,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The selected route is reinforced by shape and opacity (R93) — a derived under-stroke in both phases from the one `ui.reinforce.darkenPct` lever and `reinforcedColor`, and a boat-split follow line off `RoutePlan.splitAt`
 - The acquisition table's delta re-based on the selected route — the third column compares each page against the route the selection stands on, the seat following the first landed row → [`261003_FEAT_PLN_Route_selected-delta.md`](261003_FEAT_PLN_Route_selected-delta.md)
 - A saved route draws dashed, plain and speed-coloured alike — a `route` role on the render plan keys a `dashed` flag through the segment builders, and the rhythm reads from `map.track.width.route.dashOn` / `dashOff`, so a route reads apart from a recorded track; the casing under-stroke was rolled back → [`261003_FEAT_PLN_Route_saved-route-casing.md`](261003_FEAT_PLN_Route_saved-route-casing.md)
+- The two post-passes shipped — the racing-line corner pass rounds each snapped corner into a single-bend clothoid–arc–clothoid curve that bulges outward with the corner as its apex, the curve slowed where the bulge would foul and the turn length set by the `route.turn.reachFraction` lever, then `timeLineWithProfile` times the drawn line with a backward/forward profile that anticipates deceleration and bounds acceleration, the enforced limit the hard ceiling; the curve fitter is removed and the settled search line is the drawn and saved line → [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md)

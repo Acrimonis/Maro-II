@@ -4,53 +4,39 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * The zone- and curve-aware ETA: the drawn line re-vertexed where the limit in force changes, then
- * timed leg by leg — every transition a constant-acceleration ramp at [AppConfig.routeSpeedAccelMps2],
- * whose one home is the key (this file holds no rate of its own).
+ * The route's clock, in two strengths, both λ-free:
  *
- * Inside a zone the boat obeys the strictest limit (never above the configured pace); outside it rides
- * the pace. Leaving a slower stretch it accelerates back to the pace **after** the boundary, a limit
- * never being exceeded; entering one it **starts slowing `(v0² − v1²) / 2a` before the boundary**, so
- * the profile shows the boat easing down outside the ring and those slow metres are paid before the
- * zone rather than inside it. A line whose first leg is already inside a zone opens at that zone's
- * limit, the boat being there already.
+ * [timeLineWithLimits] is the **enforced per-point ETA** — the line re-vertexed where the limit in
+ * force changes and timed leg by leg at that limit, capped by the pace. No ramp, no anticipation, no
+ * corner-speed cap; a leg's made-good speed **is** the enforced limit. The λ loop and the fine-splice
+ * comparison read this one.
  *
- * **The curve caps sit beside the longitudinal ramp.** A [CurveCap] names a speed the clock may not
- * exceed at one of the faired line's own vertices — the fitter emits one per arc point of a resolved
- * bend, and the strictest in force wins where a cap and a zone limit meet. A cap is a **point**, so it
- * needs no boundary vertex of its own: every leg whose endpoint carries one is bound by it, and the
- * ramp does the rest — the boat eases to the bend's speed arriving at its first arc point, holds it
- * across the arc and climbs back after. The caps are read off the same profile as the limits, so the
- * cap's own delta (the faired line timed with and without them) is exactly the seconds the slowdown
- * costs — never a hidden term and never a re-cost of the geometry.
+ * [timeLineWithProfile] is the **smooth profile** the final answer carries — the same enforced limit as
+ * a hard ceiling, with the corner pass's curvature ceiling beside it and a comfortable acceleration
+ * ramp ([AppConfig.routeSpeedAccelMps2]) through every transition: the boat eases down **before** a
+ * limit drop and climbs back **after** a rise, never exceeding the limit in force.
  *
- * This is a **clock**, never a price: nothing here reads λ or the A\*'s own cost, so the reported time
- * is λ-free however the search was priced.
+ * Inside a zone or the 300 m band the boat obeys the strictest limit (never above the configured pace);
+ * outside it rides the pace. This file is a **clock**, never a price: nothing here reads λ or the A\*'s
+ * own cost.
  */
 
 /** Sampling step (m) the boundary splitter walks each leg at — half the shipped grid cell. */
 private const val BOUNDARY_SAMPLE_M = 25.0
-
-/**
- * One **curve cap**: the speed (kn) the clock must not exceed at a point on the faired line — the
- * fitter's per-arc-point emission for a resolved bend. The same point carrying two caps keeps the
- * strictest (lowest) one.
- */
-data class CurveCap(val point: LatLng, val capKn: Double)
 
 /** A polyline split at limit changes, with one planned time and one made-good speed per split leg. */
 data class TimedLine(
     val points: List<LatLng>,
     val legTimesSec: List<Double>,
     /**
-     * The **pace made good** over each leg, in m/s — `distance / time`, so a leg carrying a ramp
-     * reports the average of its own profile rather than either end of it and the figure can never
-     * disagree with the clock beside it.
+     * The **speed made good** over each leg, in m/s — the enforced limit in force at the leg's
+     * midpoint, capped by the pace, so the figure always equals the clock beside it.
      */
     val legSpeedsMps: List<Double> = emptyList()
 ) {
@@ -58,52 +44,27 @@ data class TimedLine(
 }
 
 /**
- * Splits [waypoints] where [limitKnAt] changes and times each split leg: inside a zone the strictest
- * limit binds, outside the pace binds, a limit rise is climbed after the boundary and a limit fall is
- * reached **at** it. Any [caps] stand beside the limit — a leg whose endpoint carries one is bound by
- * it, strictest-wins, so a rounded bend is taken at its corner speed between the ramps.
+ * Splits [waypoints] where [limitKnAt] changes and times each split leg at the limit in force at its
+ * midpoint, capped by the pace — no ramp, no corner-speed caps. A leg's made-good speed is therefore
+ * exactly the enforced limit, and the reported time is `distance / speed`.
  */
 fun timeLineWithLimits(
     waypoints: List<LatLng>,
     paceKn: Double,
-    limitKnAt: (LatLng) -> Double?,
-    caps: List<CurveCap> = emptyList(),
-    accelMps2: Double = AppConfig.routeSpeedAccelMps2
+    limitKnAt: (LatLng) -> Double?
 ): TimedLine {
     if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
     val paceMps = Units.knotsToMps(paceKn)
-    // One home for the strictest cap at a point: the same vertex carrying two caps keeps the slower.
-    val capKnAt: Map<LatLng, Double> = caps
-        .groupBy { it.point }
-        .mapValues { (_, shared) -> shared.minOf { it.capKn } }
-    // The cap at an endpoint binds the leg that ends on it and the one that leaves it, which is what
-    // places the spiral's slowdown beside the longitudinal ramp rather than inside the arc alone.
-    fun capBoundMps(p: LatLng): Double =
-        capKnAt[p]?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
     val points = splitAtLimitChanges(waypoints, limitKnAt)
     val legs = points.size - 1
-    // One target per leg: the strictest of the limit in force inside it and any cap on its ends,
-    // never above the pace.
-    val targets = DoubleArray(legs) { i ->
-        val limitKn = limitKnAt(midpoint(points[i], points[i + 1]))
-        val limitMps = if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
-        min(limitMps, min(capBoundMps(points[i]), capBoundMps(points[i + 1])))
-    }
     val times = ArrayList<Double>(legs)
     val speeds = ArrayList<Double>(legs)
-    // The boat is where the line starts, so a line opening inside a zone opens at that zone's limit.
-    var carriedMps = if (legs == 0) paceMps else min(paceMps, targets[0])
     for (i in 0 until legs) {
+        val limitKn = limitKnAt(midpoint(points[i], points[i + 1]))
+        val speedMps = if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
         val dist = SpatialOperations.haversine(points[i], points[i + 1])
-        // The next leg's limit is what the boundary ahead asks for: this leg arrives at it, which is
-        // what puts the decel's metres outside the ring it leads into.
-        val arriveMps = if (i + 1 < legs) min(targets[i], targets[i + 1]) else targets[i]
-        val timed = segmentTimeM(dist, carriedMps, targets[i], arriveMps, accelMps2)
-        times.add(timed.first)
-        // The pace made good: the same numbers the clock just produced, divided the other way, so a
-        // zero-time leg reads zero rather than an infinity.
-        speeds.add(if (timed.first > 0.0) dist / timed.first else 0.0)
-        carriedMps = timed.second
+        times.add(dist / speedMps)
+        speeds.add(speedMps)
     }
     return TimedLine(points, times, speeds)
 }
@@ -164,49 +125,6 @@ private fun bisectLimitChange(
         if (limit == loLimit) l = mid else h = mid
     }
     return interpolate(a, b, (l + h) / 2.0)
-}
-
-/**
- * The speed (m/s) the boat still carries after decelerating [distanceM] from [vStartMps] at
- * [accelMps2] — the clock's own deceleration ramp, with the radicand clamped at 0. One home, read by
- * [segmentTimeM] and by the curve fitter's deceleration floor, so the two can never disagree.
- */
-internal fun decelSpeedMps(vStartMps: Double, distanceM: Double, accelMps2: Double): Double =
-    sqrt((vStartMps * vStartMps - 2.0 * accelMps2 * distanceM).coerceAtLeast(0.0))
-
-/**
- * Time one segment (m) that starts at [vStart], may ride up to its own leg's [vTop], and arrives at
- * [vArrive] — the lower of this leg's limit and the one the boundary ahead asks for.
- *
- * A leg the boat ends slower on is the **entering** shape: it decelerates over
- * `(vStart² − vArrive²) / 2a` metres and then cruises at [vArrive], so the decel is paid before the
- * boundary the leg ends on. Every other leg rides up to [vTop] and cruises at it, which leaves the
- * exit ramp where it was: a limit is never exceeded before the boundary it belongs to.
- *
- * Returns (seconds, the speed the boat carries into the next leg, m/s).
- */
-private fun segmentTimeM(
-    distanceM: Double,
-    vStart: Double,
-    vTop: Double,
-    vArrive: Double,
-    accelMps2: Double
-): Pair<Double, Double> {
-    if (distanceM <= 0.0) return 0.0 to vArrive
-    if (vArrive < vStart) {
-        val rampDist = (vStart * vStart - vArrive * vArrive) / (2.0 * accelMps2)
-        if (distanceM <= rampDist) {
-            val endMps = decelSpeedMps(vStart, distanceM, accelMps2)
-            return ((vStart - endMps) / accelMps2) to endMps
-        }
-        return ((vStart - vArrive) / accelMps2 + (distanceM - rampDist) / vArrive) to vArrive
-    }
-    val rampDist = (vTop * vTop - vStart * vStart) / (2.0 * accelMps2)
-    if (distanceM <= rampDist) {
-        val endMps = sqrt(vStart * vStart + 2.0 * accelMps2 * distanceM)
-        return ((endMps - vStart) / accelMps2) to endMps
-    }
-    return ((vTop - vStart) / accelMps2 + (distanceM - rampDist) / vTop) to vTop
 }
 
 /** A line's slow time split by what slowed it — a ring's interior, the band's width, and the ramps. */
@@ -303,6 +221,68 @@ fun withinBudgetBand(share: Double, budgetPct: Double): Boolean {
  */
 fun budgetMet(share: Double, budgetPct: Double): Boolean =
     withinBudgetBand(share, budgetPct) || share < (budgetPct / 100.0) * (1.0 - ZONE_BUDGET_BAND)
+
+/**
+ * The **smooth speed profile** — [waypoints] re-vertexed at limit changes, then solved point by point
+ * under two ceilings: the limit in force along each leg (constant, since a limit change is a boundary
+ * vertex) and the corner pass's curvature ceiling at each vertex. A backward pass starts every
+ * deceleration as early as comfort needs, so the boat reaches a lower limit **at** its boundary; a
+ * forward pass bounds the acceleration after it. The limit is the hard rule: a vertex never exceeds
+ * either leg it touches, and where the run-up is too short for a comfortable brake the profile brakes
+ * harder rather than exceed the limit in force.
+ */
+fun timeLineWithProfile(
+    waypoints: List<LatLng>,
+    paceKn: Double,
+    limitKnAt: (LatLng) -> Double?,
+    ceilingKnAt: (LatLng) -> Double?,
+    accelMps2: Double = AppConfig.routeSpeedAccelMps2
+): TimedLine {
+    if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
+    val paceMps = Units.knotsToMps(paceKn)
+    val points = splitAtLimitChanges(waypoints, limitKnAt)
+    val n = points.size - 1
+    fun limitMpsAt(p: LatLng): Double =
+        limitKnAt(p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
+    fun ceilingMpsAt(p: LatLng): Double =
+        ceilingKnAt(p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
+    // The limit in force along each leg — constant, because a limit change is a boundary vertex.
+    val legLimit = DoubleArray(n) { i -> limitMpsAt(midpoint(points[i], points[i + 1])) }
+    // A vertex's speed may not exceed either leg it touches, nor its own curvature ceiling.
+    val cap = DoubleArray(n + 1) { j ->
+        val base = when (j) {
+            0 -> legLimit[0]
+            n -> legLimit[n - 1]
+            else -> min(legLimit[j - 1], legLimit[j])
+        }
+        min(base, ceilingMpsAt(points[j]))
+    }
+    // Backward: the latest-possible deceleration that still respects every limit ahead.
+    val speed = DoubleArray(n + 1)
+    speed[n] = cap[n]
+    for (j in n - 1 downTo 0) {
+        val d = SpatialOperations.haversine(points[j], points[j + 1])
+        val decelCap = sqrt(speed[j + 1] * speed[j + 1] + 2.0 * accelMps2 * d)
+        speed[j] = min(cap[j], decelCap)
+    }
+    // Forward: acceleration from behind is bounded by comfort and never above the limit.
+    for (j in 1..n) {
+        val d = SpatialOperations.haversine(points[j - 1], points[j])
+        val accelCap = sqrt(speed[j - 1] * speed[j - 1] + 2.0 * accelMps2 * d)
+        speed[j] = min(speed[j], accelCap)
+    }
+    val times = ArrayList<Double>(n)
+    val speeds = ArrayList<Double>(n)
+    for (i in 0 until n) {
+        val d = SpatialOperations.haversine(points[i], points[i + 1])
+        val v0 = speed[i]
+        val v1 = speed[i + 1]
+        val t = if (abs(v1 - v0) < 1e-9) d / v0 else 2.0 * d / (v0 + v1)
+        times.add(t)
+        speeds.add(d / t)
+    }
+    return TimedLine(points, times, speeds)
+}
 
 private fun midpoint(a: LatLng, b: LatLng): LatLng =
     LatLng((a.latitude + b.latitude) / 2.0, (a.longitude + b.longitude) / 2.0)
