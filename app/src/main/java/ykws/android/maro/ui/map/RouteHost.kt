@@ -67,6 +67,8 @@ private const val ROUTE_PIN_SIZE_DP = 18f
  * into the shell's one exit rule, so the back key cannot diverge from the toggle's own door (R60).
  *
  * @param armed      the mode's single switch, owned by the shell: on arms, off ends the route.
+ * @param discardPending the deferred discard's window is open: the lines and the pin leave at once
+ *                   (phase 1), while the engine keeps running underneath until the toast confirms.
  * @param pages      the pages the acquisition draws, the main first — one per started lookup.
  * @param selectedIndex which of [pages] the selection stands on: the one at full strength and under the pin.
  * @param provisionalLine the main lookup's partial line, drawn while the search runs.
@@ -85,6 +87,7 @@ internal fun RouteHost(
     selectedIndex: Int,
     provisionalLine: List<RoutePoint>,
     armed: Boolean,
+    discardPending: Boolean,
     gpsMode: Boolean,
     speedKn: Float?,
     positionRestricted: Boolean,
@@ -167,7 +170,7 @@ internal fun RouteHost(
     // The colour rides in the keys (R51's drift): `Following` never re-emits while the boat moves, so
     // a Settings edit recomposes this host without re-running the paint unless the colour is a key of
     // its own.
-    LaunchedEffect(mapView, state, routeLineColor, pages, selectedIndex) {
+    LaunchedEffect(mapView, state, routeLineColor, pages, selectedIndex, discardPending) {
         val mv = mapView ?: return@LaunchedEffect
         val pool = mv.overlays.filterIsInstance<Polyline>()
             .filter { it.title?.startsWith(ROUTE_LINE_TITLE) == true }
@@ -179,6 +182,19 @@ internal fun RouteHost(
                 "no pin on the map — the lines draw without the destination dot: " +
                     "overlays=${mv.overlays.size}, pool=${pool.size}"
             )
+        }
+
+        // **Phase 1 of the deferred discard**: the display reads a completed discard — the lines and
+        // the pin leave — while the session stays untouched, so Undo repaints with nothing recomputed.
+        if (discardPending) {
+            pool.forEach { it.setPoints(emptyList()) }
+            pin?.isEnabled = false
+            mv.overlays.filterIsInstance<Polyline>()
+                .firstOrNull { it.title == ROUTE_PROGRESS_TITLE }
+                ?.setPoints(emptyList())
+            OverlayZOrder.reorder(mv)
+            mv.invalidate()
+            return@LaunchedEffect
         }
 
         // A followed route holds its plan in the state, not in the page set: `selectRoute()` and
@@ -256,11 +272,11 @@ internal fun RouteHost(
     // A line the pipeline has not finished is not a page: it draws into its own overlay at the line's
     // own colour and width at the **main's** opacity, and it is hidden the moment the main lands — on
     // the answer and on a refusal alike — so a partial line never outlives the search that drew it.
-    LaunchedEffect(mapView, provisionalLine, routeLineColor) {
+    LaunchedEffect(mapView, provisionalLine, routeLineColor, discardPending) {
         val mv = mapView ?: return@LaunchedEffect
         val line = mv.overlays.filterIsInstance<Polyline>()
             .firstOrNull { it.title == ROUTE_PROGRESS_TITLE } ?: return@LaunchedEffect
-        if (provisionalLine.size < 2) {
+        if (discardPending || provisionalLine.size < 2) {
             line.isEnabled = false
             line.setPoints(emptyList())
         } else {

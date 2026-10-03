@@ -207,8 +207,12 @@ State machine: `CARD → SNACKBAR → DELETED`
 |-------|---------|--------|
 | `CARD → SNACKBAR` | Swipe left > 30% card width | Emit `SoftDelete`, add to `pendingDeletes` |
 | `SNACKBAR → CARD` | Tap "Undo" | Emit `UndoDelete`, remove from `pendingDeletes` |
-| `SNACKBAR → DELETED` | Swipe snackbar left > 30% | Emit `PermanentDelete`, remove from `pendingDeletes` |
+| `SNACKBAR → DELETED` | Swipe snackbar ≥ 48 dp either way | Emit `PermanentDelete`, remove from `pendingDeletes` |
 | Back press | Dismiss with pending | Emit `PermanentDelete` for each pending ID, then `onDismiss()` |
+
+The map's undo snackbar stack (`SnackRow`) shares this dismiss contract: the 4 s timeout and a
+horizontal swipe both take the **commit** path, Undo takes the reverse path, and a row may carry one
+optional **second action** beside Undo — only the route discard uses it, adding **New acquisition**.
 
 Animations: card enter/exit `spring()`, snackbar enter/exit `tween(250)`.
 

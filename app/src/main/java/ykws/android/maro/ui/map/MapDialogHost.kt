@@ -78,6 +78,9 @@ internal fun MapDialogHost(
     routeViewModel: RouteViewModel,
     onDismissExit: () -> Unit,
     onSaveRoute: (RoutePlan) -> Unit,
+    /** The dialog's own Discard — the deferred, toasting ending. */
+    onDiscardRoute: () -> Unit,
+    /** Save-and-exit's silent ending: it writes first and never toasts. */
     onEndRoute: () -> Unit,
     // ── Resume confirmation (optional backup) ──
     resumeTarget: PendingTrackResume?,
@@ -278,7 +281,7 @@ internal fun MapDialogHost(
                     role = ConfirmActionRole.DANGER
                 ) {
                     onDismissExit()
-                    onEndRoute()
+                    onDiscardRoute()
                 }
             )
         )

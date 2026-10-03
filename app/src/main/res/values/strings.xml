@@ -661,6 +661,11 @@
     <string name="route_exit_continue">Continue Route</string>
     <string name="route_exit_discard">Discard</string>
     <string name="route_exit_stop_following">Stop following</string>
+    <!-- The deferred discard's toast: the acquisition's ending and a followed route's, told apart, each
+         offering Undo (reusing `action_undo`) and New acquisition, which re-arms the same ends. -->
+    <string name="route_discard_acq_toast">Route acquisition discarded. Next step?</string>
+    <string name="route_discard_followed_toast">Route discarded. Next step?</string>
+    <string name="route_action_new_acquisition">New acquisition</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>

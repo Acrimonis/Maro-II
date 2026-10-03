@@ -19,6 +19,9 @@ import ykws.android.maro.R
  * (`activeSnacks`) and its undo/timeout side effects stay hoisted in MapScreen
  * because they write cross-cutting map state (undo reopens drawers, timeouts drive
  * ViewModel deletes). `ActiveSnack`/`SnackRow` remain in MapScreen.kt (internal).
+ *
+ * The route discard's toast carries a second action — **New acquisition** — while the three delete
+ * snacks carry only Undo; its message names the phase honestly from string resources.
  */
 @Composable
 internal fun MapSnackbarHost(
@@ -27,7 +30,8 @@ internal fun MapSnackbarHost(
     portraitDashboardHeight: Dp,
     landscapeDashboardWidth: Dp,
     onUndo: (ActiveSnack) -> Unit,
-    onTimeout: (ActiveSnack) -> Unit
+    onTimeout: (ActiveSnack) -> Unit,
+    onSecondAction: (ActiveSnack) -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -42,14 +46,25 @@ internal fun MapSnackbarHost(
         ) {
             activeSnacks.forEach { snack ->
                 key(snack.uid) {
+                    val routeDiscard = snack as? ActiveSnack.RouteDiscard
                     SnackRow(
                         message = when (snack) {
                             is ActiveSnack.TrackDelete -> "Track '${snack.name}' deleted"
                             is ActiveSnack.MarkerDelete -> "Marker '${snack.name}' deleted"
                             is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
+                            is ActiveSnack.RouteDiscard -> stringResource(
+                                if (snack.followed) R.string.route_discard_followed_toast
+                                else R.string.route_discard_acq_toast
+                            )
                         },
                         snackKey = snack.uid,
                         showUndo = true,
+                        secondActionLabel = if (routeDiscard != null) {
+                            stringResource(R.string.route_action_new_acquisition)
+                        } else null,
+                        onSecondAction = if (routeDiscard != null) {
+                            { onSecondAction(snack) }
+                        } else null,
                         onUndo = { onUndo(snack) },
                         onTimeout = { onTimeout(snack) }
                     )

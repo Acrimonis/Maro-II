@@ -83,7 +83,8 @@ import ykws.android.maro.ui.components.DrawerScaffold
  * @param onStepPage      **next/prev**: steps the selection and loops it.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
- * @param onDiscard       **Discard route**: leaves the acquisition and turns the toggle off (R57).
+ * @param onDiscard       **Discard route**: presents the ending at once — the panel and the line leave,
+ *                        the toggle reads off — while the real disposal waits on the toast (R57).
  */
 @Composable
 internal fun RouteConfirmationPanel(
