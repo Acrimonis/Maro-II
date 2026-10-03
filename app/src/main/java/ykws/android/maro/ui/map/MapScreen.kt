@@ -3345,6 +3345,7 @@ fun MapScreen(
                     is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope, onProgress = { chrome.trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
+                    is ykws.android.maro.data.model.ListAction.TogglePin -> trackViewModel.setPinned(action.id, action.pinned)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState, reloadFromDisk = false)
                     is ykws.android.maro.data.model.ListAction.RefreshLayer -> mapView?.invalidate()
                     else -> {}
@@ -3429,6 +3430,7 @@ fun MapScreen(
                         markersViewModel.deleteMarker(action.id, closeDrawer = false)
                         advanceMarkerCardFrom(action.id)
                     }
+                    is ykws.android.maro.data.model.ListAction.TogglePin -> markersViewModel.setMarkerPinned(action.id, action.pinned)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> markersViewModel.refreshSort(action.sortState)
                     else -> {}
                 }

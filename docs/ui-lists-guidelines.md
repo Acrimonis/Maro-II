@@ -18,8 +18,9 @@ ListOverlayScaffold<T>
 ├── LazyColumn
 │   ├── isLive → liveCardContent(T)         (no swipe, always top)
 │   └── !isLive → SwipeableItemCard
-│       ├── SwipeState.CARD     → cardContent(T)
-│       ├── SwipeState.SNACKBAR → SnackbarSlot
+│       ├── SwipeState.CARD     → pin reveal (glyph, beneath) + cardContent(T) on the signed drag
+│       │                         left past 30% = delete lifecycle · right past 30% = TogglePin
+│       ├── SwipeState.SNACKBAR → SnackbarSlot (delete only)
 │       └── SwipeState.DELETED  → removed
 └── onAction: (ListAction) → Unit
 ```
@@ -199,7 +200,32 @@ _allItems (unfiltered source of truth)
 - `TrackViewModel`: `_allSummaries` → filter → sort → `_summaries`
 - `MarkersViewModel`: `_allMarkers` → filter → sort → `_markers`
 
-## Swipe-to-Delete
+## Swipe
+
+One gesture surface on the card, both directions resolved on release by
+[`swipeOutcome(offsetPx, cardWidthPx, threshold)`](app/src/main/java/ykws/android/maro/ui/components/SwipePolicy.kt)
+— a pure function, unit-tested in `SwipePolicyTest`, so the arithmetic needs no device.
+
+| Release | Outcome |
+|---------|---------|
+| Left, past 30 % of the card width | `Delete` — the delete lifecycle below |
+| Right, past 30 % of the card width | `TogglePin` — emit `ListAction.TogglePin(id, target)`, card snaps back to rest |
+| Either side, at or inside 30 % | `None` — snap back to rest |
+
+- The offset is clamped to the card's own width either way (`-cardWidthPx .. cardWidthPx`), and a
+  card not measured yet resolves nothing.
+- The drag is gated on `SwipeState.CARD` + `!cardDismissed` + `!isMultiSelectMode`; the live card
+  has no swipe.
+
+### Pin reveal
+
+The card's rightward travel uncovers a glyph layer drawn beneath the card's own content, at the
+card's leading edge: `Filled.PushPin` while the item is pinned, `Outlined.PushPin` while it is not,
+on the `ButtonColors.icon` tint, carrying `cd_unpin` / `cd_pin`. No word label joins it, so no string
+is added in either locale. The layer is drawn only while the drag stands right of rest, so the
+leftward delete never uncovers it.
+
+### Delete lifecycle
 
 State machine: `CARD → SNACKBAR → DELETED`
 
@@ -214,7 +240,11 @@ The map's undo snackbar stack (`SnackRow`) shares this dismiss contract: the 4 s
 horizontal swipe both take the **commit** path, Undo takes the reverse path, and a row may carry one
 optional **second action** beside Undo — only the route discard uses it, adding **New acquisition**.
 
-Animations: card enter/exit `spring()`, snackbar enter/exit `tween(250)`.
+The pin has no snackbar, no undo and no pending set — the same gesture reverses it, and the
+snackbar's own drag stays delete-only.
+
+Animations: card enter/exit `spring()`, snackbar enter/exit `tween(250)`; the pin's snap-back reuses
+the card's own `tween(200)` offset animation.
 
 ## Deferred Batch Delete
 
@@ -230,6 +260,7 @@ sealed class ListAction {
     data class SoftDelete(val id: String, val title: String) : ListAction()
     data class UndoDelete(val id: String) : ListAction()
     data class PermanentDelete(val id: String) : ListAction()
+    data class TogglePin(val id: String, val pinned: Boolean) : ListAction()
     data class SelectItem(val id: String) : ListAction()
     data class EditItem(val id: String) : ListAction()
     data class ExportGpx(val id: String) : ListAction()

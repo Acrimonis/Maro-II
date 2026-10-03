@@ -55,6 +55,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -337,6 +339,7 @@ private fun <T : ListableItem> SwipeableItemCard(
     onSoftDelete: (T) -> Unit,
     onUndoDelete: (T) -> Unit,
     onPermanentDelete: (T) -> Unit,
+    onTogglePin: (T) -> Unit,
     isMultiSelectMode: Boolean = false,
     isSelected: Boolean = false,
     onToggleSelection: () -> Unit = {}
@@ -350,6 +353,9 @@ private fun <T : ListableItem> SwipeableItemCard(
     var snackDragOffset by remember { mutableFloatStateOf(0f) }
     val snackSwipeOffset by animateFloatAsState(snackDragOffset, tween(ANIM_DURATION_MS))
     var cardDismissed by remember { mutableStateOf(false) }
+    // The pin reveal belongs to the rightward travel alone: it is drawn only while the drag stands
+    // to the right of rest, so a leftward delete can never uncover it as the card leaves the slot.
+    val pinRevealAlpha = if (cardSwipeOffset > 0f) 1f else 0f
 
     Column(modifier = Modifier.animateContentSize(tween(300))) {
         AnimatedVisibility(
@@ -359,52 +365,79 @@ private fun <T : ListableItem> SwipeableItemCard(
         ) {
             Box(
                 modifier = Modifier.fillMaxWidth()
-                    .offset { IntOffset(cardSwipeOffset.roundToInt(), 0) }
                     .onSizeChanged { cardWidthPx = it.width.toFloat() }
-                    .then(
-                        if (state == SwipeState.CARD && !cardDismissed && !isMultiSelectMode)
-                            Modifier.pointerInput(item.id) {
-                                detectHorizontalDragGestures(onDragEnd = {
-                                    val threshold = cardWidthPx * DRAG_THRESHOLD
-                                    if (cardDragOffset < -threshold) { scope.launch { cardDragOffset = -cardWidthPx; delay(220); cardDismissed = true; state = SwipeState.SNACKBAR; onSoftDelete(item) } }
-                                    else cardDragOffset = 0f
-                                }) { _, dragAmount -> cardDragOffset = (cardDragOffset + dragAmount).coerceIn(-cardWidthPx, 0f) }
-                            }
-                        else Modifier
-                    )
             ) {
-                // Layer 1: consumer's card content
-                cardContent(item)
-                // Layer 2: multiselect visuals — tonal shift + checkmark (only when selected)
-                if (isSelected) {
-                    Box(
-                        modifier = Modifier.matchParentSize()
-                            .background(Color.White.copy(alpha = 0.15f))
+                // Layer 0: the pin reveal — beneath the card, anchored at the card's own leading
+                // edge and uncovered as the card travels right. The glyph is the card's own pair,
+                // a pinned item offering the unpin door, on the card's own tint; no word joins it,
+                // so neither locale grows a string.
+                Box(
+                    modifier = Modifier.matchParentSize().alpha(pinRevealAlpha),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Icon(
+                        imageVector = if (item.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                        contentDescription = if (item.isPinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.padding(start = 16.dp).size(24.dp)
                     )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(4.dp)
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(Color(AppConfig.uiAccent)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = stringResource(R.string.cd_selected),
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                }
+                // Layers 1–3: the card itself, on the signed drag offset
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                        .offset { IntOffset(cardSwipeOffset.roundToInt(), 0) }
+                        .then(
+                            if (state == SwipeState.CARD && !cardDismissed && !isMultiSelectMode)
+                                Modifier.pointerInput(item.id) {
+                                    detectHorizontalDragGestures(onDragEnd = {
+                                        when (swipeOutcome(cardDragOffset, cardWidthPx, DRAG_THRESHOLD)) {
+                                            // The delete outcome keeps its lifecycle exactly: the
+                                            // card leaves the slot before the snackbar takes it.
+                                            SwipeOutcome.Delete -> scope.launch { cardDragOffset = -cardWidthPx; delay(220); cardDismissed = true; state = SwipeState.SNACKBAR; onSoftDelete(item) }
+                                            // The pin commits on release and the card slides back to
+                                            // rest: no snackbar and no pending set, the same gesture
+                                            // being what reverses it.
+                                            SwipeOutcome.TogglePin -> { onTogglePin(item); cardDragOffset = 0f }
+                                            SwipeOutcome.None -> cardDragOffset = 0f
+                                        }
+                                    }) { _, dragAmount -> cardDragOffset = swipeClampedOffset(cardDragOffset + dragAmount, cardWidthPx) }
+                                }
+                            else Modifier
+                        )
+                ) {
+                    // Layer 1: consumer's card content
+                    cardContent(item)
+                    // Layer 2: multiselect visuals — tonal shift + checkmark (only when selected)
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier.matchParentSize()
+                                .background(Color.White.copy(alpha = 0.15f))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp)
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color(AppConfig.uiAccent)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = stringResource(R.string.cd_selected),
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    // Layer 3: tap interceptor overlay — only in multiselect mode
+                    if (isMultiSelectMode) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { onToggleSelection() }
                         )
                     }
-                }
-                // Layer 3: tap interceptor overlay — only in multiselect mode
-                if (isMultiSelectMode) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable { onToggleSelection() }
-                    )
                 }
             }
         }
@@ -853,6 +886,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                                         onSoftDelete = { pendingDeletes.add(it.id); onAction(ListAction.SoftDelete(it.id, it.title)) },
                                         onUndoDelete = { pendingDeletes.remove(it.id); onAction(ListAction.UndoDelete(it.id)) },
                                         onPermanentDelete = { pendingDeletes.remove(it.id); onAction(ListAction.PermanentDelete(it.id)) },
+                                        onTogglePin = { onAction(ListAction.TogglePin(it.id, !it.isPinned)) },
                                         isMultiSelectMode = isMultiSelectMode,
                                         isSelected = isSelected,
                                         onToggleSelection = { toggleSelection(item.id) }
