@@ -423,4 +423,18 @@ private fun PlanNotes(plan: RoutePlan) {
             modifier = Modifier.fillMaxWidth()
         )
     }
+    if (plan.budgetUnmetZoneShare != null) {
+        Text(
+            text = stringResource(R.string.route_budget_unmet),
+            color = Color(AppConfig.uiDashboardTextPrimary),
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = stringResource(R.string.route_budget_unmet_desc),
+            color = Color(AppConfig.uiDashboardTextMuted),
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }

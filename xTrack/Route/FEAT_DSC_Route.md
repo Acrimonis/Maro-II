@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-30 21:43
+modified: 2026-10-03 02:39
 ---
 
 # Feature: Route
@@ -212,3 +212,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - A saved route keeps its two flagged ends and is found by them — the ids on the track and its summary, the arming match that answers a stored line with no search and a shut save door, and the reverse pair answered by mirroring the stored line at its own times → [`260930_FEAT_PLN_Route_saved-route-ends.md`](260930_FEAT_PLN_Route_saved-route-ends.md)
 - The 300 m band's own limit became its price — the zones' one law and no aversion key — and the clock reads that limit whatever the price switch says, shipped ahead of the cursor
 - The band's limit became a **limit on the grid**, priced per expansion so its price follows the corrected λ; the slow time split **zone · band · ramp** with the loop's budget keyed on the zone share alone; the cape's bend pinned on the derived exchange rate → [`260930_FEAT_PLN_Route_avoid-shortest-exit.md`](260930_FEAT_PLN_Route_avoid-shortest-exit.md)
+- The slow-water dials rework — the aversion exposed as a Settings dial seeded from `softCostAversion` and read live at every solve, the overrun surfaced, the empty candidate-pass no-op fixed, the fine pass made λ-respecting, and the providers re-pointed at the live settings; Phases 0/A/B/D shipped, Phase C and the consolidated Driving-preference cursor designed and owed → [`261002_FEAT_PLN_Route_aversion-and-slow-water-model.md`](261002_FEAT_PLN_Route_aversion-and-slow-water-model.md)

@@ -50,6 +50,11 @@ data class RoutePlan(
     val distanceM: Double,
     val durationSec: Double,
     /**
+     * The **zone share** of the trip's own time, set only where the slow-water budget was missed —
+     * `null` means the line is inside the budget. Reported, never refused.
+     */
+    val budgetUnmetZoneShare: Double? = null,
+    /**
      * The priced speed zones the route had to enter, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
@@ -120,6 +125,7 @@ data class RoutePlan(
                 legTimesSec = result.legTimesSec,
                 distanceM = result.distanceM,
                 durationSec = result.durationSec,
+                budgetUnmetZoneShare = result.budgetUnmetZoneShare,
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
                 computedAtMs = nowMs
             )

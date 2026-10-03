@@ -151,6 +151,14 @@ data class AppSettings(
      */
     val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
     /**
+     * The **aversion λ** (0–5) the route search bends around slow water at, seeded from
+     * `route.avoid.speedZone.softCostAversion`, so the property stays the value's one home and the
+     * shipped 4 is the day-one value until the user moves the dial. The user-facing preference of the
+     * slow-water model — 0 prices slow water as open water, 1 minimises real time, and 5 stays out.
+     */
+    val routeSlowWaterAversion: Float =
+        ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneSoftCostAversion.toFloat(),
+    /**
      * The **slow-water budget** (per cent of a trip, 0–100) the λ loop aims at, seeded from
      * `route.avoid.speedZone.timeBudgetPct`, so the property stays the value's one home. How much
      * slow water a trip may use is a preference rather than a tuning constant — the pace's own
@@ -595,6 +603,13 @@ class SettingsManager(
             ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN,
             ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN
         ),
+        routeSlowWaterAversion = prefs.getFloat(
+            KEY_ROUTE_SLOW_WATER_AVERSION,
+            ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneSoftCostAversion.toFloat()
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat(),
+            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat()
+        ),
         routeSlowWaterBudgetPct = prefs.getInt(
             KEY_ROUTE_SLOW_WATER_BUDGET_PCT,
             ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct
@@ -797,6 +812,7 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
+            .putFloat(KEY_ROUTE_SLOW_WATER_AVERSION, updated.routeSlowWaterAversion)
             .putInt(KEY_ROUTE_SLOW_WATER_BUDGET_PCT, updated.routeSlowWaterBudgetPct)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
@@ -989,6 +1005,8 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
         private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
+        /** The persisted aversion λ (0–5), seeded from `route.avoid.speedZone.softCostAversion`. */
+        private const val KEY_ROUTE_SLOW_WATER_AVERSION = "route_slow_water_aversion"
         /** The persisted slow-water budget (per cent), seeded from `route.avoid.speedZone.timeBudgetPct`. */
         private const val KEY_ROUTE_SLOW_WATER_BUDGET_PCT = "route_slow_water_budget_pct"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */

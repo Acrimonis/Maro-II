@@ -617,8 +617,9 @@ fun MapScreen(
         MutableStateFlow(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
-                    { appSettings.routeFreeWaterPaceKn.toDouble() },
-                    { appSettings.routeSlowWaterBudgetPct },
+                    { viewModel.settings.value.routeFreeWaterPaceKn.toDouble() },
+                    { viewModel.settings.value.routeSlowWaterAversion.toDouble() },
+                    { viewModel.settings.value.routeSlowWaterBudgetPct },
                     avoidWorldProvider
                 )
         )
@@ -626,7 +627,8 @@ fun MapScreen(
     MapRouteEngineEffect(
         appSettings = appSettings,
         routeEngineSelection = routeEngineSelection,
-        avoidWorldProvider = avoidWorldProvider
+        avoidWorldProvider = avoidWorldProvider,
+        settingsProvider = { viewModel.settings.value }
     )
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(

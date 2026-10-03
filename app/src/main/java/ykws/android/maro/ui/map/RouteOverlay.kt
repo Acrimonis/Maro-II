@@ -139,6 +139,11 @@ data class RouteTripFigure(
     val distanceNm: Double,
     val etaSeconds: Double,
     /**
+     * The zone share of the trip's own time, set only where the slow-water budget was missed — `null`
+     * means the line is inside the budget. Reported, never refused.
+     */
+    val budgetUnmetZoneShare: Double? = null,
+    /**
      * The zones a forced crossing entered, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
@@ -162,6 +167,7 @@ internal fun routeTripFigure(
     return RouteTripFigure(
         distanceNm = Units.metresToNauticalMiles(remaining.distanceM),
         etaSeconds = etaSeconds,
+        budgetUnmetZoneShare = plan.budgetUnmetZoneShare,
         forcedCrossingZoneNames = plan.forcedCrossingZoneNames,
         computedAtMs = plan.computedAtMs
     )
