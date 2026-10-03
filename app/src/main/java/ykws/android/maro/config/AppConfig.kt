@@ -594,13 +594,13 @@ object AppConfig {
     var trackWidthRouteDp: Float = 3f
         private set
     /** The saved-route dash's on length, in dp — the rhythm a route's whole stroke is broken into,
-     *  plain and speed-coloured alike. Default 6.6666667 (the 20 px of the 3× reference, divided by
+     *  plain and speed-coloured alike. Default 9.33333 (the 28 px of the 3× reference, divided by
      *  three). Set via `map.track.width.route.dashOn`. */
-    var trackRouteDashOnDp: Float = 20f / 3f
+    var trackRouteDashOnDp: Float = 9.33333f
         private set
-    /** The saved-route dash's off length, in dp. Default 3.3333333 (the 10 px of the 3× reference,
+    /** The saved-route dash's off length, in dp. Default 0.666667 (the 2 px of the 3× reference,
      *  divided by three). Set via `map.track.width.route.dashOff`. */
-    var trackRouteDashOffDp: Float = 10f / 3f
+    var trackRouteDashOffDp: Float = 0.666667f
         private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
      *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than

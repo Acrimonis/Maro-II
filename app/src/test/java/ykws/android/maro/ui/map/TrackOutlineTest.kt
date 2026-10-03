@@ -252,8 +252,8 @@ class TrackOutlineTest {
     fun theRouteDashKeysParseToTheCodesOwnDefaults() {
         val props = shippedProperties()
 
-        assertEquals(20f / 3f, AppConfig.trackRouteDashOnDp, 1e-6f)
-        assertEquals(10f / 3f, AppConfig.trackRouteDashOffDp, 1e-6f)
+        assertEquals(9.33333f, AppConfig.trackRouteDashOnDp, 1e-6f)
+        assertEquals(0.666667f, AppConfig.trackRouteDashOffDp, 1e-6f)
         assertEquals(
             AppConfig.trackRouteDashOnDp,
             props.getProperty("map.track.width.route.dashOn")!!.toFloat(),

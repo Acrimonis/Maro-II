@@ -1,9 +1,11 @@
 <!-- scope: feature -->
-# Saved routes — a darker own-colour casing, the same reinforcement the active route wears
+# Saved routes — a darker own-colour casing, superseded by the dashed display
 
-**Status:** in design · nothing implemented
-**Branch:** `feature/route-rendering` (pending — `#new route-rendering` issued, not yet run)
+**Status:** superseded — pivoted to a dashed display on the user's word; the casing under-stroke was rolled back and never shipped. The shipped design is a `dashed` flag through the segment builders, reading `map.track.width.route.dashOn` / `dashOff`.
+**Branch:** `feature/route-rendering`
 **Feature:** Route — the saved-route half edits the Tracks render pipeline
+
+> The steps below are the rolled-back casing design, kept as the record the dashed work's `## Implemented` pointer names. The shipped dashed display lives in [`MapTrackOverlayEffects.kt`](app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt:870) and [`MapTrackSegments.kt`](app/src/main/java/ykws/android/maro/ui/map/MapTrackSegments.kt:97).
 
 ## Request
 
