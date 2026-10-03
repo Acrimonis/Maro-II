@@ -4328,10 +4328,11 @@ private fun MapContent(
                         animationSpec = tween(300)
                     )
 
-                    // ── The route fan (R75–R80) ───────────────────────────────
+                    // ── The route fan (R75–R80, R91) ──────────────────────────
                     // The parent opens the arc and states the mode (R76); the five children are the
                     // route's own actions, each enabled by the phase alone (R77); and a child's press
-                    // closes the fan first, by clearing the one id that says which is open (D3, R78).
+                    // fires its action and leaves the arc expanded — the fan closes only on the back
+                    // key, the scrim, or the parent anchor's own toggle (R91).
                     // **The list runs bottom to top** — index 0 sits at the arc's bottom — so it is the
                     // screen's reading reversed: Discard lowest, `bolt` highest.
                     Box(modifier = Modifier.alpha(routeFanAlpha)) {
@@ -4366,7 +4367,6 @@ private fun MapContent(
                             ),
                             enabledStates = routeFanEnabled,
                             onChildClick = { index: Int, _: Boolean ->
-                                onDismissFan()
                                 routeFanActions.getOrNull(index)?.invoke()
                             }
                         )
