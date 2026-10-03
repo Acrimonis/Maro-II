@@ -11,6 +11,8 @@ sealed class ListAction {
     data class PermanentDelete(val id: String) : ListAction()
 
     // ── Item interaction ──────────────────────────────────────────────
+    /** Item swiped right — flip the pinned flag to the target state the card resolved. */
+    data class TogglePin(val id: String, val pinned: Boolean) : ListAction()
     /** Item tapped — show details / open viewer. */
     data class SelectItem(val id: String) : ListAction()
     /** Navigate to marker on map — dismiss list, animate map, open drawer. */
