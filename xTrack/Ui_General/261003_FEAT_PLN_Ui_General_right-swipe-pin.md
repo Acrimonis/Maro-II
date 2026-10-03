@@ -159,7 +159,7 @@ Verdict: **revise**, on one Medium — a screen-reader regression the unit tests
 - **Not covered by any file:** the on-device feel, the reveal's appearance and the filtered-list disappearance —
   the device work of §6.
 
-## 9. The inertia pass (2026-10-03, second request — in design, nothing implemented)
+## 9. The inertia pass (2026-10-03, second request — shipped, see §10)
 
 > "Right swipe should have more inertia: leave a left gap about the same size of the height of the card; leave it
 > opened for one sec for the pin/unpin icon flash to show."
@@ -234,3 +234,108 @@ gate, the two host wirings, and every string in both locales.
 
 **Tests and the honest gap.** The hold-offset helper takes unit cases; the flash itself — the gap's look, the
 one-second dwell, the return — is a device look, as the rest of the swipe already is.
+
+## 10. Shipped, and the Ask hop (2026-10-03)
+
+**Shipped:** the toggle fires mid-gesture the first frame the drag crosses 30 %, guarded per gesture; the release
+owns the hold alone — the card animates out to `pinHoldOffset(cardHeightPx, cardWidthPx)`, the `min` of the two,
+dwells `PIN_HOLD_MS = 1000L` counted from the moment it arrives, and returns on the shared `ANIM_DURATION_MS`; a
+gesture that fired the pin and then resolved `Delete` runs the untouched delete lifecycle with the hold suppressed;
+the hold yields to a new drag and is disposed with the composition; the reveal's icon is `contentDescription = null`
+with its alpha binary on the sign of the offset. `apk-build.bat` BUILD SUCCESSFUL and `:app:testDebugUnitTest`
+green, no new warning, no new dependency, nothing committed.
+
+Verdict: **revise**, on one Medium.
+
+- **Medium — the guard re-arms too early.** It resets on `onDragStart` while `cardDragOffset` can still stand at
+  the gap ([`ListOverlayScaffold.kt`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:403)),
+  and the gap is the card's height, so any card taller than 30 % of its width holds **past** the threshold — a new
+  drag over a held card re-invokes `onTogglePin` on its first frame. The guard should re-arm on the offset falling
+  back below the line, not on drag start.
+- **Low — today's single fire rests on a stale closure.** `Modifier.pointerInput(item.id)` keeps the `item`
+  captured when the block was created, so the re-fire's `!item.isPinned` resolves the first fire's own target — an
+  idempotent re-write rather than the flip-back the naive reading suggests. Sound behaviour by accident, not by the
+  guard.
+- **Low — no `onDragCancel`.** A gesture broken by a second pointer never resets the offset, and the hold job is
+  cancelled only on drag start, so an interrupted hold can leave the card and its reveal off rest — the §8 Low,
+  sharpened by the hold.
+- **Low — the hold job's ownership.** Launched in the composition scope but cancelled by the detector, so a gate
+  flip that tears the `pointerInput` down leaves it running to completion and `holdJob` is never nulled; it cannot
+  write after the item leaves. `SwipeableItemCard` now stands at roughly 160 lines and 8 nesting levels.
+- **Low — pre-existing doc staleness the pass brushed past**: the API block's `cardContent` / `customSortLabel` no
+  longer match the signature, and the `ListAction` listing still omits `NavigateToItem`, `BatchExportGpx`,
+  `ImportTracks` and `MergeTracks`.
+- **Confirmed rather than assumed:** the `Delete` branch precedes the hold branch, so precedence holds; the hold is
+  feedback-only with no per-item state, no semantics node and no hit target; every non-hold path returns the offset
+  to rest; `pinHoldOffset` is pure and Compose-free with its degenerate cases pinned; the committed pass's strict
+  threshold boundary, both gates and the two host wirings survive; and no string or dependency entered.
+- **Named, not fixed:** with an active Pinned or Unpinned filter the item leaves the list mid-drag, so the hold may
+  have nothing left to hold.
+- **Not covered by any file:** the flash's look, the dwell's feel and the filter disappearance — the device work §6
+  owes.
+
+## 11. Two corrections after the first look (2026-10-03 — shipped, see §12)
+
+**A. The hold travels too far — the gap becomes a fixed space.** The user's word: the card-height gap is too much
+travel for a glance. The gap becomes **`PIN_REVEAL_GAP_DP = 56`** — the reveal's own arithmetic mirrored, being the
+16 dp leading inset plus the 24 dp glyph plus 16 dp of clearance — converted through the project's
+density-explicit dp helper, with **48 dp** the tighter alternative if 56 reads loose. Consequences: the flash is the
+same size on every card rather than proportional to whatever height the card happens to have; `pinHoldOffset`
+collapses to `min(gapPx, cardWidthPx)`, keeping its degenerate guard and its tests; and the §10 Medium's window
+shrinks, since 56 dp sits under 30 % of a card's width on any ordinary phone — a very narrow card can still hold
+past the line, so B's guard fix stands.
+
+**B. The action is not a toggle — the target is captured once. Confirmed in the code.** `SwipeableItemCard` fires
+`onTogglePin(item)`
+([`:434`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:434)) from inside
+`Modifier.pointerInput(item.id)`
+([`:396`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:396)), and Compose
+re-launches that block only when the **id** changes. The `item` it closes over is therefore the instance captured
+when the block was created, so the target the scaffold resolves — `ListAction.TogglePin(id, !item.isPinned)` — is
+computed from a **stale flag**: the first swipe pins the card, and every later swipe on the same card recomputes
+`true` again. That is precisely the reported "it pins when unpinned and never unpins when pinned". The glyph, read
+in the composition at
+[`:382`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:382), is fresh — so the card
+*looks* pinned while the action refuses to take the pin away. **Fix:** read the item through `rememberUpdatedState`
+and fire from that, so the target is resolved at the moment of the fire. Keying the detector on `item.isPinned`
+instead is forbidden — restarting it mid-gesture would break the drag.
+
+**C. The guard's re-arm belongs to the same fix.** §8 was carried forward through point 7 of §9, but with a fresh
+target the §10 Medium turns into a real **flip-back**: the flag must return to `false` when the offset falls back
+inside the threshold, not on `onDragStart`.
+
+## 12. The corrections shipped, and the Ask hop (2026-10-03)
+
+**Shipped:** the gap is the fixed `PIN_REVEAL_GAP_DP = 56`, converted through the project's own density-explicit
+`dpToPx`, with `pinHoldOffset` reduced to `min(gapPx, cardWidthPx)` and its tests rewritten; `item` and
+`onTogglePin` are read through `rememberUpdatedState` and the target resolves at the moment of the fire, the
+detector still keyed on the item's id and never on the pin flag; `onDragCancel` returns a broken gesture to rest;
+`onDragStart` keeps the hold's cancellation. `apk-build.bat` BUILD SUCCESSFUL and `:app:testDebugUnitTest` green,
+no new warning, no new dependency, nothing committed.
+
+Verdict: **revise**, on one Medium — and it is C's own doing.
+
+- **Medium — the re-arm lets one gesture toggle twice.** Clearing `pinFiredThisGesture` on every frame that
+  resolves `None` — the band `-threshold < offset < threshold` — means a drag that crosses the line, eases back
+  inside and pushes out again fires the toggle on **each crossing**
+  ([`ListOverlayScaffold.kt`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:459)):
+  the reveal's glyph and the card's own button flip and flip back, and the state left at release is the parity of
+  the crossings. §9's own "once per gesture" is contradicted, and the guideline was written to match the code
+  rather than the design of record.
+- **The remedy is one line, and the 56 dp gap is exactly what makes it safe.** With the gap fixed at 56 dp — under
+  30 % of a card's width — a held card resolves `None`, so the guard's **original `onDragStart` reset** no longer
+  re-fires on a new drag's first frame. Restoring it yields one toggle per gesture and retires §10's Medium at the
+  same time: the offset-based re-arm was answering a problem the smaller gap had already removed.
+- **Low — `onDragCancel` is implicit.** It returns the offset to rest but touches neither the hold job nor the
+  guard, relying on `onDragStart` having run first — true for the detector as written, but unstated.
+- **Low — the detector's shape after a third pass.** Roughly 53 lines at deep nesting, with the two release legs
+  duplicating the animate-dwell-act launch, and freshness mixed: the pin path reads the updated state while the
+  delete and snackbar paths still close over the captured `item`.
+- **Low — the repo contradicts itself on the pass's status**: §11's heading read "in design, nothing implemented"
+  while A, B and C were in, and the guideline's `ListAction` listing remains a partial restatement that omits
+  `NavigateToItem`, `BatchExportGpx`, `ImportTracks` and `MergeTracks`.
+- **Confirmed rather than assumed:** the target is genuinely fresh — `currentItem` and `currentOnTogglePin` are
+  consumed inside the detector, the key is the id alone, and a second swipe on the same card inverts correctly;
+  the display and the action cannot disagree; the gap converts through the existing `dpToPx` and no height read
+  survives anywhere; and the delete body and its precedence, both gates, the two host wirings, the decorative
+  reveal and every string are untouched.

@@ -75,6 +75,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +85,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -91,6 +93,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.R
@@ -108,6 +111,7 @@ import ykws.android.maro.ui.icons.FilterAlt
 import ykws.android.maro.ui.icons.FilterList
 import ykws.android.maro.ui.icons.Refresh
 import ykws.android.maro.ui.map.ButtonColors
+import ykws.android.maro.ui.map.dpToPx
 import kotlin.math.roundToInt
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -329,6 +333,11 @@ private const val SNACKBAR_BG_ALPHA = 0.0765f
 private const val DRAG_THRESHOLD = 0.30f
 private const val ANIM_DURATION_MS = 200
 private const val SNACK_ANIM_MS = 250
+private const val PIN_HOLD_MS = 1000L
+
+// The pin hold's gap in dp — the reveal's own arithmetic mirrored: the 16 dp leading inset plus
+// the 24 dp glyph plus 16 dp of clearance. A fixed space, so the flash reads the same on every card.
+private const val PIN_REVEAL_GAP_DP = 56f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -353,9 +362,18 @@ private fun <T : ListableItem> SwipeableItemCard(
     var snackDragOffset by remember { mutableFloatStateOf(0f) }
     val snackSwipeOffset by animateFloatAsState(snackDragOffset, tween(ANIM_DURATION_MS))
     var cardDismissed by remember { mutableStateOf(false) }
+    // The hold's gap, a fixed 56 dp through the project's own density-explicit dp→px helper, so the
+    // flash reads the same on every card rather than following whatever height it happens to have.
+    val pinRevealGapPx = dpToPx(PIN_REVEAL_GAP_DP, LocalDensity.current.density)
     // The pin reveal belongs to the rightward travel alone: it is drawn only while the drag stands
     // to the right of rest, so a leftward delete can never uncover it as the card leaves the slot.
     val pinRevealAlpha = if (cardSwipeOffset > 0f) 1f else 0f
+    // The detector's block is re-launched only when the item's id changes, so the `item` and the
+    // callback it closes over would keep the values captured when it was created — every swipe
+    // would recompute the same target. Both are read through the updated state, so the target is
+    // resolved at the moment of the fire.
+    val currentItem by rememberUpdatedState(item)
+    val currentOnTogglePin by rememberUpdatedState(onTogglePin)
 
     Column(modifier = Modifier.animateContentSize(tween(300))) {
         AnimatedVisibility(
@@ -377,7 +395,9 @@ private fun <T : ListableItem> SwipeableItemCard(
                 ) {
                     Icon(
                         imageVector = if (item.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                        contentDescription = if (item.isPinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
+                        // Decorative: the card's own pin button already names the action, so the
+                        // reveal contributes no second accessibility node.
+                        contentDescription = null,
                         tint = ButtonColors.icon,
                         modifier = Modifier.padding(start = 16.dp).size(24.dp)
                     )
@@ -389,18 +409,57 @@ private fun <T : ListableItem> SwipeableItemCard(
                         .then(
                             if (state == SwipeState.CARD && !cardDismissed && !isMultiSelectMode)
                                 Modifier.pointerInput(item.id) {
-                                    detectHorizontalDragGestures(onDragEnd = {
-                                        when (swipeOutcome(cardDragOffset, cardWidthPx, DRAG_THRESHOLD)) {
-                                            // The delete outcome keeps its lifecycle exactly: the
-                                            // card leaves the slot before the snackbar takes it.
-                                            SwipeOutcome.Delete -> scope.launch { cardDragOffset = -cardWidthPx; delay(220); cardDismissed = true; state = SwipeState.SNACKBAR; onSoftDelete(item) }
-                                            // The pin commits on release and the card slides back to
-                                            // rest: no snackbar and no pending set, the same gesture
-                                            // being what reverses it.
-                                            SwipeOutcome.TogglePin -> { onTogglePin(item); cardDragOffset = 0f }
-                                            SwipeOutcome.None -> cardDragOffset = 0f
+                                    // Per-gesture feedback state, scoped to this detector: the flag
+                                    // makes a held drag toggle once and not once a frame, and the
+                                    // job is what a new drag cancels to interrupt a running hold.
+                                    var pinFiredThisGesture = false
+                                    var holdJob: Job? = null
+                                    detectHorizontalDragGestures(
+                                        onDragStart = {
+                                            holdJob?.cancel()
+                                            holdJob = null
+                                        },
+                                        onDragCancel = {
+                                            // A gesture broken by a second pointer leaves the offset
+                                            // wherever it stood; return the card and its reveal to rest.
+                                            cardDragOffset = 0f
+                                        },
+                                        onDragEnd = {
+                                            when {
+                                                // The delete lifecycle outranks the hold: a gesture
+                                                // that fired the pin and then resolved Delete deletes,
+                                                // the left swipe keeping precedence.
+                                                swipeOutcome(cardDragOffset, cardWidthPx, DRAG_THRESHOLD) == SwipeOutcome.Delete ->
+                                                    scope.launch { cardDragOffset = -cardWidthPx; delay(220); cardDismissed = true; state = SwipeState.SNACKBAR; onSoftDelete(item) }
+                                                // The pin already committed mid-gesture; the release
+                                                // owns only the hold — out to the fixed reveal gap, a
+                                                // full second there, then home, driven from wherever
+                                                // the offset stands.
+                                                pinFiredThisGesture -> holdJob = scope.launch {
+                                                    cardDragOffset = pinHoldOffset(pinRevealGapPx, cardWidthPx)
+                                                    delay(ANIM_DURATION_MS.toLong() + PIN_HOLD_MS)
+                                                    cardDragOffset = 0f
+                                                }
+                                                else -> cardDragOffset = 0f
+                                            }
                                         }
-                                    }) { _, dragAmount -> cardDragOffset = swipeClampedOffset(cardDragOffset + dragAmount, cardWidthPx) }
+                                    ) { _, dragAmount ->
+                                        cardDragOffset = swipeClampedOffset(cardDragOffset + dragAmount, cardWidthPx)
+                                        // The toggle fires the moment the offset crosses the
+                                        // threshold, not on release, so the reveal's glyph and the
+                                        // card's own pin button both read the new flag at once. The
+                                        // flag re-arms when the offset falls back inside the line, so
+                                        // a card held past the threshold cannot re-fire on the next
+                                        // drag's first frame.
+                                        when (swipeOutcome(cardDragOffset, cardWidthPx, DRAG_THRESHOLD)) {
+                                            SwipeOutcome.TogglePin -> if (!pinFiredThisGesture) {
+                                                pinFiredThisGesture = true
+                                                currentOnTogglePin(currentItem)
+                                            }
+                                            SwipeOutcome.None -> pinFiredThisGesture = false
+                                            else -> Unit
+                                        }
+                                    }
                                 }
                             else Modifier
                         )

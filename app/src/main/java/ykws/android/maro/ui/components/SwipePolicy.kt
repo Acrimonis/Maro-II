@@ -39,3 +39,11 @@ internal fun swipeOutcome(offsetPx: Float, cardWidthPx: Float, threshold: Float)
  */
 internal fun swipeClampedOffset(offsetPx: Float, cardWidthPx: Float): Float =
     offsetPx.coerceIn(-cardWidthPx, cardWidthPx)
+
+/**
+ * The gap a pin release holds the card out at: [gapPx] — the reveal's own fixed space, whatever the
+ * card's height — capped at the card's width, so a degenerate tall-and-narrow card cannot push the
+ * reveal past the travel its slot allows. A card not measured yet holds nothing.
+ */
+internal fun pinHoldOffset(gapPx: Float, cardWidthPx: Float): Float =
+    minOf(gapPx, cardWidthPx)

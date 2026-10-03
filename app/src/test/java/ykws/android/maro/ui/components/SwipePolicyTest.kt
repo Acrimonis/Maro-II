@@ -46,6 +46,23 @@ class SwipePolicyTest {
     }
 
     @Test
+    fun `the pin hold gap is the fixed reveal space, whatever the card measures`() {
+        assertEquals(168f, pinHoldOffset(168f, 1000f), 0.001f)
+        assertEquals(168f, pinHoldOffset(168f, 3000f), 0.001f)
+    }
+
+    @Test
+    fun `a tall and narrow card holds no more than its own width`() {
+        assertEquals(1000f, pinHoldOffset(1600f, 1000f), 0.001f)
+    }
+
+    @Test
+    fun `a card not measured holds no gap`() {
+        assertEquals(0f, pinHoldOffset(0f, 1000f), 0.001f)
+        assertEquals(0f, pinHoldOffset(168f, 0f), 0.001f)
+    }
+
+    @Test
     fun `the drag is held inside the card's own width`() {
         assertEquals(width, swipeClampedOffset(width * 2f, width), 0.001f)
         assertEquals(-width, swipeClampedOffset(-width * 2f, width), 0.001f)
