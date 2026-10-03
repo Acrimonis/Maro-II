@@ -629,8 +629,8 @@
     <!-- Les trois actions propres à l'acquisition (R55, réécrit le 2026-09-28) : l'enregistrement écrit
          la ligne **sélectionnée** et partage une ligne avec la sélection, et l'abandon quitte
          l'acquisition sans rien demander sous le mot de `route_exit_discard` — un acte, une clé. -->
-    <string name="route_action_save_track">Enregistrer dans les traces</string>
-    <string name="route_action_select">Sélectionner la route</string>
+    <string name="route_action_save_track">Enregistrer</string>
+    <string name="route_action_select">Sélectionner</string>
     <string name="route_pin_label">Épingler la trace</string>
     <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
          une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,
@@ -646,6 +646,7 @@
     <string name="route_status_acquiring">Acquisition…</string>
     <string name="route_status_acquiring_stage">Acquisition (%1$s)…</string>
     <string name="route_status_active">Route active</string>
+    <string name="route_status_selected">Sélectionné — itinéraire en cours de finalisation…</string>
     <!-- L\'étape de l\'acquisition, telle que l\'ensemble fermé du moteur la publie : un mot par
          frontière traversée, dans l\'ordre où elles le sont. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -659,12 +660,16 @@
     <string name="route_exit_title">Quitter la route ?</string>
     <string name="route_exit_save">Enregistrer la route dans les traces</string>
     <string name="route_exit_continue">Continuer la route</string>
-    <string name="route_exit_discard">Abandonner la route</string>
+    <string name="route_exit_discard">Abandonner</string>
     <string name="route_exit_stop_following">Arrêter de suivre</string>
     <string name="route_refusal_too_short">Départ et destination trop proches pour tracer une route</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_summary_distance_value_fmt">%1$.1f</string>
+    <string name="route_summary_distance_unit">NM</string>
+    <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
+    <string name="route_summary_eta_unit">min</string>
     <!-- Le sous-titre du résumé du tiroir au-dessus de la paire relative au bateau : ce qu'il reste à parcourir. -->
     <string name="route_trip_remaining">Restant</string>
     <string name="route_trip_ago">il y a %1$s</string>
@@ -676,11 +681,14 @@
          price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
     <string name="route_budget_unmet">Budget d\'eau lente non respecté</string>
     <string name="route_budget_unmet_desc">Le trajet passe plus de temps que le budget ne l\'autorise au ralenti dans les zones de vitesse.</string>
-    <string name="settings_route_pace_label">Allure en eau libre</string>
-    <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
+    <string name="settings_route_pace_label">Vitesse de croisière</string>
+    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
     <string name="settings_route_budget_label">Budget d\'eau lente</string>
-    <string name="settings_route_budget_desc">La part du temps d\'un trajet qui peut être passée au ralenti dans les zones de vitesse ; un trajet qui la dépasse le signale</string>
+    <string name="settings_route_budget_desc">Quelle part du trajet vous acceptez en zones lentes — la route ajuste son évitement pour s\'y tenir, et le signale quand elle n\'y parvient pas.</string>
+    <string name="settings_route_aversion_label">Éviter les zones lentes</string>
+    <string name="settings_route_aversion_desc">Jusqu\'où la route se déforme pour rester hors des zones lentes : aucune les traverse librement, normale prend le trajet le plus rapide, maximale reste en dehors.</string>
+    <string name="settings_route_aversion_value_fmt">%1$.1f</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>

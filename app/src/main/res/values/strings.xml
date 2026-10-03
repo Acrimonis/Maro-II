@@ -629,8 +629,8 @@
     <!-- The acquisition's own three actions (R55, rewritten 2026-09-28): the save writes the
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
          asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
-    <string name="route_action_save_track">Save to track</string>
-    <string name="route_action_select">Select route</string>
+    <string name="route_action_save_track">Save</string>
+    <string name="route_action_select">Select</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
@@ -646,6 +646,7 @@
     <string name="route_status_acquiring">Acquiring…</string>
     <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
     <string name="route_status_active">Route active</string>
+    <string name="route_status_selected">Selected — finishing the line…</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -658,12 +659,16 @@
     <string name="route_exit_title">Leave the Route mode?</string>
     <string name="route_exit_save">Save Route and exit</string>
     <string name="route_exit_continue">Continue Route</string>
-    <string name="route_exit_discard">Discard Route</string>
+    <string name="route_exit_discard">Discard</string>
     <string name="route_exit_stop_following">Stop following</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_summary_distance_value_fmt">%1$.1f</string>
+    <string name="route_summary_distance_unit">NM</string>
+    <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
+    <string name="route_summary_eta_unit">min</string>
     <!-- The drawer summary's sub-title over the boat-relative pair: what is left to travel. -->
     <string name="route_trip_remaining">Remaining</string>
     <string name="route_trip_ago">%1$s ago</string>
@@ -675,11 +680,14 @@
          price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
     <string name="route_budget_unmet">Slow-water budget not met</string>
     <string name="route_budget_unmet_desc">The route spends more of its time slowed by speed zones than the budget allows.</string>
-    <string name="settings_route_pace_label">Free-water pace</string>
-    <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
+    <string name="settings_route_pace_label">Cruising speed</string>
+    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
     <string name="settings_route_budget_label">Slow-water budget</string>
-    <string name="settings_route_budget_desc">The share of a trip\'s time a route may spend slowed by speed zones; a route still over it reports the overrun</string>
+    <string name="settings_route_budget_desc">How much of the trip you accept in slow zones — the route adjusts its avoidance to meet it, and tells you when it cannot.</string>
+    <string name="settings_route_aversion_label">Avoid slow zones</string>
+    <string name="settings_route_aversion_desc">How far the route bends to stay out of slow zones: none crosses freely, normal takes the fastest route, maximum stays out.</string>
+    <string name="settings_route_aversion_value_fmt">%1$.1f</string>
     <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>

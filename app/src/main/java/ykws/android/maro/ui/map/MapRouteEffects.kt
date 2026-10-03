@@ -22,14 +22,16 @@ import ykws.android.maro.spatial.avoid.AvoidWorld
 internal fun MapRouteEngineEffect(
     appSettings: AppSettings,
     routeEngineSelection: MutableStateFlow<RouteEngine>,
-    avoidWorldProvider: () -> AvoidWorld
+    avoidWorldProvider: () -> AvoidWorld,
+    settingsProvider: () -> AppSettings
 ) {
     LaunchedEffect(appSettings.routeEngineId) {
         routeEngineSelection.value =
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
-                    { appSettings.routeFreeWaterPaceKn.toDouble() },
-                    { appSettings.routeSlowWaterBudgetPct },
+                    { settingsProvider().routeFreeWaterPaceKn.toDouble() },
+                    { settingsProvider().routeSlowWaterAversion.toDouble() },
+                    { settingsProvider().routeSlowWaterBudgetPct },
                     avoidWorldProvider
                 )
     }

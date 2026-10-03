@@ -354,6 +354,14 @@ private fun RouteTripCard(
         } else {
             null
         },
+        // The budget's own verdict: a way around exists and the price could not reach it, so the
+        // overrun is reported rather than hidden.
+        if (trip.budgetUnmetZoneShare != null) {
+            stringResource(R.string.route_budget_unmet) + " — " +
+                stringResource(R.string.route_budget_unmet_desc)
+        } else {
+            null
+        },
         routeAgeText(ageSeconds)
     ).joinToString(" \u00b7 ")
 

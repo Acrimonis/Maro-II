@@ -166,6 +166,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.RasterCache
@@ -617,8 +619,9 @@ fun MapScreen(
         MutableStateFlow(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
-                    { appSettings.routeFreeWaterPaceKn.toDouble() },
-                    { appSettings.routeSlowWaterBudgetPct },
+                    { viewModel.settings.value.routeFreeWaterPaceKn.toDouble() },
+                    { viewModel.settings.value.routeSlowWaterAversion.toDouble() },
+                    { viewModel.settings.value.routeSlowWaterBudgetPct },
                     avoidWorldProvider
                 )
         )
@@ -626,7 +629,8 @@ fun MapScreen(
     MapRouteEngineEffect(
         appSettings = appSettings,
         routeEngineSelection = routeEngineSelection,
-        avoidWorldProvider = avoidWorldProvider
+        avoidWorldProvider = avoidWorldProvider,
+        settingsProvider = { viewModel.settings.value }
     )
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
@@ -641,6 +645,15 @@ fun MapScreen(
     // the back key — all reach them from outside the panel's own composition (R23), and one dialog
     // reached by three doors needs one set of those values.
     var routePinned by remember { mutableStateOf(false) }
+    // The early save's draft: a track already written, re-saved at each main iteration. The id's
+    // presence is the "already saved" fact the doors read; the companions fix its identity.
+    var routeDraftId by remember { mutableStateOf<String?>(null) }
+    var routeDraftCreatedAtMs by remember { mutableStateOf(0L) }
+    var routeDraftName by remember { mutableStateOf("") }
+    var routeDraftPin by remember { mutableStateOf(false) }
+    // One gate for the draft's writes: the re-save and the final overwrite serialize on it, so a
+    // stale partial line can never be written after the full one.
+    val routeDraftWriteMutex = remember { Mutex() }
     var routeExitRequested by remember { mutableStateOf(false) }
     // **The auto-pick's own one-shot flag** (R80): armed by the fan's *Route (auto)* child, it takes the
     // settled line the instant that line exists and clears with it — on the selection, on an end and on a
@@ -661,8 +674,12 @@ fun MapScreen(
     // save writes (R54, R55): read from the same list the drawing reads, so the two cannot disagree.
     val routeSelectedPage = selectedPageOrNull(routePages, routeSelectedIndex)
     val routeSelectedLine = routeSelectedPage?.plan
-    // **Is the selected line already written?** — the one fact the save actions grey themselves on.
-    val routeFrontSaved = routeSelectedLine?.let { routeSessionLinks[it] != null } == true
+    // **Is the selected line already written?** — the one fact the save actions grey themselves on;
+    // an early save still growing its draft counts as written too.
+    val routeFrontSaved = routeSelectedLine?.let { routeSessionLinks[it] != null } == true || routeDraftId != null
+    // **The early doors** — the main's partial line is drawn, and the selection is committed to it.
+    val routePartialDrawn = routeSelectedLine == null && routeProvisionalLine.size >= 2
+    val routeCommitted = (routeState as? RouteState.Choosing)?.committed == true
 
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
@@ -1877,6 +1894,10 @@ fun MapScreen(
                 routeExitRequested = false
                 // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
                 routeAutoPick = false
+                routeDraftId = null
+                routeDraftCreatedAtMs = 0L
+                routeDraftName = ""
+                routeDraftPin = false
                 // The machine is told here as well as from the host's own `armed` edge, so the state
                 // leaves the acquisition on this frame rather than a recomposition later.
                 routeViewModel.end()
@@ -1958,6 +1979,43 @@ fun MapScreen(
             }
 
             /**
+             * Writes **one** route as an ordinary track. [id], [createdAtMs] and [name] override the
+             * plan's own figures when a draft re-save must keep the track's identity while its points
+             * grow; the ordinary save leaves them null and takes the plan's.
+             */
+            suspend fun writeRouteTrack(
+                plan: RoutePlan,
+                pin: Boolean,
+                name: String? = null,
+                id: String? = null,
+                createdAtMs: Long? = null
+            ): String {
+                val points = plan.points
+                if (points.size < 2) return ""
+                // **The armed pair is what the track records** (R82): read from the mode's own session
+                // rather than from the drawer, which may have moved since the line was armed.
+                val (startMarkerId, destinationMarkerId) = routeViewModel.armedMarkerIds()
+                val legs = points.drop(1).mapIndexed { index, point ->
+                    TrackFromCourse.legBetween(
+                        from = points[index],
+                        to = point,
+                        durationSec = plan.legTimesSec.getOrElse(index) { 0.0 }
+                    )
+                }
+                val track = TrackFromCourse.build(
+                    start = points.first(),
+                    legs = legs,
+                    pinned = pin,
+                    id = id ?: java.util.UUID.randomUUID().toString(),
+                    createdAtMs = createdAtMs ?: plan.computedAtMs,
+                    name = name ?: plan.trackName(),
+                    routeStartMarkerId = startMarkerId ?: "",
+                    routeDestinationMarkerId = destinationMarkerId ?: ""
+                )
+                return trackViewModel.saveBuiltTrack(track)
+            }
+
+            /**
              * Writes **one** route as an ordinary track, through `data/track`'s own repository. The
              * vertices carry the plan's own pace and cumulative time, so distance, duration and both
              * speed figures come out right with no second code path.
@@ -1973,31 +2031,32 @@ fun MapScreen(
              * with its own instant and its own name, and it writes its own track.
              */
             fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
-                val points = plan.points
-                if (points.size < 2) return
-                // **The armed pair is what the track records** (R82): read from the mode's own session
-                // rather than from the drawer, which may have moved since the line was armed.
-                val (startMarkerId, destinationMarkerId) = routeViewModel.armedMarkerIds()
-                val legs = points.drop(1).mapIndexed { index, point ->
-                    TrackFromCourse.legBetween(
-                        from = points[index],
-                        to = point,
-                        durationSec = plan.legTimesSec.getOrElse(index) { 0.0 }
-                    )
-                }
-                val track = TrackFromCourse.build(
-                    start = points.first(),
-                    legs = legs,
-                    pinned = pin,
-                    createdAtMs = plan.computedAtMs,
-                    name = name ?: plan.trackName(),
-                    routeStartMarkerId = startMarkerId ?: "",
-                    routeDestinationMarkerId = destinationMarkerId ?: ""
-                )
+                if (plan.points.size < 2) return
                 routeSaveScope.launch {
-                    val writtenId = trackViewModel.saveBuiltTrack(track)
+                    val writtenId = writeRouteTrack(plan, pin, name)
                     routeViewModel.noteRouteSaved(plan, writtenId)
                 }
+            }
+
+            /**
+             * **The panel's and the fan's one save door** — writes the selected line, or starts an
+             * early save when only the main's partial line stands.
+             */
+            fun saveRoute() {
+                val plan = routeSelectedLine
+                if (plan != null) {
+                    saveRouteTrack(plan, routePinned)
+                    return
+                }
+                val partial = routeProvisionalLine
+                if (partial.size < 2) return
+                val nowMs = System.currentTimeMillis()
+                val start = (routeState as? RouteState.Choosing)?.start
+                val partialPlan = partialPlanOf(partial, start, routePaceKn, nowMs) ?: return
+                routeDraftId = java.util.UUID.randomUUID().toString()
+                routeDraftCreatedAtMs = nowMs
+                routeDraftName = partialPlan.trackName()
+                routeDraftPin = routePinned
             }
 
             /**
@@ -2403,7 +2462,10 @@ fun MapScreen(
             val routeFanEnabled: List<Boolean> = run {
                 val phase = routeState.phase
                 val following = phase == RoutePhase.FOLLOWING
-                val unwritten = routeSelectedLine != null && !routeFrontSaved
+                val saveOpen = (routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved
+                val selectOpen = !routeArmed ||
+                    (phase == RoutePhase.CHOOSING && !routeCommitted &&
+                        (routeSelectedLine != null || routePartialDrawn))
                 listOf(
                     // Discard — wherever a line can be left, from the search itself to a written route.
                     // Read from **`routeArmed`**, the flag the door itself turns off, so it stands
@@ -2411,13 +2473,13 @@ fun MapScreen(
                     routeArmed,
                     // Save to track and exit — the Following phase's alone: inside the acquisition the
                     // leaving is the phase move Discard, and it asks nothing (R63).
-                    following && unwritten,
-                    // Save to track — mirrors the panel's own face: a line stands and is unwritten.
-                    unwritten,
-                    // Route — dual purpose: acquire while idle, and confirm the settled line once the
-                    // acquisition has one. The confirm half mirrors the panel's `Select route` face
-                    // (`selectedPlan != null`), and the acquire half is the ordinary arming.
-                    !routeArmed || (phase == RoutePhase.CHOOSING && routeSelectedLine != null),
+                    following && saveOpen,
+                    // Save to track — mirrors the panel's own face: a line stands (or is drawn) and is
+                    // unwritten.
+                    saveOpen,
+                    // Route — dual purpose: acquire while idle, and confirm the selected line — the
+                    // settled one, or the partial one an early select committed to.
+                    selectOpen,
                     // Route (auto) — the arming that takes the settled answer itself (R80), and an
                     // arming belongs to Idle alone (R65). Its source is **`routeArmed`**, not the phase:
                     // the flag is what the press reads and the only thing a restore brings back, so the
@@ -2436,7 +2498,7 @@ fun MapScreen(
                     routeSelectedLine?.let { saveRouteTrack(it, routePinned) }
                     endRouteMode()
                 },
-                { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
+                { saveRoute() },
                 {
                     if (routeArmed) followRoute()
                     else {
@@ -2460,6 +2522,43 @@ fun MapScreen(
                     routeAutoPick = false
                     followRoute()
                 }
+            }
+            // The early save's growth: each main iteration re-saves the same draft id with the line
+            // drawn so far, until the selected line lands.
+            LaunchedEffect(routeDraftId, routeProvisionalLine) {
+                val draftId = routeDraftId ?: return@LaunchedEffect
+                if (routeSelectedLine != null) return@LaunchedEffect
+                val partial = routeProvisionalLine
+                if (partial.size < 2) return@LaunchedEffect
+                val start = (routeState as? RouteState.Choosing)?.start
+                val plan = partialPlanOf(partial, start, routePaceKn, routeDraftCreatedAtMs)
+                    ?: return@LaunchedEffect
+                routeDraftWriteMutex.withLock {
+                    writeRouteTrack(
+                        plan,
+                        routeDraftPin,
+                        name = routeDraftName,
+                        id = draftId,
+                        createdAtMs = routeDraftCreatedAtMs
+                    )
+                }
+            }
+            // The early save's close: when the selected line lands, the draft takes the full line and
+            // the session links the landed plan to it, so the save door shuts for good.
+            LaunchedEffect(routeSelectedLine) {
+                val draftId = routeDraftId ?: return@LaunchedEffect
+                val plan = routeSelectedLine ?: return@LaunchedEffect
+                routeDraftWriteMutex.withLock {
+                    writeRouteTrack(
+                        plan,
+                        routeDraftPin,
+                        name = routeDraftName,
+                        id = draftId,
+                        createdAtMs = routeDraftCreatedAtMs
+                    )
+                }
+                routeViewModel.noteRouteSaved(plan, draftId)
+                routeDraftId = null
             }
 
             // Map fills the box, padded to leave room for the dashboard overlay.
@@ -2668,18 +2767,19 @@ fun MapScreen(
                         stage = routeStage,
                         pages = routePages,
                         selectedIndex = routeSelectedIndex,
-                        pinned = routePinned,
                         frontSaved = routeFrontSaved,
-                        onPinnedChange = { routePinned = it },
+                        partialDrawn = routePartialDrawn,
+                        committed = routeCommitted,
+                        isLandscape = true,
+                        portraitDashboardHeight = portraitDashboardHeight,
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
-                        onSaveTrack = { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
+                        onSaveTrack = { saveRoute() },
                         onDiscard = { endRouteMode() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
                             .fillMaxHeight()
-                            .windowInsetsPadding(WindowInsets.statusBars)
                     )
                 } else {
                     DashboardPanel(
@@ -2706,17 +2806,18 @@ fun MapScreen(
                         stage = routeStage,
                         pages = routePages,
                         selectedIndex = routeSelectedIndex,
-                        pinned = routePinned,
                         frontSaved = routeFrontSaved,
-                        onPinnedChange = { routePinned = it },
+                        partialDrawn = routePartialDrawn,
+                        committed = routeCommitted,
+                        isLandscape = false,
+                        portraitDashboardHeight = portraitDashboardHeight,
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
-                        onSaveTrack = { routeSelectedLine?.let { saveRouteTrack(it, routePinned) } },
+                        onSaveTrack = { saveRoute() },
                         onDiscard = { endRouteMode() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(portraitDashboardHeight)
                     )
                 } else {
                     DashboardPanel(

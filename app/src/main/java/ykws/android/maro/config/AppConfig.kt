@@ -87,8 +87,9 @@ object AppConfig {
         private set
 
     /**
-     * The passes a `route.avoid.candidate.passes` value names, or null where any token is unknown — the
-     * refusal that keeps a typo from offering a line that drops nothing.
+     * The passes a `route.avoid.candidate.passes` value names — null where any token is unknown, an
+     * empty list where the value is blank, so an empty value declares no candidates, per the
+     * `maro.properties` comment on that key.
      */
     private fun parseCandidatePasses(raw: String): List<ykws.android.maro.data.model.RouteCandidatePass>? {
         val passes = raw.split('|').map { it.trim() }.filter { it.isNotEmpty() }.map { segment ->
@@ -112,7 +113,7 @@ object AppConfig {
                 else -> return null
             }
         }
-        return passes.ifEmpty { null }
+        return passes
     }
 
     /**
@@ -304,10 +305,10 @@ object AppConfig {
         private set
 
     /**
-     * The price cursor — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped 0.0..5.0
-     * — a clamp on the configured value only: the loop's one correction re-derives λ from the measured
-     * share and is not clamped. **One cursor for slow water**: it multiplies the limit-keyed time excess
-     * of a speed zone and of the 300 m band alike, so the band's own multiplier
+     * The aversion dial's seed — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
+     * 0.0..5.0 — a clamp on the configured value only: the loop's one correction re-derives λ from the
+     * measured share and is not clamped. **One cursor for slow water**: it multiplies the limit-keyed
+     * time excess of a speed zone and of the 300 m band alike, so the band's own multiplier
      * (`route.avoid.zone300.softCostAversion`) is retired. A slow cell costs its base plus
      * `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its true travel time and the search
      * minimises real time — bending around a slow zone when the way around is faster — while at 0.0 the
@@ -316,6 +317,12 @@ object AppConfig {
      */
     var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
+
+    /** Lowest aversion (λ) the dial accepts — one home for that end, the visible dial's own floor. */
+    const val ROUTE_SLOW_WATER_AVERSION_MIN = 0.0
+
+    /** Highest aversion (λ) the dial accepts — one home for that end, the visible dial's own ceiling. */
+    const val ROUTE_SLOW_WATER_AVERSION_MAX = 5.0
 
     /**
      * The speed zone's outside margin (m) — `route.avoid.speedZone.outsideMarginM`, default 50,

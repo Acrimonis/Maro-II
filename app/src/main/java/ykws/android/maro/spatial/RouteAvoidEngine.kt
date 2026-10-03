@@ -142,6 +142,12 @@ class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
     private val paceKn: () -> Double,
     /**
+     * The **aversion λ** (0–5) the slow water is priced at, asked fresh like the pace so a slider
+     * move reaches the next line: 0 prices slow water as open water, 1 minimises real time, and the
+     * top of the scale stays out. It is the λ seed the budget loop then corrects.
+     */
+    private val aversionKn: () -> Double,
+    /**
      * The **slow-water budget** (per cent of a trip, 0–100), asked fresh like the pace so a slider
      * move reaches the next line: the λ loop aims at it, and a share still out of its band is
      * reported on the answer rather than chased.
@@ -370,7 +376,7 @@ class RouteAvoidEngine(
         // **One cursor for every slow source.** The loop corrects it, and it is the λ the band's price
         // and a zone's are both read at, so the band follows a correction exactly as a ring does. A
         // candidate that drops one source's price drops its **limit from the grid**, never the cursor.
-        var lambda = AppConfig.routeAvoidSpeedZoneSoftCostAversion
+        var lambda = aversionKn()
         trace {
             "HARVEST edges=${edges.size} openCoast=${openCoast.size} band=${fmt(world.bandWidthM)}m " +
                 "zones=[${zones.joinToString(", ") { "${it.name} ${fmt(it.speedLimitKn)}kn" }}] " +
@@ -553,6 +559,7 @@ class RouteAvoidEngine(
             "CURVE bends=${faired.bends} resolved=${faired.resolved} keptSharp=${faired.keptSharp} " +
                 "points=${faired.points.size} caps=${faired.caps.size}"
         }
+        trace { "CURVE zoneM=${fmt(zoneMetres(zones, faired.points))}" }
         val baseTimed = timeLineWithLimits(reSearched, pace, limitAt)
         val fairedNoCap = timeLineWithLimits(faired.points, pace, limitAt)
         val fairedWithCap = timeLineWithLimits(faired.points, pace, limitAt, faired.caps)
@@ -767,11 +774,14 @@ class RouteAvoidEngine(
         val pulled = AvoidPull.pull(
             full, start, aim, marginM, guardField, approaches, refusals
         )
+        trace { "PULL zoneM=${fmt(zoneMetres(zones, pulled))}" }
         if (publishStage) publish(RouteStage.SNAP, pulled.map { RoutePoint.of(it) })
         val snapped = snapToCorners(pulled, sets, marginM, guardField, start, aim, approaches)
+        trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))}" }
         val final = AvoidPull.pull(
             snapped, start, aim, marginM, guardField, approaches, refusals
         )
+        trace { "FINAL zoneM=${fmt(zoneMetres(zones, final))}" }
         val timed = timeLineWithLimits(final, pace, limitAt)
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
@@ -1092,6 +1102,20 @@ class RouteAvoidEngine(
     }
 
     /**
+     * The λ-priced soft cost of [points] against [field] — the same per-segment walk the pull's
+     * `softPricePrefix` uses, summed to the whole line, so this comparison prices exactly what the
+     * search and the pull priced.
+     */
+    private fun pricedLineCost(points: List<LatLng>, marginM: Double, field: RouteCostField): Double {
+        if (!field.hasSoft || points.size < 2) return 0.0
+        var total = 0.0
+        for (i in 1 until points.size) {
+            total += AvoidPull.softPriceSec(points[i - 1], points[i], marginM, field)
+        }
+        return total
+    }
+
+    /**
      * **The fine pass (§5)** — the refinement along the settled answer, run once and **after** the λ
      * loop, so the loop never pays for it.
      */
@@ -1177,6 +1201,7 @@ class RouteAvoidEngine(
             return line
         }
         val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
+        val guard = costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
             zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
@@ -1201,12 +1226,15 @@ class RouteAvoidEngine(
             return line
         }
         val coarseTimed = timeLineWithLimits(line, pace, limitAt)
-        val better = fineSpliceBetter(fineTimed, coarseTimed, pace)
+        val fineCost = pricedLineCost(pass.line, marginM, guard)
+        val coarseCost = pricedLineCost(line, marginM, guard)
+        val better = fineCost <= coarseCost
         trace {
             "FINE research answered=true spliced=$better " +
                 "fine=${fmt(fineTimed.durationSec)}s coarse=${fmt(coarseTimed.durationSec)}s " +
                 "fineShare=${fmt(zoneSlowShare(fineTimed, pace), 2)} " +
-                "coarseShare=${fmt(zoneSlowShare(coarseTimed, pace), 2)}"
+                "coarseShare=${fmt(zoneSlowShare(coarseTimed, pace), 2)} " +
+                "fineCost=${fmt(fineCost)} coarseCost=${fmt(coarseCost)}"
         }
         return if (better) pass.line else line
     }
@@ -1313,11 +1341,24 @@ class RouteAvoidEngine(
         val local = AvoidPull.pull(
             snapped, start, aim, marginM, guard, approaches, refusals
         )
+        val localCost = pricedLineCost(local, marginM, guard)
+        val coarseCost = pricedLineCost(line.subList(first, last + 1), marginM, guard)
+        if (localCost > coarseCost) {
+            trace {
+                "FINE zone=${zone.name} spliced=no reason=worse " +
+                    "local=${fmt(localCost)} coarse=${fmt(coarseCost)}"
+            }
+            return line
+        }
         val out = ArrayList<LatLng>(line.size + local.size)
         if (first > 0) out.addAll(line.subList(0, first))
         out.addAll(if (first > 0) local.subList(1, local.size) else local)
         if (last < line.size - 1) out.addAll(line.subList(last + 2, line.size))
         trace { "$head first=$first last=$last local=yes spliced=yes points=${out.size}" }
+        trace {
+            "FINE splice zoneM=${fmt(zoneMetres(listOf(zone), local))} " +
+                "coarse zoneM=${fmt(zoneMetres(listOf(zone), line.subList(first, last + 1)))}"
+        }
         return out
     }
 

@@ -139,6 +139,11 @@ data class RouteTripFigure(
     val distanceNm: Double,
     val etaSeconds: Double,
     /**
+     * The zone share of the trip's own time, set only where the slow-water budget was missed — `null`
+     * means the line is inside the budget. Reported, never refused.
+     */
+    val budgetUnmetZoneShare: Double? = null,
+    /**
      * The zones a forced crossing entered, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
@@ -162,6 +167,7 @@ internal fun routeTripFigure(
     return RouteTripFigure(
         distanceNm = Units.metresToNauticalMiles(remaining.distanceM),
         etaSeconds = etaSeconds,
+        budgetUnmetZoneShare = plan.budgetUnmetZoneShare,
         forcedCrossingZoneNames = plan.forcedCrossingZoneNames,
         computedAtMs = plan.computedAtMs
     )
@@ -215,6 +221,42 @@ internal fun mirroredPlanOf(track: Track, nowMs: Long): RoutePlan? {
         points = points,
         legTimesSec = legTimesSec,
         durationSec = legTimesSec.sum(),
+        computedAtMs = nowMs
+    )
+}
+
+/**
+ * **A partial plan from the main lookup's provisional points** — the early-save's own line.
+ *
+ * The points are the provisional line as drawn so far, the start is the acquisition's anchor
+ * (falling back to the line's first point), and every leg's time is the segment distance at
+ * [paceKn] — the planned pace, since a partial line carries no zone-aware times. The plan is
+ * dated [nowMs], which the draft's whole life reuses so its name and id stay one identity.
+ */
+internal fun partialPlanOf(
+    points: List<RoutePoint>,
+    start: RoutePoint?,
+    paceKn: Double,
+    nowMs: Long
+): RoutePlan? {
+    if (points.size < 2) return null
+    val paceMps = if (paceKn > 0.0) Units.knotsToMps(paceKn) else 0.0
+    var distanceM = 0.0
+    val legTimesSec = ArrayList<Double>(points.size - 1)
+    for (i in 0 until points.size - 1) {
+        val segM = SpatialOperations.haversine(points[i].toLatLng(), points[i + 1].toLatLng())
+        distanceM += segM
+        legTimesSec += if (paceMps > 0.0) segM / paceMps else 0.0
+    }
+    return RoutePlan(
+        start = start ?: points.first(),
+        destination = points.last(),
+        destinationMoved = false,
+        points = points,
+        legTimesSec = legTimesSec,
+        distanceM = distanceM,
+        durationSec = legTimesSec.sum(),
+        forcedCrossingZoneNames = emptyList(),
         computedAtMs = nowMs
     )
 }

@@ -31,12 +31,12 @@ class RouteEngineChoiceTest {
     @Test
     fun eachRowBuildsTheEngineItNames() {
         assertTrue(
-            "the dummy row builds the dummy, ignoring both providers",
-            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { 33 }, { ChoiceWorld() }) is RouteDummyEngine
+            "the dummy row builds the dummy, ignoring all providers",
+            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteDummyEngine
         )
         assertTrue(
             "the avoid row builds the avoid engine",
-            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 33 }, { ChoiceWorld() }) is RouteAvoidEngine
+            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteAvoidEngine
         )
     }
 

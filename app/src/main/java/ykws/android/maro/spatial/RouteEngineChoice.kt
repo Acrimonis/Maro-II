@@ -23,7 +23,12 @@ import ykws.android.maro.spatial.avoid.AvoidWorld
 data class RouteEngineChoice(
     val id: String,
     val labelResId: Int,
-    val factory: (paceKn: () -> Double, budgetPct: () -> Int, world: () -> AvoidWorld) -> RouteEngine
+    val factory: (
+        paceKn: () -> Double,
+        aversionKn: () -> Double,
+        budgetPct: () -> Int,
+        world: () -> AvoidWorld
+    ) -> RouteEngine
 ) {
     companion object {
 
@@ -32,12 +37,14 @@ data class RouteEngineChoice(
             RouteEngineChoice(
                 id = "dummy",
                 labelResId = R.string.route_engine_dummy,
-                factory = { _, _, _ -> RouteDummyEngine() }
+                factory = { _, _, _, _ -> RouteDummyEngine() }
             ),
             RouteEngineChoice(
                 id = "avoid",
                 labelResId = R.string.route_engine_avoid,
-                factory = { paceKn, budgetPct, world -> RouteAvoidEngine(paceKn, budgetPct, world) }
+                factory = { paceKn, aversionKn, budgetPct, world ->
+                    RouteAvoidEngine(paceKn, aversionKn, budgetPct, world)
+                }
             )
         )
 

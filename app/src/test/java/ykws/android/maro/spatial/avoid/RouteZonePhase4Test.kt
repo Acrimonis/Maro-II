@@ -288,7 +288,12 @@ class RouteZonePhase4Test {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
         val world = ZoneWorld(listOf(zone))
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, slowWaterBudgetPct = { 33 }, worldProvider = { world })
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { 33 },
+            worldProvider = { world }
+        )
 
         val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))
 
@@ -302,7 +307,12 @@ class RouteZonePhase4Test {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
         val world = ZoneWorld(listOf(zone))
-        val engine = RouteAvoidEngine(paceKn = { 28.0 }, slowWaterBudgetPct = { 33 }, worldProvider = { world })
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { 33 },
+            worldProvider = { world }
+        )
 
         val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))
 
@@ -533,6 +543,7 @@ class RouteZonePhase4Test {
 
         val crossed = RouteAvoidEngine(
             paceKn = { 28.0 },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
             slowWaterBudgetPct = { 0 },
             worldProvider = { ZoneWorld(listOf(zone)) }
         )
@@ -540,6 +551,7 @@ class RouteZonePhase4Test {
 
         val allowed = RouteAvoidEngine(
             paceKn = { 28.0 },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
             slowWaterBudgetPct = { 100 },
             worldProvider = { ZoneWorld(listOf(zone)) }
         )

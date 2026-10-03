@@ -1487,6 +1487,25 @@ private fun RoutingSettings(
                     AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
             )
+
+            SectionDivider()
+
+            // The aversion dial: how hard the search bends away from slow water. It is the preference
+            // dial of the slow-water model, seeded from `route.avoid.speedZone.softCostAversion` and
+            // clamped to the same 0..5 span the properties loader accepts.
+            SliderRow(
+                label = stringResource(R.string.settings_route_aversion_label),
+                description = stringResource(R.string.settings_route_aversion_desc),
+                valueLabel = stringResource(
+                    R.string.settings_route_aversion_value_fmt,
+                    settings.routeSlowWaterAversion
+                ),
+                value = settings.routeSlowWaterAversion,
+                valueRange = AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat()..
+                    AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat(),
+                steps = 4,
+                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterAversion = v) } }
+            )
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
