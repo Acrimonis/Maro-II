@@ -3,7 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
-- [2026-10-03 02:39 UTC] Route — the slow-water dials live: the aversion exposed as a Settings dial seeded from `softCostAversion` and read at every solve, the budget overrun surfaced, the empty candidate-pass no-op fixed, the fine pass made λ-respecting, and the providers re-pointed at the live settings; Phase C and the Driving-preference cursor designed and owed → xTrack/Route/FEAT_HYD_Route.md
+- [2026-10-03 02:39 UTC] Route — the slow-water dials live and `origin/feature/route-dash-n-flow` merged in (`b3778e5b`): the early select/save, the shared-`DrawerScaffold` acquisition panel and the Routing tab, the aversion dial re-homed into its Tuning block; Phase C and the Driving-preference cursor owed → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 02:17 UTC] Route — the functional flow (early select, early save), the acquisition panel on the shared `DrawerScaffold` with a paging three-column table, and the UI guideline docs trimmed to current state; committed `aeeaf11` → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-02 12:27 UTC] Ui_Settings — pivot only, no task named yet → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-10-01 20:16 UTC] Ui_General — `feature/ui-shuffle` reshuffled the Settings tabs and the menu → xTrack/Ui_General/FEAT_HYD_Ui_General.md
@@ -51,7 +51,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| Route | Set a destination and have the app draw the route from the boat to it; selectable and saveable mid-draw, the acquisition panel the shared `DrawerScaffold` with a paging three-column table — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 02:17 | active |
+| Route | Set a destination and have the app draw the route from the boat to it; selectable and saveable mid-draw, the acquisition panel the shared `DrawerScaffold` with a paging three-column table, and the slow-water aversion dial live end to end — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 03:11 | active |
 | ColorManagement | Centralised colour palette — all tokens in `colors.properties` with alias interpolation — [`color-scheme.md`](docs/color-scheme.md) | 2026-06-16 14:05 | 2026-09-16 15:00 | active |
 | Documentation | README, FAQs, setup guides, architecture docs, and plans cleanup | 2026-06-11 06:42 | 2026-09-04 22:36 | active |
 | WorkflowImprovement | xTrack `#` command system and rule-book governance — detail in [`FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) | 2026-06-03 00:00 | 2026-09-19 09:31 | active |
