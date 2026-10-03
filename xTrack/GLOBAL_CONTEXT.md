@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-03 03:14 UTC] Route — pivot via #focus, no task named yet → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 02:39 UTC] Route — the slow-water dials live and `origin/feature/route-dash-n-flow` merged in (`b3778e5b`): the early select/save, the shared-`DrawerScaffold` acquisition panel and the Routing tab, the aversion dial re-homed into its Tuning block; Phase C and the Driving-preference cursor owed → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 02:17 UTC] Route — the functional flow (early select, early save), the acquisition panel on the shared `DrawerScaffold` with a paging three-column table, and the UI guideline docs trimmed to current state; committed `aeeaf11` → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-02 12:27 UTC] Ui_Settings — pivot only, no task named yet → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
@@ -12,7 +13,6 @@
 - [2026-09-30 20:02 UTC] Route — `feature/avoid-I`: the band's own limit priced per cell → xTrack/Route/FEAT_HYD_Route.md
 - [2026-09-30 19:49 UTC] UI_Map — `feature/mapscreen-health` plan → xTrack/UI_Map/FEAT_HYD_UI_Map.md
 - [2026-09-30 19:15 UTC] Route — `feature/route-confirm`: the fan's route child arms and confirms → xTrack/Route/FEAT_HYD_Route.md
-- [2026-09-30 17:32 UTC] Route — `feature/route-card` discussion → xTrack/Route/FEAT_HYD_Route.md
 
 ## Routing Map
 | Keyword | Feature File |

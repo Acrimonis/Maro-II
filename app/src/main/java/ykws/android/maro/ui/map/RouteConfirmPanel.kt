@@ -358,15 +358,26 @@ private fun RouteSummaryTable(
                     .clickable { onStepPage(index - selectedIndex) },
                 verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = page.descriptionResId?.let { stringResource(it) } ?: "",
-                    color = textColor,
-                    fontSize = 13.sp,
-                    fontWeight = weight,
+                Column(
                     modifier = Modifier
                         .weight(0.75f)
                         .padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
-                )
+                ) {
+                    Text(
+                        text = page.descriptionResId?.let { stringResource(it) } ?: "",
+                        color = textColor,
+                        fontSize = 13.sp,
+                        fontWeight = weight
+                    )
+                    if (page.collapsed) {
+                        Text(
+                            text = stringResource(R.string.route_collapsed_note),
+                            color = textColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+                }
                 ColumnDivider()
                 Column(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),

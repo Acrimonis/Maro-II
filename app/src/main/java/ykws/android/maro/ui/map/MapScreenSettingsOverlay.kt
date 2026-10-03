@@ -1469,41 +1469,23 @@ private fun RoutingSettings(
 
             SectionDivider()
 
-            // The slow-water budget: how much of a trip may be spent slowed by speed zones, as a share of
-            // its time. A route still over it is **reported and never refused**, so this is a preference
-            // rather than a gate — and its bounds are read from AppConfig, where they live beside the
-            // accessor, so the slider, the properties loader and the settings clamp cannot disagree.
+            // The Driving preference: the one cursor over the effort ladder — three stops, through slow
+            // water, balanced, and around it. The stored value snaps to the nearest rung's λ (0 / 2.5 / 5),
+            // the very value the engine reads at solve time.
             SliderRow(
-                label = stringResource(R.string.settings_route_budget_label),
-                description = stringResource(R.string.settings_route_budget_desc),
+                label = stringResource(R.string.settings_route_preference_label),
+                description = stringResource(R.string.settings_route_preference_desc),
                 valueLabel = stringResource(
-                    R.string.settings_value_percent,
-                    settings.routeSlowWaterBudgetPct
+                    when (routeRungIndex(settings.routeSlowWaterAversion.toDouble())) {
+                        2 -> R.string.route_computation_through
+                        1 -> R.string.route_computation_balanced
+                        else -> R.string.route_computation_around
+                    }
                 ),
-                value = settings.routeSlowWaterBudgetPct.toFloat(),
-                valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
-                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
-                steps = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX -
-                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN - 1,
-                onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterBudgetPct = v.roundToInt()) } }
-            )
-
-            SectionDivider()
-
-            // The aversion dial: how hard the search bends away from slow water. It is the preference
-            // dial of the slow-water model, seeded from `route.avoid.speedZone.softCostAversion` and
-            // clamped to the same 0..5 span the properties loader accepts.
-            SliderRow(
-                label = stringResource(R.string.settings_route_aversion_label),
-                description = stringResource(R.string.settings_route_aversion_desc),
-                valueLabel = stringResource(
-                    R.string.settings_route_aversion_value_fmt,
-                    settings.routeSlowWaterAversion
-                ),
-                value = settings.routeSlowWaterAversion,
+                value = routeRungLambda(settings.routeSlowWaterAversion.toDouble()).toFloat(),
                 valueRange = AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat()..
                     AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat(),
-                steps = 4,
+                steps = 1,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterAversion = v) } }
             )
         }

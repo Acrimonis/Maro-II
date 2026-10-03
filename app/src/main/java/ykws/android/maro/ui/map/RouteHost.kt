@@ -119,7 +119,8 @@ internal fun RouteHost(
     }
 
     // ── The map objects: one file owns the lines, the pool and the pin ─────────
-    val poolSlots = 1 + AppConfig.routeAvoidCandidatePasses.size
+    // One polyline per ladder rung — the retired candidate passes no longer size the pool.
+    val poolSlots = ROUTE_LADDER_RUNG_COUNT
 
     DisposableEffect(mapView) {
         val mv = mapView ?: return@DisposableEffect onDispose { }
@@ -197,6 +198,7 @@ internal fun RouteHost(
             }
             if (points == null || points.size < 2) {
                 line.setPoints(emptyList())
+                line.isEnabled = false
             } else {
                 val alpha = if (followed != null || index == selectedIndex) selectedAlpha else dimmedAlpha
                 line.setPoints(points.map { GeoPoint(it.latitude, it.longitude) })
@@ -209,6 +211,7 @@ internal fun RouteHost(
                     )
                     strokeWidth = stroke
                 }
+                line.isEnabled = true
             }
         }
 

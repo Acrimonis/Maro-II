@@ -295,7 +295,7 @@ class RouteZonePhase4Test {
             worldProvider = { world }
         )
 
-        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))
+        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)
 
         assertEquals(listOf("Cap"), route?.forcedCrossingZoneNames)
     }
@@ -314,7 +314,7 @@ class RouteZonePhase4Test {
             worldProvider = { world }
         )
 
-        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))
+        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)
 
         assertFalse(
             "the pulled line never enters a zone it could have gone around",
@@ -477,10 +477,15 @@ class RouteZonePhase4Test {
      * Arms the engine on a pair and awaits the main lookup's terminal update, returning its result —
      * `null` when the pair is refused or the search found no route.
      */
-    private suspend fun solve(engine: RouteAvoidEngine, from: RoutePoint, to: RoutePoint): RouteResult.Success? = coroutineScope {
+    private suspend fun solve(
+        engine: RouteAvoidEngine,
+        from: RoutePoint,
+        to: RoutePoint,
+        rungIndex: Int = 0
+    ): RouteResult.Success? = coroutineScope {
         val declarations = engine.routesToCompute(from, to)
         val available = declarations as? RouteDeclarations.Available ?: return@coroutineScope null
-        val main = available.computations.first()
+        val computation = available.computations[rungIndex]
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate?>()
         val collector = launch(Dispatchers.Default) {
@@ -491,7 +496,7 @@ class RouteZonePhase4Test {
                 }
         }
         subscribed.await()
-        engine.startLookup(main.id)
+        engine.startLookup(computation.id)
         val update = withTimeout(120_000) { done.await() }
         collector.cancel()
         update?.result
@@ -532,36 +537,32 @@ class RouteZonePhase4Test {
     }
 
     /**
-     * The verdict's own pin, and the loop's most visible consequence: the same forced crossing reports
-     * the share it spent when the budget cannot accept it, and reports nothing when it can. A zero
-     * budget also stops the loop after its first pass, so the two answers differ by the verdict alone.
+     * The budget is demoted to an internal auto-pick criterion, so no rung ever reports a missed share
+     * on its answer — whatever the stored budget, the verdict field stays absent.
      */
     @Test
-    fun theBudgetVerdictIsReportedOnlyWhenItIsMissed() = runBlocking {
+    fun theDemotedBudgetReportsNoVerdict() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
 
-        val crossed = RouteAvoidEngine(
+        val zeroBudget = RouteAvoidEngine(
             paceKn = { 28.0 },
             aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
             slowWaterBudgetPct = { 0 },
             worldProvider = { ZoneWorld(listOf(zone)) }
         )
-        val unmet = solve(crossed, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))!!
+        val unmet = solve(zeroBudget, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)!!
 
-        val allowed = RouteAvoidEngine(
+        val fullBudget = RouteAvoidEngine(
             paceKn = { 28.0 },
             aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
             slowWaterBudgetPct = { 100 },
             worldProvider = { ZoneWorld(listOf(zone)) }
         )
-        val met = solve(allowed, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06))!!
+        val met = solve(fullBudget, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)!!
 
-        assertTrue(
-            "a crossing under a zero budget reports the share it spent",
-            (unmet.budgetUnmetZoneShare ?: 0.0) > 0.0
-        )
-        assertNull("and the same crossing is inside a full budget", met.budgetUnmetZoneShare)
+        assertNull("the demoted budget reports nothing under a zero budget", unmet.budgetUnmetZoneShare)
+        assertNull("and nothing under a full budget either", met.budgetUnmetZoneShare)
     }
 
     /**
