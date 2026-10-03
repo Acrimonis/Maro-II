@@ -64,6 +64,7 @@ class RouteAvoidEngineTest {
         world: () -> AvoidWorld = { FakeWorld() }
     ) = RouteAvoidEngine(
         paceKn = { paceKn },
+        aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
         slowWaterBudgetPct = { budgetPct },
         worldProvider = world
     )
