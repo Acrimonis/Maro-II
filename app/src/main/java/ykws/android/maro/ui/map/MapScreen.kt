@@ -44,6 +44,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -373,7 +374,25 @@ internal sealed class ActiveSnack(val id: String, val name: String) {
         val source: DrawerSource
     ) : ActiveSnack(id, name)
     class CreateUndo(id: String, name: String) : ActiveSnack(id, name)
+
+    /**
+     * **The route discard's toast** (the two-phase model): the acquisition's ending or a followed
+     * route's, told apart so the offered next step is named honestly. It carries no name of its own —
+     * the message comes from string resources in the host.
+     */
+    class RouteDiscard(val followed: Boolean) : ActiveSnack("", "")
 }
+
+/**
+ * The deferred route discard's window: the toast that confirms the disposal.
+ * Held by the screen so the display can read a completed discard while the mode stays live underneath.
+ */
+internal data class PendingRouteDiscard(
+    val snack: ActiveSnack.RouteDiscard
+)
+
+/** The snackbar's horizontal-swipe threshold, past which the press takes the timeout's own path. */
+private const val SNACK_SWIPE_THRESHOLD_DP = 48f
 
 @Composable
 internal fun SnackRow(
@@ -382,7 +401,11 @@ internal fun SnackRow(
     onUndo: () -> Unit,
     onTimeout: () -> Unit,
     /** False for a message with nothing to reverse — a failure says what happened and no more. */
-    showUndo: Boolean = true
+    showUndo: Boolean = true,
+    /** An optional second action's label, or null for the three delete snacks. */
+    secondActionLabel: String? = null,
+    /** The second action's callback, paired with [secondActionLabel]. */
+    onSecondAction: (() -> Unit)? = null
 ) {
     LaunchedEffect(snackKey) {
         kotlinx.coroutines.delay(4000L)
@@ -390,6 +413,10 @@ internal fun SnackRow(
     }
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
+    // The horizontal swipe takes the timeout's own path, so a delete toast still commits and the route
+    // toast simply keeps the discard.
+    var swipePx by remember { mutableStateOf(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { SNACK_SWIPE_THRESHOLD_DP.dp.toPx() }
     androidx.compose.animation.AnimatedVisibility(
         visible = entered,
         enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn()
@@ -399,6 +426,16 @@ internal fun SnackRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(0xE62A2A2A))
+                .pointerInput(snackKey) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (swipePx > swipeThresholdPx || swipePx < -swipeThresholdPx) onTimeout()
+                            swipePx = 0f
+                        },
+                        onDragCancel = { swipePx = 0f },
+                        onHorizontalDrag = { _, dragAmount -> swipePx += dragAmount }
+                    )
+                }
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -411,6 +448,12 @@ internal fun SnackRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
+            if (secondActionLabel != null && onSecondAction != null) {
+                Spacer(Modifier.width(12.dp))
+                androidx.compose.material3.TextButton(onClick = onSecondAction) {
+                    Text(secondActionLabel, color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
             if (showUndo) {
                 Spacer(Modifier.width(12.dp))
                 androidx.compose.material3.TextButton(onClick = onUndo) {
@@ -659,6 +702,17 @@ fun MapScreen(
     // settled line the instant that line exists and clears with it — on the selection, on an end and on a
     // new arming — so no later acquisition can inherit an intent nobody pressed for.
     var routeAutoPick by remember { mutableStateOf(false) }
+    /**
+     * **The deferred discard's window** — a discarding press sets this instead of disposing, so the
+     * display reads a completed discard at once (the panel and the line leave, the toggle reads off)
+     * while the mode stays live underneath; the toast's confirmation runs the real disposal and Undo
+     * clears the window with nothing recomputed. Null = no window.
+     */
+    var pendingDiscard by remember { mutableStateOf<PendingRouteDiscard?>(null) }
+    /** The window stands — the display reads the mode as off while the engine keeps running. */
+    val routeDiscarding = pendingDiscard != null
+    /** The mode as the **display** reads it: armed and not mid-discard. */
+    val routeDisplayArmed = routeArmed && !routeDiscarding
     // **The session's link table, the main lookup's stage and its provisional line**, read reactively.
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
     val routeStage by routeViewModel.stage.collectAsState()
@@ -837,6 +891,9 @@ fun MapScreen(
                 markersViewModel.openEditDrawer(snack.selection, selectedId = snack.id, source = source)
             }
             is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
+            // The route discard's toast is answered at the host call site, inside the route block where
+            // the disposal lives; this branch keeps the exhaustive `when` honest.
+            is ActiveSnack.RouteDiscard -> Unit
         }
     }
 
@@ -852,6 +909,8 @@ fun MapScreen(
                 markersViewModel.deleteMarker(snack.id, closeDrawer = false)
             }
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
+            // Answered at the host call site (see `onSnackUndo`).
+            is ActiveSnack.RouteDiscard -> Unit
         }
     }
 
@@ -1737,21 +1796,6 @@ fun MapScreen(
                 )
             }
 
-            /** Arms the mode. Demo's captured centre is the map's own, i.e. the point under the marker. */
-            fun armInspectMode() {
-                if (inspectArmed) return
-                // The two modes are mutually exclusive: entering one leaves the other.
-                if (routeArmed) routeArmed = false
-                inspectMapMovedByUser = false
-                inspectCapturedDemoCenter = if (appSettings.gpsMode) null else {
-                    mapView?.let { mv ->
-                        inspectAnchor(mv, inspectOffsetPx)?.let { GeoPoint(it.latitude, it.longitude) }
-                    }
-                }
-                viewModel.armInspect()
-                inspectArmed = true
-            }
-
             /**
              * The demo half of the mode's single exit (plan §6): the centre captured at arming is put
              * back, and a map the user moved after the card opened is left alone, exactly as a
@@ -1798,6 +1842,77 @@ fun MapScreen(
             }
 
             /**
+             * The **real disposal** — the second phase of the ending (R57). A discarding press presents
+             * the ending at once but defers this call to the toast's confirmation; the acquisition's own
+             * Cancel, the back key while acquiring, and any leaving that is not a followed route's reach
+             * it directly. Leaving the acquisition asks nothing — the pin and the dialog's own state go
+             * with the mode.
+             */
+            fun endRouteMode() {
+                if (!routeArmed) return
+                routeArmed = false
+                routePinned = false
+                routeExitRequested = false
+                // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
+                routeAutoPick = false
+                routeDraftId = null
+                routeDraftCreatedAtMs = 0L
+                routeDraftName = ""
+                routeDraftPin = false
+                // The machine is told here as well as from the host's own `armed` edge, so the state
+                // leaves the acquisition on this frame rather than a recomposition later.
+                routeViewModel.end()
+            }
+
+            /**
+             * **The deferred discard's one entry** — every discarding door: the panel's `Discard route`,
+             * the fan's Discard, the toggle-off and the back key inside the acquisition, and the exit
+             * dialog's own discard while Following. The display reads the ending at once (the panel and
+             * the line leave, the toggle reads off) while the mode stays live underneath; the real
+             * disposal waits on the toast. Idempotent: a second press while the window stands no-ops.
+             */
+            fun discardRoute() {
+                if (!routeArmed || pendingDiscard != null) return
+                val followed = routeState is RouteState.Following
+                routeExitRequested = false
+                val snack = ActiveSnack.RouteDiscard(followed)
+                pendingDiscard = PendingRouteDiscard(snack)
+                enqueueSnack(snack)
+            }
+
+            /** **Undo's own act**: the window leaves and the exact state returns, nothing recomputed. */
+            fun cancelPendingDiscard() {
+                val pending = pendingDiscard ?: return
+                dashboardController.remove(pending.snack)
+                pendingDiscard = null
+            }
+
+            /** **The confirmation**: the deferred disposal runs for real and the toast leaves. */
+            fun commitPendingDiscard() {
+                val pending = pendingDiscard ?: return
+                dashboardController.remove(pending.snack)
+                pendingDiscard = null
+                endRouteMode()
+            }
+
+            /** Arms the mode. Demo's captured centre is the map's own, i.e. the point under the marker. */
+            fun armInspectMode() {
+                if (inspectArmed) return
+                // The two modes are mutually exclusive: entering one leaves the other. A window still
+                // standing is settled here — its disposal made real — so the mode cannot outlive the arming.
+                if (pendingDiscard != null) commitPendingDiscard()
+                if (routeArmed) routeArmed = false
+                inspectMapMovedByUser = false
+                inspectCapturedDemoCenter = if (appSettings.gpsMode) null else {
+                    mapView?.let { mv ->
+                        inspectAnchor(mv, inspectOffsetPx)?.let { GeoPoint(it.latitude, it.longitude) }
+                    }
+                }
+                viewModel.armInspect()
+                inspectArmed = true
+            }
+
+            /**
              * **The mode's one trigger, behind both its doors** (R49, R50, R71, R73, D5).
              *
              * The map's square and the drawer's Route sub-section come here and mean one thing:
@@ -1816,7 +1931,10 @@ fun MapScreen(
              * preparation, and an engine that still cannot arm has said so: its reason's own id is what
              * the surface shows, and nothing is asked a third time.
              */
-            fun armRouteMode() {
+            fun armRouteMode(forceFresh: Boolean = false) {
+                // **A new arming commits a pending discard first** (the window's own rule): the
+                // disposal is made real, then this arming proceeds on the pair read below.
+                if (pendingDiscard != null) commitPendingDiscard()
                 if (routeArmed) return
                 // The pair is read **once**, here, and handed to every path below (R71): the stored-route
                 // match and the search work from this one reading, so the points and the ids cannot drift
@@ -1827,7 +1945,10 @@ fun MapScreen(
                 // so it opens no track file, and a pair it answers is self-validating through the plan's
                 // two-point check — hence it skips the guard below, which applies again where the matched
                 // file cannot be read and the ordinary search takes over (§12).
-                val storedMatch = storedRouteMatch(
+                // **An explicit arming forces the search**: the fan's `Route` child, the toggle, the
+                // drawer's Route action and the discard toast's New acquisition pass `forceFresh = true`,
+                // so only the autoselect (`Route auto`) consults the R83 stored-route match below.
+                val storedMatch = if (forceFresh) null else storedRouteMatch(
                     trackViewModel.allSummaries.value,
                     ends.startMarkerId,
                     ends.destinationMarkerId
@@ -1883,27 +2004,6 @@ fun MapScreen(
             }
 
             /**
-             * The **silent** ending: the acquisition's own **Cancel** (R57), the back key while a route
-             * is being acquired, and every other leaving that is not a followed route's. Leaving the
-             * acquisition asks nothing — the pin and the dialog's own state go with the mode.
-             */
-            fun endRouteMode() {
-                if (!routeArmed) return
-                routeArmed = false
-                routePinned = false
-                routeExitRequested = false
-                // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
-                routeAutoPick = false
-                routeDraftId = null
-                routeDraftCreatedAtMs = 0L
-                routeDraftName = ""
-                routeDraftPin = false
-                // The machine is told here as well as from the host's own `armed` edge, so the state
-                // leaves the acquisition on this frame rather than a recomposition later.
-                routeViewModel.end()
-            }
-
-            /**
              * **The one exit dialog** (R59), raised by its two doors: the toggle's off while a route is
              * followed, and the back key.
              */
@@ -1920,7 +2020,7 @@ fun MapScreen(
              * acquisition there is nothing to confirm, so the press simply ends the mode.
              */
             fun leaveRouteMode() {
-                if (routeState is RouteState.Following) requestRouteExit() else endRouteMode()
+                if (routeState is RouteState.Following) requestRouteExit() else discardRoute()
             }
 
             /**
@@ -1930,7 +2030,7 @@ fun MapScreen(
              * nothing (R57).
              */
             fun toggleRouteOff() {
-                if (routeState is RouteState.Following) requestRouteExit() else endRouteMode()
+                if (routeState is RouteState.Following) requestRouteExit() else discardRoute()
             }
 
             /**
@@ -2463,14 +2563,13 @@ fun MapScreen(
                 val phase = routeState.phase
                 val following = phase == RoutePhase.FOLLOWING
                 val saveOpen = (routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved
-                val selectOpen = !routeArmed ||
+                val selectOpen = !routeDisplayArmed ||
                     (phase == RoutePhase.CHOOSING && !routeCommitted &&
                         (routeSelectedLine != null || routePartialDrawn))
                 listOf(
                     // Discard — wherever a line can be left, from the search itself to a written route.
-                    // Read from **`routeArmed`**, the flag the door itself turns off, so it stands
-                    // enabled exactly while its action would act.
-                    routeArmed,
+                    // Read from the **display** flag, so a pending window's own cell is inert.
+                    routeDisplayArmed,
                     // Save to track and exit — the Following phase's alone: inside the acquisition the
                     // leaving is the phase move Discard, and it asks nothing (R63).
                     following && saveOpen,
@@ -2481,11 +2580,11 @@ fun MapScreen(
                     // settled one, or the partial one an early select committed to.
                     selectOpen,
                     // Route (auto) — the arming that takes the settled answer itself (R80), and an
-                    // arming belongs to Idle alone (R65). Its source is **`routeArmed`**, not the phase:
-                    // the flag is what the press reads and the only thing a restore brings back, so the
-                    // phase would draw the cell live on the arming frame and dead after process death,
-                    // exactly when the arc is needed.
-                    !routeArmed
+                    // arming belongs to Idle alone (R65). Its source is the **display** flag, not the
+                    // phase: the flag is what the press reads and the only thing a restore brings back,
+                    // so the phase would draw the cell live on the arming frame and dead after process
+                    // death, exactly when the arc is needed.
+                    !routeDisplayArmed
                 )
             }
             // **The five actions, in that same list's order** (D5, R79): the Route child acquires while
@@ -2493,20 +2592,34 @@ fun MapScreen(
             // the auto-pick flag, the save pair mirror the panel's and the dialog's own saves, and the
             // Discard is the dialog's third outcome without its question.
             val routeFanActions: List<() -> Unit> = listOf(
-                { endRouteMode() },
+                // Discard — the deferred door: the window opens, the disposal waits on the toast.
+                { discardRoute() },
                 {
+                    // Save to track and exit acts on the live mode: a pending window is superseded first.
+                    cancelPendingDiscard()
                     routeSelectedLine?.let { saveRouteTrack(it, routePinned) }
                     endRouteMode()
                 },
-                { saveRoute() },
                 {
-                    if (routeArmed) followRoute()
+                    cancelPendingDiscard()
+                    saveRoute()
+                },
+                {
+                    // Route — read from the **display**: off means an arming (which commits a pending
+                    // discard first), on means confirming the selected line.
+                    if (routeDisplayArmed) followRoute()
                     else {
+                        if (pendingDiscard != null) commitPendingDiscard()
+                        // An explicit arming forces the fresh multi-route acquisition: only the
+                        // autoselect (`Route auto`) consults the R83 stored-route pull-back.
                         routeAutoPick = false
-                        armRouteMode()
+                        armRouteMode(forceFresh = true)
                     }
                 },
                 {
+                    // Route (auto) — a new arming commits a pending discard before the flag is set, so
+                    // the disposal's own clear cannot eat the auto-pick.
+                    if (pendingDiscard != null) commitPendingDiscard()
                     routeAutoPick = true
                     armRouteMode()
                 }
@@ -2699,10 +2812,12 @@ fun MapScreen(
                 inspectArmed = inspectArmed,
                 inspectEnabled = inspectAvailable,
                 onToggleInspect = { if (inspectArmed) disarmInspectMode() else armInspectMode() },
-                routeArmed = routeArmed,
-                routeFollowing = routeState is RouteState.Following,
-                routeSearching = routeSearching,
-                onToggleRoute = { if (routeArmed) toggleRouteOff() else armRouteMode() },
+                // The display reads a completed discard while the window stands: the toggle is off and
+                // the fan parent states Idle, though the mode stays live underneath.
+                routeArmed = routeDisplayArmed,
+                routeFollowing = routeState is RouteState.Following && !routeDiscarding,
+                routeSearching = routeSearching && !routeDiscarding,
+                onToggleRoute = { if (routeDisplayArmed) toggleRouteOff() else armRouteMode(forceFresh = true) },
                 routeFanEnabled = routeFanEnabled,
                 routeFanActions = routeFanActions,
                 routeHost = {
@@ -2719,6 +2834,9 @@ fun MapScreen(
                             // The main lookup's partial line, drawn while the search runs.
                             provisionalLine = routeProvisionalLine,
                             armed = routeArmed,
+                            // Phase 1 of the deferred discard: the line and the pin leave at once while
+                            // the engine keeps running underneath.
+                            discardPending = routeDiscarding,
                             gpsMode = appSettings.gpsMode,
                             speedKn = navigationState.speedKnots,
                             // A reading taken inside a zone or the band measures the limit, not the
@@ -2729,7 +2847,9 @@ fun MapScreen(
                             // acquiring face wears, so the two cannot drift (R51).
                             routeLineColor = appSettings.routeLineColor,
                             viewModel = routeViewModel,
-                            onEndRoute = { leaveRouteMode() }
+                            // The window is transparent to back: a second press confirms the disposal,
+                            // which is the back key's own job; otherwise the mode's one exit rule runs.
+                            onEndRoute = { if (pendingDiscard != null) commitPendingDiscard() else leaveRouteMode() }
                         )
                     }
                 },
@@ -2747,11 +2867,11 @@ fun MapScreen(
             // is where the outcomes are taken from, so it needs no floating surface to be reached —
             // and once `Select route` is pressed the ordinary dashboard returns, which is the whole of
             // what the navigation phase adds.
-            val routeOwnsSlot = routeArmed && routeState is RouteState.Choosing
+            val routeOwnsSlot = routeDisplayArmed && routeState is RouteState.Choosing
             // The drawer's summary stands in the **routing phase alone** (D5): the acquisition's status
             // — the acquiring word and the engine's stage — lives on the panel, so the gate reads the
             // followed route rather than the slot-and-search pair.
-            val routeSummaryVisible = routeState is RouteState.Following
+            val routeSummaryVisible = routeState is RouteState.Following && !routeDiscarding
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,
@@ -2775,7 +2895,7 @@ fun MapScreen(
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
-                        onDiscard = { endRouteMode() },
+                        onDiscard = { discardRoute() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -2814,7 +2934,7 @@ fun MapScreen(
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
-                        onDiscard = { endRouteMode() },
+                        onDiscard = { discardRoute() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -3265,7 +3385,7 @@ fun MapScreen(
                 destinationOptions = routeEndOptions(RouteEndSelection.End.DESTINATION, routeMarkers),
                 startSelection = routeStartSelection,
                 destinationSelection = routeDestinationSelection,
-                onArm = { armRouteMode() },
+                onArm = { armRouteMode(forceFresh = true) },
                 onStartSelect = { storeRouteEnd(RouteEndSelection.End.START, it) },
                 onDestinationSelect = { storeRouteEnd(RouteEndSelection.End.DESTINATION, it) },
                 searching = routeSearching,
@@ -3436,8 +3556,26 @@ fun MapScreen(
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
-            onUndo = { onSnackUndo(it) },
-            onTimeout = { onSnackTimeout(it) }
+            // The route discard's toast is answered here, inside the route block where the disposal
+            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
+            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
+            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
+            // of disposing a restored route. Every other snack keeps its own handler.
+            onUndo = { snack ->
+                if (snack is ActiveSnack.RouteDiscard) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
+                } else onSnackUndo(snack)
+            },
+            onTimeout = { snack ->
+                if (snack is ActiveSnack.RouteDiscard) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
+                } else onSnackTimeout(snack)
+            },
+            onSecondAction = { snack ->
+                if (snack is ActiveSnack.RouteDiscard) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
+                }
+            }
         )
 
         // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
@@ -3506,7 +3644,9 @@ fun MapScreen(
             routeViewModel = routeViewModel,
             onDismissExit = { routeExitRequested = false },
             onSaveRoute = { plan -> saveRouteTrack(plan, routePinned) },
+            // Save-and-exit never toasts; only the dialog's own Discard is deferred.
             onEndRoute = { endRouteMode() },
+            onDiscardRoute = { discardRoute() },
             // ── Resume confirmation — its retained copy moved with the dialog ──
             resumeTarget = chrome.pendingResume,
             onClearResume = { chrome.pendingResume = null },
@@ -4328,10 +4468,13 @@ private fun MapContent(
                         animationSpec = tween(300)
                     )
 
-                    // ── The route fan (R75–R80) ───────────────────────────────
+                    // ── The route fan (R75–R80, R91) ──────────────────────────
                     // The parent opens the arc and states the mode (R76); the five children are the
-                    // route's own actions, each enabled by the phase alone (R77); and a child's press
-                    // closes the fan first, by clearing the one id that says which is open (D3, R78).
+                    // route's own actions, each enabled by the mode's own readings rather than the
+                    // phase alone (R77); and a child's press fires its action. The acquire (`Route`)
+                    // and follow (`Route auto`) children also close the arc, while Discard, Save+Exit
+                    // and Save leave it expanded; otherwise the fan closes on the back key, the scrim,
+                    // or the parent anchor's own toggle (R91).
                     // **The list runs bottom to top** — index 0 sits at the arc's bottom — so it is the
                     // screen's reading reversed: Discard lowest, `bolt` highest.
                     Box(modifier = Modifier.alpha(routeFanAlpha)) {
@@ -4366,7 +4509,9 @@ private fun MapContent(
                             ),
                             enabledStates = routeFanEnabled,
                             onChildClick = { index: Int, _: Boolean ->
-                                onDismissFan()
+                                // The acquire (3) and follow (4) children collapse the arc; the rest
+                                // (Discard 0, Save+Exit 1, Save 2) leave it expanded (R91).
+                                if (index == 3 || index == 4) onDismissFan()
                                 routeFanActions.getOrNull(index)?.invoke()
                             }
                         )

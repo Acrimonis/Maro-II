@@ -1,28 +1,26 @@
 # Context Hydration — Route — 2026-10-03
 
-**Last Bake:** 2026-10-03 11:30 UTC — written by `#bake`
+**Last Bake:** 2026-10-03 11:32 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** This session built the ladder on the user's explicit words: the two `#impl` runs (Phase F, then the candidate-pass retirement), the rung reorder, the three-stop Settings cursor, the tolerance collapse and the repaint fixes, each on an order; the `#commit` (`5e6211fa`) and this `#bake` followed the user's own sequence. Of the five covered action classes none was met unasked: no dependency was added, no machine-shaped data file was opened, no file was written without the order, the device was never touched, and every git write was named by the user.
+**Directive trace:** One session on `feature/route-n-floOow` (a `#new`, `#focus`, then ordered changes): the fan's close rule, the two-phase discard toast, and the force-fresh arming. Of the five covered action classes none ran unasked — no dependency was added, no machine-shaped data file was opened, no file was written without the user's word, and the device was never touched; every claim about the code followed its own read.
 
 ## State
 
-**`feature/avoid-more` carries the three-route ladder.** The engine declares three fixed-aversion rungs — around (λ=5), balanced (λ=2.5) and through (λ=0), most-fun first — over one `Deferred`-cached grid built once per arm ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:207)); each rung is a full solve at its own λ, the forced-crossing growth and the fine pass retained, the budget loop gone. `RouteViewModel` maps the Driving-preference cursor (`softCostAversion`) to the initial rung, folds any rung within `route.avoid.ladder.collapse.toleranceM` (default 25 m, shipped 75) into a marked survivor via `routeDispersionM`, and re-seats the selection on the nearest survivor.
+**Every route discard is a two-phase gesture** (R92): a discarding press — the panel's Discard, the fan's Discard, the toggle-off, the back key in the acquisition, and the exit dialog's Discard — sets a `pendingDiscard` window, so the panel and line leave and the toggle reads off while the mode stays live underneath. The real disposal runs on the toast's dismissal (the 4 s timeout, a horizontal swipe, a second back press, or New acquisition); Undo clears the window and everything returns with nothing recomputed. A new arming commits then arms, the fan's Save/Select supersede the window, and the route toast jumps the snackbar queue.
 
-**The candidate-pass apparatus is retired** — its maro.properties keys, `AppConfig` accessors and parser, and the whole `RouteOffer` model are gone; the ladder declares its rungs directly. The Routing Tuning block now carries the free-water pace and a three-stop **Driving preference** cursor, the slow-water budget slider removed.
+**The route fan closes on acquire and follow** (R91): the `Route` and `Route auto` children close the arc, while `Discard`, `Save+Exit` and `Save` leave it open; otherwise it closes on the back key, the scrim or the parent anchor's own toggle.
 
-**Verification.** `gradlew.bat :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL, the whole unit suite green. Nothing device-validated: the map pool is sized to the rungs and old lines cleared on repaint, but the three-rung draw and the collapse's double-display fix still want a device pass.
+**Every explicit arming re-searches** (R83, R92): the fan's `Route`, the toggle and the drawer's Route action pass `forceFresh = true`, so the stored-route pull-back belongs to the autoselect (`Route auto`) arming alone, which still follows a saved line directly. Build green (`apk-build.bat`); nothing device-validated.
 
 ## Target Files
 
-- [`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:207) — the three rungs, the shared `GridContext`, `searchRung`/`solveAtLambda`
-- [`RouteViewModel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt:343) — the cursor→rung initial selection, the tolerance collapse, the survivor mark and the look-up remap
-- [`RouteOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:131) — `ROUTE_LADDER_RUNG_COUNT`, `routeRungIndex`, `routeRungLambda`, `routeDispersionM`
-- [`RouteHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt:122) — the pool sized to the rungs; every unused line disabled and emptied
-- [`RouteConfirmPanel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt:364) — the collapse note folded into the route's own row
-- [`MapScreenSettingsOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1470) — the three-stop Driving-preference cursor
-- [`AppConfig.kt`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:336) — `routeAvoidLadderCollapseToleranceM`
-- tests: [`RouteAvoidEngineTest.kt`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt), [`RouteZonePhase4Test.kt`](../../app/src/test/java/ykws/android/maro/spatial/avoid/RouteZonePhase4Test.kt), [`RouteAcquisitionTest.kt`](../../app/src/test/java/ykws/android/maro/ui/map/RouteAcquisitionTest.kt)
+- `MapScreen.kt` — `pendingDiscard`, `discardRoute()`, `commitPendingDiscard()` / `cancelPendingDiscard()`, the toast handlers, the fan's close rule and the force-fresh arming
+- `MapDashboardController.kt` — the route toast's queue jump
+- `MapSnackbarHost.kt` + `SnackRow` — the route-discard snack, its second action and the horizontal swipe
+- `MapDialogHost.kt`, `RouteHost.kt`, `RouteConfirmPanel.kt` — the discard wiring
+- `values/strings.xml` + `values-fr/strings.xml` — the toast and New-acquisition strings
+- `FEAT_DSC_Route.md` — R91, R92 and the Delta
 
 ## Next Step
 
-The device passes over the three rungs, the paging table and the collapse. Then the deferred second retirement family — the engine's ignored `aversionKn`/`slowWaterBudgetPct` params, the test-only `betterPass`/`PassCost`/`fineSpliceBetter`, and the dead slow-water budget chain.
+The device pass over the discard toast (its four confirmations and Undo), the fan's close rule and the force-fresh arming; the Delta's owed device passes and the parked swap control stand.
