@@ -1,21 +1,25 @@
 # Context Hydration — Route — 2026-10-03
 
-**Last Bake:** 2026-10-03 19:49 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-03 21:35 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met with a verdict line and none stopped — no dependency added, no machine-shaped data file opened, every step taken on an explicit order, the device untouched, and every claim about the code backed by a file read. Nothing is committed or pushed.
+**Directive trace:** One session on `feature/route-rendering`: the saved-route casing plan was pivoted to a dashed display on the user's word and the casing pass rolled back; no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code followed a read.
 
 ## State
 
-The acquisition's ladder now reads as a hurry↔fun axis: the three rungs are relabelled Fast · Balanced · Fun in both locales, presented in landed-ETA order (ties keeping the ladder's natural order), while the provisional line, the stage and the auto-pick stay on the main. The seat resolves the preferred rung from the live `routeSlowWaterAversion` and re-applies `routeSeatedIndex` on every landing, so it follows the first landed eligible row and a collapsed preference parks on its survivor (R95). `apk-build.bat` and the unit suite are green; the two review defects are fixed with a regression test. Nothing is committed and the device pass is unrun.
+**A saved route draws dashed, plain and speed-coloured alike** — `TrackRenderPlan` carries a `route` role, the segment builders (`buildSegmentOverlays` / `buildBandSegmentOverlays`) thread a `dashed` flag into `segmentOverlays`, and a route's whole stroke takes a `DashPathEffect` at the rhythm read from `map.track.width.route.dashOn` (6.6666667) / `dashOff` (3.3333333); recorded tracks and the gold selection stay solid, and the direction arrows stay solid.
+
+**The rhythm is file-driven** — `map.track.width.route.dashOn` / `dashOff` read through `AppConfig.trackRouteDashOnDp` / `trackRouteDashOffDp` and join the effect's rebuild keys, and the route core follows `map.track.width.route=3.0`. The R95 ladder (Fast · Balanced · Fun ordered by ETA) landed from develop during the rebase; the R93 selected-route edge stands.
+
+Build green (`apk-build.bat`) and the scoped `ui.map` + `config` + `data.track` suites green; the route-flag test pins that a banded route and a banded track differ only by the flag, and the width guard covers the two dash keys.
 
 ## Target Files
 
-- `RouteViewModel.kt` — `preferredRungIndex`, the per-landing re-seat, the survivor remap and the live-preference read
-- `RouteOverlay.kt` — `routeEtaSeatedIndex` and the ETA-sorted view
-- `RouteConfirmPanel.kt` — the ETA-ordered panel rows
-- `strings.xml` + `values-fr/strings.xml` — the three rung labels Fast · Balanced · Fun
-- `RouteAcquisitionTest.kt`, `RouteEngineSeamTest.kt` — the seat and order assertions and the collapse regression
+- `MapTrackOverlayEffects.kt` — the `route` role on `TrackRenderPlan` and the `dashed` threading through `plainPath` / `bandedPath`
+- `MapTrackSegments.kt` — the `dashed` flag through the segment builders and the route-dash `DashPathEffect`
+- `AppConfig.kt` + `maro.properties` — `trackRouteDashOnDp` / `trackRouteDashOffDp` and `map.track.width.route=3.0`
+- `TrackRouteRoleTest.kt` — the banded-route-vs-banded-track flag test
+- `TrackOutlineTest.kt` — the width guard and the dash-key test
 
 ## Next Step
 
-The device pass: the three labels, the ETA order, and the seat following the preference as each rung lands.
+The device pass: a saved route dashed beside a recording, a speed-coloured dashed route, and the arrows still solid.

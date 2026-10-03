@@ -266,4 +266,23 @@ class TrackRouteRoleTest {
         )
         assertNotEquals(historyNewest.argb, newest.argb)
     }
+
+    @Test
+    fun aBandedRouteAndABandedTrackDifferOnlyByTheRouteFlag() {
+        // The dashed stroke is keyed on the plan's role, never on the path: a route and a recorded
+        // track can both take BANDED, so the flag is what tells the dispatcher which one to dash.
+        val route = trackRenderPlan(
+            trackArrows = true, trackColours = true, selected = false,
+            eyeOverride = null, route = true, routeSpeedColour = true
+        )
+        val recorded = trackRenderPlan(
+            trackArrows = true, trackColours = true, selected = false,
+            eyeOverride = null, route = false
+        )
+
+        assertTrue(route.route)
+        assertFalse(recorded.route)
+        assertEquals(TrackRenderPath.BANDED, route.path)
+        assertEquals(TrackRenderPath.BANDED, recorded.path)
+    }
 }

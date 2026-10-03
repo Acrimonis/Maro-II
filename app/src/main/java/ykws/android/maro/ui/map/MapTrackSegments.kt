@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.map
 
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
 
@@ -54,9 +55,11 @@ internal fun buildSegmentOverlays(
     points: List<TrackPoint>,
     appearance: TrackPolylineAppearance,
     title: String,
-    density: Float
+    density: Float,
+    /** Dashes the whole stroke at the route's own rhythm — the saved-route display. */
+    dashed: Boolean = false
 ): List<org.osmdroid.views.overlay.Overlay> =
-    segmentOverlays(points, splitTrackSegments(points), appearance, title, density)
+    segmentOverlays(points, splitTrackSegments(points), appearance, title, density, dashed)
 
 /**
  * Build the osmdroid polylines for **one speed band's own geometry** — the banded twin of
@@ -70,10 +73,13 @@ internal fun buildBandSegmentOverlays(
     points: List<TrackPoint>,
     band: SpeedBand,
     title: String,
-    density: Float
+    density: Float,
+    dashed: Boolean = false
 ): List<org.osmdroid.views.overlay.Overlay> {
     val bandPoints = band.pointIndices.map { points[it] }
-    return segmentOverlays(bandPoints, drawableBandSegments(bandPoints), band.appearance, title, density)
+    return segmentOverlays(
+        bandPoints, drawableBandSegments(bandPoints), band.appearance, title, density, dashed
+    )
 }
 
 /**
@@ -93,7 +99,9 @@ private fun segmentOverlays(
     segments: List<TrackSegment>,
     appearance: TrackPolylineAppearance,
     title: String,
-    density: Float
+    density: Float,
+    /** Dashes the whole stroke at the route's own rhythm, on top of the per-segment GAP dash. */
+    dashed: Boolean = false
 ): List<org.osmdroid.views.overlay.Overlay> = segments.map { segment ->
     org.osmdroid.views.overlay.Polyline().apply {
         this.title = title
@@ -101,7 +109,16 @@ private fun segmentOverlays(
         // The appearance's width is dp, like every stored width since 2026-09-19: the conversion is
         // the caller's density applied here, where the paint is written.
         outlinePaint.strokeWidth = dpToPx(appearance.strokeWidth, density)
-        if (segment.dashed) {
+        if (dashed) {
+            // The saved-route dash reads its own rhythm from the file, not the GAP bridge's.
+            outlinePaint.pathEffect = android.graphics.DashPathEffect(
+                floatArrayOf(
+                    dpToPx(AppConfig.trackRouteDashOnDp, density),
+                    dpToPx(AppConfig.trackRouteDashOffDp, density)
+                ),
+                0f
+            )
+        } else if (segment.dashed) {
             outlinePaint.pathEffect = android.graphics.DashPathEffect(
                 floatArrayOf(
                     dpToPx(TRACK_GAP_DASH_ON_DP, density),

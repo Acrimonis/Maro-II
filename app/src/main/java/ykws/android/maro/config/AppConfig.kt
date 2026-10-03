@@ -590,8 +590,17 @@ object AppConfig {
         private set
     /** Stroke width (dp) of every route's line — a route. It joins the same table and is taken
      *  whatever the pin says, the route role having its own stroke rather than the pinned or history
-     *  one. Default 2.6666667 (the 8 px of the 3× reference). Set via `map.track.width.route`. */
-    var trackWidthRouteDp: Float = 8f / 3f
+     *  one. Default 3.0 (the 9 px of the 3× reference). Set via `map.track.width.route`. */
+    var trackWidthRouteDp: Float = 3f
+        private set
+    /** The saved-route dash's on length, in dp — the rhythm a route's whole stroke is broken into,
+     *  plain and speed-coloured alike. Default 6.6666667 (the 20 px of the 3× reference, divided by
+     *  three). Set via `map.track.width.route.dashOn`. */
+    var trackRouteDashOnDp: Float = 20f / 3f
+        private set
+    /** The saved-route dash's off length, in dp. Default 3.3333333 (the 10 px of the 3× reference,
+     *  divided by three). Set via `map.track.width.route.dashOff`. */
+    var trackRouteDashOffDp: Float = 10f / 3f
         private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
      *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than
@@ -1419,6 +1428,12 @@ object AppConfig {
             props.getProperty("map.track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("map.track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("map.track.width.route")?.toFloatOrNull()?.let { trackWidthRouteDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("map.track.width.route.dashOn")?.toFloatOrNull()?.let {
+                trackRouteDashOnDp = it.coerceAtLeast(1f / 3f)
+            }
+            props.getProperty("map.track.width.route.dashOff")?.toFloatOrNull()?.let {
+                trackRouteDashOffDp = it.coerceAtLeast(1f / 3f)
+            }
             props.getProperty("map.track.width.selected.casing")?.toFloatOrNull()?.let {
                 trackWidthSelectedCasingDp = it.coerceAtLeast(1f / 3f)
             }

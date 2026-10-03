@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-03 19:49
+modified: 2026-10-03 21:35
 ---
 
 # Feature: Route
@@ -246,3 +246,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - Every explicit arming forces the fresh multi-route acquisition (R83, R92) — the fan's `Route`, the toggle and the drawer's Route action pass `forceFresh = true` so the stored-route pull-back belongs to the autoselect (`Route auto`) arming alone, which still follows a saved line directly; the acquisition comment and R92's child names follow
 - The selected route is reinforced by shape and opacity (R93) — a derived under-stroke in both phases from the one `ui.reinforce.darkenPct` lever and `reinforcedColor`, and a boat-split follow line off `RoutePlan.splitAt`
 - The acquisition table's delta re-based on the selected route — the third column compares each page against the route the selection stands on, the seat following the first landed row → [`261003_FEAT_PLN_Route_selected-delta.md`](261003_FEAT_PLN_Route_selected-delta.md)
+- A saved route draws dashed, plain and speed-coloured alike — a `route` role on the render plan keys a `dashed` flag through the segment builders, and the rhythm reads from `map.track.width.route.dashOn` / `dashOff`, so a route reads apart from a recorded track; the casing under-stroke was rolled back → [`261003_FEAT_PLN_Route_saved-route-casing.md`](261003_FEAT_PLN_Route_saved-route-casing.md)
