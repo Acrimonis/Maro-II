@@ -12,7 +12,7 @@
 
 **One generic lever and one pure helper** — `reinforcedColor(color, darkenPct)` in `ui/color/ColorReinforcement.kt` is pure and RGB-only with the caller reading the lever, and the app-wide rule, that a colour needing reinforcement is derived rather than given a second key, sits beside the transparency convention in `docs/ui-component-guidelines.md` with a pointer from `docs/color-scheme.md`.
 
-Build green (`apk-build.bat`) and the sixty-three-test run green; nothing device-validated, and the feature's `## Todos` now carries the review's one open code-health finding, the arrival threshold written in both the paint key and the run selection.
+Build green (`apk-build.bat`) and the 23 route suites green over 185 tests; the review's one clean-up, the arrival threshold written twice, now has a single home in `RouteHost` read by both the paint key and the run selection, and **the user's own device pass on 2026-10-03 confirmed** the edge's contrast, the arrival repaint, the paint order inside the route tier, the split's join, the degenerate start and the demo-mode marker.
 
 ## Target Files
 
@@ -27,4 +27,4 @@ Build green (`apk-build.bat`) and the sixty-three-test run green; nothing device
 
 ## Next Step
 
-The plan's §8 owed device pass: the edge's contrast, the arrival repaint, the paint order inside the route tier, the split's join, the degenerate start and the demo-mode marker.
+The open walk's item 1 — **D4**, the fine band: change the code or change the record — with its parked sibling at item 15 under the closed 2026-09-28 level.

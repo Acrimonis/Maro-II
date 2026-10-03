@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-03 13:57
+modified: 2026-10-03 14:10
 ---
 
 # Feature: Route
@@ -91,9 +91,11 @@ Arrival carries no state and no cue: it is the trip cell reading zero while the 
 - The route opacity ladder: `tracking.transparency.routeFrom` / `routeTo` and any row reading them.
 - The seam members the current flow does not use — parked for the user's re-evaluation rather than deleted blind.
 
-**Owed device passes** — the Phase 6 fairing with its four keys and the GPX acceptance; the route fan's arc, enablement and auto-pick, and the fan closing on the acquire (`Route`) and follow (`Route auto`) children while `Save`, `Save+Exit` and `Discard` leave it standing, with the acquisition panel staying tappable under it; the acquisition's face, the toggle's door and the paint order; the progressive draw's staircase and its 55 % face; the confirming pass after the paint-order repair and the **Active route** colour row; the acquisition panel's paging table with its early select and early save.
+**Owed device passes** — the Phase 6 fairing with its four keys and the GPX acceptance; the route fan's arc, enablement and auto-pick, and the fan closing on the acquire (`Route`) and follow (`Route auto`) children while `Save`, `Save+Exit` and `Discard` leave it standing, with the acquisition panel staying tappable under it; the acquisition's face, the toggle's door and the paint order; the progressive draw's staircase and its 55 % face; the confirming pass after the paint-order repair and the **Active route** colour row; the acquisition panel's paging table with its early select and early save. **Validated 2026-10-03 by the user's own pass:** the R93 edge's contrast, the arrival repaint, the paint order inside the route tier, the split's join, the degenerate start and the demo-mode marker.
 
 **Known — the faded sibling fan's anchor still takes the tap (pre-existing, 2026-10-03)** — while one fan is open the other's anchor sits behind `Modifier.alpha(0f)` yet keeps its `onParentClick`, so a tap on the invisible anchor moves `expandedFanId` to the other fan and closes the standing one; a one-line guard on each fan's parent click is the fix, left out of this change as pre-existing and shared with the layer fan.
+
+**Known — the route pin still hides through `isEnabled` (closed 2026-10-03)** — the idiom is proven in this repo for `Polyline` only, and nothing in the device pass showed a stale pin where no route stands, so the pre-refactor shape — the pin created and added only when a plan exists — stays unbuilt and is no longer a todo.
 
 **The progressive draw's open points** — the flicker on a sub-second ask, the angular staircase, the `PULL` boundary's mapping cost unmeasured against the ≤ 500 ms budget, and whether the aim beat should stop while a partial line draws, with its retry pin and the device reading owed ([`260925_FEAT_PLN_Route_progressive-draw.md`](260925_FEAT_PLN_Route_progressive-draw.md:112)).
 
@@ -123,9 +125,7 @@ The live numbered requirements — added after the master book was retired on 20
 
 ## Todos
 
-- [ ] **The pin's hiding flag** — the route pin is hidden with `isEnabled`, an idiom proven in this repo for `Polyline` only; should a device ever show a stale pin where no route stands, the pin's pre-refactor shape — created and added only when a plan exists — is the fallback.
 - [ ] **The multi-route save, withdrawn 2026-09-24** — the exit dialog no longer offers to write the session's routes; resolve later whether it comes back and, if it does, what names its files.
-- [ ] **The arrival threshold is written twice** (2026-10-03, raised by the `#implement` review) — the *the remaining run holds two points* test stands in both `RouteHost`'s paint key and its run selection, so the two can drift; one derived predicate read by both is the fix.
 
 ## Key Files
 

@@ -227,6 +227,11 @@ internal fun RouteHost(
     }
     val split = remember(followedPlan, splitIdentity) { followedPlan?.splitAt(boatPosition) }
 
+    // **The arrival threshold, derived once** — the one expression of the rule that the remaining run
+    // still stands, read by both the paint key's arrival discriminator below and the choice between the
+    // remaining run and the whole line, so the two readers can never disagree.
+    val remainingStands = split != null && split.remainingPoints.size >= 2
+
     // The paint's own key: the **arrival discriminator** — whether the remaining run still stands — the
     // best leg the projection landed on (read from [RouteSplit] rather than reconstructed from the run's
     // size), and the projected point rounded to the same step. The flag is what makes the effect re-run
@@ -235,7 +240,6 @@ internal fun RouteHost(
     // on this rather than on the raw fix, so a stationary boat does not repaint while one that has moved
     // past the step does — and inside a bucket only the flag can change, so an ordinary fix never does.
     val splitKey = split?.travelledPoints?.lastOrNull()?.let { at ->
-        val remainingStands = split.remainingPoints.size >= 2
         "$remainingStands:${split.bestLegIndex}:" +
             "${(at.latitude / SPLIT_IDENTITY_STEP_DEG).roundToInt()}:" +
             "${(at.longitude / SPLIT_IDENTITY_STEP_DEG).roundToInt()}"
@@ -284,11 +288,12 @@ internal fun RouteHost(
         // `followSavedRoute` both empty the pages, so slot 0 and the pin read the state to stay drawn.
         val followed = (state as? RouteState.Following)?.plan
 
-        // **While following, slot 0 carries the split's remaining run alone** once two points remain,
+        // **While following, slot 0 carries the split's remaining run alone** while [remainingStands],
         // so the covered run is painted by `route_travelled` and never twice beneath it; where the
         // remaining run falls under two points — the arrival rule — slot 0 keeps the **whole** line at
-        // full strength and the travelled overlay stays off. The casing mirrors slot 0's own points.
-        val remainingRun = if (followed != null && split != null && split.remainingPoints.size >= 2) {
+        // full strength and the travelled overlay stays off. The casing mirrors slot 0's own points, and
+        // the two-point test is the same [remainingStands] the paint key carries.
+        val remainingRun = if (followed != null && remainingStands) {
             split.remainingPoints
         } else {
             null

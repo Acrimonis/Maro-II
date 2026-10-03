@@ -137,8 +137,9 @@ In [`RouteHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.k
 - The route suites stay green: `RouteAcquisitionTest`, `RouteEngineSeamTest`, `RoutePlanTest`,
   `RouteStoredMatchTest`, `RouteMirrorPlanTest`.
 - `apk-build.bat` green.
-- **Owed to the user, not the agent:** the device pass over the edge's contrast, the paint order inside the
-  route tier, the split's join and its behaviour at a leg boundary, and the demo-mode marker.
+- **Validated 2026-10-03 by the user's own pass:** the edge's contrast, the paint order inside the route
+  tier, the split's join and its behaviour at a leg boundary, the arrival repaint, the degenerate start and
+  the demo-mode marker.
 
 ## 9. Out of scope
 
