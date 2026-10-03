@@ -696,9 +696,9 @@
     <string name="route_engine_avoid">Évitement</string>
     <!-- Les descriptions de calcul sous lesquelles un barreau déclaré est affiché : les trois aversions
          fixes de l\'échelle — nulle, médiane et maximale. -->
-    <string name="route_computation_through">À travers les zones lentes</string>
+    <string name="route_computation_through">Rapide</string>
     <string name="route_computation_balanced">Équilibré</string>
-    <string name="route_computation_around">Contourner les zones lentes</string>
+    <string name="route_computation_around">Plaisir</string>
     <string name="route_collapsed_note">Toutes les préférences donnent cette même ligne</string>
     <!-- La comparaison du panneau dès qu\'une seconde page terminée existe — « La route n°n met x de
          moins/de plus », l\'arithmétique du flux entre la durée de chaque route et celle de la sélection. -->

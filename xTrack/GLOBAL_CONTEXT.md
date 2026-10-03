@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-03 19:49 UTC] Route — the ladder reads Fast · Balanced · Fun ordered by ETA, the preference re-seats on its live value, and a collapsed preference parks on its survivor (R95) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 14:29 UTC] Ui_Dashboard — the whole bottom dashboard family on one auto-resizing frame with one base size and one map ceiling, its corners square at every size after the device look rejected the round-once-grown effect, then the walk's residue landed: the dead probe, the badge residue and the stray landscape measurement gone, and the inset tightened → xTrack/Ui_Dashboard/FEAT_HYD_Ui_Dashboard.md
 - [2026-10-03 12:03 UTC] Route — the selected route is reinforced by a derived edge from the one `ui.reinforce.darkenPct` lever in both phases, with the followed line split at the boat so the run behind fades and the run ahead stays strong (R93) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 08:29 UTC] Route — `feature/route-n-floOow`: every discard a two-phase gesture with an undo toast, the fan closing on acquire/follow, and every explicit arming re-searching (R91, R92) → xTrack/Route/FEAT_HYD_Route.md
@@ -12,8 +13,6 @@
 - [2026-10-02 12:27 UTC] Ui_Settings — pivot only, no task named yet → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-10-01 20:16 UTC] Ui_General — `feature/ui-shuffle` reshuffled the Settings tabs and the menu → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-09-30 21:16 UTC] Route — `feature/route-markers`: a saved route carries its two flagged marker ends and is found by them → xTrack/Route/FEAT_HYD_Route.md
-- [2026-09-30 20:11 UTC] Ui_Settings — `maro.properties` taxonomy plan → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
-- [2026-09-30 20:02 UTC] Route — `feature/avoid-I`: the band's own limit priced per cell → xTrack/Route/FEAT_HYD_Route.md
 
 ## Routing Map
 | Keyword | Feature File |
@@ -53,7 +52,7 @@
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
 | Ui_Dashboard | Main dashboard UI layout and HUD display — every portrait dashboard rides one auto-resizing frame with one base size and one map ceiling, a taller one pushing the map rather than covering it, and the corners square at every size after the device look rejected the round-once-grown effect — detail in [`FEAT_DSC_Ui_Dashboard.md`](xTrack/Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) | 2026-05-15 00:00 | 2026-10-03 17:51 | active |
-| Route | Set a destination and have the app draw the route from the boat to it; the acquisition offers three fixed-aversion rungs over one shared grid, the selected line is reinforced by a derived edge in both phases with the followed line fading behind the boat, and every discard is a two-phase gesture with an undo toast — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 13:57 | active |
+| Route | Set a destination and have the app draw the route from the boat to it; the acquisition's ladder reads Fast · Balanced · Fun ordered by ETA, the preference re-seats on its live value, and every discard is a two-phase gesture with an undo toast — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 19:49 | active |
 | Ui_General | App-lifecycle UX — back, insets, lists, drawers, banners, the dashboard close rules — detail in [`FEAT_DSC_Ui_General.md`](xTrack/Ui_General/FEAT_DSC_Ui_General.md) | 2026-06-08 16:43 | 2026-09-28 19:45 | active |
 | Markers | User markers (Pin/Circle/Corridor), where-am-I, the wizard shell — detail in [`FEAT_DSC_Markers.md`](xTrack/Markers/FEAT_DSC_Markers.md) | 2026-06-22 11:52 | 2026-09-28 19:45 | active |
 | Tracks | Track recording, the two render axes, the speed heatmap, the trace flag — detail in [`FEAT_DSC_Tracks.md`](xTrack/Tracks/FEAT_DSC_Tracks.md) | 2026-06-15 00:00 | 2026-09-23 06:50 | active |

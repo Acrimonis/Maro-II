@@ -127,6 +127,9 @@ fun DashboardPanel(
     // The frame's vertical padding lives once (F3): both the scaffold's contentPadding and the
     // grid's bounded height derive from it, so editing one cannot mis-size the panel.
     val padV = 2.dp
+    // The frame's horizontal padding lives once (W20): both branches read it, so editing one
+    // cannot desync the orientations' outer insets.
+    val padH = 4.dp
     // The grid's nine shared arguments, hoisted so the two invocations differ only by the modifier
     // (F9): the landscape column weighs it, the portrait frame gives it the base-derived height.
     val grid: @Composable (Modifier) -> Unit = { gridModifier ->
@@ -150,7 +153,7 @@ fun DashboardPanel(
         Box(
             modifier = modifier
                 .background(DashboardColors.background)
-                .padding(horizontal = 4.dp, vertical = padV),
+                .padding(horizontal = padH, vertical = padV),
             contentAlignment = Alignment.BottomCenter
         ) {
             Column(
@@ -170,7 +173,7 @@ fun DashboardPanel(
             wrapContentMinHeight = dashboardBaseHeight,
             bottomAnchoredContent = true,
             scrollable = false,
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = padV),
+            contentPadding = PaddingValues(horizontal = padH, vertical = padV),
             backgroundColor = DashboardColors.background,
             wrapContentMaxHeight = panelMaxHeight,
             // The base dashboard never grows — F3 pins its grid to the base height — so its top

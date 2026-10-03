@@ -137,6 +137,29 @@ class RouteAcquisitionTest {
         assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
     }
 
+    /**
+     * A 3→2 collapse whose folded rung is the landed preference seats the survivor, never the third
+     * rung's shifted slot (D15): the main lands, a distinct far rung lands, then the preferred third
+     * rung lands within the main's collapse tolerance and folds into it.
+     */
+    @Test
+    fun aCollapsedLandedPreferenceSeatsTheSurvivor() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        engine.publish(ids[1], line(start, shortcut))
+        assertEquals("the two settled rungs stand apart", 3, viewModel.pages.value.size)
+
+        engine.publish(ids[2], line(start, RoutePoint(43.5201, 7.0101)))
+
+        assertEquals("the folded rung drops the set to two pages", 2, viewModel.pages.value.size)
+        assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
+        assertEquals("the seat parks on the survivor, not the shifted third rung", 0, viewModel.selectedIndex.value)
+    }
+
     /** The dispersion reading: a line against itself is zero, a small shift is a small gap, a far line stays apart. */
     @Test
     fun routeDispersionMeasuresTheWidestGap() {
@@ -149,20 +172,25 @@ class RouteAcquisitionTest {
         assertTrue("a route hundreds of metres away reads far", routeDispersionM(a, far) > 100.0)
     }
 
-    /** Next/prev loops the page set, and the selection is what the buttons act on. */
+    /** Next/prev walks the ETA-ordered view — fastest first — and the selection is what the buttons act on. */
     @Test
-    fun theSelectionLoopsThePageSet() = runTest {
+    fun theSelectionWalksTheEtaOrderedView() = runTest {
         val engine = CountingEngine(computations = 2)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
         engine.publish(viewModel.pages.value[0].lookupId!!, line(start, aim))
         engine.publish(viewModel.pages.value[1].lookupId!!, line(start, shortcut))
 
-        assertEquals("the selection starts on the main", 0, viewModel.selectedIndex.value)
-        viewModel.stepPage(1)
-        assertEquals("a step forward stands on the candidate", 1, viewModel.selectedIndex.value)
+        assertEquals("a two-rung set keeps the main as its seat", 0, viewModel.selectedIndex.value)
         assertEquals(
-            "and the selected plan is the candidate's",
+            "and the selected plan is the main's",
+            listOf(start, aim),
+            viewModel.selectedPlan()?.points
+        )
+        viewModel.stepPage(1)
+        assertEquals("a step forward walks to the faster candidate", 1, viewModel.selectedIndex.value)
+        assertEquals(
+            "and the selected plan is the fastest candidate's",
             listOf(start, shortcut),
             viewModel.selectedPlan()?.points
         )
@@ -389,7 +417,44 @@ class RouteAcquisitionTest {
         )
     }
 
-    /** The seat follows the first data: a landing pulls the selection off a row that has no plan (D12). */
+    /** The ETA view orders landed pages fastest-first, keeps the ladder's order on a tie, and parks pending last. */
+    @Test
+    fun routePagesByEtaOrdersFastestFirstAndKeepsTheLadderOnTies() {
+        val plan = { seconds: Double ->
+            RoutePlan(
+                start = start,
+                destination = aim,
+                destinationMoved = false,
+                points = listOf(start, aim),
+                legTimesSec = listOf(seconds),
+                distanceM = 1_000.0,
+                durationSec = seconds,
+                computedAtMs = 0L
+            )
+        }
+        val around = RoutePage(lookupId = RouteId(1), plan = plan(900.0))
+        val balanced = RoutePage(lookupId = RouteId(2), plan = plan(600.0))
+        val through = RoutePage(lookupId = RouteId(3), plan = plan(300.0))
+        assertEquals(
+            "landed pages run fastest-first",
+            listOf(through, balanced, around),
+            routePagesByEta(listOf(around, balanced, through))
+        )
+        val tie = RoutePage(lookupId = RouteId(4), plan = plan(300.0))
+        assertEquals(
+            "a tie keeps the ladder's natural order",
+            listOf(through, tie, balanced, around),
+            routePagesByEta(listOf(around, balanced, through, tie))
+        )
+        val pending = RoutePage(lookupId = RouteId(5))
+        assertEquals(
+            "a pending page parks last",
+            listOf(through, balanced, around, pending),
+            routePagesByEta(listOf(around, pending, balanced, through))
+        )
+    }
+
+    /** The preference names the seat, re-applied on every landing: a pending preference steps aside, a landed one seats itself. */
     @Test
     fun aLandingSeatsTheSelectionOffAPendingRow() = runTest {
         val engine = CountingEngine(computations = 3)
@@ -404,13 +469,31 @@ class RouteAcquisitionTest {
         assertEquals("a step stands on the still-pending row", 1, viewModel.selectedIndex.value)
 
         engine.publish(ids[2], line(start, shortcut))
-        assertEquals("the next landing takes the seat off the empty row", 0, viewModel.selectedIndex.value)
+        assertEquals("the landed preference re-seats itself", 2, viewModel.selectedIndex.value)
+    }
+
+    /** The preference names the initial seat, and every landing re-applies it (D12 rework). */
+    @Test
+    fun thePreferenceNamesTheSeatAndEveryLandingReappliesIt() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        assertEquals("while nothing has landed the preference stays highlighted", 2, viewModel.selectedIndex.value)
+
+        engine.publish(ids[0], line(start, aim))
+        assertEquals("a pending preference steps aside to the nearest landed rung", 0, viewModel.selectedIndex.value)
+
+        engine.publish(ids[2], line(start, shortcut))
+        assertEquals("the landed preference re-seats itself", 2, viewModel.selectedIndex.value)
     }
 
     /**
      * **The auto-pick's readiness keys on the main's landing, never on where the seat stands** (R80):
-     * a candidate that lands first moves the seat onto it, yet the acquisition's plan stays null — the
-     * settled answer is index 0's alone — and the main's landing is what settles it.
+     * the seat may already stand on the preference's candidate while the main is still pending, yet the
+     * acquisition's plan stays null — the settled answer is index 0's alone — and the main's landing is
+     * what settles it.
      */
     @Test
     fun theAutoPicksReadinessKeysOnTheMainsLandingNotOnTheSeat() = runTest {
@@ -421,7 +504,7 @@ class RouteAcquisitionTest {
 
         engine.publish(ids[2], line(start, shortcut))
         assertEquals(
-            "the seat followed the first landing onto the candidate",
+            "the seat stands on the preference's rung while the main is still pending",
             2,
             viewModel.selectedIndex.value
         )

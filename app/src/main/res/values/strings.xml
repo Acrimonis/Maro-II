@@ -660,8 +660,8 @@
     <string name="route_exit_stop_following">Stop following</string>
     <!-- The deferred discard's toast: the acquisition's ending and a followed route's, told apart, each
          offering Undo (reusing `action_undo`) and New acquisition, which re-arms the same ends. -->
-    <string name="route_discard_acq_toast">Route discarded. Next step?</string>
-    <string name="route_discard_followed_toast">Route discarded. Next step?</string>
+    <string name="route_discard_acq_toast">Route discarded.</string>
+    <string name="route_discard_followed_toast">Route discarded.</string>
     <string name="route_action_new_acquisition">New...</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
@@ -686,7 +686,7 @@
     <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
     <string name="settings_route_preference_label">Driving preference</string>
-    <string name="settings_route_preference_desc">Which route the cursor picks first: around slow water, a balanced line, or straight through it.</string>
+    <string name="settings_route_preference_desc">Which route is picked first: around slow water, a balanced line, or straight through it.</string>
     <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
@@ -694,9 +694,9 @@
     <string name="route_engine_avoid">Avoidance</string>
     <!-- The computation descriptions a declared rung is shown under: the ladder's three fixed
          aversions — none, the split, and the maximum. -->
-    <string name="route_computation_through">Through slow water</string>
+    <string name="route_computation_through">Fast</string>
     <string name="route_computation_balanced">Balanced</string>
-    <string name="route_computation_around">Around slow water</string>
+    <string name="route_computation_around">Fun</string>
     <string name="route_collapsed_note">Every preference gives this same line</string>
     <!-- The panel's comparison once a second finished page exists — "Route #n is taking x less/more",
          the flow's arithmetic of each route's duration against the selected one. -->

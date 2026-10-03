@@ -726,7 +726,7 @@ fun MapScreen(
     )
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
-            factory = RouteViewModel.factory(routeEngineSelection)
+            factory = RouteViewModel.factory(routeEngineSelection, viewModel.settings)
         )
     val routeState by routeViewModel.state.collectAsState()
     val routePaceKn by routeViewModel.paceKn.collectAsState()
@@ -767,9 +767,13 @@ fun MapScreen(
     val routeStage by routeViewModel.stage.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
-    // first (index 0) — and the one the selection stands on.
+    // first (index 0) — and the one the selection stands on, both in computation order, so the map's
+    // pool and the provisional line stay tied to the main (R54, R64).
     val routePages by routeViewModel.pages.collectAsState()
     val routeSelectedIndex by routeViewModel.selectedIndex.collectAsState()
+    // **The panel's ETA-ordered view** — the same pages, landed fastest-first — while the map keeps
+    // drawing the computation order above. It is a view: nothing below reorders `routePages`.
+    val routeSortedPages = remember(routePages) { routePagesByEta(routePages) }
     // **Is a search running?** — read once, because the toggle's dot, the panel's status word and the
     // drawer's summary all branch on it.
     val routeSearching = (routeState as? RouteState.Choosing)?.searching == true
@@ -777,6 +781,8 @@ fun MapScreen(
     // save writes (R54, R55): read from the same list the drawing reads, so the two cannot disagree.
     val routeSelectedPage = selectedPageOrNull(routePages, routeSelectedIndex)
     val routeSelectedLine = routeSelectedPage?.plan
+    // The panel's own selected index: the selected page's position in the ETA-ordered view.
+    val routeSortedSelectedIndex = routeSelectedPage?.let { routeSortedPages.indexOf(it).coerceAtLeast(0) } ?: 0
     // **Is the selected line already written?** — the one fact the save actions grey themselves on;
     // an early save still growing its draft counts as written too.
     val routeFrontSaved = routeSelectedLine?.let { routeSessionLinks[it] != null } == true || routeDraftId != null
@@ -2965,8 +2971,8 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
-                        pages = routePages,
-                        selectedIndex = routeSelectedIndex,
+                        pages = routeSortedPages,
+                        selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
                         partialDrawn = routePartialDrawn,
                         committed = routeCommitted,
@@ -3006,8 +3012,8 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
-                        pages = routePages,
-                        selectedIndex = routeSelectedIndex,
+                        pages = routeSortedPages,
+                        selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
                         partialDrawn = routePartialDrawn,
                         committed = routeCommitted,

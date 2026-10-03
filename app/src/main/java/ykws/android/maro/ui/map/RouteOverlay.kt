@@ -173,6 +173,36 @@ internal fun routeSeatedIndex(hasPlan: List<Boolean>, preferredIndex: Int): Int 
 }
 
 /**
+ * **The ETA order of [pages], as the original indices** — landed pages fastest-first, ties keeping the
+ * ladder's natural (computation) order, and pages that have not landed last in that same order.
+ *
+ * The order is a pure view over [pages]: nothing reorders the page set itself, so the main — index 0
+ * of the canonical list — stays index 0 for the map's pool and the provisional line no matter where
+ * the sort puts it in the panel.
+ */
+internal fun routeEtaOrder(pages: List<RoutePage>): List<Int> =
+    pages.indices.sortedBy { pages[it].plan?.durationSec ?: Double.POSITIVE_INFINITY }
+
+/** The page set the panel reads — the ETA-ordered view over the unchanged [pages]. */
+internal fun routePagesByEta(pages: List<RoutePage>): List<RoutePage> =
+    routeEtaOrder(pages).map { pages[it] }
+
+/**
+ * **The seat, answered as an original page index** — the preferred rung resolved against the
+ * ETA-ordered view. While nothing has landed the preference's row stays selected as computing; once
+ * any row has landed the seat takes the preference's rung when it is landed, otherwise the nearest
+ * landed row in the sorted view. [routeSeatedIndex] keeps its one home: it is handed the sorted
+ * view's plan flags and the preferred rung's position in that view.
+ */
+internal fun routeEtaSeatedIndex(pages: List<RoutePage>, preferredRungIndex: Int): Int {
+    val order = routeEtaOrder(pages)
+    val preferred = preferredRungIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+    val preferredView = order.indexOf(preferred)
+    val seated = routeSeatedIndex(order.map { pages[it].plan != null }, preferredView)
+    return order.getOrElse(seated) { preferred }
+}
+
+/**
  * **The dispersion between two routes** — the largest distance from any point of one polyline to the
  * other, taken both ways so the reading is symmetric. It is the "how far apart do they ever get"
  * measure the ladder's collapse reads: two rungs within the tolerance are driven the same way and fold

@@ -40,6 +40,10 @@ touching the device, and stating a claim about the code with no file read behind
   A report states the problem and the fix, never the mechanism, unless a rule requires the evidence; for
   multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped — the focus
   line below closing the same in twenty words.
+- **🪧 `eli20jp` is that pair, named.** A reply here is the ELIJP gist followed by the ELI20 closing
+  line, and `eli20jp` names it — a floor, never a lid: a gate's verdict line, a review's item list and
+  any evidence a rule demands stay on top of it. `#brief` subtracts the ELIJP half and leaves the
+  closing line standing.
 - **🪧 Focus line.** Every reply closes on one line of twenty words or fewer saying what the exchange
   settled, in plain words — no mechanism, no paths or identifiers, and never a next step or a question.
 - **🗣️ Recommendations argue against themselves.** State the strongest objection to your own
