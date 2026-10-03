@@ -1,26 +1,30 @@
 # Context Hydration — Route — 2026-10-03
 
-**Last Bake:** 2026-10-03 11:32 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-03 13:57 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** One session on `feature/route-n-floOow` (a `#new`, `#focus`, then ordered changes): the fan's close rule, the two-phase discard toast, and the force-fresh arming. Of the five covered action classes none ran unasked — no dependency was added, no machine-shaped data file was opened, no file was written without the user's word, and the device was never touched; every claim about the code followed its own read.
+**Directive trace:** One session on `feature/route-render` (a `#new`, `#focus`, then `#impl` through the pipeline): of the five covered classes none ran unasked — no dependency was added, no machine-shaped data file was opened, no work started without an order, the device was never touched, and every claim about the code followed a read — the one gap the review's own sweep named being the `#focus` state write made without a verdict line, which sits outside the five.
 
 ## State
 
-**Every route discard is a two-phase gesture** (R92): a discarding press — the panel's Discard, the fan's Discard, the toggle-off, the back key in the acquisition, and the exit dialog's Discard — sets a `pendingDiscard` window, so the panel and line leave and the toggle reads off while the mode stays live underneath. The real disposal runs on the toast's dismissal (the 4 s timeout, a horizontal swipe, a second back press, or New acquisition); Undo clears the window and everything returns with nothing recomputed. A new arming commits then arms, the fan's Save/Select supersede the window, and the route toast jumps the snackbar queue.
+**The selected route is reinforced by shape and opacity** (R93): an edge derived from the line's own colour is drawn beneath the selected rung during the acquisition and beneath the followed line while `Following`, its colour the line's own pushed toward black by the one lever `ui.reinforce.darkenPct` (55, clamped 0..100) and its width `route.line.casing.widthDp` (8 dp over the 6 dp core); the edge takes the line's own transparency, so **no colour, brightness or alpha key** was added.
 
-**The route fan closes on acquire and follow** (R91): the `Route` and `Route auto` children close the arc, while `Discard`, `Save+Exit` and `Save` leave it open; otherwise it closes on the back key, the scrim or the parent anchor's own toggle.
+**While following, the line splits at the boat** — slot 0 draws the split's remaining run alone, the casing mirrors exactly what slot 0 draws, and `route_travelled` draws the travelled run only when slot 0 actually carries the remaining run, at the shared `route.dimmed.transparencyPct`; where fewer than two points remain the whole line stays at full strength with the travelled overlay off, which is the mode's own arrival rule. `RoutePlan.splitAt` is the one nearest-leg projection and `remainingFrom` reads it, so the trip cell and the fade cannot disagree.
 
-**Every explicit arming re-searches** (R83, R92): the fan's `Route`, the toggle and the drawer's Route action pass `forceFresh = true`, so the stored-route pull-back belongs to the autoselect (`Route auto`) arming alone, which still follows a saved line directly. Build green (`apk-build.bat`); nothing device-validated.
+**One generic lever and one pure helper** — `reinforcedColor(color, darkenPct)` in `ui/color/ColorReinforcement.kt` is pure and RGB-only with the caller reading the lever, and the app-wide rule, that a colour needing reinforcement is derived rather than given a second key, sits beside the transparency convention in `docs/ui-component-guidelines.md` with a pointer from `docs/color-scheme.md`.
+
+Build green (`apk-build.bat`) and the 23 route suites green over 185 tests; the review's one clean-up, the arrival threshold written twice, now has a single home in `RouteHost` read by both the paint key and the run selection, and **the user's own device pass on 2026-10-03 confirmed** the edge's contrast, the arrival repaint, the paint order inside the route tier, the split's join, the degenerate start and the demo-mode marker.
 
 ## Target Files
 
-- `MapScreen.kt` — `pendingDiscard`, `discardRoute()`, `commitPendingDiscard()` / `cancelPendingDiscard()`, the toast handlers, the fan's close rule and the force-fresh arming
-- `MapDashboardController.kt` — the route toast's queue jump
-- `MapSnackbarHost.kt` + `SnackRow` — the route-discard snack, its second action and the horizontal swipe
-- `MapDialogHost.kt`, `RouteHost.kt`, `RouteConfirmPanel.kt` — the discard wiring
-- `values/strings.xml` + `values-fr/strings.xml` — the toast and New-acquisition strings
-- `FEAT_DSC_Route.md` — R91, R92 and the Delta
+- `RouteHost.kt` — `route_casing` and `route_travelled` attached before the pool, the split under `remember` on its identity, the arrival discriminator in the paint key, and the new `boatPosition`
+- `RouteViewModel.kt` — `RoutePlan.splitAt`, `RouteSplit.bestLegIndex`, and `remainingFrom` delegating to the one projection
+- `MapScreen.kt` — `routeBoatPosition` fed to the single `RouteHost(...)` call
+- `ColorReinforcement.kt` + `ColorReinforcementTest.kt` — the pure helper and its suite
+- `AppConfig.kt`, `ui.properties`, `maro.properties` — the lever, the casing width with its bounds, and the two repaired sentences
+- `RoutePlanTest.kt` — the split's cases and the exposed leg index
+- `docs/ui-component-guidelines.md`, `docs/color-scheme.md` — the app-wide reinforcement rule and the pointer
+- `FEAT_DSC_Route.md` — R93, the drawing bullet, the decoupling rule, the Key Files rows and the plan pointer
 
 ## Next Step
 
-The device pass over the discard toast (its four confirmations and Undo), the fan's close rule and the force-fresh arming; the Delta's owed device passes and the parked swap control stand.
+The open walk's item 1 — **D4**, the fine band: change the code or change the record — with its parked sibling at item 15 under the closed 2026-09-28 level.

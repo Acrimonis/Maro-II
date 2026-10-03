@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-03 12:03 UTC] Route — the selected route is reinforced by a derived edge from the one `ui.reinforce.darkenPct` lever in both phases, with the followed line split at the boat so the run behind fades and the run ahead stays strong (R93) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 08:29 UTC] Route — `feature/route-n-floOow`: every discard a two-phase gesture with an undo toast, the fan closing on acquire/follow, and every explicit arming re-searching (R91, R92) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 03:14 UTC] Route — the three-route ladder shipped: three fixed-aversion rungs over one shared grid, the Driving-preference cursor, tolerance-based collapse, a three-stop Settings cursor, and the candidate-pass apparatus retired; committed `5e6211fa` → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 02:39 UTC] Route — the slow-water dials live and `origin/feature/route-dash-n-flow` merged in (`b3778e5b`): the early select/save, the shared-`DrawerScaffold` acquisition panel and the Routing tab, the aversion dial re-homed into its Tuning block; Phase C and the Driving-preference cursor owed → xTrack/Route/FEAT_HYD_Route.md
@@ -12,7 +13,6 @@
 - [2026-09-30 21:16 UTC] Route — `feature/route-markers`: a saved route carries its two flagged marker ends and is found by them → xTrack/Route/FEAT_HYD_Route.md
 - [2026-09-30 20:11 UTC] Ui_Settings — `maro.properties` taxonomy plan → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-30 20:02 UTC] Route — `feature/avoid-I`: the band's own limit priced per cell → xTrack/Route/FEAT_HYD_Route.md
-- [2026-09-30 19:49 UTC] UI_Map — `feature/mapscreen-health` plan → xTrack/UI_Map/FEAT_HYD_UI_Map.md
 
 ## Routing Map
 | Keyword | Feature File |
@@ -51,7 +51,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| Route | Set a destination and have the app draw the route from the boat to it; the acquisition offers three fixed-aversion rungs (around · balanced · through) over one shared grid, the Driving-preference cursor picks the start and near-identical rungs collapse, and every discard is a two-phase gesture with an undo toast — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 11:32 | active |
+| Route | Set a destination and have the app draw the route from the boat to it; the acquisition offers three fixed-aversion rungs over one shared grid, the selected line is reinforced by a derived edge in both phases with the followed line fading behind the boat, and every discard is a two-phase gesture with an undo toast — detail in [`FEAT_DSC_Route.md`](xTrack/Route/FEAT_DSC_Route.md) | 2026-08-16 10:44 | 2026-10-03 13:57 | active |
 | ColorManagement | Centralised colour palette — all tokens in `colors.properties` with alias interpolation — [`color-scheme.md`](docs/color-scheme.md) | 2026-06-16 14:05 | 2026-09-16 15:00 | active |
 | Documentation | README, FAQs, setup guides, architecture docs, and plans cleanup | 2026-06-11 06:42 | 2026-09-04 22:36 | active |
 | WorkflowImprovement | xTrack `#` command system and rule-book governance — detail in [`FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) | 2026-06-03 00:00 | 2026-09-19 09:31 | active |
@@ -84,7 +84,6 @@
 - [ ] **Change direction arrow color by speed compliance** — arrow in heading-ahead display (↑/↗→/→) should reflect speed-vs-limit ratio: green ≤ limit, orange ≤ limit×1.4, red > limit×1.4
 - [ ] **Tasker water-state bridge — must be resolved before the power service becomes conditional** — `TrackRecordingService` answers `ACTION_QUERY_WATER_STATE` from a runtime-registered receiver and holds `lastKnownOnWater`; the Performance power work plans to run the service only while a keep-alive reason holds, at which point the query goes unanswered while the app is idle. Detail in `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md` §6 and `xTrack/Tasker/260628_FEAT_PLN_Tasker_tasker-water-state-integration.md`.
 - [ ] **`#new` should warn before switching and offer to overwrite the local branch** (raised 2026-09-19): pin what the warning says and what overwrite means, then land it in `AGENTS.md` §7b and `docs/cmd_help_git.md`.
-- [ ] **`.kotlin/` is untracked and not ignored** — decide whether the directory joins `.gitignore` beside `build/` and `.gradle/`.
 - [ ] **Two startup crashes sit in the device's crash buffer from before the Route work** — `DepthSerializer`/`DepthProtos` (2026-09-18 → 2026-09-21 20:50) and `SettingsManager.load` (2026-09-17), each belonging to the feature that owns its load (DepthMapping; Ui_Settings).
 - [ ] **The `propInt`-ARGB twins, and one wrong sentence the trace work left (2026-09-22)** — the surviving colour pairs still read their ARGB through `propInt`, and the trace plan's §8 sentence about Resume does not hold.
 

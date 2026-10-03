@@ -31,6 +31,23 @@ import ykws.android.maro.spatial.Units
 data class RouteRemainder(val distanceM: Double, val durationSec: Double)
 
 /**
+ * A plan **split at a position**: the run already travelled and the run still ahead, both meeting at
+ * the projected point, plus the remaining figures [RoutePlan.remainingFrom] reports.
+ */
+data class RouteSplit(
+    val travelledPoints: List<RoutePoint>,
+    val remainingPoints: List<RoutePoint>,
+    /**
+     * **The nearest leg the projection landed on** — the index `RouteHost` keys the paint's split
+     * identity on, exposed here so a later change to the duplicate-vertex drop in [RoutePlan.splitAt]
+     * cannot silently shift that key. It is `-1` where the plan has no leg (under two points).
+     */
+    val bestLegIndex: Int,
+    val distanceM: Double,
+    val durationSec: Double
+)
+
+/**
  * A resolved route: the polyline the line is drawn from, where the route really ends, and what it
  * costs.
  *
@@ -74,10 +91,20 @@ data class RoutePlan(
     fun trackName(): String = TrackFromCourse.routeTrackName(computedAtMs)
 
     /**
-     * What is left of the route from [from] onward.
+     * The plan **split at [from]**: the nearest-leg projection decides the split point, so the two runs
+     * meet exactly where [remainingFrom] measures from and that projection has one home.
+     *
+     * The projection clamps to `0..1` along the nearest leg, so a boat off to the side or past the
+     * destination yields a wholly travelled or a wholly remaining run rather than an extrapolated one.
+     * Where the projected point lands on the leg's own end it is **not repeated**: the remaining run
+     * starts at that vertex, so at the destination it falls to a single point and the paint keeps the
+     * whole line at full strength — the mode's arrival rule. A plan under two points has no leg at all,
+     * so the whole line is the remaining run for the same reason: nothing sits behind the boat.
      */
-    fun remainingFrom(from: RoutePoint): RouteRemainder {
-        if (points.size < 2) return RouteRemainder(distanceM, durationSec)
+    fun splitAt(from: RoutePoint): RouteSplit {
+        if (points.size < 2) {
+            return RouteSplit(emptyList(), points, -1, distanceM, durationSec)
+        }
         val fix = LatLng(from.latitude, from.longitude)
         var bestLeg = 0
         var bestDistance = Double.MAX_VALUE
@@ -110,7 +137,22 @@ data class RoutePlan(
             )
             remainingSec += legTimesSec.getOrElse(leg) { 0.0 }
         }
-        return RouteRemainder(remainingM, remainingSec)
+        val split = RoutePoint(projected.latitude, projected.longitude)
+        val travelled = points.take(bestLeg + 1) + split
+        val afterLeg = points.drop(bestLeg + 1)
+        // The projected point coincides with the leg's own end once the boat is at or past it; the
+        // remaining run then starts at that vertex rather than repeating it, so it can fall under two
+        // points at the destination — the arrival rule the paint reads.
+        val remaining = if (notYetTravelled <= 1e-9) afterLeg else listOf(split) + afterLeg
+        return RouteSplit(travelled, remaining, bestLeg, remainingM, remainingSec)
+    }
+
+    /**
+     * What is left of the route from [from] onward — the split's own remaining figures.
+     */
+    fun remainingFrom(from: RoutePoint): RouteRemainder {
+        val split = splitAt(from)
+        return RouteRemainder(split.distanceM, split.durationSec)
     }
 
     companion object {

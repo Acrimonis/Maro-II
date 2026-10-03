@@ -332,4 +332,131 @@ class RoutePlanTest {
         assertFalse(routeEndsClearMinimum(p0, p0, 100.0))
         assertTrue(routeEndsClearMinimum(null, p1, 100.0))
     }
+
+    /**
+     * **The split's two runs meet at the projected point, and its figures are the remainder's own**
+     * (R93).
+     *
+     * `splitAt` is the nearest-leg projection's one home — `remainingFrom` reads it — so the travelled
+     * run opens on the plan's start, the two runs meet at the same projected point, the remaining run
+     * closes on the destination, and the figures agree with `remainingFrom` on the very same inputs.
+     */
+    @Test
+    fun theSplitRunsMeetAtTheProjectedPointAndAgreeWithTheRemainder() {
+        val half = RoutePoint(43.5050, 7.0000)
+
+        val split = plan().splitAt(half)
+
+        assertEquals("the travelled run opens on the plan's start", p0, split.travelledPoints.first())
+        assertEquals(
+            "and both runs meet at the same projected point",
+            split.travelledPoints.last(),
+            split.remainingPoints.first()
+        )
+        assertEquals("the remaining run closes on the destination", p2, split.remainingPoints.last())
+        val remainder = plan().remainingFrom(half)
+        assertEquals(remainder.distanceM, split.distanceM, 1e-9)
+        assertEquals(remainder.durationSec, split.durationSec, 1e-9)
+    }
+
+    /**
+     * **A boat past the destination yields a wholly travelled run** (R93): the projection clamps to
+     * the nearest leg's own end, so nothing is left and the whole line sits behind the boat — the
+     * arrival rule's own shape, the remaining run holding under two points.
+     */
+    @Test
+    fun aBoatPastTheDestinationYieldsAWhollyTravelledRun() {
+        val past = RoutePoint(43.5300, 7.0000)
+
+        val split = plan().splitAt(past)
+
+        assertEquals("nothing is left of the plan's distance", 0.0, split.distanceM, 1e-6)
+        assertEquals("and no seconds either", 0.0, split.durationSec, 1e-9)
+        assertTrue("so the remaining run holds under two points", split.remainingPoints.size < 2)
+        val end = split.travelledPoints.last()
+        assertEquals("and the travelled run reaches the destination", p2.latitude, end.latitude, 1e-9)
+        assertEquals(p2.longitude, end.longitude, 1e-9)
+    }
+
+    /**
+     * **A boat off to the side still splits on the nearest leg** (R93): the projection answers the
+     * nearest point **on** that leg rather than the fix itself, so the split point sits on the line.
+     */
+    @Test
+    fun aBoatOffTheLineSplitsOnTheNearestLeg() {
+        val off = RoutePoint(43.5150, 7.0100)
+
+        val split = plan().splitAt(off)
+
+        assertEquals(
+            "the two runs meet on the line, not at the fix",
+            split.travelledPoints.last(),
+            split.remainingPoints.first()
+        )
+        assertEquals(
+            "and the line is the north-south meridian, so the split keeps its longitude",
+            7.0000,
+            split.travelledPoints.last().longitude,
+            1e-6
+        )
+        assertEquals(
+            "with the figures the remainder reports",
+            plan().remainingFrom(off).distanceM,
+            split.distanceM,
+            1e-9
+        )
+    }
+
+    /**
+     * **The split names the leg the projection landed on** — the index `RouteHost` keys the paint's
+     * split identity on, exposed on `RouteSplit` so a later change to the duplicate-vertex drop in
+     * `RoutePlan.splitAt` cannot silently shift it.
+     */
+    @Test
+    fun theSplitNamesTheLegTheProjectionLandedOn() {
+        val plan = plan()
+        val midSecond = RoutePoint((p1.latitude + p2.latitude) / 2.0, p2.longitude)
+
+        assertEquals("a fix on the first leg names leg 0", 0, plan.splitAt(p0).bestLegIndex)
+        assertEquals("a fix on the second leg names leg 1", 1, plan.splitAt(p2).bestLegIndex)
+        assertEquals("and a mid-leg fix names that leg", 1, plan.splitAt(midSecond).bestLegIndex)
+
+        val single = RoutePlan(
+            start = p0,
+            destination = p0,
+            destinationMoved = false,
+            points = listOf(p0),
+            legTimesSec = emptyList(),
+            distanceM = 0.0,
+            durationSec = 0.0,
+            computedAtMs = computedAt
+        )
+        assertEquals("a plan with no leg has none", -1, single.splitAt(p1).bestLegIndex)
+    }
+
+    /**
+     * **A plan under two points is wholly remaining** (R93): with nothing but the start there is no leg
+     * to project onto, so the split answers no travelled run and the plan's own figures as the
+     * remainder — the arrival rule's floor, kept without a special case at the paint.
+     */
+    @Test
+    fun aPlanUnderTwoPointsIsWhollyRemaining() {
+        val single = RoutePlan(
+            start = p0,
+            destination = p0,
+            destinationMoved = false,
+            points = listOf(p0),
+            legTimesSec = emptyList(),
+            distanceM = 0.0,
+            durationSec = 0.0,
+            computedAtMs = computedAt
+        )
+
+        val split = single.splitAt(p1)
+
+        assertTrue("no run sits behind the boat", split.travelledPoints.isEmpty())
+        assertEquals("and the whole line is the remaining run", listOf(p0), split.remainingPoints)
+        assertEquals(0.0, split.distanceM, 1e-9)
+        assertEquals(0.0, split.durationSec, 1e-9)
+    }
 }

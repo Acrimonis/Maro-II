@@ -87,6 +87,10 @@ object AppConfig {
     var routeLineWidthDp: Float = 6f
         private set
 
+    /** The selected line's under-stroke width (dp) — `route.line.casing.widthDp`. */
+    var routeLineCasingWidthDp: Float = 8f
+        private set
+
     /**
      * **Every line drawn beside the plan** wears this transparency (0 = opaque, 100 = invisible) —
      * `route.dimmed.transparencyPct`, renamed from `route.progress.transparencyPct`.
@@ -764,8 +768,15 @@ object AppConfig {
     /** Dashboard distance exit (green). Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.distance.exit` in colors.properties. */
     var uiDashboardDistanceExit: Int = 0xCC4CAF50.toInt()
         private set
-    /** Dashboard dull alpha. Default 0.33. Set via `ui.dashboard.dullAlpha` in colors.properties. */
+    /** Dashboard dull alpha. Default 0.33. Set via `ui.dashboard.dullAlpha` in ui.properties. */
     var uiDashboardDullAlpha: Float = 0.33f
+        private set
+
+    /**
+     * Strength of the shared reinforcement effect (0-100) — `ui.reinforce.darkenPct`, the share a
+     * derived variant of a user-picked colour is pushed toward black by.
+     */
+    var uiReinforceDarkenPct: Int = 55
         private set
 
     /** Settings overlay background. Default #1A1A2E. Set via `ui.background` in colors.properties. */
@@ -1237,7 +1248,9 @@ object AppConfig {
      * Load order (each overrides the previous):
      * 1. maro.properties  — spatial/behavioural tunables
      * 2. ui.properties    — UI spacing/dimension/font tokens
-     * 3. colors.properties — ALL colour values (colors win)
+     * 3. colors.properties — colour values (colors win). A derivation parameter for a token that has
+     *    been re-homed to ui.properties — `ui.reinforce.darkenPct` beside `ui.dashboard.dullAlpha` —
+     *    lives in ui.properties with its token, not here.
      */
     fun init(context: Context) {
         try {
@@ -1545,6 +1558,8 @@ object AppConfig {
             props.getProperty("ui.dashboard.distance.entry")?.let { parseColorOrNull(it) }?.let { uiDashboardDistanceEntry = it }
             props.getProperty("ui.dashboard.distance.exit")?.let { parseColorOrNull(it) }?.let { uiDashboardDistanceExit = it }
             props.getProperty("ui.dashboard.dullAlpha")?.toFloatOrNull()?.let { uiDashboardDullAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.reinforce.darkenPct")?.toIntOrNull()
+                ?.let { uiReinforceDarkenPct = it.coerceIn(0, 100) }
 
             props.getProperty("ui.background")?.let { parseColorOrNull(it) }?.let { uiBackground = it }
             props.getProperty("ui.toast.background")?.let { parseColorOrNull(it) }?.let { uiToastBackground = it }
@@ -1629,6 +1644,8 @@ object AppConfig {
                 ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.line.widthDp")?.toFloatOrNull()
                 ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
+            props.getProperty("route.line.casing.widthDp")?.toFloatOrNull()
+                ?.let { routeLineCasingWidthDp = it.coerceIn(1f / 3f, 24f) }
             props.getProperty("route.dimmed.transparencyPct")?.toIntOrNull()
                 ?.let { routeDimmedTransparencyPct = it.coerceIn(0, 100) }
             props.getProperty("route.navigate.color")?.let { parseColorOrNull(it) }
