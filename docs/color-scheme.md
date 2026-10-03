@@ -100,6 +100,11 @@ semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #C
 
 > **Re-homed:** `ui.dashboard.dullAlpha` is a UI-state alpha, not a colour — it now lives in
 > [`ui.properties`](../app/src/main/assets/ui.properties) (not `colors.properties`).
+>
+> **Reinforcement lever:** `ui.reinforce.darkenPct` is a derivation parameter, not a colour — it lives in
+> [`ui.properties`](../app/src/main/assets/ui.properties) beside `ui.dashboard.dullAlpha` and is read
+> through `AppConfig.uiReinforceDarkenPct` by `reinforcedColor` (see
+> [`ui-component-guidelines.md`](ui-component-guidelines.md) §2.8).
 
 | Token | Value | Usage |
 |---|---|---|

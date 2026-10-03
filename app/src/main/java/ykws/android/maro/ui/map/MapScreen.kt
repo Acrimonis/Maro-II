@@ -960,6 +960,8 @@ fun MapScreen(
      * route measured from it would have the boat chasing the point it is trying to choose.
      */
     val routeStart = dashboardPositionFor(mapCenter, gpsPosition, appSettings.gpsMode)
+    /** The boat's own fix as a route point — the split's own source, shared by the paint and the trip cell. */
+    val routeBoatPosition = RoutePoint(routeStart.latitude, routeStart.longitude)
 
     val routeLeadFix: RouteFix? = routeLeadFixOf(
         appSettings.gpsMode,
@@ -2846,6 +2848,9 @@ fun MapScreen(
                             // The followed line's colour: the same settings value the toggle's
                             // acquiring face wears, so the two cannot drift (R51).
                             routeLineColor = appSettings.routeLineColor,
+                            // The boat's own fix — the same point the trip cell reads — so the
+                            // followed line is split at one source for both (R93).
+                            boatPosition = routeBoatPosition,
                             viewModel = routeViewModel,
                             // The window is transparent to back: a second press confirms the disposal,
                             // which is the back key's own job; otherwise the mode's one exit rule runs.
@@ -2875,7 +2880,7 @@ fun MapScreen(
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,
-                    from = RoutePoint(routeStart.latitude, routeStart.longitude),
+                    from = routeBoatPosition,
                     paceKn = routePaceKn,
                     nowMs = System.currentTimeMillis()
                 )
