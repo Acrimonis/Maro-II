@@ -871,7 +871,7 @@ actions in its `footer`, so it auto-grows to its content like the other selected
 | Block | Spec |
 |---|---|
 | Header | the title; its trailing slot carries the stage status and the ‹ › dots (shown while more than one route stands) |
-| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
+| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
 | Footer | `Save to track` · `Select route` · `Discard route` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER |
 
 ---

@@ -21,13 +21,13 @@ import ykws.android.maro.spatial.Units
 import ykws.android.maro.ui.components.OptionRow
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The route's own rules — the anchor's lead, the page set, the comparison and the trip figure
+// The route's own rules — the anchor's lead, the page set, the seat and the delta
 //
 // This file owns the route's own arithmetic and the sentences it prints: the acquisition anchor's
-// lead, the page set the selection walks, the comparison the panel's top area prints, and the trip
-// figure the dashboard's distance cell reads while a route is followed. The map objects — the lines,
-// the pin and the provisional line — live in RouteHost.kt, which is the one file that touches
-// osmdroid for this feature.
+// lead, the page set the selection walks and the seat it takes, the delta the table prints against
+// the selected route, and the trip figure the dashboard's distance cell reads while a route is
+// followed. The map objects — the lines, the pin and the provisional line — live in RouteHost.kt,
+// which is the one file that touches osmdroid for this feature.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -62,29 +62,25 @@ data class RoutePage(
 )
 
 /**
- * **The comparison one finished page shows against the main** — the flow's arithmetic of each route's
- * own duration against the selected route's, stated as "Route #n is taking x less or more".
+ * **The delta a page shows against the selected route** — the flow's own arithmetic of each page's
+ * duration against the route the selection stands on, stated as "x less" or "x more".
  *
- * Only a page that is not the main (index > 0) has a comparison, and a tie says nothing. [deltaSec] is
- * the selected page's duration minus the main's: negative is faster, positive is slower.
+ * `null` on the selected page itself, where **either** duration has not landed, or on a tie; otherwise
+ * [pageDurationSec] minus [selectedDurationSec] — **positive means slower than the selection**. The
+ * selection arrives as [isSelected] rather than as a second index: the caller already knows which page
+ * it is drawing, and one boolean cannot disagree with itself the way two index arguments can.
  */
-data class RouteComparison(
-    val routeNumber: Int,
-    val deltaSec: Double
-)
-
-/** The comparison [selectedIndex] shows against the main page, or null where there is nothing to say. */
-internal fun routeComparison(
-    selectedIndex: Int,
+internal fun routeDeltaSec(
+    pageDurationSec: Double?,
     selectedDurationSec: Double?,
-    mainDurationSec: Double?
-): RouteComparison? {
-    if (selectedIndex <= 0) return null
+    isSelected: Boolean
+): Double? {
+    if (isSelected) return null
+    val page = pageDurationSec ?: return null
     val selected = selectedDurationSec ?: return null
-    val main = mainDurationSec ?: return null
-    val delta = selected - main
+    val delta = page - selected
     if (delta == 0.0) return null
-    return RouteComparison(selectedIndex + 1, delta)
+    return delta
 }
 
 /**
@@ -111,13 +107,14 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
 
 /**
  * **The auto-pick's one-shot, as a reading of the machine** (R80) — the fan's *Route (auto)* child
- * armed with the intent to take the first answer.
+ * armed with the intent to take the settled answer.
  *
- * It is true the moment the intent is armed **and the acquisition's main line has landed**, and false
- * either side of that instant. It keys on `plan != null` rather than on a non-empty page set on
- * purpose: the main answer is what this child promises. The caller takes **index 0** of the page set,
- * which the arming puts the main at, so no second selection path exists and `selectRoute()` is called
- * unchanged.
+ * It is true the moment the intent is armed **and the main line has landed**, and false either side of
+ * that instant. It keys on `plan != null` rather than on a non-empty page set on purpose:
+ * `Choosing.plan` **is the main's** (index 0), so the readiness never follows the seat — a candidate
+ * that lands first is not the answer this child promises and cannot make this fire. The caller then
+ * names **index 0** through `selectMainRoute()`, since the seat may have followed onto that
+ * candidate.
  */
 internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState): Boolean =
     autoPick && state is RouteState.Choosing && state.plan != null
@@ -153,6 +150,26 @@ internal fun routeRungLambda(aversionKn: Double): Double = when (routeRungIndex(
     0 -> 5.0
     1 -> 2.5
     else -> 0.0
+}
+
+/**
+ * **The page the seat stands on** — the preferred page when it holds a plan, otherwise the page
+ * **holding a plan** that lies nearest the preferred one, otherwise the preferred index unchanged.
+ *
+ * `hasPlan` is the page set as the one fact the seat reads: a page holds a line or it does not. The
+ * search walks outward from [preferredIndex], the lower index winning an even split, so the seat never
+ * parks on an empty row while a landed line stands beside it and a single landed page is the identity
+ * when it is the preferred one.
+ */
+internal fun routeSeatedIndex(hasPlan: List<Boolean>, preferredIndex: Int): Int {
+    if (preferredIndex in hasPlan.indices && hasPlan[preferredIndex]) return preferredIndex
+    for (distance in 1..hasPlan.size) {
+        val below = preferredIndex - distance
+        if (below >= 0 && hasPlan[below]) return below
+        val above = preferredIndex + distance
+        if (above < hasPlan.size && hasPlan[above]) return above
+    }
+    return preferredIndex
 }
 
 /**

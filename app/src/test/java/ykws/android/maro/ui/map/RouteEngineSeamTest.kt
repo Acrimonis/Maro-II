@@ -100,7 +100,7 @@ class RouteEngineSeamTest {
         engine.publish(lookupId, success(start, aim))
 
         val choosing = viewModel.state.value as RouteState.Choosing
-        assertNotNull("the phase holds the selected page's plan", choosing.plan)
+        assertNotNull("the phase holds the main's plan", choosing.plan)
         assertEquals("the line is the foreign engine's own", listOf(start, aim), choosing.plan?.points)
         assertEquals("and the page carries that same plan", choosing.plan, viewModel.pages.value.first().plan)
     }

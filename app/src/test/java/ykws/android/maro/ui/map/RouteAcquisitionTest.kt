@@ -319,6 +319,176 @@ class RouteAcquisitionTest {
         assertEquals("the settled plan stands", plan, choosing.plan)
         assertFalse("nothing is searching", choosing.searching)
     }
+
+    /**
+     * **The third column's arithmetic** (R90): a page measured against the route the selection stands
+     * on — positive slower, negative faster — silent on the selected page itself, a tie, or a duration
+     * that has not landed.
+     */
+    @Test
+    fun routeDeltaReadsAPageAgainstTheSelectedRoute() {
+        assertNull(
+            "the selected page says nothing about itself",
+            routeDeltaSec(pageDurationSec = 300.0, selectedDurationSec = 300.0, isSelected = true)
+        )
+        assertEquals(
+            "a slower page reads positive",
+            60.0,
+            routeDeltaSec(pageDurationSec = 360.0, selectedDurationSec = 300.0, isSelected = false)!!,
+            1e-9
+        )
+        assertEquals(
+            "a faster page reads negative",
+            -60.0,
+            routeDeltaSec(pageDurationSec = 240.0, selectedDurationSec = 300.0, isSelected = false)!!,
+            1e-9
+        )
+        assertNull(
+            "a tie says nothing",
+            routeDeltaSec(pageDurationSec = 300.0, selectedDurationSec = 300.0, isSelected = false)
+        )
+        assertNull(
+            "a page without a plan says nothing",
+            routeDeltaSec(pageDurationSec = null, selectedDurationSec = 300.0, isSelected = false)
+        )
+        assertNull(
+            "and neither does one whose selection has not landed",
+            routeDeltaSec(pageDurationSec = 300.0, selectedDurationSec = null, isSelected = false)
+        )
+    }
+
+    /** **The seat** (D12, §10): the preferred page keeps its place when it holds a plan. */
+    @Test
+    fun routeSeatsOnThePreferredRowWhenItHasLanded() {
+        assertEquals("a landed preferred row seats itself", 1, routeSeatedIndex(listOf(true, true, true), 1))
+        assertEquals("and a single landed page is the identity", 0, routeSeatedIndex(listOf(true), 0))
+    }
+
+    /** A pending preferred row steps the seat to the landed row nearest it, the lower index winning a tie. */
+    @Test
+    fun routeSeatsOnTheNearestLandedRowWhenThePreferredIsPending() {
+        assertEquals(
+            "the landed main steps in for a pending rung",
+            0,
+            routeSeatedIndex(listOf(true, false, false), 1)
+        )
+        assertEquals(
+            "and the lower index wins an even split",
+            1,
+            routeSeatedIndex(listOf(false, true, false, false, true), 2)
+        )
+    }
+
+    /** Nothing landed yet leaves the declared preference standing. */
+    @Test
+    fun routeKeepsThePreferredIndexWhileNothingHasLanded() {
+        assertEquals(
+            "the declaration stands until data lands",
+            2,
+            routeSeatedIndex(listOf(false, false, false), 2)
+        )
+    }
+
+    /** The seat follows the first data: a landing pulls the selection off a row that has no plan (D12). */
+    @Test
+    fun aLandingSeatsTheSelectionOffAPendingRow() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        assertEquals("the main landed and the seat took it", 0, viewModel.selectedIndex.value)
+
+        viewModel.stepPage(1)
+        assertEquals("a step stands on the still-pending row", 1, viewModel.selectedIndex.value)
+
+        engine.publish(ids[2], line(start, shortcut))
+        assertEquals("the next landing takes the seat off the empty row", 0, viewModel.selectedIndex.value)
+    }
+
+    /**
+     * **The auto-pick's readiness keys on the main's landing, never on where the seat stands** (R80):
+     * a candidate that lands first moves the seat onto it, yet the acquisition's plan stays null — the
+     * settled answer is index 0's alone — and the main's landing is what settles it.
+     */
+    @Test
+    fun theAutoPicksReadinessKeysOnTheMainsLandingNotOnTheSeat() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[2], line(start, shortcut))
+        assertEquals(
+            "the seat followed the first landing onto the candidate",
+            2,
+            viewModel.selectedIndex.value
+        )
+        assertNull(
+            "yet the acquisition's plan is the main's, which has not landed",
+            (viewModel.state.value as RouteState.Choosing).plan
+        )
+
+        engine.publish(ids[0], line(start, aim))
+        assertEquals(
+            "the main's landing is what settles the plan",
+            listOf(start, aim),
+            (viewModel.state.value as RouteState.Choosing).plan?.points
+        )
+    }
+
+    /**
+     * **The auto-pick takes the main whatever the seat holds** (R80): with a candidate landed first the
+     * seat stands on it, so the one-shot's own selection names index 0 rather than the seat's page.
+     */
+    @Test
+    fun theAutoPickTakesTheMainWhateverTheSeatHolds() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[2], line(start, shortcut))
+        engine.publish(ids[0], line(start, aim))
+        assertEquals("the seat stands on the candidate", 2, viewModel.selectedIndex.value)
+
+        viewModel.selectMainRoute()
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals(
+            "the one-shot followed the main, never the seat's candidate",
+            listOf(start, aim),
+            following.plan.points
+        )
+    }
+
+    /**
+     * **The panel's `Select` takes the seat, never the main** — the manual door's own guard: with a
+     * candidate landed first the seat stands on it, and the panel's entry point must follow the seat.
+     * Only the auto child names the main (R80, R94), so a regression that sends the manual door to
+     * index 0 fails here.
+     */
+    @Test
+    fun thePanelSelectTakesTheSeatNotTheMain() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[2], line(start, shortcut))
+        engine.publish(ids[0], line(start, aim))
+        assertEquals("the seat stands on the candidate", 2, viewModel.selectedIndex.value)
+
+        viewModel.selectRoute()
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals(
+            "the panel's Select took the seat's candidate, not the main",
+            listOf(start, shortcut),
+            following.plan.points
+        )
+    }
 }
 
 /**

@@ -310,11 +310,11 @@ private fun RouteTablePager(
 
 /**
  * **The summary table** — one line per route, three columns. Column 1 is the engine's own description;
- * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a candidate's delta
- * against the main and the forced-crossing note. Columns are fixed weights so the boundaries stay
- * consistent across rows, a hairline separates the columns, and rows are top-aligned and wrap. The
- * selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent` edge,
- * white bold text — with corners that adapt to the row's position in the bar.
+ * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's delta
+ * against the selected route and the forced-crossing note. Columns are fixed weights so the boundaries
+ * stay consistent across rows, a hairline separates the columns, and rows are top-aligned and wrap.
+ * The selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent`
+ * edge, white bold text — with corners that adapt to the row's position in the bar.
  */
 @Composable
 private fun RouteSummaryTable(
@@ -322,7 +322,7 @@ private fun RouteSummaryTable(
     selectedIndex: Int,
     onStepPage: (Int) -> Unit
 ) {
-    val mainDurationSec = pages.firstOrNull()?.plan?.durationSec
+    val selectedDurationSec = pages.getOrNull(selectedIndex)?.plan?.durationSec
     val radius = AppConfig.uiRadiusCard.dp
     Column(
         modifier = Modifier
@@ -425,7 +425,7 @@ private fun RouteSummaryTable(
                         .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    routeDeltaText(index, page, mainDurationSec)?.let {
+                    routeDeltaText(page.plan?.durationSec, selectedDurationSec, index == selectedIndex)?.let {
                         Text(
                             text = it,
                             color = textColor,
@@ -487,16 +487,17 @@ private fun ColumnDivider() {
 }
 
 /**
- * One candidate's delta against the main — the span and the direction, or null for the main itself,
- * a tie or a page without a landed plan.
+ * One page's delta against the **selected** route — the span and the direction, or null for the
+ * selected page itself, a tie, or a page or selection without a landed plan. The arithmetic is
+ * [`routeDeltaSec`]; this reads only its formatting.
  */
 @Composable
-private fun routeDeltaText(index: Int, page: RoutePage, mainDurationSec: Double?): String? {
-    if (index <= 0) return null
-    val plan = page.plan ?: return null
-    val main = mainDurationSec ?: return null
-    val delta = plan.durationSec - main
-    if (delta == 0.0) return null
+private fun routeDeltaText(
+    pageDurationSec: Double?,
+    selectedDurationSec: Double?,
+    isSelected: Boolean
+): String? {
+    val delta = routeDeltaSec(pageDurationSec, selectedDurationSec, isSelected) ?: return null
     val direction = stringResource(
         if (delta < 0.0) R.string.route_comparison_less else R.string.route_comparison_more
     )
