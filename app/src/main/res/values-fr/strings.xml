@@ -684,21 +684,19 @@
     <string name="settings_route_pace_label">Vitesse de croisière</string>
     <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
-    <string name="settings_route_budget_label">Budget d\'eau lente</string>
-    <string name="settings_route_budget_desc">Quelle part du trajet vous acceptez en zones lentes — la route ajuste son évitement pour s\'y tenir, et le signale quand elle n\'y parvient pas.</string>
-    <string name="settings_route_aversion_label">Éviter les zones lentes</string>
-    <string name="settings_route_aversion_desc">Jusqu\'où la route se déforme pour rester hors des zones lentes : aucune les traverse librement, normale prend le trajet le plus rapide, maximale reste en dehors.</string>
-    <string name="settings_route_aversion_value_fmt">%1$.1f</string>
+    <string name="settings_route_preference_label">Préférence de conduite</string>
+    <string name="settings_route_preference_desc">Quelle route le curseur choisit en premier : contourner les zones lentes, une ligne équilibrée, ou tout droit à travers.</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
-    <!-- Les descriptions de calcul sous lesquelles une route déclarée est affichée : la principale et
-         les deux passes candidates. Le libellé est celui de la spécification (2026-09-29). -->
-    <string name="route_computation_main">Évitement complet</string>
-    <string name="route_computation_no_zones">Ignorer les zones de vitesse</string>
-    <string name="route_computation_no_zones_band">Ignorer les zones et la bande des 300 m</string>
+    <!-- Les descriptions de calcul sous lesquelles un barreau déclaré est affiché : les trois aversions
+         fixes de l\'échelle — nulle, médiane et maximale. -->
+    <string name="route_computation_through">À travers les zones lentes</string>
+    <string name="route_computation_balanced">Équilibré</string>
+    <string name="route_computation_around">Contourner les zones lentes</string>
+    <string name="route_collapsed_note">Toutes les préférences donnent cette même ligne</string>
     <!-- La comparaison du panneau dès qu\'une seconde page terminée existe — « La route n°n met x de
          moins/de plus », l\'arithmétique du flux entre la durée de chaque route et celle de la sélection. -->
     <string name="route_comparison_fmt">La route n°%1$d met %2$s %3$s</string>

@@ -683,21 +683,19 @@
     <string name="settings_route_pace_label">Cruising speed</string>
     <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
-    <string name="settings_route_budget_label">Slow-water budget</string>
-    <string name="settings_route_budget_desc">How much of the trip you accept in slow zones — the route adjusts its avoidance to meet it, and tells you when it cannot.</string>
-    <string name="settings_route_aversion_label">Avoid slow zones</string>
-    <string name="settings_route_aversion_desc">How far the route bends to stay out of slow zones: none crosses freely, normal takes the fastest route, maximum stays out.</string>
-    <string name="settings_route_aversion_value_fmt">%1$.1f</string>
+    <string name="settings_route_preference_label">Driving preference</string>
+    <string name="settings_route_preference_desc">Which route the cursor picks first: around slow water, a balanced line, or straight through it.</string>
     <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
-    <!-- The computation descriptions a declared route is shown under: the main and the two candidate
-         passes. The wording is the spec's (2026-09-29). -->
-    <string name="route_computation_main">Full avoidance</string>
-    <string name="route_computation_no_zones">Ignore speed zones</string>
-    <string name="route_computation_no_zones_band">Ignore zones and 300 m band</string>
+    <!-- The computation descriptions a declared rung is shown under: the ladder's three fixed
+         aversions — none, the split, and the maximum. -->
+    <string name="route_computation_through">Through slow water</string>
+    <string name="route_computation_balanced">Balanced</string>
+    <string name="route_computation_around">Around slow water</string>
+    <string name="route_collapsed_note">Every preference gives this same line</string>
     <!-- The panel's comparison once a second finished page exists — "Route #n is taking x less/more",
          the flow's arithmetic of each route's duration against the selected one. -->
     <string name="route_comparison_fmt">Route #%1$d is taking %2$s %3$s</string>

@@ -385,6 +385,13 @@ class RouteViewModel(
                         descriptionResId = computation.descriptionResId
                     )
                 }
+                // D12: the Driving-preference cursor picks the initial rung — meaningful for the
+                // ladder's three pages alone; any other computation count keeps the main at index 0.
+                _selectedIndex.value = if (_pages.value.size == ROUTE_LADDER_RUNG_COUNT) {
+                    routeRungIndex(AppConfig.routeAvoidSpeedZoneSoftCostAversion)
+                } else {
+                    0
+                }
                 _state.value = RouteState.Choosing(
                     start = start, plan = null, searching = true, asked = true, refusal = null
                 )
@@ -399,19 +406,72 @@ class RouteViewModel(
         val current = _pages.value
         if (index !in current.indices) return
         val nowMs = System.currentTimeMillis()
-        val updated = when {
-            update.result != null -> {
-                val plan = RoutePlan.of(update.result.points.first(), update.result, nowMs)
-                if (!session.containsKey(plan)) putSession(plan, null)
-                current[index].copy(plan = plan)
+        if (update.result != null) {
+            val plan = RoutePlan.of(update.result.points.first(), update.result, nowMs)
+            // D14: a rung within the collapse tolerance of one already landed folds into it — the
+            // duplicate page is dropped and the survivor is marked as the collapse's own result.
+            val tolerance = AppConfig.routeAvoidLadderCollapseToleranceM
+            val survivor = current.indices.firstOrNull { i ->
+                i != index &&
+                    current[i].plan?.let { routeDispersionM(it.points, update.result.points) <= tolerance } == true
             }
-            update.reason != null -> current[index].copy(reason = update.reason)
-            else -> current[index]
+            if (survivor != null) {
+                val newPages = current.filterIndexed { i, _ -> i != index }.toMutableList()
+                val survivorIndex = if (survivor > index) survivor - 1 else survivor
+                newPages[survivorIndex] = newPages[survivorIndex].copy(collapsed = true)
+                _pages.value = newPages
+                // Re-map the surviving lookups to their new indices so a later rung still lands.
+                remapLookupPages(newPages)
+                // The collapsing rung may be the stage narrator (index 0): clear its provisional line
+                // and stage, or the stale partial line would draw beside the surviving route.
+                if (index == MAIN_INDEX) {
+                    _stage.value = update.nextStage
+                    if (update.nextStage == null) _provisionalLine.value = emptyList()
+                }
+                // D15: re-seat the selection on the nearest surviving rung.
+                _selectedIndex.value = when {
+                    _selectedIndex.value > index -> _selectedIndex.value - 1
+                    _selectedIndex.value == index -> _selectedIndex.value.coerceAtMost(newPages.size - 1)
+                    else -> _selectedIndex.value
+                }.coerceIn(0, (newPages.size - 1).coerceAtLeast(0))
+                syncChoosing(newPages)
+                return
+            }
+            if (!session.containsKey(plan)) putSession(plan, null)
+            val updated = current[index].copy(plan = plan)
+            val newPages = current.toMutableList().also { it[index] = updated }
+            _pages.value = newPages
+            // The main lookup drives the stage and the provisional line. The provisional line clears with
+            // the terminal update — the full line is then the page itself, never a partial overlay.
+            if (index == MAIN_INDEX) {
+                _stage.value = update.nextStage
+                if (update.nextStage == null) {
+                    _provisionalLine.value = emptyList()
+                } else if (update.line.isNotEmpty()) {
+                    _provisionalLine.value = update.line
+                }
+            }
+            syncChoosing(newPages)
+            // Early select: once the committed main line lands, the mode follows it. A refusal
+            // instead un-commits, leaving the acquisition standing on the reason.
+            if (index == MAIN_INDEX && update.nextStage == null) {
+                val choosing = _state.value as? RouteState.Choosing ?: return
+                if (choosing.committed) {
+                    val landed = updated.plan
+                    if (landed != null) {
+                        _pages.value = emptyList()
+                        _selectedIndex.value = 0
+                        _state.value = RouteState.Following(landed)
+                    } else {
+                        _state.value = choosing.copy(committed = false)
+                    }
+                }
+            }
+            return
         }
+        val updated = if (update.reason != null) current[index].copy(reason = update.reason) else current[index]
         val newPages = current.toMutableList().also { it[index] = updated }
         _pages.value = newPages
-        // The main lookup drives the stage and the provisional line. The provisional line clears with
-        // the terminal update — the full line is then the page itself, never a partial overlay.
         if (index == MAIN_INDEX) {
             _stage.value = update.nextStage
             if (update.nextStage == null) {
@@ -421,8 +481,7 @@ class RouteViewModel(
             }
         }
         syncChoosing(newPages)
-        // Early select: once the committed main line lands, the mode follows it. A refusal
-        // instead un-commits, leaving the acquisition standing on the reason.
+        // A committed main answered with a refusal un-commits instead of following (same rule as a landing).
         if (index == MAIN_INDEX && update.nextStage == null) {
             val choosing = _state.value as? RouteState.Choosing ?: return
             if (choosing.committed) {
@@ -436,6 +495,12 @@ class RouteViewModel(
                 }
             }
         }
+    }
+
+    /** Rebuilds the lookup-id → index map after a page removal, so a later rung still finds its page. */
+    private fun remapLookupPages(pages: List<RoutePage>) {
+        lookupPages.clear()
+        pages.forEachIndexed { i, page -> page.lookupId?.let { lookupPages[it] = i } }
     }
 
     /** Re-reads the Choosing phase's plan, searching flag and refusal from the page set. */

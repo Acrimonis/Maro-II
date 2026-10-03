@@ -56,7 +56,9 @@ data class RoutePage(
     val computationId: RouteId? = null,
     val descriptionResId: Int? = null,
     val plan: RoutePlan? = null,
-    val reason: RouteReason? = null
+    val reason: RouteReason? = null,
+    /** True when this page stands for every collapsed rung — the same line at every preference. */
+    val collapsed: Boolean = false
 )
 
 /**
@@ -130,6 +132,54 @@ internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState): Boolean =
 internal fun routeStepIndex(index: Int, delta: Int, count: Int): Int {
     if (count <= 1 || delta == 0) return index.coerceIn(0, (count - 1).coerceAtLeast(0))
     return ((index + delta) % count + count) % count
+}
+
+/** The ladder's rung count — the acquisition's pages, and the map's line pool. */
+internal const val ROUTE_LADDER_RUNG_COUNT = 3
+
+/**
+ * **The ladder's rung for a configured aversion** (D12): the three rungs sit at λ = 5, 2.5 and 0, listed
+ * most-fun first — 0 around, 1 balanced, 2 through. A stored value snaps to the nearest rung's index.
+ * The thresholds are the midpoints between the evenly spaced rungs.
+ */
+internal fun routeRungIndex(aversionKn: Double): Int = when {
+    aversionKn <= 1.25 -> 2
+    aversionKn <= 3.75 -> 1
+    else -> 0
+}
+
+/** The rung λ a configured aversion snaps to — the inverse of [routeRungIndex], one home for the thresholds. */
+internal fun routeRungLambda(aversionKn: Double): Double = when (routeRungIndex(aversionKn)) {
+    0 -> 5.0
+    1 -> 2.5
+    else -> 0.0
+}
+
+/**
+ * **The dispersion between two routes** — the largest distance from any point of one polyline to the
+ * other, taken both ways so the reading is symmetric. It is the "how far apart do they ever get"
+ * measure the ladder's collapse reads: two rungs within the tolerance are driven the same way and fold
+ * into one route, rather than being pressed together only when their points are identical.
+ */
+internal fun routeDispersionM(a: List<RoutePoint>, b: List<RoutePoint>): Double {
+    if (a.size < 2 || b.size < 2) return Double.MAX_VALUE
+    val ab = oneWayDeviationM(a, b)
+    val ba = oneWayDeviationM(b, a)
+    return if (ab > ba) ab else ba
+}
+
+/** The largest distance from a point of [from] to the [to] polyline — one direction of the dispersion. */
+private fun oneWayDeviationM(from: List<RoutePoint>, to: List<RoutePoint>): Double {
+    var worst = 0.0
+    for (p in from) {
+        var nearest = Double.MAX_VALUE
+        for (i in 0 until to.size - 1) {
+            val d = SpatialOperations.pointToSegmentDistance(p.toLatLng(), to[i].toLatLng(), to[i + 1].toLatLng())
+            if (d < nearest) nearest = d
+        }
+        if (nearest > worst) worst = nearest
+    }
+    return worst
 }
 
 /**

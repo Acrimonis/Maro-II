@@ -69,54 +69,6 @@ object AppConfig {
         private set
 
     /**
-     * **The candidate passes the engine runs beside a settled answer** (R53, R61) —
-     * `route.avoid.candidate.passes`, read as `|`-separated passes whose `,`-separated tokens name the
-     * prices each leaves out. The default mirrors the property's own value, so the file stays the
-     * value's one home, and a token nothing claims leaves the whole list at that default rather than
-     * half read — a typo must never silently offer a line that drops nothing.
-     */
-    var routeAvoidCandidatePasses: List<ykws.android.maro.data.model.RouteCandidatePass> =
-        parseCandidatePasses("speedZone|speedZone,zone300") ?: emptyList()
-        private set
-
-    /**
-     * Whether a pass whose source touches nothing in the corridor the solve already framed is skipped —
-     * `route.avoid.candidate.skipAbsent`, default true.
-     */
-    var routeAvoidCandidateSkipAbsent: Boolean = true
-        private set
-
-    /**
-     * The passes a `route.avoid.candidate.passes` value names — null where any token is unknown, an
-     * empty list where the value is blank, so an empty value declares no candidates, per the
-     * `maro.properties` comment on that key.
-     */
-    private fun parseCandidatePasses(raw: String): List<ykws.android.maro.data.model.RouteCandidatePass>? {
-        val passes = raw.split('|').map { it.trim() }.filter { it.isNotEmpty() }.map { segment ->
-            val tokens = segment.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
-            when (tokens) {
-                setOf("speedzone") -> ykws.android.maro.data.model.RouteCandidatePass(
-                    ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES,
-                    setOf(ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES)
-                )
-                setOf("zone300") -> ykws.android.maro.data.model.RouteCandidatePass(
-                    ykws.android.maro.data.model.RouteOfferSource.ZONE300,
-                    setOf(ykws.android.maro.data.model.RouteOfferSource.ZONE300)
-                )
-                setOf("speedzone", "zone300") -> ykws.android.maro.data.model.RouteCandidatePass(
-                    ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES_AND_ZONE300,
-                    setOf(
-                        ykws.android.maro.data.model.RouteOfferSource.SPEED_ZONES,
-                        ykws.android.maro.data.model.RouteOfferSource.ZONE300
-                    )
-                )
-                else -> return null
-            }
-        }
-        return passes
-    }
-
-    /**
      * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
      * against both the blue water and the amber tracks.
      *
@@ -331,6 +283,14 @@ object AppConfig {
      * full excess. The margin is a price band, never a clearance: the old hard standoff is gone.
      */
     var routeAvoidSpeedZoneOutsideMarginM: Double = 50.0
+        private set
+
+    /**
+     * The ladder's collapse tolerance (m) — `route.avoid.ladder.collapse.toleranceM`, default 25,
+     * clamped 0.0..500.0. Two rungs whose lines never get farther apart than this fold into one route:
+     * at or below it the boat is driven the same way, so the second route is noise.
+     */
+    var routeAvoidLadderCollapseToleranceM: Double = 25.0
         private set
 
     /**
@@ -1735,6 +1695,9 @@ object AppConfig {
             props.getProperty("route.avoid.speedZone.outsideMarginM")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginM = it.coerceIn(0.0, 500.0)
             }
+            props.getProperty("route.avoid.ladder.collapse.toleranceM")?.toDoubleOrNull()?.let {
+                routeAvoidLadderCollapseToleranceM = it.coerceIn(0.0, 500.0)
+            }
             props.getProperty("route.avoid.speedZone.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
             }
@@ -1753,14 +1716,6 @@ object AppConfig {
             props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
                 routeAvoidSpeedZoneTimeBudgetPct =
                     it.coerceIn(ROUTE_SLOW_WATER_BUDGET_PCT_MIN, ROUTE_SLOW_WATER_BUDGET_PCT_MAX)
-            }
-            // ── The candidate passes (R61) ── a value whose tokens all parse replaces the pair; one
-            //    unknown token leaves the shipped pair standing rather than half-reading the row.
-            props.getProperty("route.avoid.candidate.passes")?.let { raw ->
-                parseCandidatePasses(raw)?.let { routeAvoidCandidatePasses = it }
-            }
-            props.getProperty("route.avoid.candidate.skipAbsent")?.toBooleanStrictOrNull()?.let {
-                routeAvoidCandidateSkipAbsent = it
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

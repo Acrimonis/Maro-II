@@ -100,6 +100,55 @@ class RouteAcquisitionTest {
         assertFalse("no lookup is in flight any more", choosing.searching)
     }
 
+    /** A rung identical to one already landed collapses into it, marking the survivor; a later rung still lands. */
+    @Test
+    fun aCollapsedRungMarksTheSurvivorAndALaterRungStillLands() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        engine.publish(ids[1], line(start, aim))
+
+        assertEquals("the duplicate page is dropped", 2, viewModel.pages.value.size)
+        assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
+
+        engine.publish(ids[2], line(start, shortcut))
+        assertEquals(
+            "the kept rung still finds its shifted page",
+            listOf(start, shortcut),
+            viewModel.pages.value[1].plan?.points
+        )
+    }
+
+    /** Two rungs whose lines sit within the collapse tolerance fold into one, marked as the collapse's own. */
+    @Test
+    fun rungsWithinTheToleranceCollapseIntoOneMarkedRoute() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        engine.publish(ids[1], line(start, RoutePoint(43.5201, 7.0101)))
+
+        assertEquals("a near-identical rung folds rather than staying", 2, viewModel.pages.value.size)
+        assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
+    }
+
+    /** The dispersion reading: a line against itself is zero, a small shift is a small gap, a far line stays apart. */
+    @Test
+    fun routeDispersionMeasuresTheWidestGap() {
+        val a = listOf(start, aim)
+        val near = listOf(start, RoutePoint(43.5201, 7.0101))
+        val far = listOf(start, shortcut)
+
+        assertEquals("a line against itself has no dispersion", 0.0, routeDispersionM(a, a), 1e-6)
+        assertTrue("a shifted line reads below the tolerance", routeDispersionM(a, near) < 25.0)
+        assertTrue("a route hundreds of metres away reads far", routeDispersionM(a, far) > 100.0)
+    }
+
     /** Next/prev loops the page set, and the selection is what the buttons act on. */
     @Test
     fun theSelectionLoopsThePageSet() = runTest {

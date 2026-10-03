@@ -78,10 +78,15 @@ class RouteAvoidEngineTest {
      * Arms the engine on a pair and awaits the main lookup's terminal update, returning its result —
      * `null` when the pair is refused or the search found no route.
      */
-    private suspend fun solve(engine: RouteAvoidEngine, from: RoutePoint, to: RoutePoint): RouteResult.Success? = coroutineScope {
+    private suspend fun solve(
+        engine: RouteAvoidEngine,
+        from: RoutePoint,
+        to: RoutePoint,
+        rungIndex: Int = 0
+    ): RouteResult.Success? = coroutineScope {
         val declarations = engine.routesToCompute(from, to)
         val available = declarations as? RouteDeclarations.Available ?: return@coroutineScope null
-        val main = available.computations.first()
+        val computation = available.computations[rungIndex]
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate?>()
         val collector = launch(Dispatchers.Default) {
@@ -92,7 +97,7 @@ class RouteAvoidEngineTest {
                 }
         }
         subscribed.await()
-        engine.startLookup(main.id)
+        engine.startLookup(computation.id)
         val update = withTimeout(120_000) { done.await() }
         collector.cancel()
         update?.result
@@ -250,7 +255,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
         val world = FakeWorld(zones = listOf(zone))
-        val route = success(solve(newEngine(budgetPct = 100) { world }, origin, aim))
+        val route = success(solve(newEngine(budgetPct = 100) { world }, origin, aim, rungIndex = 0))
 
         assertEquals("the forced crossing earns the doubled reach", 2, world.boxes.size)
         assertTrue("the grown answer's way around is kept", route.forcedCrossingZoneNames.isEmpty())
@@ -508,9 +513,8 @@ class RouteAvoidEngineTest {
 
         setAvoidSwitch("routeAvoidZone300Enabled", true)
         val world = FakeWorld(band = 300.0, openCoast = mutableListOf(coast))
-        val on = success(solve(newEngine { world }, start, aim))
-        val rate = (paceKn / AppConfig.routeAvoidZone300LimitKn - 1.0) *
-            AppConfig.routeAvoidSpeedZoneSoftCostAversion
+        val on = success(solve(newEngine { world }, start, aim, rungIndex = 0))
+        val rate = (paceKn / AppConfig.routeAvoidZone300LimitKn - 1.0) * 5.0
         val straightBandM = bandWidthMetres(world, listOf(start.toLatLng(), aim.toLatLng()))
         val worthM = rate * straightBandM
         assertTrue(
@@ -556,7 +560,7 @@ class RouteAvoidEngineTest {
         assertTrue("and names no forced crossing", flat.forcedCrossingZoneNames.isEmpty())
 
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        val armed = success(solve(newEngine { FakeWorld(zones = listOf(zone)) }, origin, aim))
+        val armed = success(solve(newEngine { FakeWorld(zones = listOf(zone)) }, origin, aim, rungIndex = 0))
         assertEquals(
             "the same world armed prices the zone and names the crossing",
             listOf("Cap"),
