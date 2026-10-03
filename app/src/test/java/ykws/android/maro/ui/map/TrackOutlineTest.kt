@@ -177,11 +177,12 @@ class TrackOutlineTest {
     // ── The shipped file, tied to the code's own defaults ────────────────
 
     /**
-     * The seven width keys, read from the real file and held against `AppConfig`'s defaults: a drift
+     * The width keys, read from the real file and held against `AppConfig`'s defaults: a drift
      * between the two fails here rather than shipping silently, and the key set is asserted first
      * because a misspelled name would leave the default standing without a word. The file is the
      * source of truth, so it is the defaults that follow it — which is what the drift the strokes
-     * change left behind is settled by. `track.width.route` joins them with the route role.
+     * change left behind is settled by. `track.width.route` and its two dash keys join them with the
+     * route role.
      *
      * Every mismatch is collected and reported in one go: the file can disagree with the code in more
      * than one family, and asserting them one at a time reports only the first, hiding the rest
@@ -198,6 +199,8 @@ class TrackOutlineTest {
                 "map.track.width.newest",
                 "map.track.width.pinned",
                 "map.track.width.route",
+                "map.track.width.route.dashOff",
+                "map.track.width.route.dashOn",
                 "map.track.width.selected",
                 "map.track.width.selected.casing"
             ),
@@ -211,7 +214,9 @@ class TrackOutlineTest {
             "map.track.width.pinned" to AppConfig.trackWidthPinnedDp,
             "map.track.width.history" to AppConfig.trackWidthHistoryDp,
             "map.track.width.selected.casing" to AppConfig.trackWidthSelectedCasingDp,
-            "map.track.width.route" to AppConfig.trackWidthRouteDp
+            "map.track.width.route" to AppConfig.trackWidthRouteDp,
+            "map.track.width.route.dashOn" to AppConfig.trackRouteDashOnDp,
+            "map.track.width.route.dashOff" to AppConfig.trackRouteDashOffDp
         ).mapNotNull { (key, default) ->
             val shipped = props.getProperty(key)?.toFloatOrNull()
             if (shipped == default) null else "$key: shipped $shipped, default $default"
@@ -235,6 +240,28 @@ class TrackOutlineTest {
         assertEquals(
             AppConfig.trackWidthSelectedCasingDp,
             props.getProperty("map.track.width.selected.casing")!!.toFloat(),
+            1e-6f
+        )
+    }
+
+    /**
+     * The route dash's own two keys, held against the code alone: the dash is a rhythm the route
+     * draws whole, so both halves are pinned.
+     */
+    @Test
+    fun theRouteDashKeysParseToTheCodesOwnDefaults() {
+        val props = shippedProperties()
+
+        assertEquals(9.33333f, AppConfig.trackRouteDashOnDp, 1e-6f)
+        assertEquals(0.666667f, AppConfig.trackRouteDashOffDp, 1e-6f)
+        assertEquals(
+            AppConfig.trackRouteDashOnDp,
+            props.getProperty("map.track.width.route.dashOn")!!.toFloat(),
+            1e-6f
+        )
+        assertEquals(
+            AppConfig.trackRouteDashOffDp,
+            props.getProperty("map.track.width.route.dashOff")!!.toFloat(),
             1e-6f
         )
     }

@@ -93,7 +93,7 @@ internal fun MapTrackOverlayHistoryDiff(
         // The per-type widths are read on every path in every mode, so the seven join the list
         // unconditionally rather than behind a mode test — the casing's width with them, since the
         // selection it outlines is drawn in all three, and the route's, which a route takes whatever
-        // its pin says.
+        // its pin says. The route's own dash rhythm joins them: it is read wherever a route draws.
         add(AppConfig.trackWidthLiveDp)
         add(AppConfig.trackWidthSelectedDp)
         add(AppConfig.trackWidthNewestDp)
@@ -101,6 +101,8 @@ internal fun MapTrackOverlayHistoryDiff(
         add(AppConfig.trackWidthHistoryDp)
         add(AppConfig.trackWidthRouteDp)
         add(AppConfig.trackWidthSelectedCasingDp)
+        add(AppConfig.trackRouteDashOnDp)
+        add(AppConfig.trackRouteDashOffDp)
         if (!trackColours) {
             // Colours off means the default colours are the fill, so their four keys join here.
             add(appSettings.trackingColorPastFrom)
@@ -635,11 +637,15 @@ internal fun newestTrackId(summaries: List<ykws.android.maro.data.track.TrackSum
  */
 internal enum class TrackRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
 
-/** A stored track's path, whether it draws arrows, and whether it is the selected track. */
+/**
+ * A stored track's path, whether it draws arrows, whether it is the selected track, and whether it
+ * is a route — the role the dispatcher keys the dashed stroke on.
+ */
 internal data class TrackRenderPlan(
     val path: TrackRenderPath,
     val drawArrows: Boolean,
-    val selected: Boolean
+    val selected: Boolean,
+    val route: Boolean = false
 )
 
 /**
@@ -677,7 +683,8 @@ internal fun trackRenderPlan(
         return TrackRenderPlan(
             path = if (trackColours && routeSpeedColour) TrackRenderPath.BANDED else TrackRenderPath.ROUTE,
             drawArrows = trackArrows && routeSpeedArrows,
-            selected = selected
+            selected = selected,
+            route = true
         )
     }
     val banded = if (selected) {
@@ -691,7 +698,8 @@ internal fun trackRenderPlan(
     return TrackRenderPlan(
         path = path,
         drawArrows = trackArrows,
-        selected = selected
+        selected = selected,
+        route = false
     )
 }
 
@@ -876,12 +884,14 @@ internal fun storedTrackRendering(
             ramp = ramp,
             strokeWidth = strokeWidth,
             density = density,
-            fade = storedTrackFade(plan.selected, fade)
+            fade = storedTrackFade(plan.selected, fade),
+            dashed = plan.route
         )
         TrackRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth, density)
         // The route role's own pair arrives through the same lazily-built appearance the plain path
-        // takes — the caller owns which pair a route paints from — so no helper is forked for it.
-        TrackRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density)
+        // takes — the caller owns which pair a route paints from — and a route's stroke is dashed, so
+        // a saved route reads apart from a recorded track.
+        TrackRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density, dashed = true)
         TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density)
     }
     if (!plan.selected) return rendering.copy(drawArrows = plan.drawArrows)
@@ -901,15 +911,17 @@ internal fun storedTrackRendering(
 
 /**
  * Plain path — today's unselected rendering, unchanged: the stored colours with this track's own
- * fade, D11's width, solid segments between gaps and dashed for gap segments.
+ * fade, D11's width, solid segments between gaps and dashed for gap segments. A route's stroke is
+ * dashed whole ([dashed]), reusing the GAP rhythm, so a saved route reads apart from a recorded track.
  */
 private fun plainPath(
     points: List<TrackPoint>,
     title: String,
     appearance: TrackPolylineAppearance,
-    density: Float
+    density: Float,
+    dashed: Boolean = false
 ): StoredTrackRendering = StoredTrackRendering(
-    overlays = buildSegmentOverlays(points, appearance, title, density),
+    overlays = buildSegmentOverlays(points, appearance, title, density, dashed),
     arrowAppearances = listOf(appearance)
 )
 
@@ -947,7 +959,8 @@ private fun bandedPath(
     ramp: HeatmapRamp,
     strokeWidth: Float,
     density: Float,
-    fade: Float
+    fade: Float,
+    dashed: Boolean = false
 ): StoredTrackRendering {
     val speeds = resolveSpeeds(points)
     val bands = bandedAppearances(points, speeds, ramp, strokeWidth, fade)
@@ -959,7 +972,7 @@ private fun bandedPath(
         bandByIndex.getOrNull(anchor.segmentIndex)?.appearance ?: metrics
     }
     return StoredTrackRendering(
-        overlays = bands.flatMap { buildBandSegmentOverlays(points, it, title, density) },
+        overlays = bands.flatMap { buildBandSegmentOverlays(points, it, title, density, dashed) },
         arrowAppearances = listOf(metrics),
         arrowColorResolver = resolver
     )
