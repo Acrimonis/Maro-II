@@ -332,7 +332,10 @@ class RouteAvoidEngine(
         val edges = world.segmentsIn(box)
         val openCoast = world.openCoastIn(box)
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
-        val cellM = plan.firstWalkCellM(AppConfig.routeAvoidGridCellM)
+        // The plan hands back the walk's tiles; `avoid`'s plan is one tile over the whole corridor at one
+        // size, so the single-grid walk below reads that size — the multi-tile walk arrives with the
+        // pipeline extraction.
+        val cellM = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM).first().cellM
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val pace = paceKn()
@@ -1079,9 +1082,11 @@ class RouteAvoidEngine(
         val fineCellM = cellM * AppConfig.routeAvoidFineCellRatio
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
         // What the second pass may look at is the plan's decision; that it stays inside the lookup's own
-        // corridor is still the engine's, so the clamp stays here whatever a plan hands back.
-        val swathBox = plan.secondPassRegion(line, corridor, outsideMarginM, cellM)
-        val box = swathBox?.let { clampTo(it, corridor) }
+        // corridor is still the engine's, so the clamp stays here whatever a plan hands back. `avoid`'s
+        // plan answers one region, and the single re-raster below reads that one; a plan's further regions
+        // arrive with the multi-region walk.
+        val swathBoxes = plan.secondPassRegions(line, corridor, outsideMarginM, cellM)
+        val box = swathBoxes.firstOrNull()?.let { clampTo(it, corridor) }
         if (box == null) {
             trace { "FINE research box=empty spliced=no" }
             return line

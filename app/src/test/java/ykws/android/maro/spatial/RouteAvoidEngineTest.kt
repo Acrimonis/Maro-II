@@ -31,6 +31,7 @@ import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.bandReachM
 import ykws.android.maro.spatial.avoid.EndApproaches
+import ykws.android.maro.spatial.avoid.GridTile
 import ykws.android.maro.spatial.avoid.RouteGridPlan
 import ykws.android.maro.spatial.avoid.UniformGridPlan
 import ykws.android.maro.spatial.avoid.insideBandWidthM
@@ -711,19 +712,19 @@ class RouteAvoidEngineTest {
         var cellReads = 0
         var regionReads = 0
 
-        override fun firstWalkCellM(baseCellM: Double): Double {
+        override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
             cellReads++
-            return inner.firstWalkCellM(baseCellM)
+            return inner.firstWalkGrid(corridor, baseCellM)
         }
 
-        override fun secondPassRegion(
+        override fun secondPassRegions(
             line: List<LatLng>,
             corridor: BBox,
             outsideMarginM: Double,
             cellM: Double
-        ): BBox? {
+        ): List<BBox> {
             regionReads++
-            return inner.secondPassRegion(line, corridor, outsideMarginM, cellM)
+            return inner.secondPassRegions(line, corridor, outsideMarginM, cellM)
         }
     }
 

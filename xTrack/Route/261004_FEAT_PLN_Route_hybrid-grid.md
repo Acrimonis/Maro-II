@@ -238,8 +238,12 @@ The cost:
 - `route.evolutive.fine.corridorHalfWidthM=150` — **new**, metres, the corridor's half-width, clamped
   100-400 so the price collar's floor cannot be set below; the box side is derived (`2 × w`).
 - **Nothing is removed from `avoid`.** The two ratio keys an earlier draft of this plan retired —
-  `route.avoid.grid.fineRatio` and `route.avoid.fine.cellRatio` — belong to `avoid`, are read by its fine
-  pass, and stay; what changes is that `evolutive` reads a metres key instead.
+  `route.avoid.grid.fineRatio` and `route.avoid.fine.cellRatio` — stay in the file; what changes is that
+  `evolutive` reads a metres key instead. **Only the second has a reader**: it is read at the clock's three
+  sites and by both fine passes
+  ([`cellM * AppConfig.routeAvoidFineCellRatio`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1026)),
+  while `route.avoid.grid.fineRatio` has none in `app/src/main/java`, in `app/src/test` or in the batch
+  scripts — an unread key, and a claim this section no longer makes for it.
 - **The box's padding term goes with the box, in `evolutive`**: `outsideMarginM + cellM` stops sizing its
   fine region, so the zone's price collar no longer leaks into the second pass's geometry.
 - `AppConfig` gains the three `routeEvolutive*` accessors. `routeAvoidFineCellRatio`,
@@ -257,10 +261,12 @@ The cost:
 
 ## Verification
 
-- **The guard test is rewritten, not retired**:
+- **The guard test is `evolutive`'s, written rather than rewritten**: a metres assertion that the shipped
+  second-pass cell is at most 20 m and that `cellM` divides by it, the shape the retired ratio assertion's
+  third arm already had. `avoid`'s own
   [`theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:632)
-  becomes a metres assertion — the shipped second-pass cell is at most 20 m and `cellM` divides by it,
-  which is the shape its own third assertion already had.
+  stays where it is, and stays red, as `## Property and code changes` and Phase 1 both state — the reading
+  of it as rewritten was stale, and it is corrected here rather than acted on.
 - **The equivalence test asserts the cost, never the point list.** On a channel fixture a hybrid solve and
   a uniform fine solve must agree on total time; their **lines may differ**, because
   [`AvoidSearch`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidSearch.kt:90) breaks ties by

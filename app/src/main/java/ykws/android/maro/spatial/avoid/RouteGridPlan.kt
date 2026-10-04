@@ -7,8 +7,15 @@ import kotlin.math.PI
 import kotlin.math.cos
 
 /**
- * **The two decisions an algorithm makes about its own walk** — the cell it rasterizes the corridor at,
- * and the region its second pass is allowed to re-rasterize.
+ * **One rectangle the walk may rasterize, at one cell size.** A plan answers a **list** of these, so a
+ * single uniform grid and a two-layer lattice are the same shape to the caller: the lattice is more than
+ * one tile, not a different kind of answer.
+ */
+data class GridTile(val box: BBox, val cellM: Double)
+
+/**
+ * **The two decisions an algorithm makes about its own walk** — the rectangles it rasterizes the corridor
+ * with, each at its own cell size, and the regions its second pass is allowed to re-rasterize.
  *
  * They are the whole of what separates one route algorithm from another: everything else — the corridor,
  * the A\*, the taut pull, the corner snap, the clock — is the same work over whichever cells it is handed.
@@ -22,42 +29,46 @@ import kotlin.math.cos
 interface RouteGridPlan {
 
     /**
-     * The cell (m) the **first walk** is rasterized at, given the configured [baseCellM] — one size
-     * everywhere today, the coarse cell of a two-layer lattice when a plan says so.
+     * The **first walk's grid**: one [`GridTile`] per rectangle the walk may use, each at the size the
+     * plan chooses for it, given the configured [baseCellM] and the [corridor] the lookup is bounded to.
+     * `avoid` answers the whole corridor at one size; a lattice answers a fine band over a coarse interior.
      */
-    fun firstWalkCellM(baseCellM: Double): Double
+    fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile>
 
     /**
-     * The region the **second pass** may re-rasterize around [line], grown from the engine's own
-     * [outsideMarginM] and [cellM], or `null` where no region can be cut — the case the caller reads as
-     * *nothing to re-search*.
+     * The regions the **second pass** may re-rasterize around [line], grown from the engine's own
+     * [outsideMarginM] and [cellM] — one box for the line's own span, a chain of them for a corridor. An
+     * empty list is where no region can be cut, the case the caller reads as *nothing to re-search*.
      *
-     * [corridor] is the box the whole lookup is bounded to; a plan that honours it hands its region back
+     * [corridor] is the box the whole lookup is bounded to; a plan that honours it hands its regions back
      * unclamped, because the engine clamps whatever it is given.
      */
-    fun secondPassRegion(
+    fun secondPassRegions(
         line: List<LatLng>,
         corridor: BBox,
         outsideMarginM: Double,
         cellM: Double
-    ): BBox?
+    ): List<BBox>
 }
 
 /**
- * **The shipped plan: one cell size and the settled line's own bounding box, widened.** It is the
- * behaviour every `avoid` answer was found on, kept here as a plan so a second algorithm can be a second
- * plan rather than a second pipeline.
+ * **The shipped plan: one tile over the whole corridor and the settled line's own bounding box, widened.**
+ * It is the behaviour every `avoid` answer was found on, kept here as a plan so a second algorithm can be a
+ * second plan rather than a second pipeline. Its single tile and its single region are what make it
+ * reproduce today exactly.
  */
 object UniformGridPlan : RouteGridPlan {
 
-    override fun firstWalkCellM(baseCellM: Double): Double = baseCellM
+    override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
+        listOf(GridTile(corridor, baseCellM))
 
-    override fun secondPassRegion(
+    override fun secondPassRegions(
         line: List<LatLng>,
         corridor: BBox,
         outsideMarginM: Double,
         cellM: Double
-    ): BBox? = if (line.isEmpty()) null else inflateBox(lineBBox(line), outsideMarginM + cellM)
+    ): List<BBox> =
+        if (line.isEmpty()) emptyList() else listOf(inflateBox(lineBBox(line), outsideMarginM + cellM))
 }
 
 /**
