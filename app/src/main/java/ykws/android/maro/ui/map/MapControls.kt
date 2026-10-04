@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -340,17 +341,27 @@ internal fun MapBanner(
 }
 
 /**
- * The banner face's one line — what the three pills hand [MapBanner]'s slot: 16 sp Medium in
- * [AppConfig.uiToastText], centred, on 16/10 padding, and with no `maxLines` and no ellipsis, so a long
- * message wraps uncapped and the bottom-anchored pill grows upward rather than cutting its instruction.
+ * The banner family's one line style — 16 sp Medium in [AppConfig.uiToastText], the family's whole text
+ * definition. The pill's line and the action row's message both read it, so the family's text is written
+ * once (`docs/ui-component-guidelines.md` §5.7).
+ */
+@Composable
+internal fun bannerLineStyle(): TextStyle = TextStyle(
+    color = ComposeColor(AppConfig.uiToastText),
+    fontSize = 16.sp,
+    fontWeight = FontWeight.Medium
+)
+
+/**
+ * The banner face's one line — what the three pills hand [MapBanner]'s slot: [bannerLineStyle], centred,
+ * on 16/10 padding, and with no `maxLines` and no ellipsis, so a long message wraps uncapped and the
+ * bottom-anchored pill grows upward rather than cutting its instruction.
  */
 @Composable
 internal fun MapBannerText(text: String) {
     Text(
         text = text,
-        color = ComposeColor(AppConfig.uiToastText),
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Medium,
+        style = bannerLineStyle(),
         textAlign = TextAlign.Center,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
     )

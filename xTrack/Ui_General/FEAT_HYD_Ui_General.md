@@ -1,34 +1,33 @@
-# Context Hydration — Ui_General — 2026-10-01
+# Context Hydration — Ui_General — 2026-10-04
 
-**Last Bake:** 2026-10-01 20:16 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-04 14:02 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met and none stopped this session — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, each pass on the user's explicit approval, the commit on `#commit`), the device was never touched (builds only), and every claim written about the code rests on a file read in the session. The gaps left open are named: every UI change in this pass is build- and unit-test-validated only, nothing device-validated, and the Feature Summaries row and Focus History prune remain blocked by the long-line cap recorded in the Global Todos.
+**Directive trace:** All five covered action classes were met this session — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, the implementation on `#impl`, the revision on the user's own directive to make the command face that control, the bake on `#bake`), the device was never touched (builds only; the device pass that drove Revision 2 was the user's own), and every claim written about the code rests on a file read in the session. The gaps are named, not hidden: the toasts' look, the compact control's measured height and the 6 dp gap are device judgements, and the Focus History entry standing above this one was left untouched rather than rewritten to this session's work.
 
 ## State
 
-One branch, `feature/ui-shuffle`, cut from `origin/develop` on `#new` and rebased onto `db0a01f` on `#merge`: one day of menu-and-settings reshuffling, shipped in a run of small passes.
+One branch, `feature/ui-toast`, cut from `origin/develop` (`11dd182`) on `#new`, carrying no upstream yet — the first `#push` writes its own name.
 
-**The menu's Navigation card was trimmed.** The GPS-mode toggle and the Auto-show zones master switch left the right-side menu; the route summary and route-ends block now stand alone in that card, and the master switch's backing field `autoShowMasterOverride` was deleted from `AppSettings` so the NavigationViewModel gate follows the per-mode `approachAutoShowGps` / `approachAutoShowDemo` alone.
+**The map's action and undo toasts joined the bottom banner family.** [`SnackRow`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:448) renders through [`MapBanner`](../../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt:314) as the family's third **full-width face**, so its 14 dp corner, 2 dp border, fill and 8 dp shadow are the one control's own; [`MapSnackbarHost`](../../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt:32) no longer pads its column, `MapBanner` owning `bannerStartInset(tagsDrawn)` and the right-column reserve, with the tag Boolean threaded from `MapScreen`. `bannerLineStyle()` is the family's one text definition, read by the pill's line and by the row's message, which stays left with `maxLines = 2` while its commands sit right and everything anchors to the row's top.
 
-**Show zones re-homed.** The menu's Markers "Show zones" toggle moved to Settings → Layers → Markers, above *Markers Appearance*, still on the persisted `markerZonesVisible` preference and the `menu_show_zones` label.
+**The three hardcoded English messages became resources** — `snack_track_deleted`, `snack_marker_deleted` and `snack_marker_created` in both locales, the French reading `Trace` and `Repère`, the app's own words — closing the §1 breach on the lines the pass touched. The Ask hop returned no blocker and its one Medium (the French twins first read `Piste` and `Marqueur`, words that appear nowhere in `values-fr`) and one Low (a §5.7 pointer naming a section that does not exist) were folded.
 
-**Tracks rendering and Import/Export moved into Settings.** The menu's `Display Tracks with:` twin-box and its Import/Export pair left the menu's Tracks card (which keeps only live stats and the Track List row) and landed in Settings → Layers → Tracks; the twin-box was then re-organized into a titled **Speed Display** subsection inside *Track Speed and Direction*, the route gates (Speed colours on routes, Arrows on routes) into a **Route** subsection below it, and the chip option renamed "Speed Colors" / "Couleurs de vitesse". The menu's Route arm button now wears the same `SECONDARY` face as Import/Export.
+**The device pass drove Revision 2.** The stack now clears the dashboard by the band's own gutter — `AppConfig.uiMapToggleGutter`, 6 dp, added with the landscape branch preserved so the band offset is not doubled — and the row's commands left `ui.accent` text, measured at roughly 1.5:1 on the family's translucent fill, for [`ConfirmActionButton`](../../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt:337)'s new **compact `SECONDARY`** face: white bold on the accent at 50 % under the 2 dp full-opacity rim, 8 dp corner, 28 dp height, 12 sp label. The compact size lives inside that one control, so §5.6's "the app's only rendering of a `ConfirmAction`" holds and no second button appeared.
 
-**The Settings tabs were reordered.** The Route section (free-water pace + slow-water budget) now leads the Navigation tab; Stop detection moved beneath it from Position; the GPS-mode row left Settings Position and the Navigation/GPS-tuning group moved to Settings System above Screen, leaving the Position tab empty. The dead `onGpsModeChange` chain was trimmed through `SettingsOverlay` / `OverlayLayer` / `MapScreen` and `settings_gps_mode_desc` removed from both locales.
+**Rules moved once.** [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md:817) §5.6 holds the compact size with its numbers, §5.7 carries six instances and three full-width faces, §5.9 tier 1's host list gained the map row; [`docs/ui-lists-guidelines.md`](../../docs/ui-lists-guidelines.md:252) keeps the dismiss contract, points at §5.7 for the skin, and records that the list's own Undo stays accent text — the deliberate divergence the map row now runs against.
 
-`gradlew :app:assembleDebug :app:testDebugUnitTest` BUILD SUCCESSFUL on every pass; `TrackRenderStringsTest` re-pinned to the new heading.
+`apk-build.bat` BUILD SUCCESSFUL on every pass with no new warning naming the touched files, and `gradlew :app:testDebugUnitTest --tests "ykws.android.maro.ui.map.*"` green; nothing committed before this bake.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — Navigation card trim, Show zones and Tracks/Import-Export removal, Route arm face
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — Tracks card rework (Speed Display, Route subsection), Navigation/Position/System reorder
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` · `OverlayLayerParams.kt` · `MapOverlayData.kt` — menu-data plumbing shrinkage
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — dead helpers and the `onGpsModeChange` arg
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `autoShowMasterOverride` removal
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — per-mode auto-show gate
-- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — Speed Display heading, Speed Colors chip, dead strings removed
-- `app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt` — heading pin
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `SnackRow`'s container, its top-anchored contents, `SnackAction` on the compact control
+- `app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt` — the band gutter, the `tagsDrawn` parameter, the three extracted messages
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `bannerLineStyle`, and `MapBannerText`'s refactor onto it
+- `app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt` — `ConfirmActionButton`'s `compact` size
+- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — the three new keys
+- `docs/ui-component-guidelines.md` · `docs/ui-lists-guidelines.md` — the two rule homes
+- `xTrack/Ui_General/261004_FEAT_PLN_Ui_General_action-toasts.md` — the plan, its Outcome and its §8 Revision 2
 
 ## Next Step
 
-The device pass over the reorganized Settings tabs and the trimmed menu — the empty Position tab, the Navigation/System re-homes, the Speed Display and Route subsections, and the re-faced Route arm — is owed; nothing here is device-validated.
+The device pass over the revision is owed: whether the 6 dp reads as a gap above the dashboard, whether the compact control's **measured** height is the painted 28 dp or Material3's interactive minimum, and whether two 2 dp rims in the route-discard row read as heavy. Nothing here is device-validated.

@@ -309,9 +309,6 @@
     <string name="menu_render_colours">Speed Colors</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="menu_show_zones">Display Markers Zones</string>
-    <string name="track_status_recording">● Recording</string>
-    <string name="track_status_idle">● Idle</string>
-    <string name="track_stat_state">State</string>
     <string name="track_stat_elapsed">Elapsed</string>
     <string name="track_stat_points">Points</string>
     <string name="track_stat_distance">Distance</string>
@@ -601,7 +598,9 @@
     <!-- The sub-section's head: one comment naming the group's two fields — the route's origin and
          destination — and it is what identifies them, since neither dropdown row carries a label of its
          own; each row shows only its value, on the right. -->
-    <string name="route_comment_ends">Route origin and destination</string>
+    <string name="route_comment_ends">Origin and destination</string>
+    <!-- The quick-access pair's short comment: the two settings it heads, the pace first. -->
+    <string name="route_comment_quick_access">Cruising speed and preference</string>
     <string name="route_end_current">Current position</string>
     <string name="route_end_position">Marker position</string>
     <!-- The fixed entries' own dress: a marker's name is data and cannot wear it, which is what tells the
@@ -641,8 +640,10 @@
     <!-- The status with the stage the engine published while a search runs — `Acquiring (Search)…`
          (R15, rewritten 2026-09-28). The stage's own words are the closed set below. -->
     <string name="route_status_acquiring">Acquiring…</string>
+    <!-- The band's own acquisition word: the shared one above carries an ellipsis the band does not use. -->
+    <string name="route_status_acquiring_bare">Acquiring</string>
     <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
-    <string name="route_status_active">Route active</string>
+    <string name="route_status_active">Routing</string>
     <string name="route_status_selected">Selected — finishing the line…</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
@@ -663,6 +664,11 @@
     <string name="route_discard_acq_toast">Route discarded.</string>
     <string name="route_discard_followed_toast">Route discarded.</string>
     <string name="route_action_new_acquisition">New...</string>
+    <!-- The map's action and undo rows (`MapSnackbarHost`): the three delete and create messages, each
+         naming its own item, beside the route discard's two above. -->
+    <string name="snack_track_deleted">Track \"%1$s\" deleted</string>
+    <string name="snack_marker_deleted">Marker \"%1$s\" deleted</string>
+    <string name="snack_marker_created">Marker \"%1$s\" created</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
@@ -671,8 +677,17 @@
     <string name="route_summary_distance_unit">NM</string>
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
     <string name="route_summary_eta_unit">min</string>
-    <!-- The drawer summary's sub-title over the boat-relative pair: what is left to travel. -->
-    <string name="route_trip_remaining">Remaining</string>
+    <!-- The drawer band's routing tail: whole minutes, or seconds below a minute. -->
+    <string name="route_band_eta_min_fmt">ETA: %1$d min</string>
+    <string name="route_band_eta_sec_fmt">ETA: %1$d sec</string>
+    <!-- The drawer summary's four cells: the plan's figures as the totals, the route's own beside them. -->
+    <string name="route_stat_dist_total">Dist total</string>
+    <string name="route_stat_dist_route">Dist route</string>
+    <string name="route_stat_eta_total">ETA total</string>
+    <string name="route_stat_eta_route">ETA route</string>
+    <!-- The pending mark: what a figure prints where the mode does not hold it yet — the route panel's
+         cells and the drawer's alike, one word for all of them. -->
+    <string name="route_value_pending">--</string>
     <string name="route_trip_ago">%1$s ago</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>

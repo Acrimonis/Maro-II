@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.map
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -175,11 +176,26 @@ internal fun routeRungIndex(aversionKn: Double): Int = when {
     else -> 0
 }
 
-/** The rung λ a configured aversion snaps to — the inverse of [routeRungIndex], one home for the thresholds. */
-internal fun routeRungLambda(aversionKn: Double): Double = when (routeRungIndex(aversionKn)) {
+/** **The λ a rung index carries** — the one home for the ladder's three values, [routeRungIndex]'s inverse. */
+internal fun routeRungLambdaOf(index: Int): Double = when (index) {
     0 -> 5.0
     1 -> 2.5
     else -> 0.0
+}
+
+/** The rung λ a configured aversion snaps to — the inverse of [routeRungIndex], one home for the thresholds. */
+internal fun routeRungLambda(aversionKn: Double): Double = routeRungLambdaOf(routeRungIndex(aversionKn))
+
+/**
+ * **The word a rung is read by**: `Fun` at the λ 5 end, `Balanced` at 2.5 and `Fast` at 0 — the order
+ * [routeRungIndex] lists them in. One home for the mapping, so the Settings page's slider and the drawer's
+ * quick access name a rung the same way.
+ */
+@StringRes
+internal fun routeRungLabelRes(index: Int): Int = when (index) {
+    2 -> R.string.route_computation_through
+    1 -> R.string.route_computation_balanced
+    else -> R.string.route_computation_around
 }
 
 /**

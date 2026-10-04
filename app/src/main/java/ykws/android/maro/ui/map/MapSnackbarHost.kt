@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ykws.android.maro.R
+import ykws.android.maro.config.AppConfig
 
 /**
  * Render-only snackbar stack (extracted from MapScreen). Owns NO state — the queue
@@ -21,8 +22,11 @@ import ykws.android.maro.R
  * because they write cross-cutting map state (undo reopens drawers, timeouts drive
  * ViewModel deletes). `ActiveSnack`/`SnackRow` remain in MapScreen.kt (internal).
  *
- * The route discard's toast carries a second action — **New acquisition** — while the three delete
- * snacks carry only Undo; its message names the phase honestly from string resources.
+ * Every row is the banner family's third **full-width face**: the skin and the band's clearance are
+ * [`MapBanner`](MapControls.kt)'s, so this host pads only the band it sits above and never the row's
+ * own edges (`docs/ui-component-guidelines.md` §5.7). The route discard's toast carries a second
+ * action — **New acquisition** — while the three delete snacks carry only Undo; every message names
+ * its item from string resources.
  */
 @Composable
 internal fun MapSnackbarHost(
@@ -34,6 +38,8 @@ internal fun MapSnackbarHost(
      */
     dashboardBandHeight: State<Dp>,
     landscapeDashboardWidth: Dp,
+    /** The bottom-left tag column's own answer, handed to every row's banner clearance. */
+    tagsDrawn: Boolean,
     onUndo: (ActiveSnack) -> Unit,
     onTimeout: (ActiveSnack) -> Unit,
     onSecondAction: (ActiveSnack) -> Unit = {}
@@ -44,10 +50,12 @@ internal fun MapSnackbarHost(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(
-                    bottom = if (isLandscape) 0.dp else bandHeight,
+                    // The band's clearance plus the band's own gutter (`ui.map.toggle.gutter`), so the
+                    // lowest row clears the dashboard's top edge; landscape keeps a 0 band offset and
+                    // gains the same gutter (R1).
+                    bottom = (if (isLandscape) 0.dp else bandHeight) + AppConfig.uiMapToggleGutter.dp,
                     start = if (isLandscape) landscapeDashboardWidth else 0.dp
-                )
-                .padding(start = 12.dp, end = RIGHT_CONTROL_COLUMN_INSET),
+                ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             activeSnacks.forEach { snack ->
@@ -55,24 +63,25 @@ internal fun MapSnackbarHost(
                     val routeDiscard = snack as? ActiveSnack.RouteDiscard
                     SnackRow(
                         message = when (snack) {
-                            is ActiveSnack.TrackDelete -> "Track '${snack.name}' deleted"
-                            is ActiveSnack.MarkerDelete -> "Marker '${snack.name}' deleted"
-                            is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
+                            is ActiveSnack.TrackDelete -> stringResource(R.string.snack_track_deleted, snack.name)
+                            is ActiveSnack.MarkerDelete -> stringResource(R.string.snack_marker_deleted, snack.name)
+                            is ActiveSnack.CreateUndo -> stringResource(R.string.snack_marker_created, snack.name)
                             is ActiveSnack.RouteDiscard -> stringResource(
                                 if (snack.followed) R.string.route_discard_followed_toast
                                 else R.string.route_discard_acq_toast
                             )
                         },
                         snackKey = snack.uid,
+                        onUndo = { onUndo(snack) },
+                        onTimeout = { onTimeout(snack) },
+                        tagsDrawn = tagsDrawn,
                         showUndo = true,
                         secondActionLabel = if (routeDiscard != null) {
                             stringResource(R.string.route_action_new_acquisition)
                         } else null,
                         onSecondAction = if (routeDiscard != null) {
                             { onSecondAction(snack) }
-                        } else null,
-                        onUndo = { onUndo(snack) },
-                        onTimeout = { onTimeout(snack) }
+                        } else null
                     )
                 }
             }

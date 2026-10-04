@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.markers.UserMarker
@@ -177,12 +178,26 @@ data class RouteSummaryData(
     val startSelection: RouteEndSelection = RouteEndSelection.CurrentPosition,
     /** The destination the section stands on. */
     val destinationSelection: RouteEndSelection = RouteEndSelection.MarkerPosition,
-    /** **Arms the acquisition on the standing pair** — the section's own action (R49). */
-    val onArm: () -> Unit = {},
     /** Writes a start selection, which persists per navigation mode (R48). */
     val onStartSelect: (RouteEndSelection) -> Unit = {},
     /** Writes a destination selection, which persists the same way. */
     val onDestinationSelect: (RouteEndSelection) -> Unit = {},
+
+    // ── The quick access to the two settings (2026-10-04) ────────────────────
+    /**
+     * The pace the quick access stands on, in whole knots off the setting's own grid — the **set** pace,
+     * never the boat's fitted one, so the box shows what the planner will read.
+     */
+    val paceKn: Float = AppConfig.routeFreeWaterPaceKn,
+    /** Writes a pace: the same value, on the same setting, as the Settings page's slider. */
+    val onPaceSelect: (Float) -> Unit = {},
+    /**
+     * The preference the quick access stands on, as its rung's λ, resolved the way the Settings page
+     * resolves it — so a stored value sitting between two rungs still lands the box on a rung.
+     */
+    val preference: Float = routeRungLambda(AppConfig.routeAvoidSpeedZoneSoftCostAversion).toFloat(),
+    /** Writes a preference rung's λ: the same value, on the same setting, as the Settings page's slider. */
+    val onPreferenceSelect: (Float) -> Unit = {},
 
     // ── The summary kept beside it (R67) ─────────────────────────────────────
     /** True while a search is in flight — the acquiring word's own gate, and the stage's. */
@@ -202,6 +217,15 @@ data class RouteSummaryData(
      * above the summary's rows, which are left unmoved by it.
      */
     val alternativeSavingSec: Double? = null,
+
+    // ── The summary's own band (2026-10-04) ──────────────────────────────────
+    /**
+     * The followed line's own colour, as Settings holds it — the toggle's acquiring face (R51) and, with
+     * the band's own level, the drawer's band while the engine searches. The caller passes it because the
+     * colour is the user's; the default is the token the following face wears
+     * ([AppConfig.routeNavigateColor]), so a summary that never draws its band still carries a sane one.
+     */
+    val lineColor: Int = AppConfig.routeNavigateColor,
 )
 
 /**

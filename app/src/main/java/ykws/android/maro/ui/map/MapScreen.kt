@@ -137,11 +137,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -197,6 +196,9 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionButton
+import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
@@ -449,6 +451,8 @@ internal fun SnackRow(
     snackKey: Int,
     onUndo: () -> Unit,
     onTimeout: () -> Unit,
+    /** The band's own answer to "is the bottom-left tag column drawn" — [MapBanner]'s clearance input. */
+    tagsDrawn: Boolean = false,
     /** False for a message with nothing to reverse — a failure says what happened and no more. */
     showUndo: Boolean = true,
     /** An optional second action's label, or null for the three delete snacks. */
@@ -470,47 +474,61 @@ internal fun SnackRow(
         visible = entered,
         enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0xE62A2A2A))
-                .pointerInput(snackKey) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (swipePx > swipeThresholdPx || swipePx < -swipeThresholdPx) onTimeout()
-                            swipePx = 0f
-                        },
-                        onDragCancel = { swipePx = 0f },
-                        onHorizontalDrag = { _, dragAmount -> swipePx += dragAmount }
-                    )
-                }
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // **The family's third full-width face** (`docs/ui-component-guidelines.md` §5.7): the container,
+        // its skin and the band's clearance are `MapBanner`'s, so the row keeps no corner, fill, border or
+        // shadow of its own. Its parent is the whole map area, so it reserves the right control column
+        // itself, and it wears the family's neutral dashboard border.
+        MapBanner(
+            borderColor = ComposeColor(AppConfig.uiDashboardBackground),
+            tagsDrawn = tagsDrawn,
+            reservesControlColumn = true
         ) {
-            Text(
-                text = message,
-                color = ComposeColor.White,
-                fontSize = 14.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            if (secondActionLabel != null && onSecondAction != null) {
-                Spacer(Modifier.width(12.dp))
-                androidx.compose.material3.TextButton(onClick = onSecondAction) {
-                    Text(secondActionLabel, color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(snackKey) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (swipePx > swipeThresholdPx || swipePx < -swipeThresholdPx) onTimeout()
+                                swipePx = 0f
+                            },
+                            onDragCancel = { swipePx = 0f },
+                            onHorizontalDrag = { _, dragAmount -> swipePx += dragAmount }
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                // The message and its commands anchor to the row's **top**, not centred vertically.
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = message,
+                    style = bannerLineStyle(),
+                    textAlign = TextAlign.Start,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (secondActionLabel != null && onSecondAction != null) {
+                    Spacer(Modifier.width(12.dp))
+                    SnackAction(label = secondActionLabel, onClick = onSecondAction)
                 }
-            }
-            if (showUndo) {
-                Spacer(Modifier.width(12.dp))
-                androidx.compose.material3.TextButton(onClick = onUndo) {
-                    Text(stringResource(R.string.action_undo), color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                if (showUndo) {
+                    Spacer(Modifier.width(12.dp))
+                    SnackAction(label = stringResource(R.string.action_undo), onClick = onUndo)
                 }
             }
         }
     }
+}
+
+/** One command on the action row — the family's own button in its compact `SECONDARY` face (§5.7). */
+@Composable
+private fun SnackAction(label: String, onClick: () -> Unit) {
+    ConfirmActionButton(
+        action = ConfirmAction(label = label, role = ConfirmActionRole.SECONDARY, onClick = onClick),
+        compact = true
+    )
 }
 
 /**
@@ -2955,10 +2973,12 @@ fun MapScreen(
             // is where the outcomes are taken from, so it needs no floating surface to be reached —
             // and once `Select route` is pressed the ordinary dashboard returns, which is the whole of
             // what the navigation phase adds. `routeOwnsSlot` is declared above, with the band.
-            // The drawer's summary stands in the **routing phase alone** (D5): the acquisition's status
-            // — the acquiring word and the engine's stage — lives on the panel, so the gate reads the
-            // followed route rather than the slot-and-search pair.
-            val routeSummaryVisible = routeState is RouteState.Following && !routeDiscarding
+            // **The drawer's summary stands while the engine searches as well as while a route is
+            // followed** (the user's word, 2026-10-04): the card is where the mode's own figures are
+            // read, so it now stands through the acquisition too, showing the pending mark wherever a
+            // figure does not exist yet. That widens D5's "routing phase alone", which this line no
+            // longer follows — the acquisition's status no longer lives on the panel alone.
+            val routeSummaryVisible = routeSearching || (routeState is RouteState.Following && !routeDiscarding)
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,
@@ -3483,9 +3503,16 @@ fun MapScreen(
                 destinationOptions = routeEndOptions(RouteEndSelection.End.DESTINATION, routeMarkers),
                 startSelection = routeStartSelection,
                 destinationSelection = routeDestinationSelection,
-                onArm = { armRouteMode(forceFresh = true) },
                 onStartSelect = { storeRouteEnd(RouteEndSelection.End.START, it) },
                 onDestinationSelect = { storeRouteEnd(RouteEndSelection.End.DESTINATION, it) },
+                // The quick-access pair: the Settings page's own two values, written through the same
+                // settings — a second door onto them, never a second home.
+                paceKn = appSettings.routeFreeWaterPaceKn,
+                onPaceSelect = { kn -> viewModel.updateSettings { it.copy(routeFreeWaterPaceKn = kn) } },
+                preference = routeRungLambda(appSettings.routeSlowWaterAversion.toDouble()).toFloat(),
+                onPreferenceSelect = { lambda ->
+                    viewModel.updateSettings { it.copy(routeSlowWaterAversion = lambda) }
+                },
                 searching = routeSearching,
                 stageRes = routeStage?.labelResId,
                 plannedDistanceNm = routeState.plan?.distanceNm,
@@ -3496,6 +3523,8 @@ fun MapScreen(
                 alternativeSavingSec = routePages.drop(1).mapNotNull { it.plan?.durationSec }
                     .maxOfOrNull { (routePages.firstOrNull()?.plan?.durationSec ?: 0.0) - it }
                     ?.takeIf { it > 0.0 },
+                // The line's own colour, which the drawer's band wears while the engine searches (R51).
+                lineColor = appSettings.routeLineColor,
             ),
             markerList = buildMarkerListOverlayData(
                 markers = mgmtMarkers,
@@ -3655,6 +3684,7 @@ fun MapScreen(
             isLandscape = isLandscape,
             dashboardBandHeight = dashboardBandHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
+            tagsDrawn = bandTagsDrawn,
             // The route discard's toast is answered here, inside the route block where the disposal
             // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
             // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation

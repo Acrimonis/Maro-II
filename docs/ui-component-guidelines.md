@@ -22,6 +22,7 @@ New setting?
   ├─ Independent on/off choices?  → MultiSelectRow                 (§2.7b)
   ├─ Controls that fit one line?  → Card + SectionRow              (§2.14)
   ├─ Choice list that may grow?   → DropdownRow                    (§2.12)
+  ├─ Two choice lists side by side? → DropdownPairRow              (§2.16)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
 
@@ -177,6 +178,12 @@ CardArea {
 - **NestedCard** — the single nested container revealed when the Expander is open (`ui.nested.card.bg` `#0DFFFFFF` + `ui.nested.card.border` `#40FFFFFF`). It holds the controls.
 - Any control — toggles, one-knob sliders, two-knob `RangeSlider`s, text, swatches — may sit inside the NestedCard.
 - **Forbidden:** a card inside the NestedCard (a third level), or using a full `uiCardBackground` card as the NestedCard.
+
+**`NestedCard` also stands without an `Expander`** (2026-10-04): the Menu drawer's two live blocks — the recording's
+and the route's — ride a `NestedCard` inside their `CardArea` as **depth without disclosure**, always open, the
+sub-card being the paint that sets the block apart rather than a panel a row reveals. The depth cap still holds
+there: card → sub-card → controls, never a third level, and the nested padding is the shared token's, so an inner
+block is narrower than the card by twice `ui.padding.card.horizontal`.
 
 **Single colour section (`SingleColorSubSection`):** a NestedCard group holding **exactly one** colour control keeps a
 `SubSectionHeader`-style title on its own line, and the **description line carries the 24dp colour swatch on its
@@ -417,23 +424,28 @@ Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum w
 
 For a single choice whose option list may grow past the two or three segments a `SegmentedRow` fits
 (e.g. the route algorithm list):
-`DropdownRow(label, options, selected, onSelect, accessibleName, description = null)`.
+`DropdownRow(label, options, selected, onSelect, accessibleName, description = null, sizing = DropdownSizing.Fill)`.
 
 ```
 ┌─ Column ──────────────────────────────────────────────────────────────────┐
 │  optional label (16sp Medium uiTextPrimary)                               │
 │  optional description (13sp uiTextMuted)                                  │
-│  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 10dp padding ───────┐ │
+│  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 8×10dp padding ─────┐ │
 │  │  value (uiTextPrimary, Bold)                      ⌄ (uiAccent)        │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The box is the control, the anchor and the tap target** — a `Row` holds the value and the
-  arrow and is the one tap that opens the list, the same single-target rule `OptionRow` follows, now scoped
-  to the box rather than the row. It carries `clickable`, the call site's `accessibleName` as its
-  `contentDescription` and `Role.DropdownList`, and it reports its own measured size, so nothing about the
-  list's placement or width is left to a library.
+- **The box is its own component** (`DropdownBox`, a file of its own) — a `Row` on the bars' base holding the
+  value and the arrow, and **it is the control, the anchor and the tap target**: it carries `clickable`, the
+  call site's `accessibleName` as its `contentDescription` and `Role.DropdownList`, and it reports its own
+  measured size, so nothing about the list's placement is left to a library. **Its metrics and the style its
+  value reads are that file's own**, and that same style measures it (`dropdownBoxWidth`), so the width a
+  caller fixes and the width drawn cannot drift apart. `DropdownRow` composes it and owns the label, the
+  description, the popup and the wheel.
+- **What a caller sets is the behaviour, never a width** — `DropdownSizing.Fill` takes the width the caller
+  gives (the default) and `DropdownSizing.Content` takes the width this field's longest entry needs, which the
+  field asks of the box. No call site spells a dp, an arrow or a padding.
 - **Label and description sit above the field** — same type as §2.1/§2.2, both optional (`null` at every
   call site today, where a section header or the drawer's comment already names the control). The row
   paints nothing of its own: the call site supplies the `CardArea`/`NestedCard` (§2.0).
@@ -444,6 +456,10 @@ For a single choice whose option list may grow past the two or three segments a 
   `uiAccent`. **Its height is that padding's consequence, not a number** — the same way the bars get
   theirs — which is what M3's `OutlinedTextField` could not give: its internal padding, 56dp floor, caret
   and theme selection highlight are all gone with it.
+- **Its horizontal chrome is deliberately small** — **8dp** of padding and a **4dp** arrow gap (2026-10-04): a
+  box's chrome is paid **twice** in a row of two, and a wider field is what cut the second word of the pair. Its
+  vertical padding stays the bars' 10dp, the arrow keeps the icon's own 24dp, and the rim's 1dp is still added
+  on each side of a measured width as that answer's rounding slack.
 - **The list is a §2.10 popup the box itself positions** — a `Popup` at the box's **bottom
   left**, as wide as the box's own measured width and bounded in height by `popupMaxHeightDp()`, so it
   opens flush under the box in either orientation and can never reach past the space the box already fits.
@@ -473,6 +489,11 @@ For a single choice whose option list may grow past the two or three segments a 
   string each call site hands it, set as the node's `contentDescription`, because a label-less box would
   otherwise announce nothing at all; what is announced with it is the device pass's to confirm.
 
+- **Two of them side by side are the pair control** — [`DropdownPairRow`](#216-dropdown-pair--dropdownpairrow),
+  §2.16: one row inside a card's inset holding two label-less boxes, 4dp apart, each side's width set by the
+  caller's `DropdownPairWidth`. `dropdownBoxWidth(words)`, in the box's own file, is what measures a side that
+  must never trim.
+
 **Do not hand-roll a label + tap-to-open `DropdownMenu`** — use this control. What a control paints, and
 where its own list goes, is the control's business: this one draws the bars' rim and positions its list from
 its own measured bounds rather than leaving the placement to a library. A call site wraps it in a card and
@@ -494,6 +515,7 @@ needs nothing else.
 | Expander→content | header+8dp spacer | 8dp |
 | Last expander→card close | `ui.spacing.grouped.after-expander` | 4dp |
 | Label→control (row) | `ui.spacing.label.control` | 16dp |
+| Between two dropdown fields of a group, either axis | `ui.spacing.dropdown.gap` | 4dp |
 | Visible divider gap (above/below) | `ui.divider.gap` | 6dp |
 | Vertical divider width (side-by-side sections) | `ui.divider.height` | 1dp |
 
@@ -513,6 +535,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ A `SectionRow` nested inside another `SectionRow` (§2.14)
 - ❌ Hand-rolled two-`Text` toggle rows (use `SegmentedRow`, §2.7)
 - ❌ Hand-rolled label + tap-to-open `DropdownMenu` rows (use `DropdownRow`, §2.12)
+- ❌ A hand-rolled `Row` of two dropdowns (use `DropdownPairRow`, §2.16)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
 - ❌ Nesting deeper than `CardArea → Expander → NestedCard` (§2.4)
 - ❌ Local `remember`/`rememberSaveable` state for expander open state (use `SettingsViewModel.expanderStates`, §2.4)
@@ -562,6 +585,33 @@ five rows inside a popup, and **a tap on a row is what chooses** — the drag on
 band shows what a tap would take. So a list of choices is **a dropdown, a bar, or a wheel in a popup with a
 tap path**; a drag that commits on its own stays out.
 
+### 2.16 Dropdown Pair — `DropdownPairRow`
+
+Two of these controls side by side, for the shape a row of two settings wears:
+`DropdownPairRow(left, right, modifier, leftWidth, rightWidth, gap, verticalPadding)`, each side a
+`DropdownField(options, selected, onSelect, accessibleName)` — a `DropdownRow`'s own inputs without its label
+and without its width.
+
+- **The width is the pair's capability, set per side** — `DropdownPairWidth.Content` sizes a box to its
+  **longest option**, so no entry of that list can be cut and the box holds that width whatever the row does;
+  `DropdownPairWidth.Remainder` gives it whatever the row leaves, which makes it the **elastic** side, its
+  value trimming on one line. The defaults are `Content` left and `Remainder` right; two `Remainder` sides
+  share the row evenly, and two `Content` sides leave the row's tail empty.
+- **The content width is asked of the box** — `dropdownBoxWidth(words)`, in `DropdownBox.kt`, answers it from
+  the box's own metrics (its padding, its arrow gap, its arrow and its rim) and from the style its value really
+  reads — `LocalTextStyle` merged with the size and the weight, the box's one statement of it. A caller
+  re-spells neither, and a width cut from a style that skipped the theme measures short and ellipsises the word
+  it was measured for. The pair tells a side this as a behaviour (`DropdownSizing.Content` through the field),
+  so it hands over no number.
+- **No side carries a label** — the comment above the pair names both, and each side's `accessibleName` is what
+  a screen reader announces. **No vertical rule stands between them either**: §2.14's `SectionRow` lays out two
+  sections, and this is two controls in one.
+- **The gap and the padding are the primitive's** — the pair's gap is the shared token
+  `ui.spacing.dropdown.gap` (**4dp**) and its vertical padding is `ui.padding.toggle.vertical`, so a call site
+  hands over two fields and nothing else. It is that small because the two boxes' chrome is paid twice in one
+  row, and it is the **same token the route ends' two rows take vertically** (2026-10-04): one value for the
+  space between two fields of a group, whichever way they sit.
+
 ---
 
 ## 5. Non-Settings Surfaces
@@ -573,7 +623,9 @@ The Menu drawer body uses the **same render model as a Settings tab**, not a bes
 Settings spacing rhythm (`ui.spacing.header.bottom` 6dp header→card, `ui.spacing.section.gap` 14dp
 section→section). Section titles are sentence case and reuse the `settings_section_*` strings. Nav rows are
 surface-free, pad vertically only and keep an explicit `heightIn(min = 48dp)` touch target; the Import/Export
-pair sits in one card with the same 48dp floor. The tracks/markers headers host their link / filter / reset
+pair sits in one card with the same 48dp floor. The readings a drawer card prints follow
+[`docs/ui-drawer-guidelines.md`](ui-drawer-guidelines.md) §9, and a figure the mode does not hold yet prints the
+pending mark that section's own authority — §5.8 — names. The tracks/markers headers host their link / filter / reset
 controls in the `SectionHeader` `trailing` slot, and the markers header opens that slot with the shared
 create action, outside the filter-axes gate; the tracks header takes none. The order the action takes there,
 and the separator's own shape, are stated once in `MarkerCreateAction`'s KDoc.
@@ -762,6 +814,12 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   with the accent on the **one enabled forward action** at every instant (R16, R17). The recording exit
   dialog is what the whole family is read against — `Save track` accent · `Continue recording` outlined
   · `Discard track` red.
+- **A compact size, for a host off the dialog's stack** (2026-10-04): `ConfirmActionButton(action,
+  modifier, compact = false)`; when `compact` the control **wraps its label** (no `fillMaxWidth` stretch)
+  and takes an **8 dp corner** against the dialog's 12 dp, an **explicit 28 dp height** against 40 dp,
+  `PaddingValues(horizontal = 12.dp)` content padding and a **12 sp** label against 14 sp. Every face keeps
+  its own colours exactly — the compact size moves the geometry, never the role — so the action row's
+  commands (§5.7) wear this same control's compact `SECONDARY` face and no host hand-rolls a second button.
 - **Cancel is optional** and is just another action, passed **last** — where present it is the
   bottom-most button and calls `onDismiss`. Offer one only where dismissal unambiguously means
   "abort, nothing happens" (resume, import conflict, merge, batch delete). No Cancel where dismissing
@@ -788,16 +846,19 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 
 ### 5.7 Bottom-Band Banners — `MapBanner`
 
-The map's bottom band carries five banner instances — the exit toast (`Press back again to exit` /
-`Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay` and `ErrorOverlay`
-— and all five paint one skin through one control. This entry is the family's **only** home, and every
-instance reads these rules — none is exempt.
+The map's bottom band carries six banner instances — the exit toast (`Press back again to exit` /
+`Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay`, `ErrorOverlay`
+and the action and undo rows of the snackbar stack (`SnackRow`, painted by `MapSnackbarHost`) — and all
+six paint one skin through one control. This entry is the family's **only** home, and every instance
+reads these rules — none is exempt.
 
 Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt) (`MapBanner`,
-`MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
+`bannerLineStyle`, `MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
 [`CoastlineMapView.kt`](../app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt)
-(`LoadingOverlay`, `ErrorOverlay`), call sites in
-[`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt).
+(`LoadingOverlay`, `ErrorOverlay`),
+[`MapSnackbarHost.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt) and
+[`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) (`SnackRow`), with the
+remaining call sites in `MapScreen.kt`.
 
 **Contract**
 
@@ -806,22 +867,23 @@ Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapCont
   instance's content arrives as the slot — the pill passes one `MapBannerText`, while `LoadingOverlay`
   and `ErrorOverlay` pass their own column and keep their own interiors (spinner, title, phase,
   percentage; title, message, Retry) and roles.
-- **Skin — one definition, five users.** 14 dp corner, a 2 dp border in `borderColor` over
+- **Skin — one definition, six users.** 14 dp corner, a 2 dp border in `borderColor` over
   `ui.card.background`, `ui.button.background` as the fill and an 8 dp shadow. No face carries a copy.
 - **Border colour is the caller's**: `ui.dashboard.zone.danger` while recording and
-  `ui.dashboard.background` otherwise, for the exit toast; `ui.dashboard.background` for `LockBanner`
-  and `MapStatusBanner`; `ui.dashboard.zone.danger` for `ErrorOverlay`; `ui.dashboard.background` for
-  `LoadingOverlay`.
+  `ui.dashboard.background` otherwise, for the exit toast; `ui.dashboard.background` for `LockBanner`,
+  `MapStatusBanner` and the action and undo rows; `ui.dashboard.zone.danger` for `ErrorOverlay`;
+  `ui.dashboard.background` for `LoadingOverlay`.
 - **Clearance, every instance.** A banner starts at `bannerStartInset(tagsDrawn)` and ends clear of the
   right control column (82 dp, `RIGHT_CONTROL_COLUMN_INSET`). `tagsDrawn` is the bottom-left tag
   stack's own answer, `regulatedZoneTags(...).isNotEmpty()`, derived once in `MapScreen` beside the set
   the stack paints: with a tag drawn the inset adds the tag column, empty it adds nothing.
 - **The control owns the column reserve, not the caller.** `reservesControlColumn` carries the one fact
   the control cannot read from its own box — is the banner's parent full width — and `MapBanner` turns
-  it into the `end` padding. True for `LockBanner` and `MapStatusBanner`, whose parent is the whole map
-  area and which therefore genuinely need the reserve; false for the exit toast and the two cards, whose
-  parent is the map's left overlay column and already ends where that column does
-  (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column either way.
+  it into the `end` padding. True for `LockBanner`, `MapStatusBanner` and the action and undo rows,
+  whose parent is the whole map area and which therefore genuinely need the reserve; false for the exit
+  toast and the two cards, whose parent is the map's left overlay column and already ends where that
+  column does (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column
+  either way.
 
 **Banner face — the pill**
 
@@ -830,17 +892,26 @@ Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapCont
   region and wraps. No `fillMaxWidth` stretch, and `tagsDrawn` moves the centre by half the tag slot
   (25 dp at defaults) — adaptive rather than stable, decided 2026-09-21.
 - **Text:** 16 sp Medium in `ui.toast.text`, **centred** (`MapBannerText`), on 16/10 padding — so a
-  wrapped message reads centred inside its centred pill.
+  wrapped message reads centred inside its centred pill. The style itself is written once, in
+  `bannerLineStyle`, which both this line and the action row's message read.
 - **The wrap is uncapped:** no `maxLines`, no `ellipsis`. Both exit strings carry their instruction
   late (`… press back again to stop and exit`), so an ellipsis would cut it; the pill is
   bottom-anchored, so extra lines grow upward over the map.
 
-**The two card faces**
+**The three full-width faces — the two cards and the action row**
 
 - **Full width**, keeping the 6 dp end gap they always had, on the same clearance and skin as the pill —
   the clearance rule binds them too, so a tag being drawn moves them 50 dp at defaults.
 - **Their interiors are their own** — `LoadingOverlay` shows the spinner, title, phase and percentage,
-  `ErrorOverlay` the title, message and Retry — and the family owns neither.
+  `ErrorOverlay` the title, message and Retry, and the action row its message beside its commands. The
+  family owns none of them.
+- **The action row's own interior** — one full-width line, message **left** with `Modifier.weight(1f)`,
+  `maxLines = 2` and an ellipsis, then its commands **right** and wrap-content, anchored to the **top** of
+  the row rather than centred vertically. The message reads `bannerLineStyle`, aligned `Start`; each command
+  is §5.6's `ConfirmActionButton` in its **compact `SECONDARY` face** — the same control, its size and its
+  numbers home in §5.6 — so the row never hand-rolls a button of its own. It is drawn one above the other,
+  up to three at once, under the snackbar stack's own dismiss contract (`docs/ui-lists-guidelines.md`
+  §Swipe, **Delete lifecycle**).
 
 **Numbers** (shipped defaults — this table is the only place they are written)
 
@@ -874,6 +945,11 @@ actions in its `footer`, so it auto-grows to its content like the other selected
 | Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
 | Footer | `Save to track` · `Select route` · `Discard route` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER |
 
+**The pending mark — authority.** A figure the mode does not hold yet prints
+[`R.string.route_value_pending`](../app/src/main/res/values/strings.xml) (`--`) wherever it would stand — in this
+panel's table and in the drawer's route cells alike — with its unit still beside it. One word for the whole app,
+never a literal in Kotlin: no zero, no blank slot and no per-surface glyph stands in for a missing figure.
+
 ---
 
 ### 5.9 Actions — the four tiers (authority)
@@ -887,7 +963,7 @@ and this table is the one place that names them.
 
 | Tier | Shape | When it is used | Home |
 |---|---|---|---|
-| 1 | Accent-filled — **at 50 % under a 2 dp accent rim for a middle action** — or red-filled **full-width button** | A surface's own outcome, its loss, or its middle doors — dialogs, the route panel, the Route sub-section's `Route`, and the Menu's Import/Export pair, which wears the **half-strength accent with its full-opacity rim** | `ConfirmActionButton` (§5.6) |
+| 1 | Accent-filled — **at 50 % under a 2 dp accent rim for a middle action** — or red-filled **full-width button**; **compact** (wraps its label, 8 dp corner, 28 dp, 12 sp) wherever it stands off the dialog's own stack | A surface's own outcome, its loss, or its middle doors — dialogs, the route panel, the Route sub-section's `Route`, the Menu's Import/Export pair, which wears the **half-strength accent with its full-opacity rim**, and the map action row's commands, which wear that same face compact (§5.7) | `ConfirmActionButton` (§5.6) |
 | 2 | **Icon-only button**, 40–48 dp | A control belonging to a header or a card's chrome — link, filter reset, gear, chevrons | `IconButton` |
 | 3 | **Map status square acting as a button** | A mode's own on/off that also reports a state — GPS, tracking, lock, recenter | `MapToggleSquare` family (§5.5) |
 | 4 | **Row-level action** | An action belonging to a list row — swipe, chevron gutter, header trash, Undo / Clear / Select-all | per list (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)) |

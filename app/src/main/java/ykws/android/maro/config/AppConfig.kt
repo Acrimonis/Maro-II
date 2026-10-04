@@ -42,7 +42,7 @@ object AppConfig {
      * The span's bounds live beside it so the properties loader, the settings clamp and the Settings
      * row all read one definition rather than each spelling 3 and 40 for itself.
      */
-    var routeFreeWaterPaceKn = 28f
+    var routeFreeWaterPaceKn = 25f
         private set
 
     /**
@@ -53,10 +53,32 @@ object AppConfig {
         private set
 
     /** Lowest free-water pace (kn) the setting accepts. */
-    const val ROUTE_FREE_WATER_PACE_MIN_KN = 3f
+    const val ROUTE_FREE_WATER_PACE_MIN_KN = 5f
 
     /** Highest free-water pace (kn) the setting accepts. */
-    const val ROUTE_FREE_WATER_PACE_MAX_KN = 40f
+    const val ROUTE_FREE_WATER_PACE_MAX_KN = 35f
+
+    /**
+     * The grid the pace setting moves on (kn): the setting snaps onto it wherever it is loaded or written, and the
+     * slider's steps and the quick-access wheel's entries are all its stops, so the one grid has one home.
+     */
+    const val ROUTE_FREE_WATER_PACE_STEP_KN = 5f
+
+    /** **The stops the pace offers**, lowest first — the slider's positions and the drawer wheel's rows alike. */
+    val ROUTE_FREE_WATER_PACE_STOPS_KN: List<Float>
+        get() = generateSequence(ROUTE_FREE_WATER_PACE_MIN_KN) { it + ROUTE_FREE_WATER_PACE_STEP_KN }
+            .takeWhile { it <= ROUTE_FREE_WATER_PACE_MAX_KN }
+            .toList()
+
+    /**
+     * A pace moved onto the setting's grid and held inside its bounds — the one rule for every reader. The nearest
+     * stop wins, by whole steps: a stored 28 lands on 30, an old 3 lands on 5, an old 40 lands on 35.
+     */
+    fun snapFreeWaterPaceKn(kn: Float): Float {
+        val step = ROUTE_FREE_WATER_PACE_STEP_KN
+        val steps = ((kn + step / 2f) / step).toInt()
+        return (steps * step).coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+    }
 
     /**
      * The route engine id the harness ships as its default — `route.engine.id`, default `dummy`.
@@ -491,6 +513,10 @@ object AppConfig {
     /** Background alpha (0.0–1.0) an active surface paints its own state colour at. Default 0.65.
      *  Set via `ui.map.surface.active.alpha`. */
     var uiMapSurfaceActiveAlpha: Float = 0.65f
+        private set
+    /** The share of its own colour a status band fills itself with (0.0–1.0). Default 0.3 — the level a
+     *  taken choice wears. Set via `ui.band.fill.alpha`. */
+    var uiBandFillAlpha: Float = 0.3f
         private set
 
     /**
@@ -1209,6 +1235,9 @@ object AppConfig {
     var uiSpacingLabelControl: Float = 16f; private set
     var uiSpacingExpanderToContent: Float = 4f; private set
 
+    /** The gap between two dropdown fields of one group, whichever way they sit — one value for both axes. */
+    var uiSpacingDropdownGap: Float = 4f; private set
+
     // Padding (dp)
     var uiPaddingCardVertical: Float = 8f; private set
     var uiPaddingCardHorizontal: Float = 16f; private set
@@ -1366,8 +1395,7 @@ object AppConfig {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
             props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
-                routeFreeWaterPaceKn =
-                    it.coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+                routeFreeWaterPaceKn = snapFreeWaterPaceKn(it)
             }
             props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
                 routeEngineId = it
@@ -1562,6 +1590,7 @@ object AppConfig {
             props.getProperty("ui.map.surface.border.width")?.toFloatOrNull()?.let { uiMapSurfaceBorderWidth = it }
             props.getProperty("ui.map.surface.inactive.content.alpha")?.toFloatOrNull()?.let { uiMapSurfaceInactiveContentAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.band.fill.alpha")?.toFloatOrNull()?.let { uiBandFillAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.pulse.dot")?.let { parseColorOrNull(it) }?.let { uiMapPulseDot = it }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
@@ -1899,6 +1928,7 @@ object AppConfig {
             uiSpacingGroupedAfterExpander = dp("ui.spacing.grouped.after-expander", uiSpacingGroupedAfterExpander)
             uiSpacingLabelControl = dp("ui.spacing.label.control", uiSpacingLabelControl)
             uiSpacingExpanderToContent = dp("ui.spacing.expander.to-content", uiSpacingExpanderToContent)
+            uiSpacingDropdownGap = dp("ui.spacing.dropdown.gap", uiSpacingDropdownGap)
 
             // Padding
             uiPaddingCardVertical = dp("ui.padding.card.vertical", uiPaddingCardVertical)
