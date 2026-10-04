@@ -38,13 +38,14 @@ import kotlin.math.sqrt
 private const val MIN_BOUNDARY_SAMPLE_M = 1.0
 
 /**
- * **The clock's own sampling step (m)** for an engine whose coarse cell is [cellM] and whose second pass
- * runs at [fineRatio] of it — half the finest cell the engine walks, so the boundary splitter can see
- * every limit regime the grid itself can produce, and so the step can never fall out of step with the
- * grid the day the cell moves. Floored at [MIN_BOUNDARY_SAMPLE_M], which is the splitter's own floor.
+ * **The clock's own sampling step (m)** for an engine whose cell is [cellM] and whose finest cell is
+ * [fineCellM] — half the finest cell the engine walks, so the boundary splitter can see every limit regime
+ * the grid itself can produce, and so the step can never fall out of step with the grid the day the cell
+ * moves. Both arguments are metres: the finest cell is the fact and a ratio would drift with the coarse
+ * cell it multiplied. Floored at [MIN_BOUNDARY_SAMPLE_M], which is the splitter's own floor.
  */
-internal fun clockSampleM(cellM: Double, fineRatio: Double): Double =
-    (min(cellM, cellM * fineRatio) / 2.0).coerceAtLeast(MIN_BOUNDARY_SAMPLE_M)
+internal fun clockSampleM(cellM: Double, fineCellM: Double): Double =
+    (min(cellM, fineCellM) / 2.0).coerceAtLeast(MIN_BOUNDARY_SAMPLE_M)
 
 /** A polyline split at limit changes, with one planned time and one made-good speed per split leg. */
 data class TimedLine(

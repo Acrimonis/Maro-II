@@ -2,9 +2,10 @@
 # 261004_FEAT_PLN_Route_hybrid-grid
 
 Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** beside the coast and the depth
-gate, coarse **100 m** in open water, ratio **1 : 5**. Nothing is built.
+gate, coarse **100 m** in open water, ratio **1 : 5**. **The metres land first; nothing of the two-layer walk
+is built.**
 
-Status: in design.
+Status: Phase 1 landed (2026-10-04); the adaptive walk's Phases 3–6 remain in design.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -14,15 +15,43 @@ stands.
 
 Vocabulary: the thing is the **adaptive grid**; `hybrid` and `distance-scaled` are retired names.
 
+## What landed, 2026-10-04 — Phase 1, the metres the walk reads
+
+- **The three keys ship, each with one home**: `route.evolutive.grid.cellM=100`,
+  `route.evolutive.grid.fineCellM=20` — clamped 10-20 and held at or under the coarse cell — and
+  `route.evolutive.fine.corridorHalfWidthM=150`, with their accessors and their parse in
+  [`AppConfig`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:186); `avoid`'s own keys, its
+  ratio and its clamp constants are untouched.
+- **The seam gained the metres fact**: [`RouteGridPlan.fineCellM(baseCellM)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:60),
+  which [`UniformGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:83)
+  answers as the ratio's own arithmetic — today's behaviour exactly — and
+  [`EvolutiveGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:93) as its
+  own key; the value travels on
+  [`GridContext.fineCellM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt:40),
+  so no reader derives a size of its own.
+- **Both fine consumers and every clock site read it**, and
+  [`clockSampleM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt:47) now takes
+  metres rather than a ratio: `avoid`'s coarse-pass and final figures are arithmetically identical, and the
+  one figure that moves is the fine re-walk's own timed line, which feeds the trace alone — the splice
+  compares priced costs, never times.
+- **`EvolutiveGridPlan` is the row's default**, so `evolutive` runs 100 m coarse and 20 m fine where
+  `avoid`'s shipped asset runs the ratio it carries. That supersedes the engine plan's *behaves exactly like
+  `avoid`* sentence, and it is what lets Phase 2's device pass read the keys at all.
+- **The gate**: `apk-build.bat` green and the unit suite at `870 tests, 1 failed, 10 skipped`, the single red
+  `avoid`'s own parked ratio test — the phase does not move it.
+- **Two debts named rather than hidden**: `route.evolutive.fine.corridorHalfWidthM` ships with no production
+  reader until Phase 3's chain, and evolutive's second pass is still the line's bounding box with its padding
+  term — the corridor is Phase 3, not an omission here.
+
 ## Purpose
 
 The 50 m uniform grid is the design, and it costs too much over open water: the A\* spends its cells on
 free sea where the geometry is not tight.
 
 The same 50 m grid also closes any passage narrower than about `cell + 2 × obstacleMargin` = **100 m** —
-[`fineReSearch()`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1015) names the mechanism.
+[`fineReSearch()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205) names the mechanism.
 The second pass cannot recover one, because it rasterizes only the caught line's own bounding box,
-[`inflate(lineBBox(line), outsideMarginM + cellM)`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1037),
+[`inflateBox(lineBBox(line), outsideMarginM + cellM)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:71),
 which already bypassed the channel. **The first walk must therefore be resolution-aware**: fine where the
 water is constrained, coarse where it is open.
 
@@ -33,7 +62,7 @@ Phases 3 and 7.
 
 - **The drawn line resolves at 20 m.** This is the requirement the whole design answers to, and it is
   stated in **metres**, never as a ratio.
-- **The contract is the key's own ceiling**: `route.avoid.grid.fineCellM` is clamped to 10-20, so no
+- **The contract is the key's own ceiling**: `route.evolutive.grid.fineCellM` is clamped to 10-20, so no
   accepted value can breach it, and the guard test asserts the shipped value sits at or under 20.
 - The fine cell is the **fact**; the coarse-to-fine ratio is **derived** (`cellM / fineCellM`, 5 at the
   design pair).
@@ -47,7 +76,7 @@ Phases 3 and 7.
 - **Fine cell 20 m**, held by the contract, and `2 × obstacleMargin` = 50 m wide with it.
 - **Coarse cell 100 m**, and its bound is a **price** feature rather than a channel: the smallest
   open-water price band the A\* reads is the speed zone's outside margin,
-  [`route.avoid.speedZone.outsideMarginM=100`](../../app/src/main/assets/maro.properties:331), so 100 m is
+  [`route.avoid.speedZone.outsideMarginM=100`](../../app/src/main/assets/maro.properties:333), so 100 m is
   the largest coarse cell that still stands that collar on a full cell.
 - **1 : 5 is the pivot.** 120 m (1 : 6) tolerates slightly more band (13.6 % vs 12.5 %) but makes the
   100 m collar sub-cell; 80 m (1 : 4) saves less in open water and tolerates less band (10.4 %).
@@ -66,8 +95,8 @@ Phases 3 and 7.
 
 ## The two layers, and one lattice
 
-- **Two `AvoidGrid` instances at one seam**, not a new grid type: the fine band and the coarse interior are
-  each a dense rectangle, and [`AvoidGrid`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidGrid.kt:84)
+- **Two `MultipassGrid` instances at one seam**, not a new grid type: the fine band and the coarse interior are
+  each a dense rectangle, and [`MultipassGrid`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt:84)
   carries one `cellM` and one cell-size pair by design.
 - **Every rectangle in this design is a window onto one lattice** — one origin and one cell-size pair — and
   that is a precondition, not a convenience. Two rectangles built from their own corners land their cells
@@ -108,21 +137,21 @@ Phases 3 and 7.
 
 ## The second pass
 
-- **The pull sets where the fine region lies.** [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1015)
+- **The pull sets where the fine region lies.** [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205)
   takes the pulled line as the spine of its region, so the coarse line's shape decides the fine pass's
   extent — and, as the Purpose says, decides which channels it can ever find.
 - **The pull does not set the vertex precision.** Its waypoints are the path's own points
-  ([`result.add(path[probe - 1])`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidPull.kt:75)),
+  ([`result.add(path[probe - 1])`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:75)),
   cell centres by construction, and its guarantee is clearance sampled at `marginM / 2` = 12.5 m
-  ([`clearanceStep`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidPull.kt:118)).
+  ([`clearanceStep`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:118)).
 - **So the second pass is where the 20 m is delivered**, which is why the fine cell is the contract.
-- **The order is field first, raster second**: [`finePass`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:982)
-  refines the line on the fine **field**, and [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1035)
+- **The order is field first, raster second**: [`finePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:40)
+  refines the line on the fine **field**, and [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205)
   then re-walks it on the fine **raster**, keeping its line only where that line is strictly cheaper. Both
-  read `route.avoid.grid.fineCellM` and nothing else.
-- **Every A\* pass ends in the geometry.** [`runPass`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:555)
+  read `route.evolutive.grid.fineCellM` and nothing else.
+- **Every A\* pass ends in the geometry.** [`runPass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:33)
   pulls, snaps to the tangent corners and pulls again, returning that last pull's waypoints;
-  [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1035) calls the same
+  [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205) calls the same
   helper, so the fine grid's line is tightened exactly as the coarse one's, and the corner pass curves the
   survivor afterwards.
 - **The corridor is therefore a grid-only concern.** The pull and the snap read a `RouteCostField`, an
@@ -133,7 +162,7 @@ Phases 3 and 7.
 
 The shape:
 
-- **The bounding box is retired**: [`inflate(lineBBox(line), outsideMarginM + cellM)`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1037)
+- **The bounding box is retired**: [`inflateBox(lineBBox(line), outsideMarginM + cellM)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:71)
   sizes the region by the line's **span**, so a U-shaped or dog-legged route pays for the rectangle that
   contains it.
 - **The region is the union of axis-aligned boxes of side `2w`**, with centres placed **at most `w` apart
@@ -143,17 +172,17 @@ The shape:
   index relation and nothing else, and their cells land on the same grid as the band's.
 - **`w` is the guaranteed perpendicular half-width, and the guarantee is exact**: an axis-aligned box of
   half-side `w` centred on the line contains every point within `w` of it and promises nothing wider. An
-  oblique ribbon therefore inflates by up to `sqrt 2`, since [`AvoidGrid`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidGrid.kt:84)
+  oblique ribbon therefore inflates by up to `sqrt 2`, since [`MultipassGrid`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt:84)
   is lat/lon-aligned and a rotated box is unavailable.
 - **The ends are inside by construction**: the first and last centres sit on the start and the aim. The
   floors they impose are small — the end disc is `marginM` = **25 m**
-  ([`openEndDisc`](../../app/src/main/java/ykws/android/maro/spatial/avoid/BerthCarve.kt:115) frees the
-  centres within `marginM`), and the carve reach is [`ceil(marginM / cellM) + 1`](../../app/src/main/java/ykws/android/maro/spatial/avoid/BerthCarve.kt:100)
+  ([`openEndDisc`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt:115) frees the
+  centres within `marginM`), and the carve reach is [`ceil(marginM / cellM) + 1`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt:100)
   cells ≈ `marginM + cellM` = **45 m** at the design pair — so the width below is never governed by them.
 - **The chain, not a mask.** Masking the bounding box still rasterizes and allocates every cell of the
   span and saves only the A\*'s expansions; the chain saves the rasterization and the memory too, at the
   price of walking several grids — a price the seam helper already pays.
-- **Both fine consumers read it**: the re-search's raster and [`finePass`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:982)'s
+- **Both fine consumers read it**: the re-search's raster and [`finePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:40)'s
   fine cost field, so one region definition serves both.
 - **The corridor can ship alone.** Nothing in it needs the two-layer walk: on today's uniform grid it still
   retires the span-sized box and fixes the U-shape cost, which is why it is Phase 3 rather than a tail
@@ -241,20 +270,23 @@ The cost:
   `route.avoid.grid.fineRatio` and `route.avoid.fine.cellRatio` — stay in the file; what changes is that
   `evolutive` reads a metres key instead. **Only the second has a reader**: it is read at the clock's three
   sites and by both fine passes
-  ([`cellM * AppConfig.routeAvoidFineCellRatio`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1026)),
+  ([`cellM * AppConfig.routeAvoidFineCellRatio`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:62)),
   while `route.avoid.grid.fineRatio` has none in `app/src/main/java`, in `app/src/test` or in the batch
   scripts — an unread key, and a claim this section no longer makes for it.
 - **The box's padding term goes with the box, in `evolutive`**: `outsideMarginM + cellM` stops sizing its
   fine region, so the zone's price collar no longer leaks into the second pass's geometry.
 - `AppConfig` gains the three `routeEvolutive*` accessors. `routeAvoidFineCellRatio`,
   `routeAvoidGridCellM` and their clamp constants stand as they are.
-- **One comment inside `avoid` is corrected, and nothing else in it changes**: the grid comment in
-  [`maro.properties`](../../app/src/main/assets/maro.properties:289) claims the two-resolution grid ships
-  ("Shipped: 100 m open, 25 m near") while `avoid` carries one `cellM` — a claim about the very file it
-  sits in.
+- **`avoid`'s one wrong comment is already corrected in the file, so Phase 1 owes it nothing**: the grid
+  comment at [`maro.properties`](../../app/src/main/assets/maro.properties:286) now states one `cellM` for
+  the whole corridor and that `route.avoid.grid.fineRatio` has no reader — the claim this section used to
+  correct.
+- **The asset ships a value the plan's baseline does not name**: `route.avoid.grid.cellM=100` beside
+  `route.avoid.fine.cellRatio=0.3333`, against the 50 m code default at
+  [`AppConfig.routeAvoidGridCellM`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:156).
 - **The guard test is `evolutive`'s**, written rather than rewritten: the shipped second-pass cell is at
   most 20 m, and `cellM` divides by it. `avoid`'s own
-  [`theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:632)
+  [`theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:638)
   stays where it is — and stays red, because the file it reads was moved to 0.3333 by the user's
   experiment: that redness is `avoid`'s residue and the user's to settle, which is why Phase 1 below does
   not touch it.
@@ -264,12 +296,12 @@ The cost:
 - **The guard test is `evolutive`'s, written rather than rewritten**: a metres assertion that the shipped
   second-pass cell is at most 20 m and that `cellM` divides by it, the shape the retired ratio assertion's
   third arm already had. `avoid`'s own
-  [`theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:632)
+  [`theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:638)
   stays where it is, and stays red, as `## Property and code changes` and Phase 1 both state — the reading
   of it as rewritten was stale, and it is corrected here rather than acted on.
 - **The equivalence test asserts the cost, never the point list.** On a channel fixture a hybrid solve and
   a uniform fine solve must agree on total time; their **lines may differ**, because
-  [`AvoidSearch`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidSearch.kt:90) breaks ties by
+  [`MultipassSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt:90) breaks ties by
   row-major cell index and two grids index the same geometry differently. Naming the line is only sound
   where the fixture admits a single optimum.
 - **The seam's test is the clock's**: the A\*'s g on a seam-crossing path equals that path's own timed
@@ -283,17 +315,24 @@ The cost:
 
 ## Phases
 
-1. **`evolutive`'s semantics — no algorithm change, and `avoid` untouched.** Land the three
-   `route.evolutive.*` keys, point the engine's own fine consumers at the metres key, write the guard test,
-   and correct `avoid`'s one wrong comment. The exit is this engine's suite green; `avoid`'s red guard test
-   is its own experiment's residue and is not moved here.
+1. **Landed 2026-10-04 — `evolutive`'s semantics, no algorithm change and `avoid` untouched.** The three
+   `route.evolutive.*` keys, the three accessors, the metres fine cell answered by the plan and carried on
+   `GridContext`, `clockSampleM` in metres, `EvolutiveGridPlan` as the row's default and the guard test; the
+   exit is met with the suite at `870 / 1 / 10`, the single red `avoid`'s own ratio residue. *The wording
+   "the engine's own fine consumers" predates the split*: after it those consumers are the shared seats, so
+   the metres value had to reach them through the plan seam — the one deviation, and the reason this phase
+   edits shared code where the phase's own text promised it touched none.
 2. **The device experiment — the user's pass, on `evolutive`.** `route.evolutive.grid.cellM=100` with the
    second pass held at 20 m: measure the open-water A\* cost, and measure how far the coarse line sits from
    a fine reference line — the deviation that pins `w`.
-3. **The corridor chain — shippable alone, on today's uniform grid.** Boxes of side `2w` on the one
-   lattice, centres at most `w` apart along the pulled line, start and aim carrying the first and last
-   centres; the bounding box and its padding term are retired. This fixes the U-shape cost with no
-   two-layer work at all.
+3. **The corridor chain — shippable alone, and it lands in `EvolutiveGridPlan`.** The plan's
+   [`secondPassRegions`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:98)
+   answers the chain where it now answers the line's bounding box: boxes of side `2w` on the one lattice,
+   centres at most `w` apart along the pulled line, the first and last centres on the start and the aim, and
+   `w` read from `route.evolutive.fine.corridorHalfWidthM` — the metres key this phase is its first reader.
+   `avoid`'s plan keeps the box with its `outsideMarginM + cellM` padding term, so the span-sized region falls
+   for `evolutive` alone; the second pass then walks several boxes rather than one, and the equal-cell seam
+   between two of them is the index relation the one lattice makes it.
 4. **Two-layer rasterize** — the fine band (coast and depth gate triggers, `fineCellM` deep, one coarse
    cell wide) and the coarse interior, both on that one lattice.
 5. **The seam helper grows to unequal cells** — resolution-aware neighbour expansion with the seam edge
@@ -304,7 +343,7 @@ The cost:
    local size is `snapToCorners`' field, the `CornerSet` distances, `carveReachCells` and `openEndDisc`, so
    the band's 20 m survives into the drawn points.
 7. **The demotion decision, read off the band/coarse diagnostic** — what survives of
-   [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1015): the
+   [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205): the
    price-crossing re-solve alone, or the corridor walk too.
 8. **Record** — bake, fold, and settle the epic's `## Implemented`.
 
@@ -313,27 +352,26 @@ The cost:
 - **The corridor caps the answer by an assumed constant.** Its half-width is the only guarantee that the
   optimum is reachable; an unmeasured `w` turns a quality cap into a silent defect, and the box had no such
   failure mode.
-- **The seam edge cost decides the whole design.** [`baseCostSec(cellM, paceKn) = cellM / knotsToMps(paceKn)`](../../app/src/main/java/ykws/android/maro/spatial/avoid/RouteCostField.kt:89)
+- **The seam edge cost decides the whole design.** [`baseCostSec(cellM, paceKn) = cellM / knotsToMps(paceKn)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteCostField.kt:89)
   is the destination cell's own crossing time, and the expansion charges
-  [`cell.sourceCostSec * step.multiplier`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidSearch.kt:124) —
+  [`cell.sourceCostSec * step.multiplier`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt:124) —
   correct only while every cell is one size. Priced that way at a seam, a 100 m hop into a 20 m cell costs
   a fifth of the distance it covered and the return hop five times it.
-- **The bound follows the edge.** [`haversine(center, aimCenter) / paceMps`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidSearch.kt:87)
+- **The bound follows the edge.** [`haversine(center, aimCenter) / paceMps`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt:87)
   is admissible because the cheapest step costs exactly one cell of water at the pace; that survives per
   layer only while the seam edge is distance-priced.
-- **The diagonal has no seam meaning.** [`STEPS`](../../app/src/main/java/ykws/android/maro/spatial/avoid/AvoidSearch.kt:36)
+- **The diagonal has no seam meaning.** [`STEPS`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt:36)
   fixes `sqrt 2` on the assumption that both ends of a step are the same square, which a seam step is not.
 - **The one lattice is a precondition, not a detail.** Off it, two same-size rectangles misalign by up to a
   cell and the cheap seam crossing the design advertises becomes a search.
 - **The corridor's region must stay connected from start to aim**, so its boxes cannot be thinned to the
   coarse stretches alone; the overlap with the fine band is the price of that connection.
-- **Every single-grid consumer needs a resolution-aware contract**: [`GridContext.cellM`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:386),
-  [`runPass`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:403),
-  [`carveReachCells`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:355),
-  [`BerthCarve`](../../app/src/main/java/ykws/android/maro/spatial/avoid/BerthCarve.kt:123),
-  [`openEndDisc`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:353) and the
-  corner-set radii [`cellM * 2.0`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:371)
-  / [`zoneOutsideMarginM + cellM`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:380).
+- **Every single-grid consumer needs a resolution-aware contract**: [`GridContext.cellM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt:35),
+  [`runPass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:33),
+  [`carveReachCells`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt:100),
+  [`openEndDisc`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt:115) and the
+  corner-set radii [`cellM * 2.0`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:103)
+  / [`zoneOutsideMarginM + cellM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:112).
   The chain multiplies that question by its box count.
 - **A chain of boxes must overlap by more than a cell**, or a path cannot cross where two of them meet.
 - **Both fine consumers must be handed the local cell and the corridor**, or the 20 m contract and the

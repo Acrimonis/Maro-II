@@ -2,9 +2,9 @@ package ykws.android.maro.spatial
 
 import kotlinx.coroutines.flow.Flow
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.RouteGridPlan
-import ykws.android.maro.spatial.multipass.UniformGridPlan
 
 /**
  * **The second routing algorithm's engine: the adaptive grid.**
@@ -18,10 +18,12 @@ import ykws.android.maro.spatial.multipass.UniformGridPlan
  *
  * **As it stands this engine is a composition and says so**: it holds a private
  * [`RouteAvoidEngine`] and forwards the seam's three calls to it, so the row is selectable, armable and
- * identical to `avoid` from its first commit — nothing about the water can differ while the delegate is
- * the whole of it. The adaptive grid's own grid, second pass and readings replace that field as they land,
- * which is why the delegation is a private field and never an inheritance: what a caller reads is the seam,
- * and no caller can tell which side of it the algorithm sits on.
+ * shares the whole pipeline. The walk it runs differs by its **plan alone** — [`EvolutiveGridPlan`]
+ * answers its own coarse cell and its own fine cell — so nothing else about the water can part from
+ * `avoid` while the delegate is the rest of it. The two-layer grid, the corridor second pass and the
+ * readings replace that field as they land, which is why the delegation is a private field and never an
+ * inheritance: what a caller reads is the seam, and no caller can tell which side of it the algorithm
+ * sits on.
  *
  * Coroutines and `Flow` only, like the seam's other three implementations.
  */
@@ -32,14 +34,14 @@ class RouteEvolutiveEngine(
     world: () -> MultipassWorld,
     /**
      * **Where this algorithm's own walk differs**, and the only thing it will not share: the cell it
-     * rasterizes at and the region its second pass may look at. It ships the uniform plan while the
-     * adaptive grid is built, so the row is behaviourally `avoid` today and becomes itself the day its
-     * plan lands — the pipeline, the clock and the readings never change with it.
+     * rasterizes at, the cell its second pass reads and the region that pass may look at.
+     * [`EvolutiveGridPlan`] answers its own `route.evolutive.*` sizes, so the row runs this engine's
+     * resolution from its first commit while the pipeline, the clock's shape and the readings stay shared.
      */
-    plan: RouteGridPlan = UniformGridPlan
+    plan: RouteGridPlan = EvolutiveGridPlan
 ) : RouteEngine {
 
-    /** The algorithm this engine ships while the adaptive grid is built — replaced, not wrapped, later. */
+    /** The pipeline both engines stand on — replaced, not wrapped, as the adaptive grid lands. */
     private val delegate = RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, plan)
 
     override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations =

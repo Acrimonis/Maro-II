@@ -109,7 +109,7 @@ internal class RoutePassRunner {
         )
         trace { "FINAL zoneM=${fmt(zoneMetres(zones, final))}" }
         val timed = timeLineWithLimits(
-            final, pace, limitAt, clockSampleM(cellM, AppConfig.routeAvoidFineCellRatio)
+            final, pace, limitAt, clockSampleM(cellM, ctx.fineCellM)
         )
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)

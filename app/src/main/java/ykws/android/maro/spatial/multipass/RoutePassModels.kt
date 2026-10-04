@@ -33,6 +33,11 @@ internal data class GridContext(
     val openCoast: List<List<LatLng>>,
     val capLatNorth: Double,
     val cellM: Double,
+    /**
+     * The **second pass's own cell (m)** — the plan's metres answer for this engine, carried on the
+     * context so both fine consumers and the clock read one value instead of deriving a size each.
+     */
+    val fineCellM: Double,
     val marginM: Double,
     val zoneOutsideMarginM: Double,
     val pace: Double,

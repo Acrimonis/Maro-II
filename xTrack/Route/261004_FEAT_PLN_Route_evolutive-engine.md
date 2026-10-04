@@ -166,11 +166,15 @@ The decisions a one-pass implementation needs, and the reason the answer to "are
 ## What landed, 2026-10-04 — Phases 1 and 2
 
 - **Phase 1, the seam row**: [`RouteEvolutiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt:1)
-  holds a private `RouteAvoidEngine` and forwards the three seam calls, so the row is selectable and behaves
-  exactly like `avoid` from its first commit; the row joined
+  holds a private `RouteAvoidEngine` and forwards the three seam calls, so the row is selectable and shared
+  `avoid`'s pipeline from its first commit; the row joined
   [`RouteEngineChoice.all`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt:36) and
   `route_engine_evolutive` joined both locales, with the registry's own test asserting the new row builds
   the new engine.
+- **Amended 2026-10-04 by the grid plan's Phase 1**: the row is **no longer behaviourally `avoid`** — it takes
+  [`EvolutiveGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:93), so its
+  coarse cell is `route.evolutive.grid.cellM` (100 m) and its second pass 20 m, where `avoid` runs the ratio
+  its own asset carries. The delegate still shares the whole pipeline, the clock and the readings.
 - **Phase 2, the reading and its surface**: `RouteStepReading` and `RouteUpdate.readings` are on the seam,
   empty by default so an engine that measures nothing says so; the avoid engine emits the search's two
   counts at the PULL update and the pulled-point count at SNAP; the view model narrates them beside the

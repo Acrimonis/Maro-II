@@ -348,7 +348,7 @@ class RouteAvoidEngine(
         )
         val timedLine = timeLineWithProfile(
             rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt,
-            clockSampleM(ctx.cellM, AppConfig.routeAvoidFineCellRatio)
+            clockSampleM(ctx.cellM, ctx.fineCellM)
         )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
@@ -361,7 +361,7 @@ class RouteAvoidEngine(
         trace {
             "LINE distance=${fmt(lineLengthM(timedLine.points))}m duration=${fmt(timedLine.durationSec)}s " +
                 "legs=${timedLine.legTimesSec.size} " +
-                "step=${fmt(clockSampleM(ctx.cellM, AppConfig.routeAvoidFineCellRatio))}m " +
+                "step=${fmt(clockSampleM(ctx.cellM, ctx.fineCellM))}m " +
                 "bandMetres=${fmt(bandLawM)}m bandPricedMetres=${fmt(bandPricedM)}m " +
                 "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(timedLine, ctx.pace), 2)} " +
                 "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +

@@ -55,6 +55,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // size, so the single-grid walk below reads the first tile's size with `.first()`. The multi-tile
         // walk is a later step, not this extraction.
         val cellM = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM).first().cellM
+        val fineCellM = plan.fineCellM(cellM)
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
@@ -115,7 +116,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         }
         val limitAt = limitAtFor(world)
         return GridContext(
-            world, from, to, box, edges, openCoast, capLatNorth, cellM, marginM, zoneOutsideMarginM,
+            world, from, to, box, edges, openCoast, capLatNorth, cellM, fineCellM, marginM, zoneOutsideMarginM,
             pace, grid, startCell, aimCell, start, aim, sets, limitAt, zones, priced, approaches,
             refusals, depthGateActive, minDepthM, regionSaturated
         )

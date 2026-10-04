@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
@@ -49,6 +50,14 @@ interface RouteGridPlan {
         outsideMarginM: Double,
         cellM: Double
     ): List<BBox>
+
+    /**
+     * The **fine cell this algorithm's second pass and its clock read**, in metres, given the configured
+     * [baseCellM]. A metres value rather than a ratio, because the precision a drawn line resolves at is
+     * the fact and a ratio drifts with the coarse cell it multiplies: `evolutive` answers its own key,
+     * while [UniformGridPlan] reproduces `avoid`'s ratio and therefore today's behaviour exactly.
+     */
+    fun fineCellM(baseCellM: Double): Double
 }
 
 /**
@@ -69,6 +78,32 @@ object UniformGridPlan : RouteGridPlan {
         cellM: Double
     ): List<BBox> =
         if (line.isEmpty()) emptyList() else listOf(inflateBox(lineBBox(line), outsideMarginM + cellM))
+
+    /** The ratio's own arithmetic, so `avoid`'s metres are its coarse cell times its ratio and nothing else. */
+    override fun fineCellM(baseCellM: Double): Double = baseCellM * AppConfig.routeAvoidFineCellRatio
+}
+
+/**
+ * **`evolutive`'s plan: the adaptive grid's own two sizes, before its layers land.** It answers the first
+ * walk at the engine's own coarse cell and the second pass at its own metres value, so the metres key is
+ * live from the first commit while the walk is still one rectangle — the fine band beside the coarse
+ * interior and the corridor chain are the steps that follow, and each one replaces a member here rather
+ * than the pipeline both engines share.
+ */
+object EvolutiveGridPlan : RouteGridPlan {
+
+    override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
+        listOf(GridTile(corridor, AppConfig.routeEvolutiveGridCellM))
+
+    override fun secondPassRegions(
+        line: List<LatLng>,
+        corridor: BBox,
+        outsideMarginM: Double,
+        cellM: Double
+    ): List<BBox> =
+        if (line.isEmpty()) emptyList() else listOf(inflateBox(lineBBox(line), outsideMarginM + cellM))
+
+    override fun fineCellM(baseCellM: Double): Double = AppConfig.routeEvolutiveGridFineCellM
 }
 
 /**

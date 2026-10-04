@@ -713,6 +713,7 @@ class RouteAvoidEngineTest {
     private class CountingPlan(private val inner: RouteGridPlan = UniformGridPlan) : RouteGridPlan {
         var cellReads = 0
         var regionReads = 0
+        var fineReads = 0
 
         override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
             cellReads++
@@ -728,11 +729,17 @@ class RouteAvoidEngineTest {
             regionReads++
             return inner.secondPassRegions(line, corridor, outsideMarginM, cellM)
         }
+
+        override fun fineCellM(baseCellM: Double): Double {
+            fineReads++
+            return inner.fineCellM(baseCellM)
+        }
     }
 
     /**
      * The plan is the engine's **whole** difference from a second algorithm: a lookup asks it for the
-     * walk's cell and for the second pass's region, and nothing else about the pipeline moves.
+     * walk's cell, for the finest cell its clock steps at and for the second pass's region, and nothing
+     * else about the pipeline moves.
      */
     @Test
     fun aLookupTakesItsCellAndItsSecondPassRegionFromThePlan() = runBlocking {
@@ -748,6 +755,7 @@ class RouteAvoidEngineTest {
         success(solve(engine, origin, aim))
 
         assertTrue("the first walk asks the plan for its cell", plan.cellReads > 0)
+        assertTrue("the clock asks it for the finest cell", plan.fineReads > 0)
         assertTrue("and the second pass asks it for its region", plan.regionReads > 0)
     }
 

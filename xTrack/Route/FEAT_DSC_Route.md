@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-04 08:56
+modified: 2026-10-04 09:15
 ---
 
 # Feature: Route
@@ -261,3 +261,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The engine's own walk became a plan: `RouteGridPlan` holds the two decisions that separate one algorithm from another — the first walk's cell and the second pass's region — with `UniformGridPlan` as `avoid`'s default, and `evolutive` taking a named plan of its own → [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
 - The pass pipeline dissolved into four engine-composed seats — `RouteGridBuilder`, `RoutePassRunner`, `RouteFinePass` and `RoutePassRules`, each built once by `RouteAvoidEngine`, the emptied `RoutePassPipeline.kt` deleted, and `publish`/`trace` still the engine's lambdas so no update or log line moved → [`261004_FEAT_PLN_Route_code-health-split.md`](261004_FEAT_PLN_Route_code-health-split.md)
 - The shared layer both engines stand on is now `multipass` — `spatial/avoid/` became `spatial/multipass/` and its eight `Avoid*` types took the `Multipass` prefix, while the `avoid` id, the two engine class names and every `route.avoid.*` key were left alone → [`261004_FEAT_PLN_Route_code-health-split.md`](261004_FEAT_PLN_Route_code-health-split.md)
+- The adaptive grid's semantics landed before its layers — `evolutive`'s plan answers its own `route.evolutive.*` sizes (coarse 100 m, fine 20 m, corridor half-width 150 m), the plan seam gained the metres `fineCellM(baseCellM)`, the fine cell travels on `GridContext`, and both fine consumers and every clock site read it — `clockSampleM` now taking metres — while `avoid`'s ratio, its grid key and its parked red guard test stay untouched → [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md)

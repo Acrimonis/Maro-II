@@ -180,6 +180,47 @@ object AppConfig {
     const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
 
     /**
+     * The `evolutive` engine's own coarse cell (m) — `route.evolutive.grid.cellM`, default 100, clamped
+     * 10.0..500.0 like `avoid`'s. It is the plan's own answer, so `route.avoid.grid.cellM` stays untouched.
+     */
+    var routeEvolutiveGridCellM: Double = 100.0
+        private set
+
+    /**
+     * The `evolutive` engine's second-pass cell (m) — `route.evolutive.grid.fineCellM`, default 20,
+     * clamped [ROUTE_EVOLUTIVE_FINE_CELL_M_MIN]..[ROUTE_EVOLUTIVE_FINE_CELL_M_MAX].
+     *
+     * The **metres value is the fact** and the coarse-to-fine ratio is derived from the two cells, so this
+     * is the one home for the precision a drawn line resolves at. The load also holds it at or under
+     * [routeEvolutiveGridCellM], so the pair can never invert and the pass can never ask for a cell
+     * coarser than the walk it refines.
+     */
+    var routeEvolutiveGridFineCellM: Double = 20.0
+        private set
+
+    /**
+     * The corridor chain's guaranteed perpendicular half-width (m) —
+     * `route.evolutive.fine.corridorHalfWidthM`, default 150, clamped
+     * [ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN]..[ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX]. The box
+     * side is derived (`2 × w`), so no second key states it; the corridor chain that reads it is the grid
+     * plan's Phase 3.
+     */
+    var routeEvolutiveFineCorridorHalfWidthM: Double = 150.0
+        private set
+
+    /** Lowest fine cell (m) the evolutive load accepts — the precision's own floor. */
+    const val ROUTE_EVOLUTIVE_FINE_CELL_M_MIN = 10.0
+
+    /** Highest fine cell (m) the evolutive load accepts — the 20 m contract is this ceiling. */
+    const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
+
+    /** Lowest corridor half-width (m) the evolutive load accepts — the 100 m price collar's own floor. */
+    const val ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN = 100.0
+
+    /** Highest corridor half-width (m) the evolutive load accepts. */
+    const val ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX = 400.0
+
+    /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
      * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
      * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
@@ -1709,6 +1750,23 @@ object AppConfig {
                 routeAvoidFineCellRatio = it.coerceIn(
                     ROUTE_AVOID_FINE_CELL_RATIO_MIN,
                     ROUTE_AVOID_FINE_CELL_RATIO_MAX
+                )
+            }
+            // ── The evolutive engine's grid: its coarse cell, its fine cell (metres, the precision
+            //    fact) and the corridor chain's half-width. `avoid`'s own keys are untouched ──
+            props.getProperty("route.evolutive.grid.cellM")?.toDoubleOrNull()?.let {
+                routeEvolutiveGridCellM = it.coerceIn(10.0, 500.0)
+            }
+            props.getProperty("route.evolutive.grid.fineCellM")?.toDoubleOrNull()?.let {
+                routeEvolutiveGridFineCellM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
+                ).coerceAtMost(routeEvolutiveGridCellM)
+            }
+            props.getProperty("route.evolutive.fine.corridorHalfWidthM")?.toDoubleOrNull()?.let {
+                routeEvolutiveFineCorridorHalfWidthM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN,
+                    ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX
                 )
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {

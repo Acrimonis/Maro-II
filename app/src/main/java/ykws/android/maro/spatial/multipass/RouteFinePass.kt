@@ -59,7 +59,7 @@ internal class RouteFinePass(
         val sets = ctx.sets
         val approaches = ctx.approaches
         val refusals = ctx.refusals
-        val fineCellM = cellM * AppConfig.routeAvoidFineCellRatio
+        val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
         var out = line
         for (zone in zones) {
@@ -224,7 +224,7 @@ internal class RouteFinePass(
         val sets = ctx.sets
         val approaches = ctx.approaches
         val refusals = ctx.refusals
-        val fineCellM = cellM * AppConfig.routeAvoidFineCellRatio
+        val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
         // What the second pass may look at is the plan's decision; that it stays inside the lookup's own
         // corridor is still the seat's, so the clamp stays here whatever a plan hands back. `avoid`'s
@@ -267,7 +267,7 @@ internal class RouteFinePass(
             return line
         }
         val coarseTimed = timeLineWithLimits(
-            line, pace, limitAt, clockSampleM(cellM, AppConfig.routeAvoidFineCellRatio)
+            line, pace, limitAt, clockSampleM(cellM, fineCellM)
         )
         val fineCost = pricedLineCost(pass.line, marginM, guard)
         val coarseCost = pricedLineCost(line, marginM, guard)

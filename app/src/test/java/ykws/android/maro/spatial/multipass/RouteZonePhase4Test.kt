@@ -283,13 +283,13 @@ class RouteZonePhase4Test {
 
     @Test
     fun theClockStepIsDerivedFromTheFinestCellWalked() {
-        // Half the *finest* cell, so the step follows the grid rather than a constant: 20 m of second pass
-        // at the design pair, 16.665 m at the ratio the file ships today, and the coarse cell itself when
-        // the pass is no finer than it.
-        assertEquals("half the 20 m second pass at the design pair", 10.0, clockSampleM(50.0, 0.40), 1e-9)
-        assertEquals("half the 16.665 m pass the file ships today", 8.3325, clockSampleM(50.0, 0.3333), 1e-9)
-        assertEquals("and at the file's own 100 m cell", 16.665, clockSampleM(100.0, 0.3333), 1e-9)
-        assertEquals("a pass no finer than the coarse cell leaves it the finest", 25.0, clockSampleM(50.0, 1.0), 1e-9)
+        // Half the *finest* cell, and both arguments are metres, so the step follows the grid rather than a
+        // constant: a 20 m second pass under a 50 m walk, the 16.665 m `avoid`'s shipped file produces, and
+        // the coarse cell itself when the pass is no finer than it.
+        assertEquals("half the 20 m second pass at the design pair", 10.0, clockSampleM(50.0, 20.0), 1e-9)
+        assertEquals("half the 16.665 m pass `avoid`'s file produces", 8.3325, clockSampleM(50.0, 16.665), 1e-9)
+        assertEquals("and under the file's own 100 m coarse cell", 16.665, clockSampleM(100.0, 33.33), 1e-9)
+        assertEquals("a pass no finer than the coarse cell leaves it the finest", 25.0, clockSampleM(50.0, 50.0), 1e-9)
     }
 
     // ── Exclusion ─────────────────────────────────────────────────────────────
