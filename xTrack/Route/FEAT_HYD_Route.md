@@ -1,58 +1,69 @@
 # Context Hydration — Route — 2026-10-04
 
-**Last Bake:** 2026-10-04 13:29 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-04 16:35 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** This session landed Phase 5 of the adaptive grid — the seam between its two layers — so
-of the five covered classes one was touched: orders were given and acted on (`#impl phase 5`, then `#commit`),
-and the device was not read, no logcat fetched. No dependency was added and no machine-shaped data file was
-opened. Every claim about the code in this record followed a read except the suite and build figures, which
-rest on the implementing hop's own runs — named here, not closed.
+**Directive trace:** This session landed Phase 6 of the adaptive grid, then ran a device-led hunt for speeds
+that read wrong, so of the five covered classes two were touched: orders were given and acted on throughout
+(`#impl phase 6`, then the fix directives), and the device was read only on the user's own word — the logcat
+fetched after he reported each run. No dependency was added and no machine-shaped data file was opened. Every
+claim about the code in this record followed a read except the suite and build figures, which rest on the
+hops' own runs — named here, not closed.
 
 ## State
 
-**The two layers now meet at their seam, and that was Phase 5.** `MultipassSearch.searchWalk` no longer keeps
-a step inside its own layer: beside each layer's eight neighbours it asks `WalkWindows.crossLayerSlots`, backed
-by the `SeamNeighbours` helper, for the cells **across the seam** — the exact `1 : 5` many-to-one relation the
-shared origin makes arithmetic (a coarse cell's face meets five fine cells, its corner one, and a fine cell
-reaches a coarse cell only on its block's face). Every edge is priced as the **destination cell's own
-seconds-per-metre rate over the two centres' distance**, so a same-layer step keeps the uniform charge
-`cellSec × multiplier` exactly and only the crossing is distance-true; the heuristic stays admissible because
-every edge costs at least its distance at the pace.
+**Phase 6 landed** — the drawn tail reads the **local** resolution. [`WalkWindows.cellSizeAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:289)
+answers the finest layer's cell where passable water stands under a point, and the four sites read it:
+`CornerSet.radiusM` became a per-point function, the ends' `carveReachCells` follow each end's local cell,
+`openEndDisc` takes each window's own cell, and the snap guard is built at the fine cell. `avoid`'s
+single-grid answers stay cell for cell.
 
-**Three enabling changes carry it.** `CellIndex` gained a **layer** (default `0`, so every single-grid cell
-and test literal reads as before), `SearchOutcome` gained **`costSec`** — the aim's own `g`, the reading the
-clock test compares against the path's timed length — and the search's **`zonePriceSec` callback is handed the
-destination cell's size**, so the seam's fine water is priced at 20 m rather than the interior's 100 m. A path
-now resolves back to points on its own resolution (`RoutePassRunner` reads `windows.center(it.layer, …)`).
+**Then the speed hunt found four unrelated faults, in four layers, and all four are fixed.** Each looked like
+the same symptom while being its own defect:
 
-**The gate is the suite, as the hop ran it** — `apk-build.bat` green and the full unit suite at
-`880 / 1 / 10`, the single red still `theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`, `avoid`'s parked
-ratio residue and the user's to settle. The two new [`SeamCrossingTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/SeamCrossingTest.kt:1)
-cases are green: the g-versus-clock reading on a seam-crossing path, and a hybrid solve agreeing on total time
-with a uniform fine solve.
+- **The spiral's maths (geometry).** [`RouteCornerPass.composite`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteCornerPass.kt:209)
+  advanced the heading at `τ²/2` — right for a clothoid — but built the position from the Fresnel pair at
+  `τ` where the heading implies `∫cos(σ²/2)dσ`, so every bend bowed **twice as sharply as its own heading**.
+  The too-deep bow inflated the tangent the fit measures, so corners a true clothoid fits were rejected and
+  pinned to `route.turn.minSpeedKn`. The pair is now read at `τ/√2` and scaled by `√2`.
+- **Two keys five times below their defaults (settings).** `route.turn.lateralAccelMps2` was **0.2** against
+  its comment's and the code's **1.0**, and `route.turn.reachFraction` **0.20** against **1.0**; both
+  restored. The radius is `v²/a_lat` and the room is `reachFraction × half-leg`, so both were ~25× out
+  together and no bend could fit.
+- **The saved route's label, one leg out of step (storage).** [`TrackFromCourse.build`](../../app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt:83)
+  gave every vertex the speed of the leg **arriving** at it, while its own class doc promises the **outgoing**
+  leg and the test's own comment says "the leg leaving it". The first vertex inside a zone therefore wore the
+  open-water leg behind it and a saved route read **30 kn inside a 10 kn zone**. The code now matches its doc,
+  and the one stale assertion was corrected to the intent its comment states.
+- **The leg's timing (arithmetic).** [`timeLineWithProfile`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt:314)
+  timed each leg from its two end vertices alone, and as one uniform ramp. A leg with a floor bend at either
+  end therefore held that floor across **679 m**, and a 5→10 kn leg over 734 m claimed the climb lasted the
+  whole leg. Each leg is now timed by what the boat does **along** it — climb to the leg's own limit, hold,
+  descend — with the triangular profile where the two climbs meet.
 
-**The fine window's shape is still the open defect, and the seam makes it live.** The fine layer is still a
-tile spanning the **whole corridor** with the band as a membership mask on it — twenty-five times the coarse
-grid's cells — but its water is now **walked**, not merely allocated, so the 25× is paid on purpose rather than
-by accident. The plan's own code-health section rejects that shape, `GridTile(box, cellM)` cannot express a
-strip, and **no phase in the plan owns reshaping it**; the epic's `## Todos` carries the gap.
+**The reading that carried it was `OVER LIMIT n=0` on every route**: no leg's made-good speed ever exceeded
+the lowest limit along it, so the plan was never the fault and each remaining symptom had to be its own layer.
+`UNDER LIMIT` then showed a bend's **5 kn floor** at the ends of 7–24 m legs (the band's edge) and the
+mean-based figures over 186–893 m legs.
 
-**Three smaller findings stand beside it**, unchanged from Phase 4: the band's depth-gate arm is not evaluated
-where the coast arm is, `WalkWindows.passableCount()` still sums both layers so a count there is no longer an
-area, and the seam adjacency is sound by construction but **unconfirmed on a device** — an irregular band edge
-links to the interior through fine-to-fine same-layer steps reaching the block face.
+**The gate is the suite, as the hops ran it** — `apk-build.bat` green and the full unit suite at
+`881 / 1 / 10`, the single red still `theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`, `avoid`'s parked
+ratio residue and the user's to settle. Every temporary instrument (LEG / UNDER LIMIT / OVER LIMIT traces) has
+been removed.
+
+**Still open, by decision**: the bends themselves keep the 5 kn floor at the vertex, which is physically right
+— a bend between 7–24 m legs has no room to fair — and whether that floor should rise is a sailing preference
+(`route.turn.minSpeedKn`, clamped 2–10, set to 5). A device pass confirming the new figures is owed.
 
 ## Target Files
-- `xTrack/Route/261004_FEAT_PLN_Route_hybrid-grid.md` — the plan of record: Phases 1–5 landed (Phase 5's seam now marked landed with its three named deviations), Phase 6 (local resolution) still in design
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt` — the seam-aware neighbour expansion and the one `relax` that prices every edge, plus `SearchOutcome.costSec`
-- `app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt` — `SeamNeighbours` and `WalkWindows.crossLayerSlots` / `cellSizeM`
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt` — `CellIndex`'s layer
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt`, `RouteFinePass.kt` — the layer-aware path read and the per-cell-size pricing callback
-- `app/src/test/java/ykws/android/maro/spatial/multipass/SeamCrossingTest.kt` — Phase 5's two exit tests
-- `xTrack/Route/FEAT_DSC_Route.md`, `xTrack/GLOBAL_CONTEXT.md` — folded and dated by this bake
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteCornerPass.kt` — the spiral's corrected Fresnel argument
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt` — each leg timed by the boat's own climb, hold and descent
+- `app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt`, `app/src/test/java/ykws/android/maro/data/track/TrackFromCourseTest.kt` — the saved vertex's speed, and the assertion that pinned the old direction
+- `app/src/main/assets/maro.properties` — `route.turn.lateralAccelMps2` and `route.turn.reachFraction` restored to 1.0
+- `app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt`, `RouteGridBuilder.kt`, `RoutePassRunner.kt`, `RoutePassModels.kt` — Phase 6's local resolution
+- `xTrack/Route/261004_FEAT_PLN_Route_hybrid-grid.md` — Phases 1–6 landed; Phase 7 (a measurement decision) and Phase 8 (the record) remain
+- `route-speed-curve.svg` — a scratch curve of one run's per-leg speeds, at the repo root
 
 ## Next Step
-Phase 6 — pull, snap and corner at **local resolution**: the pull takes no cell of its own, so what takes the
-band's 20 m is `snapToCorners`' field, the `CornerSet` distances, `carveReachCells` and `openEndDisc`, so the
-fine resolution survives into the drawn points. The fine window's corridor-sized shape stays the epic's open
-defect until a plan owns it.
+A device pass on the restored settings and the new timing, reading `LINE`, `PULL` and the route rows: the
+open-water speeds should sit at the pace, a leg between two floor bends should read near its limit, and the
+saved route's colours should change where its water changes.

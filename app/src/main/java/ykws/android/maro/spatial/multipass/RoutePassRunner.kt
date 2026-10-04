@@ -59,9 +59,12 @@ internal class RoutePassRunner {
         val sets = ctx.sets
         val approaches = ctx.approaches
         val refusals = ctx.refusals
+        // The guard reads the water the snap guards: for a two-layer walk that is the fine band's own cell,
+        // not the interior's, so the tail's prices sit at the resolution the line was resolved at (Phase 6).
+        val tailCellM = if ((walk.windows?.layerCount ?: 1) > 1) ctx.fineCellM else cellM
         val guardField =
             costField(
-                world, cellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
+                world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
                 lambda = lambda
             )
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)

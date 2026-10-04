@@ -158,7 +158,7 @@ internal fun snapToCorners(
         for (set in sets) {
             for (c in set.points) {
                 val d = SpatialOperations.haversine(path[i], c)
-                if (d < set.radiusM && d < nearestDist) {
+                if (d < set.radiusM(c) && d < nearestDist) {
                     nearest = c
                     nearestDist = d
                 }

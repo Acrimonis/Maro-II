@@ -5,10 +5,12 @@ Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** besi
 gate, coarse **100 m** in open water, ratio **1 : 5**; the second pass is one fine grid **along the path**.
 **The metres land first; nothing of the two-layer walk is built.**
 
-Status: Phases 1–5 landed (2026-10-04) — Phases 1–3 ship the metres, the one lattice and the corridor chain;
+Status: Phases 1–6 landed (2026-10-04) — Phases 1–3 ship the metres, the one lattice and the corridor chain;
 Phase 4 builds the two-layer rasterize — the family, the layer in the cell key, the two windows and the band's
 membership; Phase 5 lands the seam that expands a neighbour across the two layers and prices it from the two
-cell centres. The local resolution that carries the band's 20 m into the drawn points is Phase 6, still in design.
+cell centres; Phase 6 carries the band's 20 m into the drawn points — the corner radii, the carve reach, the
+end disc and the snap guard all read the **local** size the water was resolved at. Phase 7 (a measurement
+decision on `avoid`) and Phase 8 (the record) remain.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -484,9 +486,21 @@ The cost:
    priced at 20 m rather than the interior's 100 m. **What it does not settle**: the fine window is still the
    corridor-sized mask Phase 4 left — the 25× the code-health section rejects — now **walked** rather than only
    allocated; the epic's own todo carries that gap and no phase here owns reshaping it.
-6. **Pull, snap and corner at local resolution** — the pull takes no cell of its own, so what takes the
-   local size is `snapToCorners`' field, the `CornerSet` distances, `carveReachCells` and `openEndDisc`, so
-   the band's 20 m survives into the drawn points.
+6. **Landed 2026-10-04 — pull, snap and corner at local resolution.** The size the tail reads travels with the
+   water under the point: [`WalkWindows.cellSizeAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:289)
+   answers the finest layer whose own window holds passable water there, the coarsest where none does, and a
+   single grid its own cell. The four sites read it — `CornerSet.radiusM` is now a **per-point function** (a
+   fine 20 m corner near the coast moves a bend 40 m, a coarse one in open water 200 m), the two ends'
+   `carveReachCells` follow each end's local cell, `openEndDisc` takes each window's own cell, and the snap
+   guard field is built at the fine cell for a two-layer walk. **The exit is met**: `apk-build.bat` green and
+   the suite at **881 / 1 / 10** — the one red still `avoid`'s parked ratio test — with `avoid`'s single-grid
+   build passing constant radii so its answers are cell for cell, and
+   `SeamCrossingTest.theLocalCellSizeFollowsTheWaterUnderThePoint` pinning the mechanism. **Named deviations**:
+   `CornerSet`'s radius changed shape from `Double` to `(LatLng) -> Double` (no other reader); and the guard is
+   a single per-pass field, so "the local size" was read as the fine cell — provably decision-neutral, since
+   both sides of the pull's price refusal scale linearly with that size and `legClear` reads only the hard
+   distance. **Not yet on a device**: the corner radius is now local, so `evolutive`'s coastal bends move at
+   most 40 m instead of 200 m — the phase's intent, user-visible, and the confirming pass is the user's.
 7. **Settled for `evolutive` on 2026-10-04, ahead of its own trigger — the demotion decision was taken off
    Phase 2's reading**: the corridor walk retired with no re-walk replacing it. What the phase still owns is
    `avoid`'s half (whether the re-walk earns its 2×–5× there) and the surviving seat's other mechanism, the

@@ -108,16 +108,17 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val start = from.toLatLng()
         val aim = to.toLatLng()
         val sets = ArrayList<CornerSet>(3)
-        sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), cellM * 2.0))
+        // A single grid answers one cell everywhere, so each radius is that cell's own — `avoid` is unmoved.
+        sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), { _ -> cellM * 2.0 }))
         if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
             val bandOffsetM = bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300OutsideMarginM)
-            sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), bandOffsetM))
+            sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), { _ -> bandOffsetM }))
         }
         if (zones.isNotEmpty()) {
             sets.add(
                 CornerSet(
                     TangentCorners.ringCorners(zones, zoneOutsideMarginM),
-                    zoneOutsideMarginM + cellM
+                    { _ -> zoneOutsideMarginM + cellM }
                 )
             )
         }
@@ -144,10 +145,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
      * crossing probe keep their answers. The band is the second window, its membership the coast and the
      * depth gate dilated by one coarse cell — **the band's outer edge is the seam**.
      *
-     * The ends' **discs** land in every window that holds the end, at the **coarse** reach Phase 6 still
-     * owns; the berth **carve** runs on the interior, because the interior is the layer the first walk's own
-     * answers are found on until Phase 5 prices the seam. The corner-set radii stay the coarse cell's, the
-     * same sites Phase 6 re-points.
+     * The ends' **discs** land in every window that holds the end, each at that window's **own** cell; the
+     * berth **carve** runs on the interior, its reach read at the end's **local** cell, and the corner-set
+     * radii are the **local** size each corner stands on (Phase 6) — so the band's 20 m reaches the drawn
+     * points while a single grid's own `avoid` answers stay cell for cell.
      */
     private suspend fun buildLayeredGrid(
         world: MultipassWorld,
@@ -197,6 +198,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 family.fine.colOf(fineBox.lonWest), layer = 1
             )
         )
+        val walk = WalkWindows.onLattice(family.layers, windows)
         val startCell = interiorGrid.cellOf(from.latitude, from.longitude)
         val aimCell = interiorGrid.cellOf(to.latitude, to.longitude)
         val startStateBefore = interiorGrid.cell(startCell.row, startCell.col).state
@@ -208,12 +210,15 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             for (end in listOf(from.toLatLng(), to.toLatLng())) {
                 if (!window.holds(lattice.rowOf(end.latitude), lattice.colOf(end.longitude))) continue
                 window.grid.forceFree(end.latitude, end.longitude)
-                openEndDisc(window.grid, world, end, marginM, depthGateActive, minDepthM, reachCellM = cellM)
+                openEndDisc(window.grid, world, end, marginM, depthGateActive, minDepthM, reachCellM = lattice.cellM)
             }
         }
-        val carveReach = carveReachCells(marginM, cellM)
-        val startCarve = carveEnd(world, interiorGrid, startCell, from.toLatLng(), marginM, carveReach, depthGateActive)
-        val aimCarve = carveEnd(world, interiorGrid, aimCell, to.toLatLng(), marginM, carveReach, depthGateActive)
+        // Each end's carve reach follows the **local** cell it stands on, so a coastal berth is scanned at the
+        // band's own step while an open-water one keeps the interior's (Phase 6).
+        val startReach = carveReachCells(marginM, walk.cellSizeAt(from.toLatLng()))
+        val aimReach = carveReachCells(marginM, walk.cellSizeAt(to.toLatLng()))
+        val startCarve = carveEnd(world, interiorGrid, startCell, from.toLatLng(), marginM, startReach, depthGateActive)
+        val aimCarve = carveEnd(world, interiorGrid, aimCell, to.toLatLng(), marginM, aimReach, depthGateActive)
         val approaches = EndApproaches(startCarve.points, aimCarve.points)
         val refusals = PullRefusals()
         // (e) Every count names its layer: a coarse cell is twenty-five fine ones, so the two inventories
@@ -226,17 +231,19 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         trace { "GRID layer=fine ${inventory(bandGrid)}" }
         trace { carveLine("start", startCarve) }
         trace { carveLine("aim", aimCarve) }
+        // Phase 6: each corner's own reach is the **local** cell it stands on — fine where the water is the
+        // band's, coarse in the open — so a bend near the coast moves at the 20 m contract's own scale.
         val sets = ArrayList<CornerSet>(3)
-        sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), cellM * 2.0))
+        sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), { p -> walk.cellSizeAt(p) * 2.0 }))
         if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
             val bandOffsetM = bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300OutsideMarginM)
-            sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), bandOffsetM))
+            sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), { _ -> bandOffsetM }))
         }
         if (zones.isNotEmpty()) {
             sets.add(
                 CornerSet(
                     TangentCorners.ringCorners(zones, zoneOutsideMarginM),
-                    zoneOutsideMarginM + cellM
+                    { p -> zoneOutsideMarginM + walk.cellSizeAt(p) }
                 )
             )
         }
@@ -249,7 +256,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             sets = sets, limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
             regionSaturated = regionSaturated,
-            windows = WalkWindows.onLattice(family.layers, windows)
+            windows = walk
         )
     }
 

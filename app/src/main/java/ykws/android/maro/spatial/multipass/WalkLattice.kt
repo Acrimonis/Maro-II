@@ -288,6 +288,24 @@ internal class WalkWindows private constructor(
     fun cellSizeM(layer: Int): Double = lattices?.getOrNull(layer)?.cellM ?: windows[0].grid.cellM
 
     /**
+     * The **local** cell size the water under [point] was resolved at — the size the drawn tail reads, so
+     * the band's 20 m survives into the points. The finest layer whose own window holds passable water where
+     * the point stands answers; where none does the coarsest does, and a single grid answers its own cell.
+     */
+    fun cellSizeAt(point: LatLng): Double {
+        val layers = lattices ?: return windows[0].grid.cellM
+        var local = layers[0]
+        for (layer in layers) if (layer.cellM > local.cellM) local = layer
+        for (index in layers.indices) {
+            val lattice = layers[index]
+            if (lattice.cellM >= local.cellM) continue
+            val slot = slotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
+            if (slot >= 0 && cell(slot).passable) local = lattice
+        }
+        return local.cellM
+    }
+
+    /**
      * The slots **across the seam** from the cell on [layer] at `(row, col)` in direction `(dr, dc)` — the
      * other resolution's cells that meet this cell's face, or its corner. Empty where the walk is one
      * lattice, where the pair is not an integer ratio above one, or where a fine cell stands inside its

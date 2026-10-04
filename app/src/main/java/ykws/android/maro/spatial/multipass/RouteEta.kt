@@ -311,15 +311,34 @@ fun timeLineWithProfile(
         val accelCap = sqrt(speed[j - 1] * speed[j - 1] + 2.0 * accelMps2 * d)
         speed[j] = min(speed[j], accelCap)
     }
+    // **Each leg is timed by what the boat can do along it, not by its two end vertices alone.** A vertex
+    // is capped by the limit and the curvature ceiling standing on it, but a leg's **interior** is capped
+    // only by the leg's own limit — so between two slow ends the boat climbs to that limit, holds it, and
+    // comes back down. Timing the leg from its ends alone held a bend's floor across a whole kilometre: a
+    // 679 m leg with a floor bend at either end read 5 kn where the boat actually runs at its 10 kn limit.
+    // A speed change costs `(v_cap² − v²) / 2a` metres and `(v_cap − v) / a` seconds; where the two climbs
+    // meet before the cap is reached, the leg is a single triangular profile through that peak.
     val times = ArrayList<Double>(n)
     val speeds = ArrayList<Double>(n)
     for (i in 0 until n) {
         val d = SpatialOperations.haversine(points[i], points[i + 1])
         val v0 = speed[i]
         val v1 = speed[i + 1]
-        val t = if (abs(v1 - v0) < 1e-9) d / v0 else 2.0 * d / (v0 + v1)
+        val capLeg = legLimit[i].coerceAtLeast(1e-6)
+        val dUp = (capLeg * capLeg - v0 * v0).coerceAtLeast(0.0) / (2.0 * accelMps2)
+        val dDown = (capLeg * capLeg - v1 * v1).coerceAtLeast(0.0) / (2.0 * accelMps2)
+        val t = when {
+            d <= 1e-9 -> 0.0
+            dUp + dDown <= d ->
+                (maxOf(capLeg - v0, 0.0) + maxOf(capLeg - v1, 0.0)) / accelMps2 +
+                    (d - dUp - dDown) / capLeg
+            else -> {
+                val vPeak = sqrt(((2.0 * accelMps2 * d + v0 * v0 + v1 * v1) / 2.0).coerceAtLeast(0.0))
+                (maxOf(vPeak - v0, 0.0) + maxOf(vPeak - v1, 0.0)) / accelMps2
+            }
+        }
         times.add(t)
-        speeds.add(d / t)
+        speeds.add(if (t > 0.0) d / t else 0.0)
     }
     return TimedLine(points, times, speeds)
 }

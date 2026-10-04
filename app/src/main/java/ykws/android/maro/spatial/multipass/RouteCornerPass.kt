@@ -31,6 +31,9 @@ import kotlin.math.sqrt
  */
 object RouteCornerPass {
 
+    /** The clothoid's Fresnel argument runs at the heading's half-rate, so the pair is read at `τ/√2`. */
+    private val SQRT2 = sqrt(2.0)
+
     /** A corner worth rounding turns by at least this, in degrees. */
     private const val MIN_TURN_DEG = 10.0
 
@@ -207,6 +210,10 @@ object RouteCornerPass {
     private data class Composite(val points: List<Pair<Double, Double>>, val tangent: Double)
 
     private fun composite(r: Double, l: Double, signedDelta: Double): Composite {
+        // The clothoid's own argument: the heading runs at `h = τ²/2`, so the position integrates
+        // `∫cos(σ²/2)dσ` and `∫sin(σ²/2)dσ` — the Fresnel pair at `τ/√2`, scaled by `√2`. Evaluating
+        // them at `τ` outright bows the spiral twice as sharply as its own heading, and the too-deep bow
+        // is what made the fit reject corners a true clothoid fits.
         val pts = ArrayList<Pair<Double, Double>>(96)
         var x = 0.0
         var y = 0.0
@@ -222,15 +229,15 @@ object RouteCornerPass {
             for (k in 1..steps) {
                 val s = l * k / steps
                 val tau = s / a
-                val lx = a * fresnelC(tau)
-                val ly = sgn * a * fresnelS(tau)
+                val lx = a * SQRT2 * fresnelC(tau / SQRT2)
+                val ly = sgn * a * SQRT2 * fresnelS(tau / SQRT2)
                 val gx = x + lx * cos(h0) - ly * sin(h0)
                 val gy = y + lx * sin(h0) + ly * cos(h0)
                 pts.add(gx to gy)
             }
             val tauEnd = l / a
-            val lxEnd = a * fresnelC(tauEnd)
-            val lyEnd = sgn * a * fresnelS(tauEnd)
+            val lxEnd = a * SQRT2 * fresnelC(tauEnd / SQRT2)
+            val lyEnd = sgn * a * SQRT2 * fresnelS(tauEnd / SQRT2)
             x += lxEnd * cos(h0) - lyEnd * sin(h0)
             y += lxEnd * sin(h0) + lyEnd * cos(h0)
             h += sgn * tauEnd * tauEnd / 2.0

@@ -23,8 +23,13 @@ internal data class GridWalk(
     val windows: WalkWindows? = null
 )
 
-/** One tangent corner set: the offset points and the radius within which they may move a bend. */
-internal data class CornerSet(val points: List<LatLng>, val radiusM: Double)
+/**
+ * One tangent corner set: the offset points and, **per point**, the radius within which that corner may
+ * move a bend. The radius is a function of the point because a two-layer walk resolves different water at
+ * different sizes, and each corner's reach is the **local** cell's own (Phase 6) — a fine 20 m corner near
+ * the coast moves a bend 40 m, a coarse one in open water 200 m — while a single grid answers one radius.
+ */
+internal data class CornerSet(val points: List<LatLng>, val radiusM: (LatLng) -> Double)
 
 /**
  * The λ-free solve context the ladder's rungs share: the corridor, the grid and every reading the
