@@ -67,9 +67,9 @@ internal class RoutePassRunner {
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
         val search = MultipassSearch.searchWalk(
             windows, startCell, aimCell, Units.knotsToMps(pace),
-            zonePriceSec = { interiorKn, collarKn, bandCollarKn ->
+            zonePriceSec = { cellSizeM, interiorKn, collarKn, bandCollarKn ->
                 slowWaterPriceAt(
-                    cellM, pace, lambda, interiorKn, collarKn, bandCollarKn,
+                    cellSizeM, pace, lambda, interiorKn, collarKn, bandCollarKn,
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
@@ -77,7 +77,9 @@ internal class RoutePassRunner {
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)
-        val coarse = path.map { windows.center(it.row, it.col) }
+        // The path carries its layer, so a two-layer walk resolves each cell on its own resolution rather
+        // than through the first layer that happens to hold its coordinate.
+        val coarse = path.map { windows.center(it.layer, it.row, it.col) }
         val full = listOf(start) + coarse + listOf(aim)
         // The readings ride the boundary the stage just left: the search's own two counts are known here,
         // at the pull that follows it, so they belong to the PULL update's `stageDone` = SEARCH.

@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.ensureActive
+import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import java.util.PriorityQueue
 import kotlin.coroutines.coroutineContext
@@ -62,35 +63,41 @@ object MultipassSearch {
      *
      * @param paceMps the pace the heuristic bounds time with — the same pace the grid's base cost was
      *   built from, so the bound stays admissible.
-     * @param zonePriceSec the seconds a cell carrying these limits costs over its open-water base: the
-     *   strictest limit in force priced in full, the ring's outside-margin limit and the band's each at
-     *   its own fraction — the caller's one price, so re-pricing is one multiply per expansion and the
-     *   search holds no scaling of its own. A grid with no limit ever calls it, the default answering
-     *   nothing.
+     * @param zonePriceSec the seconds a cell of size `cellM` carrying these limits costs over its
+     *   open-water base: the strictest limit in force priced in full, the ring's outside-margin limit and
+     *   the band's each at its own fraction — the caller's one price, so re-pricing is one multiply per
+     *   expansion and the search holds no scaling of its own. It is handed the **destination cell's own
+     *   size**, so a fine band cell is priced at 20 m and a coarse interior cell at 100 m. A grid with no
+     *   limit ever calls it, the default answering nothing.
      */
     suspend fun search(
         grid: MultipassGrid,
         start: CellIndex,
         aim: CellIndex,
         paceMps: Double,
-        zonePriceSec: (interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
-            { _, _, _ -> 0.0 },
+        zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
+            { _, _, _, _ -> 0.0 },
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
     ): SearchOutcome =
         searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled)
 
     /**
      * The same search over **[walk]**, one window or several on one lattice: the cell indices the path
-     * answers are the walk's own lattice coordinates, and a neighbour no window holds is simply no step.
-     * Every other rule of [search] holds verbatim, the charge included.
+     * answers are the walk's own lattice coordinates and carry their layer, and a neighbour no window
+     * holds is simply no step.
+     *
+     * **A two-layer walk crosses its seam.** Beside each layer's own eight neighbours the search asks the
+     * walk for the cells **across the seam** — the fixed many-to-one relation the exact `1 : ratio` nesting
+     * makes arithmetic instead of a search — and prices that edge **from the two cell centres at the pace**,
+     * never from the destination cell's own size. Every other rule of [search] holds verbatim.
      */
     internal suspend fun searchWalk(
         walk: WalkWindows,
         start: CellIndex,
         aim: CellIndex,
         paceMps: Double,
-        zonePriceSec: (interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
-            { _, _, _ -> 0.0 },
+        zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
+            { _, _, _, _ -> 0.0 },
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
     ): SearchOutcome {
         val n = walk.size
@@ -125,34 +132,27 @@ object MultipassSearch {
 
             val row = walk.rowOf(idx)
             val col = walk.colOf(idx)
-            // A neighbour is resolved **through the layer that holds it**: a step never leaves the layer the
-            // cell stands on, so a two-layer walk neither drops a cell nor crosses its seam — that crossing
-            // is Phase 5's, priced from the two cell centres rather than the destination cell's own size.
             val layer = walk.layerOf(idx)
+            val here = walk.centerOf(idx)
             for (step in STEPS) {
-                val nr = row + step.dr
-                val nc = col + step.dc
-                val nIdx = walk.slotOf(layer, nr, nc)
-                if (nIdx < 0 || closed[nIdx]) continue
-                val cell = walk.cell(nIdx)
-                if (!cell.passable) continue
-                val interiorLimitKn = walk.limitKn(nIdx)
-                val collarLimitKn = walk.collarLimitKn(nIdx)
-                val bandCollarLimitKn = walk.bandCollarLimitKn(nIdx)
-                val cellSec =
-                    if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
-                        cell.sourceCostSec + zonePriceSec(interiorLimitKn, collarLimitKn, bandCollarLimitKn)
-                    } else {
-                        cell.sourceCostSec
-                    }
-                val newG = g[idx] + cellSec * step.multiplier
-                if (newG < g[nIdx]) {
-                    g[nIdx] = newG
-                    cameFrom[nIdx] = idx
-                    if (h[nIdx].isNaN()) {
-                        h[nIdx] = SpatialOperations.haversine(walk.center(layer, nr, nc), aimCenter) / paceMps
-                    }
-                    open.add(Node(nIdx, newG + h[nIdx], newG))
+                // The same layer's own neighbour: one cell of that layer's water, at that layer's cell size.
+                val nIdx = walk.slotOf(layer, row + step.dr, col + step.dc)
+                if (nIdx >= 0 && !closed[nIdx]) {
+                    relax(
+                        walk, idx, nIdx, step.multiplier * walk.cellSizeM(layer),
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                    )
+                }
+                // The seam: the other resolution's cells meeting this cell's face or corner, priced from
+                // the two cell centres — the crossing no same-layer step can make.
+                val cross = walk.crossLayerSlots(layer, row, col, step.dr, step.dc)
+                for (t in 0 until cross.size) {
+                    val cIdx = cross[t]
+                    if (closed[cIdx]) continue
+                    relax(
+                        walk, idx, cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)),
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                    )
                 }
             }
         }
@@ -162,11 +162,59 @@ object MultipassSearch {
         val path = ArrayList<CellIndex>()
         var cur = aimIdx
         while (cur != -1) {
-            path.add(CellIndex(walk.rowOf(cur), walk.colOf(cur)))
+            path.add(CellIndex(walk.rowOf(cur), walk.colOf(cur), walk.layerOf(cur)))
             cur = cameFrom[cur]
         }
         path.reverse()
-        return SearchOutcome(path, expansions, passable, aimClosed = true)
+        return SearchOutcome(path, expansions, passable, aimClosed = true, costSec = g[aimIdx])
+    }
+
+    /**
+     * **One relaxation**: the destination's own rate over the metres the step covers.
+     *
+     * The destination cell's cost is its `sourceCostSec` plus the zone price the caller reads for **its own
+     * size**; divided by that size it is a seconds-per-metre rate, and multiplied by the edge's own length it
+     * prices the step. For equal cells `edgeM` is `cellM × multiplier`, so the charge is exactly the
+     * `cellSec × multiplier` the uniform walk always paid — `avoid`'s answers cannot move. Across the seam
+     * `edgeM` is the two centres' own distance, so a 100 m interior cell and a 20 m band cell meet at a cost
+     * neither cell's size alone could name. The heuristic stays admissible because every edge costs at least
+     * its distance at the pace, layer by layer.
+     */
+    private fun relax(
+        walk: WalkWindows,
+        fromIdx: Int,
+        toIdx: Int,
+        edgeM: Double,
+        g: DoubleArray,
+        h: DoubleArray,
+        cameFrom: IntArray,
+        open: PriorityQueue<Node>,
+        aimCenter: LatLng,
+        paceMps: Double,
+        zonePriceSec: (Double, Double, Double, Double) -> Double
+    ) {
+        val cell = walk.cell(toIdx)
+        if (!cell.passable) return
+        val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
+        if (destCellM <= 0.0) return
+        val interiorLimitKn = walk.limitKn(toIdx)
+        val collarLimitKn = walk.collarLimitKn(toIdx)
+        val bandCollarLimitKn = walk.bandCollarLimitKn(toIdx)
+        val cellSec =
+            if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
+                cell.sourceCostSec + zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
+            } else {
+                cell.sourceCostSec
+            }
+        val newG = g[fromIdx] + (cellSec / destCellM) * edgeM
+        if (newG < g[toIdx]) {
+            g[toIdx] = newG
+            cameFrom[toIdx] = fromIdx
+            if (h[toIdx].isNaN()) {
+                h[toIdx] = SpatialOperations.haversine(walk.centerOf(toIdx), aimCenter) / paceMps
+            }
+            open.add(Node(toIdx, newG + h[toIdx], newG))
+        }
     }
 }
 
@@ -190,5 +238,10 @@ data class SearchOutcome(
     /** How many of the walk's own cells were passable when the search ran — the water it could walk. */
     val passableCells: Int,
     /** Whether the aim's own cell was ever closed. `false` on an exhaustion is the headline reading. */
-    val aimClosed: Boolean
+    val aimClosed: Boolean,
+    /**
+     * The aim's own `g` when the search reached it — the path's accumulated cost in seconds, the reading a
+     * seam-crossing test compares against that path's own timed length. `0.0` where no path was found.
+     */
+    val costSec: Double = 0.0
 )

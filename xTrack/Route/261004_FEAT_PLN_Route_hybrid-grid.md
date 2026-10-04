@@ -5,9 +5,10 @@ Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** besi
 gate, coarse **100 m** in open water, ratio **1 : 5**; the second pass is one fine grid **along the path**.
 **The metres land first; nothing of the two-layer walk is built.**
 
-Status: Phases 1–4 landed (2026-10-04) — Phases 1–3 ship the metres, the one lattice and the corridor chain;
+Status: Phases 1–5 landed (2026-10-04) — Phases 1–3 ship the metres, the one lattice and the corridor chain;
 Phase 4 builds the two-layer rasterize — the family, the layer in the cell key, the two windows and the band's
-membership. The seam that expands a neighbour across the two layers and prices it is Phase 5, still in design.
+membership; Phase 5 lands the seam that expands a neighbour across the two layers and prices it from the two
+cell centres. The local resolution that carries the band's 20 m into the drawn points is Phase 6, still in design.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -469,10 +470,20 @@ The cost:
    **Not this phase, and not built**: the seam that resolves a neighbour across the two layers and prices it
    from the two cell centres — Phase 5 — so the first walk resolves on the coarse interior until it lands; the
    depth-gate arm of the band predicate, owed with it.
-5. **The seam helper grows to unequal cells** — resolution-aware neighbour expansion with the seam edge
-   **priced from the two cell centres at the pace**, never from the destination cell's own size; the
-   diagonal and the admissibility bound re-derived per layer. Exit: the equivalence and g-versus-clock
-   tests above.
+5. **Landed 2026-10-04 — the seam helper grew to unequal cells.** The resolution-aware neighbour expansion
+   resolves a step **across** the seam through `SeamNeighbours` (the exact `1 : ratio` many-to-one relation the
+   one origin makes arithmetic), and the edge is **priced from the two cell centres at the pace** — the
+   destination cell's own seconds-per-metre rate over the centres' distance — so a same-layer step keeps the
+   uniform charge exactly and a seam step is distance-true. The diagonal stays the layer's own, and the
+   heuristic stays admissible per layer because every edge costs at least its distance at the pace. **The exit
+   is met**: the g-versus-clock reading on a seam-crossing path and the hybrid-versus-uniform-fine time
+   equivalence are green in [`SeamCrossingTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/SeamCrossingTest.kt:1),
+   with `apk-build.bat` green and the suite at **880 / 1 / 10**, the single red still `avoid`'s parked ratio test.
+   **Three enabling changes named**: `CellIndex` carries its layer, `SearchOutcome.costSec` exposes the aim's g,
+   and the search's `zonePriceSec` callback is handed the destination cell's size, so the seam's fine water is
+   priced at 20 m rather than the interior's 100 m. **What it does not settle**: the fine window is still the
+   corridor-sized mask Phase 4 left — the 25× the code-health section rejects — now **walked** rather than only
+   allocated; the epic's own todo carries that gap and no phase here owns reshaping it.
 6. **Pull, snap and corner at local resolution** — the pull takes no cell of its own, so what takes the
    local size is `snapToCorners`' field, the `CornerSet` distances, `carveReachCells` and `openEndDisc`, so
    the band's 20 m survives into the drawn points.

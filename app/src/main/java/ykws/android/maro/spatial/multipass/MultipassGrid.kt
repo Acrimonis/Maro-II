@@ -11,8 +11,14 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
-/** One grid position, row-major: `row` is the latitude band, `col` the longitude band. */
-data class CellIndex(val row: Int, val col: Int)
+/**
+ * One grid position, row-major: `row` is the latitude band, `col` the longitude band.
+ *
+ * [layer] names the resolution a two-layer walk's cell stands on — the family's index, `0` for the
+ * single-grid walk and for the coarse interior, `1` for the fine band. It defaults to `0` so every
+ * single-grid cell, every existing literal and every plan answering one lattice reads as it did before.
+ */
+data class CellIndex(val row: Int, val col: Int, val layer: Int = 0)
 
 /**
  * One speed zone the rasterizer even-odd-fills: its polygon and the **limit** (kn) it carries. The

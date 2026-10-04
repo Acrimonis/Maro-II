@@ -47,7 +47,7 @@ class AvoidBandCostTest {
      * in full, the ring's collar and the band's at their own fractions. Both the band and a ring reach it
      * through [MultipassSearch], so the invariant below proves the search rather than one function twice.
      */
-    private val priceAt: (Double, Double, Double) -> Double = { interiorKn, collarKn, bandCollarKn ->
+    private val priceAt: (Double, Double, Double, Double) -> Double = { _, interiorKn, collarKn, bandCollarKn ->
         slowWaterPriceAt(
             cellM, paceKn, lambda, interiorKn, collarKn, bandCollarKn,
             outsideMarginFraction, outsideMarginFraction

@@ -146,9 +146,9 @@ internal class RouteFinePass(
             grid.cellOf(from.latitude, from.longitude),
             grid.cellOf(to.latitude, to.longitude),
             Units.knotsToMps(pace),
-            zonePriceSec = { interiorKn, collarKn, bandCollarKn ->
+            zonePriceSec = { cellSizeM, interiorKn, collarKn, bandCollarKn ->
                 slowWaterPriceAt(
-                    fineCellM, pace, lambda, interiorKn, collarKn, bandCollarKn,
+                    cellSizeM, pace, lambda, interiorKn, collarKn, bandCollarKn,
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )

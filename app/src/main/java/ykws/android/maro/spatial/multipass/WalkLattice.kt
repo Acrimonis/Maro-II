@@ -141,6 +141,77 @@ internal class LatticeFamily(
     }
 }
 
+/** The empty cross-layer answer — a walk with one lattice, or a cell with no cell across the seam. */
+private val NO_SLOTS = IntArray(0)
+
+/**
+ * **The many-to-one seam neighbourhood** — the fixed relation the exact `1 : ratio` nesting makes
+ * arithmetic instead of a search.
+ *
+ * A coarse cell's **face** meets `ratio` fine cells and its **corner** one, so a step off the interior
+ * lands in the fine band; a fine cell reaches a coarse cell across the seam only where it stands on its
+ * own block's face, so a step off the band lands in the interior. Both directions describe the **same
+ * edge set**, which is what lets a path cross the seam either way.
+ */
+internal object SeamNeighbours {
+
+    /** The fine coordinates across the seam from coarse `(row, col)` in direction `(dr, dc)`. */
+    fun acrossFromCoarse(
+        row: Int, col: Int, dr: Int, dc: Int, ratio: Int, fineLayer: Int
+    ): List<CellIndex> {
+        if (dr == 0 && dc == 0) return emptyList()
+        val r0 = row * ratio
+        val c0 = col * ratio
+        val rows = when {
+            dr < 0 -> intArrayOf(r0 - 1)
+            dr > 0 -> intArrayOf(r0 + ratio)
+            else -> IntArray(ratio) { r0 + it }
+        }
+        val cols = when {
+            dc < 0 -> intArrayOf(c0 - 1)
+            dc > 0 -> intArrayOf(c0 + ratio)
+            else -> IntArray(ratio) { c0 + it }
+        }
+        val out = ArrayList<CellIndex>(rows.size * cols.size)
+        for (r in rows) for (c in cols) out.add(CellIndex(r, c, fineLayer))
+        return out
+    }
+
+    /**
+     * The coarse coordinate across the seam from fine `(row, col)` in direction `(dr, dc)`, or `null`
+     * where the fine cell stands **inside** its block rather than on the face that step leaves by — a
+     * same-water move that is not a crossing.
+     */
+    fun acrossFromFine(
+        row: Int, col: Int, dr: Int, dc: Int, ratio: Int, coarseLayer: Int
+    ): CellIndex? {
+        if (dr == 0 && dc == 0) return null
+        val r = floorDiv(row, ratio)
+        val c = floorDiv(col, ratio)
+        val onSouth = row - r * ratio == 0           // the block's low face
+        val onNorth = row - r * ratio == ratio - 1   // the block's high face
+        val onWest = col - c * ratio == 0
+        val onEast = col - c * ratio == ratio - 1
+        val tr = when {
+            dr < 0 -> if (onSouth) r - 1 else return null
+            dr > 0 -> if (onNorth) r + 1 else return null
+            else -> r
+        }
+        val tc = when {
+            dc < 0 -> if (onWest) c - 1 else return null
+            dc > 0 -> if (onEast) c + 1 else return null
+            else -> c
+        }
+        return CellIndex(tr, tc, coarseLayer)
+    }
+
+    /** Floor division that rounds toward negative infinity, so a chain reaching south of the origin works. */
+    private fun floorDiv(a: Int, b: Int): Int {
+        val q = a / b
+        return if (a % b != 0 && (a xor b) < 0) q - 1 else q
+    }
+}
+
 /** **One window onto one lattice layer**: a dense rectangle, and where its first cell stands on the layer. */
 internal data class WalkWindow(
     val grid: MultipassGrid,
@@ -212,6 +283,37 @@ internal class WalkWindows private constructor(
 
     /** The layer a slot stands on — 0 for a uniform grid or a one-lattice chain. */
     fun layerOf(slot: Int): Int = ids?.let { keyLayer(it[slot]) } ?: 0
+
+    /** The cell size (m) a layer carries — the one size a single grid answers, whatever the layer. */
+    fun cellSizeM(layer: Int): Double = lattices?.getOrNull(layer)?.cellM ?: windows[0].grid.cellM
+
+    /**
+     * The slots **across the seam** from the cell on [layer] at `(row, col)` in direction `(dr, dc)` — the
+     * other resolution's cells that meet this cell's face, or its corner. Empty where the walk is one
+     * lattice, where the pair is not an integer ratio above one, or where a fine cell stands inside its
+     * block rather than on the face the step leaves by.
+     */
+    fun crossLayerSlots(layer: Int, row: Int, col: Int, dr: Int, dc: Int): IntArray {
+        val layers = lattices ?: return NO_SLOTS
+        if (layers.size != 2) return NO_SLOTS
+        val coarseLayer = if (layers[0].cellM >= layers[1].cellM) 0 else 1
+        val fineLayer = 1 - coarseLayer
+        val ratio = (layers[coarseLayer].cellM / layers[fineLayer].cellM).roundToInt()
+        if (ratio <= 1) return NO_SLOTS
+        val targets: List<CellIndex> = if (layer == coarseLayer) {
+            SeamNeighbours.acrossFromCoarse(row, col, dr, dc, ratio, fineLayer)
+        } else {
+            listOfNotNull(SeamNeighbours.acrossFromFine(row, col, dr, dc, ratio, coarseLayer))
+        }
+        if (targets.isEmpty()) return NO_SLOTS
+        val out = IntArray(targets.size)
+        var n = 0
+        for (t in targets) {
+            val slot = slotOf(t.layer, t.row, t.col)
+            if (slot >= 0) out[n++] = slot
+        }
+        return if (n == out.size) out else out.copyOf(n)
+    }
 
     /** The centre of a lattice coordinate on [layer] — the layer's own read, or the one grid's otherwise. */
     fun center(layer: Int, row: Int, col: Int): LatLng =

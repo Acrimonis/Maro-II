@@ -156,7 +156,7 @@ class RouteZonePhase4Test {
 
         val priced = MultipassSearch.search(
             grid, start, aim, paceMps,
-            zonePriceSec = { interiorKn, collarKn, _ ->
+            zonePriceSec = { _, interiorKn, collarKn, _ ->
                 zonePriceAtLimits(50.0, 28.0, interiorKn, collarKn, 5.0, 0.66)
             }
         ).path
@@ -167,7 +167,7 @@ class RouteZonePhase4Test {
             priced!!.none { collarOnly(it) }
         )
 
-        val free = MultipassSearch.search(grid, start, aim, paceMps, zonePriceSec = { _, _, _ -> 0.0 }).path
+        val free = MultipassSearch.search(grid, start, aim, paceMps, zonePriceSec = { _, _, _, _ -> 0.0 }).path
         assertTrue(
             "and the same grid, collar free, is crossed straight through the margin",
             free!!.any { collarOnly(it) }
