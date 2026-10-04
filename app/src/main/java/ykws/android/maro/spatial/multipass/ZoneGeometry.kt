@@ -4,6 +4,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
@@ -99,6 +100,52 @@ fun speedZoneCollarLimitKnAt(
         }
     }
     return strictest
+}
+
+/**
+ * **The zone price's own boundary distance** — the metres from the point to the nearest place a speed
+ * zone's price arm changes: every ring's own edge, where containment toggles, and each ring's collar
+ * edge [marginM] out, where the collar arm turns on and off. The minimum over every non-excluded zone,
+ * because the arm is the strictest limit over the zones and so changes where **any** one of them does.
+ *
+ * **Every ring is named, the holes included.** The shipped collar read walks [SpeedZone.outerRing]
+ * alone ([speedZoneCollarLimitKnAt]), while the interior arm toggles on every hole too
+ * ([SpeedZone.contains]), so a declaration built from the collar read would be blind to a hole and could
+ * prove a group straddling one — the defect this function exists to close. `Double.MAX_VALUE` where
+ * nothing is near a boundary.
+ */
+fun speedZonePriceClearanceM(
+    zones: List<SpeedZone>,
+    excludedIds: Set<String>,
+    latitude: Double,
+    longitude: Double,
+    marginM: Double
+): Double {
+    val p = LatLng(latitude, longitude)
+    var nearest = Double.MAX_VALUE
+    for (zone in zones) {
+        if (zone.id in excludedIds) continue
+        nearest = min(nearest, ringArmClearanceM(zone.outerRing, marginM, p))
+        for (hole in zone.holes) {
+            nearest = min(nearest, ringArmClearanceM(hole, marginM, p))
+        }
+    }
+    return nearest
+}
+
+/**
+ * The distance (m) from [p] to a ring's own two arm changes: the ring's edge itself and its collar
+ * edge [marginM] out. A ring of fewer than two vertices bounds nothing, and holes are rings like any
+ * other. `Double.MAX_VALUE` where the ring is degenerate.
+ */
+private fun ringArmClearanceM(ring: List<LatLng>, marginM: Double, p: LatLng): Double {
+    if (ring.size < 2) return Double.MAX_VALUE
+    var nearest = Double.MAX_VALUE
+    for (i in 0 until ring.size - 1) {
+        nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, ring[i], ring[i + 1]))
+    }
+    if (nearest == Double.MAX_VALUE) return nearest
+    return min(nearest, abs(nearest - marginM))
 }
 
 /** Whether the emitted line enters [zone], sampled at [stepM] along every leg. */

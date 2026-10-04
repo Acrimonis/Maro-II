@@ -5,6 +5,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -56,11 +57,35 @@ internal fun costField(
         val bandOutsideMarginM = AppConfig.routeAvoidZone300OutsideMarginM
         val bandFraction = AppConfig.routeAvoidZone300OutsideMarginCostFraction
         val bandSec = zonePriceSec(cellM, pace, AppConfig.routeAvoidZone300LimitKn, lambda)
+        val bandReach = bandReachM(bandM, bandOutsideMarginM)
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
         val zoneFraction = AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction
         val scopedZones = zones
         sources.add(
             RouteCostSource.Soft(
+                // **The declaration.** The arm is `max(bandPrice, zonePrice)`, so it changes where
+                // **either** does and the clearance is the two declarations' minimum. The band's own
+                // two circles need no new geometry — `min(|d − width|, |d − reach|)` off the coast
+                // distance the arm already reads. A ring's arm changes on the outer ring and on **every
+                // hole** (the shipped collar read is blind to a hole) and again at the collar edge, which
+                // is `speedZonePriceClearanceM`'s own walk. `MAX_VALUE` where the arm is 0 everywhere:
+                // a source that names no boundary proves nothing.
+                clearanceAt = { p ->
+                    var nearest = Double.MAX_VALUE
+                    if (bandPriced && bandSec > 0.0) {
+                        val d = world.distanceToCoastM(p.latitude, p.longitude)
+                        nearest = minOf(nearest, abs(d - bandM), abs(d - bandReach))
+                    }
+                    if (zonesPriced) {
+                        nearest = minOf(
+                            nearest,
+                            speedZonePriceClearanceM(
+                                scopedZones, emptySet(), p.latitude, p.longitude, zoneOutsideMarginM
+                            )
+                        )
+                    }
+                    nearest
+                },
                 priceSec = { p ->
                     val bandPrice =
                         if (bandPriced && bandSec > 0.0) {
@@ -175,10 +200,10 @@ internal fun snapToCorners(
         val hardClear =
             MultipassPull.legClear(out[i - 1], corner, marginM, coarseStepM, field, start, aim, approaches) &&
                 MultipassPull.legClear(corner, path[i + 1], marginM, coarseStepM, field, start, aim, approaches)
-        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], marginM, field) +
-            MultipassPull.softPriceSec(path[i], path[i + 1], marginM, field)
-        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, marginM, field) +
-            MultipassPull.softPriceSec(corner, path[i + 1], marginM, field)
+        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], marginM, coarseStepM, field) +
+            MultipassPull.softPriceSec(path[i], path[i + 1], marginM, coarseStepM, field)
+        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, marginM, coarseStepM, field) +
+            MultipassPull.softPriceSec(corner, path[i + 1], marginM, coarseStepM, field)
         if (hardClear && snappedPrice <= replacedPrice) {
             out[i] = corner
         }

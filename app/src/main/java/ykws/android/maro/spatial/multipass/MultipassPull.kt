@@ -3,6 +3,7 @@ package ykws.android.maro.spatial.multipass
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * The clearance taut pull: collapses the coarse cell path into straight waypoints that stay clear of
@@ -42,6 +43,14 @@ import kotlin.math.ceil
  * **time** here as it is in the search, so the two sides of that comparison are the same unit. The
  * path's price is a prefix sum, so each candidate costs one walk of the chord alone, and a field with
  * no price skips the whole reading.
+ *
+ * **The price walk's own reads are coarsened behind a proof its sources declare.** A soft source
+ * answers `priceClearanceM(p)` — the distance to the nearest place its own price arm changes — and the
+ * walk prices a whole group of fine intervals from one reading exactly where that clearance is at least
+ * the group's half-length: no boundary stands inside, so the arm is constant and the group's product is
+ * identically the fine sum it replaces. It reads the field's price alone for it, never the hard walls'
+ * `blocked` test, since that flag is discarded. A source that declares no boundary proves nothing, and
+ * every unproved group keeps today's reads.
  */
 object MultipassPull {
 
@@ -73,7 +82,7 @@ object MultipassPull {
         val result = ArrayList<LatLng>(path.size)
         result.add(path.first())
         val prefixStartNs = System.nanoTime()
-        val pathPriceSec = if (field.hasSoft) softPricePrefix(path, marginM, field) else null
+        val pathPriceSec = if (field.hasSoft) softPricePrefix(path, marginM, coarseStepM, field, timing) else null
         timing?.addPrice(System.nanoTime() - prefixStartNs)
         var anchor = 0
         var probe = 1
@@ -128,7 +137,7 @@ object MultipassPull {
         timing?.addClearance(System.nanoTime() - clearanceStartNs)
         if (cause == null) {
             val priceStartNs = System.nanoTime()
-            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, marginM, field)
+            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, marginM, coarseStepM, field, timing)
             timing?.addPrice(System.nanoTime() - priceStartNs)
             return ChordDecision(refusal)
         }
@@ -263,17 +272,23 @@ object MultipassPull {
         a.longitude + (b.longitude - a.longitude) * t
     )
 
-    /** The price guard's own cause: `PRICE` where the chord costs more than the span it would replace. */
+    /**
+     * The price guard's own cause: `PRICE` where the chord costs more than the span it would replace.
+     * Both sides of that comparison are built on the **same** partition — the prefix is coarsened by the
+     * same [coarseStepM] rule the chord is — so the guard's arithmetic is two readings of one walk.
+     */
     private fun priceRefusal(
         pathPriceSec: DoubleArray?,
         path: List<LatLng>,
         anchor: Int,
         probe: Int,
         marginM: Double,
-        field: RouteCostField
+        coarseStepM: Double,
+        field: RouteCostField,
+        timing: PullTiming?
     ): ChordRefusal? {
         val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] } ?: return null
-        return if (softPriceSec(path[anchor], path[probe], marginM, field) > replacedPriceSec) {
+        return if (softPriceSec(path[anchor], path[probe], marginM, coarseStepM, field, timing) > replacedPriceSec) {
             ChordRefusal.PRICE
         } else {
             null
@@ -281,38 +296,85 @@ object MultipassPull {
     }
 
     /**
-     * The field's prices summed along one straight segment, in **seconds** — the seconds a metre of
-     * the price costs, times the metres — read at the **midpoint of each interval** so the whole
-     * segment is covered, at `≤ marginM / 2` intervals so a price narrower than the step cannot slip
-     * between two readings.
+     * The field's prices summed along one straight segment, in **seconds** — the price is the written
+     * law's own quantity, a cell's excess in seconds multiplied by the interval's **metres**, read at
+     * the **midpoint of each interval** so the whole segment is covered at `≤ clearanceStep(marginM)`
+     * intervals. That floor is the one home the clearance walk shares, so the two walks can never
+     * disagree about the fine grid's own length.
+     *
+     * **The mark set does not change; which marks pay a read of their own does.** The fine intervals
+     * are grouped into whole coarse intervals of [coarseStepM] — the walk's own cell, the same step the
+     * clearance walk's coarse marks are placed with — and a group's read stands at its own midpoint
+     * `(i0 + k / 2) / steps`, with half-length `k × stepM / 2`. Where the field's
+     * [RouteCostField.priceClearanceM] at that reading is at least the half-length, the source's arm
+     * cannot change inside the group, so the group is priced from that one reading **identically** —
+     * the same value added the same number of times in the same order, not a near miss. Every group the
+     * declaration cannot prove keeps today's fine midpoints, at today's positions, in today's order; a
+     * group of one interval is its own fine interval and is never asked for a proof, so a walk handed
+     * the fine step reads exactly as today.
      *
      * The midpoint is what makes two segments comparable: an end-excluding walk discounts a short
      * segment by half a sample and a long one by almost nothing, so a chord would have looked dearer
      * than the cell path it replaces and no line would ever be pulled taut. A field with no price
      * reads 0 and the guard is inert.
+     *
+     * @param coarseStepM the coarsening step — a required parameter, from the same source as the
+     *   clearance walk's: a defaulted one would skip a read no caller chose to skip.
      */
-    internal fun softPriceSec(a: LatLng, b: LatLng, marginM: Double, field: RouteCostField): Double {
+    internal fun softPriceSec(
+        a: LatLng,
+        b: LatLng,
+        marginM: Double,
+        coarseStepM: Double,
+        field: RouteCostField,
+        timing: PullTiming? = null
+    ): Double {
         val dist = SpatialOperations.haversine(a, b)
-        val sampleStep = marginM / 2.0
+        val sampleStep = clearanceStep(marginM)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(1)
         val stepM = dist / steps
+        // The coarse step is floored at the fine one, exactly as the clearance walk floors its own, so
+        // a coarse pass can only ever save reads.
+        val groupStep = maxOf(1, floor(coarseStepM.coerceAtLeast(sampleStep) / stepM).toInt())
         var sum = 0.0
-        for (i in 0 until steps) {
-            val p = chordPoint(a, b, (i + 0.5) / steps)
-            sum += field.evaluate(p).softCostSec * stepM
+        var i = 0
+        while (i < steps) {
+            val k = minOf(groupStep, steps - i)
+            val halfM = k * stepM / 2.0
+            val proved = if (k > 1) {
+                // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
+                // can never be proved, and a group of one interval is never asked.
+                val clearance = field.priceClearanceM(chordPoint(a, b, (i + k / 2.0) / steps))
+                clearance < Double.MAX_VALUE && clearance >= halfM
+            } else {
+                false
+            }
+            if (proved) {
+                val price = field.softPriceSecAt(chordPoint(a, b, (i + k / 2.0) / steps))
+                timing?.addPriceReads(1)
+                repeat(k) { sum += price * stepM }
+            } else {
+                for (j in i until i + k) {
+                    sum += field.softPriceSecAt(chordPoint(a, b, (j + 0.5) / steps)) * stepM
+                    timing?.addPriceReads(1)
+                }
+            }
+            i += k
         }
         return sum
     }
 
     /** [softPriceSec] accumulated along [path], so one span's price is a single subtraction. */
-    private fun softPricePrefix(
+    internal fun softPricePrefix(
         path: List<LatLng>,
         marginM: Double,
-        field: RouteCostField
+        coarseStepM: Double,
+        field: RouteCostField,
+        timing: PullTiming? = null
     ): DoubleArray {
         val prefix = DoubleArray(path.size)
         for (i in 1 until path.size) {
-            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, field)
+            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, coarseStepM, field, timing)
         }
         return prefix
     }
@@ -383,6 +445,14 @@ class PullTiming {
     var priceNanos: Long = 0L
         private set
 
+    /**
+     * The price reads the price walk actually paid — one per proved group and one per fine midpoint a
+     * refused group keeps. Beside [priceMs] it is how the coarsening's saving is read rather than
+     * inferred from the clock.
+     */
+    var priceReads: Long = 0L
+        private set
+
     /** [clearanceNanos] in the log's own unit. */
     val clearanceMs: Double get() = clearanceNanos / NANOS_PER_MS
 
@@ -395,5 +465,9 @@ class PullTiming {
 
     internal fun addPrice(nanos: Long) {
         priceNanos += nanos
+    }
+
+    internal fun addPriceReads(count: Int) {
+        priceReads += count
     }
 }

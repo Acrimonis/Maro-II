@@ -9,6 +9,7 @@ import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * **The fine layer's own cut** — the windows over the band's water, and the one property the reshape rests
@@ -49,6 +50,9 @@ class RouteFineWindowShapeTest {
     private val cellsDown = ceil((corridor.latNorth - corridor.latSouth) / lattice.cellSizeDegLat).toInt()
 
     private val cellsAcross = ceil((corridor.lonEast - corridor.lonWest) / lattice.cellSizeDegLon).toInt()
+
+    /** The tile side the cut uses, in cells — a tile is exactly this many lattice cells on each axis. */
+    private val sideCells = ceil(reachM / lattice.cellM).toInt()
 
     /**
      * **The equivalence the reshape is allowed on.** Every fine cell standing inside the ribbon — within the
@@ -91,6 +95,33 @@ class RouteFineWindowShapeTest {
         assertTrue(
             "the ribbon costs a fraction of the corridor's own tile ($windowCells of $corridorCells)",
             windowCells * 3 < corridorCells
+        )
+    }
+
+    /**
+     * **The merge saves windows without moving a cell.** The merged windows hold exactly the lattice cells the
+     * unmerged tiles held — the same set, at the estimator's own cell arithmetic — while there are strictly
+     * fewer of them. That pair is the whole claim: the coverage is unchanged and the window count is not.
+     */
+    @Test
+    fun theMergedWindowsHoldExactlyTheTilesCellsWithFewerWindows() {
+        val tiles = builder.fineTileBoxes(lattice, corridor, edges, openCoast, reachM)
+        val windows = builder.fineWindowBoxes(lattice, corridor, edges, openCoast, reachM)
+        val tileCells = latticeCells(tiles)
+        val windowCells = latticeCells(windows)
+        val onlyTiles = tileCells - windowCells
+        val onlyWindows = windowCells - tileCells
+
+        assertTrue(
+            "the merged windows hold exactly the tiles' own lattice cells " +
+                "(${tiles.size} tiles vs ${windows.size} windows, onlyTiles=${onlyTiles.size}" +
+                "${onlyTiles.take(6).map { cell(it) }}, onlyWindows=${onlyWindows.size}" +
+                "${onlyWindows.take(6).map { cell(it) }})",
+            onlyTiles.isEmpty() && onlyWindows.isEmpty()
+        )
+        assertTrue(
+            "the merge returns strictly fewer windows (${windows.size} of ${tiles.size} tiles)",
+            windows.size < tiles.size
         )
     }
 
@@ -153,4 +184,35 @@ class RouteFineWindowShapeTest {
     private fun holds(box: BBox, point: LatLng): Boolean =
         point.latitude >= box.latSouth && point.latitude <= box.latNorth &&
             point.longitude >= box.lonWest && point.longitude <= box.lonEast
+
+    /** One packed `(row, col)` key printed as a pair, for a bounded assertion message. */
+    private fun cell(key: Long): String = "(${(key shr 32).toInt()},${key.toInt()})"
+
+    /**
+     * The lattice cells a box set holds, at the estimator's own arithmetic — a box counts whole lattice cells,
+     * and on the fine layer's tile grid a tile is exactly [sideCells] cells a side. Every window stands on the
+     * tile grid's own lines, so its south-west rounds to a tile corner and its extent to a whole number of
+     * tiles; the box's cells are those tiles × the lattice's cell, clamped to the corridor's own cell counts.
+     */
+    private fun latticeCells(boxes: List<BBox>): Set<Long> {
+        val cells = HashSet<Long>()
+        for (box in boxes) {
+            val row0 = tileIndex(box.latSouth - lattice.latSouth, lattice.cellSizeDegLat) * sideCells
+            val col0 = tileIndex(box.lonWest - lattice.lonWest, lattice.cellSizeDegLon) * sideCells
+            val rowTiles = tileIndex(box.latNorth - box.latSouth, lattice.cellSizeDegLat)
+            val colTiles = tileIndex(box.lonEast - box.lonWest, lattice.cellSizeDegLon)
+            val rowEnd = minOf(row0 + rowTiles * sideCells, cellsDown)
+            val colEnd = minOf(col0 + colTiles * sideCells, cellsAcross)
+            for (row in row0 until rowEnd) {
+                for (col in col0 until colEnd) {
+                    cells.add((row.toLong() shl 32) or (col.toLong() and 0xFFFF_FFFFL))
+                }
+            }
+        }
+        return cells
+    }
+
+    /** How many whole tiles [extentDeg] spans at [cellSizeDeg] — a tile being [sideCells] of those cells. */
+    private fun tileIndex(extentDeg: Double, cellSizeDeg: Double): Int =
+        (extentDeg / (cellSizeDeg * sideCells)).roundToInt().coerceAtLeast(0)
 }

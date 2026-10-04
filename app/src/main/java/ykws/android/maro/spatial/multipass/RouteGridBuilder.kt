@@ -372,6 +372,12 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
      *
      * The tiles stand on [lattice]'s own lines, so every window is a whole number of cells and two windows
      * that overlap share their cell centres exactly — the property the seam between them rests on.
+     *
+     * The marked tiles are then **merged into maximal rectangles** — each tile row's runs, then the runs of
+     * consecutive rows carrying the same column span — because each window re-sweeps every edge and the count
+     * is a real cost (361 tiles at ~12 ms each). The merge is the **exact union** of the marked tiles: every
+     * rectangle is a whole number of tiles in both directions, so the cell set, the coverage and the budget
+     * read exactly what the tiles did, and only the window count falls.
      */
     internal fun fineWindowBoxes(
         lattice: WalkLattice,
@@ -380,7 +386,44 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         openCoast: List<List<LatLng>>,
         reachM: Double
     ): List<BBox> {
-        if (reachM <= 0.0) return emptyList()
+        val tiles = fineTileGrid(lattice, box, edges, openCoast, reachM) ?: return emptyList()
+        return mergedRuns(tiles)
+    }
+
+    /**
+     * The same marked tiles **one box each**, unmerged — the shape the windows took before the merge, and the
+     * benchmark the merge is measured against. The test asks it for the tile count and the cells the tiles
+     * hold, which the merged windows must reproduce exactly.
+     */
+    internal fun fineTileBoxes(
+        lattice: WalkLattice,
+        box: BBox,
+        edges: List<MultipassEdge>,
+        openCoast: List<List<LatLng>>,
+        reachM: Double
+    ): List<BBox> {
+        val tiles = fineTileGrid(lattice, box, edges, openCoast, reachM) ?: return emptyList()
+        val out = ArrayList<BBox>(tiles.marked.size)
+        for (key in tiles.marked.indices) {
+            if (!tiles.marked[key]) continue
+            out.add(tiles.tileBox(tiles.rowOf(key), tiles.colOf(key)))
+        }
+        return out
+    }
+
+    /**
+     * **The fine lattice's marked tiles** — the tile grid the coast's grown boxes touch, as an integer grid on
+     * [lattice]'s own lines: the side, the origin and which tiles the ribbon marks. One home for the cut, so
+     * the merged windows and the unmerged tiles they are measured against come from the same marks.
+     */
+    private fun fineTileGrid(
+        lattice: WalkLattice,
+        box: BBox,
+        edges: List<MultipassEdge>,
+        openCoast: List<List<LatLng>>,
+        reachM: Double
+    ): FineTileGrid? {
+        if (reachM <= 0.0) return null
         val sideCells = ceil(reachM / lattice.cellM).toInt().coerceAtLeast(1)
         val sideLat = lattice.cellSizeDegLat * sideCells
         val sideLon = lattice.cellSizeDegLon * sideCells
@@ -388,7 +431,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val tilesDown = ceil((box.latNorth - origin.latSouth) / sideLat).toInt().coerceAtLeast(1)
         val tilesAcross = ceil((box.lonEast - origin.lonWest) / sideLon).toInt().coerceAtLeast(1)
         val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
-        val marked = HashSet<Int>()
+        val marked = BooleanArray(tilesDown * tilesAcross)
         // A segment's own box, grown by the reach, is what a tile must meet — a superset of the ribbon's
         // tiles, and a superset is the safe side of this cut.
         fun mark(a: LatLng, b: LatLng) {
@@ -402,20 +445,97 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             val lastRow = floor((north - origin.latSouth) / sideLat).toInt().coerceIn(0, tilesDown - 1)
             val firstCol = floor((west - origin.lonWest) / sideLon).toInt().coerceIn(0, tilesAcross - 1)
             val lastCol = floor((east - origin.lonWest) / sideLon).toInt().coerceIn(0, tilesAcross - 1)
-            for (row in firstRow..lastRow) for (col in firstCol..lastCol) marked.add(row * tilesAcross + col)
+            for (row in firstRow..lastRow) for (col in firstCol..lastCol) marked[row * tilesAcross + col] = true
         }
         for (edge in edges) mark(edge.a, edge.b)
         for (coast in openCoast) {
             for (i in 0 until coast.size - 1) mark(coast[i], coast[i + 1])
         }
-        return marked.sorted().map { key ->
-            val row = key / tilesAcross
-            val col = key % tilesAcross
-            val latSouth = origin.latSouth + row * sideLat
-            val lonWest = origin.lonWest + col * sideLon
-            BBox(
-                latSouth, minOf(latSouth + sideLat, box.latNorth),
-                lonWest, minOf(lonWest + sideLon, box.lonEast)
+        return FineTileGrid(
+            origin.latSouth, origin.lonWest, sideLat, sideLon, tilesDown, tilesAcross,
+            box.latNorth, box.lonEast, marked
+        )
+    }
+
+    /**
+     * The marked tiles merged into maximal rectangles — each tile row's runs of marked columns, then the runs
+     * of consecutive rows whose span is identical. Every rectangle is the **exact union** of the tiles it
+     * spans: the runs partition each row and a rectangle is extended only over a matching span, so no cell is
+     * added and none is dropped.
+     */
+    private fun mergedRuns(tiles: FineTileGrid): List<BBox> {
+        val rectangles = ArrayList<Rect>()
+        var open = HashMap<Int, Rect>()
+        for (row in 0 until tiles.tilesDown) {
+            val current = HashMap<Int, Rect>()
+            var col = 0
+            while (col < tiles.tilesAcross) {
+                if (!tiles.marked[row * tiles.tilesAcross + col]) {
+                    col++
+                    continue
+                }
+                val first = col
+                while (col + 1 < tiles.tilesAcross && tiles.marked[row * tiles.tilesAcross + col + 1]) col++
+                val key = first * tiles.tilesAcross + col
+                val extending = open[key]
+                if (extending != null) {
+                    extending.rowEnd = row
+                    current[key] = extending
+                } else {
+                    val rect = Rect(row, row, first, col)
+                    rectangles.add(rect)
+                    current[key] = rect
+                }
+                col++
+            }
+            open = current
+        }
+        return rectangles.sortedWith(compareBy({ it.rowStart }, { it.colStart }))
+            .map { tiles.mergedBox(it.rowStart, it.rowEnd, it.colStart, it.colEnd) }
+    }
+
+    /** One merged window in **tile** coordinates, inclusive — a run's own span, grown down the rows. */
+    private class Rect(val rowStart: Int, var rowEnd: Int, val colStart: Int, val colEnd: Int)
+
+    /** The marked-tile lattice: the tile sizes, the grid shape, and which tiles the ribbon marks. */
+    private class FineTileGrid(
+        private val originLatSouth: Double,
+        private val originLonWest: Double,
+        val sideLat: Double,
+        val sideLon: Double,
+        val tilesDown: Int,
+        val tilesAcross: Int,
+        private val capLatNorth: Double,
+        private val capLonEast: Double,
+        val marked: BooleanArray
+    ) {
+        /** The tile row a packed key carries. */
+        fun rowOf(key: Int): Int = key / tilesAcross
+
+        /** The tile column a packed key carries. */
+        fun colOf(key: Int): Int = key % tilesAcross
+
+        private fun tileLatSouth(row: Int): Double = originLatSouth + row * sideLat
+
+        private fun tileLonWest(col: Int): Double = originLonWest + col * sideLon
+
+        /** One tile's box, its far edges clamped to the corridor exactly as the windows have always been. */
+        fun tileBox(row: Int, col: Int): BBox {
+            val latSouth = tileLatSouth(row)
+            val lonWest = tileLonWest(col)
+            return BBox(
+                latSouth, minOf(latSouth + sideLat, capLatNorth),
+                lonWest, minOf(lonWest + sideLon, capLonEast)
+            )
+        }
+
+        /** One rectangle's box — the tiles `[rowStart..rowEnd] × [colStart..colEnd]` bound as their own union. */
+        fun mergedBox(rowStart: Int, rowEnd: Int, colStart: Int, colEnd: Int): BBox {
+            val latSouth = tileLatSouth(rowStart)
+            val lonWest = tileLonWest(colStart)
+            return BBox(
+                latSouth, minOf(tileLatSouth(rowEnd) + sideLat, capLatNorth),
+                lonWest, minOf(tileLonWest(colEnd) + sideLon, capLonEast)
             )
         }
     }

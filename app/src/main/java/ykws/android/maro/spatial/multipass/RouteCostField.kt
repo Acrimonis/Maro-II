@@ -58,15 +58,28 @@ sealed interface RouteCostSource {
     /**
      * A price — passable, and the metres standing inside it cost [costSec] seconds more. Its [tag] is
      * the cell state the rasterizer writes, the dearest price winning where two overlap.
+     *
+     * @param clearanceAt the distance (m) from a point to this source's nearest price boundary — the
+     *   place its own arm changes — or `Double.MAX_VALUE` where it names none. The declaration is the
+     *   source's own law: a boundary must be a **true distance** to a real arm change, and **every**
+     *   arm change belongs in it — a hole in a ring and a collar's edge included. `MAX_VALUE` is the
+     *   honest default and can never prove a group (see [priceClearanceM]).
      */
     class Soft(
         private val priceSec: (LatLng) -> Double,
-        val tag: MultipassCellState
+        val tag: MultipassCellState,
+        private val clearanceAt: (LatLng) -> Double = { Double.MAX_VALUE }
     ) : RouteCostSource {
 
         override fun costSec(p: LatLng): Double = priceSec(p)
 
         override fun blocked(p: LatLng): Boolean = false
+
+        /**
+         * The metres from [p] to the nearest point where this source's price arm changes —
+         * `Double.MAX_VALUE` where the source names no boundary, which never proves a group.
+         */
+        fun priceClearanceM(p: LatLng): Double = clearanceAt(p)
     }
 }
 
@@ -264,15 +277,43 @@ class RouteCostField(
     /** True when a wall is rastered per cell — a field whose walls are all swept writes no block. */
     val hasBlocking: Boolean get() = rasteredHard.isNotEmpty()
 
-    /** The one evaluator: the hard block at [p], its summed soft price, and the tag that price writes. */
+    /**
+     * The one evaluator: [priceAt] plus the hard walls' own test. The price law keeps one home here,
+     * so the walk that only wants the seconds a cell costs can ask [softPriceSecAt] and pay no
+     * `blocked` read at all — the verdict it would discard.
+     */
     fun evaluate(p: LatLng): RouteCostAtPoint {
-        var blocked = false
+        val price = priceAt(p)
         for (source in sources) {
-            if (source.blocked(p)) {
-                blocked = true
-                break
-            }
+            if (source.blocked(p)) return RouteCostAtPoint(true, price.softCostSec, price.tag)
         }
+        return price
+    }
+
+    /**
+     * **The price law read alone** — the summed soft price at [p], no hard source asked. It is the
+     * body of [evaluate] without its hard loop, so a walk that reads the price and discards the
+     * `blocked` flag stops paying for it, and the two can never disagree about the price.
+     */
+    fun softPriceSecAt(p: LatLng): Double = priceAt(p).softCostSec
+
+    /**
+     * Distance (m) to the nearest **soft price boundary** — the minimum over the field's soft sources
+     * of their own declaration ([RouteCostSource.Soft.priceClearanceM]), the shape [hardDistanceM]
+     * already has for the walls, so the walk asks one number and the sources stay the only ones who
+     * know their own law. `Double.MAX_VALUE` where no source names one, which proves nothing.
+     */
+    fun priceClearanceM(p: LatLng): Double {
+        var nearest = Double.MAX_VALUE
+        for (source in soft) {
+            val clearance = source.priceClearanceM(p)
+            if (clearance < nearest) nearest = clearance
+        }
+        return nearest
+    }
+
+    /** The price law's one home: the summed soft price at [p] and the dearest tag, no wall asked. */
+    private fun priceAt(p: LatLng): RouteCostAtPoint {
         var costSec = 0.0
         var tag = MultipassCellState.FREE
         for (source in soft) {
@@ -282,7 +323,7 @@ class RouteCostField(
                 if (source.tag.ordinal > tag.ordinal) tag = source.tag
             }
         }
-        return RouteCostAtPoint(blocked, costSec, tag)
+        return RouteCostAtPoint(false, costSec, tag)
     }
 
     /**

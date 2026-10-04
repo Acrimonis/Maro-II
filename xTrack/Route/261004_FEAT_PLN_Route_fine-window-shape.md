@@ -183,7 +183,11 @@ java.lang.OutOfMemoryError: Failed to allocate a 16 byte allocation ... <1% of h
 
 - **The window count's own cost** — the reading prices it at ~12 ms a window, so the trade has moved from
   memory to time: merging adjacent tiles along the coast, or cutting the chain at a wider half-width, is the
-  next cut. Its own reading decides, since widening trades the memory back.
+  next cut. Its own reading decides, since widening trades the memory back. **Taken 2026-10-04, by the merge
+  rather than by the widening**: the marked tiles are merged into **exact-union rectangles** on the lattice's
+  own lines, so no lattice cell is added or dropped and the memory a widened side would have handed back is
+  never spent — the fixture's 129 tiles became **3 windows**, and the grown corridor's own device figure is
+  the user's to take.
 - **A tile that is not a rectangle** — a segment plus a half-width, rastered as a rotated lattice. It would
   remove the `sqrt 2` over-coverage, and it is a lattice change rather than a box change. Resume condition:
   the reshape measured — done — and the over-coverage visible in its readings, which it is not yet.

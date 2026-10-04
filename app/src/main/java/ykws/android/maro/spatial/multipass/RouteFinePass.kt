@@ -23,12 +23,20 @@ internal class RouteFinePass(
      * The λ-priced soft cost of [points] against [field] — the same per-segment walk the pull's
      * `softPricePrefix` uses, summed to the whole line, so this comparison prices exactly what the
      * search and the pull priced.
+     *
+     * @param coarseStepM the coarsening step, the same one the walk that produced [points] was handed,
+     *   so this site inherits the walk's own proof rather than inventing a partition of its own.
      */
-    internal fun pricedLineCost(points: List<LatLng>, marginM: Double, field: RouteCostField): Double {
+    internal fun pricedLineCost(
+        points: List<LatLng>,
+        marginM: Double,
+        coarseStepM: Double,
+        field: RouteCostField
+    ): Double {
         if (!field.hasSoft || points.size < 2) return 0.0
         var total = 0.0
         for (i in 1 until points.size) {
-            total += MultipassPull.softPriceSec(points[i - 1], points[i], marginM, field)
+            total += MultipassPull.softPriceSec(points[i - 1], points[i], marginM, coarseStepM, field)
         }
         return total
     }
@@ -177,8 +185,8 @@ internal class RouteFinePass(
         val local = MultipassPull.pull(
             snapped, start, aim, marginM, coarseStepM, guard, approaches, refusals
         )
-        val localCost = pricedLineCost(local, marginM, guard)
-        val coarseCost = pricedLineCost(line.subList(first, last + 1), marginM, guard)
+        val localCost = pricedLineCost(local, marginM, coarseStepM, guard)
+        val coarseCost = pricedLineCost(line.subList(first, last + 1), marginM, coarseStepM, guard)
         if (localCost > coarseCost) {
             trace {
                 "FINE zone=${zone.name} spliced=no reason=worse " +
@@ -245,8 +253,8 @@ internal class RouteFinePass(
         val coarseTimed = timeLineWithLimits(
             line, pace, limitAt, clockSampleM(cellM, fineCellM)
         )
-        val fineCost = pricedLineCost(pass.line, marginM, guard)
-        val coarseCost = pricedLineCost(line, marginM, guard)
+        val fineCost = pricedLineCost(pass.line, marginM, fineCellM, guard)
+        val coarseCost = pricedLineCost(line, marginM, fineCellM, guard)
         val better = fineCost <= coarseCost
         trace {
             "FINE research answered=true spliced=$better " +
