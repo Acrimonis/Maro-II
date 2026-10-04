@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-19 09:31
+modified: 2026-10-04 00:34
 ---
 
 # Feature: WorkflowImprovement
@@ -155,6 +155,8 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - Resolutions: all three taken by the user's decision — a leave writes nothing and D9 with D10 stand unchanged; the one nudge stays in `#doctor` and the bake keeps a cross-reference; the INDEX gains `dropped` for a plan closed without ever shipping, which also fixes how the page's abandoned-material clause reads. Dropped: nothing — the level exhausted with every item ticked.
 
 ## Implemented
+
+- **Claude Code agent adapters (2026-10-04)** — five subagent files in `.claude/agents/` — architect, orchestrator, code, debug and ask — each a YAML frontmatter block plus a thin pointer to `AGENTS.md` §8, transposing the mode handoff for Claude Code; the role framing around each pointer is a deliberate, user-ordered carve-out from §8a's pointer-only adapter rule, flagged rather than hidden
 
 - **`#new`'s upstream and `#rename` — the branch carries its own name (2026-09-21, `feature/whatever`)** — a branch no longer tracks the base it was cut from. `#new` cuts with `checkout --no-track -b`, its recreate path takes the same flag and clears any upstream it finds, and `#push` runs `git push -u origin <branch>`, that flag being what writes the upstream while a bare push only refuses and prints the same command; `#move new` takes the flag too, at the third creation site. `#rename [topic]` moves the branch to `feature/[topic]`, clears an upstream that does not name it, and where the old name is published carries the rename to the origin — push the new name, delete the old, prune — the deletion asking once and naming that it closes any open pull request on that branch; bare mode reports and writes nothing, and the refusals cover `develop`/`main`, the same name, a local target, a target on origin and a detached HEAD. `#rename` joined the protected-branch rule's mechanical decliners and both carve-outs joined the ask-nothing sentence in the Core Directives; the git page, the derived view, the `#rule` page and the `gitting-it` sentence follow. Every path was measured on a scratch repository, which also broke the plan's token order — the working form is `checkout --no-track -B` — and confirmed `push.default` unset, so `simple` is in force; the plan's T3 and §2 were corrected from that output. A second measurement pass then showed the flag is mandatory for a deeper reason too: the `--no-track` form keeps whatever upstream the branch carried while a flagless `-B` re-points it at the start point, `--unset-upstream` reports exit 128 with a `fatal:` prefix when there is nothing to clear, the dirty-tree carry-across reproduces on the new command form, and `ls-remote` exits 0 for a branch that does not exist, so the published probe reads its output rather than its code. Nothing committed → `xTrack/WorkflowImprovement/260921_FEAT_PLN_WorkflowImprovement_new-upstream-and-rename.md`
 
