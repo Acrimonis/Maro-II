@@ -169,6 +169,25 @@ object AppConfig {
     var routeRepairMaxRadiusM: Double = 200.0
         private set
 
+    /**
+     * The most cells one walk's own layers may hold, coarse and fine together — `route.walk.maxCells`,
+     * default 600 000, clamped [ROUTE_WALK_MAX_CELLS_MIN]..[ROUTE_WALK_MAX_CELLS_MAX].
+     *
+     * A **guard, never a tuning value**: the rasterizer's dense cells and its ring fill's own allocations
+     * share the heap, and a walk wide enough dies there rather than answering — measured 2026-10-04 on one
+     * long route, 476 700 fine cells survived where the 1 178 555 of its grown retry did not. A walk over
+     * this ceiling is refused **before** anything is rastered, with a trace line, so the caller answers the
+     * line it already has instead of the app dying.
+     */
+    var routeWalkMaxCells: Int = 600_000
+        private set
+
+    /** Lowest walk ceiling the load accepts — below it a long coastal route would be refused by an accident of the file. */
+    const val ROUTE_WALK_MAX_CELLS_MIN = 10_000
+
+    /** Highest walk ceiling the load accepts — the point past which the guard could not save the heap anyway. */
+    const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
+
 
     /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
     var routeAvoidObstacleMarginM: Double = 25.0
@@ -1756,6 +1775,8 @@ object AppConfig {
                 ?.let { routeMinAcquisitionLengthM = it.coerceAtLeast(0.0) }
             props.getProperty("route.repair.maxRadiusM")?.toDoubleOrNull()
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
+            props.getProperty("route.walk.maxCells")?.toIntOrNull()
+                ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine ratio Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {

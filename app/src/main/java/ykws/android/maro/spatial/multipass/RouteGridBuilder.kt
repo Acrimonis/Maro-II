@@ -6,7 +6,9 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
+import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -63,6 +65,18 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         }
         val cellM = tiles.first().cellM
         val fineCellM = plan.fineCellM(cellM)
+        // The walk's own ceiling, asked **before** anything is rastered: a corridor this wide dies in the
+        // rasterizer rather than answering, so it is refused here — with its own trace line, and the engine
+        // answers the line it already has.
+        val singleLattice = WalkLattice.of(box, cellM)
+        val singleCells = cellsOf(box, singleLattice.cellSizeDegLat, singleLattice.cellSizeDegLon)
+        if (!withinBudget(singleCells)) {
+            trace {
+                "WALK refused cells=$singleCells ceiling=${AppConfig.routeWalkMaxCells} " +
+                    "box=${boxText(box)} cell=${fmt(cellM)}m"
+            }
+            return null
+        }
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
@@ -162,7 +176,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         tiles: List<GridTile>,
         pace: Double,
         trace: (() -> String) -> Unit
-    ): GridContext {
+    ): GridContext? {
         val coarseTile = tiles.maxByOrNull { it.cellM }!!
         val fineTile = tiles.minByOrNull { it.cellM }!!
         val cellM = coarseTile.cellM
@@ -175,29 +189,62 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             costField(world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0)
         val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
         val bandSpec = bandLaw(world)
-        // The interior window (layer 0): the whole corridor at the coarse pair.
+        // The fine layer (layer 1): **the windows over the band's own water**, never the corridor's span.
+        // The mask keeps only the coastal ribbon, so the ribbon's own tiles are what is rastered — the same
+        // cells the walk could reach, at a fraction of the allocation. With no band there is no mask to bound
+        // the layer and **no fine layer at all**: the walk is the coarse grid alone, which is `avoid`'s shape.
         val coarseBox = family.coarse.snapOutward(box)
+        val fineReachM = fineWaterReachM(world, marginM, cellM)
+        val fineBoxes =
+            if (bandSpec == null) emptyList()
+            else fineWindowBoxes(family.fine, box, edges, openCoast, fineReachM)
+        // The walk's own ceiling, asked **before** anything is rastered: both layers' cells are pure
+        // arithmetic off the boxes, and a walk over the ceiling is refused rather than attempted — the
+        // grown retry then answers the line it already has instead of doubling into the heap.
+        val coarseCells = cellsOf(coarseBox, family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon)
+        val fineLayerCells =
+            fineBoxes.sumOf { cellsOf(it, family.fine.cellSizeDegLat, family.fine.cellSizeDegLon) }
+        if (!withinBudget(coarseCells + fineLayerCells)) {
+            trace {
+                "WALK refused cells=${coarseCells + fineLayerCells} coarse=$coarseCells " +
+                    "fine=$fineLayerCells windows=${fineBoxes.size} " +
+                    "ceiling=${AppConfig.routeWalkMaxCells} box=${boxText(box)}"
+            }
+            return null
+        }
+        // The interior window (layer 0): the whole corridor at the coarse pair.
         val interiorGrid = rasterizeWindow(
             coarseBox, family.coarse, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
             zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec
         )
-        // The band window (layer 1): the corridor at the fine pair, masked to the band's own water.
-        val fineBox = family.fine.snapOutward(box)
-        val bandGrid = rasterizeWindow(
-            fineBox, family.fine, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
-            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            bandMask = true, bandMaskWidthM = cellM
-        )
-        val windows = listOf(
+        val fineStartNs = System.nanoTime()
+        val windows = ArrayList<WalkWindow>(fineBoxes.size + 1)
+        windows.add(
             WalkWindow(
                 interiorGrid, family.coarse.rowOf(coarseBox.latSouth),
                 family.coarse.colOf(coarseBox.lonWest), layer = 0
-            ),
-            WalkWindow(
-                bandGrid, family.fine.rowOf(fineBox.latSouth),
-                family.fine.colOf(fineBox.lonWest), layer = 1
             )
         )
+        var fineCells = 0
+        for (fineBox in fineBoxes) {
+            val bandGrid = rasterizeWindow(
+                fineBox, family.fine, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
+                zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
+                bandMask = true, bandMaskWidthM = cellM
+            )
+            fineCells += bandGrid.rows * bandGrid.cols
+            windows.add(
+                WalkWindow(
+                    bandGrid, family.fine.rowOf(fineBox.latSouth),
+                    family.fine.colOf(fineBox.lonWest), layer = 1
+                )
+            )
+            trace { "FINE window box=${boxText(fineBox)} cells=${bandGrid.rows}x${bandGrid.cols}" }
+        }
+        trace {
+            "GRID layer=fine windows=${fineBoxes.size} cells=$fineCells reach=${fmt(fineReachM)}m " +
+                "cell=${fmt(fineCellM)}m ms=${fmt(msSince(fineStartNs))}"
+        }
         val walk = WalkWindows.onLattice(family.layers, windows)
         val startCell = interiorGrid.cellOf(from.latitude, from.longitude)
         val aimCell = interiorGrid.cellOf(to.latitude, to.longitude)
@@ -228,7 +275,6 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 "start=${cellRead(world, interiorGrid, startCell, from, startStateBefore)} " +
                 "aim=${cellRead(world, interiorGrid, aimCell, to, aimStateBefore)}"
         }
-        trace { "GRID layer=fine ${inventory(bandGrid)}" }
         trace { carveLine("start", startCarve) }
         trace { carveLine("aim", aimCarve) }
         // Phase 6: each corner's own reach is the **local** cell it stands on — fine where the water is the
@@ -286,6 +332,92 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         } ?: raw
         if (box.latSouth >= box.latNorth || box.lonWest >= box.lonEast) return null
         return Corridor(box, bounds != null && box != raw)
+    }
+
+    /**
+     * The cells a box holds at one cell size — **the budget's own arithmetic**, and the number the
+     * rasterizer will allocate: the frame's own ceiling, asked of a box before anything is built.
+     */
+    internal fun cellsOf(box: BBox, cellSizeDegLat: Double, cellSizeDegLon: Double): Int {
+        if (cellSizeDegLat <= 0.0 || cellSizeDegLon <= 0.0) return Int.MAX_VALUE
+        val rows = ceil((box.latNorth - box.latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
+        val cols = ceil((box.lonEast - box.lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
+        return rows.toLong().times(cols.toLong()).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+
+    /**
+     * Whether a walk holding [cells] stands inside the ceiling — the one comparison, so the guard is asked
+     * in one place and a test can ask it with a ceiling of its own.
+     */
+    internal fun withinBudget(cells: Int, ceiling: Int = AppConfig.routeWalkMaxCells): Boolean =
+        cells <= ceiling
+
+    /**
+     * The reach (m) the fine layer's own mask keeps water within — the band's own water plus the clearance's
+     * dilation, so a window's cut can never fall short of the water the mask will keep. It is read by the cut
+     * and by nothing else: one home for the ribbon's own width.
+     */
+    private fun fineWaterReachM(world: MultipassWorld, marginM: Double, cellM: Double): Double =
+        bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300OutsideMarginM) + marginM + cellM
+
+    /**
+     * **The fine layer's windows — the corridor's own coast, tiled, and nothing else.**
+     *
+     * The band's water is a ribbon within [reachM] of the coast, so the fine layer is rastered on the lattice
+     * tiles that ribbon touches: the joined set holds every cell the mask will keep, and every cell a tile
+     * gains outside the ribbon the mask paints land — **over-coverage costs memory and never an answer, while
+     * a missed tile would move one**. Tiles rather than a chain per coast segment because the coast arrives as
+     * thousands of short edges: a chain per edge would stack thousands of overlapping boxes over the same
+     * water, where one tile grid holds each piece of coast once.
+     *
+     * The tiles stand on [lattice]'s own lines, so every window is a whole number of cells and two windows
+     * that overlap share their cell centres exactly — the property the seam between them rests on.
+     */
+    internal fun fineWindowBoxes(
+        lattice: WalkLattice,
+        box: BBox,
+        edges: List<MultipassEdge>,
+        openCoast: List<List<LatLng>>,
+        reachM: Double
+    ): List<BBox> {
+        if (reachM <= 0.0) return emptyList()
+        val sideCells = ceil(reachM / lattice.cellM).toInt().coerceAtLeast(1)
+        val sideLat = lattice.cellSizeDegLat * sideCells
+        val sideLon = lattice.cellSizeDegLon * sideCells
+        val origin = lattice.snapOutward(box)
+        val tilesDown = ceil((box.latNorth - origin.latSouth) / sideLat).toInt().coerceAtLeast(1)
+        val tilesAcross = ceil((box.lonEast - origin.lonWest) / sideLon).toInt().coerceAtLeast(1)
+        val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
+        val marked = HashSet<Int>()
+        // A segment's own box, grown by the reach, is what a tile must meet — a superset of the ribbon's
+        // tiles, and a superset is the safe side of this cut.
+        fun mark(a: LatLng, b: LatLng) {
+            val south = minOf(a.latitude, b.latitude) - reachM / mPerDegLat
+            val north = maxOf(a.latitude, b.latitude) + reachM / mPerDegLat
+            val west = minOf(a.longitude, b.longitude) - reachM / mPerDegLon
+            val east = maxOf(a.longitude, b.longitude) + reachM / mPerDegLon
+            if (north < box.latSouth || south > box.latNorth) return
+            if (east < box.lonWest || west > box.lonEast) return
+            val firstRow = floor((south - origin.latSouth) / sideLat).toInt().coerceIn(0, tilesDown - 1)
+            val lastRow = floor((north - origin.latSouth) / sideLat).toInt().coerceIn(0, tilesDown - 1)
+            val firstCol = floor((west - origin.lonWest) / sideLon).toInt().coerceIn(0, tilesAcross - 1)
+            val lastCol = floor((east - origin.lonWest) / sideLon).toInt().coerceIn(0, tilesAcross - 1)
+            for (row in firstRow..lastRow) for (col in firstCol..lastCol) marked.add(row * tilesAcross + col)
+        }
+        for (edge in edges) mark(edge.a, edge.b)
+        for (coast in openCoast) {
+            for (i in 0 until coast.size - 1) mark(coast[i], coast[i + 1])
+        }
+        return marked.sorted().map { key ->
+            val row = key / tilesAcross
+            val col = key % tilesAcross
+            val latSouth = origin.latSouth + row * sideLat
+            val lonWest = origin.lonWest + col * sideLon
+            BBox(
+                latSouth, minOf(latSouth + sideLat, box.latNorth),
+                lonWest, minOf(lonWest + sideLon, box.lonEast)
+            )
+        }
     }
 
     /** The grid's own inventory, counted once per solve for the instrument: the four tags' cell counts. */

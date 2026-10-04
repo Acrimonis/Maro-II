@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-04 17:40
+modified: 2026-10-04 19:26
 ---
 
 # Feature: Route
@@ -79,23 +79,27 @@ Arrival carries no state and no cue: it is the trip cell reading zero while the 
 3. The feature declares no conversion constant, no baked artifact and no dependency of its own, and the zone and band values stay the RegulatedZones layer's.
 4. All Route runtime state lives in `RouteViewModel` (`StateFlow`), and `RouteHost` is the only file touching osmdroid.
 
+## Implemented
+
+- **The pull's sampled clearance** (Phases 1–3, commit `d7b3fabf`) — the field's two hard reads split, the coarse step a required parameter threaded per engine, and the live coastline distance paid only where a coarse mark's 1-Lipschitz bound cannot prove the half-step clear, with the pull's own `ms` · `clearMs` · `priceMs` line beside it. The device reading says the cut worked and moved nothing: the clearance half stands at 0.8–3.5 s and the line, distance and clock are unchanged → [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md).
+- **The fine layer's windows, and the walk's own ceiling** (Phases 1–4, 2026-10-04) — the fine layer is rastered as windows over the coastal ribbon instead of the corridor's whole span, which retired the out-of-memory the grown corridor caused (1 178 555 cells down to 205 824 across 361 windows), and `route.walk.maxCells` refuses any walk whose own layers cannot fit, on the plain and the grown build alike → [`261004_FEAT_PLN_Route_fine-window-shape.md`](261004_FEAT_PLN_Route_fine-window-shape.md).
+
 ## Delta
 
 **Owed builds**
 
 - The trigger's read of the pair hoisted above the readiness test, so both the ready path and the retry arm on the pair the press resolved → [`260929_FEAT_PLN_Route_trigger-read-at-press.md`](260929_FEAT_PLN_Route_trigger-read-at-press.md).
-- **The new invalid-end behaviour**: where the boat's own position is the origin or the destination and is not valid water (land, or shallower than the minimum depth), move that point to the nearest valid water on the sea side.
-- **The fan's close rule reads a bare index** — `onChildClick` closes the arc on `index == 3 || index == 4` ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:4510)): a named flag carried beside the `children`/`routeFanActions` lists would survive a reorder of either. A separate pass, not part of the R91 wording change.
-- **The pull's sampled clearance** — the pull is the route's cost centre since the re-walk's retirement, and one read is coarsened: the live coastline distance at one per walk cell, with **today's marks kept** and only the read skipped where a coarse mark proves the half-step around it. Two engines take it, because it lands in the shared `multipass` layer and only the step travels per engine → [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md).
+- **The fan's close rule reads a bare index** — `onChildClick` closes the arc on `index == 3 || index == 4` ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:4656)): a named flag carried beside the `children`/`routeFanActions` lists would survive a reorder of either. A separate pass, not part of the R91 wording change.
+- **The price walk's reads** — the pull's remaining seconds, now measured: `priceMs=13828.2` of `ms=17303.1` at λ = 2.5, against the clearance half's 3470.6, so **80 % of the pull is the priced water's own read** and the coarse-marks cut has done its part. Coarsening it needs each soft source to declare its **distance thresholds** first — the band's width and reach, a zone's collar and ring offsets — so this is the pull plan's parked item whose resume condition the reading met → [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md).
 
 **The order the open work is taken in, and why**
 
-1. **The record of what shipped** — the retirement's one line into `## Implemented` and the hydration, at the next `#bake`; a day's work whose record lags is a day the next session re-derives.
-2. **The pull's inert plating, plus its own trace line** — the field's two hard reads split, the coarse step a required parameter, every caller threading **today's fine step**, so nothing is skippable and no answer moves; the timer lands alongside so the pull's share is measured before it is changed rather than inferred from two trace gaps.
-3. **A build, and the pull measured on the capture's own pair** — the baseline the win is judged against, and the first reading of the price walk's share.
-4. **The skip itself, with its four tests** — the coarse marks and the read dropped where a coarse mark proves the water; the exit is the suite green and the counting field's reads down.
-5. **The measurement again, both engines, and the figures recorded** — the pull's own line first, then the same arms.
-6. **Then the parked conditions, each on its own trigger** — the crossing seat's price once the trace separates it from the re-tension; the price walk's reads once each soft source declares its distance thresholds; the fine window's reshape, which no phase owns yet.
+1. **The record of what shipped — taken by the bake of 2026-10-04 19:26**: both plans and their device figures are in `## Implemented` and the hydration.
+2. **Done: the pull's plating, its trace line, the coarse skip and its four tests** (commit `d7b3fabf`, Phases 1–3 of [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md)), **and the fine layer's reshape with its cell budget** (Phases 1–4 of [`261004_FEAT_PLN_Route_fine-window-shape.md`](261004_FEAT_PLN_Route_fine-window-shape.md), which also retired the out-of-memory). Both device readings are taken.
+3. **The window count's own cost** — the fine layer rasters 361 tiles at ~12 ms each (6 725 ms on the grown corridor, and the grown corridor is built again on the retry), so merging adjacent tiles along the coast is the cheapest measured win; the estimator already bounds the memory a fatter tile hands back.
+4. **The price walk's reads, its plan first** — the pull's **80 %** (13.8–14.3 s of 17.3–18.0 s at λ = 2.5) and the largest single win left. It needs each soft source to declare its **distance thresholds**, and its plan must state the **price error** a coarsened price walk accepts, because the guard's verdict is a number and not only a verdict. Its own device reading follows the build.
+5. **The mark count itself** — the two-pointer's `n² / 2` sampled volume, once the per-read cost is down.
+6. **The rest, each on its own trigger** — the crossing seat's price once the trace separates it from the re-tension; a tile that is not a rectangle once the over-coverage shows in a reading; the fan's close rule, the hygiene trio and the provisional figure's mark from the review.
 7. **`avoid`'s parked ratio test is the user's own** and can land at any point; it sets the fine pass's cell, which is a step this work merely reads.
 
 **Owed removals**
@@ -147,7 +151,8 @@ The live numbered requirements — added after the master book was retired on 20
 - [ ] **The multi-route save, withdrawn 2026-09-24** — the exit dialog no longer offers to write the session's routes; resolve later whether it comes back and, if it does, what names its files.
 - [ ] **The provisional figure is shown unmarked (R96)** — a waiting row's early distance and ETA wear the settled weight while the figure will move by up to a percent; decide whether a mark is owed. This is the one item the 2026-10-04 review left that changes what the user sees.
 - [ ] **Three hygiene items the same review left** — the haversine length sum duplicated in `RoutePassRunner.pulledLengthM` and `RouteAvoidEngine.lineLengthM`, the runner's class KDoc not naming its now-unconditional provisional emission, and a clock read thrown away where `RouteFinePass` discards the pair it computes.
-- [ ] **The fine window's shape is the open defect Phase 4 left** — the fine layer is a tile spanning the whole corridor with the band as a mask on it, twenty-five times the coarse grid's cells where the design's own strip would be a few thousand, and the plan's code-health section rejects that shape in words; `GridTile(box, cellM)` cannot express a strip, so re-shaping it is a plan-seam question, and no phase currently owns it.
+- [ ] **The window count's own cost** (the order's step 3, the cheapest measured win) — the fine layer rasters 361 tiles at ~12 ms each, 6 725 ms on the grown corridor and paid again on its retry: merge adjacent tiles along the coast, with the coverage test and the estimator standing as its guards → [`261004_FEAT_PLN_Route_fine-window-shape.md`](261004_FEAT_PLN_Route_fine-window-shape.md).
+- [ ] **The price walk's reads** (the order's step 4, the largest single win) — 80 % of the pull, 13.8–14.3 s of 17.3–18.0 s at λ = 2.5: the plan comes first, each soft source declaring its **distance thresholds**, and the **price error** the coarsening accepts stated rather than claimed exact → [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md).
 - [ ] **Two smaller readings Phase 4 owes** — the band's depth-gate arm is not evaluated where the coast arm is, and `WalkWindows.passableCount()` sums both layers, so a passable-cell count on `evolutive` is no longer an area.
 
 ## Rules
@@ -175,7 +180,7 @@ The live numbered requirements — added after the master book was retired on 20
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/maro.properties` (every route value, the new `route.line.casing.widthDp` among them) + `app/src/main/assets/ui.properties` (the one reinforcement lever `ui.reinforce.darkenPct`) — where every route value lives
 - `app/src/main/java/ykws/android/maro/ui/color/ColorReinforcement.kt` — `reinforcedColor`: the pure, RGB-only darkening a user-picked colour's derived reinforcement edge takes, the caller reading the lever (R93)
 - `app/src/test/java/ykws/android/maro/spatial/` — `RouteDummyEngineTest`, `RouteAvoidEngineTest`, `RouteEngineChoiceTest`, `PrebakedCoastline`, `CoastlinePointWalkTest`
-- `app/src/test/java/ykws/android/maro/spatial/multipass/` — nine suites: stage 1, the cost field, the depth gate, the band's cost, the berth carve, the corner pass, the speed profile, the zone phase 4, the tangent corners
+- `app/src/test/java/ykws/android/maro/spatial/multipass/` — eleven suites: stage 1, the cost field, the depth gate, the band's cost, the berth carve, the corner pass, the speed profile, the zone phase 4, the tangent corners, the pull's sampled clearance (`AvoidPullSamplingTest`) and the fine layer's shape with the walk's ceiling (`RouteFineWindowShapeTest`)
 - `app/src/test/java/ykws/android/maro/ui/map/` — `RouteAcquisitionTest`, `RouteEngineSeamTest`, `RoutePlanTest`, `RouteStoredMatchTest`, `RouteMirrorPlanTest`
 - `app/src/main/java/ykws/android/maro/data/track/Track.kt` — the `route` flag and the two persisted end ids (`routeStartMarkerId`, `routeDestinationMarkerId`) a saved route carries
 - `app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt` — the save that writes the two end ids on the built track
@@ -189,7 +194,8 @@ The live numbered requirements — added after the master book was retired on 20
 - [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md) — **Phases 1–7 landed, Phase 8 (the record) remaining**: the adaptive first walk, fine (20 m, the precision contract) beside the coast and the depth gate, coarse (100 m) in open water, at 1 : 5; the device reading confirmed the corridor's half-width at 150 m, and the second pass's re-walk is now retired for **both** engines — `evolutive` off the corridor's own reading, `avoid` off the capture of 2026-10-04, where it cost 2.7×–4.0× the coarse pass and carried 71–80 % of a rung's wall time to decide three keeps against three refusals by slivers
 - [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md) — **in design**: the second engine beside `avoid`, the shared-and-derived code map, the neutral step reading, and the mechanisms its one pass needs
 - [`261004_FEAT_PLN_Route_speed-attribution.md`](261004_FEAT_PLN_Route_speed-attribution.md) — **implemented, Phases 1 to 3**: the clock's sampling step now follows the grid's own cell; the "slower of the two ends" rule and its count were withdrawn on contact with the code, and Phase 4's three checks are owed
-- [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md) — **final, nothing built**: the pull's sampled clearance, where the route's seconds now live — the live coastline read coarsened to one per walk cell behind a 1-Lipschitz proof, today's marks and every other guard untouched, and the two per-engine steps named
+- [`261004_FEAT_PLN_Route_pull-clearance-sampling.md`](261004_FEAT_PLN_Route_pull-clearance-sampling.md) — **Phases 1 to 3 landed and the device reading taken** (commit `d7b3fabf`): the pull's sampled clearance — the live coastline read coarsened behind a 1-Lipschitz proof with today's marks and every other guard untouched, the two per-engine steps threaded, and the pull's own trace line telling its clearance half from the price walk's; the reading measures the clearance half at 0.8–3.5 s and the **price walk at 80 % of the pull**, so the plan's parked price-walk item has had its trigger fired
+- [`261004_FEAT_PLN_Route_fine-window-shape.md`](261004_FEAT_PLN_Route_fine-window-shape.md) — **Phases 1 to 4 landed** (2026-10-04): the fine layer's own water — the 20 m band layer cut as windows over the coastal ribbon instead of one corridor-sized tile, with a cell budget on every walk; the crash it was written for is retired, and its own reading prices the reshape at **6 725 ms for 361 windows**, parked with its lever named
 - Thirty-nine files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk

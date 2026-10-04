@@ -3,8 +3,9 @@
 
 Topic: **the pull's sampled clearance** — one read coarsened, every other guard left exactly as it is.
 
-Status: **final** — validated against the code and reviewed on 2026-10-04, the review's eight findings folded
-in; nothing built.
+Status: **Phases 1 to 3 landed** (commit `d7b3fabf`) and **Phase 4's device reading taken** on 2026-10-04:
+the clearance half of the pull now stands at **0.8–3.5 s** while the price walk holds **3.2–14.3 s** of it,
+so the cut is done and the parked item below has had its trigger fired.
 
 Placement: the work lands in the shared `multipass` layer, so **both engines** take it and only the step
 travels per engine. `avoid` and `evolutive` differ by their plan — the cell they walk and the region they
@@ -144,22 +145,24 @@ rule the tail already reads
   caught, and the test that must exist before any of this ships.
 - **A chord whose fine marks would read under the margin is never skipped**: the bound's own case, asserted on
   a fixture where the wall lies between two fine marks.
-- The device reading repeats the same pair and paces as [`route-phase7.txt`](../../route-phase7.txt:1), and the
-  pull's new line answers the question the capture could only infer.
+- **The device reading, taken** (2026-10-04, the same pair and paces as [`route-phase7.txt`](../../route-phase7.txt:1),
+  on the adaptive grid): `PULL ms=3948.6 clearMs=772.6 priceMs=3174.8` at λ = 5 and
+  `PULL ms=17303.1 clearMs=3470.6 priceMs=13828.2` at λ = 2.5, its twin rung at 17 970.7 with 14 332.6 price
+  — so the new line answered what the capture could only infer, and the answer is that **the price walk now
+  owns the pull**.
 
 ## Phases
 
-1. **The plumbing, provably inert** — the field's two reads split, the step a required parameter, and every
-   caller threading it as **today's fine step**. The exit is the suite green with no assertion changed: with
-   the coarse step equal to the fine one, not a single read is skippable.
-2. **The trace line, landed before the change** — so the pull's own cost and the price walk's are separable,
-   and the baseline is **measured on the device** with the same arms as the capture rather than inferred from
-   two trace gaps. A phase in this order because a win nobody measured before the change cannot be told from
-   a reroute.
+1. **The plumbing, provably inert** — **done**: the field's two reads split, the step a required parameter,
+   and every caller threading it as **today's fine step**. The suite stayed green with no assertion changed.
+2. **The trace line, landed before the change** — **done**: the pull's own cost and the price walk's are
+   separable, and the baseline was measured on the device rather than inferred from two trace gaps.
 3. **The coarse marks and the skip**, with the step taken from the walk's own cell per engine, plus the four
-   tests above. The exit is the suite green and the counting field's read count down.
-4. **The device measurement again, and the record** — both engines on the capture's arms, and this plan's
-   figures folded with the retirement's at the next bake.
+   tests above — **done**: [`AvoidPullSamplingTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/AvoidPullSamplingTest.kt)
+   pins the saving, the grazed chord, the shallow patch inside one coarse interval and the wall at a division
+   boundary, and the suite carries them green.
+4. **The device measurement, and the record** — **measured**: the figures above. What remains of this phase is
+   the record alone, folded with the retirement's at the next bake.
 
 ## Risks
 
@@ -176,13 +179,15 @@ rule the tail already reads
 
 ## Parked
 
-- **The price walk's reads** — coarsening them needs each soft source to declare its **distance thresholds**
-  first (the band's width and reach, a zone's collar and ring offsets), so an interval can be proved to hold
-  one price. Until then the price half keeps a live read per mark. Resume condition: this cut measured, and the
-  price walk's share known from the new trace line.
+- **The price walk's reads — its trigger has fired** (2026-10-04): coarsening them needs each soft source to
+  declare its **distance thresholds** first (the band's width and reach, a zone's collar and ring offsets), so
+  an interval can be proved to hold one price. The resume condition was *this cut measured, and the price
+  walk's share known from the new trace line* — the cut is measured and the share is **80 % of the pull**
+  (13.8–14.3 s of 17.3–18.0 s at λ = 2.5), so the thresholds are the next work and the price half is where the
+  route's seconds now live.
 - **The mark count itself** — the two-pointer's `n² / 2` sampled volume is untouched here. Fixed sample marks
   along a chord with a memo of the reads they already paid is the next lever, measurable once the per-read cost
-  is down.
+  is down — and the reading says the **price** marks dominate, so its own coarsening comes first.
 
 ## Open questions
 
