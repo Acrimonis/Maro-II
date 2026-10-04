@@ -18,7 +18,8 @@ class RouteSpeedProfileTest {
         val timed = timeLineWithProfile(
             points, paceKn = 28.0,
             limitKnAt = { p -> if (p.latitude > 43.0054) 5.0 else null },
-            ceilingKnAt = { null }
+            ceilingKnAt = { null },
+            sampleM = 25.0
         )
         for (i in timed.legSpeedsMps.indices) {
             val mid = (timed.points[i].latitude + timed.points[i + 1].latitude) / 2.0
@@ -40,7 +41,8 @@ class RouteSpeedProfileTest {
         val timed = timeLineWithProfile(
             points, paceKn = 28.0,
             limitKnAt = { p -> if (p.latitude < 43.0045) 5.0 else null },
-            ceilingKnAt = { null }
+            ceilingKnAt = { null },
+            sampleM = 25.0
         )
         for (i in timed.legSpeedsMps.indices) {
             val mid = (timed.points[i].latitude + timed.points[i + 1].latitude) / 2.0
@@ -53,8 +55,9 @@ class RouteSpeedProfileTest {
     fun aCornerCeilingSlowsTheRoute() {
         val points = listOf(north(43.0), north(43.003), north(43.006), north(43.009))
         val capped = north(43.006)
-        val free = timeLineWithProfile(points, 28.0, { null }, { null })
-        val cappedLine = timeLineWithProfile(points, 28.0, { null }, { p -> if (p == capped) 5.0 else null })
+        val free = timeLineWithProfile(points, 28.0, { null }, { null }, sampleM = 25.0)
+        val cappedLine =
+            timeLineWithProfile(points, 28.0, { null }, { p -> if (p == capped) 5.0 else null }, sampleM = 25.0)
         assertTrue("the curvature ceiling slows the route", cappedLine.durationSec > free.durationSec)
         val paceMps = Units.knotsToMps(28.0)
         for (s in cappedLine.legSpeedsMps) {

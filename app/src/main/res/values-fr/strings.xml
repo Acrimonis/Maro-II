@@ -694,6 +694,13 @@
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
+    <string name="route_engine_evolutive">Adaptative</string>
+    <!-- Les mesures d'étape qu'un moteur rapporte pendant une recherche — un libellé par chiffre, une unité par sorte. -->
+    <string name="route_reading_expansions">Extensions</string>
+    <string name="route_reading_passable_cells">Navigables</string>
+    <string name="route_reading_pulled_points">Points tendus</string>
+    <string name="route_unit_cells">cellules</string>
+    <string name="route_unit_points">points</string>
     <!-- Les libellés hâte-versus-plaisir des réglages pour les trois barreaux — les trois mêmes
          aversions que la première colonne de l\'acquisition nomme par leur traitement de l\'eau lente. -->
     <string name="route_computation_through">Rapide</string>

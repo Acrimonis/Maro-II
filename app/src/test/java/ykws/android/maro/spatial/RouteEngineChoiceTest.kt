@@ -38,6 +38,10 @@ class RouteEngineChoiceTest {
             "the avoid row builds the avoid engine",
             RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteAvoidEngine
         )
+        assertTrue(
+            "the evolutive row builds the evolutive engine",
+            RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteEvolutiveEngine
+        )
     }
 
     @Test

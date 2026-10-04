@@ -203,7 +203,7 @@ class RouteZonePhase4Test {
         val a = LatLng(43.5, 7.00)
         val b = LatLng(43.5, 7.01)
         val dist = SpatialOperations.haversine(a, b)
-        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = { _ -> 5.0 })
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = { _ -> 5.0 }, sampleM = 25.0)
 
         assertEquals(listOf(a, b), timed.points)
         assertEquals(1, timed.legTimesSec.size)
@@ -218,7 +218,7 @@ class RouteZonePhase4Test {
         val limitKnAt: (LatLng) -> Double? = { p ->
             if (p.longitude in 7.02..7.04 && p.latitude in 43.49..43.51) 5.0 else null
         }
-        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt)
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, sampleM = 25.0)
 
         assertEquals("two boundary crossings insert two vertices", 4, timed.points.size)
         assertEquals(3, timed.legTimesSec.size)
@@ -232,7 +232,7 @@ class RouteZonePhase4Test {
         val a = LatLng(43.500, 7.030)
         val b = LatLng(43.506, 7.030)
         val limitKnAt: (LatLng) -> Double? = { p -> if (p.latitude >= 43.503) 5.0 else null }
-        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt)
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, sampleM = 25.0)
         val paceMps = Units.knotsToMps(28.0)
         val limitMps = Units.knotsToMps(5.0)
         val outerM = SpatialOperations.haversine(timed.points[0], timed.points[1])
@@ -243,6 +243,53 @@ class RouteZonePhase4Test {
         assertEquals("and its made-good speed is the pace", paceMps, timed.legSpeedsMps[0], 1e-9)
         assertEquals("the inner leg rides at the 5 kn limit", innerM / limitMps, timed.legTimesSec[1], 1e-6)
         assertEquals("and its made-good speed is the enforced limit", limitMps, timed.legSpeedsMps[1], 1e-9)
+    }
+
+    @Test
+    fun aRegimeNarrowerThanTheStepHidesBetweenTwoSamples() {
+        // A 400 m leg with a 10 m strip of a 4 kn zone from 181 m to 191 m — between the 25 m step's own
+        // samples, so the coarse step walks straight through it and the leg is reported at the pace.
+        val a = LatLng(43.500, 7.030)
+        val b = LatLng(43.500 + 400.0 / 111_320.0, 7.030)
+        val limitKnAt: (LatLng) -> Double? = { p ->
+            val t = (p.latitude - a.latitude) / (b.latitude - a.latitude)
+            if (t in 0.4525..0.4775) 4.0 else null
+        }
+
+        val coarseStep = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, sampleM = 25.0)
+        assertEquals("no 25 m sample stands in the strip, so the leg is one", 2, coarseStep.points.size)
+        assertEquals("and it is reported at the pace", Units.knotsToMps(28.0), coarseStep.legSpeedsMps[0], 1e-9)
+
+        val fineStep = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, sampleM = 5.0)
+        assertEquals("a 5 m sample does stand in it, so the strip becomes its own leg", 4, fineStep.points.size)
+        assertEquals("the outer leg rides at the pace", Units.knotsToMps(28.0), fineStep.legSpeedsMps[0], 1e-9)
+        assertEquals("the strip's leg rides at its own limit", Units.knotsToMps(4.0), fineStep.legSpeedsMps[1], 1e-9)
+        assertEquals("and the far leg rides at the pace again", Units.knotsToMps(28.0), fineStep.legSpeedsMps[2], 1e-9)
+    }
+
+    @Test
+    fun aNonFiniteLimitReadsAsNoLimitEverywhere() {
+        // One NaN would otherwise make every sample look like a change in the splitter while the leg the
+        // clock timed off the same sample came out with a NaN duration — the guard's own regression.
+        val a = LatLng(43.5, 7.00)
+        val b = LatLng(43.5, 7.01)
+        val nanLimit: (LatLng) -> Double? = { Double.NaN }
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = nanLimit, sampleM = 25.0)
+
+        assertEquals("a NaN limit is no limit, so the leg stays whole", 2, timed.points.size)
+        assertEquals("and it rides at the pace", Units.knotsToMps(28.0), timed.legSpeedsMps[0], 1e-9)
+        assertTrue("with a finite time", !timed.legTimesSec[0].isNaN())
+    }
+
+    @Test
+    fun theClockStepIsDerivedFromTheFinestCellWalked() {
+        // Half the *finest* cell, so the step follows the grid rather than a constant: 20 m of second pass
+        // at the design pair, 16.665 m at the ratio the file ships today, and the coarse cell itself when
+        // the pass is no finer than it.
+        assertEquals("half the 20 m second pass at the design pair", 10.0, clockSampleM(50.0, 0.40), 1e-9)
+        assertEquals("half the 16.665 m pass the file ships today", 8.3325, clockSampleM(50.0, 0.3333), 1e-9)
+        assertEquals("and at the file's own 100 m cell", 16.665, clockSampleM(100.0, 0.3333), 1e-9)
+        assertEquals("a pass no finer than the coarse cell leaves it the finest", 25.0, clockSampleM(50.0, 1.0), 1e-9)
     }
 
     // ── Exclusion ─────────────────────────────────────────────────────────────
@@ -347,7 +394,7 @@ class RouteZonePhase4Test {
         }
         val a = LatLng(43.505, 7.02)
         val b = LatLng(43.505, 7.04)
-        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt)
+        val timed = timeLineWithLimits(listOf(a, b), paceKn = 28.0, limitKnAt = limitKnAt, sampleM = 25.0)
         val dist = SpatialOperations.haversine(a, b)
 
         assertEquals(

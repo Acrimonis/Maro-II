@@ -45,6 +45,7 @@ import kotlin.math.abs
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.RouteStage
+import ykws.android.maro.spatial.RouteStepReading
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
@@ -94,6 +95,7 @@ import ykws.android.maro.ui.components.DrawerScaffold
 internal fun RouteConfirmationPanel(
     state: RouteState,
     stage: RouteStage?,
+    stepReadings: List<RouteStepReading> = emptyList(),
     pages: List<RoutePage>,
     selectedIndex: Int,
     frontSaved: Boolean,
@@ -144,6 +146,26 @@ internal fun RouteConfirmationPanel(
                     text = it,
                     color = Color(AppConfig.uiTextPrimary),
                     fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            // The stage's own figures, one flat line beside its word: a label and a number in its own unit,
+            // every one of them a `@StringRes`. The texts are resolved in a plain loop and joined after,
+            // because a lambda is not a composable context and `stringResource` cannot be called in one.
+            if (stepReadings.isNotEmpty()) {
+                val line = StringBuilder()
+                for (reading in stepReadings) {
+                    if (line.isNotEmpty()) line.append(" · ")
+                    line.append(stringResource(reading.labelResId))
+                    line.append(' ').append(reading.value.toLong())
+                    if (reading.unitResId != 0) line.append(' ').append(stringResource(reading.unitResId))
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = line.toString(),
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

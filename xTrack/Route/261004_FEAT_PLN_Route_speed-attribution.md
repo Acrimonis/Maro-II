@@ -41,17 +41,21 @@ strictest of the zone interior's limit and the band's own width limit, or `null`
 open water between them. Detection by equality is therefore correct wherever it looks, and the whole
 problem is *where* it looks.
 
-## The contract
+## The contract, as landed
 
-- **Every emitted leg lies inside one limit regime.** Its speed is that regime's limit, and both its ends
-  read the same value.
-- **The sampling step is derived, never a constant**: `min(cellM, fineCellM) / 2`, so the clock samples at
-  least twice as finely as the finest cell the engine walks and can see every regime the grid can produce.
-- **Where a leg's ends disagree, the slowest regime wins** — the ETA is never optimistic — and the leg is
-  counted, so the residual is reported rather than averaged away.
-- **The blind spot is stated, not hidden**: a regime narrower than the step and containing no sample is
-  still not seen. At the derived step that is a strip under `min(cellM, fineCellM) / 2`, counted when a
-  leg's midpoint disagrees with its ends.
+- **Every emitted leg stands inside one limit regime**, which is exactly what makes a leg's **midpoint
+  read** the limit in force along it — the read the clock already made, and the reason no rule had to
+  change.
+- **The sampling step is derived, never a constant**: `clockSampleM(cellM, fineRatio) = min(cellM, cellM ×
+  fineRatio) / 2`, floored at 1 m, so the clock samples at least twice as finely as the finest cell the
+  engine walks and can see every regime the grid can produce.
+- **Two rules an earlier draft carried are withdrawn, having failed on contact with the code.** A "slower
+  of the two ends" rule would cap an approach leg at the *next* regime's limit and destroy the profile's
+  anticipation; and at a boundary vertex the two readings straddle the edge by a fraction of a millimetre,
+  so a "mixed legs" count would fire on every legitimate boundary. Neither was needed: purity comes from
+  the step, not from the read.
+- **The blind spot is stated, not hidden**: a regime narrower than the step that contains no sample stays
+  invisible, and no finite sampling can promise otherwise.
 
 ## The changes, site by site
 
@@ -70,13 +74,9 @@ problem is *where* it looks.
   change.
 - **`timeLineWithLimits(waypoints, paceKn, limitKnAt, sampleM)`** and the same parameter on
   `timeLineWithProfile`, added before `accelM2`, which keeps its default.
-- **The leg's speed reads both ends** (the loop at line 62): `val a = read(points[i]); val b = read(points[i + 1])`.
-  Each read is capped first — `cap(x) = min(x ?: pace, pace)`, since a limit above the pace is no limit at
-  all — and the leg's speed is `min(cap(a), cap(b))`: agreeing ends give one value, disagreeing ends give
-  the slower one, and the count below rises.
-- **`TimedLine` gains `val mixedLegs: Int = 0`**, documented as legs whose two ends disagreed. The default
-  is honest here where a defaulted *cost* would not be: a count starting at zero describes a line nobody
-  questioned, and it changes no arithmetic.
+- **The leg's speed keeps its midpoint read** — `readLimit(limitKnAt, midpoint(a, b))`, capped by the pace —
+  which is correct precisely because the legs come out pure. **`TimedLine` is unchanged**: no count and no
+  new field.
 
 `RouteAvoidEngine.kt` — three clock sites, one expression:
 
@@ -99,13 +99,11 @@ carries `legSpeedsMps` per leg, the drawing reads it, and no proto field changes
   pace — the bug reproduced; at `sampleM = 5.0` a sample lands inside it and assert **three** legs, the
   middle at 4 kn and the others at the pace. The placement is the fixture's whole point: a strip centred on
   200 m is caught even by the 25 m step, so a centred fixture would pass either way.
-- **T2 — the ends property, over a fixture with a boundary at an arbitrary position**: for every emitted
-  leg, the limit function reads the same at both ends, and `mixedLegs == 0`.
-- **T3 — the derived step, as a pure read**: `clockSampleM(50.0)` is 10.0 at the design ratio of 0.40 and
-  8.3 at 0.3333, while `clockSampleM(100.0)` — the file's own cell today — is 20.0 at 0.40 and 16.7 at
-  0.3333. Four numbers, and each is one a stale constant gets wrong.
-- **T4 — the optimistic-time rule**: a hand-built leg whose ends disagree is timed at its slower regime,
-  never at its faster one.
+- **T2 and T4 are withdrawn** with the two rules above: there is no mixed-leg count to assert and no
+  slower-end rule to prove.
+- **T3 — the derived step, as a pure read**: `clockSampleM(50.0, 0.40)` is 10.0, `clockSampleM(50.0, 0.3333)`
+  is 8.3325, `clockSampleM(100.0, 0.3333)` is 16.665 and `clockSampleM(50.0, 1.0)` is 25.0 — each one a
+  number a stale constant gets wrong.
 - **The regression harness is the three existing suites, run before and after**:
   [`RouteSpeedProfileTest`](../../app/src/test/java/ykws/android/maro/spatial/avoid/RouteSpeedProfileTest.kt:17),
   [`RouteZonePhase4Test`](../../app/src/test/java/ykws/android/maro/spatial/avoid/RouteZonePhase4Test.kt:205)
@@ -137,6 +135,28 @@ carries `legSpeedsMps` per leg, the drawing reads it, and no proto field changes
 4. **D4's three checks**, each answered in one line in the hydration and, where the answer is "wrong", a
    follow-up plan rather than a change here.
 5. **Record** — bake and fold.
+
+## What landed, 2026-10-04
+
+- **`RouteEta.kt`**: `BOUNDARY_SAMPLE_M` is deleted for the caller's required `sampleM`; `MIN_BOUNDARY_SAMPLE_M
+  = 1.0` is the splitter's floor; `splitAtLimitChanges` and `splitLeg` take `sampleM`; one `readLimit`
+  helper reads every sample and treats a non-finite limit as no limit, in the walk and the bisect alike;
+  both clocks take `sampleM`; and `clockSampleM(cellM, fineRatio)` lives here as `internal` — the clock's
+  own rule, not the engine's.
+- **`RouteAvoidEngine.kt`**: the three clock sites pass `clockSampleM(cellM, AppConfig.routeAvoidFineCellRatio)`,
+  and the `LINE` trace carries `step=`, so a device pass can read what the clock actually sampled.
+- **The Ask hop's patch, landed after the review**: the `readLimit` guard now has its **third and fourth
+  readers** — [`timeLineWithLimits`](../../app/src/main/java/ykws/android/maro/spatial/avoid/RouteEta.kt:85)'s
+  leg loop and the profile's `limitMpsAt`/`ceilingMpsAt` — so a non-finite limit can no longer yield a NaN
+  leg time while the splitter reads the same sample as no limit. `aNonFiniteLimitReadsAsNoLimitEverywhere`
+  is its regression, and it would fail before the patch.
+- **The tests**: T1 and T3 landed in [`RouteZonePhase4Test`](../../app/src/test/java/ykws/android/maro/spatial/avoid/RouteZonePhase4Test.kt:248),
+  and the eight call sites in the two clock suites name `sampleM = 25.0`, so every existing assertion runs
+  as a true regression rather than a silent change.
+- **The harness, run twice**: the build compiles and 187 spatial tests run, the only red being
+  [`theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:632) —
+  `avoid`'s own experiment residue, red before this change and left to the user by design. The first run
+  also showed one red of my own, T3's delta being tighter than its arithmetic; corrected, and green.
 
 ## Risks
 

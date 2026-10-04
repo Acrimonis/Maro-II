@@ -134,7 +134,39 @@ data class RouteUpdate(
     val nextStage: RouteStage?,
     val line: List<RoutePoint>,
     val result: RouteResult.Success?,
-    val reason: RouteReason?
+    val reason: RouteReason?,
+    /**
+     * **The figures the stage that just finished can stand behind**, or empty where it counts nothing.
+     *
+     * The default is honest here where a defaulted value would not be: an engine that measures nothing —
+     * the dummy reads no layer at all — reports nothing, and the empty list is that statement rather than
+     * a gap. The list belongs to [stageDone], never to [nextStage]: a stage reports what it *did*.
+     */
+    val readings: List<RouteStepReading> = emptyList()
+)
+
+/**
+ * **One figure a stage reports about its own work** — a count, a time or a length, with the id of the line
+ * a user reads and the id of the unit it carries.
+ *
+ * The `CustomSortField` shape again: [labelResId] and [unitResId] are `@StringRes`, so no engine holds
+ * user-facing text and both locales carry every key. [value] is a plain number in that unit, and the
+ * surface decides how to round and lay it out — the engine never formats.
+ *
+ * It is deliberately **not** on [`RouteResult`]: that type records that the two engines carrying dossiers
+ * were removed on 2026-09-22 and that no instrumentation field and no engine-specific vocabulary are left
+ * on an answer. A reading is per **stage**, while a lookup runs, and it dies with the lookup — so it rides
+ * the seam's own update, where the stage pair already is.
+ */
+data class RouteStepReading(
+    /** The stage this figure is about — the one that just finished. */
+    val stage: RouteStage,
+    /** The id of the line a user reads, e.g. `Expansions`. */
+    val labelResId: Int,
+    /** The figure itself, in [unitResId]'s unit. */
+    val value: Double,
+    /** The id of the unit's line, e.g. `cells` — or 0 where the figure is a bare count. */
+    val unitResId: Int
 )
 
 /**

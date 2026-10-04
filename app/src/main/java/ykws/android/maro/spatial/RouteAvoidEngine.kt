@@ -54,6 +54,10 @@ import ykws.android.maro.spatial.avoid.slowWaterPriceAt
 import ykws.android.maro.spatial.avoid.speedZoneCollarLimitKnAt
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
 import ykws.android.maro.spatial.avoid.RouteCornerPass
+import ykws.android.maro.spatial.avoid.RouteGridPlan
+import ykws.android.maro.spatial.avoid.UniformGridPlan
+import ykws.android.maro.spatial.avoid.clockSampleM
+import ykws.android.maro.spatial.avoid.inflateBox
 import ykws.android.maro.spatial.avoid.timeLineWithLimits
 import ykws.android.maro.spatial.avoid.timeLineWithProfile
 import ykws.android.maro.spatial.avoid.zonePriceAtLimits
@@ -141,7 +145,14 @@ class RouteAvoidEngine(
      */
     private val slowWaterBudgetPct: () -> Int,
     /** The world provider — the map always holds the layers it wraps, so it answers a live world. */
-    private val worldProvider: () -> AvoidWorld
+    private val worldProvider: () -> AvoidWorld,
+    /**
+     * **The two decisions this engine makes about its own walk** — the cell it rasterizes the corridor at
+     * and the region its second pass may re-rasterize. `avoid` ships [`UniformGridPlan`], which is exactly
+     * the behaviour this engine had before the plan existed, so the default changes nothing; a second
+     * algorithm passes its own and inherits the whole pipeline, the clock and the readings unchanged.
+     */
+    private val plan: RouteGridPlan = UniformGridPlan
 ) : RouteEngine {
 
     /** One per-engine channel, buffered so a stage emission never waits on the collector. */
@@ -321,7 +332,7 @@ class RouteAvoidEngine(
         val edges = world.segmentsIn(box)
         val openCoast = world.openCoastIn(box)
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
-        val cellM = AppConfig.routeAvoidGridCellM
+        val cellM = plan.firstWalkCellM(AppConfig.routeAvoidGridCellM)
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val pace = paceKn()
@@ -435,7 +446,10 @@ class RouteAvoidEngine(
         val rounded = RouteCornerPass.round(
             reSearched, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
         )
-        val timedLine = timeLineWithProfile(rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt)
+        val timedLine = timeLineWithProfile(
+            rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt,
+            clockSampleM(ctx.cellM, AppConfig.routeAvoidFineCellRatio)
+        )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
@@ -447,6 +461,7 @@ class RouteAvoidEngine(
         trace {
             "LINE distance=${fmt(lineLengthM(timedLine.points))}m duration=${fmt(timedLine.durationSec)}s " +
                 "legs=${timedLine.legTimesSec.size} " +
+                "step=${fmt(clockSampleM(ctx.cellM, AppConfig.routeAvoidFineCellRatio))}m " +
                 "bandMetres=${fmt(bandLawM)}m bandPricedMetres=${fmt(bandPricedM)}m " +
                 "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(timedLine, ctx.pace), 2)} " +
                 "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +
@@ -498,7 +513,11 @@ class RouteAvoidEngine(
      * the line computed so far. A candidate's pass publishes nothing (the panel narrates the main's
      * build alone); the no-op is deliberate and guarded by [mainLookupId].
      */
-    private fun publish(stage: RouteStage?, points: List<RoutePoint>? = null) {
+    private fun publish(
+        stage: RouteStage?,
+        points: List<RoutePoint>? = null,
+        readings: List<RouteStepReading> = emptyList()
+    ) {
         val lookupId = mainLookupId ?: return
         if (stage == null) return
         val done = lastStage
@@ -510,7 +529,8 @@ class RouteAvoidEngine(
                 nextStage = stage,
                 line = points ?: emptyList(),
                 result = null,
-                reason = null
+                reason = null,
+                readings = readings
             )
         )
         trace {
@@ -593,19 +613,43 @@ class RouteAvoidEngine(
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)
         val coarse = path.map { grid.center(it.row, it.col) }
         val full = listOf(start) + coarse + listOf(aim)
-        if (publishStage) publish(RouteStage.PULL, full.map { RoutePoint.of(it) })
+        // The readings ride the boundary the stage just left: the search's own two counts are known here,
+        // at the pull that follows it, so they belong to the PULL update's `stageDone` = SEARCH.
+        if (publishStage) publish(
+            RouteStage.PULL, full.map { RoutePoint.of(it) },
+            readings = listOf(
+                RouteStepReading(
+                    RouteStage.SEARCH, R.string.route_reading_expansions,
+                    search.expansions.toDouble(), R.string.route_unit_cells
+                ),
+                RouteStepReading(
+                    RouteStage.SEARCH, R.string.route_reading_passable_cells,
+                    search.passableCells.toDouble(), R.string.route_unit_cells
+                )
+            )
+        )
         val pulled = AvoidPull.pull(
             full, start, aim, marginM, guardField, approaches, refusals
         )
         trace { "PULL zoneM=${fmt(zoneMetres(zones, pulled))}" }
-        if (publishStage) publish(RouteStage.SNAP, pulled.map { RoutePoint.of(it) })
+        if (publishStage) publish(
+            RouteStage.SNAP, pulled.map { RoutePoint.of(it) },
+            readings = listOf(
+                RouteStepReading(
+                    RouteStage.PULL, R.string.route_reading_pulled_points,
+                    pulled.size.toDouble(), R.string.route_unit_points
+                )
+            )
+        )
         val snapped = snapToCorners(pulled, sets, marginM, guardField, start, aim, approaches)
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))}" }
         val final = AvoidPull.pull(
             snapped, start, aim, marginM, guardField, approaches, refusals
         )
         trace { "FINAL zoneM=${fmt(zoneMetres(zones, final))}" }
-        val timed = timeLineWithLimits(final, pace, limitAt)
+        val timed = timeLineWithLimits(
+            final, pace, limitAt, clockSampleM(cellM, AppConfig.routeAvoidFineCellRatio)
+        )
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
     }
@@ -1034,8 +1078,10 @@ class RouteAvoidEngine(
     ): List<LatLng> {
         val fineCellM = cellM * AppConfig.routeAvoidFineCellRatio
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
-        val swathBox = inflate(lineBBox(line), outsideMarginM + cellM)
-        val box = clampTo(swathBox, corridor)
+        // What the second pass may look at is the plan's decision; that it stays inside the lookup's own
+        // corridor is still the engine's, so the clamp stays here whatever a plan hands back.
+        val swathBox = plan.secondPassRegion(line, corridor, outsideMarginM, cellM)
+        val box = swathBox?.let { clampTo(it, corridor) }
         if (box == null) {
             trace { "FINE research box=empty spliced=no" }
             return line
@@ -1065,7 +1111,9 @@ class RouteAvoidEngine(
             trace { "FINE research answered=false spliced=no reason=no-path" }
             return line
         }
-        val coarseTimed = timeLineWithLimits(line, pace, limitAt)
+        val coarseTimed = timeLineWithLimits(
+            line, pace, limitAt, clockSampleM(cellM, AppConfig.routeAvoidFineCellRatio)
+        )
         val fineCost = pricedLineCost(pass.line, marginM, guard)
         val coarseCost = pricedLineCost(line, marginM, guard)
         val better = fineCost <= coarseCost
@@ -1079,20 +1127,6 @@ class RouteAvoidEngine(
         return if (better) pass.line else line
     }
 
-    /** The axis-aligned box a polyline spans — the swath's own frame. */
-    private fun lineBBox(points: List<LatLng>): BBox {
-        var latSouth = Double.MAX_VALUE
-        var latNorth = -Double.MAX_VALUE
-        var lonWest = Double.MAX_VALUE
-        var lonEast = -Double.MAX_VALUE
-        for (p in points) {
-            if (p.latitude < latSouth) latSouth = p.latitude
-            if (p.latitude > latNorth) latNorth = p.latitude
-            if (p.longitude < lonWest) lonWest = p.longitude
-            if (p.longitude > lonEast) lonEast = p.longitude
-        }
-        return BBox(latSouth, latNorth, lonWest, lonEast)
-    }
 
     /**
      * The crossing's own **local A\***: the stretch of [line] standing inside [zone]'s box, cut out and
@@ -1120,7 +1154,7 @@ class RouteAvoidEngine(
         approaches: EndApproaches,
         refusals: PullRefusals?
     ): List<LatLng>? {
-        val inflated = inflate(zone.bbox(), outsideMarginM + cellM)
+        val inflated = inflateBox(zone.bbox(), outsideMarginM + cellM)
         val box = clampTo(inflated, corridor)
         val clamped = box != null && box != inflated
         if (box == null) {
@@ -1202,15 +1236,6 @@ class RouteAvoidEngine(
         return out
     }
 
-    /** [box] grown by [metresM] on every side, in the degrees the box itself is written in. */
-    private fun inflate(box: BBox, metresM: Double): BBox {
-        val midLat = (box.latSouth + box.latNorth) / 2.0
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-        val dLat = metresM / mPerDegLat
-        val dLon = metresM / mPerDegLon
-        return BBox(box.latSouth - dLat, box.latNorth + dLat, box.lonWest - dLon, box.lonEast + dLon)
-    }
 
     /** The overlap of [box] with [limit], or `null` where the two do not meet. */
     private fun clampTo(box: BBox, limit: BBox): BBox? {

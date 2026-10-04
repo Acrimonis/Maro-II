@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Test
 import java.io.File
 import java.util.Properties
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
@@ -30,6 +31,8 @@ import ykws.android.maro.spatial.avoid.AvoidEdge
 import ykws.android.maro.spatial.avoid.AvoidWorld
 import ykws.android.maro.spatial.avoid.bandReachM
 import ykws.android.maro.spatial.avoid.EndApproaches
+import ykws.android.maro.spatial.avoid.RouteGridPlan
+import ykws.android.maro.spatial.avoid.UniformGridPlan
 import ykws.android.maro.spatial.avoid.insideBandWidthM
 import ykws.android.maro.spatial.avoid.speedZonesInBox
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
@@ -642,6 +645,107 @@ class RouteAvoidEngineTest {
             AppConfig.routeAvoidGridCellM * shipped,
             1e-9
         )
+    }
+
+    // ── The step readings (the seam's own instrumentation) ─────────────────────
+
+    /**
+     * Every stage that counts something says so on the update it closes — the search's two counts at the
+     * boundary that follows it, and the pull's own point count at the boundary after that. The reading
+     * belongs to `stageDone`, never to `nextStage`: a stage reports what it *did*.
+     */
+    @Test
+    fun everyStageReportsItsOwnFiguresOnTheUpdate() = runBlocking {
+        val engine = newEngine()
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture's pair declares its rung", declared)
+
+        val reported = ArrayList<Pair<RouteStage?, List<RouteStepReading>>>()
+        val subscribed = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    reported += update.stageDone to update.readings
+                    if (update.nextStage == null) {
+                        done.complete(Unit)
+                        return@collect
+                    }
+                }
+        }
+        subscribed.await()
+        engine.startLookup(declared!!.computations[0].id)
+        withTimeout(120_000) { done.await() }
+        collector.cancel()
+
+        val atSearch = reported.firstOrNull { it.first == RouteStage.SEARCH }?.second
+        assertNotNull("the update closing the search carries its figures", atSearch)
+        assertEquals("the search reports its two counts", 2, atSearch!!.size)
+        assertEquals(
+            "and they are the expansions and the passable cells",
+            listOf(R.string.route_reading_expansions, R.string.route_reading_passable_cells),
+            atSearch.map { it.labelResId }
+        )
+        assertTrue(
+            "both counted in cells",
+            atSearch.all { it.unitResId == R.string.route_unit_cells }
+        )
+        assertTrue("with figures a user could read", atSearch.all { it.value >= 0.0 })
+
+        val atPull = reported.firstOrNull { it.first == RouteStage.PULL }?.second
+        assertNotNull("the update closing the pull carries its own", atPull)
+        assertEquals("one figure: the pulled points", 1, atPull!!.size)
+        assertEquals(R.string.route_reading_pulled_points, atPull.first().labelResId)
+        assertEquals(
+            "counted in points",
+            R.string.route_unit_points,
+            atPull.first().unitResId
+        )
+    }
+
+    // ── The plan seam: the engine's own injection point ────────────────────────
+
+    /** A plan that behaves exactly like the shipped one and counts how often the engine consults it. */
+    private class CountingPlan(private val inner: RouteGridPlan = UniformGridPlan) : RouteGridPlan {
+        var cellReads = 0
+        var regionReads = 0
+
+        override fun firstWalkCellM(baseCellM: Double): Double {
+            cellReads++
+            return inner.firstWalkCellM(baseCellM)
+        }
+
+        override fun secondPassRegion(
+            line: List<LatLng>,
+            corridor: BBox,
+            outsideMarginM: Double,
+            cellM: Double
+        ): BBox? {
+            regionReads++
+            return inner.secondPassRegion(line, corridor, outsideMarginM, cellM)
+        }
+    }
+
+    /**
+     * The plan is the engine's **whole** difference from a second algorithm: a lookup asks it for the
+     * walk's cell and for the second pass's region, and nothing else about the pipeline moves.
+     */
+    @Test
+    fun aLookupTakesItsCellAndItsSecondPassRegionFromThePlan() = runBlocking {
+        val plan = CountingPlan()
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            worldProvider = { FakeWorld() },
+            plan = plan
+        )
+
+        success(solve(engine, origin, aim))
+
+        assertTrue("the first walk asks the plan for its cell", plan.cellReads > 0)
+        assertTrue("and the second pass asks it for its region", plan.regionReads > 0)
     }
 
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────

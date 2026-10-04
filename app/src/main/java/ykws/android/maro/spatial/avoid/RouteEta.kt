@@ -27,8 +27,24 @@ import kotlin.math.sqrt
  * own cost.
  */
 
-/** Sampling step (m) the boundary splitter walks each leg at — half the shipped grid cell. */
-private const val BOUNDARY_SAMPLE_M = 25.0
+/**
+ * The shortest step (m) the boundary splitter will walk a leg at, whatever a caller asks for — the floor
+ * that keeps a degenerate ask from turning the walk into a loop.
+ *
+ * The step itself is the **caller's**, because only the caller knows the cell its engine walks, and
+ * `sampleM` is required everywhere rather than defaulted: a constant here is exactly how a leg came to
+ * carry a limit that was not its own the day the grid cell changed.
+ */
+private const val MIN_BOUNDARY_SAMPLE_M = 1.0
+
+/**
+ * **The clock's own sampling step (m)** for an engine whose coarse cell is [cellM] and whose second pass
+ * runs at [fineRatio] of it — half the finest cell the engine walks, so the boundary splitter can see
+ * every limit regime the grid itself can produce, and so the step can never fall out of step with the
+ * grid the day the cell moves. Floored at [MIN_BOUNDARY_SAMPLE_M], which is the splitter's own floor.
+ */
+internal fun clockSampleM(cellM: Double, fineRatio: Double): Double =
+    (min(cellM, cellM * fineRatio) / 2.0).coerceAtLeast(MIN_BOUNDARY_SAMPLE_M)
 
 /** A polyline split at limit changes, with one planned time and one made-good speed per split leg. */
 data class TimedLine(
@@ -47,20 +63,26 @@ data class TimedLine(
  * Splits [waypoints] where [limitKnAt] changes and times each split leg at the limit in force at its
  * midpoint, capped by the pace — no ramp, no corner-speed caps. A leg's made-good speed is therefore
  * exactly the enforced limit, and the reported time is `distance / speed`.
+ *
+ * **[sampleM] is the step the splitter walks each leg at, and the caller owns it.** The legs come out
+ * **regime-pure** — each stands inside one limit, so its midpoint read *is* the limit in force there —
+ * and a regime narrower than the step can still hide between two samples, which is why an engine passes
+ * half the finest cell it walks rather than a constant.
  */
 fun timeLineWithLimits(
     waypoints: List<LatLng>,
     paceKn: Double,
-    limitKnAt: (LatLng) -> Double?
+    limitKnAt: (LatLng) -> Double?,
+    sampleM: Double
 ): TimedLine {
     if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
     val paceMps = Units.knotsToMps(paceKn)
-    val points = splitAtLimitChanges(waypoints, limitKnAt)
+    val points = splitAtLimitChanges(waypoints, limitKnAt, sampleM)
     val legs = points.size - 1
     val times = ArrayList<Double>(legs)
     val speeds = ArrayList<Double>(legs)
     for (i in 0 until legs) {
-        val limitKn = limitKnAt(midpoint(points[i], points[i + 1]))
+        val limitKn = readLimit(limitKnAt, midpoint(points[i], points[i + 1]))
         val speedMps = if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
         val dist = SpatialOperations.haversine(points[i], points[i + 1])
         times.add(dist / speedMps)
@@ -69,33 +91,49 @@ fun timeLineWithLimits(
     return TimedLine(points, times, speeds)
 }
 
-/** Walks every leg and inserts the boundary vertices where [limitKnAt] changes. */
+/**
+ * One sample's own read — [limitKnAt] at [p], with a **non-finite** answer read as no limit. One home for
+ * that rule, so **every** reader agrees about what a sample says: the splitter's walk, its bisect, the
+ * enforced clock's leg speed and the profile's two ceilings. Without it one NaN would make every sample
+ * look like a change while the leg the clock times off the same sample came out with a NaN duration.
+ */
+private fun readLimit(limitKnAt: (LatLng) -> Double?, p: LatLng): Double? =
+    limitKnAt(p)?.takeIf { it.isFinite() }
+
+/** Walks every leg and inserts the boundary vertices where [limitKnAt] changes, at [sampleM]. */
 private fun splitAtLimitChanges(
     waypoints: List<LatLng>,
-    limitKnAt: (LatLng) -> Double?
+    limitKnAt: (LatLng) -> Double?,
+    sampleM: Double
 ): List<LatLng> {
     val out = ArrayList<LatLng>(waypoints.size + 8)
     out.add(waypoints.first())
     for (i in 0 until waypoints.size - 1) {
-        val sub = splitLeg(waypoints[i], waypoints[i + 1], limitKnAt)
+        val sub = splitLeg(waypoints[i], waypoints[i + 1], limitKnAt, sampleM)
         for (j in 1 until sub.size) out.add(sub[j])
     }
     return out
 }
 
-/** Splits one leg into `[a, ...crossings..., b]` by sampling then bisecting at each limit change. */
-private fun splitLeg(a: LatLng, b: LatLng, limitKnAt: (LatLng) -> Double?): List<LatLng> {
+/** Splits one leg into `[a, ...crossings..., b]` by sampling at [sampleM] then bisecting each change. */
+private fun splitLeg(
+    a: LatLng,
+    b: LatLng,
+    limitKnAt: (LatLng) -> Double?,
+    sampleM: Double
+): List<LatLng> {
     val dist = SpatialOperations.haversine(a, b)
     if (dist <= 1e-9) return listOf(a, b)
+    val step = sampleM.coerceAtLeast(MIN_BOUNDARY_SAMPLE_M)
     val out = ArrayList<LatLng>(4)
     out.add(a)
     var prevT = 0.0
-    var prevLimit = limitKnAt(a)
-    val steps = ceil(dist / BOUNDARY_SAMPLE_M).toInt().coerceAtLeast(2)
+    var prevLimit = readLimit(limitKnAt, a)
+    val steps = ceil(dist / step).toInt().coerceAtLeast(2)
     for (s in 1..steps) {
         val t = s.toDouble() / steps
         val p = interpolate(a, b, t)
-        val limit = limitKnAt(p)
+        val limit = readLimit(limitKnAt, p)
         if (limit != prevLimit) {
             val crossing = bisectLimitChange(a, b, prevT, t, prevLimit, limit, limitKnAt)
             if (out.last() != crossing) out.add(crossing)
@@ -121,7 +159,7 @@ private fun bisectLimitChange(
     var h = hi
     repeat(24) {
         val mid = (l + h) / 2.0
-        val limit = limitKnAt(interpolate(a, b, mid))
+        val limit = readLimit(limitKnAt, interpolate(a, b, mid))
         if (limit == loLimit) l = mid else h = mid
     }
     return interpolate(a, b, (l + h) / 2.0)
@@ -236,16 +274,17 @@ fun timeLineWithProfile(
     paceKn: Double,
     limitKnAt: (LatLng) -> Double?,
     ceilingKnAt: (LatLng) -> Double?,
+    sampleM: Double,
     accelMps2: Double = AppConfig.routeSpeedAccelMps2
 ): TimedLine {
     if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
     val paceMps = Units.knotsToMps(paceKn)
-    val points = splitAtLimitChanges(waypoints, limitKnAt)
+    val points = splitAtLimitChanges(waypoints, limitKnAt, sampleM)
     val n = points.size - 1
     fun limitMpsAt(p: LatLng): Double =
-        limitKnAt(p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
+        readLimit(limitKnAt, p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
     fun ceilingMpsAt(p: LatLng): Double =
-        ceilingKnAt(p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
+        readLimit(ceilingKnAt, p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
     // The limit in force along each leg — constant, because a limit change is a boundary vertex.
     val legLimit = DoubleArray(n) { i -> limitMpsAt(midpoint(points[i], points[i + 1])) }
     // A vertex's speed may not exceed either leg it touches, nor its own curvature ceiling.

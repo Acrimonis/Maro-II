@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-04 01:50
+modified: 2026-10-04 07:00
 ---
 
 # Feature: Route
@@ -169,7 +169,7 @@ The live numbered requirements — added after the master book was retired on 20
 - [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md) — the clock's enforced-limit rework, the curve fitter's removal, and the two post-passes: the racing-line corner pass and the speed profile
 - [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md) — **in design**: the adaptive first walk, fine (20 m, the precision contract) beside the coast and the depth gate, coarse (100 m) in open water, at 1 : 5
 - [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md) — **in design**: the second engine beside `avoid`, the shared-and-derived code map, the neutral step reading, and the mechanisms its one pass needs
-- [`261004_FEAT_PLN_Route_speed-attribution.md`](261004_FEAT_PLN_Route_speed-attribution.md) — **in design**: the per-point speed fix — the clock's constant sampling step, the single midpoint read, and the both-ends rule that replaces it
+- [`261004_FEAT_PLN_Route_speed-attribution.md`](261004_FEAT_PLN_Route_speed-attribution.md) — **implemented, Phases 1 to 3**: the clock's sampling step now follows the grid's own cell; the "slower of the two ends" rule and its count were withdrawn on contact with the code, and Phase 4's three checks are owed
 - Thirty-nine files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk
@@ -253,3 +253,7 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - A saved route draws dashed, plain and speed-coloured alike — a `route` role on the render plan keys a `dashed` flag through the segment builders, and the rhythm reads from `map.track.width.route.dashOn` / `dashOff`, so a route reads apart from a recorded track; the casing under-stroke was rolled back → [`261003_FEAT_PLN_Route_saved-route-casing.md`](261003_FEAT_PLN_Route_saved-route-casing.md)
 - The two post-passes shipped — the racing-line corner pass rounds each snapped corner into a single-bend clothoid–arc–clothoid curve that bulges outward with the corner as its apex, the curve slowed where the bulge would foul and the turn length set by the `route.turn.reachFraction` lever, then `timeLineWithProfile` times the drawn line with a backward/forward profile that anticipates deceleration and bounds acceleration, the enforced limit the hard ceiling; the curve fitter is removed and the settled search line is the drawn and saved line → [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md)
 - The acquisition's first column names the slow water again — `Around slow water` · `Balanced` · `Through slow water` from dedicated `route_rung_*` strings wired in `routesToCompute`, kept apart from the settings' own `Fast` · `Balanced` · `Fun` ladder labels
+- The clock's sampling step became the engine's own — half the finest cell the engine walks, a required parameter rather than the constant tied to a retired 50 m design, with a non-finite limit read as no limit by all four of its readers, and two tests proving a 10 m regime hides between a 25 m step's samples and not between a 5 m step's → [`261004_FEAT_PLN_Route_speed-attribution.md`](261004_FEAT_PLN_Route_speed-attribution.md)
+- A second engine joined the seam — `evolutive`, a row that holds `avoid` and forwards the three calls, so the adaptive grid can land beside the shipped algorithm rather than inside it → [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
+- Every step now reports: `RouteStepReading` and `RouteUpdate.readings` carry a stage's own figures on the seam, the avoid engine emits the search's two counts and the pulled-point count, and the acquisition panel's header prints them beside its stage word
+- The engine's own walk became a plan: `RouteGridPlan` holds the two decisions that separate one algorithm from another — the first walk's cell and the second pass's region — with `UniformGridPlan` as `avoid`'s default, and `evolutive` taking a named plan of its own → [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)

@@ -765,6 +765,7 @@ fun MapScreen(
     // **The session's link table, the main lookup's stage and its provisional line**, read reactively.
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
     val routeStage by routeViewModel.stage.collectAsState()
+    val routeStepReadings by routeViewModel.stepReadings.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
     // first (index 0) — and the one the selection stands on, both in computation order, so the map's
@@ -2971,6 +2972,7 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
+                        stepReadings = routeStepReadings,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3012,6 +3014,7 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
+                        stepReadings = routeStepReadings,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,

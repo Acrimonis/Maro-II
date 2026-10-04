@@ -163,6 +163,47 @@ The decisions a one-pass implementation needs, and the reason the answer to "are
   existing `route_rung_*` labels, since the acquisition's table is engine-agnostic. A second set of labels
   is the alternative, and it is a decision about what the user reads rather than about the code.
 
+## What landed, 2026-10-04 — Phases 1 and 2
+
+- **Phase 1, the seam row**: [`RouteEvolutiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt:1)
+  holds a private `RouteAvoidEngine` and forwards the three seam calls, so the row is selectable and behaves
+  exactly like `avoid` from its first commit; the row joined
+  [`RouteEngineChoice.all`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt:36) and
+  `route_engine_evolutive` joined both locales, with the registry's own test asserting the new row builds
+  the new engine.
+- **Phase 2, the reading and its surface**: `RouteStepReading` and `RouteUpdate.readings` are on the seam,
+  empty by default so an engine that measures nothing says so; the avoid engine emits the search's two
+  counts at the PULL update and the pulled-point count at SNAP; the view model narrates them beside the
+  stage word from **one** insertion in `onUpdate`, so no stage site was touched; and the panel prints them
+  as one flat line in its header, the strings resolved in a plain loop because a lambda is not a composable
+  context.
+- **The owed patch the review found** landed in [`RouteEta.kt`](../../app/src/main/java/ykws/android/maro/spatial/avoid/RouteEta.kt:95): the guard now covers all four readers of the limit.
+- **The assertion the review also owed** landed too: `everyStageReportsItsOwnFiguresOnTheUpdate` in
+  [`RouteAvoidEngineTest`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:632)
+  collects every update of an avoid lookup and pins that the update closing the search carries its two
+  counts in cells and the one closing the pull carries the pulled-point count — so the panel's line has a
+  proof behind it rather than a hope.
+- **Phase 4 is satisfied rather than built**: the delegate means `evolutive` inherits the clock's required
+  `sampleM` and the derived step with no code of its own, so the phase is a note, not a task.
+- **Phase 3, the extraction — landed additively rather than by moving code**, which is a deliberate
+  deviation from this plan's letter and states its reason: [`RouteGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/avoid/RouteGridPlan.kt:1)
+  holds the **two decisions that are the whole difference between two algorithms** — the first walk's cell
+  and the second pass's region — with [`UniformGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/avoid/RouteGridPlan.kt:53)
+  carrying today's behaviour exactly, `avoid`'s engine taking a plan as a defaulted parameter
+  ([`RouteAvoidEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:129)),
+  the plan's two helpers moved to its own file, and `evolutive` given a named plan of its own so Phase 5
+  has its insertion point. **The proof is the 190-test spatial suite, one red** — every `avoid` answer
+  unchanged, plus `aLookupTakesItsCellAndItsSecondPassRegionFromThePlan`, which counts the engine's
+  consultations of a plan double. Moving the pipeline out of the class was rejected for a reason to keep:
+  it buys the same interface at the price of migrating a shipped engine, and the interface is what the
+  phase exists for.
+- **The gate**: the full unit suite runs 865 tests with one red, `avoid`'s own
+  `theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`, which is its experiment residue and not this plan's
+  to move.
+- **Phase 3 is not started, and the plan says why it may stop**: the extraction moves the pass pipeline out
+  of a shipped 1 500-line class and is gated on `avoid`'s answers being provably unchanged. It is the next
+  run's first step, not a half-start here.
+
 ## Property and keys
 
 - **`evolutive` owns its own namespace**: `route.evolutive.grid.cellM`, `route.evolutive.grid.fineCellM`
@@ -223,6 +264,17 @@ The decisions a one-pass implementation needs, and the reason the answer to "are
   that from becoming two codebases, and it is the reason the extraction is not optional.
 - **`avoid`'s props still describe a grid it does not have**: that one comment, and the user's own
   experiment values, remain until they are settled.
+
+## The seam's own ceiling, found by the Phase 3 review
+
+- **It carries one cell and one region — the corridor's shape, not the lattice's.**
+  [`secondPassRegion`](../../app/src/main/java/ykws/android/maro/spatial/avoid/RouteGridPlan.kt:43) answers a
+  single `BBox` and `firstWalkCellM` a single size, so a chain of boxes, or a fine band beside a coarse
+  interior, cannot be expressed through them.
+- **So Phase 5's first step is to widen this seam**, from a cell to a grid **provider**: the plan hands back
+  the rectangle, or the rectangles, the walk may use, at the sizes it chooses. That is one small edit while
+  the interface is new and has a single real implementation — and the corridor still lands through the
+  region member as it stands.
 
 ## Open questions
 
