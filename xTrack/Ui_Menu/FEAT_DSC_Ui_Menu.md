@@ -2,7 +2,7 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-10-04 08:57
+modified: 2026-10-04 09:50
 ---
 
 # Feature: Ui_Menu
@@ -20,6 +20,7 @@ scrollable body, and renders its three sections with the shared Settings stencil
 ## Implemented
 
 - **live-card-compact (2026-10-04)** — the TRACKS card's two sub-sections swapped, the Tracks row first and the live block under it: a state band tinted in the tracking colours with a 1dp edge in the same state's colour, the shared pulse disc and the notification's own read (`Recording • Idle|Moving`), over six readings in a two-column table whose label, separator and value columns size themselves → [`261004_FEAT_PLN_Ui_Menu_live-card-compact.md`](261004_FEAT_PLN_Ui_Menu_live-card-compact.md)
+- **route-active-card (2026-10-04)** — the route summary takes the same treatment: a band in the route toggle's own colour at one shared faded level (`ui.band.fill.alpha`), the shared disc leading it and `Acquiring • <stage>` or `Routing • ETA: <min|sec>` beside it, over four readings (`Dist total` · `Dist route`, `ETA total` · `ETA route`) with the pending mark where a figure is missing; the card stands through the acquisition as well as the routing phase, the block moved below the route ends, and the panel's two marks read the same word → [`261004_FEAT_PLN_Ui_Menu_route-active-card.md`](261004_FEAT_PLN_Ui_Menu_route-active-card.md)
 - **menu-render-upt** — Menu drawer body rewritten onto the shared Settings stencils + spacing tokens; stencils extracted to `ui/components` (sentence-case strings) → `xTrack/Ui_Menu/260909_FEAT_PLN_Ui_Menu_menu-render-upt.md`
 - **toggle-zones-marker-in-menu** — "Show Zones on Map" switch in MARKERS card → `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
 

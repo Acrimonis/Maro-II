@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.markers.UserMarker
@@ -202,6 +203,15 @@ data class RouteSummaryData(
      * above the summary's rows, which are left unmoved by it.
      */
     val alternativeSavingSec: Double? = null,
+
+    // ── The summary's own band (2026-10-04) ──────────────────────────────────
+    /**
+     * The followed line's own colour, as Settings holds it — the toggle's acquiring face (R51) and, with
+     * the band's own level, the drawer's band while the engine searches. The caller passes it because the
+     * colour is the user's; the default is the token the following face wears
+     * ([AppConfig.routeNavigateColor]), so a summary that never draws its band still carries a sane one.
+     */
+    val lineColor: Int = AppConfig.routeNavigateColor,
 )
 
 /**

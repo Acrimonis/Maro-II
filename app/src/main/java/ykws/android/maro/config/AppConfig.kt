@@ -451,6 +451,10 @@ object AppConfig {
      *  Set via `ui.map.surface.active.alpha`. */
     var uiMapSurfaceActiveAlpha: Float = 0.65f
         private set
+    /** The share of its own colour a status band fills itself with (0.0–1.0). Default 0.3 — the level a
+     *  taken choice wears. Set via `ui.band.fill.alpha`. */
+    var uiBandFillAlpha: Float = 0.3f
+        private set
 
     /**
      * The one colour of the pulsing mark every toggle wears — `ui.map.pulse.dot`, default `#FFD32F2F`.
@@ -940,12 +944,6 @@ object AppConfig {
         private set
     /** Tracking icon dot colour when idle (stationary). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.idle` in colors.properties. */
     var statusTrackingDotIdle: Int = 0xCCB71C1C.toInt()
-        private set
-    /** Live state band fill when recording (moving) — the healthy green at 30 %. Default #4D4CAF50. Set via `status.tracking.container.recording` in colors.properties. */
-    var statusTrackingContainerRecording: Int = 0x4D4CAF50.toInt()
-        private set
-    /** Live state band fill when idle (stationary) — the idle blue at 30 %. Default #4D1565C0. Set via `status.tracking.container.idle` in colors.properties. */
-    var statusTrackingContainerIdle: Int = 0x4D1565C0.toInt()
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
@@ -1527,6 +1525,7 @@ object AppConfig {
             props.getProperty("ui.map.surface.border.width")?.toFloatOrNull()?.let { uiMapSurfaceBorderWidth = it }
             props.getProperty("ui.map.surface.inactive.content.alpha")?.toFloatOrNull()?.let { uiMapSurfaceInactiveContentAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.band.fill.alpha")?.toFloatOrNull()?.let { uiBandFillAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.pulse.dot")?.let { parseColorOrNull(it) }?.let { uiMapPulseDot = it }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
@@ -1648,8 +1647,6 @@ object AppConfig {
             props.getProperty("status.tracking.off")?.let { parseColorOrNull(it) }?.let { statusTrackingOff = it }
             props.getProperty("status.tracking.dot.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingDotRecording = it }
             props.getProperty("status.tracking.dot.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingDotIdle = it }
-            props.getProperty("status.tracking.container.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingContainerRecording = it }
-            props.getProperty("status.tracking.container.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingContainerIdle = it }
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }

@@ -638,8 +638,10 @@
     <!-- Le statut avec l'étape que le moteur publie pendant une recherche — « Acquisition (Recherche)… »
          (R15, réécrit le 2026-09-28). Les mots de l'étape sont l'ensemble fermé ci-dessous. -->
     <string name="route_status_acquiring">Acquisition…</string>
+    <!-- Le mot d\'acquisition propre à la bande : celui du dessus porte une ellipse que la bande n\'utilise pas. -->
+    <string name="route_status_acquiring_bare">Acquisition</string>
     <string name="route_status_acquiring_stage">Acquisition (%1$s)…</string>
-    <string name="route_status_active">Route active</string>
+    <string name="route_status_active">En route</string>
     <string name="route_status_selected">Sélectionné — itinéraire en cours de finalisation…</string>
     <!-- L\'étape de l\'acquisition, telle que l\'ensemble fermé du moteur la publie : un mot par
          frontière traversée, dans l\'ordre où elles le sont. -->
@@ -670,8 +672,16 @@
     <string name="route_summary_distance_unit">NM</string>
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
     <string name="route_summary_eta_unit">min</string>
-    <!-- Le sous-titre du résumé du tiroir au-dessus de la paire relative au bateau : ce qu'il reste à parcourir. -->
-    <string name="route_trip_remaining">Restant</string>
+    <!-- La fin de bande du tiroir en routage : des minutes entières, ou des secondes sous la minute. -->
+    <string name="route_band_eta_min_fmt">ETA : %1$d min</string>
+    <string name="route_band_eta_sec_fmt">ETA : %1$d sec</string>
+    <!-- Les quatre cellules du résumé du tiroir : les chiffres du plan en totaux, ceux de la route à côté. -->
+    <string name="route_stat_dist_total">Dist total</string>
+    <string name="route_stat_dist_route">Dist route</string>
+    <string name="route_stat_eta_total">ETA total</string>
+    <string name="route_stat_eta_route">ETA route</string>
+    <!-- La marque d\'attente : ce qu\'affiche un chiffre qu\'un mode ne détient pas encore. -->
+    <string name="route_value_pending">--</string>
     <string name="route_trip_ago">il y a %1$s</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>

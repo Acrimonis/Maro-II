@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -64,6 +65,7 @@ import ykws.android.maro.ui.icons.Refresh
  */
 private const val STATE_SEPARATOR = "•"
 
+
 /**
  * Menu slide panel — pure content composable.
  *
@@ -90,10 +92,10 @@ fun MenuDrawerOverlay(
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
     /**
-     * The route mode's read-only summary and its own gate: [routeSummaryVisible] is the chrome flag,
-     * standing in the **routing phase alone** (a route followed) since 2026-09-28 — the acquisition's
-     * own status lives on the panel, so nothing here carries it — and [routeSummary] carries the words
-     * the block prints.
+     * The route mode's read-only summary and its own gate: [routeSummaryVisible] is the chrome flag, which
+     * now stands while the engine searches **and** while a route is followed (the user's word, 2026-10-04,
+     * widening the "routing phase alone" of 2026-09-28), and [routeSummary] carries the words and the
+     * colour the block prints.
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
     routeSummaryVisible: Boolean = false,
@@ -147,23 +149,13 @@ fun MenuDrawerOverlay(
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            // ── The mode's summary: what a route is doing, and what it costs ──
-            // The mode's own switch stays the map control stack's square as well as the Route
-            // sub-section's action, and this block carries no action of its own — the panel's three
-            // outcomes are the doors. It is the read-only echo of the mode, what remains readable of it
-            // while the drawer stands over the panel, and R67 keeps it **in the same card** as the
-            // sub-section below rather than absorbed by it.
-            if (routeSummaryVisible) {
-                RouteSummaryBlock(routeSummary)
-                SectionDivider()
-            }
-
             // ── ROUTE sub-section: a route's two ends, and the action that arms the acquisition ──
             // The mode's own **parameters**, held in the drawer since 2026-09-28 (R44, D2): the ends are
             // chosen here rather than placed on the map, one pair per navigation mode, and the action
             // beside them is the second door onto the same arming the map's square performs (R49). It
             // stands **inside** the Navigation card under a sub-section header, and it stands always;
-            // what gates is the summary above it.
+            // what gates is the summary **below** it, which took the card's foot on 2026-10-04 (the
+            // user's word) so the two ends are read before the mode's figures.
             // The head is one comment naming the group's two fields — the route's **origin and
             // destination** (2026-09-28) — and it is what identifies them: neither dropdown row carries a
             // label of its own, each showing only its value on the right, and no rule separates the two
@@ -175,6 +167,18 @@ fun MenuDrawerOverlay(
                 fontWeight = FontWeight.Medium
             )
             RouteEndsSection(routeSummary)
+
+            // ── The mode's summary: what a route is doing, and what it costs — the card's foot since
+            // 2026-10-04 ──
+            // The mode's own switch stays the map control stack's square as well as the Route
+            // sub-section's action, and this block carries no action of its own — the panel's three
+            // outcomes are the doors. It is the read-only echo of the mode, what remains readable of it
+            // while the drawer stands over the panel, and R67 keeps it **in the same card** as the
+            // sub-section above rather than absorbed by it.
+            if (routeSummaryVisible) {
+                SectionDivider()
+                RouteSummaryBlock(routeSummary)
+            }
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -266,11 +270,13 @@ fun MenuDrawerOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(bandShape)
+                        // The fill is the state's own colour at the shared band level, so this band and
+                        // the route card's fade by one number rather than two baked hexes.
                         .background(
                             Color(
-                                if (recorderState.isMoving) AppConfig.statusTrackingContainerRecording
-                                else AppConfig.statusTrackingContainerIdle
-                            )
+                                if (recorderState.isMoving) AppConfig.statusTrackingHealthy
+                                else AppConfig.statusTrackingIdle
+                            ).copy(alpha = AppConfig.uiBandFillAlpha)
                         )
                         // The edge reads the state's own colour — light green while recording, blue while
                         // idle — the pair the map's tracking square is painted with, so the band's edge
@@ -313,11 +319,8 @@ fun MenuDrawerOverlay(
                 SectionDivider()
 
                 // ── The six readings: two columns by three rows ──
-                // The label, separator and value columns are shared by the whole table: the label
-                // column is measured once from the widest label, so no cell stands empty before a
-                // short one, the colon keeps a centred slot of its own and every value starts on its
-                // column. The measurement is keyed on the labels, not on the live state, so a ticking
-                // recording never re-measures.
+                // The label, separator and value columns are shared by the whole table, so no cell stands
+                // empty before a short one and every value starts on its column.
                 val readingLabels = listOf(
                     stringResource(R.string.track_stat_elapsed),
                     stringResource(R.string.track_stat_points),
@@ -326,18 +329,7 @@ fun MenuDrawerOverlay(
                     stringResource(R.string.track_stat_avg_speed),
                     stringResource(R.string.track_stat_idle)
                 )
-                val labelMeasurer = rememberTextMeasurer()
-                val labelStyle = TextStyle(
-                    color = Color(AppConfig.uiTextMuted),
-                    fontSize = 11.sp,
-                    lineHeight = 12.sp
-                )
-                val labelDensity = LocalDensity.current
-                val labelWidth = remember(readingLabels.joinToString("\u0000")) {
-                    with(labelDensity) {
-                        readingLabels.maxOf { labelMeasurer.measure(it, labelStyle).size.width }.toDp()
-                    }
-                }
+                val labelWidth = rememberLabelColumnWidth(readingLabels)
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.weight(1f)) {
                         StatCell(stringResource(R.string.track_stat_elapsed), formatDuration(recorderState.elapsedSeconds), labelWidth = labelWidth)
@@ -502,30 +494,79 @@ private fun RouteEndsSection(section: RouteSummaryData) {
 }
 
 /**
- * **The mode's summary** — the drawer's read-only echo of the route panel, kept beside the section.
+ * **The mode's summary** — the drawer's read-only echo of the route panel, kept beside the section, wearing
+ * the live block's own treatment since 2026-10-04.
  *
- * The status word is the panel's own: the acquiring word stands only while the engine searches, with
- * the engine's stage word beside it, and the active word stands while a route is followed. The plan's
- * own pair stands as soon as a plan does, and the boat-relative pair — under its own sub-title — only
- * while a route is followed, since a draft is not being followed and "remaining" would describe a
- * line the boat may never take.
+ * A **band** carries the status: its fill is the route toggle's own colour at the shared band level
+ * ([AppConfig.uiBandFillAlpha]) with a 1dp edge of that colour at full strength, led by the app's one pulsing
+ * disc. The colour is the toggle's own face — the line's while the engine searches (R51), the navigating
+ * token's while a route is followed — so the drawer and the map's square cannot disagree.
  *
- * **R68's line stands above those rows and moves nothing**: where a candidate that saves time exists,
- * one line names it with its own saving, and the rows beneath it read exactly as they would without it.
- * It is the drawer's answer to "is there a better line than the one I am looking at" without the drawer
- * becoming the selection surface — the panel's own rows and next/prev are that.
+ * **It carries two messages, and only those** (the user's word, 2026-10-04): `Acquiring… • <stage>` while the
+ * engine searches, and `Routing • <the route's own ETA> / <the plan's total ETA>` while a route is followed.
+ *
+ * **Four readings stand under it**, in the columned reading cell: the plan's figures on the left as the
+ * totals, the route's own on the right — `Dist total` beside `Dist route`, then `ETA total` beside
+ * `ETA route`. No sub-title stands above them, the labels saying which figure is which. A figure the mode
+ * does not hold yet prints the pending mark the route panel already uses
+ * ([R.string.route_value_pending]), so the card keeps its shape through the acquisition — which it stands in
+ * as well as the routing phase.
+ *
+ * **R68's line stands above the band and moves nothing**: where a candidate that saves time exists, one line
+ * names it with its own saving, and the cells beneath it read exactly as they would without it. It is the
+ * drawer's answer to "is there a better line than the one I am looking at" without the drawer becoming the
+ * selection surface — the panel's own rows and next/prev are that.
  */
 @Composable
 private fun RouteSummaryBlock(summary: RouteSummaryData) {
-    val status = when {
-        summary.searching -> listOfNotNull(
-            stringResource(R.string.route_status_acquiring),
-            summary.stageRes?.let { stringResource(it) }
-        ).joinToString(" · ")
+    val bandColour = Color(
+        if (summary.searching) summary.lineColor else AppConfig.routeNavigateColor
+    )
 
-        summary.remaining != null -> stringResource(R.string.route_status_active)
-        else -> null
+    val pending = stringResource(R.string.route_value_pending)
+    val distTotal = summary.plannedDistanceNm
+        ?.let { stringResource(R.string.route_trip_distance_nm, it) } ?: pending
+    val etaTotal = summary.plannedEtaSeconds?.let { routeEtaText(it) } ?: pending
+    val distRoute = summary.remaining
+        ?.let { stringResource(R.string.route_trip_distance_nm, it.distanceNm) } ?: pending
+    val etaRoute = summary.remaining?.let { routeEtaText(it.etaSeconds) } ?: pending
+
+    // The band's two messages (the user's word, 2026-10-04): the acquisition's word with the engine's stage
+    // beside it, or the routing word with the remaining ETA in whole minutes — seconds below a minute.
+    // Nothing else stands in the band, so a plan that no route follows yet keeps the band away.
+    val followed = summary.remaining
+    val bandWord: String?
+    val bandTail: String?
+    when {
+        summary.searching -> {
+            // The band's own word carries no ellipsis (`route_status_acquiring_bare`); the shared one, with
+            // the ellipsis, stays the route panel's header word.
+            bandWord = stringResource(R.string.route_status_acquiring_bare)
+            bandTail = summary.stageRes?.let { stringResource(it) }
+        }
+        followed != null -> {
+            bandWord = stringResource(R.string.route_status_active)
+            val remainingSec = followed.etaSeconds.toInt()
+            bandTail = if (remainingSec < 60) {
+                stringResource(R.string.route_band_eta_sec_fmt, remainingSec)
+            } else {
+                stringResource(R.string.route_band_eta_min_fmt, remainingSec / 60)
+            }
+        }
+        else -> {
+            bandWord = null
+            bandTail = null
+        }
     }
+
+    val labelWidth = rememberLabelColumnWidth(
+        listOf(
+            stringResource(R.string.route_stat_dist_total),
+            stringResource(R.string.route_stat_dist_route),
+            stringResource(R.string.route_stat_eta_total),
+            stringResource(R.string.route_stat_eta_route)
+        )
+    )
 
     Column(
         modifier = Modifier
@@ -541,74 +582,95 @@ private fun RouteSummaryBlock(summary: RouteSummaryData) {
             )
             Spacer(Modifier.height(6.dp))
         }
-        status?.let {
-            Text(
-                text = it,
-                color = Color(AppConfig.uiTextPrimary),
-                fontSize = AppConfig.uiFontToggleSize.sp,
-                fontWeight = FontWeight.Medium
-            )
+        bandWord?.let { word ->
+            val bandShape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(bandShape)
+                    .background(bandColour.copy(alpha = AppConfig.uiBandFillAlpha))
+                    .border(1.dp, bandColour, bandShape)
+                    .padding(horizontal = 8.dp, vertical = BAR_CELL_PAD_VERTICAL_DP.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                MapPulseDot()
+                Text(
+                    text = word,
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                bandTail?.let { tail ->
+                    Text(
+                        text = STATE_SEPARATOR,
+                        color = Color(AppConfig.uiTextMuted),
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = tail,
+                        color = Color(AppConfig.uiTextPrimary),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
             Spacer(Modifier.height(6.dp))
         }
-        Text(
-            text = stringResource(R.string.route_trip_title),
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = AppConfig.uiFontToggleSize.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(Modifier.height(6.dp))
-        // The plan's pair prints as a whole or not at all: gating on the distance alone would borrow a
-        // `0:00` for a missing time, so when either half is absent both rows drop.
-        val plannedDistanceNm = summary.plannedDistanceNm
-        val plannedEtaSeconds = summary.plannedEtaSeconds
-        if (plannedDistanceNm != null && plannedEtaSeconds != null) {
-            StatRow(
-                stringResource(R.string.track_stat_dist),
-                stringResource(R.string.route_trip_distance_nm, plannedDistanceNm)
-            )
-            StatRow(
-                stringResource(R.string.route_label_eta),
-                routeEtaText(plannedEtaSeconds)
-            )
+        SectionDivider()
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(Modifier.weight(1f)) {
+                StatCell(
+                    stringResource(R.string.route_stat_dist_total),
+                    distTotal,
+                    labelWidth = labelWidth
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                StatCell(
+                    stringResource(R.string.route_stat_dist_route),
+                    distRoute,
+                    labelWidth = labelWidth
+                )
+            }
         }
-        summary.remaining?.let { left ->
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.route_trip_remaining),
-                color = Color(AppConfig.uiTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp
-            )
-            Spacer(Modifier.height(6.dp))
-            StatRow(
-                stringResource(R.string.track_stat_dist),
-                stringResource(R.string.route_trip_distance_nm, left.distanceNm)
-            )
-            StatRow(
-                stringResource(R.string.route_label_eta),
-                routeEtaText(left.etaSeconds)
-            )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(Modifier.weight(1f)) {
+                StatCell(
+                    stringResource(R.string.route_stat_eta_total),
+                    etaTotal,
+                    labelWidth = labelWidth
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                StatCell(
+                    stringResource(R.string.route_stat_eta_route),
+                    etaRoute,
+                    labelWidth = labelWidth
+                )
+            }
         }
     }
 }
 
+/**
+ * The label column's width for a table of readings: the widest label, measured once in the reading cell's
+ * own label style, so a table's cells share one column instead of each following its own label's end. Keyed
+ * on the labels rather than on live state, so a ticking recording or a moving boat never re-measures.
+ */
 @Composable
-private fun StatRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            color = Color(AppConfig.uiTextMuted),
-            fontSize = AppConfig.uiFontDescSize.sp
-        )
-        Text(
-            text = value,
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = 14.sp, // 14sp — not uiFontValueSize (16sp): the live-stats column stays compact
-            fontWeight = FontWeight.Medium
-        )
+private fun rememberLabelColumnWidth(labels: List<String>): Dp {
+    val measurer = rememberTextMeasurer()
+    val style = TextStyle(
+        color = Color(AppConfig.uiTextMuted),
+        fontSize = 11.sp,
+        lineHeight = 12.sp
+    )
+    val density = LocalDensity.current
+    return remember(labels.joinToString("\u0000")) {
+        with(density) {
+            labels.maxOf { measurer.measure(it, style).size.width }.toDp()
+        }
     }
 }
 

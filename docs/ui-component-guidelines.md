@@ -573,7 +573,9 @@ The Menu drawer body uses the **same render model as a Settings tab**, not a bes
 Settings spacing rhythm (`ui.spacing.header.bottom` 6dp header→card, `ui.spacing.section.gap` 14dp
 section→section). Section titles are sentence case and reuse the `settings_section_*` strings. Nav rows are
 surface-free, pad vertically only and keep an explicit `heightIn(min = 48dp)` touch target; the Import/Export
-pair sits in one card with the same 48dp floor. The tracks/markers headers host their link / filter / reset
+pair sits in one card with the same 48dp floor. The readings a drawer card prints follow
+[`docs/ui-drawer-guidelines.md`](ui-drawer-guidelines.md) §9, and a figure the mode does not hold yet prints the
+pending mark that section's own authority — §5.8 — names. The tracks/markers headers host their link / filter / reset
 controls in the `SectionHeader` `trailing` slot, and the markers header opens that slot with the shared
 create action, outside the filter-axes gate; the tracks header takes none. The order the action takes there,
 and the separator's own shape, are stated once in `MarkerCreateAction`'s KDoc.
@@ -873,6 +875,11 @@ actions in its `footer`, so it auto-grows to its content like the other selected
 | Header | the title; its trailing slot carries the stage status and the ‹ › dots (shown while more than one route stands) |
 | Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
 | Footer | `Save to track` · `Select route` · `Discard route` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER |
+
+**The pending mark — authority.** A figure the mode does not hold yet prints
+[`R.string.route_value_pending`](../app/src/main/res/values/strings.xml) (`--`) wherever it would stand — in this
+panel's table and in the drawer's route cells alike — with its unit still beside it. One word for the whole app,
+never a literal in Kotlin: no zero, no blank slot and no per-surface glyph stands in for a missing figure.
 
 ---
 
