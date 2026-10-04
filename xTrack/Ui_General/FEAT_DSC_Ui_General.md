@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-10-01 20:16
+modified: 2026-10-04 14:02
 ---
 
 # Feature: Ui_General
@@ -28,14 +28,16 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 
 ### bottom banner
 
-The pills the map shows at the bottom of the band — the exit-press-back banner, the lock toggle's banner and the import/export status banner — and the space they occupy between the bottom-left regulated-zone tag column and the right control column. One control serves every instance and one guideline entry holds its rules; no instance is exempt, the two legacy progress and error cards included.
+The pills the map shows at the bottom of the band — the exit-press-back banner, the lock toggle's banner and the import/export status banner — and the space they occupy between the bottom-left regulated-zone tag column and the right control column. One control serves every instance and one guideline entry holds its rules; no instance is exempt, the two legacy progress and error cards included. The action and undo rows of the snackbar stack are the family's third full-width face, message left and commands right, anchored to the row's top.
 
 #### Docs
 - `xTrack/Ui_General/260921_FEAT_PLN_Ui_General_bottom-banner-centring.md`
+- `xTrack/Ui_General/261004_FEAT_PLN_Ui_General_action-toasts.md` — the action and undo rows onto the family's skin
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the exit toast's box, the two banner call sites, the double-back guard
-- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `LockBanner` and `MapStatusBanner` today, one `MapBanner` holding the shared skin after the fix
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the exit toast's box, the two banner call sites, the double-back guard, `SnackRow`'s container and its commands
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `LockBanner` and `MapStatusBanner` today, one `MapBanner` holding the shared skin after the fix, and `bannerLineStyle` as the family's one text definition
+- `app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt` — the stack, its clearance and its three extracted messages
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — `LoadingOverlay` and `ErrorOverlay`, which take that control
 - `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — the tag stack, the info text, the pair derivation they share
 - `docs/ui-drawer-guidelines.md` §1 — the paint-only right-edge control column rule
@@ -109,6 +111,8 @@ controls differing only in what they announce).
 - `docs/ui-component-guidelines.md` §5.6 · §5.9 — the doctrine and the tiers, its only home
 
 ## Implemented
+
+- **action-toasts (2026-10-04)** — the map's action and undo rows are now the banner family's third **full-width face**: `SnackRow` renders through `MapBanner` in `MapControls.kt`, so it keeps no corner, fill, border or shadow of its own — 14 dp corner, a 2 dp border in `ui.dashboard.background`, `ui.card.background` over `ui.button.background` and an 8 dp shadow come from the one control — and its message reads the family's own line through the new `bannerLineStyle` (16 sp Medium in `ui.toast.text`), left-aligned with the commands right and the contents anchored to the row's **top** rather than centred. `MapSnackbarHost` no longer pads its column: `MapBanner` owns `bannerStartInset(tagsDrawn)` and the right-column reserve, the tag Boolean threaded from `MapScreen`. The three messages that were hardcoded English became `snack_track_deleted`, `snack_marker_deleted` and `snack_marker_created` in both locales — the French reading `Trace` and `Repère`, the app's own words — and the two action labels moved from a hardcoded teal to `AppConfig.uiAccent`, the token the list snackbar's Undo wears. Rules moved once: `docs/ui-component-guidelines.md` §5.7 now carries six instances and three full-width faces, with `docs/ui-lists-guidelines.md` keeping the dismiss contract and pointing at it. The 4 s timeout, the 48 dp swipe, the three-deep stack, its overflow queue and the route discard's queue-jump are untouched. `apk-build.bat` BUILD SUCCESSFUL with no new warning and `:app:testDebugUnitTest --tests "ykws.android.maro.ui.map.*"` green; the Ask hop returned no blocker, its one Medium — the French twins first read `Piste` and `Marqueur` — folded with its one Low, a dangling guideline pointer. The user's device pass followed the same day and drove the plan's §8 Revision 2: the stack now clears the dashboard by the band's own gutter, and the row's commands left `ui.accent` text — about 1.5:1 on the family's translucent fill — for `ConfirmActionButton`'s new **compact `SECONDARY`** face, white bold on the accent at 50 % under the 2 dp full-opacity rim, with the build and the scoped tests green again. The compact control's measured height stays a device judgement, M3's interactive minimum being what no unit run can settle → [`261004_FEAT_PLN_Ui_General_action-toasts.md`](261004_FEAT_PLN_Ui_General_action-toasts.md) §8
 
 - **right-swipe-pin (2026-10-03)** — a list card now carries a second swipe: a right drag past 30 % of its width toggles the item's pin, with the reveal the bare `PushPin` glyph under a rightward-only alpha gate, while the left drag keeps its delete lifecycle untouched. `ListAction.TogglePin(id, pinned)` carries the target state; the scaffold wires it internally to `onAction` and both hosts route it to `TrackViewModel.setPinned` / `MarkersViewModel.setMarkerPinned`, so the swipe is a second door onto the state the card's own pin button already writes. The release decision left the composable as the pure, Compose-free `SwipePolicy` (`None` / `Delete` / `TogglePin`) with its clamp, pinned by `SwipePolicyTest` and preserving the delete path's strict threshold boundary; no string and no dependency entered, and a toggle that drops the card from an active Pinned/Unpinned filter simply re-filters the list, with no card-advance rule added. `apk-build.bat` BUILD SUCCESSFUL and `:app:testDebugUnitTest` green; the Ask hop returned **revise** — one Medium (the reveal's `alpha(0f)` leaves `cd_pin`/`cd_unpin` in the semantics tree, a phantom screen-reader node owed a one-line fix) and five Low, recorded in the plan's §8 and folded nowhere, the pipeline forbidding ping-pong. Nothing here is device-validated → [`261003_FEAT_PLN_Ui_General_right-swipe-pin.md`](261003_FEAT_PLN_Ui_General_right-swipe-pin.md) §3 · §8
 

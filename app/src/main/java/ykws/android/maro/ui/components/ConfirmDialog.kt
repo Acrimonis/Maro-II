@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -48,6 +49,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
@@ -323,51 +325,70 @@ fun ConfirmDialog(
  *
  * [modifier] is what lets such a host place it: stacked full width by default, or weighted inside a
  * [Row] where the slot is short.
+ *
+ * **A compact size, for a host off the dialog's stack** (2026-10-04, §5.6): [compact] drops the
+ * `fillMaxWidth` stretch so the control **wraps its label**, and takes an 8 dp corner (against the
+ * dialog's 12 dp), an explicit 28 dp height (against 40 dp), `PaddingValues(horizontal = 12.dp)` content
+ * padding and a 12 sp label (against 14 sp). Every face keeps its own colours exactly — the compact size
+ * moves the geometry, never the role — so the action row's commands (§5.7) wear this control's compact
+ * `SECONDARY` face rather than a second button appearing beside it.
  */
 @Composable
-internal fun ConfirmActionButton(action: ConfirmAction, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(12.dp)
+internal fun ConfirmActionButton(
+    action: ConfirmAction,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
+) {
+    val shape = RoundedCornerShape(if (compact) 8.dp else 12.dp)
+    // Compact wraps its label; every other host keeps the full-width stretch.
+    val faceModifier = if (compact) modifier.height(28.dp) else modifier.fillMaxWidth()
+    val contentPadding = if (compact) PaddingValues(horizontal = 12.dp) else ButtonDefaults.ContentPadding
+    val labelFontSize = if (compact) 12.sp else TextUnit.Unspecified
     if (!action.enabled) {
         OutlinedButton(
             onClick = action.onClick,
             enabled = false,
-            modifier = modifier.fillMaxWidth(),
+            modifier = faceModifier,
             shape = shape,
-            border = BorderStroke(1.dp, Color(AppConfig.uiDividerColor))
+            border = BorderStroke(1.dp, Color(AppConfig.uiDividerColor)),
+            contentPadding = contentPadding
         ) {
-            Text(action.label, color = Color(AppConfig.uiTextMuted))
+            Text(action.label, color = Color(AppConfig.uiTextMuted), fontSize = labelFontSize)
         }
         return
     }
     when (action.role) {
         ConfirmActionRole.PRIMARY -> Button(
             onClick = action.onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = faceModifier,
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.uiAccent)),
-            shape = shape
+            shape = shape,
+            contentPadding = contentPadding
         ) {
-            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = labelFontSize)
         }
         ConfirmActionRole.DANGER -> Button(
             onClick = action.onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = faceModifier,
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.semanticDanger)),
-            shape = shape
+            shape = shape,
+            contentPadding = contentPadding
         ) {
-            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = labelFontSize)
         }
         ConfirmActionRole.SECONDARY -> Button(
             onClick = action.onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = faceModifier,
             // A middle action is a **full action button**: the primary's shape and white bold label, its
             // background the accent at 50 % and its rim a **2 dp accent at full opacity** — the fill's
             // weight states the rank, while the rim, accent against the disabled face's 1 dp
             // `uiDividerColor`, says the control can be taken (§5.6).
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.uiActionNeutralBackground)),
             border = BorderStroke(2.dp, Color(AppConfig.uiAccent)),
-            shape = shape
+            shape = shape,
+            contentPadding = contentPadding
         ) {
-            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = labelFontSize)
         }
     }
 }

@@ -252,6 +252,13 @@ State machine: `CARD → SNACKBAR → DELETED`
 The map's undo snackbar stack (`SnackRow`) shares this dismiss contract: the 4 s timeout and a
 horizontal swipe both take the **commit** path, Undo takes the reverse path, and a row may carry one
 optional **second action** beside Undo — only the route discard uses it, adding **New acquisition**.
+What the row is **made of** is not this page's: its skin, its clearance and its text are the banner
+family's, written once in `docs/ui-component-guidelines.md` §5.7.
+
+The Undo is a **different species** on each side, by decision (R6): this page's inline `SnackbarSlot`
+keeps **accent text** for its Undo, while the map row's commands wear §5.6's `ConfirmActionButton` in its
+**compact `SECONDARY` face** — accent text does not read on the row's translucent pill over a live map,
+so the map row takes the button and the divergence is recorded rather than dissolved.
 
 The pin has no snackbar, no undo and no pending set — the same gesture reverses it, and the
 snackbar's own drag stays delete-only.
