@@ -2954,10 +2954,12 @@ fun MapScreen(
             // is where the outcomes are taken from, so it needs no floating surface to be reached —
             // and once `Select route` is pressed the ordinary dashboard returns, which is the whole of
             // what the navigation phase adds. `routeOwnsSlot` is declared above, with the band.
-            // The drawer's summary stands in the **routing phase alone** (D5): the acquisition's status
-            // — the acquiring word and the engine's stage — lives on the panel, so the gate reads the
-            // followed route rather than the slot-and-search pair.
-            val routeSummaryVisible = routeState is RouteState.Following && !routeDiscarding
+            // **The drawer's summary stands while the engine searches as well as while a route is
+            // followed** (the user's word, 2026-10-04): the card is where the mode's own figures are
+            // read, so it now stands through the acquisition too, showing the pending mark wherever a
+            // figure does not exist yet. That widens D5's "routing phase alone", which this line no
+            // longer follows — the acquisition's status no longer lives on the panel alone.
+            val routeSummaryVisible = routeSearching || (routeState is RouteState.Following && !routeDiscarding)
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,
@@ -3480,9 +3482,16 @@ fun MapScreen(
                 destinationOptions = routeEndOptions(RouteEndSelection.End.DESTINATION, routeMarkers),
                 startSelection = routeStartSelection,
                 destinationSelection = routeDestinationSelection,
-                onArm = { armRouteMode(forceFresh = true) },
                 onStartSelect = { storeRouteEnd(RouteEndSelection.End.START, it) },
                 onDestinationSelect = { storeRouteEnd(RouteEndSelection.End.DESTINATION, it) },
+                // The quick-access pair: the Settings page's own two values, written through the same
+                // settings — a second door onto them, never a second home.
+                paceKn = appSettings.routeFreeWaterPaceKn,
+                onPaceSelect = { kn -> viewModel.updateSettings { it.copy(routeFreeWaterPaceKn = kn) } },
+                preference = routeRungLambda(appSettings.routeSlowWaterAversion.toDouble()).toFloat(),
+                onPreferenceSelect = { lambda ->
+                    viewModel.updateSettings { it.copy(routeSlowWaterAversion = lambda) }
+                },
                 searching = routeSearching,
                 stageRes = routeStage?.labelResId,
                 plannedDistanceNm = routeState.plan?.distanceNm,
@@ -3493,6 +3502,8 @@ fun MapScreen(
                 alternativeSavingSec = routePages.drop(1).mapNotNull { it.plan?.durationSec }
                     .maxOfOrNull { (routePages.firstOrNull()?.plan?.durationSec ?: 0.0) - it }
                     ?.takeIf { it > 0.0 },
+                // The line's own colour, which the drawer's band wears while the engine searches (R51).
+                lineColor = appSettings.routeLineColor,
             ),
             markerList = buildMarkerListOverlayData(
                 markers = mgmtMarkers,

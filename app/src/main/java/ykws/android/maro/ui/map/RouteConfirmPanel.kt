@@ -413,14 +413,15 @@ private fun RouteSummaryTable(
                             fontWeight = weight
                         )
                     } else {
+                        // The pending mark — one word for the whole app, `R.string.route_value_pending`.
                         RouteValueLine(
-                            value = "--",
+                            value = stringResource(R.string.route_value_pending),
                             unit = stringResource(R.string.route_summary_distance_unit),
                             color = textColor,
                             fontWeight = weight
                         )
                         RouteValueLine(
-                            value = "--",
+                            value = stringResource(R.string.route_value_pending),
                             unit = stringResource(R.string.route_summary_eta_unit),
                             color = textColor,
                             fontWeight = weight

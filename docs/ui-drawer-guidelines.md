@@ -270,26 +270,30 @@ This section keeps only the **drawer-specific** rules layered on top of that sur
 
 ---
 
-## 8a. The Route Sub-section (Menu drawer)
+## 8a. The Routing Card (Menu drawer)
 
-**The Menu drawer's one input group, standing inside the Navigation card** (`MenuDrawerOverlay.RouteEndsSection`,
-R44–R49): a route's two ends, chosen here rather than placed on the map, and one action that arms the
-acquisition on the pair standing in them. It is a **sub-section of the Navigation card**
-rather than a top-level section with a card of its own (D2) — the drawer's first section is titled
-Navigation — so it is set off by a `SectionDivider` and **headed by one comment naming the group's two
-fields**: `route_comment_ends` reads `Route origin and destination` (`Origine et destination de la route`),
+**The Menu drawer's one input group, standing inside the card the drawer opens on** — a card whose header is
+`Routing` (`settings_tab_routing`) since 2026-10-04, where the drawer's first section used to be titled
+Navigation (`settings_section_position_source`) over routing content. It holds **three sub-sections in one
+card**, in this order, each set off by a `SectionDivider` and headed by a short comment: the route's two ends,
+the quick access to the mode's two settings, and the mode's own summary when it has something to say.
+
+**Sub-section 1 — Origin and destination** (R44–R48, `MenuDrawerOverlay.RouteEndsSection`): a route's two ends,
+chosen here rather than placed on the map — the action that used to arm the acquisition from here was
+**removed on 2026-10-04**, the map's square and the fan's own child being the doors. It is a **sub-section of
+the card** rather than a top-level section with a card of its own (D2), **headed by one comment naming the
+group's two fields**: `route_comment_ends` reads `Origin and destination` (`Origine et destination`),
 **which is what identifies them**, since neither row carries a label of its own — each dropdown shows **only
-its value**, inside its own field box (§2.12). **A rule separates nothing inside the group either**: no `SectionDivider`
-between the two rows, so the card's order is GPS mode → the summary (conditional) → one divider → the comment
-→ the two value-only dropdowns → the arm action, **one block**, with **auto-show zones at the card's foot**
-(the mode's parameters stand before the reveal that serves them). It remains the
-drawer's only
-group that **writes** mode state rather than reading it; the summary stays read-only (R67).
+its value**, inside its own field box (§2.12). **No rule separates the two rows either**: the group's order is
+the comment → the two value-only dropdowns — **one block** — and the two sit one gap apart, the shared
+`ui.spacing.dropdown.gap` the quick access leaves between its own two wheels, so a group of fields is spaced
+alike whichever way it lies (2026-10-04). It remains the drawer's only group that **writes**
+mode state rather than reading it; the summary stays read-only (R67).
 
-- **Two `DropdownRow`s, one per end**, **label-less and back to back**: the shared control of
+- **Two `DropdownRow`s, one per end**, **label-less and one gap apart**: the shared control of
   [`ui-component-guidelines.md` §2.12](ui-component-guidelines.md#212-dropdown-row--dropdownrow), each row
   `label = null` so it shows **only the value**, still under the comment that names both fields — the ends'
-  lists open as a wheel through the control (§2.12), **no rule between the rows**, and no per-row label
+  lists open as a wheel through the control (§2.12), **no rule between the rows** and no per-row label
   duplicating what the heading already says. The value stands inside the control's own box on the bars'
   base — `uiRadiusCard` behind the accent edge (§2.12) — so the ends read as two boxes under the comment.
 - **Entries are ordered and the first is the fallback** (R66): the fixed words first — `Current
@@ -298,18 +302,32 @@ group that **writes** mode state rather than reading it; the summary stays read-
   order. A marker's own name is **data rather than a label**, so it arrives already resolved and undressed,
   while the fixed entries are `@StringRes` ids the sub-section resolves through `route_end_fixed_fmt`; the
   two shapes meet in one label list here and nowhere else.
-- **One action below them, on the row's right half**, reading `Route`, on §5.6's own
-  `ConfirmActionButton` in the primary role, so the drawer's forward action and the panel's are the same
-  control. It takes half the row because `ConfirmActionButton` resolves its own `fillMaxWidth()` against
-  the max it is handed, which an `End`-arranged row sets at 0.5 — no change to the shared component. It is
-  the second door onto the arming the map's square performs — the two mean one thing (R49) — and the doors
-  **do not part on the drawer**: the **square** arms from the closed map leaving it
-  closed, this action arms and shuts the one it was pressed in, and the route panel — its status, its
-  sentence, its table and its three actions — is what the user lands on either way (D5, R73).
-- **The sub-section stands always**, whether or not a route runs: the pair is what an arming reads, and
-  hiding it while the mode is off would put a parameter behind a mode. What gates is the **summary** above
-  it, which stands in the **routing phase alone** — while a route is followed — because the acquisition's
-  own status lives on the panel.
+- **No action stands here any more** (the user's word, 2026-10-04): the `Route` button that armed the acquisition
+  from the standing pair was removed, so the arming's doors are the map's square and the fan's own child, and the
+  `RouteSummaryData` field that carried the callback went with it. The drawer keeps the mode's **parameters** and
+  its **status**; the panel keeps the arming's three outcomes.
+- **It stands always**, whether or not a route runs: the ends are what an arming reads, and hiding them while
+  the mode is off would put a parameter behind a mode.
+
+**Sub-section 2 — Cruising speed and driving preference** (added 2026-10-04, the user's word,
+`MenuDrawerOverlay.RouteQuickAccessSection`): the quick access to the two settings the mode plans with —
+`routeFreeWaterPaceKn` and `routeSlowWaterAversion` — as a pair of label-less `DropdownRow`s sharing one row,
+each opening the same wheel in its popup (§2.15). It is a **second door onto the settings, never a second
+home**: both boxes write the very values the Settings page's sliders write, so the two surfaces cannot
+disagree, and the pace shown is the **set** pace rather than the boat's own fitted one.
+
+- **The pace's entries are the setting's own grid** (5 … 35 kn by 5, `AppConfig.ROUTE_FREE_WATER_PACE_STOPS_KN`)
+  and the preference's are the ladder's three rungs in its own order; each rung's word and λ come off the
+  ladder (`routeRungLabelRes` / `routeRungLambdaOf`), so the wheel and the Settings slider name a rung the
+  same way.
+- **The pair is the pair control** (`DropdownPairRow`, §2.16 of the component guidelines), left on its default
+  widths: the pace's side is `Content` — measured to its own longest word, `35 kn`, so **none of its seven stops
+  can ever be cut** — and the preference's is `Remainder`, taking whatever that box and the 4dp gap leave and
+  trimming its own value on one line only where the row is too short for both words whole.
+
+**Sub-section 3 — the summary, when applicable** (`RouteSummaryBlock`): it stands while the engine searches
+**and** while a route is followed — the routing-phase-alone gate of 2026-09-28 was widened on 2026-10-04 — and
+it rides a `NestedCard` sub-card of its own, at the card's foot.
 
 ## 9. List Item Card Pattern (Track + Marker)
 
@@ -384,6 +402,14 @@ Row(
 | Detail text | 3-col × 2-row stats grid, each cell the shared `StatCell` (`ui/components/StatCell.kt`) | `markerFormatText()`: `📌 - 200m prox` / `⭕ - 200m r - 200m prox` / `📏 - 100m w - 200m prox` |
 | Action icons | Pin toggle + Export GPX | Edit only |
 | Accent bar when hidden | Always real color | Always marker color |
+
+> **The live stats block is the pattern's second wearer** (2026-10-04) — the TRACKS card, under its own Tracks row,
+> lays its six readings in a **two-column by three-row** grid of the same [`StatCell`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt),
+> under a **state band** whose fill is the tracking status colour subdued to the taken-choice level
+> (`status.tracking.container.recording` / `status.tracking.container.idle`, the accent's own 30 %), edged at 1dp in
+> that same state's own colour (`status.tracking.healthy` / `status.tracking.idle`), and whose mark is the shared `MapPulseDot`. Its cells are that same [`StatCell`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt) in its **columned shape**: the label right-aligned at the table's own measured width, the colon alone centred in a 6 dp slot, the value left-aligned — one label column shared by the table, so the values keep their alignment with no fixed share of empty space. The card shell and the accent bar are absent there, the block already standing
+> inside a `CardArea`, the state leaves the grid for that band, and the block rides a shared `NestedCard` sub-card at
+> the card's foot — depth without disclosure, the component's second use, named in `ui-component-guidelines.md` §2.4.
 
 ---
 
