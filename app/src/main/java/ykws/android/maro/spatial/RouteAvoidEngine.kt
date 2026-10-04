@@ -35,7 +35,6 @@ import ykws.android.maro.spatial.avoid.SlowShares
 import ykws.android.maro.spatial.avoid.TangentCorners
 import ykws.android.maro.spatial.avoid.EndApproaches
 import ykws.android.maro.spatial.avoid.PullRefusals
-import ykws.android.maro.spatial.avoid.RouteCurveFitter
 import ykws.android.maro.spatial.avoid.TimedLine
 import ykws.android.maro.spatial.avoid.bandPriceAt
 import ykws.android.maro.spatial.avoid.bandReachM
@@ -54,7 +53,9 @@ import ykws.android.maro.spatial.avoid.slowShares
 import ykws.android.maro.spatial.avoid.slowWaterPriceAt
 import ykws.android.maro.spatial.avoid.speedZoneCollarLimitKnAt
 import ykws.android.maro.spatial.avoid.strictestLimitKnAt
+import ykws.android.maro.spatial.avoid.RouteCornerPass
 import ykws.android.maro.spatial.avoid.timeLineWithLimits
+import ykws.android.maro.spatial.avoid.timeLineWithProfile
 import ykws.android.maro.spatial.avoid.zonePriceAtLimits
 import ykws.android.maro.spatial.avoid.zoneSlowShare
 import ykws.android.maro.spatial.avoid.zonePriceSec
@@ -212,9 +213,9 @@ class RouteAvoidEngine(
         // lookup to reach it. The rungs are the three fixed aversions — none, the split, and the maximum.
         ladderGrid = null
         val computations = listOf(
-            Computation(RouteId(++nextComputationId), R.string.route_computation_around, LAMBDA_MAX),
-            Computation(RouteId(++nextComputationId), R.string.route_computation_balanced, (LAMBDA_MIN + LAMBDA_MAX) / 2.0),
-            Computation(RouteId(++nextComputationId), R.string.route_computation_through, LAMBDA_MIN)
+            Computation(RouteId(++nextComputationId), R.string.route_rung_around, LAMBDA_MAX),
+            Computation(RouteId(++nextComputationId), R.string.route_rung_balanced, (LAMBDA_MIN + LAMBDA_MAX) / 2.0),
+            Computation(RouteId(++nextComputationId), R.string.route_rung_through, LAMBDA_MIN)
         )
         declarations = computations.associateBy { it.id }
         stageComputationId = computations.first().id
@@ -390,8 +391,8 @@ class RouteAvoidEngine(
 
     /**
      * **One rung's fixed-λ solve** — the A* pass, the taut pull and the corner snap at [lambda], then
-     * the fine pass, the fairing, the forced-crossing probe and the answer. No budget loop: a rung is
-     * computed at its own λ and never corrected, so the slow-water budget stays demoted.
+     * the fine pass, the forced-crossing probe and the answer. No budget loop: a rung is computed at
+     * its own λ and never corrected, so the slow-water budget stays demoted.
      */
     private suspend fun solveAtLambda(
         ctx: GridContext,
@@ -427,29 +428,15 @@ class RouteAvoidEngine(
             ctx.zoneOutsideMarginM, lambda, ctx.edges, ctx.openCoast, ctx.capLatNorth, ctx.priced,
             ctx.zones, ctx.sets, ctx.approaches, ctx.refusals
         )
-        // **The curve fitter (phase 6)** — the settled line's bends faired on water, between the fine
-        // re-search and the clock. The faired line is the route **drawn and saved**; its figures are the
-        // **pre-fairing base** (`baseTimed`) plus the caps' **delta**, so the fairing's own geometry
-        // change is never re-costed. The forced-crossing probe reads the **pre-fairing** line, so the
-        // crossing report describes the search and not the curve.
-        val faired = RouteCurveFitter.fit(
-            line = reSearched, grid = ctx.grid, box = ctx.box, approaches = ctx.approaches,
-            world = ctx.world, paceKn = ctx.pace, marginM = ctx.marginM, start = ctx.start, aim = ctx.aim,
-            depthGateActive = ctx.depthGateActive, minDepthM = ctx.minDepthM
+        // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
+        // an outward-bulging curve — clear by construction, slowed where the bulge would foul — then the
+        // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
+        // limit stays the hard ceiling throughout.
+        val rounded = RouteCornerPass.round(
+            reSearched, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
         )
-        trace {
-            "CURVE bends=${faired.bends} resolved=${faired.resolved} keptSharp=${faired.keptSharp} " +
-                "points=${faired.points.size} caps=${faired.caps.size}"
-        }
-        trace { "CURVE zoneM=${fmt(zoneMetres(ctx.zones, faired.points))}" }
-        val baseTimed = timeLineWithLimits(reSearched, ctx.pace, ctx.limitAt)
-        val fairedNoCap = timeLineWithLimits(faired.points, ctx.pace, ctx.limitAt)
-        val fairedWithCap = timeLineWithLimits(faired.points, ctx.pace, ctx.limitAt, faired.caps)
-        val capDeltaSec = fairedWithCap.durationSec - fairedNoCap.durationSec
-        val durationSec = baseTimed.durationSec + capDeltaSec
-        val timedLine = routeTimedLine(fairedWithCap, durationSec)
-        val finalShares = slowShares(fairedWithCap, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
-        val distanceM = lineLengthM(reSearched)
+        val timedLine = timeLineWithProfile(rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt)
+        val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
             ctx.startCell, ctx.aimCell, reSearched
@@ -458,15 +445,15 @@ class RouteAvoidEngine(
         val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
         val slowM = slowMetres(timedLine, ctx.pace)
         trace {
-            "LINE distance=${fmt(distanceM)}m duration=${fmt(durationSec)}s " +
+            "LINE distance=${fmt(lineLengthM(timedLine.points))}m duration=${fmt(timedLine.durationSec)}s " +
                 "legs=${timedLine.legTimesSec.size} " +
                 "bandMetres=${fmt(bandLawM)}m bandPricedMetres=${fmt(bandPricedM)}m " +
-                "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(fairedWithCap, ctx.pace), 2)} " +
+                "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(timedLine, ctx.pace), 2)} " +
                 "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
                 "forced=[${forced.joinToString(", ")}]"
         }
-        return success(timedLine, forced, null, distanceM = distanceM, durationSec = durationSec)
+        return success(timedLine, forced, null)
     }
 
     /**
@@ -547,29 +534,6 @@ class RouteAvoidEngine(
         trace {
             "DONE stage=${lastStage?.name ?: "none"} result=${result != null} reason=${reason?.name ?: "none"}"
         }
-    }
-
-    /**
-     * **The route's clock, from the faired line and the cap delta.** [clocked] is the drawn (faired)
-     * line timed with its caps, so its legs carry the drawn line's own profile. The reported
-     * [durationSec] is the **pre-fairing base plus the caps' delta** — the plan's figures, never a
-     * re-cost of the fairing's geometry — so it differs from the drawn line's own clock by the seconds
-     * the fairing shortened. The residual between the two is folded into the **last** leg, whose profile
-     * is therefore the one leg that does not describe the drawn line: it exists so `legTimesSec` sums to
-     * [durationSec], the contract `RouteResult.Success` states.
-     */
-    private fun routeTimedLine(clocked: TimedLine, durationSec: Double): TimedLine {
-        val legTimes = clocked.legTimesSec.toMutableList()
-        if (legTimes.isEmpty()) return clocked
-        val residual = durationSec - legTimes.sum()
-        legTimes[legTimes.lastIndex] = max(0.0, legTimes.last() + residual)
-        val legSpeeds = clocked.legSpeedsMps.toMutableList()
-        if (legSpeeds.size == legTimes.size) {
-            val i = legSpeeds.lastIndex
-            val d = SpatialOperations.haversine(clocked.points[i], clocked.points[i + 1])
-            legSpeeds[i] = if (legTimes[i] > 0.0) d / legTimes[i] else 0.0
-        }
-        return TimedLine(clocked.points, legTimes, legSpeeds)
     }
 
     /**
@@ -911,18 +875,17 @@ class RouteAvoidEngine(
      * obeys the limits and never the price, so the reported time cannot move with the loop's λ.
      *
      * It answers the **strictest limit in force**: the 300 m band's own limit inside the band's width,
-     * a speed zone's own limit inside its ring while the zone source is armed, and the lesser of the
-     * two where both hold. The band's read is **the same test the band's price makes** —
-     * [insideBandWidthM] over the world's own distance read — so the search and the clock can never
-     * disagree about which water is the band. Per D8 the band's read stands whatever
-     * `route.avoid.zone300.enabled` says: that switch prices water, it never suspends the law.
+     * a speed zone's own limit inside its ring, and the lesser of the two where both hold. The band's
+     * read is **the same test the band's price makes** — [insideBandWidthM] over the world's own
+     * distance read — so the search and the clock can never disagree about which water is the band.
+     * Both reads stand whatever their `enabled` switch says: a switch prices the search, it never
+     * suspends the limit.
      */
     private fun limitAtFor(world: AvoidWorld): (LatLng) -> Double? {
         val bandM = world.bandWidthM
         val bandLimitKn = AppConfig.routeAvoidZone300LimitKn
-        val zonesPriced = AppConfig.routeAvoidSpeedZoneEnabled
         return { p ->
-            val zoneLimit = if (zonesPriced) world.zoneLimitKnAt(p.latitude, p.longitude) else null
+            val zoneLimit = world.zoneLimitKnAt(p.latitude, p.longitude)
             val bandLimit =
                 if (bandM > 0.0 &&
                     insideBandWidthM(world.distanceToCoastM(p.latitude, p.longitude), bandM)

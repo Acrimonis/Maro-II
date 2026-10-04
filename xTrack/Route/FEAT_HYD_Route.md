@@ -1,25 +1,21 @@
-# Context Hydration — Route — 2026-10-03
+# Context Hydration — Route — 2026-10-04
 
-**Last Bake:** 2026-10-03 21:35 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-04 00:38 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** One session on `feature/route-rendering`: the saved-route casing plan was pivoted to a dashed display on the user's word and the casing pass rolled back; no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code followed a read.
+**Directive trace:** One session on `feature/avoid-speeds`, after the merge and rebase: of the five covered classes none ran unasked — no dependency was added, no machine-shaped data file was opened, work started only on the user's explicit word, the device was never touched, and every claim about the code followed a read.
 
 ## State
 
-**A saved route draws dashed, plain and speed-coloured alike** — `TrackRenderPlan` carries a `route` role, the segment builders (`buildSegmentOverlays` / `buildBandSegmentOverlays`) thread a `dashed` flag into `segmentOverlays`, and a route's whole stroke takes a `DashPathEffect` at the rhythm read from `map.track.width.route.dashOn` (6.6666667) / `dashOff` (3.3333333); recorded tracks and the gold selection stay solid, and the direction arrows stay solid.
-
-**The rhythm is file-driven** — `map.track.width.route.dashOn` / `dashOff` read through `AppConfig.trackRouteDashOnDp` / `trackRouteDashOffDp` and join the effect's rebuild keys, and the route core follows `map.track.width.route=3.0`. The R95 ladder (Fast · Balanced · Fun ordered by ETA) landed from develop during the rebase; the R93 selected-route edge stands.
-
-Build green (`apk-build.bat`) and the scoped `ui.map` + `config` + `data.track` suites green; the route-flag test pins that a banded route and a banded track differ only by the flag, and the width guard covers the two dash keys.
+The curve fitter stays gone: the settled search line is the drawn and saved line, clocked by `timeLineWithLimits` with no ramp, and `limitAtFor` reads the zone limit always; the racing-line corner pass (`RouteCornerPass`) and the backward/forward speed profile (`timeLineWithProfile`) still ride that line. **The acquisition's first column names the slow water again** — `Around slow water` · `Balanced` · `Through slow water` from dedicated `route_rung_*` strings wired in `routesToCompute`, kept apart from the settings' `Fast` · `Balanced` · `Fun`. **In design, not built:** the distance-scaled hybrid grid — fine 25 m beside the coast and the depth gate, coarse 100 m in open water, at a `route.avoid.grid.fineRatio` of 4 — with its plan [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md). The suite compiles; one test is red, `theFineCellRatioShipsAtFortyPercentOfTheCoarseCell`, which pins the old uniform grid's 40 % fine ratio and is obsolete under the hybrid design.
 
 ## Target Files
 
-- `MapTrackOverlayEffects.kt` — the `route` role on `TrackRenderPlan` and the `dashed` threading through `plainPath` / `bandedPath`
-- `MapTrackSegments.kt` — the `dashed` flag through the segment builders and the route-dash `DashPathEffect`
-- `AppConfig.kt` + `maro.properties` — `trackRouteDashOnDp` / `trackRouteDashOffDp` and `map.track.width.route=3.0`
-- `TrackRouteRoleTest.kt` — the banded-route-vs-banded-track flag test
-- `TrackOutlineTest.kt` — the width guard and the dash-key test
+- `app/src/main/res/values/strings.xml` + `values-fr/strings.xml` — the new `route_rung_*` strings, apart from the settings' `route_computation_*`
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — `routesToCompute` reads the `route_rung_*` ids
+- `app/src/main/assets/maro.properties` — `route.avoid.grid.cellM` (now 100, the open-water cell) beside the new `route.avoid.grid.fineRatio` (4)
+- `xTrack/Route/261004_FEAT_PLN_Route_hybrid-grid.md` — the hybrid-grid design, in design
+- (prior) `app/src/main/java/ykws/android/maro/spatial/avoid/RouteCornerPass.kt`, `RouteEta.kt`, `RouteResult.kt` — the corner pass, the profile and the drawn-line clock
 
 ## Next Step
 
-The device pass: a saved route dashed beside a recording, a speed-coloured dashed route, and the arrows still solid.
+Decide whether `route.avoid.grid.cellM` stays at 100 now or returns to 50 until the fine band lands, then run Phase 1's `cellM=25` channel check.
