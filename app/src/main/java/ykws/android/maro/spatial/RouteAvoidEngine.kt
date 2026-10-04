@@ -213,9 +213,9 @@ class RouteAvoidEngine(
         // lookup to reach it. The rungs are the three fixed aversions — none, the split, and the maximum.
         ladderGrid = null
         val computations = listOf(
-            Computation(RouteId(++nextComputationId), R.string.route_computation_around, LAMBDA_MAX),
-            Computation(RouteId(++nextComputationId), R.string.route_computation_balanced, (LAMBDA_MIN + LAMBDA_MAX) / 2.0),
-            Computation(RouteId(++nextComputationId), R.string.route_computation_through, LAMBDA_MIN)
+            Computation(RouteId(++nextComputationId), R.string.route_rung_around, LAMBDA_MAX),
+            Computation(RouteId(++nextComputationId), R.string.route_rung_balanced, (LAMBDA_MIN + LAMBDA_MAX) / 2.0),
+            Computation(RouteId(++nextComputationId), R.string.route_rung_through, LAMBDA_MIN)
         )
         declarations = computations.associateBy { it.id }
         stageComputationId = computations.first().id

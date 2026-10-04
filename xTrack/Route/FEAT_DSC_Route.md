@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-03 23:31
+modified: 2026-10-04 00:38
 ---
 
 # Feature: Route
@@ -167,6 +167,7 @@ The live numbered requirements — added after the master book was retired on 20
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — **the avoidance algorithm's design of record**, folded from the archived phase and zone plans: the pipeline, the cost field, the λ loop, the standoff's retirement, the fairing and the evidence
 - [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md) — the clock's enforced-limit rework, the curve fitter's removal, and the two post-passes: the racing-line corner pass and the speed profile
+- [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md) — **in design**: the distance-scaled first walk, fine (25 m) beside the coast and the depth gate, coarse (100 m) in open water, at a 1 : 4 ratio
 - Thirty-nine files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk
@@ -249,3 +250,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The acquisition table's delta re-based on the selected route — the third column compares each page against the route the selection stands on, the seat following the first landed row → [`261003_FEAT_PLN_Route_selected-delta.md`](261003_FEAT_PLN_Route_selected-delta.md)
 - A saved route draws dashed, plain and speed-coloured alike — a `route` role on the render plan keys a `dashed` flag through the segment builders, and the rhythm reads from `map.track.width.route.dashOn` / `dashOff`, so a route reads apart from a recorded track; the casing under-stroke was rolled back → [`261003_FEAT_PLN_Route_saved-route-casing.md`](261003_FEAT_PLN_Route_saved-route-casing.md)
 - The two post-passes shipped — the racing-line corner pass rounds each snapped corner into a single-bend clothoid–arc–clothoid curve that bulges outward with the corner as its apex, the curve slowed where the bulge would foul and the turn length set by the `route.turn.reachFraction` lever, then `timeLineWithProfile` times the drawn line with a backward/forward profile that anticipates deceleration and bounds acceleration, the enforced limit the hard ceiling; the curve fitter is removed and the settled search line is the drawn and saved line → [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md)
+- The acquisition's first column names the slow water again — `Around slow water` · `Balanced` · `Through slow water` from dedicated `route_rung_*` strings wired in `routesToCompute`, kept apart from the settings' own `Fast` · `Balanced` · `Fun` ladder labels
