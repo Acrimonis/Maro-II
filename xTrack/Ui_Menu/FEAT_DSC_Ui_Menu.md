@@ -2,7 +2,7 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-10-04 12:02
+modified: 2026-10-04 12:16
 ---
 
 # Feature: Ui_Menu
@@ -28,9 +28,12 @@ scrollable body, and renders its three sections with the shared Settings stencil
 - **toggle-zones-marker-in-menu** — "Show Zones on Map" switch in MARKERS card → `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
 
 ## Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — menu drawer content (POSITION SOURCE, TRACKS, MARKERS sections)
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — menu drawer content (ROUTING, TRACKS, MARKERS sections)
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownBox.kt` — one dropdown's box alone: its surface, its metrics, its value style and `dropdownBoxWidth`, with `DropdownSizing` as the behaviour it is handed
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the labelled field over that box: label, anchor, popup, wheel
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownPairRow.kt` — two fields side by side, each side's width a behaviour
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — Layer 1 compositor; renders MenuDrawer via DrawerSlot
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt` — `@Immutable` read-only bundles (incl. `MenuOverlayData`)
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt` — `@Immutable` read-only bundles (incl. `MenuOverlayData` and `RouteSummaryData`)
 - `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` — fixed-header + scrollable body scaffold
 - `docs/ui-drawer-guidelines.md` — canonical drawer reference
 
