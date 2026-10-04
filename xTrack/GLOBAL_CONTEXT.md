@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-04 00:34 UTC] WorkflowImprovement — five Claude Code agent adapters in `.claude/agents/` mirror the mode handoff, each a thin pointer to AGENTS.md §8 → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-10-03 19:49 UTC] Route — the ladder reads Fast · Balanced · Fun ordered by ETA, the preference re-seats on its live value, and a collapsed preference parks on its survivor (R95) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 14:29 UTC] Ui_Dashboard — the whole bottom dashboard family on one auto-resizing frame with one base size and one map ceiling, its corners square at every size after the device look rejected the round-once-grown effect, then the walk's residue landed: the dead probe, the badge residue and the stray landscape measurement gone, and the inset tightened → xTrack/Ui_Dashboard/FEAT_HYD_Ui_Dashboard.md
 - [2026-10-03 12:03 UTC] Route — a saved route draws dashed in both fill modes, the rhythm read from `map.track.width.route.dashOn` / `dashOff`, so it reads apart from a recorded track; the casing under-stroke was rolled back → xTrack/Route/FEAT_HYD_Route.md
@@ -12,7 +13,6 @@
 - [2026-10-03 02:17 UTC] Route — the functional flow (early select, early save), the acquisition panel on the shared `DrawerScaffold` with a paging three-column table, and the UI guideline docs trimmed to current state; committed `aeeaf11` → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-02 12:27 UTC] Ui_Settings — pivot only, no task named yet → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-10-01 20:16 UTC] Ui_General — `feature/ui-shuffle` reshuffled the Settings tabs and the menu → xTrack/Ui_General/FEAT_HYD_Ui_General.md
-- [2026-09-30 21:16 UTC] Route — `feature/route-markers`: a saved route carries its two flagged marker ends and is found by them → xTrack/Route/FEAT_HYD_Route.md
 
 ## Routing Map
 | Keyword | Feature File |
@@ -59,7 +59,7 @@
 | Performance | Battery optimization, adaptive GPS tuning, power management, the map layer cost pass — detail in [`FEAT_DSC_Performance.md`](xTrack/Performance/FEAT_DSC_Performance.md) | 2026-05-20 00:00 | 2026-09-20 13:50 | active |
 | Ui_Settings | Settings page UI — row families, transparency paradigm, stroke widths, the px→dp migration — detail in [`FEAT_DSC_Ui_Settings.md`](xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md) | 2026-06-09 15:28 | 2026-09-19 13:50 | active |
 | UI_Map | Map rendering, depth colour layer, overlays, inspect mode, the px→dp pass — detail in [`FEAT_DSC_UI_Map.md`](xTrack/UI_Map/FEAT_DSC_UI_Map.md) | 2026-05-10 00:00 | 2026-09-19 13:21 | active |
-| WorkflowImprovement | xTrack `#` command system and rule-book governance — detail in [`FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) | 2026-06-03 00:00 | 2026-09-19 09:31 | active |
+| WorkflowImprovement | xTrack `#` command system and rule-book governance, and the Claude Code agent adapters in `.claude/agents/` that mirror the mode handoff — detail in [`FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) | 2026-06-03 00:00 | 2026-10-04 00:34 | active |
 | Navigation | Navigation aids — heading/speed arrow and direction line, auto-show zones | 2026-06-10 08:40 | 2026-09-16 17:10 | active |
 | RegulatedZones | Maritime regulatory zones — multi-source normalization, sealed classification, icon mapping | 2026-06-11 18:00 | 2026-09-16 17:10 | active |
 | ColorManagement | Centralised colour palette — all tokens in `colors.properties` with alias interpolation — [`color-scheme.md`](docs/color-scheme.md) | 2026-06-16 14:05 | 2026-09-16 15:00 | active |
