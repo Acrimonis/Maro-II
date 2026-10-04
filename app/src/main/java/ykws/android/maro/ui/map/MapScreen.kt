@@ -3482,7 +3482,6 @@ fun MapScreen(
                 destinationOptions = routeEndOptions(RouteEndSelection.End.DESTINATION, routeMarkers),
                 startSelection = routeStartSelection,
                 destinationSelection = routeDestinationSelection,
-                onArm = { armRouteMode(forceFresh = true) },
                 onStartSelect = { storeRouteEnd(RouteEndSelection.End.START, it) },
                 onDestinationSelect = { storeRouteEnd(RouteEndSelection.End.DESTINATION, it) },
                 searching = routeSearching,

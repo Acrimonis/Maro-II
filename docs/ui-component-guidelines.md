@@ -178,6 +178,12 @@ CardArea {
 - Any control — toggles, one-knob sliders, two-knob `RangeSlider`s, text, swatches — may sit inside the NestedCard.
 - **Forbidden:** a card inside the NestedCard (a third level), or using a full `uiCardBackground` card as the NestedCard.
 
+**`NestedCard` also stands without an `Expander`** (2026-10-04): the Menu drawer's two live blocks — the recording's
+and the route's — ride a `NestedCard` inside their `CardArea` as **depth without disclosure**, always open, the
+sub-card being the paint that sets the block apart rather than a panel a row reveals. The depth cap still holds
+there: card → sub-card → controls, never a third level, and the nested padding is the shared token's, so an inner
+block is narrower than the card by twice `ui.padding.card.horizontal`.
+
 **Single colour section (`SingleColorSubSection`):** a NestedCard group holding **exactly one** colour control keeps a
 `SubSectionHeader`-style title on its own line, and the **description line carries the 24dp colour swatch on its
 trailing edge** (tappable → colour picker). If a single-colour section has no description, the swatch sits on the

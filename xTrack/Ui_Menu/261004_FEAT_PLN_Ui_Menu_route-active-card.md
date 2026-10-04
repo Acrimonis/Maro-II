@@ -39,6 +39,14 @@ Branch: **`feature/menu-live-cards`** (the user's word, 2026-10-04) — the same
   "Routing" / "En route", the band being that string's only reader.
 - **The block moved to the card's foot** (the user's word, 2026-10-04): the ends sub-section and its head stand
   first, the summary follows them, and the divider that separated the two moves with it.
+- **Both live blocks ride a sub-card** (the user's word, 2026-10-04): the shared `NestedCard` surface holds the
+  route block here and the recording's block beside it, with **no expander** above them — depth without disclosure,
+  always open. That is the component's second use, and `docs/ui-component-guidelines.md` §2.4 names it rather than
+  leaving the page saying a `NestedCard` is only what an `Expander` reveals.
+- **The `Route` button left the ends sub-section** (the user's word, 2026-10-04): the drawer now carries the
+  parameters alone, so the arming's doors are the map's square and the fan's own child, and R49's "second door onto
+  the same arming" lost this one. `RouteSummaryData.onArm` went with the button, its only reader having been that
+  action, and `docs/ui-drawer-guidelines.md` §5.5 records the removal.
 - **The readings become four cells, two columns by two rows**: the plan's figures on the left, the route's own on the
   right — `Dist total` beside `Dist route`, then `ETA total` beside `ETA route`.
 - **The card stands in acquisition too**, not only while a route is followed, and the right cells hold the mark the
@@ -150,5 +158,7 @@ pair divided by `ROUTE_ETA_PAIR_SEPARATOR`, with the words, the bullet and the p
 row the tracking band uses. The acquisition word is the band's own key, `route_status_acquiring_bare`, set without
 the ellipsis the shared string carries for the route panel's header — the user's word. A third pass the same day put
 the block at the card's foot, below the ends sub-section, and gave the routing band its tail: `ETA: <whole minutes>
-min`, or `ETA: <seconds> sec` below a minute, from two keys in both locales, with the pair separator deleted. Left
-unverified: the on-device read at arm's length, which is the user's own check.
+min`, or `ETA: <seconds> sec` below a minute, from two keys in both locales, with the pair separator deleted. A
+fourth pass wrapped both live blocks in the shared `NestedCard` sub-card — no expander, so the depth is paint and not
+disclosure — which costs each block `2 × ui.padding.card.horizontal` of width; §2.4 of the component guidelines
+records that second use. Left unverified: the on-device read at arm's length, which is the user's own check.

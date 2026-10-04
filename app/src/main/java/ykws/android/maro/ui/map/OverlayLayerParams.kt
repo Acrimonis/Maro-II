@@ -178,8 +178,6 @@ data class RouteSummaryData(
     val startSelection: RouteEndSelection = RouteEndSelection.CurrentPosition,
     /** The destination the section stands on. */
     val destinationSelection: RouteEndSelection = RouteEndSelection.MarkerPosition,
-    /** **Arms the acquisition on the standing pair** — the section's own action (R49). */
-    val onArm: () -> Unit = {},
     /** Writes a start selection, which persists per navigation mode (R48). */
     val onStartSelect: (RouteEndSelection) -> Unit = {},
     /** Writes a destination selection, which persists the same way. */
