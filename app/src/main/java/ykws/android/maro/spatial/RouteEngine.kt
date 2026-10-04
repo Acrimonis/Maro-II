@@ -119,6 +119,22 @@ enum class RouteReason(val labelResId: Int) {
 }
 
 /**
+ * **A provisional reading of a line a rung is still settling** — the distance and the time the line
+ * already supports the moment it is first taut, and nothing the pipeline may still move.
+ *
+ * It is engine-neutral on purpose: a pair of figures any engine can stand behind, taken before the
+ * corner pass has rounded the line and before the profile clock has timed it. It is not an answer —
+ * [RouteUpdate.result] is — so it never decides anything, and it is replaced by the settled figures the
+ * instant the rung's terminal update lands.
+ */
+data class RouteProvisional(
+    /** The pulled line's own length, in metres. */
+    val distanceM: Double,
+    /** That same line timed by the enforced-limit clock, in seconds. */
+    val durationSec: Double
+)
+
+/**
  * **One update the flow learns about a lookup** — the id, the stage pair, the line so far, the
  * finished result and the reason a lookup cannot be answered.
  *
@@ -142,7 +158,17 @@ data class RouteUpdate(
      * the dummy reads no layer at all — reports nothing, and the empty list is that statement rather than
      * a gap. The list belongs to [stageDone], never to [nextStage]: a stage reports what it *did*.
      */
-    val readings: List<RouteStepReading> = emptyList()
+    val readings: List<RouteStepReading> = emptyList(),
+    /**
+     * **The provisional pair a rung's line already supports**, or `null` where the engine has none to
+     * report — the absent default states that plainly, so an engine that measures nothing says so.
+     *
+     * It rides the boundary update that already carries [line] and [readings], and it belongs to the
+     * **pulled** line the boundary just made taut: the figures a row can print while the rung is still
+     * settling, replaced by the settled answer when the rung's terminal update lands. An engine that
+     * takes no such reading leaves it null everywhere.
+     */
+    val provisional: RouteProvisional? = null
 )
 
 /**

@@ -12,8 +12,12 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
- * The corridor chain and the walk it feeds: the region the second pass reads, the windows it is rasterized
- * into, and the seam between two of them — the three things the adaptive grid's Phase 3 stands on.
+ * The corridor chain and the walk it feeds: the region the second pass read before it was retired for
+ * `evolutive` on 2026-10-04, the windows it is rasterized into, and the seam between two of them.
+ *
+ * The chain is **machinery kept for the two-layer first walk**, which is its next user — so it is still
+ * tested here while the plan's own answer to it is the empty one [`theEvolutivePlanAnswersNoRegionNow`]
+ * pins.
  */
 class RouteCorridorChainTest {
 
@@ -95,16 +99,23 @@ class RouteCorridorChainTest {
         }
     }
 
-    /** The plan is the region's one decision: `evolutive` answers a chain where `avoid` answers its box. */
+    /**
+     * The plan is the region's one decision: `evolutive` answers **none**, `avoid` the line's own box.
+     *
+     * The chain the adaptive plan used to hand back is retired for that engine — the `#implement` reading
+     * of 2026-10-04 found the re-walk kept once in five arms against a 2×–5× cost — so the plan states the
+     * interface's *nothing to re-search* rather than a region. The chain helper itself keeps its own tests
+     * above, because the two-layer first walk is what it now waits for.
+     */
     @Test
-    fun theEvolutivePlanAnswersAChainAndTheAvoidPlanItsBox() {
+    fun theEvolutivePlanAnswersNoRegionNow() {
         val line = listOf(LatLng(43.5000, 7.0000), LatLng(43.5000, 7.0300))
 
-        val chain = EvolutiveGridPlan.secondPassRegions(line, corridor, 50.0, AppConfig.routeEvolutiveGridCellM)
-        assertTrue("a 2.4 km line chains many boxes, not one", chain.size >= 10)
-        assertTrue("the first box carries the start", chain.first().holds(line.first()))
-        assertTrue("and the last the aim", chain.last().holds(line.last()))
-
+        assertTrue(
+            "evolutive's second pass is retired: the plan answers the nothing-to-re-search case",
+            EvolutiveGridPlan.secondPassRegions(line, corridor, 50.0, AppConfig.routeEvolutiveGridCellM)
+                .isEmpty()
+        )
         assertEquals(
             "avoid's own plan still answers the one box the settled line spans",
             1,

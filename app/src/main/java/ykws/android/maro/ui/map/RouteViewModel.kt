@@ -511,7 +511,9 @@ class RouteViewModel(
                 return
             }
             if (!session.containsKey(plan)) putSession(plan, null)
-            val updated = current[index].copy(plan = plan)
+            // A landed page prints the settled figures alone: the provisional pair the boundary update
+            // carried while it waited is cleared here, so no row can show a stale pair beside a plan.
+            val updated = current[index].copy(plan = plan, provisional = null)
             val newPages = current.toMutableList().also { it[index] = updated }
             _pages.value = newPages
             // The main lookup drives the stage and the provisional line. The provisional line clears with
@@ -545,7 +547,13 @@ class RouteViewModel(
             }
             return
         }
-        val updated = if (update.reason != null) current[index].copy(reason = update.reason) else current[index]
+        // A provisional pair rides its own boundary update and lands on the page that owns the id; a
+        // terminal refusal clears it with the same stroke as a landing, since neither will settle further.
+        val updated = when {
+            update.reason != null -> current[index].copy(reason = update.reason, provisional = null)
+            update.provisional != null -> current[index].copy(provisional = update.provisional)
+            else -> current[index]
+        }
         val newPages = current.toMutableList().also { it[index] = updated }
         _pages.value = newPages
         if (index == MAIN_INDEX) {

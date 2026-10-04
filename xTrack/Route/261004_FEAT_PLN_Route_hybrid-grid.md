@@ -5,7 +5,9 @@ Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** besi
 gate, coarse **100 m** in open water, ratio **1 : 5**; the second pass is one fine grid **along the path**.
 **The metres land first; nothing of the two-layer walk is built.**
 
-Status: Phases 1 and 3 landed (2026-10-04); the device pass's reading, the two-layer walk and its seam remain in design.
+Status: Phases 1, 2 and 3 landed (2026-10-04) — Phase 2's device reading confirmed the corridor's half-width
+at 150 m and, on the user's word, retired the second pass's re-walk for `evolutive`; the two-layer walk and
+its seam remain in design.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -63,6 +65,42 @@ Vocabulary: the thing is the **adaptive grid**; `hybrid` and `distance-scaled` a
 - **Two deviations named**: `fineReSearch` now branches **once** on the region count (one box = the old
   `rasterize`, several = windows), which is a two-path raster rather than a two-walk; and the plan's ends test
   proved unsatisfiable as it was written — see `## The fine region`.
+
+## What landed, 2026-10-04 — Phase 2's reading, and the re-walk retired for `evolutive`
+
+- **The instrument**: two lines on the existing `MaroRoute` channel, built only where that tag's level is on —
+  `DEVICE PASS` per rung (the cell, passable and expansion counts, the path's cells, the coarse walk's own
+  duration and the second pass's beside it) and `DEVICE DEV` per rung (the kept line's deviation from the
+  coarse one, and from a **fine reference** walked over the line's own span at the fine cell, which no
+  corridor caps). [`referenceWalk`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:349)
+  is that reference and [`deviationTo`](../../app/src/main/java/ykws/android/maro/spatial/multipass/LineDeviation.kt:24)
+  is the measure; both are dev-only and no shipped path reaches them.
+- **The reading that pins `w`, over five arms on two routes at 37, 20 and 5 kn**: the coarse line's error
+  against the uncapped reference is **61–230 m forward and 84–185 m back**, at or under 100 m on four of the
+  five arms, and the one arm above it sits in the 100–200 m band the plan reads as *the first walk not yet
+  resolving what it should* — so **150 m is confirmed and the clamp does not rise to 300**.
+- **The open-water A\* cost**: 31–31 129 expansions over corridors of 6 930–46 428 cells, the λ=5 rung
+  closing 59–99 % of the passable water on the constrained routes against the λ=0 rung's 31–1 691 cells — the
+  aversion, not the geometry, is what the coarse walk spends.
+- **The re-walk's verdict**: kept **once in five arms**, and that once on a `λ = 0` tie the priced comparison
+  cannot refuse; every other arm found no path or was refused on price (18.6 km λ=5: 73 576 against 64 786;
+  λ=2.50: 35 596 against 33 585). Its precision was −0.30 % and +0.17 % of length on the 18.6 km route and
+  −1.30 % on the 1.1 km one.
+- **Its cost**: 2.0×–5.2× the coarse pass on the 1.1 km route (520–1 493 ms against 100–582 ms) and, on one
+  grown 46 428-cell rung of the 18.6 km route, **53.6 s against that pass's 12.2 s** — paid once per rung and
+  again on every grown corridor, before the keep rule decides.
+- **The decision, on the user's word**: `EvolutiveGridPlan.secondPassRegions` answers the interface's own
+  *no region can be cut*, so the re-walk stops running for `evolutive` while `avoid` is untouched. The fine
+  cell stays (the clock's step at three sites, the plan's metres answer, the guard test) and
+  [`finePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:40) stays — its
+  re-tension is the cheap half and produced every visible change the reading showed, while its zone crossing
+  re-solve fired and answered nothing at about 6 s an arm.
+- **What the retirement does not delete**: the chain, the lattice and the window walk stay in the tree as the
+  **two-layer first walk's** next user, and `route.evolutive.fine.corridorHalfWidthM` is left in place with
+  the parked corridor design rather than deleted with its reader — nothing in `app/src/main` reads it now,
+  which is the state `route.avoid.grid.fineRatio` is already in.
+- **The gate**: `apk-build.bat` green and the suite at **874 / 1 / 10**, the single red still `avoid`'s own
+  parked ratio test.
 
 ## Purpose
 
@@ -320,6 +358,10 @@ The cost:
   stays where it is — and stays red, because the file it reads was moved to 0.3333 by the user's
   experiment: that redness is `avoid`'s residue and the user's to settle, which is why Phase 1 below does
   not touch it.
+- **`route.evolutive.fine.corridorHalfWidthM` is read by nothing in `app/src/main` since 2026-10-04**, its
+  only reader having been the chain, and the key is **kept** with the parked corridor design rather than
+  deleted — the same state `route.avoid.grid.fineRatio` is in, and one the record now states instead of
+  implying a reader.
 
 ## Verification
 
@@ -354,10 +396,12 @@ The cost:
    "the engine's own fine consumers" predates the split*: after it those consumers are the shared seats, so
    the metres value had to reach them through the plan seam — the one deviation, and the reason this phase
    edits shared code where the phase's own text promised it touched none.
-2. **The device experiment — the user's pass, on `evolutive`.** `route.evolutive.grid.cellM=100` with the
-   second pass held at 20 m: measure the open-water A\* cost, and measure how far the coarse line sits from
-   a fine reference line — the deviation that pins `w`.
-3. **The corridor chain — three pieces in this order, all of them Phase 3's, landing in `EvolutiveGridPlan`.**
+2. **Landed 2026-10-04 — the device experiment, the user's own pass, on `evolutive`.** Two rounds on device
+   at `route.evolutive.grid.cellM=100` with the second pass at 20 m: the open-water A\* cost and the
+   deviation that pins `w` (61–230 m forward, 84–185 m back — 150 m stands). Its by-product is the retirement
+   above: the corridor re-walk was kept once in five arms at a 2×–5× cost, so `evolutive` no longer runs it.
+3. **Landed 2026-10-04 — the corridor chain, and retired for `evolutive` the same day.** Three pieces in this
+   order, all of them Phase 3's, landing in `EvolutiveGridPlan`.
    **(a) The one lattice.** [`rasterize`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt:349)
    derives its cell-size pair from the box's own mid-latitude, so the pair is derived **once** from the
    corridor's mid-latitude and every box snapped outward onto it: a window onto one lattice, never a box
@@ -371,7 +415,8 @@ The cost:
    first reader; `avoid`'s plan answers its own box unchanged, padding term and all, so the span-sized region
    falls for `evolutive` alone. The exit is a green suite plus a line drawn across a seam between two boxes,
    and **a chain the pass does not walk is the one shape this phase must not ship**: the re-search reads the
-   whole region list, never its first box.
+   whole region list, never its first box. **Retired for `evolutive` the same day**, on Phase 2's reading — that
+   plan answers no region now, and the chain stays in the tree as the two-layer first walk's next user.
 4. **Two-layer rasterize** — the fine band (coast and depth gate triggers, `fineCellM` deep, one coarse
    cell wide) and the coarse interior, both on that one lattice.
 5. **The seam helper grows to unequal cells** — resolution-aware neighbour expansion with the seam edge
@@ -381,9 +426,10 @@ The cost:
 6. **Pull, snap and corner at local resolution** — the pull takes no cell of its own, so what takes the
    local size is `snapToCorners`' field, the `CornerSet` distances, `carveReachCells` and `openEndDisc`, so
    the band's 20 m survives into the drawn points.
-7. **The demotion decision, read off the band/coarse diagnostic** — what survives of
-   [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205): the
-   price-crossing re-solve alone, or the corridor walk too.
+7. **Settled for `evolutive` on 2026-10-04, ahead of its own trigger — the demotion decision was taken off
+   Phase 2's reading**: the corridor walk retired with no re-walk replacing it. What the phase still owns is
+   `avoid`'s half (whether the re-walk earns its 2×–5× there) and the surviving seat's other mechanism, the
+   zone crossing re-solve, which on the reading expanded 9 032 cells towards an aim it never closed.
 8. **Record** — bake, fold, and settle the epic's `## Implemented`.
 
 ## The code health this landing must not cost
@@ -460,7 +506,8 @@ pays later for moving fast now. What this plan therefore fixes in advance:
   the first walk's 100 m cell that reach is 200 m against the shipped 150 m. The fine pass re-opens the ends
   itself and keeps the coarse line when the splice is not better, so the exposure is a refused improvement
   rather than a wrong line. The resume condition is a device reading in which the ends' fine stretch is
-  refused; the other answer is the clamp's floor rising to `2 × cellM`.
+  refused; the other answer is the clamp's floor rising to `2 × cellM`. **Moot for `evolutive` since
+  2026-10-04** — no chain walks that region any more — so it stays parked with the corridor design.
 - Whether the seam needs a transitional layer once its edge is distance-priced, or one band suffices.
 - Whether the depth-gate band trigger reads the depth excess over the gate or a true contour distance.
 - **Parked — the zone repair's own raster, if a reading ever says it dominates.** It stays the zone's box

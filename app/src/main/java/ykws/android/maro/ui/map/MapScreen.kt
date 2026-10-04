@@ -6,8 +6,8 @@ import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
 import ykws.android.maro.spatial.RouteEngineChoice
-import ykws.android.maro.spatial.avoid.AvoidWorld
-import ykws.android.maro.spatial.avoid.LiveAvoidWorld
+import ykws.android.maro.spatial.multipass.MultipassWorld
+import ykws.android.maro.spatial.multipass.LiveMultipassWorld
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -699,8 +699,8 @@ fun MapScreen(
     // The avoid engine's world provider, built over the repositories the map already holds — the same
     // instances the water, band and depth reads go through. It always answers a live world over them,
     // so a layer that lands after the engine is built is read on the next search.
-    val avoidWorldProvider: () -> AvoidWorld = {
-        LiveAvoidWorld(
+    val avoidWorldProvider: () -> MultipassWorld = {
+        LiveMultipassWorld(
             viewModel.coastlineRepository,
             depthViewModel.depthRepository,
             zonesProvider = { viewModel.speedZones.value },

@@ -77,11 +77,13 @@ object UniformGridPlan : RouteGridPlan {
 }
 
 /**
- * **`evolutive`'s plan: the adaptive grid's own two sizes, before its layers land.** It answers the first
- * walk at the engine's own coarse cell and the second pass at its own metres value, so the metres key is
- * live from the first commit while the walk is still one rectangle — the fine band beside the coarse
- * interior and the corridor chain are the steps that follow, and each one replaces a member here rather
- * than the pipeline both engines share.
+ * **`evolutive`'s plan: the adaptive grid's own two sizes.** It answers the first walk at the engine's
+ * own coarse cell and the fine cell at its own metres value, so the metres key is live from the first
+ * commit while the walk is still one rectangle — the fine band beside the coarse interior is the step
+ * that follows, and it replaces a member here rather than the pipeline both engines share.
+ *
+ * **Its second pass is retired as of 2026-10-04**, on the device's own reading — see
+ * [`secondPassRegions`] below for the figures and for what the retirement leaves standing.
  */
 object EvolutiveGridPlan : RouteGridPlan {
 
@@ -89,20 +91,28 @@ object EvolutiveGridPlan : RouteGridPlan {
         listOf(GridTile(corridor, AppConfig.routeEvolutiveGridCellM))
 
     /**
-     * **The chain, not the span**: the second pass walks a ribbon of side `2w` along the settled line
-     * rather than the rectangle that contains it, at the engine's own fine cell — the very lattice the
-     * pass will window — so a U-shaped route no longer pays for the box its ends describe.
+     * **No second pass at all, on the device's own reading** — the corridor chain is retired for this
+     * engine, and the interface's *no region can be cut* is how it is retired.
+     *
+     * The chain was built so the re-walk would pay for a ribbon instead of the line's span. Measured on
+     * the device (2026-10-04, five arms over two routes at three cruise speeds): the re-walk was **kept
+     * once in five arms**, and that once on a `λ = 0` tie the priced comparison cannot refuse — every other
+     * arm either found no path or was refused on price — while it cost 2.0×–5.2× the coarse pass on a
+     * 1.1 km route and 53.6 s against that pass's 12.2 s on one 18.6 km rung, paid once per rung and again
+     * on every grown corridor. The precision it bought was under 0.3 % of a long route's length.
+     *
+     * **What the empty answer does not retire**: the fine cell itself, read by the clock's step and by the
+     * plan's own metres answer, and [`RouteFinePass.finePass`] — its re-tension and its zone crossing
+     * re-solve are the cheap half, and the re-tension produced every visible change the reading showed.
+     * The chain, the lattice and the window walk stay in the tree because the two-layer first walk is
+     * their next user, not this pass.
      */
     override fun secondPassRegions(
         line: List<LatLng>,
         corridor: BBox,
         outsideMarginM: Double,
         cellM: Double
-    ): List<BBox> = corridorChain(
-        line,
-        AppConfig.routeEvolutiveFineCorridorHalfWidthM,
-        WalkLattice.of(corridor, fineCellM(cellM))
-    )
+    ): List<BBox> = emptyList()
 
     override fun fineCellM(baseCellM: Double): Double = AppConfig.routeEvolutiveGridFineCellM
 }

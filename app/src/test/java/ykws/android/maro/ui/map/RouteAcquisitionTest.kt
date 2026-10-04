@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,6 +25,7 @@ import ykws.android.maro.spatial.RouteComputation
 import ykws.android.maro.spatial.RouteDeclarations
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteId
+import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.SpatialOperations
@@ -570,6 +572,53 @@ class RouteAcquisitionTest {
             "the panel's Select took the seat's candidate, not the main",
             listOf(start, shortcut),
             following.plan.points
+        )
+    }
+
+    /**
+     * **A waiting row prints the provisional pair, a landed row the settled figures instead** — the one
+     * reading the table's middle column takes: the settled pair wins where a plan stands, the provisional
+     * pair fills the cell that is still waiting, and a row with neither keeps the `--` placeholder.
+     */
+    @Test
+    fun aWaitingRowPrintsTheProvisionalPairAndALandedRowTheSettledFigures() {
+        val provisional = RouteProvisional(1_852.0, 400.0)
+        val settled = RoutePlan(
+            start = start,
+            destination = aim,
+            destinationMoved = false,
+            points = listOf(start, aim),
+            legTimesSec = listOf(600.0),
+            distanceM = 1_000.0,
+            durationSec = 600.0,
+            computedAtMs = 0L
+        )
+
+        val waitingFigures = routeRowFigures(RoutePage(lookupId = RouteId(1), provisional = provisional))
+        assertNotNull("a waiting row prints its provisional pair", waitingFigures)
+        assertEquals(
+            "the provisional distance is the pair's length in nautical miles",
+            Units.metresToNauticalMiles(1_852.0),
+            waitingFigures!!.distanceNm,
+            1e-9
+        )
+        assertEquals("and the provisional ETA is the pair's own time", 400.0, waitingFigures.durationSec, 1e-9)
+
+        val landedFigures = routeRowFigures(
+            RoutePage(lookupId = RouteId(2), plan = settled, provisional = provisional)
+        )
+        assertNotNull("a landed row prints the settled figures", landedFigures)
+        assertEquals("the settled distance is the plan's", settled.distanceNm, landedFigures!!.distanceNm, 1e-9)
+        assertEquals(
+            "and the settled ETA is the plan's whole-line time, replacing the provisional",
+            600.0,
+            landedFigures.durationSec,
+            1e-9
+        )
+
+        assertNull(
+            "a row with neither a plan nor a provisional pair prints the placeholder",
+            routeRowFigures(RoutePage(lookupId = RouteId(3)))
         )
     }
 }

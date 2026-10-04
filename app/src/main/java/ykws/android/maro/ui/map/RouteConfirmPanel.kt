@@ -415,11 +415,13 @@ private fun RouteSummaryTable(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    val plan = page.plan
-                    if (plan != null) {
-                        val course = plan.remainingFrom(plan.start)
+                    // The settled pair on a landed page, the provisional pair the boundary update carried
+                    // while it waits, or the `--` placeholder where neither stands — one home for the
+                    // reading, so the row prints the same way whichever it holds.
+                    val figures = routeRowFigures(page)
+                    if (figures != null) {
                         RouteValueLine(
-                            value = stringResource(R.string.route_summary_distance_value_fmt, plan.distanceNm),
+                            value = stringResource(R.string.route_summary_distance_value_fmt, figures.distanceNm),
                             unit = stringResource(R.string.route_summary_distance_unit),
                             color = textColor,
                             fontWeight = weight
@@ -427,8 +429,8 @@ private fun RouteSummaryTable(
                         RouteValueLine(
                             value = stringResource(
                                 R.string.route_summary_eta_value_fmt,
-                                course.durationSec.toInt() / 60,
-                                course.durationSec.toInt() % 60
+                                figures.durationSec.toInt() / 60,
+                                figures.durationSec.toInt() % 60
                             ),
                             unit = stringResource(R.string.route_summary_eta_unit),
                             color = textColor,

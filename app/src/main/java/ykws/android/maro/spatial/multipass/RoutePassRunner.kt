@@ -2,9 +2,12 @@ package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteStepReading
+import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
@@ -35,7 +38,8 @@ internal class RoutePassRunner {
         walk: GridWalk,
         lambda: Double,
         publishStage: Boolean,
-        publish: (RouteStage?, List<RoutePoint>?, List<RouteStepReading>) -> Unit = { _, _, _ -> },
+        publish: (RouteStage?, List<RoutePoint>?, List<RouteStepReading>, RouteProvisional?) -> Unit =
+            { _, _, _, _ -> },
         trace: (() -> String) -> Unit = {},
         guardZones: Boolean = true,
         guardBand: Boolean = true
@@ -60,7 +64,7 @@ internal class RoutePassRunner {
                 world, cellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
                 lambda = lambda
             )
-        if (publishStage) publish(RouteStage.SEARCH, null, emptyList())
+        if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
         val search = MultipassSearch.searchWalk(
             windows, startCell, aimCell, Units.knotsToMps(pace),
             zonePriceSec = { interiorKn, collarKn, bandCollarKn ->
@@ -88,20 +92,29 @@ internal class RoutePassRunner {
                     RouteStage.SEARCH, R.string.route_reading_passable_cells,
                     search.passableCells.toDouble(), R.string.route_unit_cells
                 )
-            )
+            ),
+            null
         )
         val pulled = MultipassPull.pull(
             full, start, aim, marginM, guardField, approaches, refusals
         )
         trace { "PULL zoneM=${fmt(zoneMetres(zones, pulled))}" }
-        if (publishStage) publish(
+        // The provisional pair belongs to this boundary and to the pulled line alone: the line is taut
+        // here, but the settled clock is still the pull → snap → pull tail and the corner pass away, so
+        // one enforced-limit read and the pulled length are all a row can stand behind now. It rides the
+        // SNAP boundary for **every** pass — the narrating main and a candidate alike — because each
+        // rung's own row waits on its own line; the caller decides what travels from there.
+        val provisionalTimed = timeLineWithLimits(pulled, pace, limitAt, clockSampleM(cellM, ctx.fineCellM))
+        val provisional = RouteProvisional(pulledLengthM(pulled), provisionalTimed.durationSec)
+        publish(
             RouteStage.SNAP, pulled.map { RoutePoint.of(it) },
             listOf(
                 RouteStepReading(
                     RouteStage.PULL, R.string.route_reading_pulled_points,
                     pulled.size.toDouble(), R.string.route_unit_points
                 )
-            )
+            ),
+            provisional
         )
         val snapped = snapToCorners(pulled, sets, marginM, guardField, start, aim, approaches)
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))}" }
@@ -114,5 +127,14 @@ internal class RoutePassRunner {
         )
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
+    }
+
+    /** The pulled polyline's own length (m) — the provisional distance, never a staircase's. */
+    private fun pulledLengthM(points: List<LatLng>): Double {
+        var total = 0.0
+        for (i in 0 until points.size - 1) {
+            total += SpatialOperations.haversine(points[i], points[i + 1])
+        }
+        return total
     }
 }

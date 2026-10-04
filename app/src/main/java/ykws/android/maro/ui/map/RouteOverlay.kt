@@ -15,6 +15,7 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.Track
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.spatial.RouteId
+import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -57,6 +58,13 @@ data class RoutePage(
     val descriptionResId: Int? = null,
     val plan: RoutePlan? = null,
     val reason: RouteReason? = null,
+    /**
+     * **The provisional figures the row prints while this page is still settling** — the pair the
+     * boundary update carried the moment this rung's line was first taut, or `null` where none has
+     * arrived. The table prints it **where its waiting placeholder stands today**; a landed [plan]
+     * replaces it, and the terminal update clears it.
+     */
+    val provisional: RouteProvisional? = null,
     /** True when this page stands for every collapsed rung — the same line at every preference. */
     val collapsed: Boolean = false
 )
@@ -81,6 +89,28 @@ internal fun routeDeltaSec(
     val delta = page - selected
     if (delta == 0.0) return null
     return delta
+}
+
+/**
+ * **One acquisition row's own figures, settled or provisional** — the pair the table's middle column
+ * prints, in the units its two lines carry: the route's length in nautical miles and the time it takes
+ * over the whole line.
+ *
+ * A landed [RoutePage.plan] wins outright: its own length and its `remainingFrom` time are the settled
+ * answer, and any provisional pair the page still carries is ignored — *replaced*, never merged. A page
+ * with no plan but a provisional pair prints that pair; one with neither has nothing to print, and the
+ * table falls back to its `--` placeholder. One home for the settled and the provisional reading alike,
+ * so the panel never branches on which it holds.
+ */
+internal data class RouteRowFigures(val distanceNm: Double, val durationSec: Double)
+
+internal fun routeRowFigures(page: RoutePage): RouteRowFigures? {
+    val plan = page.plan
+    if (plan != null) {
+        return RouteRowFigures(plan.distanceNm, plan.remainingFrom(plan.start).durationSec)
+    }
+    val provisional = page.provisional ?: return null
+    return RouteRowFigures(Units.metresToNauticalMiles(provisional.distanceM), provisional.durationSec)
 }
 
 /**

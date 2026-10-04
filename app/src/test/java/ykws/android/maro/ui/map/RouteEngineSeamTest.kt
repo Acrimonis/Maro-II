@@ -14,6 +14,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -24,6 +25,7 @@ import ykws.android.maro.spatial.RouteComputation
 import ykws.android.maro.spatial.RouteDeclarations
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteId
+import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteUpdate
@@ -208,6 +210,37 @@ class RouteEngineSeamTest {
         val choosing = viewModel.state.value as RouteState.Choosing
         assertFalse("a refused committed main un-commits", choosing.committed)
     }
+
+    /**
+     * **The provisional pair rides the boundary update and lands on its own page.** A rung's boundary
+     * update — the SNAP that follows the taut pull — carries the pair while the rung is still settling,
+     * per page, and the terminal update clears it as the settled plan takes over.
+     */
+    @Test
+    fun aBoundaryUpdateCarriesTheProvisionalPairToItsOwnPage() = runTest {
+        val engine = ForeignEngine(computations = 2)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val mainId = viewModel.pages.value[0].lookupId!!
+        val secondId = viewModel.pages.value[1].lookupId!!
+
+        engine.publishProvisional(mainId, RouteProvisional(1_500.0, 300.0))
+        engine.publishProvisional(secondId, RouteProvisional(1_200.0, 240.0))
+        assertEquals(
+            "the boundary update lands the pair on its own page",
+            RouteProvisional(1_500.0, 300.0),
+            viewModel.pages.value[0].provisional
+        )
+        assertEquals(
+            "and the candidate's page keeps its own pair",
+            RouteProvisional(1_200.0, 240.0),
+            viewModel.pages.value[1].provisional
+        )
+
+        engine.publish(mainId, success(start, aim))
+        assertNull("the terminal update clears the provisional pair", viewModel.pages.value[0].provisional)
+        assertNotNull("while the settled plan stands", viewModel.pages.value[0].plan)
+    }
 }
 
 /**
@@ -268,6 +301,24 @@ private class ForeignEngine(
                 line = line,
                 result = null,
                 reason = null
+            )
+        )
+    }
+
+    /**
+     * **A boundary update: the pulled line's provisional pair, no result.** The SNAP that follows the
+     * taut pull, carrying the pair a waiting row prints — the seam's own reading, no stage word.
+     */
+    fun publishProvisional(id: RouteId, provisional: RouteProvisional) {
+        _updates.tryEmit(
+            RouteUpdate(
+                routeId = id,
+                stageDone = RouteStage.PULL,
+                nextStage = RouteStage.SNAP,
+                line = emptyList(),
+                result = null,
+                reason = null,
+                provisional = provisional
             )
         )
     }

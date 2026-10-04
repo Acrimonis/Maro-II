@@ -210,20 +210,11 @@ internal class RouteFinePass(
     ): List<LatLng> {
         val world = ctx.world
         val corridor = ctx.box
-        val start = ctx.start
-        val aim = ctx.aim
         val pace = ctx.pace
         val cellM = ctx.cellM
         val marginM = ctx.marginM
         val outsideMarginM = ctx.zoneOutsideMarginM
-        val edges = ctx.edges
-        val openCoast = ctx.openCoast
-        val capLatNorth = ctx.capLatNorth
-        val priced = ctx.priced
         val zones = ctx.zones
-        val sets = ctx.sets
-        val approaches = ctx.approaches
-        val refusals = ctx.refusals
         val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
         // What the second pass may look at is the plan's decision; that it stays inside the lookup's own
@@ -238,9 +229,56 @@ internal class RouteFinePass(
         }
         val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val guard = costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
+        val limitAt = limitAtFor(world)
+        val pass = fineWalk(ctx, boxes, lambda, base, guard, trace)
+        val fineTimed = pass.timed
+        if (fineTimed == null) {
+            trace { "FINE research answered=false spliced=no reason=no-path" }
+            return line
+        }
+        val coarseTimed = timeLineWithLimits(
+            line, pace, limitAt, clockSampleM(cellM, fineCellM)
+        )
+        val fineCost = pricedLineCost(pass.line, marginM, guard)
+        val coarseCost = pricedLineCost(line, marginM, guard)
+        val better = fineCost <= coarseCost
+        trace {
+            "FINE research answered=true spliced=$better " +
+                "fine=${fmt(fineTimed.durationSec)}s coarse=${fmt(coarseTimed.durationSec)}s " +
+                "fineShare=${fmt(zoneSlowShare(fineTimed, pace), 2)} " +
+                "coarseShare=${fmt(zoneSlowShare(coarseTimed, pace), 2)} " +
+                "fineCost=${fmt(fineCost)} coarseCost=${fmt(coarseCost)}"
+        }
+        return if (better) pass.line else line
+    }
+
+    /**
+     * **One fine walk over [boxes]** — the raster (one box on its own lattice, several as windows on the
+     * corridor's), the ends' discs, then one pass through the [runner]. The two cost fields arrive from
+     * the caller, so the seat prices a line with exactly the field the walk priced it with.
+     */
+    private suspend fun fineWalk(
+        ctx: GridContext,
+        boxes: List<BBox>,
+        lambda: Double,
+        base: RouteCostField,
+        guard: RouteCostField,
+        trace: (() -> String) -> Unit
+    ): PassReading {
+        val world = ctx.world
+        val corridor = ctx.box
+        val start = ctx.start
+        val aim = ctx.aim
+        val pace = ctx.pace
+        val marginM = ctx.marginM
+        val outsideMarginM = ctx.zoneOutsideMarginM
+        val edges = ctx.edges
+        val openCoast = ctx.openCoast
+        val capLatNorth = ctx.capLatNorth
+        val priced = ctx.priced
+        val fineCellM = ctx.fineCellM
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        val limitAt = limitAtFor(world)
         val walk: GridWalk
         if (boxes.size == 1) {
             // One region: the box is its own lattice, exactly as this pass has always rasterized it.
@@ -282,7 +320,7 @@ internal class RouteFinePass(
                 WalkWindows.onLattice(lattice, windows)
             )
         }
-        val pass = runner.runPass(
+        return runner.runPass(
             ctx,
             walk,
             lambda,
@@ -291,24 +329,41 @@ internal class RouteFinePass(
             guardZones = true,
             guardBand = true
         )
-        val fineTimed = pass.timed
-        if (fineTimed == null) {
-            trace { "FINE research answered=false spliced=no reason=no-path" }
-            return line
-        }
-        val coarseTimed = timeLineWithLimits(
-            line, pace, limitAt, clockSampleM(cellM, fineCellM)
+    }
+
+    /**
+     * **The fine reference line, for the instrument alone** — [fineReSearch]'s own walk over **`avoid`'s
+     * second-pass region** rather than the plan's: the coarse line's span, grown by the outside margin and
+     * one coarse cell.
+     *
+     * The plan's regions are exactly what caps [fineReSearch]: a corridor of half-width `w` can only find
+     * an optimum standing within `w` of the coarse line, so the deviation that line answers saturates at
+     * the corridor's wall and cannot say whether `w` is right. This region has no such cap, so the
+     * deviation read off its line is the coarse walk's own error — the figure the corridor's half-width
+     * rests on.
+     *
+     * It is built only where the `MaroRoute` tag's level is on, never on a shipped path: it rasterizes a
+     * whole box at the fine cell, which is the cost this plan exists to remove. `null` where the pair or
+     * the region leaves nothing to walk.
+     */
+    internal suspend fun referenceWalk(
+        ctx: GridContext,
+        line: List<LatLng>,
+        lambda: Double,
+        trace: (() -> String) -> Unit = {}
+    ): PassReading? {
+        val fineCellM = ctx.fineCellM
+        if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= ctx.cellM) return null
+        val region = inflateBox(lineBBox(line), ctx.zoneOutsideMarginM + ctx.cellM)
+        val box = clampTo(region, ctx.box) ?: return null
+        val base = costField(
+            ctx.world, fineCellM, ctx.pace, withZones = false, withBand = false,
+            zones = emptyList(), lambda = lambda
         )
-        val fineCost = pricedLineCost(pass.line, marginM, guard)
-        val coarseCost = pricedLineCost(line, marginM, guard)
-        val better = fineCost <= coarseCost
-        trace {
-            "FINE research answered=true spliced=$better " +
-                "fine=${fmt(fineTimed.durationSec)}s coarse=${fmt(coarseTimed.durationSec)}s " +
-                "fineShare=${fmt(zoneSlowShare(fineTimed, pace), 2)} " +
-                "coarseShare=${fmt(zoneSlowShare(coarseTimed, pace), 2)} " +
-                "fineCost=${fmt(fineCost)} coarseCost=${fmt(coarseCost)}"
-        }
-        return if (better) pass.line else line
+        val guard = costField(
+            ctx.world, fineCellM, ctx.pace, withZones = true, withBand = true,
+            zones = ctx.zones, lambda = lambda
+        )
+        return fineWalk(ctx, listOf(box), lambda, base, guard, trace)
     }
 }
