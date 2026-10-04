@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -47,7 +47,7 @@ object RouteCornerPass {
     fun round(
         line: List<LatLng>,
         paceKn: Double,
-        world: AvoidWorld,
+        world: MultipassWorld,
         depthGateActive: Boolean,
         minDepthM: Double,
         marginM: Double
@@ -100,7 +100,7 @@ object RouteCornerPass {
         vFloorMps: Double,
         transitionSec: Double,
         reachFraction: Double,
-        world: AvoidWorld,
+        world: MultipassWorld,
         depthGateActive: Boolean,
         minDepthM: Double,
         marginM: Double

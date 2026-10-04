@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,8 +70,8 @@ class TangentCornersTest {
             northEast,
             LatLng(northEast.latitude, southWest.longitude)
         )
-        val edges = ring.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +
-            AvoidEdge(ring.last(), ring.first(), LandRingOrientation.CCW_RING)
+        val edges = ring.zipWithNext().map { (a, b) -> MultipassEdge(a, b, LandRingOrientation.CCW_RING) } +
+            MultipassEdge(ring.last(), ring.first(), LandRingOrientation.CCW_RING)
 
         val corners = TangentCorners.corners(edges, emptyList(), margin)
 

@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -109,7 +109,7 @@ class BerthCarveTest {
     }
 
     /** The scan, run on the metric lattice the ring's own question builds for the point. */
-    private fun carveOf(world: AvoidWorld, at: LatLng): BerthCarve = carveBerth(
+    private fun carveOf(world: MultipassWorld, at: LatLng): BerthCarve = carveBerth(
         world,
         at,
         marginM,
@@ -130,14 +130,14 @@ class BerthCarveTest {
         private val coasts: MutableList<List<LatLng>> = mutableListOf(),
         private val water: (Double, Double) -> Boolean = { _, _ -> true },
         private val depth: (Double, Double) -> Double = { _, _ -> Double.NaN }
-    ) : AvoidWorld {
+    ) : MultipassWorld {
 
         override val coastlineReady: Boolean get() = true
         override val depthReady: Boolean get() = true
         override val bandWidthM: Double get() = 0.0
         override val regionBounds: BBox? get() = null
 
-        override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
+        override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
 
         override fun openCoastIn(box: BBox): List<List<LatLng>> = coasts
 

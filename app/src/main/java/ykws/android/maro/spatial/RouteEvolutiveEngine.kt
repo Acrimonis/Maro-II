@@ -2,9 +2,9 @@ package ykws.android.maro.spatial
 
 import kotlinx.coroutines.flow.Flow
 import ykws.android.maro.data.model.RoutePoint
-import ykws.android.maro.spatial.avoid.AvoidWorld
-import ykws.android.maro.spatial.avoid.RouteGridPlan
-import ykws.android.maro.spatial.avoid.UniformGridPlan
+import ykws.android.maro.spatial.multipass.MultipassWorld
+import ykws.android.maro.spatial.multipass.RouteGridPlan
+import ykws.android.maro.spatial.multipass.UniformGridPlan
 
 /**
  * **The second routing algorithm's engine: the adaptive grid.**
@@ -29,7 +29,7 @@ class RouteEvolutiveEngine(
     paceKn: () -> Double,
     aversionKn: () -> Double,
     budgetPct: () -> Int,
-    world: () -> AvoidWorld,
+    world: () -> MultipassWorld,
     /**
      * **Where this algorithm's own walk differs**, and the only thing it will not share: the cell it
      * rasterizes at and the region its second pass may look at. It ships the uniform plan while the

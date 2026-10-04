@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-04 07:00
+modified: 2026-10-04 08:56
 ---
 
 # Feature: Route
@@ -30,8 +30,8 @@ Set a destination and have the app draw the route from the boat's position to it
 ## Current state of the code
 
 - **The seam** — [`RouteEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:66) publishes `progress: StateFlow<RouteProgress?>`, one emission carrying the stage the pipeline has entered and the line it holds, cleared on every answer and every abort; readiness (`NotReady` · `Ready` · `Unavailable(reason)`), the two position entry points, the validity question and the readiness promise sit beside it, and their **relevance is under review** — the current flow arms on the drawer's pair and calls them only as the pipeline needs.
-- **Two engines ship** — the `dummy` is one straight segment at its own fixed 15 kn, ready on construction, judging nothing and answering a null progress flow ([`RouteDummyEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt:65)); the `avoid` crosses five boundaries — corridor · grid · search · pull · snap — publishing each one's stage and geometry, the raw cell chain at pull and the pulled line at snap ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1623)). `route.engine.id` names the shipped one and an unclaimed id falls back to it.
-- **The avoid engine's world is ten files** — tagged costed cells, an 8-neighbour A\*, a source-parameterized taut pull, a berth carve, one cost field whose base is always set and whose sources only add, the racing-line corner pass, the clock that obeys the limit in force, the tangent corners and the zone geometry ([`spatial/avoid/`](../../app/src/main/java/ykws/android/maro/spatial/avoid)).
+- **Two engines ship** — the `dummy` is one straight segment at its own fixed 15 kn, ready on construction, judging nothing and answering a null progress flow ([`RouteDummyEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt:65)); the `avoid` crosses five boundaries — corridor · grid · search · pull · snap — publishing each one's stage and geometry, the raw cell chain at pull and the pulled line at snap ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt)). `route.engine.id` names the shipped one and an unclaimed id falls back to it.
+- **The shared layer both engines stand on is `multipass`** — tagged costed cells, an 8-neighbour A\*, a source-parameterized taut pull, a berth carve, one cost field whose base is always set and whose sources only add, the racing-line corner pass, the clock that obeys the limit in force, the tangent corners, the zone geometry and the four pass seats ([`spatial/multipass/`](../../app/src/main/java/ykws/android/maro/spatial/multipass)).
 - **The view model is the mode's whole state** — Idle · Choosing · Following with no arrival state, one worker per ask, the plan and its `remainingFrom` projection, the session's route-to-track link and the save predicate ([`RouteViewModel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt:349)).
 - **One file touches osmdroid** — the pool and the pin are attached once and mutated in place, and the paint order is applied as a rank over the whole list so nothing is pinned by position ([`RouteHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt:69), [`OverlayZOrder.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt:85)).
 - **The panel is the acquisition's whole surface** — the stage rides the header's acquiring word, the sentence line carries a refusal or the no-route word, the selected line's details sit on the shared reading cell with the pin under them, and the rung rows carry next/prev over three bottom-anchored actions ([`RouteConfirmPanel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt:102)).
@@ -52,8 +52,10 @@ The route sits in the app's own slicing rather than in a package of its own, and
 data/model/    RoutePoint.kt, RouteResult.kt
 data/route/    RouteEndSelection.kt, RoutePace.kt
 spatial/       RouteEngine.kt, RouteDummyEngine.kt, RouteEngineChoice.kt, SpatialOperations.kt, Units.kt
-spatial/avoid/ AvoidWorld.kt, AvoidGrid.kt, AvoidSearch.kt, AvoidPull.kt, BerthCarve.kt,
-               RouteCostField.kt, RouteCornerPass.kt, RouteEta.kt, TangentCorners.kt, ZoneGeometry.kt
+spatial/multipass/ MultipassWorld.kt, MultipassGrid.kt, MultipassSearch.kt, MultipassPull.kt,
+               BerthCarve.kt, RouteCostField.kt, RouteCornerPass.kt, RouteEta.kt, TangentCorners.kt,
+               ZoneGeometry.kt, RouteGridPlan.kt, RouteGridBuilder.kt, RoutePassRunner.kt,
+               RouteFinePass.kt, RoutePassRules.kt, RoutePassModels.kt, RoutePassPrimitives.kt
 ui/map/        RouteViewModel.kt, RouteHost.kt, RouteOverlay.kt, RouteConfirmPanel.kt, MapPulseDot.kt
 ```
 
@@ -143,7 +145,7 @@ The live numbered requirements — added after the master book was retired on 20
 - `app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt` — one straight segment at a fixed 15 kn, ready on construction, refusing nothing, a null progress flow
 - `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the five-boundary pipeline and its one `publish(stage, pass, points)`, the sources and their switches, the candidates' own lane, the forced crossing's names and the clock
 - `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt` — an id, a label id and a factory per engine, resolved from the setting at one expression
-- `app/src/main/java/ykws/android/maro/spatial/avoid/` — `AvoidWorld`, `AvoidGrid`, `AvoidSearch`, `AvoidPull`, `BerthCarve`, `RouteCostField`, `RouteCornerPass`, `RouteEta`, `TangentCorners`, `ZoneGeometry`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/` — `MultipassWorld`, `MultipassGrid`, `MultipassSearch`, `MultipassPull`, `BerthCarve`, `RouteCostField`, `RouteCornerPass`, `RouteEta`, `TangentCorners`, `ZoneGeometry`, and the four seats `RouteGridBuilder`, `RoutePassRunner`, `RouteFinePass`, `RoutePassRules`
 - `app/src/main/java/ykws/android/maro/data/model/RouteResult.kt`, `RoutePoint.kt`, `RouteOffer.kt` — the domain: the polyline, the per-leg times, the length, the duration, the offers, and the refusals `OutsideWater` · `NoPath`
 - `app/src/main/java/ykws/android/maro/data/route/RouteEndSelection.kt` — the eligible ends built from the marker flags and the fallback of a selection that stops resolving
 - `app/src/main/java/ykws/android/maro/data/route/RoutePace.kt` — the pace reduction over samples outside the zones and the band
@@ -156,7 +158,7 @@ The live numbered requirements — added after the master book was retired on 20
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/maro.properties` (every route value, the new `route.line.casing.widthDp` among them) + `app/src/main/assets/ui.properties` (the one reinforcement lever `ui.reinforce.darkenPct`) — where every route value lives
 - `app/src/main/java/ykws/android/maro/ui/color/ColorReinforcement.kt` — `reinforcedColor`: the pure, RGB-only darkening a user-picked colour's derived reinforcement edge takes, the caller reading the lever (R93)
 - `app/src/test/java/ykws/android/maro/spatial/` — `RouteDummyEngineTest`, `RouteAvoidEngineTest`, `RouteEngineChoiceTest`, `PrebakedCoastline`, `CoastlinePointWalkTest`
-- `app/src/test/java/ykws/android/maro/spatial/avoid/` — nine suites: stage 1, the cost field, the depth gate, the band's cost, the berth carve, the corner pass, the speed profile, the zone phase 4, the tangent corners
+- `app/src/test/java/ykws/android/maro/spatial/multipass/` — nine suites: stage 1, the cost field, the depth gate, the band's cost, the berth carve, the corner pass, the speed profile, the zone phase 4, the tangent corners
 - `app/src/test/java/ykws/android/maro/ui/map/` — `RouteAcquisitionTest`, `RouteEngineSeamTest`, `RoutePlanTest`, `RouteStoredMatchTest`, `RouteMirrorPlanTest`
 - `app/src/main/java/ykws/android/maro/data/track/Track.kt` — the `route` flag and the two persisted end ids (`routeStartMarkerId`, `routeDestinationMarkerId`) a saved route carries
 - `app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt` — the save that writes the two end ids on the built track
@@ -257,3 +259,5 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - A second engine joined the seam — `evolutive`, a row that holds `avoid` and forwards the three calls, so the adaptive grid can land beside the shipped algorithm rather than inside it → [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
 - Every step now reports: `RouteStepReading` and `RouteUpdate.readings` carry a stage's own figures on the seam, the avoid engine emits the search's two counts and the pulled-point count, and the acquisition panel's header prints them beside its stage word
 - The engine's own walk became a plan: `RouteGridPlan` holds the two decisions that separate one algorithm from another — the first walk's cell and the second pass's region — with `UniformGridPlan` as `avoid`'s default, and `evolutive` taking a named plan of its own → [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
+- The pass pipeline dissolved into four engine-composed seats — `RouteGridBuilder`, `RoutePassRunner`, `RouteFinePass` and `RoutePassRules`, each built once by `RouteAvoidEngine`, the emptied `RoutePassPipeline.kt` deleted, and `publish`/`trace` still the engine's lambdas so no update or log line moved → [`261004_FEAT_PLN_Route_code-health-split.md`](261004_FEAT_PLN_Route_code-health-split.md)
+- The shared layer both engines stand on is now `multipass` — `spatial/avoid/` became `spatial/multipass/` and its eight `Avoid*` types took the `Multipass` prefix, while the `avoid` id, the two engine class names and every `route.avoid.*` key were left alone → [`261004_FEAT_PLN_Route_code-health-split.md`](261004_FEAT_PLN_Route_code-health-split.md)

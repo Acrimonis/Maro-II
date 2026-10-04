@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -51,8 +51,8 @@ class RouteZonePhase4Test {
 
         val inHole = grid.cellOf(43.5, 7.03)
         val inZone = grid.cellOf(43.5, 7.02)
-        assertEquals("a cell inside the hole reads as water", AvoidCellState.FREE, grid.cell(inHole.row, inHole.col).state)
-        assertEquals("a cell between the outer ring and the hole is tagged zone", AvoidCellState.ZONE, grid.cell(inZone.row, inZone.col).state)
+        assertEquals("a cell inside the hole reads as water", MultipassCellState.FREE, grid.cell(inHole.row, inHole.col).state)
+        assertEquals("a cell between the outer ring and the hole is tagged zone", MultipassCellState.ZONE, grid.cell(inZone.row, inZone.col).state)
     }
 
     @Test
@@ -75,7 +75,7 @@ class RouteZonePhase4Test {
 
         val (row, col) = grid.cellOf(43.5, 7.03)
         val cell = grid.cell(row, col)
-        assertEquals(AvoidCellState.ZONE, cell.state)
+        assertEquals(MultipassCellState.ZONE, cell.state)
         assertEquals(
             "the strictest limit is the one in force, never a sum",
             5.0, grid.zoneLimitKn(row, col), 1e-9
@@ -85,14 +85,14 @@ class RouteZonePhase4Test {
 
     @Test
     fun landStaysLandUnderAZone() {
-        val grid = AvoidGrid(
+        val grid = MultipassGrid(
             latSouth = 43.0, lonWest = 7.0,
             cellSizeDegLat = 0.001, cellSizeDegLon = 0.001,
             rows = 10, cols = 10, cellM = 50.0, baseCostSec = baseCostSec(50.0, 28.0)
         )
         grid.markLand(5, 5)
         grid.applyZoneLimit(5, 5, 5.0)
-        assertEquals("a wall is never priced", AvoidCellState.LAND, grid.cell(5, 5).state)
+        assertEquals("a wall is never priced", MultipassCellState.LAND, grid.cell(5, 5).state)
     }
 
     @Test
@@ -114,7 +114,7 @@ class RouteZonePhase4Test {
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 val centre = grid.center(r, c)
-                val filled = grid.cell(r, c).state == AvoidCellState.ZONE
+                val filled = grid.cell(r, c).state == MultipassCellState.ZONE
                 val inside = zone.contains(centre.latitude, centre.longitude)
                 assertEquals(
                     "cell ($r,$c) at ${centre.latitude}, ${centre.longitude}: fill and point read must agree",
@@ -154,7 +154,7 @@ class RouteZonePhase4Test {
         fun collarOnly(cell: CellIndex): Boolean =
             grid.zoneLimitKn(cell.row, cell.col) <= 0.0 && grid.collarLimitKn(cell.row, cell.col) > 0.0
 
-        val priced = AvoidSearch.search(
+        val priced = MultipassSearch.search(
             grid, start, aim, paceMps,
             zonePriceSec = { interiorKn, collarKn, _ ->
                 zonePriceAtLimits(50.0, 28.0, interiorKn, collarKn, 5.0, 0.66)
@@ -167,7 +167,7 @@ class RouteZonePhase4Test {
             priced!!.none { collarOnly(it) }
         )
 
-        val free = AvoidSearch.search(grid, start, aim, paceMps, zonePriceSec = { _, _, _ -> 0.0 }).path
+        val free = MultipassSearch.search(grid, start, aim, paceMps, zonePriceSec = { _, _, _ -> 0.0 }).path
         assertTrue(
             "and the same grid, collar free, is crossed straight through the margin",
             free!!.any { collarOnly(it) }
@@ -373,7 +373,7 @@ class RouteZonePhase4Test {
         val field = RouteCostField(listOf(RouteCostSource.Hard(distanceAt = { Double.MAX_VALUE })))
         val path = listOf(start, LatLng(43.50, 7.005), LatLng(43.50, 7.01), LatLng(43.50, 7.015), aim)
 
-        val pulled = AvoidPull.pull(path, start, aim, marginM = 25.0, field)
+        val pulled = MultipassPull.pull(path, start, aim, marginM = 25.0, field)
 
         assertEquals(
             "a ring near the chord is no clearance: the chord is read taut, priced only",
@@ -409,13 +409,13 @@ class RouteZonePhase4Test {
     fun theBandAndAZoneSumOnACellHoldingBoth() {
         val field = RouteCostField(
             listOf(
-                RouteCostSource.Soft(priceSec = { 30.0 }, tag = AvoidCellState.BAND),
-                RouteCostSource.Soft(priceSec = { 20.0 }, tag = AvoidCellState.ZONE)
+                RouteCostSource.Soft(priceSec = { 30.0 }, tag = MultipassCellState.BAND),
+                RouteCostSource.Soft(priceSec = { 20.0 }, tag = MultipassCellState.ZONE)
             )
         )
         val at = field.evaluate(LatLng(43.5, 7.0))
         assertEquals("the two prices sum", 50.0, at.softCostSec, 1e-9)
-        assertEquals("the dearest tag wins", AvoidCellState.ZONE, at.tag)
+        assertEquals("the dearest tag wins", MultipassCellState.ZONE, at.tag)
     }
 
     @Test
@@ -464,7 +464,7 @@ class RouteZonePhase4Test {
                         )
                         zonePriceAtLimits(50.0, 28.0, interior ?: 0.0, collar ?: 0.0, lambda, fraction)
                     },
-                    tag = AvoidCellState.ZONE
+                    tag = MultipassCellState.ZONE
                 )
             )
         )
@@ -473,7 +473,7 @@ class RouteZonePhase4Test {
         // The free path: around the zones' north edge, every point outside every zone.
         val path = listOf(start, LatLng(43.52, 7.01), LatLng(43.52, 7.05), aim)
 
-        val pulled = AvoidPull.pull(path, start, aim, marginM = 50.0, field)
+        val pulled = MultipassPull.pull(path, start, aim, marginM = 50.0, field)
 
         assertFalse("the line never enters the fast zone", lineEntersZone(pulled, fast))
         assertFalse("the line never enters the slow zone", lineEntersZone(pulled, slow))
@@ -635,13 +635,13 @@ class RouteZonePhase4Test {
     }
 
     /** A water-everywhere world whose only source is its speed zones — the corridor reads no land or depth. */
-    private class ZoneWorld(private val zones: List<SpeedZone>) : AvoidWorld {
+    private class ZoneWorld(private val zones: List<SpeedZone>) : MultipassWorld {
         override val coastlineReady: Boolean get() = true
         override val depthReady: Boolean get() = true
         override val bandWidthM: Double get() = 0.0
         override val regionBounds: BBox? get() = null
 
-        override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
+        override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
         override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
         override fun isWater(latitude: Double, longitude: Double): Boolean = true
         override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE

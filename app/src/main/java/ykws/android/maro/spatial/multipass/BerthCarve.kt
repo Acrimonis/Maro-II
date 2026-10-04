@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
@@ -109,12 +109,12 @@ fun carveReachCells(marginM: Double, cellM: Double): Int =
  * the end's cell legal water and open nothing — so this function frees the cells whose **centre** stands
  * within [marginM] of [end], reading the world afresh because a barred cell records *that* it is land,
  * never *why*: a cell opens only where the water is real, the depth clears the gate, and the shore
- * margin is the only rule it breaks. The cell opens with [AvoidGrid.openCarve], so it takes the base
+ * margin is the only rule it breaks. The cell opens with [MultipassGrid.openCarve], so it takes the base
  * cost and **keeps its zone limit** — the depth gate is never cleared, only the shore margin is waived.
  */
 fun openEndDisc(
-    grid: AvoidGrid,
-    world: AvoidWorld,
+    grid: MultipassGrid,
+    world: MultipassWorld,
     end: LatLng,
     marginM: Double,
     depthGateActive: Boolean,
@@ -193,7 +193,7 @@ fun metricCarveLattice(anchor: LatLng, cellM: Double): (Int, CarveDirection) -> 
  * is nothing to carve.
  */
 fun carveBerth(
-    world: AvoidWorld,
+    world: MultipassWorld,
     anchor: LatLng,
     marginM: Double,
     reachCells: Int,
@@ -226,7 +226,7 @@ fun carveBerth(
 
 /** The destination's test: water, deep enough, and clear of the margin the approach waives. */
 private fun legalWater(
-    world: AvoidWorld,
+    world: MultipassWorld,
     at: LatLng,
     marginM: Double,
     depthGateActive: Boolean,
@@ -241,7 +241,7 @@ private fun legalWater(
  * own land, which is the only water a carve may cross.
  */
 private fun marginLand(
-    world: AvoidWorld,
+    world: MultipassWorld,
     at: LatLng,
     marginM: Double,
     depthGateActive: Boolean,

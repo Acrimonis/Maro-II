@@ -27,19 +27,21 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
-import ykws.android.maro.spatial.avoid.AvoidEdge
-import ykws.android.maro.spatial.avoid.AvoidWorld
-import ykws.android.maro.spatial.avoid.bandReachM
-import ykws.android.maro.spatial.avoid.EndApproaches
-import ykws.android.maro.spatial.avoid.GridTile
-import ykws.android.maro.spatial.avoid.RouteGridPlan
-import ykws.android.maro.spatial.avoid.UniformGridPlan
-import ykws.android.maro.spatial.avoid.insideBandWidthM
-import ykws.android.maro.spatial.avoid.speedZonesInBox
-import ykws.android.maro.spatial.avoid.strictestLimitKnAt
-import ykws.android.maro.spatial.avoid.TimedLine
-import ykws.android.maro.spatial.avoid.ZoneRing
-import ykws.android.maro.spatial.avoid.zoneSlowShare
+import ykws.android.maro.spatial.multipass.MultipassEdge
+import ykws.android.maro.spatial.multipass.MultipassWorld
+import ykws.android.maro.spatial.multipass.bandReachM
+import ykws.android.maro.spatial.multipass.EndApproaches
+import ykws.android.maro.spatial.multipass.GridTile
+import ykws.android.maro.spatial.multipass.RouteFinePass
+import ykws.android.maro.spatial.multipass.RouteGridPlan
+import ykws.android.maro.spatial.multipass.RoutePassRules
+import ykws.android.maro.spatial.multipass.UniformGridPlan
+import ykws.android.maro.spatial.multipass.insideBandWidthM
+import ykws.android.maro.spatial.multipass.speedZonesInBox
+import ykws.android.maro.spatial.multipass.strictestLimitKnAt
+import ykws.android.maro.spatial.multipass.TimedLine
+import ykws.android.maro.spatial.multipass.ZoneRing
+import ykws.android.maro.spatial.multipass.zoneSlowShare
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -65,7 +67,7 @@ class RouteAvoidEngineTest {
 
     private fun newEngine(
         budgetPct: Int = AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
-        world: () -> AvoidWorld = { FakeWorld() }
+        world: () -> MultipassWorld = { FakeWorld() }
     ) = RouteAvoidEngine(
         paceKn = { paceKn },
         aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
@@ -758,27 +760,25 @@ class RouteAvoidEngineTest {
      */
     @Test
     fun theLoopKeepsTheBetterPassAndNeverTheLastOne() {
-        val engine = newEngine()
-
         assertTrue(
             "a corrective pass with a smaller zone share wins although it is slower on the clock",
-            engine.betterPass(
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
-                RouteAvoidEngine.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
+            RoutePassRules.betterPass(
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
+                RoutePassRules.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
             )
         )
         assertFalse(
             "a corrective pass that is faster but spends more time in a zone loses to the incumbent",
-            engine.betterPass(
-                RouteAvoidEngine.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
+            RoutePassRules.betterPass(
+                RoutePassRules.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
             )
         )
         assertTrue(
             "at an equal share the fewer in-zone metres win, before the clock",
-            engine.betterPass(
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
+            RoutePassRules.betterPass(
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
             )
         )
     }
@@ -793,7 +793,6 @@ class RouteAvoidEngineTest {
      */
     @Test
     fun theFineReSearchRefusesAFasterLineThatIsSlowerWater() {
-        val engine = newEngine()
         val paceMps = Units.knotsToMps(paceKn)
         val fineA = LatLng(43.5000, 7.0000)
         val fineB = LatLng(43.5000, 7.0050)
@@ -817,13 +816,13 @@ class RouteAvoidEngineTest {
         )
         assertFalse(
             "so the guard refuses the faster line that is slower-water",
-            engine.fineSpliceBetter(slowFine, incumbent, paceKn)
+            RoutePassRules.fineSpliceBetter(slowFine, incumbent, paceKn)
         )
 
         val cleanFine = TimedLine(listOf(fineA, fineB), listOf(fineLeg / paceMps))
         assertTrue(
             "the same shorter line run at the pace is spliced",
-            engine.fineSpliceBetter(cleanFine, incumbent, paceKn)
+            RoutePassRules.fineSpliceBetter(cleanFine, incumbent, paceKn)
         )
     }
 
@@ -834,7 +833,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
         val world = FakeWorld(zones = listOf(zone))
-        val engine = newEngine { world }
+        val finePass = RouteFinePass()
         val start = LatLng(43.50, 7.00)
         val p1 = LatLng(43.50, 7.015)
         val p2 = LatLng(43.50, 7.025)
@@ -843,7 +842,7 @@ class RouteAvoidEngineTest {
         val priced = listOf(ZoneRing(zone.outerRing, zone.holes, zone.speedLimitKn))
         val line = listOf(start, p1, p2, aimLat)
 
-        val spliced = engine.solveCrossing(
+        val spliced = finePass.solveCrossing(
             world = world,
             corridor = corridor,
             line = line,
@@ -879,14 +878,14 @@ class RouteAvoidEngineTest {
         private var depthLoaded: Boolean = true,
         /** The priced band's width (m) — 0 by default, so a test that is not about the band pays none. */
         private val band: Double = 0.0,
-        private val edges: MutableList<AvoidEdge> = mutableListOf(),
+        private val edges: MutableList<MultipassEdge> = mutableListOf(),
         private val openCoast: MutableList<List<LatLng>> = mutableListOf(),
         private val water: (Double, Double) -> Boolean = { _, _ -> true },
         /** The sounding (m) the depth layer answers, or `NaN` for an unsurveyed point. */
         private val depth: (Double, Double) -> Double = { _, _ -> Double.NaN },
         /** The speed zones the world answers, priced only while the engine's switch is armed. */
         private val zones: List<SpeedZone> = emptyList()
-    ) : AvoidWorld {
+    ) : MultipassWorld {
         val boxes = mutableListOf<BBox>()
 
         override val coastlineReady: Boolean get() = ready
@@ -894,7 +893,7 @@ class RouteAvoidEngineTest {
         override val bandWidthM: Double get() = band
         override val regionBounds: BBox? get() = null
 
-        override fun segmentsIn(box: BBox): List<AvoidEdge> {
+        override fun segmentsIn(box: BBox): List<MultipassEdge> {
             boxes.add(box)
             return edges.filter { edge ->
                 val minLat = min(edge.a.latitude, edge.b.latitude)
@@ -950,9 +949,9 @@ class RouteAvoidEngineTest {
         LatLng(latSouth, lonWest)
     )
 
-    private fun polygonRing(points: List<LatLng>): List<AvoidEdge> =
-        points.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +
-            AvoidEdge(points.last(), points.first(), LandRingOrientation.CCW_RING)
+    private fun polygonRing(points: List<LatLng>): List<MultipassEdge> =
+        points.zipWithNext().map { (a, b) -> MultipassEdge(a, b, LandRingOrientation.CCW_RING) } +
+            MultipassEdge(points.last(), points.first(), LandRingOrientation.CCW_RING)
 
     /** A horizontal coast at 43.51 with [teeth] downward triangles; land is the north side. */
     private fun sawtoothCoast(teeth: Int): List<LatLng> {
@@ -972,7 +971,7 @@ class RouteAvoidEngineTest {
         return pts
     }
 
-    private fun circleRing(center: LatLng, radiusM: Double, n: Int = 32): List<AvoidEdge> {
+    private fun circleRing(center: LatLng, radiusM: Double, n: Int = 32): List<MultipassEdge> {
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
         val mPerDegLon = mPerDegLat * cos(Math.toRadians(center.latitude))
         val polygon = (0 until n).map { i ->

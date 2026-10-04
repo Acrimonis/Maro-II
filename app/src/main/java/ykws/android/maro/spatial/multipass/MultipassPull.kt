@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
@@ -30,7 +30,7 @@ import kotlin.math.ceil
  * path's price is a prefix sum, so each candidate costs one walk of the chord alone, and a field with
  * no price skips the whole reading.
  */
-object AvoidPull {
+object MultipassPull {
 
     /**
      * Pulls [path] (raw start first, raw aim last) taut into the ordered waypoint list, as direct as
@@ -280,7 +280,7 @@ internal enum class ChordRefusal { LAND, PRICE }
  * a line that collapses nothing names the test that refused it instead of leaving candidates to
  * guesswork.
  *
- * Counters are updated where [AvoidPull.pull] decides and read once per answer: nothing is emitted per
+ * Counters are updated where [MultipassPull.pull] decides and read once per answer: nothing is emitted per
  * chord, nothing is measured twice, and a chord re-walked from a new anchor counts once per evaluation.
  */
 class PullRefusals {

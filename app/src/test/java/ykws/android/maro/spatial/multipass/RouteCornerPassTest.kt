@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
@@ -90,13 +90,13 @@ class RouteCornerPassTest {
     private class CoastWorld(
         private val coast: List<LatLng>,
         private val zones: List<SpeedZone> = emptyList()
-    ) : AvoidWorld {
+    ) : MultipassWorld {
         override val coastlineReady = true
         override val depthReady = true
         override val bandWidthM = 0.0
         override val regionBounds: BBox? = null
 
-        override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
+        override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
         override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
         override fun isWater(latitude: Double, longitude: Double) = true
         override fun speedZonesIn(box: BBox): List<SpeedZone> = speedZonesInBox(zones, box, emptySet())

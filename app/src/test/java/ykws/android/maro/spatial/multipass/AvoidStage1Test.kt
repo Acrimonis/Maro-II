@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
@@ -122,8 +122,8 @@ class AvoidStage1Test {
         val start = grid.cellOf(43.50, 7.01)
         val aim = grid.cellOf(43.50, 7.05)
         for (path in listOf(
-            AvoidSearch.search(grid, start, aim, paceMps).path,
-            AvoidSearch.search(grid, aim, start, paceMps).path
+            MultipassSearch.search(grid, start, aim, paceMps).path,
+            MultipassSearch.search(grid, aim, start, paceMps).path
         )) {
             assertTrue("a route around the tip exists", path != null)
             assertTrue(
@@ -143,7 +143,7 @@ class AvoidStage1Test {
     @Test
     fun theSearchFindsAPathAcrossFreeWater() = runTest {
         val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
-        val path = AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps).path
+        val path = MultipassSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps).path
 
         assertTrue("a free grid always has a path", path != null)
         assertEquals(CellIndex(0, 0), path!!.first())
@@ -158,7 +158,7 @@ class AvoidStage1Test {
         val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
         for (r in 0 until grid.rows) grid.markLand(r, grid.cols / 2)
 
-        assertNull(AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps).path)
+        assertNull(MultipassSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps).path)
     }
 
     /**
@@ -173,7 +173,7 @@ class AvoidStage1Test {
         for (r in 0 until grid.rows) grid.markLand(r, grid.cols / 2)
         val aim = CellIndex(grid.rows - 1, grid.cols - 1)
 
-        val outcome = AvoidSearch.search(grid, CellIndex(0, 0), aim, paceMps)
+        val outcome = MultipassSearch.search(grid, CellIndex(0, 0), aim, paceMps)
 
         assertNull("the wall closes the corridor", outcome.path)
         assertFalse("and the aim's own cell was never closed", outcome.aimClosed)
@@ -195,7 +195,7 @@ class AvoidStage1Test {
         val grid = rasterize(box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth)
 
         val outcome =
-            AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps)
+            MultipassSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps)
 
         assertEquals("the free grid is passable whole", grid.rows * grid.cols, outcome.passableCells)
         assertTrue("the path reaches the aim's own cell", outcome.aimClosed)
@@ -210,8 +210,8 @@ class AvoidStage1Test {
         val start = CellIndex(0, 0)
         val aim = CellIndex(grid.rows - 1, grid.cols - 1)
 
-        val first = AvoidSearch.search(grid, start, aim, paceMps)
-        val second = AvoidSearch.search(grid, start, aim, paceMps)
+        val first = MultipassSearch.search(grid, start, aim, paceMps)
+        val second = MultipassSearch.search(grid, start, aim, paceMps)
 
         assertEquals("the same grid yields the same path", first, second)
     }
@@ -223,7 +223,7 @@ class AvoidStage1Test {
         var checks = 0
 
         val outcome = runCatching {
-            AvoidSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps) {
+            MultipassSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps) {
                 checks++
                 throw CancellationException("abandoned drag")
             }
@@ -242,7 +242,7 @@ class AvoidStage1Test {
         val path = listOf(start, LatLng(43.505, 7.005), LatLng(43.503, 7.012), aim)
         val openWater = RouteCostField.ofHard { Double.MAX_VALUE }
 
-        val waypoints = AvoidPull.pull(path, start, aim, 25.0, openWater)
+        val waypoints = MultipassPull.pull(path, start, aim, 25.0, openWater)
 
         assertEquals(listOf(start, aim), waypoints)
     }
@@ -257,7 +257,7 @@ class AvoidStage1Test {
         val margin = 25.0
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, obstacle) }
 
-        val waypoints = AvoidPull.pull(path, start, aim, margin, field)
+        val waypoints = MultipassPull.pull(path, start, aim, margin, field)
 
         assertEquals("the bulge is kept because the straight chord grazes the obstacle", listOf(start, bulge, aim), waypoints)
         for (waypoint in waypoints) {
@@ -298,7 +298,7 @@ class AvoidStage1Test {
         val stretch = listOf(start, LatLng(channelLat, 7.0006))
         val tally = PullRefusals()
 
-        val onStretch = AvoidPull.pull(
+        val onStretch = MultipassPull.pull(
             listOf(start, mid, aim), start, aim, margin, field,
             approaches = EndApproaches(start = stretch), refusals = tally
         )
@@ -310,7 +310,7 @@ class AvoidStage1Test {
         // The same stretch, twenty metres to the north of the chord: outside the exemption's own width.
         val shifted = stretch.map { LatLng(it.latitude + 20.0 / mPerDegLat, it.longitude) }
         val refused = PullRefusals()
-        val offStretch = AvoidPull.pull(
+        val offStretch = MultipassPull.pull(
             listOf(start, mid, aim), start, aim, margin, field,
             approaches = EndApproaches(start = shifted), refusals = refused
         )
@@ -337,7 +337,7 @@ class AvoidStage1Test {
         val obstacle = LatLng(43.50 - 22.5 / mPerDegLat, 7.01)
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, obstacle) }
 
-        val waypoints = AvoidPull.pull(listOf(start, mid, aim), start, aim, margin, field)
+        val waypoints = MultipassPull.pull(listOf(start, mid, aim), start, aim, margin, field)
 
         assertEquals("the chord is rejected and the midpoint kept", listOf(start, mid, aim), waypoints)
     }
@@ -349,7 +349,7 @@ class AvoidStage1Test {
         radiusM: Double,
         n: Int = 32,
         orientation: LandRingOrientation = LandRingOrientation.CCW_RING
-    ): List<AvoidEdge> {
+    ): List<MultipassEdge> {
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
         val mPerDegLon = mPerDegLat * cos(Math.toRadians(center.latitude))
         val polygon = (0 until n).map { i ->
@@ -359,19 +359,19 @@ class AvoidStage1Test {
                 center.longitude + radiusM * cos(theta) / mPerDegLon
             )
         }
-        return polygon.zipWithNext().map { (a, b) -> AvoidEdge(a, b, orientation) } +
-            AvoidEdge(polygon.last(), polygon.first(), orientation)
+        return polygon.zipWithNext().map { (a, b) -> MultipassEdge(a, b, orientation) } +
+            MultipassEdge(polygon.last(), polygon.first(), orientation)
     }
 
-    private fun rectangleRing(southWest: LatLng, northEast: LatLng): List<AvoidEdge> {
+    private fun rectangleRing(southWest: LatLng, northEast: LatLng): List<MultipassEdge> {
         val southEast = LatLng(southWest.latitude, northEast.longitude)
         val northWest = LatLng(northEast.latitude, southWest.longitude)
         val points = listOf(southWest, southEast, northEast, northWest)
-        return points.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +
-            AvoidEdge(northWest, southWest, LandRingOrientation.CCW_RING)
+        return points.zipWithNext().map { (a, b) -> MultipassEdge(a, b, LandRingOrientation.CCW_RING) } +
+            MultipassEdge(northWest, southWest, LandRingOrientation.CCW_RING)
     }
 
-    private fun passable(grid: AvoidGrid, lat: Double, lon: Double): Boolean {
+    private fun passable(grid: MultipassGrid, lat: Double, lon: Double): Boolean {
         val c = grid.cellOf(lat, lon)
         return grid.cell(c.row, c.col).passable
     }

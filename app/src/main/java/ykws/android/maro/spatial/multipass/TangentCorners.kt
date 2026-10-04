@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.regulation.SpeedZone
@@ -43,7 +43,7 @@ object TangentCorners {
 
     /** Every convex corner of [openCoast] and of the CCW rings in [edges], offset by [offsetM]. */
     fun corners(
-        edges: List<AvoidEdge>,
+        edges: List<MultipassEdge>,
         openCoast: List<List<LatLng>>,
         offsetM: Double
     ): List<LatLng> {
@@ -54,12 +54,12 @@ object TangentCorners {
             }
         }
 
-        val ringEdges = ArrayList<AvoidEdge>(edges.size)
+        val ringEdges = ArrayList<MultipassEdge>(edges.size)
         for (edge in edges) if (edge.orientation == LandRingOrientation.CCW_RING) ringEdges.add(edge)
         if (ringEdges.isEmpty()) return out
 
-        val incoming = HashMap<Key, AvoidEdge>()
-        val outgoing = HashMap<Key, AvoidEdge>()
+        val incoming = HashMap<Key, MultipassEdge>()
+        val outgoing = HashMap<Key, MultipassEdge>()
         val ambiguous = HashSet<Key>()
         for (edge in ringEdges) {
             val ka = keyOf(edge.a)

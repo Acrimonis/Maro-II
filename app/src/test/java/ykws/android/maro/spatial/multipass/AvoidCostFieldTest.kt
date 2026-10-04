@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -50,7 +50,7 @@ class AvoidCostFieldTest {
     fun aSoftSourceAddsToTheBaseAndNeverReplacesIt() {
         val priced = RouteCostSource.Soft(
             priceSec = { p -> if (inPatch(p)) 300.0 else 0.0 },
-            tag = AvoidCellState.BAND
+            tag = MultipassCellState.BAND
         )
         val grid = rasterize(
             box, cellM, paceKn, 25.0, emptyList(), emptyList(), box.latNorth, RouteCostField(listOf(priced))
@@ -63,7 +63,7 @@ class AvoidCostFieldTest {
         )
         assertEquals(
             "the price's own tag is written",
-            AvoidCellState.BAND, grid.cell(inside.row, inside.col).state
+            MultipassCellState.BAND, grid.cell(inside.row, inside.col).state
         )
 
         val outside = grid.cellOf(43.5005, 7.0005)
@@ -71,7 +71,7 @@ class AvoidCostFieldTest {
             "unpriced water keeps the base alone",
             grid.baseCostSec, grid.cell(outside.row, outside.col).sourceCostSec, 1e-9
         )
-        assertEquals(AvoidCellState.FREE, grid.cell(outside.row, outside.col).state)
+        assertEquals(MultipassCellState.FREE, grid.cell(outside.row, outside.col).state)
 
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
@@ -91,7 +91,7 @@ class AvoidCostFieldTest {
         )
         grid.markLand(3, 4)
 
-        grid.addSourceCost(3, 4, 500.0, AvoidCellState.ZONE)
+        grid.addSourceCost(3, 4, 500.0, MultipassCellState.ZONE)
 
         assertFalse("a priced land cell stays land", grid.cell(3, 4).passable)
         assertEquals("and keeps the cost it had", grid.baseCostSec, grid.cell(3, 4).sourceCostSec, 1e-9)
@@ -117,7 +117,7 @@ class AvoidCostFieldTest {
     /** The price reaches the A*: a wall priced out of all proportion is walked around. */
     @Test
     fun aDearlyPricedWallSteersTheSearchAroundIt() = runTest {
-        val path = AvoidSearch.search(walledGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
+        val path = MultipassSearch.search(walledGrid(10_000.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
 
         assertTrue("the corridor is still connected round the wall", path != null)
         assertTrue("no priced cell is stepped on", path!!.none { pricedCell(it) })
@@ -126,7 +126,7 @@ class AvoidCostFieldTest {
     /** Its control: the same wall, priced a hair, is worth crossing — the price is a dial, not a wall. */
     @Test
     fun aCheaplyPricedWallIsWorthCrossing() = runTest {
-        val path = AvoidSearch.search(walledGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
+        val path = MultipassSearch.search(walledGrid(1.0), CellIndex(5, 0), CellIndex(5, 10), paceMps).path
 
         assertTrue("the cheap wall is crossed rather than rounded", path!!.any { pricedCell(it) })
     }
@@ -135,11 +135,11 @@ class AvoidCostFieldTest {
     private fun pricedCell(cell: CellIndex): Boolean = cell.col == 5 && cell.row in 1..9
 
     /** A vertical wall of priced cells in column 5, leaving the top and bottom rows open. */
-    private fun walledGrid(priceSec: Double): AvoidGrid {
-        val grid = AvoidGrid(
+    private fun walledGrid(priceSec: Double): MultipassGrid {
+        val grid = MultipassGrid(
             box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM, baseCostSec(cellM, paceKn)
         )
-        for (r in 1..9) grid.addSourceCost(r, 5, priceSec, AvoidCellState.ZONE)
+        for (r in 1..9) grid.addSourceCost(r, 5, priceSec, MultipassCellState.ZONE)
         return grid
     }
 

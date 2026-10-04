@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -45,7 +45,7 @@ class AvoidBandCostTest {
     /**
      * The A\*'s own price read, built here exactly as the engine builds it: the strictest limit in force
      * in full, the ring's collar and the band's at their own fractions. Both the band and a ring reach it
-     * through [AvoidSearch], so the invariant below proves the search rather than one function twice.
+     * through [MultipassSearch], so the invariant below proves the search rather than one function twice.
      */
     private val priceAt: (Double, Double, Double) -> Double = { interiorKn, collarKn, bandCollarKn ->
         slowWaterPriceAt(
@@ -69,14 +69,14 @@ class AvoidBandCostTest {
         val cell = grid.cell(inBand.row, inBand.col)
         assertEquals("a cell inside the width carries the band's limit", bandLimitKn, grid.limitKn(inBand.row, inBand.col), 1e-9)
         assertEquals("the price is the A*'s read, never the grid's base", grid.baseCostSec, cell.sourceCostSec, 1e-9)
-        assertEquals("and the band's law water wears the band tag", AvoidCellState.BAND, cell.state)
+        assertEquals("and the band's law water wears the band tag", MultipassCellState.BAND, cell.state)
 
         val outside = grid.cellOf(43.510 - 600.0 / mPerDegLat(), 7.010)
         assertEquals(
             "a cell beyond the band's reach carries no limit",
             0.0, grid.limitKn(outside.row, outside.col), 1e-9
         )
-        assertEquals(AvoidCellState.FREE, grid.cell(outside.row, outside.col).state)
+        assertEquals(MultipassCellState.FREE, grid.cell(outside.row, outside.col).state)
 
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {
@@ -121,7 +121,7 @@ class AvoidBandCostTest {
         )
         assertEquals(
             "and the collar wears no law tag, since the limit in force is the width's",
-            AvoidCellState.FREE, grid.cell(collar.row, collar.col).state
+            MultipassCellState.FREE, grid.cell(collar.row, collar.col).state
         )
         assertEquals(
             "the width is not also a collar, so the two prices never double up on one cell",
@@ -154,13 +154,13 @@ class AvoidBandCostTest {
             "no band law means no limit written at all",
             0.0, unpriced.limitKn(inBand.row, inBand.col), 1e-9
         )
-        assertEquals(AvoidCellState.FREE, unpriced.cell(inBand.row, inBand.col).state)
+        assertEquals(MultipassCellState.FREE, unpriced.cell(inBand.row, inBand.col).state)
     }
 
     /** The limit reaches the A*: a band priced out of proportion is walked around. */
     @Test
     fun theSearchSteersOutOfADearlyPricedBand() = runTest {
-        val path = AvoidSearch.search(bandedGrid(bandLimitKn), CellIndex(5, 0), CellIndex(5, 10), paceMps, priceAt).path
+        val path = MultipassSearch.search(bandedGrid(bandLimitKn), CellIndex(5, 0), CellIndex(5, 10), paceMps, priceAt).path
 
         assertTrue("the corridor is still connected round the band", path != null)
         assertTrue("no band cell is stepped on", path!!.none { bandCell(it) })
@@ -169,7 +169,7 @@ class AvoidBandCostTest {
     /** Its control: the same band, its limit at the pace, costs nothing — a price is a dial, not a wall. */
     @Test
     fun aBandLimitAtThePaceIsWorthCrossing() = runTest {
-        val path = AvoidSearch.search(bandedGrid(paceKn), CellIndex(5, 0), CellIndex(5, 10), paceMps, priceAt).path
+        val path = MultipassSearch.search(bandedGrid(paceKn), CellIndex(5, 0), CellIndex(5, 10), paceMps, priceAt).path
 
         assertTrue("a limit at the pace prices as open water", path!!.any { bandCell(it) })
     }
@@ -185,12 +185,12 @@ class AvoidBandCostTest {
             listOf(
                 RouteCostSource.Soft(
                     priceSec = { p -> if (p.latitude < 43.5015) 120.0 else 0.0 },
-                    tag = AvoidCellState.BAND
+                    tag = MultipassCellState.BAND
                 )
             )
         )
 
-        val kept = AvoidPull.pull(path, start, aim, marginM, banded)
+        val kept = MultipassPull.pull(path, start, aim, marginM, banded)
 
         assertEquals("the priced chord is refused and the detour kept", path, kept)
     }
@@ -202,7 +202,7 @@ class AvoidBandCostTest {
         val aim = LatLng(43.50, 7.02)
         val path = listOf(start, LatLng(43.503, 7.01), aim)
 
-        val pulled = AvoidPull.pull(path, start, aim, marginM, RouteCostField.EMPTY)
+        val pulled = MultipassPull.pull(path, start, aim, marginM, RouteCostField.EMPTY)
 
         assertEquals(listOf(start, aim), pulled)
     }
@@ -210,15 +210,15 @@ class AvoidBandCostTest {
     /**
      * **The law's invariant, proven through the search.** A 5 kn band limit and a 5 kn ring limit price
      * identically: the two grids differ only in **which array carries the limit**, and the A\* — reading
-     * its own per-expansion price closure over [AvoidGrid.limitKn] — takes the very same way round both.
+     * its own per-expansion price closure over [MultipassGrid.limitKn] — takes the very same way round both.
      * The limit is the same, the cursor is one, and the search's own decisions agree.
      */
     @Test
     fun aBandCellAndARingCellOfTheSameLimitCostTheSearchIdentically() = runTest {
-        val banded = AvoidGrid(
+        val banded = MultipassGrid(
             box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM, baseCostSec(cellM, paceKn)
         )
-        val ringed = AvoidGrid(
+        val ringed = MultipassGrid(
             box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM, baseCostSec(cellM, paceKn)
         )
         for (r in 1..9) {
@@ -228,8 +228,8 @@ class AvoidBandCostTest {
         val start = CellIndex(5, 0)
         val aim = CellIndex(5, 10)
 
-        val bandPath = AvoidSearch.search(banded, start, aim, paceMps, priceAt).path
-        val ringPath = AvoidSearch.search(ringed, start, aim, paceMps, priceAt).path
+        val bandPath = MultipassSearch.search(banded, start, aim, paceMps, priceAt).path
+        val ringPath = MultipassSearch.search(ringed, start, aim, paceMps, priceAt).path
 
         assertEquals(
             "the A* takes the same way round a band limit as round a ring limit of the same slowness",
@@ -239,8 +239,8 @@ class AvoidBandCostTest {
     }
 
     /** A column of band-limit cells, leaving the top and bottom rows open. */
-    private fun bandedGrid(limitKn: Double): AvoidGrid {
-        val grid = AvoidGrid(
+    private fun bandedGrid(limitKn: Double): MultipassGrid {
+        val grid = MultipassGrid(
             box.latSouth, box.lonWest, 0.0005, 0.0007, 11, 11, cellM, baseCostSec(cellM, paceKn)
         )
         for (r in 1..9) grid.applyBandLimit(r, 5, limitKn)

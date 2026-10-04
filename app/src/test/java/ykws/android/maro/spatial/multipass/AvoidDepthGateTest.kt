@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -73,7 +73,7 @@ class AvoidDepthGateTest {
         )
     }
 
-    private fun gated(depthMAt: (LatLng) -> Double): AvoidGrid =
+    private fun gated(depthMAt: (LatLng) -> Double): MultipassGrid =
         rasterize(
             box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth,
             RouteCostField(listOf(depthGateSource(minDepthM, depthMAt)))
@@ -83,7 +83,7 @@ class AvoidDepthGateTest {
     private fun shallow(p: LatLng): Boolean =
         p.latitude in 43.5095..43.5105 && p.longitude in 7.009..7.011
 
-    private fun passable(grid: AvoidGrid, lat: Double, lon: Double): Boolean {
+    private fun passable(grid: MultipassGrid, lat: Double, lon: Double): Boolean {
         val cell = grid.cellOf(lat, lon)
         return grid.cell(cell.row, cell.col).passable
     }

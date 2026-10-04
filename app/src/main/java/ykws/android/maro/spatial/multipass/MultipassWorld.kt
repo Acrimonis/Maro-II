@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.coastline.CoastlineRepository
 import ykws.android.maro.data.depth.DepthRepository
@@ -9,7 +9,7 @@ import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
 
 /** One coastline edge with the orientation of the polyline it belongs to. */
-data class AvoidEdge(
+data class MultipassEdge(
     val a: LatLng,
     val b: LatLng,
     val orientation: LandRingOrientation
@@ -20,7 +20,7 @@ data class AvoidEdge(
  * feature imports no coastline or depth type beyond this file. An engine that wants the water declares
  * this; the live adapter below is the single importer that translates the two repositories into it.
  */
-interface AvoidWorld {
+interface MultipassWorld {
 
     /** Whether the coastline is loaded and queryable right now — the first half of the readiness gate. */
     val coastlineReady: Boolean
@@ -36,7 +36,7 @@ interface AvoidWorld {
     val regionBounds: BBox?
 
     /** Every ring/basin land edge whose bounding box overlaps [box], each carrying its ring orientation. */
-    fun segmentsIn(box: BBox): List<AvoidEdge>
+    fun segmentsIn(box: BBox): List<MultipassEdge>
 
     /**
      * Every open mainland-coast polyline crossing [box], as ordered vertex lists — the ordered
@@ -79,16 +79,16 @@ interface AvoidWorld {
 
 /**
  * The live adapter over [CoastlineRepository], [DepthRepository] and the speed-zone list — the one file
- * in the feature that imports them, translating the first's index into [AvoidEdge]s and the three
+ * in the feature that imports them, translating the first's index into [MultipassEdge]s and the three
  * layers' readiness into this world's. It holds no data of its own: every query reads the layers'
  * current state, so a load completed after construction is picked up on the next call.
  */
-class LiveAvoidWorld(
+class LiveMultipassWorld(
     private val coastline: CoastlineRepository,
     private val depth: DepthRepository,
     private val zonesProvider: () -> List<SpeedZone> = { emptyList() },
     private val excludedZoneIds: () -> Set<String> = { emptySet() }
-) : AvoidWorld {
+) : MultipassWorld {
 
     override val coastlineReady: Boolean
         get() = coastline.spatialIndex != null
@@ -104,12 +104,12 @@ class LiveAvoidWorld(
             BBox(it.latSouth, it.latNorth, it.lonWest, it.lonEast)
         }
 
-    override fun segmentsIn(box: BBox): List<AvoidEdge> {
+    override fun segmentsIn(box: BBox): List<MultipassEdge> {
         val index = coastline.spatialIndex ?: return emptyList()
         return index.segmentsInBbox(box).mapNotNull { seg ->
             val orientation = coastline.landRingOrientation(seg.polylineIdx)
             if (orientation == LandRingOrientation.OPEN_COAST) null
-            else AvoidEdge(seg.a, seg.b, orientation)
+            else MultipassEdge(seg.a, seg.b, orientation)
         }
     }
 

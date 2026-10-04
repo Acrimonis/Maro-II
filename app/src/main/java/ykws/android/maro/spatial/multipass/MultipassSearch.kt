@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.ensureActive
 import ykws.android.maro.spatial.SpatialOperations
@@ -7,7 +7,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.sqrt
 
 /**
- * Corridor-bounded A* over [AvoidGrid]: eight neighbours, a diagonal costing `√2` of its own cell — a
+ * Corridor-bounded A* over [MultipassGrid]: eight neighbours, a diagonal costing `√2` of its own cell — a
  * diagonal covering `√2` cells of distance and time alike — and a g-cost in **seconds**.
  *
  * A cell costs its own `sourceCostSec` plus, where the grid stores a **limit in force**, the seconds
@@ -27,7 +27,7 @@ import kotlin.math.sqrt
  * drag stops inside the search instead of after it. Exhaustion is a [SearchOutcome] whose `path` is
  * `null`, and the reading beside it says how much water the search walked before it gave up.
  */
-object AvoidSearch {
+object MultipassSearch {
 
     private val SQRT2 = sqrt(2.0)
 
@@ -63,7 +63,7 @@ object AvoidSearch {
      *   nothing.
      */
     suspend fun search(
-        grid: AvoidGrid,
+        grid: MultipassGrid,
         start: CellIndex,
         aim: CellIndex,
         paceMps: Double,
@@ -146,7 +146,7 @@ object AvoidSearch {
     }
 
     /** One linear read of the grid's passable cells — taken once, when the search ends, never per expansion. */
-    private fun passableCellCount(grid: AvoidGrid): Int {
+    private fun passableCellCount(grid: MultipassGrid): Int {
         var count = 0
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {

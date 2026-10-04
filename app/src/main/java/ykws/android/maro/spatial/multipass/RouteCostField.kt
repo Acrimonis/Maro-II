@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.Units
@@ -61,7 +61,7 @@ sealed interface RouteCostSource {
      */
     class Soft(
         private val priceSec: (LatLng) -> Double,
-        val tag: AvoidCellState
+        val tag: MultipassCellState
     ) : RouteCostSource {
 
         override fun costSec(p: LatLng): Double = priceSec(p)
@@ -78,7 +78,7 @@ sealed interface RouteCostSource {
 data class RouteCostAtPoint(
     val blocked: Boolean,
     val softCostSec: Double,
-    val tag: AvoidCellState
+    val tag: MultipassCellState
 )
 
 /**
@@ -261,7 +261,7 @@ class RouteCostField(
             }
         }
         var costSec = 0.0
-        var tag = AvoidCellState.FREE
+        var tag = MultipassCellState.FREE
         for (source in soft) {
             val cost = source.costSec(p)
             if (cost > 0.0) {

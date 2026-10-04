@@ -1,4 +1,4 @@
-package ykws.android.maro.spatial.avoid
+package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
@@ -48,13 +48,13 @@ data class BandLaw(
  * force — and never the outside margin, which carries a price but no limit. [ZONE] marks a ring's
  * interior. A cell inside both wears the dearest tag, [ZONE].
  */
-enum class AvoidCellState { FREE, LAND, BAND, ZONE }
+enum class MultipassCellState { FREE, LAND, BAND, ZONE }
 
 /**
  * A tagged, costed cell — [sourceCostSec] is the **time** (s) the cell's own prices add to its base.
  *
  * **Neither property has a default, and that is the invariant rather than the style.** The grid always
- * writes a base cost ([AvoidGrid.baseCostSec], one cell of water at the pace) and every source may
+ * writes a base cost ([MultipassGrid.baseCostSec], one cell of water at the pace) and every source may
  * only *add* to it, so no passable cell is ever cheaper than the base and no price can pay the A*'s
  * search back. A defaulted `sourceCostSec = 0.0` is the trap this signature closes: a cell built
  * without a cost would read as free water and quietly break the shortest-path guarantee the whole
@@ -63,16 +63,16 @@ enum class AvoidCellState { FREE, LAND, BAND, ZONE }
  * A speed zone is **not** in here: the grid stores its limit and the A\* prices it at read time, which
  * is why the field's own prices are all this number carries.
  */
-data class AvoidCell(
-    val state: AvoidCellState,
+data class MultipassCell(
+    val state: MultipassCellState,
     val sourceCostSec: Double
 ) {
     /** [LAND] is impassable; every other tag is passable, priced by its source cost. */
-    val passable: Boolean get() = state != AvoidCellState.LAND
+    val passable: Boolean get() = state != MultipassCellState.LAND
 }
 
 /**
- * The corridor grid: a row-major field of [AvoidCell] over a lat/lon box, with the cell-centre
+ * The corridor grid: a row-major field of [MultipassCell] over a lat/lon box, with the cell-centre
  * geometry the rasterizer, the A* and the pull all read.
  *
  * **The base is time and a zone is a limit — the two halves of the unit change.** Every cell opens at
@@ -81,7 +81,7 @@ data class AvoidCell(
  * read time through the engine's price function. That is what makes a re-price per cell one multiply
  * instead of the zone fill, and it is why [cell] carries no zone price of its own.
  */
-class AvoidGrid(
+class MultipassGrid(
     val latSouth: Double,
     val lonWest: Double,
     val cellSizeDegLat: Double,
@@ -91,7 +91,7 @@ class AvoidGrid(
     val cellM: Double,
     val baseCostSec: Double
 ) {
-    private val cells = Array(rows * cols) { AvoidCell(AvoidCellState.FREE, baseCostSec) }
+    private val cells = Array(rows * cols) { MultipassCell(MultipassCellState.FREE, baseCostSec) }
 
     /**
      * The speed zone's **interior limit** (kn) standing on each cell, 0.0 where none does, kept apart
@@ -157,13 +157,13 @@ class AvoidGrid(
     }
 
     /** The cell's own cost and tag: `ZONE` where a ring's limit stands, else `BAND` on the band's law water. */
-    fun cell(row: Int, col: Int): AvoidCell {
+    fun cell(row: Int, col: Int): MultipassCell {
         val i = index(row, col)
         val base = cells[i]
-        if (base.state == AvoidCellState.LAND) return base
+        if (base.state == MultipassCellState.LAND) return base
         return when {
-            zoneLimitKn[i] > 0.0 -> base.copy(state = AvoidCellState.ZONE)
-            bandLimitKn[i] > 0.0 -> base.copy(state = AvoidCellState.BAND)
+            zoneLimitKn[i] > 0.0 -> base.copy(state = MultipassCellState.ZONE)
+            bandLimitKn[i] > 0.0 -> base.copy(state = MultipassCellState.BAND)
             else -> base
         }
     }
@@ -177,55 +177,55 @@ class AvoidGrid(
     /** Marks a cell land, keeping its source cost (irrelevant while impassable) untouched. */
     fun markLand(row: Int, col: Int) {
         val i = index(row, col)
-        cells[i] = cells[i].copy(state = AvoidCellState.LAND)
+        cells[i] = cells[i].copy(state = MultipassCellState.LAND)
     }
 
     /**
      * Writes one zone's **limit** onto a passable cell, keeping the strictest in force — the slowest
-     * limit wins where zones overlap, and a cell already [AvoidCellState.LAND] stays land, never zoned.
+     * limit wins where zones overlap, and a cell already [MultipassCellState.LAND] stays land, never zoned.
      */
     fun applyZoneLimit(row: Int, col: Int, limitKn: Double) {
         require(limitKn > 0.0) { "a zone always carries a positive limit" }
         val i = index(row, col)
-        if (cells[i].state == AvoidCellState.LAND) return
+        if (cells[i].state == MultipassCellState.LAND) return
         val current = zoneLimitKn[i]
         zoneLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
     }
 
     /**
      * Writes one zone's **outside-margin limit** onto a passable cell, keeping the strictest in force.
-     * A cell already [AvoidCellState.LAND] stays land; a cell that is also inside a zone keeps both
+     * A cell already [MultipassCellState.LAND] stays land; a cell that is also inside a zone keeps both
      * limits, and the A\* prefers the interior's full price over this margin's fraction.
      */
     fun applyCollarLimit(row: Int, col: Int, limitKn: Double) {
         require(limitKn > 0.0) { "a zone always carries a positive limit" }
         val i = index(row, col)
-        if (cells[i].state == AvoidCellState.LAND) return
+        if (cells[i].state == MultipassCellState.LAND) return
         val current = collarLimitKn[i]
         collarLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
     }
 
     /**
      * Writes the band's **own width limit** onto a passable cell, keeping the strictest in force. A cell
-     * already [AvoidCellState.LAND] stays land — the band is a law on water, never on the shore.
+     * already [MultipassCellState.LAND] stays land — the band is a law on water, never on the shore.
      */
     fun applyBandLimit(row: Int, col: Int, limitKn: Double) {
         require(limitKn > 0.0) { "the band always carries a positive limit" }
         val i = index(row, col)
-        if (cells[i].state == AvoidCellState.LAND) return
+        if (cells[i].state == MultipassCellState.LAND) return
         val current = bandLimitKn[i]
         bandLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
     }
 
     /**
      * Writes the band's **outside-margin limit** onto a passable cell, keeping the strictest in force.
-     * A cell already [AvoidCellState.LAND] stays land, and a cell inside the band's width keeps both, the
+     * A cell already [MultipassCellState.LAND] stays land, and a cell inside the band's width keeps both, the
      * width's full price winning over this margin's fraction.
      */
     fun applyBandCollarLimit(row: Int, col: Int, limitKn: Double) {
         require(limitKn > 0.0) { "the band always carries a positive limit" }
         val i = index(row, col)
-        if (cells[i].state == AvoidCellState.LAND) return
+        if (cells[i].state == MultipassCellState.LAND) return
         val current = bandCollarLimitKn[i]
         bandCollarLimitKn[i] = if (current <= 0.0) limitKn else min(current, limitKn)
     }
@@ -235,13 +235,13 @@ class AvoidGrid(
      * dearest in force — the **only** way a cost reaches a cell, so a source can add and can never
      * replace the base. A cell already land keeps its state: a wall is not priced.
      */
-    fun addSourceCost(row: Int, col: Int, extraSec: Double, tag: AvoidCellState) {
+    fun addSourceCost(row: Int, col: Int, extraSec: Double, tag: MultipassCellState) {
         require(extraSec >= 0.0) { "a source may only add to the base cost, never take from it" }
         val i = index(row, col)
         val cell = cells[i]
         if (!cell.passable) return
         val state = if (tag.ordinal > cell.state.ordinal) tag else cell.state
-        cells[i] = AvoidCell(state, cell.sourceCostSec + extraSec)
+        cells[i] = MultipassCell(state, cell.sourceCostSec + extraSec)
     }
 
     /** The cell a point falls in, clamped to the grid edge so an end outside the box still anchors. */
@@ -257,7 +257,7 @@ class AvoidGrid(
     fun forceFree(latitude: Double, longitude: Double) {
         val (row, col) = cellOf(latitude, longitude)
         val i = index(row, col)
-        cells[i] = AvoidCell(AvoidCellState.FREE, baseCostSec)
+        cells[i] = MultipassCell(MultipassCellState.FREE, baseCostSec)
         zoneLimitKn[i] = 0.0
         collarLimitKn[i] = 0.0
         bandLimitKn[i] = 0.0
@@ -266,7 +266,7 @@ class AvoidGrid(
 
     /**
      * Opens a **carved** cell — the berth channel's own write, beside [forceFree] and deliberately not
-     * the same one: the cell becomes [AvoidCellState.FREE] at the grid's **base cost**, and it
+     * the same one: the cell becomes [MultipassCellState.FREE] at the grid's **base cost**, and it
      * **keeps its zone limit**.
      *
      * The distinction is the rule the carve waives: only the shore margin is a courtesy, so a zone
@@ -274,7 +274,7 @@ class AvoidGrid(
      * the end itself — clears the limit as well. The channel is water the margin took, nothing more.
      */
     fun openCarve(row: Int, col: Int) {
-        cells[index(row, col)] = AvoidCell(AvoidCellState.FREE, baseCostSec)
+        cells[index(row, col)] = MultipassCell(MultipassCellState.FREE, baseCostSec)
     }
 
     /**
@@ -286,13 +286,13 @@ class AvoidGrid(
      * was the dearer half of a solve. The copy leaves this grid untouched, so the answer's own grid
      * still carries its limits, and a zone slower than the pace is exactly a zone the search prices.
      */
-    fun blockedCopy(paceKn: Double): AvoidGrid {
-        val copy = AvoidGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
+    fun blockedCopy(paceKn: Double): MultipassGrid {
+        val copy = MultipassGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
         for (i in 0 until rows * cols) {
             val cell = cells[i]
             val limit = zoneLimitKn[i]
             copy.cells[i] = if (cell.passable && limit > 0.0 && limit < paceKn) {
-                AvoidCell(AvoidCellState.LAND, cell.sourceCostSec)
+                MultipassCell(MultipassCellState.LAND, cell.sourceCostSec)
             } else {
                 cell
             }
@@ -335,7 +335,7 @@ fun rasterize(
     cellM: Double,
     paceKn: Double,
     marginM: Double,
-    edges: List<AvoidEdge>,
+    edges: List<MultipassEdge>,
     openCoast: List<List<LatLng>>,
     capLatNorth: Double,
     field: RouteCostField = RouteCostField.EMPTY,
@@ -343,7 +343,7 @@ fun rasterize(
     blockZones: Boolean = false,
     zoneOutsideMarginM: Double = 0.0,
     band: BandLaw? = null
-): AvoidGrid {
+): MultipassGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
     val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
@@ -351,7 +351,7 @@ fun rasterize(
     val cellSizeDegLon = cellM / mPerDegLon
     val cols = ceil((box.lonEast - box.lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
     val rows = ceil((box.latNorth - box.latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
-    val grid = AvoidGrid(
+    val grid = MultipassGrid(
         box.latSouth, box.lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM,
         baseCostSec(cellM, paceKn)
     )
@@ -366,7 +366,7 @@ fun rasterize(
     }
     for (polyline in openCoast) {
         for (i in 0 until polyline.size - 1) {
-            val edge = AvoidEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST)
+            val edge = MultipassEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST)
             forEachCellNear(grid, edge, marginM, mPerDegLat, mPerDegLon) { r, c, _ ->
                 grid.markLand(r, c)
             }
@@ -374,7 +374,7 @@ fun rasterize(
     }
 
     // 2. Interior fill for CCW rings.
-    val ringEdges = ArrayList<AvoidEdge>()
+    val ringEdges = ArrayList<MultipassEdge>()
     for (edge in edges) {
         if (edge.orientation == LandRingOrientation.CCW_RING) ringEdges.add(edge)
     }
@@ -428,15 +428,15 @@ fun rasterize(
  * margin beyond it carries the band's collar limit; everything further carries nothing.
  */
 private fun writeBandLaw(
-    grid: AvoidGrid,
-    edges: List<AvoidEdge>,
+    grid: MultipassGrid,
+    edges: List<MultipassEdge>,
     openCoast: List<List<LatLng>>,
     band: BandLaw,
     mPerDegLat: Double,
     mPerDegLon: Double
 ) {
     val reachM = bandReachM(band.widthM, band.outsideMarginM)
-    fun paint(edge: AvoidEdge) {
+    fun paint(edge: MultipassEdge) {
         forEachCellNear(grid, edge, reachM, mPerDegLat, mPerDegLon) { r, c, distanceM ->
             if (insideBandWidthM(distanceM, band.widthM)) {
                 grid.applyBandLimit(r, c, band.limitKn)
@@ -448,7 +448,7 @@ private fun writeBandLaw(
     for (edge in edges) paint(edge)
     for (polyline in openCoast) {
         for (i in 0 until polyline.size - 1) {
-            paint(AvoidEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST))
+            paint(MultipassEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST))
         }
     }
 }
@@ -459,8 +459,8 @@ private fun writeBandLaw(
  * decides on.
  */
 private fun forEachCellNear(
-    grid: AvoidGrid,
-    edge: AvoidEdge,
+    grid: MultipassGrid,
+    edge: MultipassEdge,
     radiusM: Double,
     mPerDegLat: Double,
     mPerDegLon: Double,
@@ -492,7 +492,7 @@ private fun forEachCellNear(
  * vertex is counted once by the half-open latitude rule, so two touching hazard rings read as one
  * blocked mass.
  */
-private fun fillRingsEvenOdd(grid: AvoidGrid, ringEdges: List<AvoidEdge>) {
+private fun fillRingsEvenOdd(grid: MultipassGrid, ringEdges: List<MultipassEdge>) {
     if (ringEdges.isEmpty()) return
     fillScanlineEvenOdd(grid, { _, lat ->
         val crossings = ArrayList<Double>()
@@ -512,7 +512,7 @@ private fun fillRingsEvenOdd(grid: AvoidGrid, ringEdges: List<AvoidEdge>) {
  * Even-odd scanline fill of one arbitrary closed ring given as an ordered vertex list whose last
  * vertex closes to its first. The open coast uses it once it is capped into a land polygon.
  */
-private fun fillClosedRingEvenOdd(grid: AvoidGrid, ring: List<LatLng>) {
+private fun fillClosedRingEvenOdd(grid: MultipassGrid, ring: List<LatLng>) {
     if (ring.size < 3) return
     fillScanlineEvenOdd(grid, { _, lat ->
         val crossings = ArrayList<Double>()
@@ -541,7 +541,7 @@ private fun fillClosedRingEvenOdd(grid: AvoidGrid, ring: List<LatLng>) {
  * full price wins.
  */
 private fun fillZonesEvenOdd(
-    grid: AvoidGrid,
+    grid: MultipassGrid,
     zones: List<ZoneRing>,
     blockZones: Boolean,
     zoneOutsideMarginM: Double,
@@ -575,7 +575,7 @@ private fun fillZonesEvenOdd(
         }
         if (!blockZones && zoneOutsideMarginM > 0.0) {
             for (i in 0 until zone.outerRing.size - 1) {
-                val edge = AvoidEdge(
+                val edge = MultipassEdge(
                     zone.outerRing[i],
                     zone.outerRing[i + 1],
                     LandRingOrientation.CCW_RING
@@ -590,7 +590,7 @@ private fun fillZonesEvenOdd(
 
 /** Shared even-odd scanline: [crossingsFor] returns the boundary crossings for one row's latitude. */
 private fun fillScanlineEvenOdd(
-    grid: AvoidGrid,
+    grid: MultipassGrid,
     crossingsFor: (row: Int, lat: Double) -> List<Double>,
     action: (row: Int, col: Int) -> Unit
 ) {
