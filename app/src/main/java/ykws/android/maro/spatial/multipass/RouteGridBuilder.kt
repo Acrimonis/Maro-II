@@ -51,10 +51,17 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val edges = world.segmentsIn(box)
         val openCoast = world.openCoastIn(box)
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
-        // The plan hands back the walk's tiles; `avoid`'s plan is one tile over the whole corridor at one
-        // size, so the single-grid walk below reads the first tile's size with `.first()`. The multi-tile
-        // walk is a later step, not this extraction.
-        val cellM = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM).first().cellM
+        // The plan hands back the walk's tiles. `avoid`'s plan answers one tile over the whole corridor at
+        // one size and keeps the single-grid walk below **exactly** — the suite's own counts are the proof.
+        // A plan answering more than one tile, the adaptive grid's two layers, takes the layered path, where
+        // the interior tile stays the grid every single-grid read site describes and the band is a window.
+        val tiles = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM)
+        if (tiles.size > 1) {
+            return buildLayeredGrid(
+                world, from, to, box, regionSaturated, edges, openCoast, capLatNorth, tiles, pace, trace
+            )
+        }
+        val cellM = tiles.first().cellM
         val fineCellM = plan.fineCellM(cellM)
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
@@ -115,10 +122,134 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             )
         }
         val limitAt = limitAtFor(world)
+        // Named construction, never a positional 27th: the `windows` seam defaults to `null` here, which is
+        // exactly this single-grid walk — `avoid`'s answer, cell for cell.
         return GridContext(
-            world, from, to, box, edges, openCoast, capLatNorth, cellM, fineCellM, marginM, zoneOutsideMarginM,
-            pace, grid, startCell, aimCell, start, aim, sets, limitAt, zones, priced, approaches,
-            refusals, depthGateActive, minDepthM, regionSaturated
+            world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
+            capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
+            zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, grid = grid,
+            startCell = startCell, aimCell = aimCell, start = start, aim = aim, sets = sets,
+            limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
+            refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
+            regionSaturated = regionSaturated
+        )
+    }
+
+    /**
+     * **The two-layer build** — the corridor rasterized as the interior at the coarse pair and the band at
+     * the fine pair, both on **one lattice family**, carried as one walk of two windows.
+     *
+     * The **interior tile is the grid every single-grid read site still describes**: `GridContext.grid`,
+     * its two end cells and its `cellM` are the interior's, so the engine's own readings and the forced
+     * crossing probe keep their answers. The band is the second window, its membership the coast and the
+     * depth gate dilated by one coarse cell — **the band's outer edge is the seam**.
+     *
+     * The ends' **discs** land in every window that holds the end, at the **coarse** reach Phase 6 still
+     * owns; the berth **carve** runs on the interior, because the interior is the layer the first walk's own
+     * answers are found on until Phase 5 prices the seam. The corner-set radii stay the coarse cell's, the
+     * same sites Phase 6 re-points.
+     */
+    private suspend fun buildLayeredGrid(
+        world: MultipassWorld,
+        from: RoutePoint,
+        to: RoutePoint,
+        box: BBox,
+        regionSaturated: Boolean,
+        edges: List<MultipassEdge>,
+        openCoast: List<List<LatLng>>,
+        capLatNorth: Double,
+        tiles: List<GridTile>,
+        pace: Double,
+        trace: (() -> String) -> Unit
+    ): GridContext {
+        val coarseTile = tiles.maxByOrNull { it.cellM }!!
+        val fineTile = tiles.minByOrNull { it.cellM }!!
+        val cellM = coarseTile.cellM
+        val fineCellM = fineTile.cellM
+        val family = LatticeFamily.of(box, cellM, fineCellM)
+        val marginM = AppConfig.routeAvoidObstacleMarginM
+        val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
+        val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
+        val gridField =
+            costField(world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0)
+        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
+        val bandSpec = bandLaw(world)
+        // The interior window (layer 0): the whole corridor at the coarse pair.
+        val coarseBox = family.coarse.snapOutward(box)
+        val interiorGrid = rasterizeWindow(
+            coarseBox, family.coarse, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
+            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec
+        )
+        // The band window (layer 1): the corridor at the fine pair, masked to the band's own water.
+        val fineBox = family.fine.snapOutward(box)
+        val bandGrid = rasterizeWindow(
+            fineBox, family.fine, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
+            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
+            bandMask = true, bandMaskWidthM = cellM
+        )
+        val windows = listOf(
+            WalkWindow(
+                interiorGrid, family.coarse.rowOf(coarseBox.latSouth),
+                family.coarse.colOf(coarseBox.lonWest), layer = 0
+            ),
+            WalkWindow(
+                bandGrid, family.fine.rowOf(fineBox.latSouth),
+                family.fine.colOf(fineBox.lonWest), layer = 1
+            )
+        )
+        val startCell = interiorGrid.cellOf(from.latitude, from.longitude)
+        val aimCell = interiorGrid.cellOf(to.latitude, to.longitude)
+        val startStateBefore = interiorGrid.cell(startCell.row, startCell.col).state
+        val aimStateBefore = interiorGrid.cell(aimCell.row, aimCell.col).state
+        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val minDepthM = AppConfig.routeAvoidDepthGateMinM
+        for ((index, window) in windows.withIndex()) {
+            val lattice = family.layers[window.layer]
+            for (end in listOf(from.toLatLng(), to.toLatLng())) {
+                if (!window.holds(lattice.rowOf(end.latitude), lattice.colOf(end.longitude))) continue
+                window.grid.forceFree(end.latitude, end.longitude)
+                openEndDisc(window.grid, world, end, marginM, depthGateActive, minDepthM, reachCellM = cellM)
+            }
+        }
+        val carveReach = carveReachCells(marginM, cellM)
+        val startCarve = carveEnd(world, interiorGrid, startCell, from.toLatLng(), marginM, carveReach, depthGateActive)
+        val aimCarve = carveEnd(world, interiorGrid, aimCell, to.toLatLng(), marginM, carveReach, depthGateActive)
+        val approaches = EndApproaches(startCarve.points, aimCarve.points)
+        val refusals = PullRefusals()
+        // (e) Every count names its layer: a coarse cell is twenty-five fine ones, so the two inventories
+        // are printed apart and never summed into one figure the engine cannot stand behind.
+        trace {
+            "GRID layer=coarse ${inventory(interiorGrid)} " +
+                "start=${cellRead(world, interiorGrid, startCell, from, startStateBefore)} " +
+                "aim=${cellRead(world, interiorGrid, aimCell, to, aimStateBefore)}"
+        }
+        trace { "GRID layer=fine ${inventory(bandGrid)}" }
+        trace { carveLine("start", startCarve) }
+        trace { carveLine("aim", aimCarve) }
+        val sets = ArrayList<CornerSet>(3)
+        sets.add(CornerSet(TangentCorners.corners(edges, openCoast, marginM), cellM * 2.0))
+        if (AppConfig.routeAvoidZone300Enabled && world.bandWidthM > 0.0) {
+            val bandOffsetM = bandReachM(world.bandWidthM, AppConfig.routeAvoidZone300OutsideMarginM)
+            sets.add(CornerSet(TangentCorners.corners(edges, openCoast, bandOffsetM), bandOffsetM))
+        }
+        if (zones.isNotEmpty()) {
+            sets.add(
+                CornerSet(
+                    TangentCorners.ringCorners(zones, zoneOutsideMarginM),
+                    zoneOutsideMarginM + cellM
+                )
+            )
+        }
+        val limitAt = limitAtFor(world)
+        return GridContext(
+            world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
+            capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
+            zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, grid = interiorGrid,
+            startCell = startCell, aimCell = aimCell, start = from.toLatLng(), aim = to.toLatLng(),
+            sets = sets, limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
+            refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
+            regionSaturated = regionSaturated,
+            windows = WalkWindows.onLattice(family.layers, windows)
         )
     }
 

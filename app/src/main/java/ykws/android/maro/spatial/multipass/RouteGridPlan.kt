@@ -77,18 +77,27 @@ object UniformGridPlan : RouteGridPlan {
 }
 
 /**
- * **`evolutive`'s plan: the adaptive grid's own two sizes.** It answers the first walk at the engine's
- * own coarse cell and the fine cell at its own metres value, so the metres key is live from the first
- * commit while the walk is still one rectangle — the fine band beside the coarse interior is the step
- * that follows, and it replaces a member here rather than the pipeline both engines share.
+ * **`evolutive`'s plan: the adaptive grid's own two sizes, answered as the two layers of one family.**
  *
- * **Its second pass is retired as of 2026-10-04**, on the device's own reading — see
- * [`secondPassRegions`] below for the figures and for what the retirement leaves standing.
+ * The first walk is the coarse interior **and** the fine band — two tiles over the corridor, ordered
+ * coarse first so the layer a layer-agnostic lookup resolves is the interior, which is the layer the
+ * engine's own single-grid read sites (`GridContext.grid`, its two end cells) still describe. The two
+ * sizes are the metres keys; the exact `5 : 1` nesting is built by the pair's own derivation, never by a
+ * ratio carried here.
+ *
+ * **The second pass is retired as of 2026-10-04**, on the device's own reading — see
+ * [`secondPassRegions`] below for the figures and what the retirement leaves standing.
  */
 object EvolutiveGridPlan : RouteGridPlan {
 
-    override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
-        listOf(GridTile(corridor, AppConfig.routeEvolutiveGridCellM))
+    /**
+     * The two layers, **coarse interior first, fine band second** — the order the family's own layers hold,
+     * so the engine's interior grid is the one its single-grid readings still name.
+     */
+    override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> = listOf(
+        GridTile(corridor, AppConfig.routeEvolutiveGridCellM),
+        GridTile(corridor, AppConfig.routeEvolutiveGridFineCellM)
+    )
 
     /**
      * **No second pass at all, on the device's own reading** — the corridor chain is retired for this

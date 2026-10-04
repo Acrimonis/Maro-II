@@ -5,9 +5,9 @@ Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** besi
 gate, coarse **100 m** in open water, ratio **1 : 5**; the second pass is one fine grid **along the path**.
 **The metres land first; nothing of the two-layer walk is built.**
 
-Status: Phases 1, 2 and 3 landed (2026-10-04) — Phase 2's device reading confirmed the corridor's half-width
-at 150 m and, on the user's word, retired the second pass's re-walk for `evolutive`; the two-layer walk and
-its seam remain in design.
+Status: Phases 1–4 landed (2026-10-04) — Phases 1–3 ship the metres, the one lattice and the corridor chain;
+Phase 4 builds the two-layer rasterize — the family, the layer in the cell key, the two windows and the band's
+membership. The seam that expands a neighbour across the two layers and prices it is Phase 5, still in design.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -157,9 +157,11 @@ Phases 3 and 7.
 - **Two `MultipassGrid` instances at one seam**, not a new grid type: the fine band and the coarse interior are
   each a dense rectangle, and [`MultipassGrid`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt:84)
   carries one `cellM` and one cell-size pair by design.
-- **Every rectangle in this design is a window onto one lattice** — one origin and one cell-size pair — and
-  that is a precondition, not a convenience. Two rectangles built from their own corners land their cells
-  up to a cell apart, so a neighbour across a seam would need a search rather than an index.
+- **Every rectangle in this design is a window onto one lattice family — one origin and one cell-size pair
+  per resolution, in an exact 1 : 5 ratio** — and that is a precondition, not a convenience. One pair alone
+  cannot serve 20 m and 100 m, and two origins would leave the seam's neighbour a search rather than
+  arithmetic. Two rectangles built from their own corners land their cells up to a cell apart, so a neighbour
+  across a seam would need a search rather than an index.
 - **The lattice's own cost is one row and one column per rectangle.** A rectangle off the lattice snaps
   outward, so a 16 × 16 box can become 17 × 17 — about 13 % of that box's cells, and a couple of thousand
   across the 12 km example's 80 boxes, most of it swallowed by their overlap.
@@ -170,9 +172,15 @@ Phases 3 and 7.
   degrees-per-cell per resolution at the corridor's mid-latitude; across a 5 km route a 20 m cell then
   drifts by under two centimetres, and the 5 : 1 nesting holds exactly in degrees and to a hundredth of a
   percent in metres.
-- **On one lattice the two layers nest exactly**: at 20 m and 100 m each coarse cell covers 5 × 5 fine
-  cells, so the seam's neighbourhood is a fixed relation and the same helper enumerates it for the corridor's
-  equal-cell seams.
+- **On one family the two layers nest exactly**: at 20 m and 100 m each coarse cell covers 5 × 5 fine cells,
+  so the seam's neighbourhood is a fixed relation — **a coarse cell's edge meets five fine cells and its
+  corner a 5 × 5 block**, the many-to-one enumeration Phase 5's helper owns — and the equal-cell case stays
+  the index arithmetic it is today.
+- **A cell's identity carries its layer.** [`packCell`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:12)
+  packs `(row, col)` alone and [`onLattice`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:174)
+  keeps the first window to claim a key, so two layers over the same water would silently drop the second
+  layer's cells: a coarse cell at `(1, 1)` and a fine cell at `(1, 1)` are different squares wearing one key.
+  Right for equal-cell windows, wrong the moment the sizes differ — which is what Phase 4's (b) exists for.
 - **The seam is the band's outer edge**, where the two rectangles meet at different cell sizes.
 - **Both rectangles are marked by clearance, not by price**: the fine band is the coast and the depth gate
   dilated by one coarse cell, so what a cell is stays the rasterizer's question and the A\*'s price stays
@@ -380,6 +388,10 @@ The cost:
   cost, which is what fails today if the edge is priced by the destination cell.
 - **The lattice's test is the nesting's**: a coarse cell and the 5 × 5 fine cells over it agree on their
   centres' geometry, which is the precondition the seam's index relation rests on.
+- **Its second test is the identity's** (Phase 4's): two windows over the same water at the two sizes each
+  keep their own cells — the case [`onLattice`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:174)'s
+  coordinate-only key collapses — and the band's outer edge lands on the family's own lines rather than
+  between them.
 - **The corridor's test is the ends'**: both end **discs** lie inside the chain at `w = 150` with the region's
   cell at 50 and at 100, and both **carve reaches** at the cells that can hold them — 20 and 50 — the reach
   being `ceil(marginM / cellM) + 1` cells and therefore wider than `w` at a 100 m cell (see
@@ -417,8 +429,46 @@ The cost:
    and **a chain the pass does not walk is the one shape this phase must not ship**: the re-search reads the
    whole region list, never its first box. **Retired for `evolutive` the same day**, on Phase 2's reading — that
    plan answers no region now, and the chain stays in the tree as the two-layer first walk's next user.
-4. **Two-layer rasterize** — the fine band (coast and depth gate triggers, `fineCellM` deep, one coarse
-   cell wide) and the coarse interior, both on that one lattice.
+4. **Landed 2026-10-04 — two-layer rasterize.** The fine band (coast and depth gate triggers, `fineCellM`
+   deep, one coarse cell wide) and the coarse interior, both on the one lattice **family**. **Five pieces, in
+   this order**, all of them in `multipass` and none of them pricing anything.
+   **(a) The family.** [`WalkLattice`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:20)
+   carries one `cellM` and one pair today, so it becomes a family: the fine pair from the corridor's
+   mid-latitude, the coarse pair derived as exactly `5 ×` it from the same origin, every window built from
+   the family's pair for its own resolution and no box deriving a pair of its own.
+   **(b) The layer in the key.** [`packCell`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:12)
+   packs `(row, col)` alone and [`onLattice`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:174)
+   keeps the first window to claim a key, so the identity becomes `(layer, row, col)` and a neighbour is
+   resolved **through the layer that holds it** — without this, two layers over the same water silently drop
+   cells and the A\* answers a longer way without raising anything.
+   **(c) The build order, all of it [`buildGrid`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:57).**
+   It reads `plan.firstWalkGrid(...).first()` today and stretches everything on that one grid: the two end
+   discs, `carveReachCells(marginM, cellM)`, both corner-set radii (`cellM * 2.0` and
+   `zoneOutsideMarginM + cellM`), the growth escalation's second build, and the `CORRIDOR`/`GRID` traces. Each
+   takes the **layer that holds it**, an end's disc and its carve run in whichever layer carries that end, and
+   `GridContext`'s single `cellM` becomes per-layer while `fineCellM` stays the clock's step.
+   **(d) The band's membership.** The predicate is the margin's own — a cell whose centre stands within
+   `bandWidthM + cellM` of the coast, or within the fine cell of the depth gate's wall — evaluated by the
+   sweep the margin already runs at that larger radius, so the band's water and the land's can never disagree
+   about where the coast is. *The twin plan's "a per-cell distance read, not a dilation pass" is reconciled
+   here: the two are one predicate, and the sweep is its cheaper evaluation.*
+   **(e) The reading's unit.** `passableCount()` counts unique lattice cells, and a coarse cell is twenty-five
+   times a fine one, so every count this phase reports names its layer or its area — a mixed cell count is a
+   figure the engine cannot stand behind.
+   **The exit is a green suite with `avoid`'s answers unmoved** — `UniformGridPlan` still answers one tile, so
+   the multi-layer path stays unreachable for it — **plus a two-layer walk whose cells nest 5 : 1 on one
+   origin, asserted where the family is built**; a band whose edge cannot be laid on the family's lines is the
+   one shape this phase must not ship. **The exit is met**: `apk-build.bat` green and the suite at
+   **878 tests, 1 failed, 10 skipped**, the single red `avoid`'s parked ratio test and `avoid`'s own answers
+   unmoved, with the two new [`LatticeFamilyTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:1)
+   cases — the **nesting** and the **identity** — green.
+   **Two deviations, both named**: the two tiles are ordered **interior first**, so `GridContext`'s `grid`, its
+   two end cells and its `cellM` stay the interior's and every single-grid read site keeps its answer; and the
+   band is a **membership mask** on a corridor-sized fine window rather than a band-shaped rectangle, so the
+   small-band memory intent is met in walkability but not yet in allocation.
+   **Not this phase, and not built**: the seam that resolves a neighbour across the two layers and prices it
+   from the two cell centres — Phase 5 — so the first walk resolves on the coarse interior until it lands; the
+   depth-gate arm of the band predicate, owed with it.
 5. **The seam helper grows to unequal cells** — resolution-aware neighbour expansion with the seam edge
    **priced from the two cell centres at the pace**, never from the destination cell's own size; the
    diagonal and the admissibility bound re-derived per layer. Exit: the equivalence and g-versus-clock
@@ -475,8 +525,13 @@ pays later for moving fast now. What this plan therefore fixes in advance:
   layer only while the seam edge is distance-priced.
 - **The diagonal has no seam meaning.** [`STEPS`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt:36)
   fixes `sqrt 2` on the assumption that both ends of a step are the same square, which a seam step is not.
-- **The one lattice is a precondition, not a detail.** Off it, two same-size rectangles misalign by up to a
-  cell and the cheap seam crossing the design advertises becomes a search.
+- **The one lattice family is a precondition, not a detail.** Off it, two same-size rectangles misalign by up
+  to a cell and the cheap seam crossing the design advertises becomes a search — and with two resolutions the
+  precondition is stronger: the two pairs must be an exact integer ratio on one origin, or a coarse cell
+  covers a fractional number of fine cells and no seam neighbour is arithmetic any more.
+- **A packed coordinate that ignores the layer is a silent cell-eater.** [`onLattice`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:174)'s
+  de-duplication is a feature for equal-cell windows and a defect for two layers, and its failure is quiet:
+  the dropped cells are simply not walkable, so the search returns a longer way rather than an error.
 - **The corridor's region must stay connected from start to aim**, so its boxes cannot be thinned to the
   coarse stretches alone; the overlap with the fine band is the price of that connection.
 - **Every single-grid consumer needs a resolution-aware contract**: [`GridContext.cellM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt:35),

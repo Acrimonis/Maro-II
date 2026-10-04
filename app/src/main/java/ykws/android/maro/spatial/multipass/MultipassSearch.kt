@@ -97,7 +97,7 @@ object MultipassSearch {
         val startIdx = walk.slotOf(start.row, start.col)
         val aimIdx = walk.slotOf(aim.row, aim.col)
         if (startIdx < 0 || aimIdx < 0) return SearchOutcome(null, 0, 0, aimClosed = false)
-        val aimCenter = walk.center(aim.row, aim.col)
+        val aimCenter = walk.centerOf(aimIdx)
 
         val g = DoubleArray(n) { Double.POSITIVE_INFINITY }
         val h = DoubleArray(n) { Double.NaN }
@@ -105,7 +105,7 @@ object MultipassSearch {
         val closed = BooleanArray(n)
 
         g[startIdx] = 0.0
-        h[startIdx] = SpatialOperations.haversine(walk.center(start.row, start.col), aimCenter) / paceMps
+        h[startIdx] = SpatialOperations.haversine(walk.centerOf(startIdx), aimCenter) / paceMps
         h[aimIdx] = 0.0
 
         val open = PriorityQueue<Node>(compareBy({ it.f }, { it.g }, { it.index }))
@@ -125,10 +125,14 @@ object MultipassSearch {
 
             val row = walk.rowOf(idx)
             val col = walk.colOf(idx)
+            // A neighbour is resolved **through the layer that holds it**: a step never leaves the layer the
+            // cell stands on, so a two-layer walk neither drops a cell nor crosses its seam — that crossing
+            // is Phase 5's, priced from the two cell centres rather than the destination cell's own size.
+            val layer = walk.layerOf(idx)
             for (step in STEPS) {
                 val nr = row + step.dr
                 val nc = col + step.dc
-                val nIdx = walk.slotOf(nr, nc)
+                val nIdx = walk.slotOf(layer, nr, nc)
                 if (nIdx < 0 || closed[nIdx]) continue
                 val cell = walk.cell(nIdx)
                 if (!cell.passable) continue
@@ -146,7 +150,7 @@ object MultipassSearch {
                     g[nIdx] = newG
                     cameFrom[nIdx] = idx
                     if (h[nIdx].isNaN()) {
-                        h[nIdx] = SpatialOperations.haversine(walk.center(nr, nc), aimCenter) / paceMps
+                        h[nIdx] = SpatialOperations.haversine(walk.center(layer, nr, nc), aimCenter) / paceMps
                     }
                     open.add(Node(nIdx, newG + h[nIdx], newG))
                 }

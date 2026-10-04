@@ -29,6 +29,11 @@ internal data class CornerSet(val points: List<LatLng>, val radiusM: Double)
 /**
  * The λ-free solve context the ladder's rungs share: the corridor, the grid and every reading the
  * solve-at-λ tail needs. Built once per arm, so three rungs cost one rasterise and three A* passes.
+ *
+ * **[windows] is the two-layer first walk's seam**, added with named construction rather than a 27th
+ * positional field: it is `null` for the uniform pass, whose single grid is its own walk, and a family of
+ * windows where the plan answered more than one tile. [grid], [startCell], [aimCell] and [cellM] stay the
+ * **interior** layer's, so every single-grid read site keeps its own answer.
  */
 internal data class GridContext(
     val world: MultipassWorld,
@@ -60,7 +65,12 @@ internal data class GridContext(
     val refusals: PullRefusals,
     val depthGateActive: Boolean,
     val minDepthM: Double,
-    val regionSaturated: Boolean
+    val regionSaturated: Boolean,
+    /**
+     * The two-layer first walk's windows, or `null` where the plan answered one tile — the uniform pass's
+     * case, whose single grid is its own walk.
+     */
+    val windows: WalkWindows? = null
 )
 
 /**

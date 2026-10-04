@@ -319,9 +319,11 @@ class RouteAvoidEngine(
         lookupId: RouteId
     ): RouteResult.Success? {
         val coarseStartNs = System.nanoTime()
+        // The plan's own two-layer walk where it answered more than one tile; `avoid`'s plan answers one, so
+        // `ctx.windows` is null and the walk is the single grid it has always been.
         val passReading = runner.runPass(
             ctx,
-            GridWalk(ctx.grid, ctx.startCell, ctx.aimCell, ctx.cellM),
+            GridWalk(ctx.grid, ctx.startCell, ctx.aimCell, ctx.cellM, ctx.windows),
             lambda,
             publishStage = publishStage,
             publish = { stage, points, readings, provisional ->
@@ -612,10 +614,13 @@ class RouteAvoidEngine(
         fineMs: Double
     ) {
         val search = pass.search
+        // (e) A coarse cell is twenty-five fine ones, so the walk's own counts name their layer: the interior's
+        // cells are the grid's, the passable count is the walk's unique lattice cells across its layers.
         trace {
             "DEVICE PASS lambda=${fmt(lambda, 2)} paceKn=${fmt(ctx.pace)} plan=${planName()} " +
                 "cellM=${fmt(ctx.cellM)}m fineCellM=${fmt(ctx.fineCellM)}m " +
-                "cells=${ctx.grid.rows * ctx.grid.cols} passable=${search.passableCells} " +
+                "layers=${ctx.windows?.layerCount ?: 1} " +
+                "cellsInterior=${ctx.grid.rows * ctx.grid.cols} passableUnique=${search.passableCells} " +
                 "expansions=${search.expansions} pathCells=${search.path?.size ?: 0} " +
                 "pulled=${pass.pulledCount} snapped=${pass.snappedCount} " +
                 "coarseM=${fmt(lineLengthM(coarse))}m " +

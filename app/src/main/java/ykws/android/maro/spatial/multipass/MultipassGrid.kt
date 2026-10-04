@@ -359,6 +359,11 @@ fun rasterize(
  * owns: an origin already on the lattice and the lattice's own cell-size pair, so two windows' cells line up
  * by arithmetic. The pair is deliberately **not** derived here; deriving it per box is exactly how two
  * rectangles come to stand on two lattices, and it is what [rasterize] alone still does.
+ *
+ * [bandMask] carries the layer's own membership where the walk is two-layer: `true` keeps only the band's
+ * water (the coast and the depth gate dilated by [bandMaskWidthM]) and `false` keeps only the water beyond
+ * it, while `null` — the uniform pass — masks nothing. The predicate is the margin's own sweep at the
+ * larger radius, so the band's water and the land's can never disagree about where the coast is.
  */
 internal fun rasterizeWindow(
     box: BBox,
@@ -372,13 +377,15 @@ internal fun rasterizeWindow(
     zones: List<ZoneRing> = emptyList(),
     blockZones: Boolean = false,
     zoneOutsideMarginM: Double = 0.0,
-    band: BandLaw? = null
+    band: BandLaw? = null,
+    bandMask: Boolean? = null,
+    bandMaskWidthM: Double = 0.0
 ): MultipassGrid {
     val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, lattice.cellSizeDegLat, lattice.cellSizeDegLon,
         mPerDegLat, mPerDegLon, lattice.cellM, paceKn, marginM, edges, openCoast, capLatNorth, field,
-        zones, blockZones, zoneOutsideMarginM, band
+        zones, blockZones, zoneOutsideMarginM, band, bandMask, bandMaskWidthM
     )
 }
 
@@ -401,7 +408,9 @@ private fun rasterizeFrame(
     zones: List<ZoneRing>,
     blockZones: Boolean,
     zoneOutsideMarginM: Double,
-    band: BandLaw?
+    band: BandLaw?,
+    bandMask: Boolean? = null,
+    bandMaskWidthM: Double = 0.0
 ): MultipassGrid {
     val cols = ceil((box.lonEast - lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
     val rows = ceil((box.latNorth - latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
@@ -472,7 +481,50 @@ private fun rasterizeFrame(
         writeBandLaw(grid, edges, openCoast, band, mPerDegLat, mPerDegLon)
     }
 
+    // 7. The layer's own membership, where the walk is two-layer: the same sweep the margin runs, at the
+    //    band's larger radius, so a cell's layer is read off the coast the margin already measured.
+    if (bandMask != null) {
+        applyBandMask(grid, edges, openCoast, marginM + bandMaskWidthM, bandMask, mPerDegLat, mPerDegLon)
+    }
+
     return grid
+}
+
+/**
+ * **The band's membership, laid on the margin's own sweep** — every passable cell whose centre stands
+ * within [radiusM] of a harvested edge is a band member, and [bandOnly] then keeps either the band's water
+ * alone (the fine layer) or the water beyond it (the interior layer). The measure is the margin's own
+ * (`pointToSegmentDistance`), so the band's edge and the land's cannot disagree about where the coast is.
+ */
+private fun applyBandMask(
+    grid: MultipassGrid,
+    edges: List<MultipassEdge>,
+    openCoast: List<List<LatLng>>,
+    radiusM: Double,
+    bandOnly: Boolean,
+    mPerDegLat: Double,
+    mPerDegLon: Double
+) {
+    val member = BooleanArray(grid.rows * grid.cols)
+    fun mark(edge: MultipassEdge) {
+        forEachCellNear(grid, edge, radiusM, mPerDegLat, mPerDegLon) { r, c, _ ->
+            member[grid.index(r, c)] = true
+        }
+    }
+    for (edge in edges) mark(edge)
+    for (polyline in openCoast) {
+        for (i in 0 until polyline.size - 1) {
+            mark(MultipassEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST))
+        }
+    }
+    for (r in 0 until grid.rows) {
+        for (c in 0 until grid.cols) {
+            if (!grid.cell(r, c).passable) continue
+            val isBand = member[grid.index(r, c)]
+            if (bandOnly == isBand) continue
+            grid.markLand(r, c)
+        }
+    }
 }
 
 /**

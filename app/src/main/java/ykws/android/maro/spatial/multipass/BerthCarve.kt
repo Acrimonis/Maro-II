@@ -111,6 +111,10 @@ fun carveReachCells(marginM: Double, cellM: Double): Int =
  * never *why*: a cell opens only where the water is real, the depth clears the gate, and the shore
  * margin is the only rule it breaks. The cell opens with [MultipassGrid.openCarve], so it takes the base
  * cost and **keeps its zone limit** — the depth gate is never cleared, only the shore margin is waived.
+ *
+ * **[reachCellM] is the cell the reach is measured in, defaulting to the grid's own.** A window onto a
+ * finer layer carries a coarser reach through this argument while its own cell sizes its geometry, so the
+ * disc lands in whichever layer holds the end without a second reach rule.
  */
 fun openEndDisc(
     grid: MultipassGrid,
@@ -118,9 +122,10 @@ fun openEndDisc(
     end: LatLng,
     marginM: Double,
     depthGateActive: Boolean,
-    minDepthM: Double
+    minDepthM: Double,
+    reachCellM: Double = grid.cellM
 ): Int {
-    val reach = carveReachCells(marginM, grid.cellM)
+    val reach = carveReachCells(marginM, reachCellM)
     val origin = grid.cellOf(end.latitude, end.longitude)
     var opened = 0
     for (dRow in -reach..reach) {
