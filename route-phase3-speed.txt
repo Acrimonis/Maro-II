@@ -1,0 +1,290 @@
+--------- beginning of main
+10-04 12:45:18.211 20908 20936 I MaroRoute: CORRIDOR reach=3704.0m box=(43.47972..43.60375,6.99805..7.17702) clampedByRegion=false regionSaturated=false
+10-04 12:45:18.211 20908 21547 I MaroRoute: CORRIDOR reach=3704.0m box=(43.47972..43.60375,6.99805..7.17702) clampedByRegion=false regionSaturated=false
+10-04 12:45:18.259 20908 20936 I MaroRoute: HARVEST edges=401 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn, Zone 5 kn 5.0kn, Zone 3 kn 3.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:45:18.262 20908 21547 I MaroRoute: HARVEST edges=401 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn, Zone 5 kn 5.0kn, Zone 3 kn 3.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:45:18.455 20908 20936 I MaroRoute: GRID cells=20010 land=6429 band=833 zone=987 free=11761 start=(r=37,c=37 isWater=true depth=6.5m state=ZONE→FREE limit=0.0kn) aim=(r=100,c=107 isWater=true depth=3.1m state=LAND→FREE limit=0.0kn)
+10-04 12:45:18.455 20908 20936 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:45:18.456 20908 20936 I MaroRoute: CARVE end=aim dir=N cells=0 length=100.0m
+10-04 12:45:18.463 20908 20939 I MaroRoute: STAGE done=none next=SEARCH
+10-04 12:45:18.702 20908 21547 I MaroRoute: GRID cells=20010 land=6429 band=833 zone=987 free=11761 start=(r=37,c=37 isWater=true depth=6.5m state=ZONE→FREE limit=0.0kn) aim=(r=100,c=107 isWater=true depth=3.1m state=LAND→FREE limit=0.0kn)
+10-04 12:45:18.702 20908 21547 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:45:18.702 20908 21547 I MaroRoute: CARVE end=aim dir=N cells=0 length=100.0m
+10-04 12:45:18.848 20908 20939 I MaroRoute: STAGE done=SEARCH next=PULL points=164
+10-04 12:45:20.904 20908 20943 I MaroRoute: PULL zoneM=871.5
+10-04 12:45:22.961 20908 20943 I MaroRoute: SNAP zoneM=884.7
+10-04 12:45:24.684 20908 20936 I MaroRoute: PULL zoneM=3207.8
+10-04 12:45:25.457 20908 20943 I MaroRoute: FINAL zoneM=884.7
+10-04 12:45:25.929 20908 20936 I MaroRoute: SNAP zoneM=3207.8
+10-04 12:45:26.654 20908 20936 I MaroRoute: FINAL zoneM=3207.8
+10-04 12:45:27.097 20908 20943 I MaroRoute: FINE research answered=true spliced=false fine=1546.6s coarse=1576.6s fineShare=0.38 coarseShare=0.38 fineCost=73576.4 coarseCost=64786.5
+10-04 12:45:27.098 20908 20943 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=46428 passable=32161 expansions=31129 pathCells=162 pulled=17 snapped=17 coarseM=18586.2m coarseMs=12189.6 fineMs=53563.1
+10-04 12:45:30.164 20908 20936 I MaroRoute: FINE settled points=11 fineCell=20.0m
+10-04 12:45:32.671 20908 20936 I MaroRoute: FINE research answered=false spliced=no reason=no-path
+10-04 12:45:32.672 20908 20936 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=20010 passable=13581 expansions=5762 pathCells=114 pulled=12 snapped=12 coarseM=12780.6m coarseMs=8551.2 fineMs=5657.3
+10-04 12:45:33.786 20908 21547 I MaroRoute: PULL zoneM=1018.0
+10-04 12:45:35.327 20908 21547 I MaroRoute: SNAP zoneM=1070.6
+10-04 12:45:35.579 20908 20939 I MaroRoute: PULL zoneM=1018.0
+10-04 12:45:37.410 20908 20939 I MaroRoute: SNAP zoneM=1070.6
+10-04 12:45:37.710 20908 21547 I MaroRoute: FINAL zoneM=1070.6
+10-04 12:45:38.813 20908 21547 I MaroRoute: FINE zone=Zone 3 kn box=(43.50512..43.51995,7.03198..7.07574) clamped=false fineCell=20.0m first=0 last=2 local=no spliced=no reason=local-no-path expansions=9032 passable=9082 aimClosed=false
+10-04 12:45:39.677 20908 20939 I MaroRoute: FINAL zoneM=1070.6
+10-04 12:45:40.675 20908 20939 I MaroRoute: FINE zone=Zone 3 kn box=(43.50512..43.51995,7.03198..7.07574) clamped=false fineCell=20.0m first=0 last=2 local=no spliced=no reason=local-no-path expansions=9032 passable=9082 aimClosed=false
+10-04 12:45:45.007 20908 21547 I MaroRoute: FINE settled points=14 fineCell=20.0m
+10-04 12:45:47.359 20908 21547 I MaroRoute: FINE research answered=false spliced=no reason=no-path
+10-04 12:45:47.360 20908 21547 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=20010 passable=13581 expansions=13368 pathCells=162 pulled=15 snapped=15 coarseM=18580.6m coarseMs=19363.8 fineMs=9285.8
+10-04 12:45:47.404 20908 20939 I MaroRoute: FINE settled points=14 fineCell=20.0m
+10-04 12:45:49.748 20908 20939 I MaroRoute: FINE research answered=false spliced=no reason=no-path
+10-04 12:45:49.749 20908 20939 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=20010 passable=13581 expansions=13296 pathCells=162 pulled=15 snapped=15 coarseM=18580.6m coarseMs=21481.0 fineMs=9804.4
+10-04 12:45:51.834 20908 20937 I MaroRoute: PULL zoneM=834.8
+10-04 12:45:54.880 20908 20937 I MaroRoute: SNAP zoneM=834.8
+10-04 12:45:56.934 20908 20937 I MaroRoute: FINAL zoneM=834.8
+10-04 12:45:57.255 20908 20937 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=34.9m devChainMean=2.3m devChainBackMax=92.9m ref=yes refExpansions=182890 refPassable=185795 refM=18333.2m refMs=53105.4 chainFineM=18613.0m devRefMax=93.5m devRefMean=42.8m devRefBackMax=92.9m devRefBackMean=28.4m
+10-04 12:45:57.908 20908 20937 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn, Zone 5 kn, Zone 3 kn] avoiding=false expansions=1 passable=31186 aimClosed=false forced=[Zone 3 kn]
+10-04 12:45:57.963 20908 20937 I MaroRoute: LINE distance=18575.8m duration=5192.2s legs=486 step=10.0m bandMetres=530.3m bandPricedMetres=1367.4m slowMetres=18575.8m slowShare=0.81 zoneShare=0.08 bandShare=0.03 rampShare=0.70 forced=[Zone 3 kn]
+10-04 12:45:57.965 20908 20937 I MaroRoute: DONE stage=none result=true reason=none
+10-04 12:46:06.532 20908 20936 I MaroRoute: PULL zoneM=3306.7
+10-04 12:46:07.356 20908 20936 I MaroRoute: SNAP zoneM=3313.7
+10-04 12:46:07.930 20908 20936 I MaroRoute: FINAL zoneM=3313.7
+10-04 12:46:08.091 20908 20936 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=51.6m devChainMean=4.7m devChainBackMax=46.6m ref=yes refExpansions=99281 refPassable=109432 refM=12801.1m refMs=35418.2 chainFineM=12741.9m devRefMax=61.0m devRefMean=26.8m devRefBackMax=109.9m devRefBackMean=26.3m
+10-04 12:46:08.456 20908 20936 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 12:46:08.504 20908 20936 I MaroRoute: LINE distance=12730.9m duration=4877.1s legs=251 step=10.0m bandMetres=6963.3m bandPricedMetres=6963.3m slowMetres=12730.9m slowShare=0.86 zoneShare=0.46 bandShare=0.20 rampShare=0.20 forced=[]
+10-04 12:46:08.506 20908 20936 I MaroRoute: DONE stage=none result=true reason=none
+10-04 12:46:28.726 20908 21547 I MaroRoute: PULL zoneM=819.9
+10-04 12:46:30.326 20908 21547 I MaroRoute: SNAP zoneM=819.9
+10-04 12:46:31.729 20908 21547 I MaroRoute: FINAL zoneM=819.9
+10-04 12:46:31.895 20908 21547 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=181702 refPassable=184562 refM=18306.6m refMs=44533.3 chainFineM=18580.6m devRefMax=100.1m devRefMean=43.3m devRefBackMax=84.0m devRefBackMean=22.4m
+10-04 12:46:31.986 20908 20939 I MaroRoute: PULL zoneM=819.9
+10-04 12:46:32.248 20908 21547 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn, Zone 5 kn, Zone 3 kn] avoiding=false expansions=1 passable=12594 aimClosed=false forced=[Zone 3 kn]
+10-04 12:46:32.287 20908 21547 I MaroRoute: LINE distance=18539.2m duration=4476.0s legs=439 step=10.0m bandMetres=1362.6m bandPricedMetres=1362.6m slowMetres=18539.2m slowShare=0.78 zoneShare=0.09 bandShare=0.05 rampShare=0.64 forced=[Zone 3 kn]
+10-04 12:46:32.289 20908 21547 I MaroRoute: CORRIDOR reach=7408.0m box=(43.44641..43.63706,6.95210..7.22297) clampedByRegion=false regionSaturated=false
+10-04 12:46:32.304 20908 21547 I MaroRoute: HARVEST edges=417 openCoast=3 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn, Zone 5 kn 5.0kn, Zone 3 kn 3.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:46:32.544 20908 21547 I MaroRoute: GRID cells=46428 land=14298 band=1126 zone=990 free=30014 start=(r=74,c=74 isWater=true depth=6.5m state=ZONE→FREE limit=0.0kn) aim=(r=137,c=144 isWater=true depth=3.1m state=LAND→FREE limit=0.0kn)
+10-04 12:46:32.545 20908 21547 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:46:32.545 20908 21547 I MaroRoute: CARVE end=aim dir=N cells=0 length=100.0m
+10-04 12:46:33.447 20908 20939 I MaroRoute: SNAP zoneM=819.9
+10-04 12:46:34.940 20908 20939 I MaroRoute: FINAL zoneM=819.9
+10-04 12:46:35.116 20908 20939 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=180795 refPassable=184562 refM=18306.6m refMs=45365.0 chainFineM=18580.6m devRefMax=100.1m devRefMean=43.3m devRefBackMax=84.0m devRefBackMean=22.4m
+10-04 12:46:35.471 20908 20939 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn, Zone 5 kn, Zone 3 kn] avoiding=false expansions=1 passable=12594 aimClosed=false forced=[Zone 3 kn]
+10-04 12:46:35.513 20908 20939 I MaroRoute: LINE distance=18539.2m duration=4476.0s legs=439 step=10.0m bandMetres=1362.6m bandPricedMetres=1362.6m slowMetres=18539.2m slowShare=0.78 zoneShare=0.09 bandShare=0.05 rampShare=0.64 forced=[Zone 3 kn]
+10-04 12:46:35.515 20908 20939 I MaroRoute: CORRIDOR reach=7408.0m box=(43.44641..43.63706,6.95210..7.22297) clampedByRegion=false regionSaturated=false
+10-04 12:46:35.527 20908 20939 I MaroRoute: HARVEST edges=417 openCoast=3 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn, Zone 5 kn 5.0kn, Zone 3 kn 3.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:46:35.732 20908 20939 I MaroRoute: GRID cells=46428 land=14298 band=1126 zone=990 free=30014 start=(r=74,c=74 isWater=true depth=6.5m state=ZONE→FREE limit=0.0kn) aim=(r=137,c=144 isWater=true depth=3.1m state=LAND→FREE limit=0.0kn)
+10-04 12:46:35.732 20908 20939 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:46:35.732 20908 20939 I MaroRoute: CARVE end=aim dir=N cells=0 length=100.0m
+10-04 12:46:43.462 20908 21547 I MaroRoute: PULL zoneM=1023.2
+10-04 12:46:44.631 20908 21547 I MaroRoute: SNAP zoneM=1070.6
+10-04 12:46:46.150 20908 21547 I MaroRoute: FINAL zoneM=1070.6
+10-04 12:46:46.647 20908 20939 I MaroRoute: PULL zoneM=1023.2
+10-04 12:46:46.853 20908 21547 I MaroRoute: FINE zone=Zone 3 kn box=(43.50512..43.51995,7.03198..7.07574) clamped=false fineCell=20.0m first=0 last=2 local=no spliced=no reason=local-no-path expansions=9032 passable=9082 aimClosed=false
+10-04 12:46:47.695 20908 20939 I MaroRoute: SNAP zoneM=1070.6
+10-04 12:46:49.163 20908 20939 I MaroRoute: FINAL zoneM=1070.6
+10-04 12:46:49.776 20908 20939 I MaroRoute: FINE zone=Zone 3 kn box=(43.50512..43.51995,7.03198..7.07574) clamped=false fineCell=20.0m first=0 last=2 local=no spliced=no reason=local-no-path expansions=9032 passable=9082 aimClosed=false
+10-04 12:46:51.307 20908 21547 I MaroRoute: FINE settled points=15 fineCell=20.0m
+10-04 12:46:54.182 20908 20939 I MaroRoute: FINE settled points=15 fineCell=20.0m
+10-04 12:47:14.738 20908 20943 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:14.738 20908 20940 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:14.738 20908 20937 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:14.744 20908 20943 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:14.754 20908 20940 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:14.755 20908 20937 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:14.867 20908 20943 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:14.867 20908 20943 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:14.867 20908 20943 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:14.873 20908 20943 I MaroRoute: STAGE done=none next=SEARCH
+10-04 12:47:14.924 20908 20943 I MaroRoute: STAGE done=SEARCH next=PULL points=19
+10-04 12:47:14.972 20908 20940 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:14.972 20908 20940 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:14.972 20908 20940 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:14.979 20908 20937 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:14.980 20908 20937 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:14.980 20908 20937 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:15.089 20908 20943 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:15.090 20908 20943 I MaroRoute: STAGE done=PULL next=SNAP points=6
+10-04 12:47:15.142 20908 20937 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:15.158 20908 20943 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:15.247 20908 20937 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:15.251 20908 20943 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:15.276 20908 20943 I MaroRoute: STAGE done=SNAP next=PULL
+10-04 12:47:15.319 20908 20937 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:15.382 20908 20940 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:15.467 20908 20940 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:15.502 20908 20943 I MaroRoute: FINE settled points=6 fineCell=20.0m
+10-04 12:47:15.544 20908 20940 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:15.560 20908 20937 I MaroRoute: FINE settled points=5 fineCell=20.0m
+10-04 12:47:15.880 20908 20940 I MaroRoute: FINE settled points=6 fineCell=20.0m
+10-04 12:47:16.019 20908 20937 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:16.053 20908 20937 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:16.054 20908 20943 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:16.076 20908 20937 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:16.107 20908 20937 I MaroRoute: FINE research answered=true spliced=true fine=409.3s coarse=414.7s fineShare=0.86 coarseShare=0.86 fineCost=0.0 coarseCost=0.0
+10-04 12:47:16.107 20908 20937 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=21 pathCells=10 pulled=5 snapped=5 coarseM=1066.7m coarseMs=365.2 fineMs=756.7
+10-04 12:47:16.235 20908 20943 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:16.239 20908 20937 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:16.271 20908 20937 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:16.295 20908 20937 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:16.305 20908 20937 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=53.2m devChainMean=17.9m devChainBackMax=38.5m ref=yes refExpansions=227 refPassable=1583 refM=1007.2m refMs=197.5 chainFineM=1052.8m devRefMax=230.4m devRefMean=70.6m devRefBackMax=185.0m devRefBackMean=76.9m
+10-04 12:47:16.314 20908 20937 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 12:47:16.315 20908 20937 I MaroRoute: LINE distance=1052.8m duration=409.3s legs=3 step=10.0m bandMetres=1052.8m bandPricedMetres=1052.8m slowMetres=1052.8m slowShare=0.86 zoneShare=0.00 bandShare=0.86 rampShare=0.00 forced=[]
+10-04 12:47:16.315 20908 20937 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:16.361 20908 20943 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:16.456 20908 20943 I MaroRoute: FINE research answered=true spliced=false fine=311.4s coarse=319.9s fineShare=0.69 coarseShare=0.68 fineCost=26635.5 coarseCost=24071.1
+10-04 12:47:16.456 20908 20943 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=3205 pathCells=17 pulled=6 snapped=6 coarseM=1955.6m coarseMs=402.7 fineMs=1180.3
+10-04 12:47:16.599 20908 20940 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:16.783 20908 20940 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:16.926 20908 20943 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:16.936 20908 20940 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:17.022 20908 20943 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:17.052 20908 20940 I MaroRoute: FINE research answered=true spliced=false fine=311.4s coarse=319.9s fineShare=0.69 coarseShare=0.68 fineCost=13317.8 coarseCost=12035.6
+10-04 12:47:17.052 20908 20940 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=2285 pathCells=17 pulled=6 snapped=6 coarseM=1955.6m coarseMs=581.5 fineMs=1493.4
+10-04 12:47:17.095 20908 20943 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:17.112 20908 20943 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=3299 refPassable=3331 refM=1845.0m refMs=655.2 chainFineM=1955.6m devRefMax=79.2m devRefMean=30.2m devRefBackMax=32.6m devRefBackMean=16.0m
+10-04 12:47:17.188 20908 20943 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn] avoiding=true expansions=21 passable=3945 aimClosed=true forced=[]
+10-04 12:47:17.200 20908 20943 I MaroRoute: LINE distance=1950.4m duration=632.2s legs=148 step=10.0m bandMetres=646.0m bandPricedMetres=646.0m slowMetres=1950.4m slowShare=0.84 zoneShare=0.00 bandShare=0.34 rampShare=0.49 forced=[]
+10-04 12:47:17.201 20908 20943 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:17.634 20908 20940 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:17.717 20908 20940 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:17.798 20908 20940 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:17.814 20908 20940 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=37.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=3295 refPassable=3331 refM=1844.7m refMs=761.2 chainFineM=1955.6m devRefMax=79.2m devRefMean=30.2m devRefBackMax=30.3m devRefBackMean=14.3m
+10-04 12:47:17.871 20908 20940 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn] avoiding=true expansions=21 passable=3945 aimClosed=true forced=[]
+10-04 12:47:17.879 20908 20940 I MaroRoute: LINE distance=1950.4m duration=632.2s legs=148 step=10.0m bandMetres=646.0m bandPricedMetres=646.0m slowMetres=1950.4m slowShare=0.84 zoneShare=0.00 bandShare=0.34 rampShare=0.49 forced=[]
+10-04 12:47:17.880 20908 20940 I MaroRoute: DONE stage=none result=true reason=none
+10-04 12:47:32.683 20908 21547 I MaroRoute: PULL zoneM=858.1
+10-04 12:47:33.661 20908 21547 I MaroRoute: SNAP zoneM=862.4
+10-04 12:47:34.639 20908 20939 I MaroRoute: PULL zoneM=858.1
+10-04 12:47:35.019 20908 21547 I MaroRoute: FINAL zoneM=862.4
+10-04 12:47:35.666 20908 20939 I MaroRoute: SNAP zoneM=862.4
+10-04 12:47:36.055 20908 21547 I MaroRoute: FINE research answered=true spliced=false fine=1536.1s coarse=1616.8s fineShare=0.37 coarseShare=0.40 fineCost=35596.1 coarseCost=33584.6
+10-04 12:47:36.055 20908 21547 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=46428 passable=32130 expansions=24918 pathCells=162 pulled=16 snapped=16 coarseM=18588.6m coarseMs=13767.5 fineMs=49732.2
+10-04 12:47:37.170 20908 20939 I MaroRoute: FINAL zoneM=862.4
+10-04 12:47:37.739 20908 20938 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:37.739 20908 21128 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:37.739 20908 20943 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:37.744 20908 20938 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:37.758 20908 21128 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:37.759 20908 20943 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:37.831 20908 20938 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:37.831 20908 20938 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:37.831 20908 20938 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:37.886 20908 20938 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:37.920 20908 20938 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:37.951 20908 20938 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:37.969 20908 21128 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:37.969 20908 20943 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:37.969 20908 20943 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:37.969 20908 21128 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:37.969 20908 20943 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:37.969 20908 21128 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:37.975 20908 20943 I MaroRoute: STAGE done=none next=SEARCH
+10-04 12:47:37.980 20908 20943 I MaroRoute: STAGE done=SEARCH next=PULL points=12
+10-04 12:47:38.048 20908 20938 I MaroRoute: FINE settled points=5 fineCell=20.0m
+10-04 12:47:38.053 20908 21128 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.089 20908 21128 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.114 20908 21128 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.132 20908 20943 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.132 20908 20943 I MaroRoute: STAGE done=PULL next=SNAP points=5
+10-04 12:47:38.207 20908 21128 I MaroRoute: FINE settled points=5 fineCell=20.0m
+10-04 12:47:38.235 20908 20943 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.305 20908 20943 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.335 20908 20943 I MaroRoute: STAGE done=SNAP next=PULL
+10-04 12:47:38.400 20908 20938 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.438 20908 20938 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.469 20908 20938 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.504 20908 20938 I MaroRoute: FINE research answered=true spliced=true fine=409.3s coarse=414.7s fineShare=0.00 coarseShare=0.00 fineCost=0.0 coarseCost=0.0
+10-04 12:47:38.504 20908 20938 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=5.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=21 pathCells=10 pulled=5 snapped=5 coarseM=1066.7m coarseMs=128.1 fineMs=543.4
+10-04 12:47:38.537 20908 20939 I MaroRoute: FINE research answered=true spliced=false fine=1536.1s coarse=1616.8s fineShare=0.37 coarseShare=0.40 fineCost=71192.2 coarseCost=67169.2
+10-04 12:47:38.537 20908 20939 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=37.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=46428 passable=32130 expansions=31066 pathCells=162 pulled=16 snapped=16 coarseM=18588.6m coarseMs=13597.4 fineMs=49202.2
+10-04 12:47:38.571 20908 20943 I MaroRoute: FINE settled points=5 fineCell=20.0m
+10-04 12:47:38.614 20908 21128 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.657 20908 21128 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.687 20908 20938 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.692 20908 21128 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.730 20908 21128 I MaroRoute: FINE research answered=true spliced=true fine=409.3s coarse=414.7s fineShare=0.00 coarseShare=0.00 fineCost=0.0 coarseCost=0.0
+10-04 12:47:38.730 20908 21128 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=5.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=21 pathCells=10 pulled=5 snapped=5 coarseM=1066.7m coarseMs=149.3 fineMs=606.0
+10-04 12:47:38.730 20908 20938 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.767 20908 20938 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.782 20908 20938 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=5.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=53.2m devChainMean=17.9m devChainBackMax=38.5m ref=yes refExpansions=227 refPassable=1583 refM=1007.2m refMs=277.2 chainFineM=1052.8m devRefMax=230.4m devRefMean=70.6m devRefBackMax=185.0m devRefBackMean=76.9m
+10-04 12:47:38.793 20908 20938 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 12:47:38.794 20908 20938 I MaroRoute: LINE distance=1052.8m duration=409.3s legs=3 step=10.0m bandMetres=1052.8m bandPricedMetres=1052.8m slowMetres=1052.8m slowShare=0.00 zoneShare=0.00 bandShare=0.00 rampShare=0.00 forced=[]
+10-04 12:47:38.795 20908 20938 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:38.900 20908 21128 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.925 20908 20943 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:38.941 20908 21128 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.963 20908 20943 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:38.970 20908 21128 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.983 20908 21128 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=5.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=53.2m devChainMean=17.9m devChainBackMax=38.5m ref=yes refExpansions=227 refPassable=1583 refM=1007.2m refMs=251.9 chainFineM=1052.8m devRefMax=230.4m devRefMean=70.6m devRefBackMax=185.0m devRefBackMean=76.9m
+10-04 12:47:38.989 20908 20943 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:38.993 20908 21128 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 12:47:38.994 20908 21128 I MaroRoute: LINE distance=1052.8m duration=409.3s legs=3 step=10.0m bandMetres=1052.8m bandPricedMetres=1052.8m slowMetres=1052.8m slowShare=0.00 zoneShare=0.00 bandShare=0.00 rampShare=0.00 forced=[]
+10-04 12:47:38.995 20908 21128 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:39.025 20908 20943 I MaroRoute: FINE research answered=true spliced=true fine=409.3s coarse=414.7s fineShare=0.00 coarseShare=0.00 fineCost=0.0 coarseCost=0.0
+10-04 12:47:39.025 20908 20943 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=5.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=21 pathCells=10 pulled=5 snapped=5 coarseM=1066.7m coarseMs=360.2 fineMs=689.4
+10-04 12:47:39.185 20908 20943 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:39.223 20908 20943 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:39.252 20908 20943 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:39.266 20908 20943 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=5.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=53.2m devChainMean=17.9m devChainBackMax=38.5m ref=yes refExpansions=227 refPassable=1583 refM=1007.2m refMs=240.3 chainFineM=1052.8m devRefMax=230.4m devRefMean=70.6m devRefBackMax=185.0m devRefBackMean=76.9m
+10-04 12:47:39.276 20908 20943 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 12:47:39.277 20908 20943 I MaroRoute: LINE distance=1052.8m duration=409.3s legs=3 step=10.0m bandMetres=1052.8m bandPricedMetres=1052.8m slowMetres=1052.8m slowShare=0.00 zoneShare=0.00 bandShare=0.00 rampShare=0.00 forced=[]
+10-04 12:47:39.278 20908 20943 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:51.519 20908 21128 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:51.519 20908 20938 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.60454,7.08509..7.18881) clampedByRegion=false regionSaturated=false
+10-04 12:47:51.528 20908 20938 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:51.529 20908 21128 I MaroRoute: HARVEST edges=49 openCoast=1 band=300.0m zones=[Zone 10 kn 10.0kn, Zone 5 kn 5.0kn] cell=100.0m margin=25.0m outsideMargin=100.0m
+10-04 12:47:51.592 20908 21128 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:51.592 20908 21128 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:51.592 20908 21128 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:51.598 20908 20938 I MaroRoute: GRID cells=6300 land=1902 band=379 zone=453 free=3566 start=(r=37,c=46 isWater=true depth=18.9m state=BAND→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 12:47:51.598 20908 20938 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 12:47:51.598 20908 20938 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 12:47:51.600 20908 20938 I MaroRoute: STAGE done=none next=SEARCH
+10-04 12:47:51.618 20908 20938 I MaroRoute: STAGE done=SEARCH next=PULL points=19
+10-04 12:47:51.638 20908 21128 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:51.665 20908 21128 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:51.685 20908 21128 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:51.725 20908 20938 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:51.725 20908 20938 I MaroRoute: STAGE done=PULL next=SNAP points=6
+10-04 12:47:51.766 20908 21128 I MaroRoute: FINE settled points=5 fineCell=20.0m
+10-04 12:47:51.777 20908 20939 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:51.799 20908 20938 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:51.838 20908 20939 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:51.868 20908 20938 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:51.882 20908 20938 I MaroRoute: STAGE done=SNAP next=PULL
+10-04 12:47:51.908 20908 20939 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:52.095 20908 20938 I MaroRoute: FINE settled points=6 fineCell=20.0m
+10-04 12:47:52.127 20908 21128 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:52.159 20908 21128 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:52.166 20908 20939 I MaroRoute: FINE settled points=6 fineCell=20.0m
+10-04 12:47:52.182 20908 21128 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:52.214 20908 21128 I MaroRoute: FINE research answered=true spliced=true fine=409.3s coarse=414.7s fineShare=0.75 coarseShare=0.75 fineCost=0.0 coarseCost=0.0
+10-04 12:47:52.214 20908 21128 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=20.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=21 pathCells=10 pulled=5 snapped=5 coarseM=1066.7m coarseMs=99.8 fineMs=520.4
+10-04 12:47:52.379 20908 21128 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:52.412 20908 21128 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:52.434 20908 21128 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:52.443 20908 21128 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=20.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=53.2m devChainMean=17.9m devChainBackMax=38.5m ref=yes refExpansions=227 refPassable=1583 refM=1007.2m refMs=228.9 chainFineM=1052.8m devRefMax=230.4m devRefMean=70.6m devRefBackMax=185.0m devRefBackMean=76.9m
+10-04 12:47:52.452 20908 21128 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 12:47:52.453 20908 21128 I MaroRoute: LINE distance=1052.8m duration=409.3s legs=3 step=10.0m bandMetres=1052.8m bandPricedMetres=1052.8m slowMetres=1052.8m slowShare=0.75 zoneShare=0.00 bandShare=0.75 rampShare=0.00 forced=[]
+10-04 12:47:52.453 20908 21128 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:52.526 20908 20938 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:52.602 20908 20938 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:52.626 20908 20939 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:52.671 20908 20938 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:52.702 20908 20939 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:52.733 20908 20938 I MaroRoute: FINE research answered=true spliced=false fine=366.2s coarse=378.4s fineShare=0.51 coarseShare=0.50 fineCost=22905.6 coarseCost=20874.2
+10-04 12:47:52.733 20908 20938 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=20.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=2077 pathCells=17 pulled=6 snapped=6 coarseM=1955.6m coarseMs=282.7 fineMs=850.5
+10-04 12:47:52.772 20908 20939 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:52.834 20908 20939 I MaroRoute: FINE research answered=true spliced=false fine=366.2s coarse=378.4s fineShare=0.51 coarseShare=0.50 fineCost=11452.8 coarseCost=10437.1
+10-04 12:47:52.834 20908 20939 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=20.0 plan=evolutive cellM=100.0m fineCellM=20.0m cells=6300 passable=4398 expansions=825 pathCells=17 pulled=6 snapped=6 coarseM=1955.6m coarseMs=340.1 fineMs=899.8
+10-04 12:47:53.021 20908 20938 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:53.102 20908 20938 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:53.134 20908 20939 I MaroRoute: PULL zoneM=0.0
+10-04 12:47:53.176 20908 20938 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:53.191 20908 20938 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=20.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=3293 refPassable=3331 refM=1845.0m refMs=457.5 chainFineM=1955.6m devRefMax=79.2m devRefMean=30.2m devRefBackMax=32.6m devRefBackMean=16.0m
+10-04 12:47:53.208 20908 20939 I MaroRoute: SNAP zoneM=0.0
+10-04 12:47:53.243 20908 20938 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn] avoiding=true expansions=21 passable=3945 aimClosed=true forced=[]
+10-04 12:47:53.250 20908 20938 I MaroRoute: LINE distance=1950.4m duration=632.2s legs=148 step=10.0m bandMetres=646.0m bandPricedMetres=646.0m slowMetres=1950.4m slowShare=0.70 zoneShare=0.00 bandShare=0.30 rampShare=0.40 forced=[]
+10-04 12:47:53.250 20908 20938 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 12:47:53.280 20908 20939 I MaroRoute: FINAL zoneM=0.0
+10-04 12:47:53.295 20908 20939 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=20.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=3281 refPassable=3331 refM=1844.4m refMs=460.8 chainFineM=1955.6m devRefMax=79.2m devRefMean=30.2m devRefBackMax=27.9m devRefBackMean=12.5m
+10-04 12:47:53.347 20908 20939 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn] avoiding=true expansions=21 passable=3945 aimClosed=true forced=[]
+10-04 12:47:53.354 20908 20939 I MaroRoute: LINE distance=1950.4m duration=632.2s legs=148 step=10.0m bandMetres=646.0m bandPricedMetres=646.0m slowMetres=1950.4m slowShare=0.70 zoneShare=0.00 bandShare=0.30 rampShare=0.40 forced=[]
+10-04 12:47:53.355 20908 20939 I MaroRoute: DONE stage=none result=true reason=none

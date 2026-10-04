@@ -100,15 +100,15 @@ class RouteCorridorChainTest {
     }
 
     /**
-     * The plan is the region's one decision: `evolutive` answers **none**, `avoid` the line's own box.
+     * The plan is the region's one decision, and **both shipped plans answer none** — the re-walk is retired
+     * for `evolutive` on the corridor reading of 2026-10-04 and for `avoid` on that day's own capture, where
+     * it cost 2.7×–4.0× the coarse pass and decided three keeps against three refusals by slivers.
      *
-     * The chain the adaptive plan used to hand back is retired for that engine — the `#implement` reading
-     * of 2026-10-04 found the re-walk kept once in five arms against a 2×–5× cost — so the plan states the
-     * interface's *nothing to re-search* rather than a region. The chain helper itself keeps its own tests
-     * above, because the two-layer first walk is what it now waits for.
+     * The interface's *nothing to re-search* is how each is retired, and the chain helper itself keeps its
+     * own tests above, because the two-layer first walk is what it now waits for.
      */
     @Test
-    fun theEvolutivePlanAnswersNoRegionNow() {
+    fun bothPlansAnswerNoRegionNow() {
         val line = listOf(LatLng(43.5000, 7.0000), LatLng(43.5000, 7.0300))
 
         assertTrue(
@@ -116,10 +116,9 @@ class RouteCorridorChainTest {
             EvolutiveGridPlan.secondPassRegions(line, corridor, 50.0, AppConfig.routeEvolutiveGridCellM)
                 .isEmpty()
         )
-        assertEquals(
-            "avoid's own plan still answers the one box the settled line spans",
-            1,
-            UniformGridPlan.secondPassRegions(line, corridor, 50.0, 100.0).size
+        assertTrue(
+            "and avoid's is retired too, so the settled line's own box is no longer re-walked",
+            UniformGridPlan.secondPassRegions(line, corridor, 50.0, 100.0).isEmpty()
         )
     }
 

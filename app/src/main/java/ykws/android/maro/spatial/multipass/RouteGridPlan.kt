@@ -62,15 +62,37 @@ interface RouteGridPlan {
 }
 
 /**
- * **The shipped plan: one tile over the whole corridor and the settled line's own bounding box, widened.**
- * It is the behaviour every `avoid` answer was found on, kept here as a plan so a second algorithm can be a
- * second plan rather than a second pipeline. Its single tile and its single region are what make it
- * reproduce today exactly.
+ * **The shipped plan: one tile over the whole corridor, and no region for the second pass.**
+ *
+ * The single tile is the behaviour every `avoid` answer was found on, kept here as a plan so a second
+ * algorithm can be a second plan rather than a second pipeline. The re-walk that used to follow it was
+ * **retired on the device's own reading** (2026-10-04), on the corridor's own precedent — see
+ * [`secondPassRegions`] for the figures and what the retirement leaves standing.
  */
 object UniformGridPlan : RouteGridPlan {
 
     override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
         listOf(GridTile(corridor, baseCellM))
+
+    /**
+     * **No re-walk, on the device's own reading** — `avoid`'s half of the retirement `evolutive` had already
+     * taken, decided on the capture of 2026-10-04 (one pair at 19 and 7 kn, eight rungs): the second pass
+     * cost **2.7×–4.0×** the coarse pass — 10.8–30.8 s against 3.6–9.6 s — and carried **71–80 %** of a
+     * rung's wall time, while on the six priced rungs the re-walk was kept and refused three each and
+     * **every margin was a sliver**: better by 15.2 and 217.9 priced seconds, worse by 64.3, 128.6 and
+     * 2361.9, the two `λ = 0` keeps being zero-against-zero ties the priced comparison cannot refuse.
+     *
+     * **What the empty answer leaves standing**: [`RouteFinePass.finePass`] — its re-tension and its zone
+     * crossing re-solve, which cut the same ~200 m of 3 kn water on every route that fired it — and the fine
+     * cell the clock steps at. The corridor chain and [`RouteFinePass.referenceWalk`] stay in the tree for
+     * the readers they still have.
+     */
+    override fun secondPassRegions(
+        line: List<LatLng>,
+        corridor: BBox,
+        outsideMarginM: Double,
+        cellM: Double
+    ): List<BBox> = emptyList()
 
     /** The ratio's own arithmetic, so `avoid`'s metres are its coarse cell times its ratio and nothing else. */
     override fun fineCellM(baseCellM: Double): Double = baseCellM * AppConfig.routeAvoidFineCellRatio

@@ -5,12 +5,13 @@ Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** besi
 gate, coarse **100 m** in open water, ratio **1 : 5**; the second pass is one fine grid **along the path**.
 **The metres land first; nothing of the two-layer walk is built.**
 
-Status: Phases 1–6 landed (2026-10-04) — Phases 1–3 ship the metres, the one lattice and the corridor chain;
-Phase 4 builds the two-layer rasterize — the family, the layer in the cell key, the two windows and the band's
-membership; Phase 5 lands the seam that expands a neighbour across the two layers and prices it from the two
-cell centres; Phase 6 carries the band's 20 m into the drawn points — the corner radii, the carve reach, the
-end disc and the snap guard all read the **local** size the water was resolved at. Phase 7 (a measurement
-decision on `avoid`) and Phase 8 (the record) remain.
+Status: Phases 1–6 landed, and **Phase 7 landed the same day** (2026-10-04) — Phases 1–3 ship the metres,
+the one lattice and the corridor chain; Phase 4 builds the two-layer rasterize — the family, the layer in the
+cell key, the two windows and the band's membership; Phase 5 lands the seam that expands a neighbour across
+the two layers and prices it from the two cell centres; Phase 6 carries the band's 20 m into the drawn points
+— the corner radii, the carve reach, the end disc and the snap guard all read the **local** size the water was
+resolved at; **Phase 7 retires the re-walk for `avoid` too**, so both engines answer the interface's *nothing
+to re-search*. Phase 8 (the record) remains.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -501,10 +502,18 @@ The cost:
    both sides of the pull's price refusal scale linearly with that size and `legClear` reads only the hard
    distance. **Not yet on a device**: the corner radius is now local, so `evolutive`'s coastal bends move at
    most 40 m instead of 200 m — the phase's intent, user-visible, and the confirming pass is the user's.
-7. **Settled for `evolutive` on 2026-10-04, ahead of its own trigger — the demotion decision was taken off
-   Phase 2's reading**: the corridor walk retired with no re-walk replacing it. What the phase still owns is
-   `avoid`'s half (whether the re-walk earns its 2×–5× there) and the surviving seat's other mechanism, the
-   zone crossing re-solve, which on the reading expanded 9 032 cells towards an aim it never closed.
+7. **Landed 2026-10-04 — the re-walk is retired for `avoid` as well, on the user's own capture.** Eight rungs
+   of `avoid` over one pair at 19 and 7 kn: the second pass cost **2.7×–4.0×** the coarse pass (10.8–30.8 s
+   against 3.6–9.6 s) and carried **71–80 %** of a rung's wall time, while on the six priced rungs the re-walk
+   was kept and refused three each and **every margin was a sliver** — better by 15.2 and 217.9 priced
+   seconds, worse by 64.3, 128.6 and 2361.9, the two `λ = 0` keeps being zero-against-zero ties the priced
+   comparison cannot refuse. So [`UniformGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:70)
+   answers the interface's *nothing to re-search*, and the surviving seat — the zone crossing re-solve, which
+   cut the same ~200 m of 3 kn water every time it fired — **stays**. Gate: the suite at **881 / 1 / 10**, the
+   single red still `avoid`'s parked ratio test, and `apk-build.bat` green. **What the phase still owns**: the
+   crossing seat's own price, which the same timer still pools with the re-tension. The `evolutive` half was
+   settled ahead of its own trigger, off Phase 2's reading — the corridor walk retired with no re-walk
+   replacing it.
 8. **Record** — bake, fold, and settle the epic's `## Implemented`.
 
 ## The code health this landing must not cost
