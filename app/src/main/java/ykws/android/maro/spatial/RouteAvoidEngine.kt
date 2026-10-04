@@ -43,6 +43,7 @@ import ykws.android.maro.spatial.multipass.forcedCrossingZoneNames
 import ykws.android.maro.spatial.multipass.inBand
 import ykws.android.maro.spatial.multipass.inZone
 import ykws.android.maro.spatial.multipass.insideBandWidthM
+import ykws.android.maro.spatial.multipass.msSince
 import ykws.android.maro.spatial.multipass.slowShares
 import ykws.android.maro.spatial.multipass.timeLineWithLimits
 import ykws.android.maro.spatial.multipass.timeLineWithProfile
@@ -333,7 +334,7 @@ class RouteAvoidEngine(
             guardZones = true,
             guardBand = true
         )
-        val coarseMs = (System.nanoTime() - coarseStartNs) / NANOS_PER_MS
+        val coarseMs = msSince(coarseStartNs)
         val timed = passReading.timed
         if (timed == null) {
             trace {
@@ -350,7 +351,7 @@ class RouteAvoidEngine(
         val fineStartNs = System.nanoTime()
         val refined = finePass.finePass(ctx, waypoints, lambda, traceSink)
         val reSearched = finePass.fineReSearch(ctx, refined, lambda, traceSink)
-        val fineMs = (System.nanoTime() - fineStartNs) / NANOS_PER_MS
+        val fineMs = msSince(fineStartNs)
 
         // **Phase 2's device reading** — behind the tag's own level, never on a shipped path: the coarse
         // walk's own A* cost and duration, the second pass's duration beside it, and how far the coarse
@@ -628,7 +629,7 @@ class RouteAvoidEngine(
         }
         val refStartNs = System.nanoTime()
         val reference = finePass.referenceWalk(ctx, coarse, lambda, traceSink)
-        val refMs = (System.nanoTime() - refStartNs) / NANOS_PER_MS
+        val refMs = msSince(refStartNs)
         val refLine = reference?.line
         val chainTo = deviationTo(coarse, chainFine)
         val chainBack = deviationTo(chainFine, coarse)
@@ -731,8 +732,6 @@ private const val LAMBDA_MIN = 0.0
 /** The ladder's highest rung: λ = 5 — the configured maximum aversion, the "around" line. */
 private const val LAMBDA_MAX = 5.0
 
-/** Nanoseconds in a millisecond — the device readings' one unit conversion. */
-private const val NANOS_PER_MS = 1_000_000.0
 
 /** The repair's ring step (m) — a constant of the algorithm, not a key. */
 private const val REPAIR_STEP_M = 25.0

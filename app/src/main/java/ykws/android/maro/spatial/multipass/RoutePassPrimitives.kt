@@ -139,12 +139,19 @@ internal fun limitAtFor(world: MultipassWorld): (LatLng) -> Double? {
     }
 }
 
-/** Moves a bend onto its nearest tangent corner — the nearest corner whose own set radius
- *  contains it, across all sets — only when both legs stay clear; open water keeps the bend. */
+/**
+ * Moves a bend onto its nearest tangent corner — the nearest corner whose own set radius contains it,
+ * across all sets — only when both legs stay clear; open water keeps the bend.
+ *
+ * It asks two clearances and four priced segments per candidate, so it is a clearance site in its own
+ * right rather than a reader of the field it is handed: it takes the walk's own [coarseStepM] and its
+ * legs inherit the walk's proof, so a corner is never moved on a reading the pull would not have made.
+ */
 internal fun snapToCorners(
     path: List<LatLng>,
     sets: List<CornerSet>,
     marginM: Double,
+    coarseStepM: Double,
     field: RouteCostField,
     start: LatLng,
     aim: LatLng,
@@ -166,8 +173,8 @@ internal fun snapToCorners(
         }
         val corner = nearest ?: continue
         val hardClear =
-            MultipassPull.legClear(out[i - 1], corner, marginM, field, start, aim, approaches) &&
-                MultipassPull.legClear(corner, path[i + 1], marginM, field, start, aim, approaches)
+            MultipassPull.legClear(out[i - 1], corner, marginM, coarseStepM, field, start, aim, approaches) &&
+                MultipassPull.legClear(corner, path[i + 1], marginM, coarseStepM, field, start, aim, approaches)
         val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], marginM, field) +
             MultipassPull.softPriceSec(path[i], path[i + 1], marginM, field)
         val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, marginM, field) +

@@ -236,6 +236,13 @@ fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostS
  * than the base, so no price can pay the search back — the shortest path stays defined and the closed
  * set the A* keeps stays valid. This is why [RouteCostSource] has no negative arm: a marker makes the
  * sea dearer or leaves it alone, and a genuine *go through this place* is a via, not a price.
+ *
+ * **The hard walls come in the two shapes the pull reads apart.** A *rastered* wall answers a per-cell
+ * **step** — the depth gate's 0-or-nothing — and is tested at every mark by [hardBlocked]; a
+ * *materialized* wall answers a true **distance** — the coastline's live index query — by
+ * [hardDistanceM], and that distance is the metric the pull's margin stands on. A third hard source
+ * must declare which of the two it is: a wall that is neither a metric distance nor a clean step makes
+ * the walk's own soundness argument untrue, and nothing here can tell the difference for it.
  */
 class RouteCostField(
     private val sources: List<RouteCostSource> = emptyList()
@@ -245,11 +252,17 @@ class RouteCostField(
 
     private val soft: List<RouteCostSource.Soft> = sources.filterIsInstance<RouteCostSource.Soft>()
 
+    /** The rastered walls — the depth gate — whose reading is a step and whose test is per mark. */
+    private val rasteredHard: List<RouteCostSource.Hard> = hard.filter { it.rastered }
+
+    /** The materialized walls — the coastline — whose reading is the true distance the margin tests. */
+    private val materializedHard: List<RouteCostSource.Hard> = hard.filterNot { it.rastered }
+
     /** True when a priced source exists — the rasterizer's price pass is skipped when it is not. */
     val hasSoft: Boolean get() = soft.isNotEmpty()
 
     /** True when a wall is rastered per cell — a field whose walls are all swept writes no block. */
-    val hasBlocking: Boolean get() = hard.any { it.rastered }
+    val hasBlocking: Boolean get() = rasteredHard.isNotEmpty()
 
     /** The one evaluator: the hard block at [p], its summed soft price, and the tag that price writes. */
     fun evaluate(p: LatLng): RouteCostAtPoint {
@@ -273,12 +286,28 @@ class RouteCostField(
     }
 
     /**
-     * Distance (m) to the nearest hard wall — the pull's margin reading, taken **along the emitted
-     * line** and never per grid cell: the coastline's own wall answers it by a live index query.
+     * The cheap per-mark wall test: the **rastered** walls alone, whose reading is a *step* — the gate
+     * answers `true` on the shallow cell and `false` everywhere else. It is the half of the hard read
+     * that may never be coarsened, a step carrying no bound that a nearby reading could prove.
+     */
+    fun hardBlocked(p: LatLng): Boolean {
+        for (source in rasteredHard) {
+            if (source.blocked(p)) return true
+        }
+        return false
+    }
+
+    /**
+     * Distance (m) to the nearest **materialized** hard wall — the pull's margin reading, taken **along
+     * the emitted line** and never per grid cell: the coastline's own wall answers it by a live index
+     * query, which is the one read this field pays per mark and the one a sampled walk may skip.
+     *
+     * A rastered wall is **not** read here: its reading is a step rather than a distance, so it is asked
+     * through [hardBlocked] instead — a step folds into the walk's per-mark test, never into its margin.
      */
     fun hardDistanceM(p: LatLng): Double {
         var nearest = Double.MAX_VALUE
-        for (source in hard) {
+        for (source in materializedHard) {
             val distance = source.distanceM(p)
             if (distance < nearest) nearest = distance
         }

@@ -62,6 +62,11 @@ internal class RoutePassRunner {
         // The guard reads the water the snap guards: for a two-layer walk that is the fine band's own cell,
         // not the interior's, so the tail's prices sit at the resolution the line was resolved at (Phase 6).
         val tailCellM = if ((walk.windows?.layerCount ?: 1) > 1) ctx.fineCellM else cellM
+        // The coarse step is the walk's own local cell — `tailCellM` above: the fine band's cell where
+        // the walk is two-layer, the single grid's own cell elsewhere — so the step travels per engine
+        // while the pull stays one walk. A step under the fine one would spare nothing at all, and the
+        // caller never hands one: both shipped cells stand well above it.
+        val coarseStepM = tailCellM
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
@@ -100,10 +105,15 @@ internal class RoutePassRunner {
             ),
             null
         )
+        val pullTiming = PullTiming()
+        val pullStartNs = System.nanoTime()
         val pulled = MultipassPull.pull(
-            full, start, aim, marginM, guardField, approaches, refusals
+            full, start, aim, marginM, coarseStepM, guardField, approaches, refusals, pullTiming
         )
-        trace { "PULL zoneM=${fmt(zoneMetres(zones, pulled))}" }
+        trace {
+            "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
+                "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)}"
+        }
         // The provisional pair belongs to this boundary and to the pulled line alone: the line is taut
         // here, but the settled clock is still the pull → snap → pull tail and the corner pass away, so
         // one enforced-limit read and the pulled length are all a row can stand behind now. It rides the
@@ -121,12 +131,20 @@ internal class RoutePassRunner {
             ),
             provisional
         )
-        val snapped = snapToCorners(pulled, sets, marginM, guardField, start, aim, approaches)
-        trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))}" }
-        val final = MultipassPull.pull(
-            snapped, start, aim, marginM, guardField, approaches, refusals
+        val snapStartNs = System.nanoTime()
+        val snapped = snapToCorners(
+            pulled, sets, marginM, coarseStepM, guardField, start, aim, approaches
         )
-        trace { "FINAL zoneM=${fmt(zoneMetres(zones, final))}" }
+        trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
+        val finalTiming = PullTiming()
+        val finalStartNs = System.nanoTime()
+        val final = MultipassPull.pull(
+            snapped, start, aim, marginM, coarseStepM, guardField, approaches, refusals, finalTiming
+        )
+        trace {
+            "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
+                "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)}"
+        }
         val timed = timeLineWithLimits(
             final, pace, limitAt, clockSampleM(cellM, ctx.fineCellM)
         )

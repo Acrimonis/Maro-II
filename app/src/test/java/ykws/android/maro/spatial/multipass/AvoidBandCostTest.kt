@@ -190,7 +190,9 @@ class AvoidBandCostTest {
             )
         )
 
-        val kept = MultipassPull.pull(path, start, aim, marginM, banded)
+        val kept = MultipassPull.pull(
+            path, start, aim, marginM, MultipassPull.clearanceStep(marginM), banded
+        )
 
         assertEquals("the priced chord is refused and the detour kept", path, kept)
     }
@@ -202,7 +204,9 @@ class AvoidBandCostTest {
         val aim = LatLng(43.50, 7.02)
         val path = listOf(start, LatLng(43.503, 7.01), aim)
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, RouteCostField.EMPTY)
+        val pulled = MultipassPull.pull(
+            path, start, aim, marginM, MultipassPull.clearanceStep(marginM), RouteCostField.EMPTY
+        )
 
         assertEquals(listOf(start, aim), pulled)
     }

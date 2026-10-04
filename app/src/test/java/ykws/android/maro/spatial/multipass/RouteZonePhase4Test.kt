@@ -373,7 +373,10 @@ class RouteZonePhase4Test {
         val field = RouteCostField(listOf(RouteCostSource.Hard(distanceAt = { Double.MAX_VALUE })))
         val path = listOf(start, LatLng(43.50, 7.005), LatLng(43.50, 7.01), LatLng(43.50, 7.015), aim)
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM = 25.0, field)
+        val pulled = MultipassPull.pull(
+            path, start, aim, marginM = 25.0, coarseStepM = MultipassPull.clearanceStep(25.0),
+            field = field
+        )
 
         assertEquals(
             "a ring near the chord is no clearance: the chord is read taut, priced only",
@@ -473,7 +476,10 @@ class RouteZonePhase4Test {
         // The free path: around the zones' north edge, every point outside every zone.
         val path = listOf(start, LatLng(43.52, 7.01), LatLng(43.52, 7.05), aim)
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM = 50.0, field)
+        val pulled = MultipassPull.pull(
+            path, start, aim, marginM = 50.0, coarseStepM = MultipassPull.clearanceStep(50.0),
+            field = field
+        )
 
         assertFalse("the line never enters the fast zone", lineEntersZone(pulled, fast))
         assertFalse("the line never enters the slow zone", lineEntersZone(pulled, slow))
