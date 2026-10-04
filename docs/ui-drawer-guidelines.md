@@ -270,22 +270,23 @@ This section keeps only the **drawer-specific** rules layered on top of that sur
 
 ---
 
-## 8a. The Route Sub-section (Menu drawer)
+## 8a. The Routing Card (Menu drawer)
 
-**The Menu drawer's one input group, standing inside the Navigation card** (`MenuDrawerOverlay.RouteEndsSection`,
-R44–R48): a route's two ends, chosen here rather than placed on the map — the action that used to arm the
-acquisition from here was **removed on 2026-10-04**, the map's square and the fan's own child being the doors. It is a
-**sub-section of the Navigation card**
-rather than a top-level section with a card of its own (D2) — the drawer's first section is titled
-Navigation — so it is set off by a `SectionDivider` and **headed by one comment naming the group's two
-fields**: `route_comment_ends` reads `Route origin and destination` (`Origine et destination de la route`),
+**The Menu drawer's one input group, standing inside the card the drawer opens on** — a card whose header is
+`Routing` (`settings_tab_routing`) since 2026-10-04, where the drawer's first section used to be titled
+Navigation (`settings_section_position_source`) over routing content. It holds **three sub-sections in one
+card**, in this order, each set off by a `SectionDivider` and headed by a short comment: the route's two ends,
+the quick access to the mode's two settings, and the mode's own summary when it has something to say.
+
+**Sub-section 1 — Origin and destination** (R44–R48, `MenuDrawerOverlay.RouteEndsSection`): a route's two ends,
+chosen here rather than placed on the map — the action that used to arm the acquisition from here was
+**removed on 2026-10-04**, the map's square and the fan's own child being the doors. It is a **sub-section of
+the card** rather than a top-level section with a card of its own (D2), **headed by one comment naming the
+group's two fields**: `route_comment_ends` reads `Origin and destination` (`Origine et destination`),
 **which is what identifies them**, since neither row carries a label of its own — each dropdown shows **only
-its value**, inside its own field box (§2.12). **A rule separates nothing inside the group either**: no `SectionDivider`
-between the two rows, so the card's order is GPS mode → one divider → the comment → the two value-only
-dropdowns — **one block** — then a divider → the summary (conditional), with **auto-show zones at the card's foot**
-(the mode's parameters stand before the reveal that serves them). It remains the
-drawer's only
-group that **writes** mode state rather than reading it; the summary stays read-only (R67).
+its value**, inside its own field box (§2.12). **No rule separates the two rows either**: the group's order is
+the comment → the two value-only dropdowns — **one block**. It remains the drawer's only group that **writes**
+mode state rather than reading it; the summary stays read-only (R67).
 
 - **Two `DropdownRow`s, one per end**, **label-less and back to back**: the shared control of
   [`ui-component-guidelines.md` §2.12](ui-component-guidelines.md#212-dropdown-row--dropdownrow), each row
@@ -303,10 +304,28 @@ group that **writes** mode state rather than reading it; the summary stays read-
   from the standing pair was removed, so the arming's doors are the map's square and the fan's own child, and the
   `RouteSummaryData` field that carried the callback went with it. The drawer keeps the mode's **parameters** and
   its **status**; the panel keeps the arming's three outcomes.
-- **The sub-section stands always**, whether or not a route runs: the pair is what an arming reads, and
-  hiding it while the mode is off would put a parameter behind a mode. What gates is the **summary below it**,
-  which stands while the engine searches **and** while a route is followed — the routing-phase-alone gate of
-  2026-09-28 was widened on 2026-10-04 — and which rides a `NestedCard` sub-card of its own.
+- **It stands always**, whether or not a route runs: the ends are what an arming reads, and hiding them while
+  the mode is off would put a parameter behind a mode.
+
+**Sub-section 2 — Cruising speed and driving preference** (added 2026-10-04, the user's word,
+`MenuDrawerOverlay.RouteQuickAccessSection`): the quick access to the two settings the mode plans with —
+`routeFreeWaterPaceKn` and `routeSlowWaterAversion` — as a pair of label-less `DropdownRow`s sharing one row,
+each opening the same wheel in its popup (§2.15). It is a **second door onto the settings, never a second
+home**: both boxes write the very values the Settings page's sliders write, so the two surfaces cannot
+disagree, and the pace shown is the **set** pace rather than the boat's own fitted one.
+
+- **The pace's entries are the setting's own grid** (5 … 35 kn by 5, `AppConfig.ROUTE_FREE_WATER_PACE_STOPS_KN`)
+  and the preference's are the ladder's three rungs in its own order; each rung's word and λ come off the
+  ladder (`routeRungLabelRes` / `routeRungLambdaOf`), so the wheel and the Settings slider name a rung the
+  same way.
+- **The pair is the pair control** (`DropdownPairRow`, §2.16 of the component guidelines), left on its default
+  widths: the pace's side is `Content` — measured to its own longest word, `35 kn`, so **none of its seven stops
+  can ever be cut** — and the preference's is `Remainder`, taking whatever that box and the 4dp gap leave and
+  trimming its own value on one line only where the row is too short for both words whole.
+
+**Sub-section 3 — the summary, when applicable** (`RouteSummaryBlock`): it stands while the engine searches
+**and** while a route is followed — the routing-phase-alone gate of 2026-09-28 was widened on 2026-10-04 — and
+it rides a `NestedCard` sub-card of its own, at the card's foot.
 
 ## 9. List Item Card Pattern (Track + Marker)
 

@@ -1462,8 +1462,9 @@ private fun RoutingSettings(
                 valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
                 value = settings.routeFreeWaterPaceKn,
                 valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
-                steps = (AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
-                    .toInt() - 1,
+                // The setting's own grid, read from its one home: six intervals of five knots between 5 and 35.
+                steps = ((AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
+                    / AppConfig.ROUTE_FREE_WATER_PACE_STEP_KN).toInt() - 1,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
             )
 
@@ -1475,12 +1476,10 @@ private fun RoutingSettings(
             SliderRow(
                 label = stringResource(R.string.settings_route_preference_label),
                 description = stringResource(R.string.settings_route_preference_desc),
+                // The rung's word, read from the ladder's own mapping so the slider and the drawer's
+                // quick access name the same rung the same way.
                 valueLabel = stringResource(
-                    when (routeRungIndex(settings.routeSlowWaterAversion.toDouble())) {
-                        2 -> R.string.route_computation_through
-                        1 -> R.string.route_computation_balanced
-                        else -> R.string.route_computation_around
-                    }
+                    routeRungLabelRes(routeRungIndex(settings.routeSlowWaterAversion.toDouble()))
                 ),
                 value = routeRungLambda(settings.routeSlowWaterAversion.toDouble()).toFloat(),
                 valueRange = AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat()..

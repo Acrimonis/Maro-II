@@ -598,7 +598,9 @@
     <!-- The sub-section's head: one comment naming the group's two fields — the route's origin and
          destination — and it is what identifies them, since neither dropdown row carries a label of its
          own; each row shows only its value, on the right. -->
-    <string name="route_comment_ends">Route origin and destination</string>
+    <string name="route_comment_ends">Origin and destination</string>
+    <!-- The quick-access pair's short comment: the two settings it heads, the pace first. -->
+    <string name="route_comment_quick_access">Cruising speed and preference</string>
     <string name="route_end_current">Current position</string>
     <string name="route_end_position">Marker position</string>
     <!-- The fixed entries' own dress: a marker's name is data and cannot wear it, which is what tells the

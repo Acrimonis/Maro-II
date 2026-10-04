@@ -22,6 +22,7 @@ New setting?
   ├─ Independent on/off choices?  → MultiSelectRow                 (§2.7b)
   ├─ Controls that fit one line?  → Card + SectionRow              (§2.14)
   ├─ Choice list that may grow?   → DropdownRow                    (§2.12)
+  ├─ Two choice lists side by side? → DropdownPairRow              (§2.16)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
 
@@ -423,23 +424,28 @@ Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum w
 
 For a single choice whose option list may grow past the two or three segments a `SegmentedRow` fits
 (e.g. the route algorithm list):
-`DropdownRow(label, options, selected, onSelect, accessibleName, description = null)`.
+`DropdownRow(label, options, selected, onSelect, accessibleName, description = null, sizing = DropdownSizing.Fill)`.
 
 ```
 ┌─ Column ──────────────────────────────────────────────────────────────────┐
 │  optional label (16sp Medium uiTextPrimary)                               │
 │  optional description (13sp uiTextMuted)                                  │
-│  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 10dp padding ───────┐ │
+│  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 8×10dp padding ─────┐ │
 │  │  value (uiTextPrimary, Bold)                      ⌄ (uiAccent)        │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The box is the control, the anchor and the tap target** — a `Row` holds the value and the
-  arrow and is the one tap that opens the list, the same single-target rule `OptionRow` follows, now scoped
-  to the box rather than the row. It carries `clickable`, the call site's `accessibleName` as its
-  `contentDescription` and `Role.DropdownList`, and it reports its own measured size, so nothing about the
-  list's placement or width is left to a library.
+- **The box is its own component** (`DropdownBox`, a file of its own) — a `Row` on the bars' base holding the
+  value and the arrow, and **it is the control, the anchor and the tap target**: it carries `clickable`, the
+  call site's `accessibleName` as its `contentDescription` and `Role.DropdownList`, and it reports its own
+  measured size, so nothing about the list's placement is left to a library. **Its metrics and the style its
+  value reads are that file's own**, and that same style measures it (`dropdownBoxWidth`), so the width a
+  caller fixes and the width drawn cannot drift apart. `DropdownRow` composes it and owns the label, the
+  description, the popup and the wheel.
+- **What a caller sets is the behaviour, never a width** — `DropdownSizing.Fill` takes the width the caller
+  gives (the default) and `DropdownSizing.Content` takes the width this field's longest entry needs, which the
+  field asks of the box. No call site spells a dp, an arrow or a padding.
 - **Label and description sit above the field** — same type as §2.1/§2.2, both optional (`null` at every
   call site today, where a section header or the drawer's comment already names the control). The row
   paints nothing of its own: the call site supplies the `CardArea`/`NestedCard` (§2.0).
@@ -450,6 +456,10 @@ For a single choice whose option list may grow past the two or three segments a 
   `uiAccent`. **Its height is that padding's consequence, not a number** — the same way the bars get
   theirs — which is what M3's `OutlinedTextField` could not give: its internal padding, 56dp floor, caret
   and theme selection highlight are all gone with it.
+- **Its horizontal chrome is deliberately small** — **8dp** of padding and a **4dp** arrow gap (2026-10-04): a
+  box's chrome is paid **twice** in a row of two, and a wider field is what cut the second word of the pair. Its
+  vertical padding stays the bars' 10dp, the arrow keeps the icon's own 24dp, and the rim's 1dp is still added
+  on each side of a measured width as that answer's rounding slack.
 - **The list is a §2.10 popup the box itself positions** — a `Popup` at the box's **bottom
   left**, as wide as the box's own measured width and bounded in height by `popupMaxHeightDp()`, so it
   opens flush under the box in either orientation and can never reach past the space the box already fits.
@@ -478,6 +488,11 @@ For a single choice whose option list may grow past the two or three segments a 
   field, so nothing enters the surface's traversal with a caret. A **required `accessibleName`** is the one
   string each call site hands it, set as the node's `contentDescription`, because a label-less box would
   otherwise announce nothing at all; what is announced with it is the device pass's to confirm.
+
+- **Two of them side by side are the pair control** — [`DropdownPairRow`](#216-dropdown-pair--dropdownpairrow),
+  §2.16: one row inside a card's inset holding two label-less boxes, 4dp apart, each side's width set by the
+  caller's `DropdownPairWidth`. `dropdownBoxWidth(words)`, in the box's own file, is what measures a side that
+  must never trim.
 
 **Do not hand-roll a label + tap-to-open `DropdownMenu`** — use this control. What a control paints, and
 where its own list goes, is the control's business: this one draws the bars' rim and positions its list from
@@ -519,6 +534,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ A `SectionRow` nested inside another `SectionRow` (§2.14)
 - ❌ Hand-rolled two-`Text` toggle rows (use `SegmentedRow`, §2.7)
 - ❌ Hand-rolled label + tap-to-open `DropdownMenu` rows (use `DropdownRow`, §2.12)
+- ❌ A hand-rolled `Row` of two dropdowns (use `DropdownPairRow`, §2.16)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
 - ❌ Nesting deeper than `CardArea → Expander → NestedCard` (§2.4)
 - ❌ Local `remember`/`rememberSaveable` state for expander open state (use `SettingsViewModel.expanderStates`, §2.4)
@@ -567,6 +583,31 @@ The dropdown's list is a **wheel** ([§2.12](#212-dropdown-row--dropdownrow)): a
 five rows inside a popup, and **a tap on a row is what chooses** — the drag only scrolls and snaps, and the
 band shows what a tap would take. So a list of choices is **a dropdown, a bar, or a wheel in a popup with a
 tap path**; a drag that commits on its own stays out.
+
+### 2.16 Dropdown Pair — `DropdownPairRow`
+
+Two of these controls side by side, for the shape a row of two settings wears:
+`DropdownPairRow(left, right, modifier, leftWidth, rightWidth, gap, verticalPadding)`, each side a
+`DropdownField(options, selected, onSelect, accessibleName)` — a `DropdownRow`'s own inputs without its label
+and without its width.
+
+- **The width is the pair's capability, set per side** — `DropdownPairWidth.Content` sizes a box to its
+  **longest option**, so no entry of that list can be cut and the box holds that width whatever the row does;
+  `DropdownPairWidth.Remainder` gives it whatever the row leaves, which makes it the **elastic** side, its
+  value trimming on one line. The defaults are `Content` left and `Remainder` right; two `Remainder` sides
+  share the row evenly, and two `Content` sides leave the row's tail empty.
+- **The content width is asked of the box** — `dropdownBoxWidth(words)`, in `DropdownBox.kt`, answers it from
+  the box's own metrics (its padding, its arrow gap, its arrow and its rim) and from the style its value really
+  reads — `LocalTextStyle` merged with the size and the weight, the box's one statement of it. A caller
+  re-spells neither, and a width cut from a style that skipped the theme measures short and ellipsises the word
+  it was measured for. The pair tells a side this as a behaviour (`DropdownSizing.Content` through the field),
+  so it hands over no number.
+- **No side carries a label** — the comment above the pair names both, and each side's `accessibleName` is what
+  a screen reader announces. **No vertical rule stands between them either**: §2.14's `SectionRow` lays out two
+  sections, and this is two controls in one.
+- **The gap and the padding are the primitive's** — the pair owns its **4dp** gap and its vertical padding, so
+  a call site hands over two fields and nothing else; the gap is that small because the two boxes' chrome is
+  paid twice in one row.
 
 ---
 

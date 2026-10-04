@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -47,6 +48,8 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.ui.components.BAR_CELL_PAD_VERTICAL_DP
 import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.FilterControl
+import ykws.android.maro.ui.components.DropdownField
+import ykws.android.maro.ui.components.DropdownPairRow
 import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.MarkerCreateAction
 import ykws.android.maro.ui.components.NestedCard
@@ -141,23 +144,21 @@ fun MenuDrawerOverlay(
             }
         }
     ) {
-        // ── POSITION SOURCE section ──────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_position_source))
+        // ── ROUTING section ──────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_tab_routing))
 
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            // ── ROUTE sub-section: a route's two ends, and the action that arms the acquisition ──
+            // ── Origin and destination — the route's two ends ──
             // The mode's own **parameters**, held in the drawer since 2026-09-28 (R44, D2): the ends are
-            // chosen here rather than placed on the map, one pair per navigation mode, and the action
-            // beside them is the second door onto the same arming the map's square performs (R49). It
-            // stands **inside** the Navigation card under a sub-section header, and it stands always;
-            // what gates is the summary **below** it, which took the card's foot on 2026-10-04 (the
-            // user's word) so the two ends are read before the mode's figures.
+            // chosen here rather than placed on the map, one pair per navigation mode, and they stand
+            // **inside** the Routing card under a short comment, and they stand always. The arming has no
+            // door here since 2026-10-04: the map's square and the fan's own child are the doors, so
+            // R49's "second door onto the same arming" no longer counts this one.
             // The head is one comment naming the group's two fields — the route's **origin and
-            // destination** (2026-09-28) — and it is what identifies them: neither dropdown row carries a
-            // label of its own, each showing only its value on the right, and no rule separates the two
-            // rows. The arm action closes the block.
+            // destination** — and it is what identifies them: neither dropdown row carries a label of its
+            // own, each showing only its value inside its own box.
             Text(
                 text = stringResource(R.string.route_comment_ends),
                 color = Color(AppConfig.uiTextMuted),
@@ -166,13 +167,27 @@ fun MenuDrawerOverlay(
             )
             RouteEndsSection(routeSummary)
 
-            // ── The mode's summary: what a route is doing, and what it costs — the card's foot since
-            // 2026-10-04 ──
-            // The mode's own switch stays the map control stack's square as well as the Route
-            // sub-section's action, and this block carries no action of its own — the panel's three
-            // outcomes are the doors. It is the read-only echo of the mode, what remains readable of it
-            // while the drawer stands over the panel, and R67 keeps it **in the same card** as the
-            // sub-section above rather than absorbed by it.
+            SectionDivider()
+
+            // ── Cruising speed / driving preference — the two settings the mode plans with ──
+            // Added 2026-10-04 (the user's word): the quick access reads and writes the very settings the
+            // Settings page holds — `routeFreeWaterPaceKn` and `routeSlowWaterAversion` — so it is a second
+            // **door** onto those values and never a second home, and the pace shown is the **set** one
+            // rather than the boat's fitted pace.
+            Text(
+                text = stringResource(R.string.route_comment_quick_access),
+                color = Color(AppConfig.uiTextMuted),
+                fontSize = AppConfig.uiFontToggleSize.sp,
+                fontWeight = FontWeight.Medium
+            )
+            RouteQuickAccessSection(routeSummary)
+
+            // ── The mode's summary: what a route is doing, and what it costs — the card's foot ──
+            // It is the read-only echo of the mode, what remains readable of it while the drawer stands
+            // over the panel, and it took the card's foot on 2026-10-04 (the user's word) so the mode's
+            // parameters are read before its figures. R67 keeps it **in the same card** as the
+            // sub-sections above rather than absorbed by them, and it stands only when the mode has
+            // something to say ([routeSummaryVisible]).
             if (routeSummaryVisible) {
                 SectionDivider()
                 // **The route block rides a sub-card of its own** (the user's word, 2026-10-04), the same
@@ -487,6 +502,47 @@ private fun RouteEndsSection(section: RouteSummaryData) {
 }
 
 /**
+ * **The quick access to the mode's two settings** (the user's word, 2026-10-04): the pace the engine plans at
+ * and the preference it weighs lines by, side by side in the pair control ([`DropdownPairRow`]) — whose wheel
+ * is the ends' own — over the grid the pace setting itself moves on.
+ *
+ * **The pair is a second door, never a second home**: both boxes write `routeFreeWaterPaceKn` and
+ * `routeSlowWaterAversion` through the same callbacks the Settings page's sliders use, so the two surfaces
+ * cannot disagree — and the pace box shows the **set** pace, not the boat's own fitted one.
+ *
+ * **The width rule is the control's own capability, and this call site leaves it on its defaults**: the
+ * pace's side is measured to the longest of its words — `35 kn` — so none of the seven stops can ever be cut,
+ * and the preference's takes the row's remainder and is what trims there.
+ */
+@Composable
+private fun RouteQuickAccessSection(section: RouteSummaryData) {
+    // The setting's own grid, read from its one home — seven stops, 5 … 35 kn by 5.
+    val paceOptions = AppConfig.ROUTE_FREE_WATER_PACE_STOPS_KN.map {
+        it to stringResource(R.string.settings_route_pace_value_fmt, it)
+    }
+    // The ladder's own order, most-fun first, which is the order the acquisition's first column lists its
+    // rungs in; the λ comes off the ladder rather than being spelled here, so the wheel writes exactly what
+    // the Settings slider writes.
+    val preferenceOptions = (0 until ROUTE_LADDER_RUNG_COUNT).map { index ->
+        routeRungLambdaOf(index).toFloat() to stringResource(routeRungLabelRes(index))
+    }
+    DropdownPairRow(
+        left = DropdownField(
+            options = paceOptions,
+            selected = section.paceKn,
+            onSelect = section.onPaceSelect,
+            accessibleName = stringResource(R.string.settings_route_pace_label)
+        ),
+        right = DropdownField(
+            options = preferenceOptions,
+            selected = section.preference,
+            onSelect = section.onPreferenceSelect,
+            accessibleName = stringResource(R.string.settings_route_preference_label)
+        )
+    )
+}
+
+/**
  * **The mode's summary** — the drawer's read-only echo of the route panel, kept beside the section, wearing
  * the live block's own treatment since 2026-10-04.
  *
@@ -654,10 +710,15 @@ private fun RouteSummaryBlock(summary: RouteSummaryData) {
 @Composable
 private fun rememberLabelColumnWidth(labels: List<String>): Dp {
     val measurer = rememberTextMeasurer()
-    val style = TextStyle(
-        color = Color(AppConfig.uiTextMuted),
-        fontSize = 11.sp,
-        lineHeight = 12.sp
+    // The style the cell's own label resolves to: it sets its size and its line height and inherits the rest
+    // — the theme's letter spacing included — from `LocalTextStyle`, so the measurement merges that same
+    // source instead of spelling a style of its own and coming out short on every character.
+    val style = LocalTextStyle.current.merge(
+        TextStyle(
+            color = Color(AppConfig.uiTextMuted),
+            fontSize = 11.sp,
+            lineHeight = 12.sp
+        )
     )
     val density = LocalDensity.current
     return remember(labels.joinToString("\u0000")) {

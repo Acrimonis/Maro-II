@@ -599,10 +599,7 @@ class SettingsManager(
         routeFreeWaterPaceKn = prefs.getFloat(
             KEY_ROUTE_FREE_WATER_PACE_KN,
             ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn
-        ).coerceIn(
-            ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN,
-            ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN
-        ),
+        ).let { ykws.android.maro.config.AppConfig.snapFreeWaterPaceKn(it) },
         routeSlowWaterAversion = prefs.getFloat(
             KEY_ROUTE_SLOW_WATER_AVERSION,
             ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneSoftCostAversion.toFloat()

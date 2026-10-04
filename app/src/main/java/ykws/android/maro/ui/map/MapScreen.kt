@@ -3484,6 +3484,14 @@ fun MapScreen(
                 destinationSelection = routeDestinationSelection,
                 onStartSelect = { storeRouteEnd(RouteEndSelection.End.START, it) },
                 onDestinationSelect = { storeRouteEnd(RouteEndSelection.End.DESTINATION, it) },
+                // The quick-access pair: the Settings page's own two values, written through the same
+                // settings — a second door onto them, never a second home.
+                paceKn = appSettings.routeFreeWaterPaceKn,
+                onPaceSelect = { kn -> viewModel.updateSettings { it.copy(routeFreeWaterPaceKn = kn) } },
+                preference = routeRungLambda(appSettings.routeSlowWaterAversion.toDouble()).toFloat(),
+                onPreferenceSelect = { lambda ->
+                    viewModel.updateSettings { it.copy(routeSlowWaterAversion = lambda) }
+                },
                 searching = routeSearching,
                 stageRes = routeStage?.labelResId,
                 plannedDistanceNm = routeState.plan?.distanceNm,

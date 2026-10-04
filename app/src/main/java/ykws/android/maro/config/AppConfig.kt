@@ -42,7 +42,7 @@ object AppConfig {
      * The span's bounds live beside it so the properties loader, the settings clamp and the Settings
      * row all read one definition rather than each spelling 3 and 40 for itself.
      */
-    var routeFreeWaterPaceKn = 28f
+    var routeFreeWaterPaceKn = 25f
         private set
 
     /**
@@ -53,10 +53,32 @@ object AppConfig {
         private set
 
     /** Lowest free-water pace (kn) the setting accepts. */
-    const val ROUTE_FREE_WATER_PACE_MIN_KN = 3f
+    const val ROUTE_FREE_WATER_PACE_MIN_KN = 5f
 
     /** Highest free-water pace (kn) the setting accepts. */
-    const val ROUTE_FREE_WATER_PACE_MAX_KN = 40f
+    const val ROUTE_FREE_WATER_PACE_MAX_KN = 35f
+
+    /**
+     * The grid the pace setting moves on (kn): the setting snaps onto it wherever it is loaded or written, and the
+     * slider's steps and the quick-access wheel's entries are all its stops, so the one grid has one home.
+     */
+    const val ROUTE_FREE_WATER_PACE_STEP_KN = 5f
+
+    /** **The stops the pace offers**, lowest first — the slider's positions and the drawer wheel's rows alike. */
+    val ROUTE_FREE_WATER_PACE_STOPS_KN: List<Float>
+        get() = generateSequence(ROUTE_FREE_WATER_PACE_MIN_KN) { it + ROUTE_FREE_WATER_PACE_STEP_KN }
+            .takeWhile { it <= ROUTE_FREE_WATER_PACE_MAX_KN }
+            .toList()
+
+    /**
+     * A pace moved onto the setting's grid and held inside its bounds — the one rule for every reader. The nearest
+     * stop wins, by whole steps: a stored 28 lands on 30, an old 3 lands on 5, an old 40 lands on 35.
+     */
+    fun snapFreeWaterPaceKn(kn: Float): Float {
+        val step = ROUTE_FREE_WATER_PACE_STEP_KN
+        val steps = ((kn + step / 2f) / step).toInt()
+        return (steps * step).coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+    }
 
     /**
      * The route engine id the harness ships as its default — `route.engine.id`, default `dummy`.
@@ -1329,8 +1351,7 @@ object AppConfig {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
             props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
-                routeFreeWaterPaceKn =
-                    it.coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+                routeFreeWaterPaceKn = snapFreeWaterPaceKn(it)
             }
             props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
                 routeEngineId = it

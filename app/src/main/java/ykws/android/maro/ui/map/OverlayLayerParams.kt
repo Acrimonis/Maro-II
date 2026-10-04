@@ -183,6 +183,22 @@ data class RouteSummaryData(
     /** Writes a destination selection, which persists the same way. */
     val onDestinationSelect: (RouteEndSelection) -> Unit = {},
 
+    // ── The quick access to the two settings (2026-10-04) ────────────────────
+    /**
+     * The pace the quick access stands on, in whole knots off the setting's own grid — the **set** pace,
+     * never the boat's fitted one, so the box shows what the planner will read.
+     */
+    val paceKn: Float = AppConfig.routeFreeWaterPaceKn,
+    /** Writes a pace: the same value, on the same setting, as the Settings page's slider. */
+    val onPaceSelect: (Float) -> Unit = {},
+    /**
+     * The preference the quick access stands on, as its rung's λ, resolved the way the Settings page
+     * resolves it — so a stored value sitting between two rungs still lands the box on a rung.
+     */
+    val preference: Float = routeRungLambda(AppConfig.routeAvoidSpeedZoneSoftCostAversion).toFloat(),
+    /** Writes a preference rung's λ: the same value, on the same setting, as the Settings page's slider. */
+    val onPreferenceSelect: (Float) -> Unit = {},
+
     // ── The summary kept beside it (R67) ─────────────────────────────────────
     /** True while a search is in flight — the acquiring word's own gate, and the stage's. */
     val searching: Boolean = false,
