@@ -308,9 +308,6 @@
     <string name="menu_render_colours">Couleurs de vitesse</string>
     <string name="menu_manage_markers">Repères</string>
     <string name="menu_show_zones">Afficher les Zones des Repères</string>
-    <string name="track_status_recording">● Enregistrement</string>
-    <string name="track_status_idle">● En attente</string>
-    <string name="track_stat_state">État</string>
     <string name="track_stat_elapsed">Écoulé</string>
     <string name="track_stat_points">Points</string>
     <string name="track_stat_distance">Distance</string>

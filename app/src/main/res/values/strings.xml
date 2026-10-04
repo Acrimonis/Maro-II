@@ -309,9 +309,6 @@
     <string name="menu_render_colours">Speed Colors</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="menu_show_zones">Display Markers Zones</string>
-    <string name="track_status_recording">● Recording</string>
-    <string name="track_status_idle">● Idle</string>
-    <string name="track_stat_state">State</string>
     <string name="track_stat_elapsed">Elapsed</string>
     <string name="track_stat_points">Points</string>
     <string name="track_stat_distance">Distance</string>

@@ -385,6 +385,13 @@ Row(
 | Action icons | Pin toggle + Export GPX | Edit only |
 | Accent bar when hidden | Always real color | Always marker color |
 
+> **The live stats block is the pattern's second wearer** (2026-10-04) — the TRACKS card, under its own Tracks row,
+> lays its six readings in a **two-column by three-row** grid of the same [`StatCell`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt),
+> under a **state band** whose fill is the tracking status colour subdued to the taken-choice level
+> (`status.tracking.container.recording` / `status.tracking.container.idle`, the accent's own 30 %), edged at 1dp in
+> that same state's own colour (`status.tracking.healthy` / `status.tracking.idle`), and whose mark is the shared `MapPulseDot`. Its cells are that same [`StatCell`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt) in its **columned shape**: the label right-aligned at the table's own measured width, the colon alone centred in a 6 dp slot, the value left-aligned — one label column shared by the table, so the values keep their alignment with no fixed share of empty space. The card shell and the accent bar are absent there, the block already standing
+> inside a `CardArea`, and the state leaves the grid for that band.
+
 ---
 
 ## 10. Row Types

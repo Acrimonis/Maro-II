@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-04 08:57 UTC] Ui_Menu — the TRACKS card's Tracks row moved above the live block, the block's band tinted in the tracking colours with the notification's own read, and the readings table's columns size themselves → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-10-04 00:38 UTC] Route — the acquisition's first column names the slow water again from its own strings, apart from the settings' Fast · Balanced · Fun; and the distance-scaled hybrid grid is in design → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-04 00:34 UTC] WorkflowImprovement — five Claude Code agent adapters in `.claude/agents/` mirror the mode handoff, each a thin pointer to AGENTS.md §8 → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-10-03 19:49 UTC] Route — the ladder reads Fast · Balanced · Fun ordered by ETA, the preference re-seats on its live value, and a collapsed preference parks on its survivor (R95) → xTrack/Route/FEAT_HYD_Route.md
@@ -12,7 +13,6 @@
 - [2026-10-03 08:29 UTC] Route — `feature/route-n-floOow`: every discard a two-phase gesture with an undo toast, the fan closing on acquire/follow, and every explicit arming re-searching (R91, R92) → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 03:14 UTC] Route — the three-route ladder shipped: three fixed-aversion rungs over one shared grid, the Driving-preference cursor, tolerance-based collapse, a three-stop Settings cursor, and the candidate-pass apparatus retired; committed `5e6211fa` → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 02:39 UTC] Route — the slow-water dials live and `origin/feature/route-dash-n-flow` merged in (`b3778e5b`): the early select/save, the shared-`DrawerScaffold` acquisition panel and the Routing tab, the aversion dial re-homed into its Tuning block; Phase C and the Driving-preference cursor owed → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-03 02:17 UTC] Route — the functional flow (early select, early save), the acquisition panel on the shared `DrawerScaffold` with a paging three-column table, and the UI guideline docs trimmed to current state; committed `aeeaf11` → xTrack/Route/FEAT_HYD_Route.md
 
 ## Routing Map
 | Keyword | Feature File |
@@ -67,7 +67,7 @@
 | Tasker | External automation bridge — publishes the boat's water state; architecture approved, not implemented | 2026-09-12 08:50 | 2026-09-12 08:50 | active |
 | Mergitur | Three-branch integration COMPLETE into `feature/mergitur` | 2026-09-11 20:04 | 2026-09-11 20:57 | active |
 | TracksImport | Derived map track visibility, shared `MapSelectionPolicy`, GPX off-route cleanup harness | 2026-09-11 20:28 | 2026-09-11 20:28 | active |
-| Ui_Menu | Hamburger menu drawer — position source, track recording, marker management | 2026-07-05 06:57 | 2026-09-11 15:23 | active |
+| Ui_Menu | Hamburger menu drawer — position source, the live recording block under its Tracks row, marker management | 2026-07-05 06:57 | 2026-10-04 08:57 | active |
 | ArcLayout | Layer toggle arc menu — pure-Compose semicircle fan-out | 2026-06-13 07:34 | 2026-09-06 21:19 | active |
 | Documentation | README, FAQs, setup guides, architecture docs, and plans cleanup | 2026-06-11 06:42 | 2026-09-04 22:36 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-09-04 22:36 | active |

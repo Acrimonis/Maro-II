@@ -941,6 +941,12 @@ object AppConfig {
     /** Tracking icon dot colour when idle (stationary). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.idle` in colors.properties. */
     var statusTrackingDotIdle: Int = 0xCCB71C1C.toInt()
         private set
+    /** Live state band fill when recording (moving) — the healthy green at 30 %. Default #4D4CAF50. Set via `status.tracking.container.recording` in colors.properties. */
+    var statusTrackingContainerRecording: Int = 0x4D4CAF50.toInt()
+        private set
+    /** Live state band fill when idle (stationary) — the idle blue at 30 %. Default #4D1565C0. Set via `status.tracking.container.idle` in colors.properties. */
+    var statusTrackingContainerIdle: Int = 0x4D1565C0.toInt()
+        private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
     /** Dashboard depth readout collision tint. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.dashboard.readout.collision` in colors.properties. */
@@ -1642,6 +1648,8 @@ object AppConfig {
             props.getProperty("status.tracking.off")?.let { parseColorOrNull(it) }?.let { statusTrackingOff = it }
             props.getProperty("status.tracking.dot.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingDotRecording = it }
             props.getProperty("status.tracking.dot.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingDotIdle = it }
+            props.getProperty("status.tracking.container.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingContainerRecording = it }
+            props.getProperty("status.tracking.container.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingContainerIdle = it }
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }

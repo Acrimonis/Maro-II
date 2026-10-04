@@ -2,8 +2,10 @@ package ykws.android.maro.ui.map
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
@@ -22,13 +25,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -36,6 +43,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.route.RouteEndSelection
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
+import ykws.android.maro.ui.components.BAR_CELL_PAD_VERTICAL_DP
 import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
@@ -45,9 +53,16 @@ import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.MarkerCreateAction
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
+import ykws.android.maro.ui.components.StatCell
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
+
+/**
+ * The bullet the drawer's status band reads its two words apart by — the notification title's own
+ * separator, so the drawer's status and the notification's read the same way.
+ */
+private const val STATE_SEPARATOR = "•"
 
 /**
  * Menu slide panel — pure content composable.
@@ -202,23 +217,7 @@ fun MenuDrawerOverlay(
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            // ── Live stats (only when recording) — the card's head, per D5 ──
-            if (recorderState.state == TrackRecorderState.ON) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    StatRow(stringResource(R.string.track_stat_state), if (recorderState.isMoving) stringResource(R.string.track_status_recording) else stringResource(R.string.track_status_idle))
-                    StatRow(stringResource(R.string.track_stat_elapsed), formatDuration(recorderState.elapsedSeconds))
-                    StatRow(stringResource(R.string.track_stat_points), "${recorderState.pointCount}")
-                    StatRow(stringResource(R.string.track_stat_distance), stringResource(R.string.menu_stat_distance_nm, recorderState.distanceNm))
-                    StatRow(stringResource(R.string.track_stat_max_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.maxSpeedKn))
-                    StatRow(stringResource(R.string.track_stat_avg_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.avgSpeedKn))
-                    StatRow(stringResource(R.string.track_stat_idle), formatDuration(recorderState.idleDurationSec))
-                }
-                SectionDivider()
-            }
-
-            // ── Track List row ─────────────────────────────
+            // ── Track List row — the card's first sub-section since 2026-10-04 ─────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -256,6 +255,114 @@ fun MenuDrawerOverlay(
                 }
             }
 
+            // ── The live block, under the Tracks row (only when recording) ──
+            // The state rides the band's own fill — the tracking square's colour subdued to the level a
+            // taken choice wears — and the mark beside the word is the app's one pulsing disc (R69), so
+            // the drawer's state and the map square's state cannot drift apart.
+            if (recorderState.state == TrackRecorderState.ON) {
+                SectionDivider()
+                val bandShape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(bandShape)
+                        .background(
+                            Color(
+                                if (recorderState.isMoving) AppConfig.statusTrackingContainerRecording
+                                else AppConfig.statusTrackingContainerIdle
+                            )
+                        )
+                        // The edge reads the state's own colour — light green while recording, blue while
+                        // idle — the pair the map's tracking square is painted with, so the band's edge
+                        // and the toggle's face are one colour and only their weights differ.
+                        .border(
+                            1.dp,
+                            Color(
+                                if (recorderState.isMoving) AppConfig.statusTrackingHealthy
+                                else AppConfig.statusTrackingIdle
+                            ),
+                            bandShape
+                        )
+                        .padding(horizontal = 8.dp, vertical = BAR_CELL_PAD_VERTICAL_DP.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // The app's one pulsing disc: `MapPulseDot` keeps the size, the colour and the beat.
+                    MapPulseDot()
+                    // "Recording • Idle|Moving" — the record state, the notification's bullet, then the
+                    // sub-state the notification's own middle segment names.
+                    Text(
+                        text = stringResource(R.string.state_recording),
+                        color = Color(AppConfig.uiTextPrimary),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = STATE_SEPARATOR,
+                        color = Color(AppConfig.uiTextMuted),
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = if (recorderState.isMoving) stringResource(R.string.state_moving)
+                               else stringResource(R.string.state_idle),
+                        color = Color(AppConfig.uiTextPrimary),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                SectionDivider()
+
+                // ── The six readings: two columns by three rows ──
+                // The label, separator and value columns are shared by the whole table: the label
+                // column is measured once from the widest label, so no cell stands empty before a
+                // short one, the colon keeps a centred slot of its own and every value starts on its
+                // column. The measurement is keyed on the labels, not on the live state, so a ticking
+                // recording never re-measures.
+                val readingLabels = listOf(
+                    stringResource(R.string.track_stat_elapsed),
+                    stringResource(R.string.track_stat_points),
+                    stringResource(R.string.track_stat_distance),
+                    stringResource(R.string.track_stat_max_speed),
+                    stringResource(R.string.track_stat_avg_speed),
+                    stringResource(R.string.track_stat_idle)
+                )
+                val labelMeasurer = rememberTextMeasurer()
+                val labelStyle = TextStyle(
+                    color = Color(AppConfig.uiTextMuted),
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp
+                )
+                val labelDensity = LocalDensity.current
+                val labelWidth = remember(readingLabels.joinToString("\u0000")) {
+                    with(labelDensity) {
+                        readingLabels.maxOf { labelMeasurer.measure(it, labelStyle).size.width }.toDp()
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(Modifier.weight(1f)) {
+                        StatCell(stringResource(R.string.track_stat_elapsed), formatDuration(recorderState.elapsedSeconds), labelWidth = labelWidth)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        StatCell(stringResource(R.string.track_stat_points), "${recorderState.pointCount}", labelWidth = labelWidth)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(Modifier.weight(1f)) {
+                        StatCell(stringResource(R.string.track_stat_distance), stringResource(R.string.menu_stat_distance_nm, recorderState.distanceNm), labelWidth = labelWidth)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        StatCell(stringResource(R.string.track_stat_max_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.maxSpeedKn), labelWidth = labelWidth)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(Modifier.weight(1f)) {
+                        StatCell(stringResource(R.string.track_stat_avg_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.avgSpeedKn), labelWidth = labelWidth)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        StatCell(stringResource(R.string.track_stat_idle), formatDuration(recorderState.idleDurationSec), labelWidth = labelWidth)
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
