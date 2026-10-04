@@ -285,13 +285,15 @@ the card** rather than a top-level section with a card of its own (D2), **headed
 group's two fields**: `route_comment_ends` reads `Origin and destination` (`Origine et destination`),
 **which is what identifies them**, since neither row carries a label of its own — each dropdown shows **only
 its value**, inside its own field box (§2.12). **No rule separates the two rows either**: the group's order is
-the comment → the two value-only dropdowns — **one block**. It remains the drawer's only group that **writes**
+the comment → the two value-only dropdowns — **one block** — and the two sit one gap apart, the shared
+`ui.spacing.dropdown.gap` the quick access leaves between its own two wheels, so a group of fields is spaced
+alike whichever way it lies (2026-10-04). It remains the drawer's only group that **writes**
 mode state rather than reading it; the summary stays read-only (R67).
 
-- **Two `DropdownRow`s, one per end**, **label-less and back to back**: the shared control of
+- **Two `DropdownRow`s, one per end**, **label-less and one gap apart**: the shared control of
   [`ui-component-guidelines.md` §2.12](ui-component-guidelines.md#212-dropdown-row--dropdownrow), each row
   `label = null` so it shows **only the value**, still under the comment that names both fields — the ends'
-  lists open as a wheel through the control (§2.12), **no rule between the rows**, and no per-row label
+  lists open as a wheel through the control (§2.12), **no rule between the rows** and no per-row label
   duplicating what the heading already says. The value stands inside the control's own box on the bars'
   base — `uiRadiusCard` behind the accent edge (§2.12) — so the ends read as two boxes under the comment.
 - **Entries are ordered and the first is the fallback** (R66): the fixed words first — `Current

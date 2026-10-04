@@ -1194,6 +1194,9 @@ object AppConfig {
     var uiSpacingLabelControl: Float = 16f; private set
     var uiSpacingExpanderToContent: Float = 4f; private set
 
+    /** The gap between two dropdown fields of one group, whichever way they sit — one value for both axes. */
+    var uiSpacingDropdownGap: Float = 4f; private set
+
     // Padding (dp)
     var uiPaddingCardVertical: Float = 8f; private set
     var uiPaddingCardHorizontal: Float = 16f; private set
@@ -1867,6 +1870,7 @@ object AppConfig {
             uiSpacingGroupedAfterExpander = dp("ui.spacing.grouped.after-expander", uiSpacingGroupedAfterExpander)
             uiSpacingLabelControl = dp("ui.spacing.label.control", uiSpacingLabelControl)
             uiSpacingExpanderToContent = dp("ui.spacing.expander.to-content", uiSpacingExpanderToContent)
+            uiSpacingDropdownGap = dp("ui.spacing.dropdown.gap", uiSpacingDropdownGap)
 
             // Padding
             uiPaddingCardVertical = dp("ui.padding.card.vertical", uiPaddingCardVertical)

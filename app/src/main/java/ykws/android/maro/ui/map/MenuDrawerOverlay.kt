@@ -468,10 +468,15 @@ fun MenuDrawerOverlay(
  * **The Route sub-section: a route's two ends** (R44–R48).
  *
  * Two **dropdowns** over the ends the screen resolved — the wheel of R70 retired 2026-09-28, its drag never
- * committing reliably — standing **inside** the Navigation card under a comment naming the group's two
- * roles. The entries arrive already labelled — two of them are `@StringRes`-backed words and the rest are
- * markers' own names, which is data rather than UI text — so each row's own label is its role and the value
- * rides on its right.
+ * committing reliably — standing **inside** the Routing card under a comment naming the group's two roles.
+ * The entries arrive already labelled — two of them are `@StringRes`-backed words and the rest are markers'
+ * own names, which is data rather than UI text — so each row's own label is its role and the value rides on
+ * its right.
+ *
+ * **The two sit one gap apart, and it is the very gap the quick access leaves between its two wheels** (the
+ * user's word, 2026-10-04): `ui.spacing.dropdown.gap`, the one value for the space between two fields of a
+ * group, whichever way they sit — so the ends' stacked pair and the pair control's side-by-side one read as
+ * spaced the same.
  *
  * **The action that armed the acquisition was removed from here** (the user's word, 2026-10-04): the map's
  * square and the fan's own child are the doors now, so R49's "second door onto the same arming" no longer
@@ -482,7 +487,8 @@ private fun RouteEndsSection(section: RouteSummaryData) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp)
+            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
+        verticalArrangement = Arrangement.spacedBy(AppConfig.uiSpacingDropdownGap.dp)
     ) {
         DropdownRow(
             label = null,

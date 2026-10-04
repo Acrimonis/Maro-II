@@ -515,6 +515,7 @@ needs nothing else.
 | Expander→content | header+8dp spacer | 8dp |
 | Last expander→card close | `ui.spacing.grouped.after-expander` | 4dp |
 | Label→control (row) | `ui.spacing.label.control` | 16dp |
+| Between two dropdown fields of a group, either axis | `ui.spacing.dropdown.gap` | 4dp |
 | Visible divider gap (above/below) | `ui.divider.gap` | 6dp |
 | Vertical divider width (side-by-side sections) | `ui.divider.height` | 1dp |
 
@@ -605,9 +606,11 @@ and without its width.
 - **No side carries a label** — the comment above the pair names both, and each side's `accessibleName` is what
   a screen reader announces. **No vertical rule stands between them either**: §2.14's `SectionRow` lays out two
   sections, and this is two controls in one.
-- **The gap and the padding are the primitive's** — the pair owns its **4dp** gap and its vertical padding, so
-  a call site hands over two fields and nothing else; the gap is that small because the two boxes' chrome is
-  paid twice in one row.
+- **The gap and the padding are the primitive's** — the pair's gap is the shared token
+  `ui.spacing.dropdown.gap` (**4dp**) and its vertical padding is `ui.padding.toggle.vertical`, so a call site
+  hands over two fields and nothing else. It is that small because the two boxes' chrome is paid twice in one
+  row, and it is the **same token the route ends' two rows take vertically** (2026-10-04): one value for the
+  space between two fields of a group, whichever way they sit.
 
 ---
 

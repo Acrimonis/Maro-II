@@ -12,12 +12,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ykws.android.maro.config.AppConfig
 
-/**
- * The gap between a pair's two boxes (dp) — the pair's own spacing, stated once and **small on purpose**
- * (2026-10-04): two fields pay their chrome twice, so what the pair leaves between them is the space its two
- * words are read in.
- */
-private const val DROPDOWN_PAIR_GAP_DP = 4
+// The gap between a pair's two boxes is the shared token `ui.spacing.dropdown.gap`, held with every other
+// dimension in `ui.properties` and read through AppConfig: the space between two fields of one group is one
+// value, whichever way the two sit, and it is deliberately small (2026-10-04) because two fields pay their
+// chrome twice — what the pair leaves between them is the space its two words are read in.
 
 /**
  * **One side of a [DropdownPairRow]** — everything a [DropdownRow] takes except its label (the comment above
@@ -64,7 +62,7 @@ internal fun <L, R> DropdownPairRow(
     modifier: Modifier = Modifier,
     leftWidth: DropdownPairWidth = DropdownPairWidth.Content,
     rightWidth: DropdownPairWidth = DropdownPairWidth.Remainder,
-    gap: Dp = DROPDOWN_PAIR_GAP_DP.dp,
+    gap: Dp = AppConfig.uiSpacingDropdownGap.dp,
     verticalPadding: Dp = AppConfig.uiPaddingToggleVertical.dp
 ) {
     Row(
