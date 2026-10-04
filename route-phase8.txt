@@ -1,0 +1,290 @@
+--------- beginning of main
+10-04 22:23:05.725 17368 17413 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.61040,7.08509..7.21955) clampedByRegion=false regionSaturated=false
+10-04 22:23:05.725 17368 17409 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.61040,7.08509..7.21955) clampedByRegion=false regionSaturated=false
+10-04 22:23:05.725 17368 17410 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.61040,7.08509..7.21955) clampedByRegion=false regionSaturated=false
+10-04 22:23:05.844 17368 17409 I MaroRoute: FINE window box=(43.53713..43.54576,7.08509..7.09104) cells=48x25
+10-04 22:23:05.845 17368 17413 I MaroRoute: FINE window box=(43.53713..43.54576,7.08509..7.09104) cells=48x25
+10-04 22:23:05.848 17368 17410 I MaroRoute: FINE window box=(43.53713..43.54576,7.08509..7.09104) cells=48x25
+10-04 22:23:05.876 17368 17409 I MaroRoute: FINE window box=(43.53713..43.54145,7.10892..7.14467) cells=24x145
+10-04 22:23:05.878 17368 17410 I MaroRoute: FINE window box=(43.53713..43.54145,7.10892..7.14467) cells=24x145
+10-04 22:23:05.884 17368 17413 I MaroRoute: FINE window box=(43.53713..43.54145,7.10892..7.14467) cells=24x145
+10-04 22:23:05.960 17368 17409 I MaroRoute: FINE window box=(43.54145..43.54576,7.10892..7.15063) cells=24x169
+10-04 22:23:05.964 17368 17410 I MaroRoute: FINE window box=(43.54145..43.54576,7.10892..7.15063) cells=24x169
+10-04 22:23:05.983 17368 17413 I MaroRoute: FINE window box=(43.54145..43.54576,7.10892..7.15063) cells=24x169
+10-04 22:23:06.102 17368 17409 I MaroRoute: FINE window box=(43.54576..43.55440,7.10892..7.15659) cells=48x193
+10-04 22:23:06.106 17368 17410 I MaroRoute: FINE window box=(43.54576..43.55440,7.10892..7.15659) cells=48x193
+10-04 22:23:06.194 17368 17413 I MaroRoute: FINE window box=(43.54576..43.55440,7.10892..7.15659) cells=48x193
+10-04 22:23:06.209 17368 17409 I MaroRoute: FINE window box=(43.55440..43.55871,7.10296..7.15659) cells=24x216
+10-04 22:23:06.215 17368 17409 I MaroRoute: FINE window box=(43.55871..43.56303,7.08509..7.09104) cells=24x25
+10-04 22:23:06.227 17368 17410 I MaroRoute: FINE window box=(43.55440..43.55871,7.10296..7.15659) cells=24x216
+10-04 22:23:06.232 17368 17410 I MaroRoute: FINE window box=(43.55871..43.56303,7.08509..7.09104) cells=24x25
+10-04 22:23:06.296 17368 17413 I MaroRoute: FINE window box=(43.55440..43.55871,7.10296..7.15659) cells=24x216
+10-04 22:23:06.302 17368 17413 I MaroRoute: FINE window box=(43.55871..43.56303,7.08509..7.09104) cells=24x25
+10-04 22:23:06.309 17368 17410 I MaroRoute: FINE window box=(43.55871..43.56303,7.10296..7.15063) cells=24x193
+10-04 22:23:06.311 17368 17409 I MaroRoute: FINE window box=(43.55871..43.56303,7.10296..7.15063) cells=24x193
+10-04 22:23:06.389 17368 17413 I MaroRoute: FINE window box=(43.55871..43.56303,7.10296..7.15063) cells=24x193
+10-04 22:23:06.503 17368 17409 I MaroRoute: FINE window box=(43.56303..43.57598,7.08509..7.15063) cells=72x265
+10-04 22:23:06.506 17368 17410 I MaroRoute: FINE window box=(43.56303..43.57598,7.08509..7.15063) cells=72x265
+10-04 22:23:06.542 17368 17409 I MaroRoute: FINE window box=(43.57598..43.58030,7.11488..7.15063) cells=24x145
+10-04 22:23:06.547 17368 17410 I MaroRoute: FINE window box=(43.57598..43.58030,7.11488..7.15063) cells=24x145
+10-04 22:23:06.602 17368 17413 I MaroRoute: FINE window box=(43.56303..43.57598,7.08509..7.15063) cells=72x265
+10-04 22:23:06.644 17368 17413 I MaroRoute: FINE window box=(43.57598..43.58030,7.11488..7.15063) cells=24x145
+10-04 22:23:06.685 17368 17409 I MaroRoute: FINE window box=(43.58030..43.59756,7.11488..7.14467) cells=96x121
+10-04 22:23:06.714 17368 17410 I MaroRoute: FINE window box=(43.58030..43.59756,7.11488..7.14467) cells=96x121
+10-04 22:23:06.718 17368 17409 I MaroRoute: FINE window box=(43.59756..43.61040,7.11488..7.13871) cells=72x97
+10-04 22:23:06.718 17368 17409 I MaroRoute: GRID layer=fine windows=11 cells=69576 reach=475.0m cell=20.0m ms=885.0
+10-04 22:23:06.741 17368 17409 I MaroRoute: GRID layer=coarse cells=9047 land=2177 band=400 zone=453 free=6017 start=(r=44,c=71 isWater=true depth=347.5m state=FREE→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 22:23:06.741 17368 17409 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:06.741 17368 17409 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 22:23:06.752 17368 17410 I MaroRoute: FINE window box=(43.59756..43.61040,7.11488..7.13871) cells=72x97
+10-04 22:23:06.752 17368 17410 I MaroRoute: GRID layer=fine windows=11 cells=69576 reach=475.0m cell=20.0m ms=914.7
+10-04 22:23:06.782 17368 17410 I MaroRoute: GRID layer=coarse cells=9047 land=2177 band=400 zone=453 free=6017 start=(r=44,c=71 isWater=true depth=347.5m state=FREE→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 22:23:06.782 17368 17410 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:06.782 17368 17410 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 22:23:06.799 17368 17413 I MaroRoute: FINE window box=(43.58030..43.59756,7.11488..7.14467) cells=96x121
+10-04 22:23:06.836 17368 17413 I MaroRoute: FINE window box=(43.59756..43.61040,7.11488..7.13871) cells=72x97
+10-04 22:23:06.837 17368 17413 I MaroRoute: GRID layer=fine windows=11 cells=69576 reach=475.0m cell=20.0m ms=1004.2
+10-04 22:23:06.861 17368 17413 I MaroRoute: GRID layer=coarse cells=9047 land=2177 band=400 zone=453 free=6017 start=(r=44,c=71 isWater=true depth=347.5m state=FREE→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 22:23:06.861 17368 17413 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:06.861 17368 17413 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 22:23:06.866 17368 17413 I MaroRoute: STAGE done=none next=SEARCH
+10-04 22:23:06.880 17368 17413 I MaroRoute: STAGE done=SEARCH next=PULL points=49
+10-04 22:23:07.182 17368 17409 I MaroRoute: PULL zoneM=0.0 ms=423.4 clearMs=199.6 priceMs=223.3 priceReads=5048
+10-04 22:23:07.271 17368 17409 I MaroRoute: SNAP zoneM=0.0 ms=44.7
+10-04 22:23:07.275 17368 17410 I MaroRoute: PULL zoneM=0.0 ms=471.6 clearMs=218.9 priceMs=252.2 priceReads=5048
+10-04 22:23:07.324 17368 17409 I MaroRoute: FINAL zoneM=0.0 ms=53.2 clearMs=21.3 priceMs=31.7 priceReads=566
+10-04 22:23:07.365 17368 17413 I MaroRoute: PULL zoneM=0.0 ms=484.7 clearMs=225.6 priceMs=258.6 priceReads=5048
+10-04 22:23:07.387 17368 17410 I MaroRoute: SNAP zoneM=0.0 ms=86.6
+10-04 22:23:07.389 17368 17413 I MaroRoute: STAGE done=PULL next=SNAP points=4
+10-04 22:23:07.429 17368 17413 I MaroRoute: SNAP zoneM=0.0 ms=40.2
+10-04 22:23:07.444 17368 17410 I MaroRoute: FINAL zoneM=0.0 ms=56.8 clearMs=23.7 priceMs=32.9 priceReads=566
+10-04 22:23:07.483 17368 17413 I MaroRoute: FINAL zoneM=0.0 ms=54.5 clearMs=29.3 priceMs=25.0 priceReads=566
+10-04 22:23:07.507 17368 17413 I MaroRoute: STAGE done=SNAP next=PULL
+10-04 22:23:07.515 17368 17409 I MaroRoute: FINE settled points=4 fineCell=20.0m
+10-04 22:23:07.515 17368 17409 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:07.515 17368 17409 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=5.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=9047 passableUnique=11582 expansions=347 pathCells=47 pulled=4 snapped=4 coarseM=3514.3m coarseMs=626.4 fineMs=143.5
+10-04 22:23:07.638 17368 17410 I MaroRoute: FINE settled points=4 fineCell=20.0m
+10-04 22:23:07.638 17368 17410 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:07.638 17368 17410 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=5.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=9047 passableUnique=11582 expansions=347 pathCells=47 pulled=4 snapped=4 coarseM=3514.3m coarseMs=694.1 fineMs=157.9
+10-04 22:23:07.644 17368 17413 I MaroRoute: FINE settled points=4 fineCell=20.0m
+10-04 22:23:07.644 17368 17413 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:07.644 17368 17413 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=5.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=9047 passableUnique=11582 expansions=347 pathCells=47 pulled=4 snapped=4 coarseM=3514.3m coarseMs=642.0 fineMs=136.6
+10-04 22:23:09.571 17368 17409 I MaroRoute: PULL zoneM=0.0 ms=1964.7 clearMs=932.7 priceMs=1030.4 priceReads=20640
+10-04 22:23:09.631 17368 17410 I MaroRoute: PULL zoneM=0.0 ms=1882.3 clearMs=901.9 priceMs=978.9 priceReads=20640
+10-04 22:23:09.640 17368 17409 I MaroRoute: SNAP zoneM=0.0 ms=44.9
+10-04 22:23:09.646 17368 17413 I MaroRoute: PULL zoneM=0.0 ms=1902.5 clearMs=902.9 priceMs=998.0 priceReads=20640
+10-04 22:23:09.721 17368 17410 I MaroRoute: SNAP zoneM=0.0 ms=66.1
+10-04 22:23:09.727 17368 17409 I MaroRoute: FINAL zoneM=0.0 ms=87.3 clearMs=36.4 priceMs=50.4 priceReads=564
+10-04 22:23:09.738 17368 17413 I MaroRoute: SNAP zoneM=0.0 ms=68.3
+10-04 22:23:09.752 17368 17409 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=5.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=6243 refPassable=10291 refM=3506.0m refMs=2236.5 chainFineM=3514.3m devRefMax=24.2m devRefMean=9.4m devRefBackMax=20.9m devRefBackMean=6.0m
+10-04 22:23:09.791 17368 17409 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 22:23:09.796 17368 17409 I MaroRoute: LINE distance=3514.1m duration=1366.2s legs=35 step=10.0m bandMetres=1135.5m bandPricedMetres=1135.5m slowMetres=1135.5m slowShare=0.00 zoneShare=0.00 bandShare=0.00 rampShare=0.00 forced=[]
+10-04 22:23:09.797 17368 17409 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:23:09.799 17368 17410 I MaroRoute: FINAL zoneM=0.0 ms=77.6 clearMs=31.7 priceMs=45.8 priceReads=564
+10-04 22:23:09.814 17368 17413 I MaroRoute: FINAL zoneM=0.0 ms=75.4 clearMs=30.8 priceMs=44.4 priceReads=564
+10-04 22:23:09.820 17368 17410 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=5.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=6243 refPassable=10291 refM=3506.0m refMs=2181.6 chainFineM=3514.3m devRefMax=24.2m devRefMean=9.4m devRefBackMax=20.9m devRefBackMean=6.0m
+10-04 22:23:09.836 17368 17413 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=5.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=6243 refPassable=10291 refM=3506.0m refMs=2192.3 chainFineM=3514.3m devRefMax=24.2m devRefMean=9.4m devRefBackMax=20.9m devRefBackMean=6.0m
+10-04 22:23:09.857 17368 17410 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 22:23:09.861 17368 17410 I MaroRoute: LINE distance=3514.1m duration=1366.2s legs=35 step=10.0m bandMetres=1135.5m bandPricedMetres=1135.5m slowMetres=1135.5m slowShare=0.00 zoneShare=0.00 bandShare=0.00 rampShare=0.00 forced=[]
+10-04 22:23:09.861 17368 17410 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:23:09.875 17368 17413 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 22:23:09.880 17368 17413 I MaroRoute: LINE distance=3514.1m duration=1366.2s legs=35 step=10.0m bandMetres=1135.5m bandPricedMetres=1135.5m slowMetres=1135.5m slowShare=0.00 zoneShare=0.00 bandShare=0.00 rampShare=0.00 forced=[]
+10-04 22:23:09.880 17368 17413 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:23:29.075 17368 17413 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.61040,7.08509..7.21955) clampedByRegion=false regionSaturated=false
+10-04 22:23:29.076 17368 17409 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.61040,7.08509..7.21955) clampedByRegion=false regionSaturated=false
+10-04 22:23:29.076 17368 17411 I MaroRoute: CORRIDOR reach=3704.0m box=(43.53713..43.61040,7.08509..7.21955) clampedByRegion=false regionSaturated=false
+10-04 22:23:29.166 17368 17413 I MaroRoute: FINE window box=(43.53713..43.54576,7.08509..7.09104) cells=48x25
+10-04 22:23:29.186 17368 17411 I MaroRoute: FINE window box=(43.53713..43.54576,7.08509..7.09104) cells=48x25
+10-04 22:23:29.198 17368 17413 I MaroRoute: FINE window box=(43.53713..43.54145,7.10892..7.14467) cells=24x145
+10-04 22:23:29.200 17368 17409 I MaroRoute: FINE window box=(43.53713..43.54576,7.08509..7.09104) cells=48x25
+10-04 22:23:29.219 17368 17411 I MaroRoute: FINE window box=(43.53713..43.54145,7.10892..7.14467) cells=24x145
+10-04 22:23:29.237 17368 17409 I MaroRoute: FINE window box=(43.53713..43.54145,7.10892..7.14467) cells=24x145
+10-04 22:23:29.282 17368 17413 I MaroRoute: FINE window box=(43.54145..43.54576,7.10892..7.15063) cells=24x169
+10-04 22:23:29.303 17368 17411 I MaroRoute: FINE window box=(43.54145..43.54576,7.10892..7.15063) cells=24x169
+10-04 22:23:29.327 17368 17409 I MaroRoute: FINE window box=(43.54145..43.54576,7.10892..7.15063) cells=24x169
+10-04 22:23:29.436 17368 17413 I MaroRoute: FINE window box=(43.54576..43.55440,7.10892..7.15659) cells=48x193
+10-04 22:23:29.457 17368 17411 I MaroRoute: FINE window box=(43.54576..43.55440,7.10892..7.15659) cells=48x193
+10-04 22:23:29.474 17368 17409 I MaroRoute: FINE window box=(43.54576..43.55440,7.10892..7.15659) cells=48x193
+10-04 22:23:29.530 17368 17413 I MaroRoute: FINE window box=(43.55440..43.55871,7.10296..7.15659) cells=24x216
+10-04 22:23:29.539 17368 17413 I MaroRoute: FINE window box=(43.55871..43.56303,7.08509..7.09104) cells=24x25
+10-04 22:23:29.576 17368 17409 I MaroRoute: FINE window box=(43.55440..43.55871,7.10296..7.15659) cells=24x216
+10-04 22:23:29.586 17368 17409 I MaroRoute: FINE window box=(43.55871..43.56303,7.08509..7.09104) cells=24x25
+10-04 22:23:29.600 17368 17411 I MaroRoute: FINE window box=(43.55440..43.55871,7.10296..7.15659) cells=24x216
+10-04 22:23:29.605 17368 17411 I MaroRoute: FINE window box=(43.55871..43.56303,7.08509..7.09104) cells=24x25
+10-04 22:23:29.612 17368 17413 I MaroRoute: FINE window box=(43.55871..43.56303,7.10296..7.15063) cells=24x193
+10-04 22:23:29.675 17368 17409 I MaroRoute: FINE window box=(43.55871..43.56303,7.10296..7.15063) cells=24x193
+10-04 22:23:29.687 17368 17411 I MaroRoute: FINE window box=(43.55871..43.56303,7.10296..7.15063) cells=24x193
+10-04 22:23:29.792 17368 17413 I MaroRoute: FINE window box=(43.56303..43.57598,7.08509..7.15063) cells=72x265
+10-04 22:23:29.825 17368 17413 I MaroRoute: FINE window box=(43.57598..43.58030,7.11488..7.15063) cells=24x145
+10-04 22:23:29.845 17368 17409 I MaroRoute: FINE window box=(43.56303..43.57598,7.08509..7.15063) cells=72x265
+10-04 22:23:29.883 17368 17409 I MaroRoute: FINE window box=(43.57598..43.58030,7.11488..7.15063) cells=24x145
+10-04 22:23:29.903 17368 17411 I MaroRoute: FINE window box=(43.56303..43.57598,7.08509..7.15063) cells=72x265
+10-04 22:23:29.949 17368 17411 I MaroRoute: FINE window box=(43.57598..43.58030,7.11488..7.15063) cells=24x145
+10-04 22:23:29.952 17368 17413 I MaroRoute: FINE window box=(43.58030..43.59756,7.11488..7.14467) cells=96x121
+10-04 22:23:29.979 17368 17413 I MaroRoute: FINE window box=(43.59756..43.61040,7.11488..7.13871) cells=72x97
+10-04 22:23:29.979 17368 17413 I MaroRoute: GRID layer=fine windows=11 cells=69576 reach=475.0m cell=20.0m ms=825.4
+10-04 22:23:30.000 17368 17413 I MaroRoute: GRID layer=coarse cells=9047 land=2177 band=400 zone=453 free=6017 start=(r=44,c=71 isWater=true depth=347.5m state=FREE→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 22:23:30.000 17368 17413 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:30.000 17368 17413 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 22:23:30.017 17368 17409 I MaroRoute: FINE window box=(43.58030..43.59756,7.11488..7.14467) cells=96x121
+10-04 22:23:30.044 17368 17409 I MaroRoute: FINE window box=(43.59756..43.61040,7.11488..7.13871) cells=72x97
+10-04 22:23:30.044 17368 17409 I MaroRoute: GRID layer=fine windows=11 cells=69576 reach=475.0m cell=20.0m ms=856.2
+10-04 22:23:30.065 17368 17409 I MaroRoute: GRID layer=coarse cells=9047 land=2177 band=400 zone=453 free=6017 start=(r=44,c=71 isWater=true depth=347.5m state=FREE→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 22:23:30.065 17368 17409 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:30.065 17368 17409 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 22:23:30.115 17368 17411 I MaroRoute: FINE window box=(43.58030..43.59756,7.11488..7.14467) cells=96x121
+10-04 22:23:30.152 17368 17411 I MaroRoute: FINE window box=(43.59756..43.61040,7.11488..7.13871) cells=72x97
+10-04 22:23:30.152 17368 17411 I MaroRoute: GRID layer=fine windows=11 cells=69576 reach=475.0m cell=20.0m ms=977.2
+10-04 22:23:30.181 17368 17411 I MaroRoute: GRID layer=coarse cells=9047 land=2177 band=400 zone=453 free=6017 start=(r=44,c=71 isWater=true depth=347.5m state=FREE→FREE limit=0.0kn) aim=(r=37,c=37 isWater=true depth=3.1m state=BAND→FREE limit=0.0kn)
+10-04 22:23:30.181 17368 17411 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:30.181 17368 17411 I MaroRoute: CARVE end=aim dir=none reason=end-clear length=0.0m
+10-04 22:23:30.184 17368 17411 I MaroRoute: STAGE done=none next=SEARCH
+10-04 22:23:30.324 17368 17411 I MaroRoute: STAGE done=SEARCH next=PULL points=37
+10-04 22:23:30.445 17368 17409 I MaroRoute: PULL zoneM=0.0 ms=364.6 clearMs=167.6 priceMs=196.5 priceReads=4199
+10-04 22:23:30.519 17368 17409 I MaroRoute: SNAP zoneM=0.0 ms=46.7
+10-04 22:23:30.575 17368 17409 I MaroRoute: FINAL zoneM=0.0 ms=56.4 clearMs=22.7 priceMs=33.5 priceReads=566
+10-04 22:23:30.632 17368 17413 I MaroRoute: PULL zoneM=0.0 ms=541.8 clearMs=139.6 priceMs=401.8 priceReads=3970
+10-04 22:23:30.722 17368 17409 I MaroRoute: FINE settled points=4 fineCell=20.0m
+10-04 22:23:30.722 17368 17409 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:30.723 17368 17409 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=30.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=9047 passableUnique=11582 expansions=347 pathCells=43 pulled=4 snapped=4 coarseM=3514.3m coarseMs=527.8 fineMs=126.4
+10-04 22:23:30.724 17368 17413 I MaroRoute: SNAP zoneM=0.0 ms=66.4
+10-04 22:23:30.831 17368 17413 I MaroRoute: FINAL zoneM=0.0 ms=106.8 clearMs=19.6 priceMs=87.0 priceReads=893
+10-04 22:23:30.967 17368 17411 I MaroRoute: PULL zoneM=0.0 ms=643.1 clearMs=176.6 priceMs=466.1 priceReads=3970
+10-04 22:23:30.993 17368 17411 I MaroRoute: STAGE done=PULL next=SNAP points=4
+10-04 22:23:31.065 17368 17411 I MaroRoute: SNAP zoneM=0.0 ms=72.2
+10-04 22:23:31.133 17368 17413 I MaroRoute: FINE settled points=4 fineCell=20.0m
+10-04 22:23:31.133 17368 17413 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:31.133 17368 17413 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=30.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=9047 passableUnique=11582 expansions=3722 pathCells=35 pulled=4 snapped=4 coarseM=3632.5m coarseMs=850.9 fineMs=279.1
+10-04 22:23:31.183 17368 17411 I MaroRoute: FINAL zoneM=0.0 ms=117.3 clearMs=22.4 priceMs=94.7 priceReads=893
+10-04 22:23:31.209 17368 17411 I MaroRoute: STAGE done=SNAP next=PULL
+10-04 22:23:31.517 17368 17411 I MaroRoute: FINE settled points=4 fineCell=20.0m
+10-04 22:23:31.517 17368 17411 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:31.517 17368 17411 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=30.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=9047 passableUnique=11582 expansions=6214 pathCells=35 pulled=4 snapped=4 coarseM=3632.5m coarseMs=1024.7 fineMs=307.4
+10-04 22:23:32.752 17368 17409 I MaroRoute: PULL zoneM=0.0 ms=1930.0 clearMs=935.6 priceMs=993.0 priceReads=20597
+10-04 22:23:32.815 17368 17409 I MaroRoute: SNAP zoneM=0.0 ms=40.7
+10-04 22:23:32.873 17368 17409 I MaroRoute: FINAL zoneM=0.0 ms=58.7 clearMs=32.1 priceMs=26.5 priceReads=564
+10-04 22:23:32.900 17368 17409 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=30.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=6243 refPassable=10291 refM=3506.0m refMs=2177.0 chainFineM=3514.3m devRefMax=24.2m devRefMean=9.4m devRefBackMax=20.9m devRefBackMean=6.0m
+10-04 22:23:32.944 17368 17409 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 22:23:32.951 17368 17409 I MaroRoute: LINE distance=3512.9m duration=600.5s legs=51 step=10.0m bandMetres=1134.3m bandPricedMetres=1134.3m slowMetres=3512.9m slowShare=0.62 zoneShare=0.00 bandShare=0.61 rampShare=0.01 forced=[]
+10-04 22:23:32.951 17368 17409 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:23:33.919 17368 17413 I MaroRoute: PULL zoneM=0.0 ms=2658.4 clearMs=729.8 priceMs=1926.7 priceReads=15987
+10-04 22:23:34.022 17368 17413 I MaroRoute: SNAP zoneM=0.0 ms=78.5
+10-04 22:23:34.133 17368 17413 I MaroRoute: FINAL zoneM=0.0 ms=111.5 clearMs=21.3 priceMs=90.0 priceReads=901
+10-04 22:23:34.159 17368 17413 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=30.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=10248 refPassable=10291 refM=3612.4m refMs=3025.2 chainFineM=3632.5m devRefMax=45.1m devRefMean=11.3m devRefBackMax=20.4m devRefBackMean=6.1m
+10-04 22:23:34.197 17368 17413 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn] avoiding=true expansions=239 passable=6417 aimClosed=true forced=[]
+10-04 22:23:34.199 17368 17413 I MaroRoute: LINE distance=3624.5m duration=403.5s legs=51 step=10.0m bandMetres=477.6m bandPricedMetres=564.5m slowMetres=3624.5m slowShare=0.42 zoneShare=0.00 bandShare=0.38 rampShare=0.03 forced=[]
+10-04 22:23:34.199 17368 17413 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:23:34.430 17368 17411 I MaroRoute: PULL zoneM=0.0 ms=2691.1 clearMs=731.3 priceMs=1957.9 priceReads=16022
+10-04 22:23:34.524 17368 17411 I MaroRoute: SNAP zoneM=0.0 ms=72.5
+10-04 22:23:34.629 17368 17411 I MaroRoute: FINAL zoneM=0.0 ms=105.1 clearMs=19.8 priceMs=85.1 priceReads=900
+10-04 22:23:34.652 17368 17411 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=30.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=10256 refPassable=10291 refM=3612.2m refMs=3135.1 chainFineM=3632.5m devRefMax=45.1m devRefMean=11.3m devRefBackMax=20.4m devRefBackMean=5.4m
+10-04 22:23:34.687 17368 17411 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn] avoiding=true expansions=239 passable=6417 aimClosed=true forced=[]
+10-04 22:23:34.689 17368 17411 I MaroRoute: LINE distance=3624.5m duration=403.5s legs=51 step=10.0m bandMetres=477.6m bandPricedMetres=564.5m slowMetres=3624.5m slowShare=0.42 zoneShare=0.00 bandShare=0.38 rampShare=0.03 forced=[]
+10-04 22:23:34.690 17368 17411 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:23:45.382 17368 17406 I MaroRoute: CORRIDOR reach=3704.0m box=(43.47846..43.60375,7.02070..7.17702) clampedByRegion=false regionSaturated=false
+10-04 22:23:45.382 17368 17410 I MaroRoute: CORRIDOR reach=3704.0m box=(43.47846..43.60375,7.02070..7.17702) clampedByRegion=false regionSaturated=false
+10-04 22:23:45.532 17368 17406 I MaroRoute: FINE window box=(43.49141..43.49573,7.04452..7.06238) cells=24x73
+10-04 22:23:45.549 17368 17410 I MaroRoute: FINE window box=(43.49141..43.49573,7.04452..7.06238) cells=24x73
+10-04 22:23:45.562 17368 17406 I MaroRoute: FINE window box=(43.49573..43.50005,7.03856..7.06238) cells=24x97
+10-04 22:23:45.576 17368 17410 I MaroRoute: FINE window box=(43.49573..43.50005,7.03856..7.06238) cells=24x97
+10-04 22:23:45.707 17368 17406 I MaroRoute: FINE window box=(43.50005..43.50868,7.02665..7.06834) cells=49x168
+10-04 22:23:45.714 17368 17410 I MaroRoute: FINE window box=(43.50005..43.50868,7.02665..7.06834) cells=49x168
+10-04 22:23:45.782 17368 17406 I MaroRoute: FINE window box=(43.50868..43.51300,7.02665..7.08025) cells=24x217
+10-04 22:23:45.793 17368 17410 I MaroRoute: FINE window box=(43.50868..43.51300,7.02665..7.08025) cells=24x217
+10-04 22:23:46.029 17368 17406 I MaroRoute: FINE window box=(43.51300..43.52595,7.02070..7.08025) cells=73x241
+10-04 22:23:46.035 17368 17410 I MaroRoute: FINE window box=(43.51300..43.52595,7.02070..7.08025) cells=73x241
+10-04 22:23:46.072 17368 17406 I MaroRoute: FINE window box=(43.52595..43.53026,7.02070..7.06238) cells=24x169
+10-04 22:23:46.075 17368 17410 I MaroRoute: FINE window box=(43.52595..43.53026,7.02070..7.06238) cells=24x169
+10-04 22:23:46.143 17368 17406 I MaroRoute: FINE window box=(43.53026..43.53890,7.02070..7.05047) cells=49x121
+10-04 22:23:46.144 17368 17410 I MaroRoute: FINE window box=(43.53026..43.53890,7.02070..7.05047) cells=49x121
+10-04 22:23:46.183 17368 17406 I MaroRoute: FINE window box=(43.53458..43.54753,7.07429..7.09216) cells=72x72
+10-04 22:23:46.183 17368 17410 I MaroRoute: FINE window box=(43.53458..43.54753,7.07429..7.09216) cells=72x72
+10-04 22:23:46.205 17368 17406 I MaroRoute: FINE window box=(43.53458..43.53890,7.11002..7.13384) cells=24x97
+10-04 22:23:46.206 17368 17410 I MaroRoute: FINE window box=(43.53458..43.53890,7.11002..7.13384) cells=24x97
+10-04 22:23:46.284 17368 17406 I MaroRoute: FINE window box=(43.53890..43.54321,7.02070..7.06238) cells=24x169
+10-04 22:23:46.287 17368 17410 I MaroRoute: FINE window box=(43.53890..43.54321,7.02070..7.06238) cells=24x169
+10-04 22:23:46.334 17368 17406 I MaroRoute: FINE window box=(43.53890..43.54321,7.11002..7.14575) cells=24x145
+10-04 22:23:46.337 17368 17410 I MaroRoute: FINE window box=(43.53890..43.54321,7.11002..7.14575) cells=24x145
+10-04 22:23:46.388 17368 17406 I MaroRoute: FINE window box=(43.54321..43.54753,7.02070..7.06834) cells=24x192
+10-04 22:23:46.392 17368 17410 I MaroRoute: FINE window box=(43.54321..43.54753,7.02070..7.06834) cells=24x192
+10-04 22:23:46.590 17368 17406 I MaroRoute: FINE window box=(43.54321..43.55616,7.11002..7.15171) cells=73x169
+10-04 22:23:46.594 17368 17410 I MaroRoute: FINE window box=(43.54321..43.55616,7.11002..7.15171) cells=73x169
+10-04 22:23:46.640 17368 17406 I MaroRoute: FINE window box=(43.54753..43.55185,7.02070..7.07429) cells=24x217
+10-04 22:23:46.644 17368 17410 I MaroRoute: FINE window box=(43.54753..43.55185,7.02070..7.07429) cells=24x217
+10-04 22:23:46.652 17368 17406 I MaroRoute: FINE window box=(43.55185..43.55616,7.02070..7.03856) cells=24x73
+10-04 22:23:46.656 17368 17410 I MaroRoute: FINE window box=(43.55185..43.55616,7.02070..7.03856) cells=24x73
+10-04 22:23:46.687 17368 17406 I MaroRoute: FINE window box=(43.55185..43.55616,7.04452..7.07429) cells=24x121
+10-04 22:23:46.691 17368 17410 I MaroRoute: FINE window box=(43.55185..43.55616,7.04452..7.07429) cells=24x121
+10-04 22:23:46.720 17368 17406 I MaroRoute: FINE window box=(43.55616..43.56048,7.05047..7.09216) cells=24x168
+10-04 22:23:46.724 17368 17410 I MaroRoute: FINE window box=(43.55616..43.56048,7.05047..7.09216) cells=24x168
+10-04 22:23:46.791 17368 17406 I MaroRoute: FINE window box=(43.55616..43.56048,7.10407..7.15171) cells=24x192
+10-04 22:23:46.796 17368 17410 I MaroRoute: FINE window box=(43.55616..43.56048,7.10407..7.15171) cells=24x192
+10-04 22:23:46.831 17368 17406 I MaroRoute: FINE window box=(43.56048..43.56480,7.05643..7.09216) cells=24x144
+10-04 22:23:46.836 17368 17410 I MaroRoute: FINE window box=(43.56048..43.56480,7.05643..7.09216) cells=24x144
+10-04 22:23:46.900 17368 17406 I MaroRoute: FINE window box=(43.56048..43.56480,7.09811..7.15171) cells=24x217
+10-04 22:23:46.905 17368 17410 I MaroRoute: FINE window box=(43.56048..43.56480,7.09811..7.15171) cells=24x217
+10-04 22:23:47.011 17368 17406 I MaroRoute: FINE window box=(43.56480..43.56911,7.05643..7.15171) cells=24x384
+10-04 22:23:47.017 17368 17410 I MaroRoute: FINE window box=(43.56480..43.56911,7.05643..7.15171) cells=24x384
+10-04 22:23:47.109 17368 17406 I MaroRoute: FINE window box=(43.56911..43.57343,7.06238..7.15171) cells=24x361
+10-04 22:23:47.119 17368 17410 I MaroRoute: FINE window box=(43.56911..43.57343,7.06238..7.15171) cells=24x361
+10-04 22:23:47.166 17368 17406 I MaroRoute: FINE window box=(43.57343..43.57775,7.07429..7.15171) cells=24x313
+10-04 22:23:47.175 17368 17410 I MaroRoute: FINE window box=(43.57343..43.57775,7.07429..7.15171) cells=24x313
+10-04 22:23:47.321 17368 17406 I MaroRoute: FINE window box=(43.57775..43.59501,7.11002..7.13980) cells=96x121
+10-04 22:23:47.328 17368 17410 I MaroRoute: FINE window box=(43.57775..43.59501,7.11002..7.13980) cells=96x121
+10-04 22:23:47.341 17368 17406 I MaroRoute: FINE window box=(43.59501..43.59933,7.11598..7.13980) cells=24x96
+10-04 22:23:47.347 17368 17410 I MaroRoute: FINE window box=(43.59501..43.59933,7.11598..7.13980) cells=24x96
+10-04 22:23:47.357 17368 17406 I MaroRoute: FINE window box=(43.59933..43.60375,7.11598..7.13384) cells=25x73
+10-04 22:23:47.357 17368 17406 I MaroRoute: GRID layer=fine windows=26 cells=145396 reach=475.0m cell=20.0m ms=1838.3
+10-04 22:23:47.362 17368 17410 I MaroRoute: FINE window box=(43.59933..43.60375,7.11598..7.13384) cells=25x73
+10-04 22:23:47.363 17368 17410 I MaroRoute: GRID layer=fine windows=26 cells=145396 reach=475.0m cell=20.0m ms=1828.7
+10-04 22:23:47.409 17368 17406 I MaroRoute: GRID layer=coarse cells=17766 land=5441 band=759 zone=967 free=10599 start=(r=37,c=37 isWater=true depth=43.4m state=ZONE→FREE limit=0.0kn) aim=(r=102,c=88 isWater=true depth=3.1m state=LAND→FREE limit=0.0kn)
+10-04 22:23:47.409 17368 17406 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:47.409 17368 17406 I MaroRoute: CARVE end=aim dir=N cells=0 length=100.0m
+10-04 22:23:47.414 17368 17410 I MaroRoute: GRID layer=coarse cells=17766 land=5441 band=759 zone=967 free=10599 start=(r=37,c=37 isWater=true depth=43.4m state=ZONE→FREE limit=0.0kn) aim=(r=102,c=88 isWater=true depth=3.1m state=LAND→FREE limit=0.0kn)
+10-04 22:23:47.414 17368 17410 I MaroRoute: CARVE end=start dir=none reason=end-clear length=0.0m
+10-04 22:23:47.414 17368 17410 I MaroRoute: CARVE end=aim dir=N cells=0 length=100.0m
+10-04 22:23:47.424 17368 17410 I MaroRoute: STAGE done=none next=SEARCH
+10-04 22:23:48.002 17368 17410 I MaroRoute: STAGE done=SEARCH next=PULL points=122
+10-04 22:23:49.525 17368 17406 I MaroRoute: PULL zoneM=2457.5 ms=1788.3 clearMs=477.0 priceMs=1309.4 priceReads=15183
+10-04 22:23:50.035 17368 17406 I MaroRoute: SNAP zoneM=2450.4 ms=434.9
+10-04 22:23:50.304 17368 17406 I MaroRoute: FINAL zoneM=2446.1 ms=268.5 clearMs=73.3 priceMs=194.5 priceReads=1715
+10-04 22:23:51.117 17368 17409 I MaroRoute: PULL zoneM=0.0 ms=3037.3 clearMs=632.8 priceMs=2403.0 priceReads=15642
+10-04 22:23:51.552 17368 17406 I MaroRoute: FINE settled points=30 fineCell=20.0m
+10-04 22:23:51.552 17368 17406 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:51.552 17368 17406 I MaroRoute: DEVICE PASS lambda=0.00 paceKn=30.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=17766 passableUnique=21142 expansions=9174 pathCells=168 pulled=33 snapped=33 coarseM=10957.2m coarseMs=2983.9 fineMs=1150.3
+10-04 22:23:51.602 17368 17410 I MaroRoute: PULL zoneM=0.0 ms=3599.5 clearMs=740.8 priceMs=2856.9 priceReads=18692
+10-04 22:23:51.717 17368 17410 I MaroRoute: STAGE done=PULL next=SNAP points=12
+10-04 22:23:52.046 17368 17409 I MaroRoute: SNAP zoneM=0.0 ms=822.4
+10-04 22:23:52.517 17368 17410 I MaroRoute: SNAP zoneM=0.0 ms=800.3
+10-04 22:23:52.804 17368 17409 I MaroRoute: FINAL zoneM=0.0 ms=758.4 clearMs=114.3 priceMs=643.6 priceReads=3957
+10-04 22:23:53.248 17368 17410 I MaroRoute: FINAL zoneM=0.0 ms=730.1 clearMs=127.5 priceMs=602.1 priceReads=3767
+10-04 22:23:53.356 17368 17410 I MaroRoute: STAGE done=SNAP next=PULL
+10-04 22:23:54.273 17368 17409 I MaroRoute: FINE zone=Zone 3 kn spliced=no reason=worse local=16066.9 coarse=3784.7
+10-04 22:23:54.779 17368 17410 I MaroRoute: FINE zone=Zone 3 kn spliced=no reason=worse local=32133.8 coarse=7569.3
+10-04 22:23:56.857 17368 17409 I MaroRoute: FINE settled points=10 fineCell=20.0m
+10-04 22:23:56.857 17368 17409 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:56.858 17368 17409 I MaroRoute: DEVICE PASS lambda=2.50 paceKn=30.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=17766 passableUnique=21142 expansions=17537 pathCells=120 pulled=12 snapped=12 coarseM=13390.3m coarseMs=5504.7 fineMs=3934.6
+10-04 22:23:57.160 17368 17410 I MaroRoute: FINE settled points=10 fineCell=20.0m
+10-04 22:23:57.160 17368 17410 I MaroRoute: FINE research box=empty spliced=no
+10-04 22:23:57.160 17368 17410 I MaroRoute: DEVICE PASS lambda=5.00 paceKn=30.0 plan=evolutive cellM=100.0m fineCellM=20.0m layers=2 cellsInterior=17766 passableUnique=21142 expansions=17537 pathCells=120 pulled=12 snapped=12 coarseM=13390.3m coarseMs=5931.6 fineMs=3804.6
+10-04 22:24:03.276 17368 17406 I MaroRoute: PULL zoneM=1540.7 ms=9660.9 clearMs=2575.1 priceMs=7078.4 priceReads=64832
+10-04 22:24:03.789 17368 17406 I MaroRoute: SNAP zoneM=1491.9 ms=423.5
+10-04 22:24:04.444 17368 17406 I MaroRoute: FINAL zoneM=936.6 ms=655.2 clearMs=204.8 priceMs=449.3 priceReads=3442
+10-04 22:24:04.526 17368 17406 I MaroRoute: DEVICE DEV lambda=0.00 paceKn=30.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=89377 refPassable=95699 refM=10998.1m refMs=12970.2 chainFineM=10957.2m devRefMax=417.1m devRefMean=107.0m devRefBackMax=257.7m devRefBackMean=41.3m
+10-04 22:24:05.416 17368 17406 I MaroRoute: PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]
+10-04 22:24:05.477 17368 17406 I MaroRoute: LINE distance=10936.4m duration=2989.9s legs=552 step=10.0m bandMetres=6383.6m bandPricedMetres=6383.6m slowMetres=10936.4m slowShare=0.76 zoneShare=0.40 bandShare=0.36 rampShare=0.01 forced=[]
+10-04 22:24:05.479 17368 17406 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:24:18.079 17368 17410 I MaroRoute: PULL zoneM=0.0 ms=18340.0 clearMs=3592.5 priceMs=14738.3 priceReads=87176
+10-04 22:24:18.854 17368 17410 I MaroRoute: SNAP zoneM=0.0 ms=646.3
+10-04 22:24:19.669 17368 17410 I MaroRoute: FINAL zoneM=0.0 ms=814.5 clearMs=128.8 priceMs=685.0 priceReads=3656
+10-04 22:24:19.779 17368 17410 I MaroRoute: DEVICE DEV lambda=5.00 paceKn=30.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=119168 refPassable=119791 refM=13169.6m refMs=22617.2 chainFineM=13390.3m devRefMax=90.0m devRefMean=40.4m devRefBackMax=165.9m devRefBackMean=39.6m
+10-04 22:24:20.028 17368 17409 I MaroRoute: PULL zoneM=0.0 ms=20051.7 clearMs=4054.6 priceMs=15987.3 priceReads=91767
+10-04 22:24:20.056 17368 17410 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn, Zone 5 kn, Zone 3 kn] avoiding=true expansions=5691 passable=11358 aimClosed=true forced=[]
+10-04 22:24:20.089 17368 17410 I MaroRoute: LINE distance=13330.5m duration=1111.4s legs=293 step=10.0m bandMetres=575.7m bandPricedMetres=660.6m slowMetres=13330.5m slowShare=0.22 zoneShare=0.04 bandShare=0.17 rampShare=0.01 forced=[]
+10-04 22:24:20.090 17368 17410 I MaroRoute: DONE stage=PULL result=true reason=none
+10-04 22:24:20.735 17368 17409 I MaroRoute: SNAP zoneM=0.0 ms=600.7
+10-04 22:24:21.514 17368 17409 I MaroRoute: FINAL zoneM=0.0 ms=778.8 clearMs=116.0 priceMs=662.2 priceReads=3650
+10-04 22:24:21.626 17368 17409 I MaroRoute: DEVICE DEV lambda=2.50 paceKn=30.0 plan=evolutive corridorHalfWidthM=150.0m devChainMax=0.0m devChainMean=0.0m devChainBackMax=0.0m ref=yes refExpansions=119478 refPassable=119791 refM=13187.3m refMs=24767.4 chainFineM=13390.3m devRefMax=90.0m devRefMean=40.1m devRefBackMax=165.9m devRefBackMean=41.2m
+10-04 22:24:21.933 17368 17409 I MaroRoute: PROBE restrictive=[Zone 10 kn, Zone 5 kn, Zone 5 kn, Zone 3 kn] avoiding=true expansions=5691 passable=11358 aimClosed=true forced=[]
+10-04 22:24:21.968 17368 17409 I MaroRoute: LINE distance=13330.5m duration=1111.4s legs=293 step=10.0m bandMetres=575.7m bandPricedMetres=660.6m slowMetres=13330.5m slowShare=0.22 zoneShare=0.04 bandShare=0.17 rampShare=0.01 forced=[]
+10-04 22:24:21.971 17368 17409 I MaroRoute: DONE stage=none result=true reason=none

@@ -7,8 +7,11 @@ interval, behind a proof the soft sources themselves declare.
 Status: **Phases 1 to 3 landed** (2026-10-04, `#implement`) — reviewed before the build, and the review's
 findings folded in: a zone's **holes** are boundaries the declaration must cover, a mark also paid the **hard
 walls' test**, the guard's unit is named, and a group's midpoint is pinned to the fine grid. **Phase 4's device
-reading is owed and Phase 5 is the user's call.** Written on the order of the feature's own work list, whose
-step 4 says the plan comes first: the price walk is **80 % of the pull** and the pull is the solve's cost
+reading is taken** (2026-10-04, [`route-phase8.txt`](../../route-phase8.txt:1)) and what it says is that the cut
+lands exact and **saves nothing yet**: `priceMs` still holds 80 % of the pull and `priceReads` equals the mark
+count this plan's own model predicts, because the step a priced rung hands the walk collapses the grouping to
+one interval a group. **Phase 5 is the user's call.** Written on the order of the feature's own work list,
+whose step 4 says the plan comes first: the price walk is **80 % of the pull** and the pull is the solve's cost
 centre.
 
 Placement: the work is the shared `multipass` layer's, so **both engines** take it and only the step
@@ -248,9 +251,19 @@ Shipped declarations:
    saving is readable. **Done**: `costField` names the band's two circles and
    [`speedZonePriceClearanceM()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/ZoneGeometry.kt:117)
    the rings' outer ring, holes and collar, with `priceReads` on the pull's own lines.
-4. **The device measurement, and the record — owed, and the user's** — the same pair and paces as the
-   clearance plan's reading, so `priceMs` **and `priceReads`** are compared with 13.8–14.3 s at λ = 2.5
-   directly; then the figures fold into the feature's history at the next bake.
+4. **The device measurement, and the record — measured** (2026-10-04, [`route-phase8.txt`](../../route-phase8.txt:1)):
+   two corridors and three arms a corridor — the fine layer at **11 windows / 69 576 cells / 885–1 004 ms** on a
+   3.5 km corridor and **26 windows / 145 396 cells / 1 828–1 838 ms** on a 13.3 km one, and the long route's
+   final pull at `ms=18340.0 clearMs=3592.5 priceMs=14738.3 priceReads=87176`, its twin at 20051.7 / 4054.6 /
+   15987.3 / 91767. **The split is unchanged**: `priceMs` is 80.4 % and 79.7 % of the pull — the share the `## Why`
+   opened with — and 87 176 reads on a 13.3 km route is the mark count this plan's own model predicts rather than
+   a fraction of it. **The diagnosis is arithmetic**: [`softPriceSec()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:338)
+   groups `floor(coarseStepM / stepM)` fine intervals, and the step a priced rung hands it is the walk's own
+   **local** cell — the band's **20 m**, which is exactly the water a price is paid in — so the quotient is **1**,
+   no group is ever formed, and every fine mark reads as it did before. What the pass also records: the merge's
+   own count is 11 and 26 windows at **~0.013 ms a cell** with no per-window overhead left (the old shape was
+   0.033 ms a cell plus 12 ms a window), and the price half's per-read cost stands at **169 µs**
+   (`14738.3 ms / 87176` reads).
 5. **The second lever, only on the user's word** — the aligned shared grid, with its own stated error and
    its own reading.
 
@@ -281,8 +294,10 @@ Shipped declarations:
   distance.
 - **The suites stay green with no assertion changed** — the same proof the clearance cut rested on: the
   same marks are visited, and every read that decides a verdict still happens.
-- **The device reading** (owed, the user's): `priceMs` on the same two rungs, against 13 828.2 of 17 303.1
-  and 14 332.6 of 17 970.7.
+- **The device reading, taken** (2026-10-04): the figures in Phase 4 above — and the verdict they carry is that
+  **a proved group never formed on a priced rung**, so this cut's saving is still owed rather than found. The
+  equivalence itself is untouched by that: nothing moved, which is what the landing claimed and what the pass
+  confirms.
 
 ## Risks
 
@@ -323,9 +338,12 @@ Shipped declarations:
 
 ## Open questions
 
-- **The coarse step's value — recommended, the walk's own cell**: the same value the clearance cut
-  threads, because it needs no key and already describes the water's own resolution; the alternative (half
-  the margin, equal to the fine step) would prove nothing and save nothing.
+- **The coarse step's value — the measurement has overtaken the recommendation**: the walk's own cell was
+  recommended because it needs no key and already describes the water's resolution, and the pass shows what that
+  means on the water a price is paid in: the local cell *is* the band's fine one, so the quotient is 1 and no
+  group ever forms. The lever is the walk's **interior** cell (100 m → `k = 8`, a 50 m proof radius) or an
+  explicit multiple of the fine cell, and the exactness argument is unchanged by it, because exactness rests on
+  the arm being constant and never on the step's size.
 - **The aligned shared grid — the user's call, not the agent's**: it moves the guard's arithmetic by a
   stated step and so can move the line, which is a change the user sees; the proof above cannot.
 - **Whether the collar's own price is worth protecting separately — settled in shape, open in value**: the

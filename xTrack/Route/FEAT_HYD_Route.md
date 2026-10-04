@@ -1,6 +1,6 @@
 # Context Hydration — Route — 2026-10-04
 
-**Last Bake:** 2026-10-04 20:12 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-04 20:32 UTC — written by `#bake`; absence means never baked
 
 **Directive trace:** Since the last bake (17:40 UTC) every change ran on an order — the pull's plumbing and
 trace, then the coarse skip, each handed to Code on the user's word; the fine layer's reshape approved from a
@@ -37,10 +37,14 @@ merges them into **exact-union rectangles** on the lattice's own lines — row r
 windows**, and the grown corridor's own count is what a device pass reads. Beside it the price walk's own cut
 has **landed (Phases 1 to 3, 2026-10-04)**: each soft source declares the distance to its own price boundary, a
 proved group is priced by one reading, and the price error the coarsening accepts is **zero** because the
-group's product is identically the fine sum. Two things are owed on it — the **device reading** of `priceMs`
-and `priceReads`, and two tests the landing's review left (a walk-level chord for the ring collar, and one for
-the **shipped** closure in `costField`) — and proving a group costs a read of its own, so its saving is `k − 2`
-reads a group rather than the `k` the first model claimed.
+group's product is identically the fine sum. **The device pass of 2026-10-04 has now read it**
+([`route-phase8.txt`](../../route-phase8.txt:1)) and it says the cut lands exact and **saves nothing yet**: the
+fine layer reads 11 windows / 69 576 cells / 885–1 004 ms on a 3.5 km corridor and 26 / 145 396 / 1 828–1 838 ms
+on a 13.3 km one, while the pull's own split is unchanged — `priceMs` 14738.3 of 18340.0 with 87176 reads, its
+twin 15987.3 of 20051.7 with 91767, so still 80 % of the pull and still the mark count this plan's model
+predicts — because the step a priced rung hands the walk is the band's **fine 20 m cell**, exactly the water a
+price is paid in, so the grouping's quotient is 1 and no group ever forms. Two tests the landing's review left
+are still owed, and proving a group would cost a read of its own, so a formed group's saving is `k − 2` reads.
 
 **What the readings name as the next work, in order** — the feature file's own order section carries it, and
 its first two steps are the measured ones: **the window count's own cost**, now landed as the merged windows
@@ -61,10 +65,11 @@ section carries them.
 - `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt` — the parked red asserting `avoid`'s fine ratio
 
 ## Next Step
-Two **device readings** are what the next pass owes, and both are the user's: the merged windows' count and the
-fine layer's `ms` on the grown corridor (step 3), and the price half's `priceMs` beside `priceReads` on the same
-two rungs as the clearance reading (step 4, **Phases 1 to 3 landed** —
-[`261004_FEAT_PLN_Route_price-walk-reads.md`](261004_FEAT_PLN_Route_price-walk-reads.md), where the proof makes
-Δ price **0** rather than a tolerance, so no chord's verdict moves). Two tests the landing's own review left are
-owed with them: a walk-level chord for the ring collar, and one for the **shipped** declaration closure in
-`costField`. Then the mark count, on its own trigger.
+The next cut is the **price walk's own step**, and it is the one the reading named: the step in force on a
+priced rung is the band's fine cell — the water a price is paid in — so the grouping's quotient is 1 and no
+group ever forms; the walk's **interior** cell (100 m → `k = 8`, a 50 m proof radius) is the lever, and it moves
+no answer, because exactness rests on the arm being constant inside a group and never on the step's size
+([`261004_FEAT_PLN_Route_price-walk-reads.md`](261004_FEAT_PLN_Route_price-walk-reads.md), whose Phase 4 now
+carries the figures). Beside it, the two tests the landing's review left stay owed — a walk-level chord for the
+ring collar, and one for the **shipped** declaration closure in `costField` — and the mark count (the order's
+step 5) waits on that cut's own reading.
