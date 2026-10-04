@@ -814,6 +814,12 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   with the accent on the **one enabled forward action** at every instant (R16, R17). The recording exit
   dialog is what the whole family is read against — `Save track` accent · `Continue recording` outlined
   · `Discard track` red.
+- **A compact size, for a host off the dialog's stack** (2026-10-04): `ConfirmActionButton(action,
+  modifier, compact = false)`; when `compact` the control **wraps its label** (no `fillMaxWidth` stretch)
+  and takes an **8 dp corner** against the dialog's 12 dp, an **explicit 28 dp height** against 40 dp,
+  `PaddingValues(horizontal = 12.dp)` content padding and a **12 sp** label against 14 sp. Every face keeps
+  its own colours exactly — the compact size moves the geometry, never the role — so the action row's
+  commands (§5.7) wear this same control's compact `SECONDARY` face and no host hand-rolls a second button.
 - **Cancel is optional** and is just another action, passed **last** — where present it is the
   bottom-most button and calls `onDismiss`. Offer one only where dismissal unambiguously means
   "abort, nothing happens" (resume, import conflict, merge, batch delete). No Cancel where dismissing
@@ -840,16 +846,19 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 
 ### 5.7 Bottom-Band Banners — `MapBanner`
 
-The map's bottom band carries five banner instances — the exit toast (`Press back again to exit` /
-`Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay` and `ErrorOverlay`
-— and all five paint one skin through one control. This entry is the family's **only** home, and every
-instance reads these rules — none is exempt.
+The map's bottom band carries six banner instances — the exit toast (`Press back again to exit` /
+`Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay`, `ErrorOverlay`
+and the action and undo rows of the snackbar stack (`SnackRow`, painted by `MapSnackbarHost`) — and all
+six paint one skin through one control. This entry is the family's **only** home, and every instance
+reads these rules — none is exempt.
 
 Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt) (`MapBanner`,
-`MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
+`bannerLineStyle`, `MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
 [`CoastlineMapView.kt`](../app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt)
-(`LoadingOverlay`, `ErrorOverlay`), call sites in
-[`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt).
+(`LoadingOverlay`, `ErrorOverlay`),
+[`MapSnackbarHost.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt) and
+[`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) (`SnackRow`), with the
+remaining call sites in `MapScreen.kt`.
 
 **Contract**
 
@@ -858,22 +867,23 @@ Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapCont
   instance's content arrives as the slot — the pill passes one `MapBannerText`, while `LoadingOverlay`
   and `ErrorOverlay` pass their own column and keep their own interiors (spinner, title, phase,
   percentage; title, message, Retry) and roles.
-- **Skin — one definition, five users.** 14 dp corner, a 2 dp border in `borderColor` over
+- **Skin — one definition, six users.** 14 dp corner, a 2 dp border in `borderColor` over
   `ui.card.background`, `ui.button.background` as the fill and an 8 dp shadow. No face carries a copy.
 - **Border colour is the caller's**: `ui.dashboard.zone.danger` while recording and
-  `ui.dashboard.background` otherwise, for the exit toast; `ui.dashboard.background` for `LockBanner`
-  and `MapStatusBanner`; `ui.dashboard.zone.danger` for `ErrorOverlay`; `ui.dashboard.background` for
-  `LoadingOverlay`.
+  `ui.dashboard.background` otherwise, for the exit toast; `ui.dashboard.background` for `LockBanner`,
+  `MapStatusBanner` and the action and undo rows; `ui.dashboard.zone.danger` for `ErrorOverlay`;
+  `ui.dashboard.background` for `LoadingOverlay`.
 - **Clearance, every instance.** A banner starts at `bannerStartInset(tagsDrawn)` and ends clear of the
   right control column (82 dp, `RIGHT_CONTROL_COLUMN_INSET`). `tagsDrawn` is the bottom-left tag
   stack's own answer, `regulatedZoneTags(...).isNotEmpty()`, derived once in `MapScreen` beside the set
   the stack paints: with a tag drawn the inset adds the tag column, empty it adds nothing.
 - **The control owns the column reserve, not the caller.** `reservesControlColumn` carries the one fact
   the control cannot read from its own box — is the banner's parent full width — and `MapBanner` turns
-  it into the `end` padding. True for `LockBanner` and `MapStatusBanner`, whose parent is the whole map
-  area and which therefore genuinely need the reserve; false for the exit toast and the two cards, whose
-  parent is the map's left overlay column and already ends where that column does
-  (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column either way.
+  it into the `end` padding. True for `LockBanner`, `MapStatusBanner` and the action and undo rows,
+  whose parent is the whole map area and which therefore genuinely need the reserve; false for the exit
+  toast and the two cards, whose parent is the map's left overlay column and already ends where that
+  column does (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column
+  either way.
 
 **Banner face — the pill**
 
@@ -882,17 +892,26 @@ Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapCont
   region and wraps. No `fillMaxWidth` stretch, and `tagsDrawn` moves the centre by half the tag slot
   (25 dp at defaults) — adaptive rather than stable, decided 2026-09-21.
 - **Text:** 16 sp Medium in `ui.toast.text`, **centred** (`MapBannerText`), on 16/10 padding — so a
-  wrapped message reads centred inside its centred pill.
+  wrapped message reads centred inside its centred pill. The style itself is written once, in
+  `bannerLineStyle`, which both this line and the action row's message read.
 - **The wrap is uncapped:** no `maxLines`, no `ellipsis`. Both exit strings carry their instruction
   late (`… press back again to stop and exit`), so an ellipsis would cut it; the pill is
   bottom-anchored, so extra lines grow upward over the map.
 
-**The two card faces**
+**The three full-width faces — the two cards and the action row**
 
 - **Full width**, keeping the 6 dp end gap they always had, on the same clearance and skin as the pill —
   the clearance rule binds them too, so a tag being drawn moves them 50 dp at defaults.
 - **Their interiors are their own** — `LoadingOverlay` shows the spinner, title, phase and percentage,
-  `ErrorOverlay` the title, message and Retry — and the family owns neither.
+  `ErrorOverlay` the title, message and Retry, and the action row its message beside its commands. The
+  family owns none of them.
+- **The action row's own interior** — one full-width line, message **left** with `Modifier.weight(1f)`,
+  `maxLines = 2` and an ellipsis, then its commands **right** and wrap-content, anchored to the **top** of
+  the row rather than centred vertically. The message reads `bannerLineStyle`, aligned `Start`; each command
+  is §5.6's `ConfirmActionButton` in its **compact `SECONDARY` face** — the same control, its size and its
+  numbers home in §5.6 — so the row never hand-rolls a button of its own. It is drawn one above the other,
+  up to three at once, under the snackbar stack's own dismiss contract (`docs/ui-lists-guidelines.md`
+  §Swipe, **Delete lifecycle**).
 
 **Numbers** (shipped defaults — this table is the only place they are written)
 
@@ -944,7 +963,7 @@ and this table is the one place that names them.
 
 | Tier | Shape | When it is used | Home |
 |---|---|---|---|
-| 1 | Accent-filled — **at 50 % under a 2 dp accent rim for a middle action** — or red-filled **full-width button** | A surface's own outcome, its loss, or its middle doors — dialogs, the route panel, the Route sub-section's `Route`, and the Menu's Import/Export pair, which wears the **half-strength accent with its full-opacity rim** | `ConfirmActionButton` (§5.6) |
+| 1 | Accent-filled — **at 50 % under a 2 dp accent rim for a middle action** — or red-filled **full-width button**; **compact** (wraps its label, 8 dp corner, 28 dp, 12 sp) wherever it stands off the dialog's own stack | A surface's own outcome, its loss, or its middle doors — dialogs, the route panel, the Route sub-section's `Route`, the Menu's Import/Export pair, which wears the **half-strength accent with its full-opacity rim**, and the map action row's commands, which wear that same face compact (§5.7) | `ConfirmActionButton` (§5.6) |
 | 2 | **Icon-only button**, 40–48 dp | A control belonging to a header or a card's chrome — link, filter reset, gear, chevrons | `IconButton` |
 | 3 | **Map status square acting as a button** | A mode's own on/off that also reports a state — GPS, tracking, lock, recenter | `MapToggleSquare` family (§5.5) |
 | 4 | **Row-level action** | An action belonging to a list row — swipe, chevron gutter, header trash, Undo / Clear / Select-all | per list (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)) |

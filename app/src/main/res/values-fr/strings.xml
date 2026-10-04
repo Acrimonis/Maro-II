@@ -576,6 +576,11 @@
     <!-- Misc -->
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">« %s » supprimé</string>
+    <!-- Les lignes d'action et d'annulation de la carte (`MapSnackbarHost`) : les trois messages de
+         suppression et de création, chacun nommant son élément, à côté des deux de l'abandon de route. -->
+    <string name="snack_track_deleted">Trace « %1$s » supprimée</string>
+    <string name="snack_marker_deleted">Repère « %1$s » supprimé</string>
+    <string name="snack_marker_created">Repère « %1$s » créé</string>
     <string name="action_undo">Annuler</string>
 
     <!-- Route destination mode -->
