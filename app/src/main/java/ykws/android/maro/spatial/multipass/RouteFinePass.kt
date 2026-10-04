@@ -227,34 +227,64 @@ internal class RouteFinePass(
         val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
         // What the second pass may look at is the plan's decision; that it stays inside the lookup's own
-        // corridor is still the seat's, so the clamp stays here whatever a plan hands back. `avoid`'s
-        // plan answers one region and this pass reads the first of them — the multi-region walk is a
-        // later step, not this extraction.
-        val swathBoxes = plan.secondPassRegions(line, corridor, outsideMarginM, cellM)
-        val box = swathBoxes.firstOrNull()?.let { clampTo(it, corridor) }
-        if (box == null) {
+        // corridor is still the seat's, so the clamp stays here whatever a plan hands back. `avoid`'s plan
+        // answers one region and the adaptive one a chain, and this pass walks **all** of them either way:
+        // one box is the path this pass has always taken, several are windows on one lattice.
+        val boxes = plan.secondPassRegions(line, corridor, outsideMarginM, cellM)
+            .mapNotNull { clampTo(it, corridor) }
+        if (boxes.isEmpty()) {
             trace { "FINE research box=empty spliced=no" }
             return line
         }
         val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val guard = costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
-        val grid = rasterize(
-            box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
-            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
-        )
-        grid.forceFree(start.latitude, start.longitude)
-        grid.forceFree(aim.latitude, aim.longitude)
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        openEndDisc(grid, world, start, marginM, depthGateActive, minDepthM)
-        openEndDisc(grid, world, aim, marginM, depthGateActive, minDepthM)
         val limitAt = limitAtFor(world)
-        val pass = runner.runPass(
-            ctx,
-            GridWalk(
+        val walk: GridWalk
+        if (boxes.size == 1) {
+            // One region: the box is its own lattice, exactly as this pass has always rasterized it.
+            val grid = rasterize(
+                boxes.first(), fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
+                zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
+            )
+            grid.forceFree(start.latitude, start.longitude)
+            grid.forceFree(aim.latitude, aim.longitude)
+            openEndDisc(grid, world, start, marginM, depthGateActive, minDepthM)
+            openEndDisc(grid, world, aim, marginM, depthGateActive, minDepthM)
+            walk = GridWalk(
                 grid, grid.cellOf(start.latitude, start.longitude),
                 grid.cellOf(aim.latitude, aim.longitude), fineCellM
-            ),
+            )
+        } else {
+            // A chain: every box a window on **one** lattice, so the seam between two of them is arithmetic.
+            val lattice = WalkLattice.of(corridor, fineCellM)
+            val windows = boxes.map { region ->
+                val snapped = lattice.snapOutward(region)
+                val grid = rasterizeWindow(
+                    snapped, lattice, pace, marginM, edges, openCoast, capLatNorth, base, priced,
+                    zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
+                )
+                WalkWindow(grid, lattice.rowOf(snapped.latSouth), lattice.colOf(snapped.lonWest))
+            }
+            for (window in windows) {
+                for (end in listOf(start, aim)) {
+                    if (!window.holds(lattice.rowOf(end.latitude), lattice.colOf(end.longitude))) continue
+                    window.grid.forceFree(end.latitude, end.longitude)
+                    openEndDisc(window.grid, world, end, marginM, depthGateActive, minDepthM)
+                }
+            }
+            walk = GridWalk(
+                windows.first().grid,
+                CellIndex(lattice.rowOf(start.latitude), lattice.colOf(start.longitude)),
+                CellIndex(lattice.rowOf(aim.latitude), lattice.colOf(aim.longitude)),
+                fineCellM,
+                WalkWindows.onLattice(lattice, windows)
+            )
+        }
+        val pass = runner.runPass(
+            ctx,
+            walk,
             lambda,
             publishStage = false,
             trace = trace,

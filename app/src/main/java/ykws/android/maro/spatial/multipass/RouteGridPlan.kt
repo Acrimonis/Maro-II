@@ -49,7 +49,8 @@ interface RouteGridPlan {
         corridor: BBox,
         outsideMarginM: Double,
         cellM: Double
-    ): List<BBox>
+    ): List<BBox> =
+        if (line.isEmpty()) emptyList() else listOf(inflateBox(lineBBox(line), outsideMarginM + cellM))
 
     /**
      * The **fine cell this algorithm's second pass and its clock read**, in metres, given the configured
@@ -71,14 +72,6 @@ object UniformGridPlan : RouteGridPlan {
     override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
         listOf(GridTile(corridor, baseCellM))
 
-    override fun secondPassRegions(
-        line: List<LatLng>,
-        corridor: BBox,
-        outsideMarginM: Double,
-        cellM: Double
-    ): List<BBox> =
-        if (line.isEmpty()) emptyList() else listOf(inflateBox(lineBBox(line), outsideMarginM + cellM))
-
     /** The ratio's own arithmetic, so `avoid`'s metres are its coarse cell times its ratio and nothing else. */
     override fun fineCellM(baseCellM: Double): Double = baseCellM * AppConfig.routeAvoidFineCellRatio
 }
@@ -95,13 +88,21 @@ object EvolutiveGridPlan : RouteGridPlan {
     override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
         listOf(GridTile(corridor, AppConfig.routeEvolutiveGridCellM))
 
+    /**
+     * **The chain, not the span**: the second pass walks a ribbon of side `2w` along the settled line
+     * rather than the rectangle that contains it, at the engine's own fine cell — the very lattice the
+     * pass will window — so a U-shaped route no longer pays for the box its ends describe.
+     */
     override fun secondPassRegions(
         line: List<LatLng>,
         corridor: BBox,
         outsideMarginM: Double,
         cellM: Double
-    ): List<BBox> =
-        if (line.isEmpty()) emptyList() else listOf(inflateBox(lineBBox(line), outsideMarginM + cellM))
+    ): List<BBox> = corridorChain(
+        line,
+        AppConfig.routeEvolutiveFineCorridorHalfWidthM,
+        WalkLattice.of(corridor, fineCellM(cellM))
+    )
 
     override fun fineCellM(baseCellM: Double): Double = AppConfig.routeEvolutiveGridFineCellM
 }

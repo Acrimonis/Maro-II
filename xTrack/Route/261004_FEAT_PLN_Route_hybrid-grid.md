@@ -2,10 +2,10 @@
 # 261004_FEAT_PLN_Route_hybrid-grid
 
 Topic: **the adaptive grid** — two resolutions in one walk. Fine **20 m** beside the coast and the depth
-gate, coarse **100 m** in open water, ratio **1 : 5**. **The metres land first; nothing of the two-layer walk
-is built.**
+gate, coarse **100 m** in open water, ratio **1 : 5**; the second pass is one fine grid **along the path**.
+**The metres land first; nothing of the two-layer walk is built.**
 
-Status: Phase 1 landed (2026-10-04); the adaptive walk's Phases 3–6 remain in design.
+Status: Phases 1 and 3 landed (2026-10-04); the device pass's reading, the two-layer walk and its seam remain in design.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)
@@ -15,7 +15,7 @@ stands.
 
 Vocabulary: the thing is the **adaptive grid**; `hybrid` and `distance-scaled` are retired names.
 
-## What landed, 2026-10-04 — Phase 1, the metres the walk reads
+## What landed, 2026-10-04 — the metres the walk reads, then the chain
 
 - **The three keys ship, each with one home**: `route.evolutive.grid.cellM=100`,
   `route.evolutive.grid.fineCellM=20` — clamped 10-20 and held at or under the coarse cell — and
@@ -39,9 +39,30 @@ Vocabulary: the thing is the **adaptive grid**; `hybrid` and `distance-scaled` a
   `avoid`* sentence, and it is what lets Phase 2's device pass read the keys at all.
 - **The gate**: `apk-build.bat` green and the unit suite at `870 tests, 1 failed, 10 skipped`, the single red
   `avoid`'s own parked ratio test — the phase does not move it.
-- **Two debts named rather than hidden**: `route.evolutive.fine.corridorHalfWidthM` ships with no production
-  reader until Phase 3's chain, and evolutive's second pass is still the line's bounding box with its padding
-  term — the corridor is Phase 3, not an omission here.
+- **The two debts Phase 1 named were both discharged by Phase 3**: `route.evolutive.fine.corridorHalfWidthM`
+  found its reader in the chain, and evolutive's second pass stopped being the line's bounding box.
+
+**Phase 3, the same day — the one lattice, the window walk and the chain.**
+
+- **One lattice, derived once**: `WalkLattice` takes the pair from the **corridor's** mid-latitude and puts
+  every chain box on that lattice by snapping it outward; `rasterize` kept its own per-box derivation for the
+  single-region case, and `rasterizeWindow` lays a window out from the lattice instead — the one fill body,
+  two frames.
+- **One walk, as the section above demands**: `MultipassSearch.searchWalk` is the only loop, and
+  `search(grid, …)` delegates through `WalkWindows.of(grid)` whose slots are still `row * cols + col`, whose
+  centres are still the grid's own and whose passable reading is still one linear pass — which is why the
+  suite's count did not move.
+- **The chain is `EvolutiveGridPlan`'s answer**: boxes of side `2w` whose centres are at most `w` apart along
+  the pulled line and whose first and last centres are the start and the aim, with `w` read from
+  `route.evolutive.fine.corridorHalfWidthM`; `avoid`'s plan still answers its own box, padding term and all.
+- **The pass walks the list**: one region keeps the old path exactly, several are rasterized as windows on one
+  lattice and walked together; the ends are forced free and disced in whichever window holds them.
+- **The gate**: `apk-build.bat` green and the suite at `874 / 1 / 10` — the 870 pre-existing tests untouched
+  and the same single red, plus four new tests: the ends' discs, the carve reach where it fits, the chain's
+  spacing, and a path drawn across the seam between two windows.
+- **Two deviations named**: `fineReSearch` now branches **once** on the region count (one box = the old
+  `rasterize`, several = windows), which is a two-path raster rather than a two-walk; and the plan's ends test
+  proved unsatisfiable as it was written — see `## The fine region`.
 
 ## Purpose
 
@@ -178,12 +199,21 @@ The shape:
   floors they impose are small — the end disc is `marginM` = **25 m**
   ([`openEndDisc`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt:115) frees the
   centres within `marginM`), and the carve reach is [`ceil(marginM / cellM) + 1`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt:100)
-  cells ≈ `marginM + cellM` = **45 m** at the design pair — so the width below is never governed by them.
+  cells ≈ `marginM + cellM` = **45 m** at the region's own design cell — so the width below is never governed
+  by them **there**. At the **first walk's** coarse cell the same formula reads `2 × 100` = **200 m**, wider
+  than the 150 m half-width: the chain guarantees the end **disc** at every cell and the carve **reach** only
+  where `2 × cellM` stays under `w`, which is a named limit rather than an assumption.
 - **The chain, not a mask.** Masking the bounding box still rasterizes and allocates every cell of the
   span and saves only the A\*'s expansions; the chain saves the rasterization and the memory too, at the
   price of walking several grids — a price the seam helper already pays.
-- **Both fine consumers read it**: the re-search's raster and [`finePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:40)'s
-  fine cost field, so one region definition serves both.
+- **The chain is the re-search's region, and the crossing keeps its own box.** The first pass walks two layers
+  and the second walks the fine grid **along the path**, so the chain bounds the re-walk — while
+  [`solveCrossing`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:114) clamps the
+  **zone's** box to the lookup's corridor box, and keeps doing exactly that — a choice, not an oversight, with
+  its fallback noted under the open questions. A zone the settled line enters is **on the path by
+  construction**, so that local repair is already fine water along the path and needs no chaining; the
+  refinement's cost field is an **evaluator**, sampled where the pull goes, so the corridor is
+  not a bound on `finePass` itself either.
 - **The corridor can ship alone.** Nothing in it needs the two-layer walk: on today's uniform grid it still
   retires the span-sized box and fixes the U-shape cost, which is why it is Phase 3 rather than a tail
   phase.
@@ -308,8 +338,10 @@ The cost:
   cost, which is what fails today if the edge is priced by the destination cell.
 - **The lattice's test is the nesting's**: a coarse cell and the 5 × 5 fine cells over it agree on their
   centres' geometry, which is the precondition the seam's index relation rests on.
-- **The corridor's test is the ends'**: both end discs and both carved reaches lie inside the chain, at
-  `w = 150` and `cellM` both at 50 and at 100.
+- **The corridor's test is the ends'**: both end **discs** lie inside the chain at `w = 150` with the region's
+  cell at 50 and at 100, and both **carve reaches** at the cells that can hold them — 20 and 50 — the reach
+  being `ceil(marginM / cellM) + 1` cells and therefore wider than `w` at a 100 m cell (see
+  `## The fine region`).
 - **Phase 1's exit is the existing suite green with the key change alone**, since that phase touches no
   algorithm — and its expected effect is named in the phase.
 
@@ -325,14 +357,21 @@ The cost:
 2. **The device experiment — the user's pass, on `evolutive`.** `route.evolutive.grid.cellM=100` with the
    second pass held at 20 m: measure the open-water A\* cost, and measure how far the coarse line sits from
    a fine reference line — the deviation that pins `w`.
-3. **The corridor chain — shippable alone, and it lands in `EvolutiveGridPlan`.** The plan's
-   [`secondPassRegions`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:98)
-   answers the chain where it now answers the line's bounding box: boxes of side `2w` on the one lattice,
-   centres at most `w` apart along the pulled line, the first and last centres on the start and the aim, and
-   `w` read from `route.evolutive.fine.corridorHalfWidthM` — the metres key this phase is its first reader.
-   `avoid`'s plan keeps the box with its `outsideMarginM + cellM` padding term, so the span-sized region falls
-   for `evolutive` alone; the second pass then walks several boxes rather than one, and the equal-cell seam
-   between two of them is the index relation the one lattice makes it.
+3. **The corridor chain — three pieces in this order, all of them Phase 3's, landing in `EvolutiveGridPlan`.**
+   **(a) The one lattice.** [`rasterize`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt:349)
+   derives its cell-size pair from the box's own mid-latitude, so the pair is derived **once** from the
+   corridor's mid-latitude and every box snapped outward onto it: a window onto one lattice, never a box
+   carrying a lattice of its own. **(b) The window walk.** The A\* indexes `row * cols + col` over one grid's
+   arrays, so several windows need the sparse lattice-id map this design pins — **one search loop, never a
+   second one**, the single-window case delegating through the same loop so `avoid`'s path stays the one the
+   suite already proves, and the charge staying `sourceCostSec × multiplier` while every cell is one size (the
+   centres-distance form is Phase 5's, where the sizes differ). **(c) The chain itself.** Boxes of side `2w` on
+   that lattice, centres at most `w` apart along the pulled line, the first and last centres on the start and
+   the aim, and `w` read from `route.evolutive.fine.corridorHalfWidthM` — the metres key this phase is its
+   first reader; `avoid`'s plan answers its own box unchanged, padding term and all, so the span-sized region
+   falls for `evolutive` alone. The exit is a green suite plus a line drawn across a seam between two boxes,
+   and **a chain the pass does not walk is the one shape this phase must not ship**: the re-search reads the
+   whole region list, never its first box.
 4. **Two-layer rasterize** — the fine band (coast and depth gate triggers, `fineCellM` deep, one coarse
    cell wide) and the coarse interior, both on that one lattice.
 5. **The seam helper grows to unequal cells** — resolution-aware neighbour expansion with the seam edge
@@ -346,6 +385,34 @@ The cost:
    [`fineReSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:205): the
    price-crossing re-solve alone, or the corridor walk too.
 8. **Record** — bake, fold, and settle the epic's `## Implemented`.
+
+## The code health this landing must not cost
+
+The one-lattice work edits the rasterizer, the grid, the search and the seats at once, which is where a feature
+pays later for moving fast now. What this plan therefore fixes in advance:
+
+- **One walk, not two.** The shortcut is a second A\* beside [`MultipassSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt:30)
+  for the windows; the loop stays single and parameterised by the walk, the single-window case reproducing
+  today's index space exactly, or `avoid`'s answers drift and the two loops diverge from the first bug fixed in
+  one of them.
+- **One pipeline.** [`runPass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:33)
+  owns A\* → pull → snap → pull → clock; the windows arrive as the walk it already takes, never as a second
+  entry point that re-implements the tail, so the pull, the corner sets and the clock keep one home each.
+- **`avoid` cannot move, and the count proves it.** Its plan answers one region, so its path runs the same code
+  with the same numbers — the charge formula unchanged until Phase 5 — and the suite's counts, not a drawn-line
+  comparison alone, are the evidence.
+- **The reading stays honest.** Overlapping windows make a plain sum of passable cells double-count; the figure
+  is **unique lattice cells**, taken once when the search ends.
+- **Two duplications to fold rather than grow.** [`secondPassRegions`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:74)
+  is byte-identical in both plans and belongs in the interface as a default; and the shared builder still names
+  `route.avoidGridCellM` as "the configured base" while [`EvolutiveGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:95)
+  ignores it — the base belongs to the engine whose key it is.
+- **`GridContext` is a 26-field positional constructor** and this work adds to it: the new seams take named
+  construction rather than a 27th positional argument, or the next transposed pair of `Double`s is a silently
+  wrong line — the failure mode this feature has already named once.
+- **The chain never becomes a mask.** Marking the bounding box's cells impassable still rasterizes and allocates
+  the whole span, which is the cost this phase exists to remove; if the windows cannot be walked, the phase stops
+  rather than shipping the mask.
 
 ## Risks
 
@@ -374,8 +441,9 @@ The cost:
   / [`zoneOutsideMarginM + cellM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:112).
   The chain multiplies that question by its box count.
 - **A chain of boxes must overlap by more than a cell**, or a path cannot cross where two of them meet.
-- **Both fine consumers must be handed the local cell and the corridor**, or the 20 m contract and the
-  region hold in the re-raster and not in the pull.
+- **The local cell must reach the pull, the corner sets and the carve, and the chain the re-search alone** —
+  the 20 m contract held in the re-raster and lost in the pull is the shape of the defect; the crossing's own
+  box is a separate, local repair, clamped to the lookup's corridor and never to the chain.
 - **A coarse cell above 100 m makes the zone's collar sub-cell**; a band above 12.5 % of the corridor makes
   the hybrid dearer than the 50 m design.
 - **A wrong band depth or seam re-opens the channel-closing bug** this plan removes.
@@ -384,6 +452,20 @@ The cost:
 
 - **The corridor's half-width is decided, not open**: 150 m, on the two binding floors above, and Phase 2's
   reading only confirms it or moves it to 300. What remains is the measurement, not the choice.
-- The box count: `2w` at 300 m boxes as proposed, or fewer larger boxes, trading seams against over-cover.
+- **The box count is no longer a question**: with the side fixed at `2w` and the centres at most `w` apart,
+  the count is the pulled line's own length over `w` — derived, not a knob. The crossing's clamp is not a
+  second region to reconcile: it is the zone's own box, and it stays where it is.
+- **Parked — whether `w` must clear the coarse carve's reach too.** Phase 3's own test showed the ends
+  guarantee splits: the disc holds at every cell, the carve reach only while `2 × cellM` is under `w`, and at
+  the first walk's 100 m cell that reach is 200 m against the shipped 150 m. The fine pass re-opens the ends
+  itself and keeps the coarse line when the splice is not better, so the exposure is a refused improvement
+  rather than a wrong line. The resume condition is a device reading in which the ends' fine stretch is
+  refused; the other answer is the clamp's floor rising to `2 × cellM`.
 - Whether the seam needs a transitional layer once its edge is distance-priced, or one band suffices.
 - Whether the depth-gate band trigger reads the depth excess over the gate or a true contour distance.
+- **Parked — the zone repair's own raster, if a reading ever says it dominates.** It stays the zone's box
+  clamped to the lookup's corridor, decided 2026-10-04: not chained, because that is the bill `avoid` pays
+  today and nothing measures a large zone's fine raster against a solve. The resume condition is a device
+  reading in which that raster dominates; the fallback then is to bound it by the chain boxes it overlaps, and
+  it is cheaper than it looks — the detour the repair is looking for needs the 100 m collar the chain's `2w`
+  already covers.

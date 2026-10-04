@@ -139,9 +139,12 @@ The decisions a one-pass implementation needs, and the reason the answer to "are
 - **The seam's step cost is the distance between two cell centres, and it is the only formula**:
   `stepSec(a, b) = haversine(centre(a), centre(b)) / paceMps + soft(b)`, where
   `soft(b) = window(b).grid.cell(b).sourceCostSec - window(b).grid.baseCostSec` — the destination's own
-  added sources, the base being the crossing time that distance already pays. On a uniform grid this
-  reproduces today's `sourceCostSec × multiplier` exactly, which is what keeps the existing suite green;
-  across a seam it is simply correct, because the hop pays the ground it covers.
+  added sources, the base being the crossing time that distance already pays. **The claim that a uniform grid
+  reproduces today's `sourceCostSec × multiplier` exactly is too strong, and the record carries the
+  arithmetic**: today's charge multiplies the *whole* cell cost, so a diagonal into a soft cell reads
+  `(base + soft) × √2` where this form reads `base × √2 + soft`. The equal-cell walk therefore keeps today's
+  charge — that is what makes the existing suite green rather than merely hoped — and the centres-distance form
+  lands with the unequal cells, where the destination's own size stops being the distance travelled.
 - **The diagonal therefore needs no special case**: `sqrt 2` was only ever the diagonal in cell units, and
   the centre distance yields it for free at any mix of cell sizes.
 - **The fine band's membership is a per-cell distance read, not a dilation pass**: band water is a cell

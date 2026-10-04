@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-04 09:15
+modified: 2026-10-04 10:06
 ---
 
 # Feature: Route
@@ -262,3 +262,4 @@ The pointer index — one line per shipped pass; the archived pointers are dropp
 - The pass pipeline dissolved into four engine-composed seats — `RouteGridBuilder`, `RoutePassRunner`, `RouteFinePass` and `RoutePassRules`, each built once by `RouteAvoidEngine`, the emptied `RoutePassPipeline.kt` deleted, and `publish`/`trace` still the engine's lambdas so no update or log line moved → [`261004_FEAT_PLN_Route_code-health-split.md`](261004_FEAT_PLN_Route_code-health-split.md)
 - The shared layer both engines stand on is now `multipass` — `spatial/avoid/` became `spatial/multipass/` and its eight `Avoid*` types took the `Multipass` prefix, while the `avoid` id, the two engine class names and every `route.avoid.*` key were left alone → [`261004_FEAT_PLN_Route_code-health-split.md`](261004_FEAT_PLN_Route_code-health-split.md)
 - The adaptive grid's semantics landed before its layers — `evolutive`'s plan answers its own `route.evolutive.*` sizes (coarse 100 m, fine 20 m, corridor half-width 150 m), the plan seam gained the metres `fineCellM(baseCellM)`, the fine cell travels on `GridContext`, and both fine consumers and every clock site read it — `clockSampleM` now taking metres — while `avoid`'s ratio, its grid key and its parked red guard test stay untouched → [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md)
+- The corridor chain landed with the walk it feeds — one lattice whose cell-size pair is derived once from the corridor's mid-latitude and whose windows snap outward onto it, a walk that is **one** search loop over those windows (the uniform pass's single window keeping today's index space, tie-breaks and answers, which the suite's unchanged count proves), and `evolutive`'s second pass answering a chain of `2w` boxes along the settled line where `avoid`'s plan keeps its bounding box → [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md)

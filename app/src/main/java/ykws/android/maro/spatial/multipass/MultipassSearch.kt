@@ -7,8 +7,8 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.sqrt
 
 /**
- * Corridor-bounded A* over [MultipassGrid]: eight neighbours, a diagonal costing `√2` of its own cell — a
- * diagonal covering `√2` cells of distance and time alike — and a g-cost in **seconds**.
+ * Corridor-bounded A\* over the water one walk may use: eight neighbours, a diagonal costing `√2` of its
+ * own cell — a diagonal covering `√2` cells of distance and time alike — and a g-cost in **seconds**.
  *
  * A cell costs its own `sourceCostSec` plus, where the grid stores a **limit in force**, the seconds
  * that limit costs, which the caller prices through [zonePriceSec]. The grid stores the **strictest**
@@ -21,11 +21,17 @@ import kotlin.math.sqrt
  * since the base is one cell of water at that same pace. [LAND] is impassable; everything else is
  * priced.
  *
- * Ties break by shorter g-so-far, then by a deterministic row-major cell order — never by heap
- * insertion order — so the same grid always yields the same path. [checkCancelled] is consulted
- * every few hundred expansions (the coroutine's own `ensureActive` by default), so an abandoned
- * drag stops inside the search instead of after it. Exhaustion is a [SearchOutcome] whose `path` is
- * `null`, and the reading beside it says how much water the search walked before it gave up.
+ * **One loop, whatever the walk is**: the water arrives as a [WalkWindows], so a uniform pass's single
+ * grid and the adaptive grid's chain of windows cross the same door. The single-window case is arithmetic
+ * — its slots are that grid's own indices and its centres its own — so every existing answer, tie-break
+ * and reading stays where the suite already proves it, and the chain's case is the sparse lattice id the
+ * walk itself keeps.
+ *
+ * Ties break by shorter g-so-far, then by a deterministic slot order — never by heap insertion order — so
+ * the same walk always yields the same path. [checkCancelled] is consulted every few hundred expansions
+ * (the coroutine's own `ensureActive` by default), so an abandoned drag stops inside the search instead of
+ * after it. Exhaustion is a [SearchOutcome] whose `path` is `null`, and the reading beside it says how much
+ * water the search walked before it gave up.
  */
 object MultipassSearch {
 
@@ -44,12 +50,12 @@ object MultipassSearch {
     private const val CADENCE = 256
 
     /**
-     * The shortest passable path from [start] to [aim] as an ordered list of cell indices, the two
-     * ends included — or a `null` path when no free corridor connects them, with the exhaustion
+     * The shortest passable path across [grid] from [start] to [aim] as an ordered list of cell indices,
+     * the two ends included — or a `null` path when no free corridor connects them, with the exhaustion
      * reading beside it.
      *
      * **The reading is aggregates, taken once the search has ended**, never per expansion: how many
-     * cells were expanded, how many of the grid's cells were passable at all, and whether the aim's
+     * cells were expanded, how many of the walk's own cells were passable at all, and whether the aim's
      * own cell was ever closed. It is what tells a caller *why* the answer is nothing — an aim whose
      * own cell was barred by the grid against water the ring's question accepted, or a way round that
      * lies outside the corridor — without either side keeping a dossier of its own.
@@ -70,13 +76,28 @@ object MultipassSearch {
         zonePriceSec: (interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _ -> 0.0 },
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
+    ): SearchOutcome =
+        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled)
+
+    /**
+     * The same search over **[walk]**, one window or several on one lattice: the cell indices the path
+     * answers are the walk's own lattice coordinates, and a neighbour no window holds is simply no step.
+     * Every other rule of [search] holds verbatim, the charge included.
+     */
+    internal suspend fun searchWalk(
+        walk: WalkWindows,
+        start: CellIndex,
+        aim: CellIndex,
+        paceMps: Double,
+        zonePriceSec: (interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
+            { _, _, _ -> 0.0 },
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
     ): SearchOutcome {
-        val cols = grid.cols
-        val rows = grid.rows
-        val n = rows * cols
-        val startIdx = grid.index(start.row, start.col)
-        val aimIdx = grid.index(aim.row, aim.col)
-        val aimCenter = grid.center(aim.row, aim.col)
+        val n = walk.size
+        val startIdx = walk.slotOf(start.row, start.col)
+        val aimIdx = walk.slotOf(aim.row, aim.col)
+        if (startIdx < 0 || aimIdx < 0) return SearchOutcome(null, 0, 0, aimClosed = false)
+        val aimCenter = walk.center(aim.row, aim.col)
 
         val g = DoubleArray(n) { Double.POSITIVE_INFINITY }
         val h = DoubleArray(n) { Double.NaN }
@@ -84,7 +105,7 @@ object MultipassSearch {
         val closed = BooleanArray(n)
 
         g[startIdx] = 0.0
-        h[startIdx] = SpatialOperations.haversine(grid.center(start.row, start.col), aimCenter) / paceMps
+        h[startIdx] = SpatialOperations.haversine(walk.center(start.row, start.col), aimCenter) / paceMps
         h[aimIdx] = 0.0
 
         val open = PriorityQueue<Node>(compareBy({ it.f }, { it.g }, { it.index }))
@@ -102,19 +123,18 @@ object MultipassSearch {
             expansions++
             if (expansions % CADENCE == 0) checkCancelled()
 
-            val row = idx / cols
-            val col = idx % cols
+            val row = walk.rowOf(idx)
+            val col = walk.colOf(idx)
             for (step in STEPS) {
                 val nr = row + step.dr
                 val nc = col + step.dc
-                if (nr !in 0 until rows || nc !in 0 until cols) continue
-                val nIdx = nr * cols + nc
-                if (closed[nIdx]) continue
-                val cell = grid.cell(nr, nc)
+                val nIdx = walk.slotOf(nr, nc)
+                if (nIdx < 0 || closed[nIdx]) continue
+                val cell = walk.cell(nIdx)
                 if (!cell.passable) continue
-                val interiorLimitKn = grid.limitKn(nr, nc)
-                val collarLimitKn = grid.collarLimitKn(nr, nc)
-                val bandCollarLimitKn = grid.bandCollarLimitKn(nr, nc)
+                val interiorLimitKn = walk.limitKn(nIdx)
+                val collarLimitKn = walk.collarLimitKn(nIdx)
+                val bandCollarLimitKn = walk.bandCollarLimitKn(nIdx)
                 val cellSec =
                     if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
                         cell.sourceCostSec + zonePriceSec(interiorLimitKn, collarLimitKn, bandCollarLimitKn)
@@ -126,34 +146,23 @@ object MultipassSearch {
                     g[nIdx] = newG
                     cameFrom[nIdx] = idx
                     if (h[nIdx].isNaN()) {
-                        h[nIdx] = SpatialOperations.haversine(grid.center(nr, nc), aimCenter) / paceMps
+                        h[nIdx] = SpatialOperations.haversine(walk.center(nr, nc), aimCenter) / paceMps
                     }
                     open.add(Node(nIdx, newG + h[nIdx], newG))
                 }
             }
         }
 
-        val passable = passableCellCount(grid)
+        val passable = walk.passableCount()
         if (!closed[aimIdx]) return SearchOutcome(null, expansions, passable, aimClosed = false)
         val path = ArrayList<CellIndex>()
         var cur = aimIdx
         while (cur != -1) {
-            path.add(CellIndex(cur / cols, cur % cols))
+            path.add(CellIndex(walk.rowOf(cur), walk.colOf(cur)))
             cur = cameFrom[cur]
         }
         path.reverse()
         return SearchOutcome(path, expansions, passable, aimClosed = true)
-    }
-
-    /** One linear read of the grid's passable cells — taken once, when the search ends, never per expansion. */
-    private fun passableCellCount(grid: MultipassGrid): Int {
-        var count = 0
-        for (row in 0 until grid.rows) {
-            for (col in 0 until grid.cols) {
-                if (grid.cell(row, col).passable) count++
-            }
-        }
-        return count
     }
 }
 
@@ -162,19 +171,19 @@ object MultipassSearch {
  *
  * The reading is the search's own refusal account, and it is deliberately aggregates rather than a
  * per-expansion trace: [expansions] is how many cells the search closed and stepped out of,
- * [passableCells] how much of the grid was walkable at all, and [aimClosed] whether the aim's own
- * cell was ever reached. A `null` [path] with `aimClosed = false` is the exhaustion case, and its
+ * [passableCells] how much of the walk's own water was walkable at all, and [aimClosed] whether the aim's
+ * own cell was ever reached. A `null` [path] with `aimClosed = false` is the exhaustion case, and its
  * two counts are what separate an aim the grid barred from a way round lying outside the corridor.
  *
  * Nothing here is consulted by the search itself: it is built once, at the end, and it changes
- * neither the neighbour order nor the heap's tie-breaks, so the same grid still yields the same path.
+ * neither the neighbour order nor the heap's tie-breaks, so the same walk still yields the same path.
  */
 data class SearchOutcome(
     /** The shortest passable path, the two ends included, or `null` when no free corridor connects them. */
     val path: List<CellIndex>?,
     /** How many cells the search expanded — closed and stepped out of, the aim's own pop excluded. */
     val expansions: Int,
-    /** How many of the grid's cells were passable when the search ran — the water it could walk. */
+    /** How many of the walk's own cells were passable when the search ran — the water it could walk. */
     val passableCells: Int,
     /** Whether the aim's own cell was ever closed. `false` on an exhaustion is the headline reading. */
     val aimClosed: Boolean

@@ -14,7 +14,13 @@ internal data class GridWalk(
     val grid: MultipassGrid,
     val startCell: CellIndex,
     val aimCell: CellIndex,
-    val cellM: Double
+    val cellM: Double,
+    /**
+     * The water this walk may use where it is **several windows on one lattice** — `null` for the uniform
+     * pass, whose single grid is its own walk. The path answers the walk's own coordinates either way: the
+     * grid's for one window, the lattice's for a chain, and this is what resolves a path back to points.
+     */
+    val windows: WalkWindows? = null
 )
 
 /** One tangent corner set: the offset points and the radius within which they may move a bend. */

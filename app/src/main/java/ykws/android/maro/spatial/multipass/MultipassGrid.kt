@@ -347,12 +347,66 @@ fun rasterize(
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
     val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-    val cellSizeDegLat = cellM / mPerDegLat
-    val cellSizeDegLon = cellM / mPerDegLon
-    val cols = ceil((box.lonEast - box.lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
-    val rows = ceil((box.latNorth - box.latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
+    return rasterizeFrame(
+        box, box.latSouth, box.lonWest, cellM / mPerDegLat, cellM / mPerDegLon, mPerDegLat, mPerDegLon,
+        cellM, paceKn, marginM, edges, openCoast, capLatNorth, field, zones, blockZones,
+        zoneOutsideMarginM, band
+    )
+}
+
+/**
+ * **One window of a lattice's raster** — the same fill as [rasterize], laid out from a frame the caller
+ * owns: an origin already on the lattice and the lattice's own cell-size pair, so two windows' cells line up
+ * by arithmetic. The pair is deliberately **not** derived here; deriving it per box is exactly how two
+ * rectangles come to stand on two lattices, and it is what [rasterize] alone still does.
+ */
+internal fun rasterizeWindow(
+    box: BBox,
+    lattice: WalkLattice,
+    paceKn: Double,
+    marginM: Double,
+    edges: List<MultipassEdge>,
+    openCoast: List<List<LatLng>>,
+    capLatNorth: Double,
+    field: RouteCostField = RouteCostField.EMPTY,
+    zones: List<ZoneRing> = emptyList(),
+    blockZones: Boolean = false,
+    zoneOutsideMarginM: Double = 0.0,
+    band: BandLaw? = null
+): MultipassGrid {
+    val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
+    return rasterizeFrame(
+        box, box.latSouth, box.lonWest, lattice.cellSizeDegLat, lattice.cellSizeDegLon,
+        mPerDegLat, mPerDegLon, lattice.cellM, paceKn, marginM, edges, openCoast, capLatNorth, field,
+        zones, blockZones, zoneOutsideMarginM, band
+    )
+}
+
+/** The rasterizer's own body over a frame the caller owns — the one home of the fill's own passes. */
+private fun rasterizeFrame(
+    box: BBox,
+    latSouth: Double,
+    lonWest: Double,
+    cellSizeDegLat: Double,
+    cellSizeDegLon: Double,
+    mPerDegLat: Double,
+    mPerDegLon: Double,
+    cellM: Double,
+    paceKn: Double,
+    marginM: Double,
+    edges: List<MultipassEdge>,
+    openCoast: List<List<LatLng>>,
+    capLatNorth: Double,
+    field: RouteCostField,
+    zones: List<ZoneRing>,
+    blockZones: Boolean,
+    zoneOutsideMarginM: Double,
+    band: BandLaw?
+): MultipassGrid {
+    val cols = ceil((box.lonEast - lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
+    val rows = ceil((box.latNorth - latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
     val grid = MultipassGrid(
-        box.latSouth, box.lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM,
+        latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM,
         baseCostSec(cellM, paceKn)
     )
 
