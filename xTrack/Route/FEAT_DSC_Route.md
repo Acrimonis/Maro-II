@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-04 00:38
+modified: 2026-10-04 01:50
 ---
 
 # Feature: Route
@@ -99,7 +99,7 @@ Arrival carries no state and no cue: it is the trip cell reading zero while the 
 
 **The progressive draw's open points** — the flicker on a sub-second ask, the angular staircase, the `PULL` boundary's mapping cost unmeasured against the ≤ 500 ms budget, and whether the aim beat should stop while a partial line draws, with its retry pin and the device reading owed ([`260925_FEAT_PLN_Route_progressive-draw.md`](260925_FEAT_PLN_Route_progressive-draw.md:112)).
 
-**Parked under a future algorithm improvement** — Phase 5's marker weights merged with the shipped marker scale into one scale, taken with the review over Phase 6's folded fixes; and the fine band's Change 4, whose width and mechanism the code and the walk disagree about (the engine already re-solves at the ratio).
+**Parked under a future algorithm improvement** — Phase 5's marker weights merged with the shipped marker scale into one scale, taken with the review over Phase 6's folded fixes; and the fine band's Change 4, **superseded on 2026-10-04**: the second engine's plans settle the fine cell in metres (20 m), the band's width (one coarse cell) and the ratio (derived, 1 : 5), so the walk's parked question is answered by design rather than by a decision on the record — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md:1).
 
 **Parked — swap the drawer's route ends (2026-10-03, maybe later, no gate)** — a tier-2 `swap_vert` `IconButton` on the `route_comment_ends` row that exchanges the two stored end tokens through a `swapRouteEnds()`; the existing `RouteEndSelection.resolve` fallback keeps each selector honest. No todo and no walk item hold it.
 
@@ -167,7 +167,9 @@ The live numbered requirements — added after the master book was retired on 20
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — **the avoidance algorithm's design of record**, folded from the archived phase and zone plans: the pipeline, the cost field, the λ loop, the standoff's retirement, the fairing and the evidence
 - [`261003_FEAT_PLN_Route_speeds-simplification.md`](261003_FEAT_PLN_Route_speeds-simplification.md) — the clock's enforced-limit rework, the curve fitter's removal, and the two post-passes: the racing-line corner pass and the speed profile
-- [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md) — **in design**: the distance-scaled first walk, fine (25 m) beside the coast and the depth gate, coarse (100 m) in open water, at a 1 : 4 ratio
+- [`261004_FEAT_PLN_Route_hybrid-grid.md`](261004_FEAT_PLN_Route_hybrid-grid.md) — **in design**: the adaptive first walk, fine (20 m, the precision contract) beside the coast and the depth gate, coarse (100 m) in open water, at 1 : 5
+- [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md) — **in design**: the second engine beside `avoid`, the shared-and-derived code map, the neutral step reading, and the mechanisms its one pass needs
+- [`261004_FEAT_PLN_Route_speed-attribution.md`](261004_FEAT_PLN_Route_speed-attribution.md) — **in design**: the per-point speed fix — the clock's constant sampling step, the single midpoint read, and the both-ends rule that replaces it
 - Thirty-nine files are archived in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Walk
