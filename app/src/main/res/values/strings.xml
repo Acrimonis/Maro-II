@@ -626,7 +626,7 @@
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
          asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
     <string name="route_action_save_track">Save</string>
-    <string name="route_action_select">Select</string>
+    <string name="route_action_select">Follow</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the

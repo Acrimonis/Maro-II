@@ -305,16 +305,19 @@ object MultipassPull {
      * intervals. That floor is the one home the clearance walk shares, so the two walks can never
      * disagree about the fine grid's own length.
      *
-     * **The mark set does not change; which marks pay a read of their own does.** The fine intervals
-     * are grouped into whole coarse intervals of [priceStepM] — the walk's **interior** cell, its own
-     * step and never the clearance walk's fine one — and a group's read stands at its own midpoint
-     * `(i0 + k / 2) / steps`, with half-length `k × stepM / 2`. Where the field's
-     * [RouteCostField.priceClearanceM] at that reading is at least the half-length, the source's arm
-     * cannot change inside the group, so the group is priced from that one reading **identically** —
-     * the same value added the same number of times in the same order, not a near miss. Every group the
-     * declaration cannot prove keeps today's fine midpoints, at today's positions, in today's order; a
-     * group of one interval is its own fine interval and is never asked for a proof, so a walk handed
-     * the fine step reads exactly as today.
+     * **The mark set does not change; which marks pay a read of their own does.** The walk is read as a
+     * recursion over the chord's own fine intervals, from the whole chord down: one clearance read at a
+     * span's midpoint proves the span where it is at least the span's half-length — no boundary of any
+     * soft source can then lie inside, so the arm is constant and the span's product is **identically**
+     * the fine sum it replaces, the same value added the same number of times in the same order, not a
+     * near miss — an unproved span splits in half and each half is tested in turn, and a span at or
+     * under the **floor** falls to the group path below. So the walk settles on the largest provable
+     * spans and keeps the group and fine marks only where a boundary actually lives.
+     *
+     * The proof's own read is not a price read and is never counted in [PullTiming.priceReads]: a proved
+     * span pays one price read whatever its length, beside the clearance read that proved it. Where the
+     * walk cannot group at all — a price step at or under the fine one — the span proof is skipped and
+     * the walk reads exactly as today, so only a coarse pass changes.
      *
      * The midpoint is what makes two segments comparable: an end-excluding walk discounts a short
      * segment by half a sample and a long one by almost nothing, so a chord would have looked dearer
@@ -338,33 +341,113 @@ object MultipassPull {
         val stepM = dist / steps
         // The price step is floored at the fine one, exactly as the clearance walk floors its own, so
         // a coarse pass can only ever save reads.
-        val groupStep = maxOf(1, floor(priceStepM.coerceAtLeast(sampleStep) / stepM).toInt())
-        var sum = 0.0
-        var i = 0
-        while (i < steps) {
-            val k = minOf(groupStep, steps - i)
+        val priceStep = priceStepM.coerceAtLeast(sampleStep)
+        val groupStep = maxOf(1, floor(priceStep / stepM).toInt())
+        // A walk whose step cannot group reads as today: the span proof exists to spare the reads a
+        // group pays, so a step at or under the fine one leaves the fine midpoints alone.
+        if (groupStep <= 1) {
+            val acc = doubleArrayOf(0.0)
+            groupPriceSec(a, b, 0, steps, steps, stepM, marginM, priceStep, field, timing, acc)
+            return acc[0]
+        }
+        // The recursion's floor: twice the price step, the length the group walk prices in two reads,
+        // so a span at or under it goes straight to the group path and a short chord never pays more.
+        val floorCount = maxOf(groupStep, floor(2.0 * priceStep / stepM).toInt())
+        val acc = doubleArrayOf(0.0)
+        spanPriceSec(a, b, 0, steps, steps, stepM, marginM, priceStep, floorCount, field, timing, acc)
+        return acc[0]
+    }
+
+    /**
+     * [softPriceSec] read as a recursion over the chord's own fine intervals `[i0, i1)`. A span at or
+     * under [floorCount] intervals is the group walk's own; a longer span is tested by one clearance
+     * read at its midpoint and, proved, priced from one price read there. An unproved span splits in
+     * half and each half is tested in turn, so the walk finds the largest provable spans.
+     *
+     * **The sum is one accumulator, visited left to right**, never a tree of `left + right` pairs: a
+     * proved span adds its reading once per interval in the same places the fine walk would, so the
+     * total is bit-identical to the fine sum — the same double, not a near miss — which a floating
+     * point re-association across a split would break.
+     */
+    private fun spanPriceSec(
+        a: LatLng,
+        b: LatLng,
+        i0: Int,
+        i1: Int,
+        totalSteps: Int,
+        stepM: Double,
+        marginM: Double,
+        priceStepM: Double,
+        floorCount: Int,
+        field: RouteCostField,
+        timing: PullTiming?,
+        acc: DoubleArray
+    ) {
+        val count = i1 - i0
+        if (count <= floorCount) {
+            groupPriceSec(a, b, i0, i1, totalSteps, stepM, marginM, priceStepM, field, timing, acc)
+            return
+        }
+        val halfM = count * stepM / 2.0
+        val t = (i0 + i1) / 2.0 / totalSteps
+        val mid = chordPoint(a, b, t)
+        val clearance = field.priceClearanceM(mid)
+        if (clearance < Double.MAX_VALUE && clearance >= halfM) {
+            val price = field.softPriceSecAt(mid)
+            timing?.addPriceReads(1)
+            repeat(count) { acc[0] += price * stepM }
+            return
+        }
+        val midIndex = i0 + count / 2
+        spanPriceSec(a, b, i0, midIndex, totalSteps, stepM, marginM, priceStepM, floorCount, field, timing, acc)
+        spanPriceSec(a, b, midIndex, i1, totalSteps, stepM, marginM, priceStepM, floorCount, field, timing, acc)
+    }
+
+    /**
+     * The group walk over the interval run `[i0, i1)`, adding into [acc]: successive intervals of
+     * [priceStepM] worth are grouped, a group is priced from **one** read where the field's declaration
+     * proves no boundary stands inside it, and every unproved group keeps today's fine midpoints, at
+     * today's positions, in today's order. A group of one interval is its own fine interval and is
+     * never asked for a proof, so a walk handed the fine step reads exactly as today.
+     */
+    private fun groupPriceSec(
+        a: LatLng,
+        b: LatLng,
+        i0: Int,
+        i1: Int,
+        totalSteps: Int,
+        stepM: Double,
+        marginM: Double,
+        priceStepM: Double,
+        field: RouteCostField,
+        timing: PullTiming?,
+        acc: DoubleArray
+    ) {
+        val groupStep = maxOf(1, floor(priceStepM.coerceAtLeast(clearanceStep(marginM)) / stepM).toInt())
+        var i = i0
+        while (i < i1) {
+            val k = minOf(groupStep, i1 - i)
             val halfM = k * stepM / 2.0
             val proved = if (k > 1) {
                 // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
                 // can never be proved, and a group of one interval is never asked.
-                val clearance = field.priceClearanceM(chordPoint(a, b, (i + k / 2.0) / steps))
+                val clearance = field.priceClearanceM(chordPoint(a, b, (i + k / 2.0) / totalSteps))
                 clearance < Double.MAX_VALUE && clearance >= halfM
             } else {
                 false
             }
             if (proved) {
-                val price = field.softPriceSecAt(chordPoint(a, b, (i + k / 2.0) / steps))
+                val price = field.softPriceSecAt(chordPoint(a, b, (i + k / 2.0) / totalSteps))
                 timing?.addPriceReads(1)
-                repeat(k) { sum += price * stepM }
+                repeat(k) { acc[0] += price * stepM }
             } else {
                 for (j in i until i + k) {
-                    sum += field.softPriceSecAt(chordPoint(a, b, (j + 0.5) / steps)) * stepM
+                    acc[0] += field.softPriceSecAt(chordPoint(a, b, (j + 0.5) / totalSteps)) * stepM
                     timing?.addPriceReads(1)
                 }
             }
             i += k
         }
-        return sum
     }
 
     /** [softPriceSec] accumulated along [path], so one span's price is a single subtraction. */

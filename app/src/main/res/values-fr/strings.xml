@@ -631,7 +631,7 @@
          la ligne **sélectionnée** et partage une ligne avec la sélection, et l'abandon quitte
          l'acquisition sans rien demander sous le mot de `route_exit_discard` — un acte, une clé. -->
     <string name="route_action_save_track">Enregistrer</string>
-    <string name="route_action_select">Sélectionner</string>
+    <string name="route_action_select">Suivre</string>
     <string name="route_pin_label">Épingler la trace</string>
     <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
          une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,

@@ -1,0 +1,132 @@
+<!-- scope: feature -->
+# Route — the mark count: the two-pointer's sampled volume
+
+**Date:** 2026-10-05 · **Status:** in design, nothing built, no file outside this one touched.
+**Order:** the user's word of 2026-10-05, *"do plan the 2 tasks"* — the second of two, beside
+[`261005_FEAT_PLN_Route_chord-price-proof.md`](261005_FEAT_PLN_Route_chord-price-proof.md).
+**Rev 2 (2026-10-05):** the plan's own review landed — the phases were split so the lattice's error and
+the memo's win are two steps with two exits, the exit's wording stopped claiming that no assertion may
+move at all, the read-density figures gained their source, and the sibling plan's interaction inside
+`softPriceSec` is stated.
+
+**Asked for:** the parked lever of [`261004_FEAT_PLN_Route_price-walk-reads.md`](261004_FEAT_PLN_Route_price-walk-reads.md:356)
+— *"the two-pointer's `n² / 2` sampled volume … Fixed sample marks along a chord with a memo of the reads
+they already paid is the next lever, and it is measurable once the per-read cost is down"* — now planned
+rather than parked. It is the feature's own order step 5.
+
+## Why
+
+- **The cut that landed coarsens what a mark costs, never how many marks there are.** Phases 1–3 and 4b
+  group intervals so a *proved* group pays one read instead of `k`; the number of marks — and so the
+  walk's `Σ over chords (chord length / fine step)` — is untouched, which is why the phase-8 capture's
+  `priceReads` equalled the model's own mark count ([`route-phase8.txt`](../../route-phase8.txt:1)).
+- **The volume is the loop's own arithmetic.** [`pull()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:71)
+  stands its anchor while the probe advances; every evaluation walks the candidate chord twice over —
+  the clearance walk of [`legClearCause()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:223)
+  and, where that chord is clear, the price walk of [`softPriceSec()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:327).
+  On a failed extension the anchor becomes the probe's predecessor, so the same water is walked again by
+  the next attempt, and again by the one after it.
+- **Three further sites pay the same bill**: [`softPricePrefix()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:371)
+  walks the raw cell chain once — about **2 reads a point on the band's 20 m cells and 9–12 on the 100 m
+  interior chain**, the price-walk plan's own model
+  ([`261004_FEAT_PLN_Route_price-walk-reads.md`](261004_FEAT_PLN_Route_price-walk-reads.md:42)) —
+  [`snapToCorners()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassPrimitives.kt:176)
+  asks four priced segments per corner candidate, and [`RouteFinePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:30)
+  sums the same walk over the fine points. The lever is the marks, at four sites, and not one.
+- **Its trigger is the reading already owed.** The plan names the mark count as *measurable once the
+  per-read cost is down*, and 4b is that cut: the reading that re-prices the pull is the same one that
+  prices this lever ([`FEAT_HYD_Route.md`](FEAT_HYD_Route.md:39)).
+- **It sits inside the group path of the sibling plan and not beside it**: the span proof of
+  [`261005_FEAT_PLN_Route_chord-price-proof.md`](261005_FEAT_PLN_Route_chord-price-proof.md) decides which
+  spans are priced from one reading at all, and this plan's marks are what an unproved span falls back
+  to. Either can ship alone, and together they are one walk.
+
+## The lever, and the price it carries
+
+- **Today's marks are chord-relative.** `softPriceSec` derives `steps = ceil(dist / sampleStep)` and
+  places its marks at `(j + 0.5) / steps` of the chord, so `stepM = dist / steps` differs between two
+  attempts of different length and the marks of the shorter attempt do not stand on the longer one's
+  points. A memo keyed on a mark's own position therefore **cannot hit** while the marks are relative.
+- **Cutting the volume means fixing the marks on a step lattice.** Marks at `anchor + (j + 0.5) × step`
+  with `step = clearanceStep(marginM)` (25 m at the shipped margin) make consecutive attempts from one
+  anchor share every mark but the tail, so a memo of the reads already paid hits **exactly** — the same
+  point, the same pure function, the same double.
+- **The partition moves with the marks, and that is the decision.** Today the marks cover the chord
+  exactly; on a lattice the tail is a remainder unless the last interval is sized to it. Where the tail
+  is left as a remainder the sum changes by up to one interval's price, the same class the plan already
+  states for the aligned shared grid ([`261004_FEAT_PLN_Route_price-walk-reads.md`](261004_FEAT_PLN_Route_price-walk-reads.md:141)).
+  Sizing the last interval to the remainder keeps the coverage exact, and the change left is the
+  **positions** of the interior marks.
+- **A moved sum can move a verdict, and a verdict is the drawn line.** [`priceRefusal()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:283)
+  compares the chord's price against the path's prefix, so both sides must be built on the same lattice
+  or the guard compares two different walks. This is a change the user can see, so the lattice is the
+  user's word — the plan's own reopening of `Δ price = 0`.
+- **The exact fallback is named and is thin.** A memo that leaves the partition alone can only hit
+  where the points coincide by construction, which relative marks never do; the prefix is already
+  single-paid. So an exact mark-cut does not exist at this shape, and the honest choice is between the
+  lattice's stated error and leaving the volume as it is.
+
+## Phases
+
+Two steps, and they are split because the first carries the error and the second carries the win: a
+lattice alone changes positions and saves nothing, and a memo alone can never hit.
+
+1. **The lattice, with today's reads and its error stated.** One `MarkLattice` for a walk — the step from
+   `clearanceStep(marginM)`, marks at `anchor + (j + 0.5) × step`, the last interval sized to the chord's
+   remainder so the coverage stays exact — in `softPriceSec` and in `legClearCause`'s coarse marks alike.
+   Exit: the fixture for the moved sample green, the drawn line's own figures recorded against the
+   current capture, and **no assertion about a verdict changed** — an assertion about a sample's position
+   may legitimately move here, which is what this phase is for.
+   The error bound and its fixture live here, not later: a chord whose arm changes across a moved sample
+   states the bound, and the user's word is taken before the memo is built on top of it.
+2. **The memo.** One memo per walk, keyed on the mark's own point, shared by `legClearCause` and
+   `softPriceSec` so a mark's clearance read and its price read are each paid once, and cleared with the
+   field so no answer prices the next solve. Exit: a counting field proving the reads fall across
+   attempts of one anchor, with the sums unchanged from Phase 1's.
+3. **The reading.** `priceReads` and `priceMs` on the phase-8 pairs for both engines, beside the sibling
+   plan's reading should both land, with the drawn line's figures as the check.
+
+## Verification
+
+- **A counting field proves both halves at once**: the same sum, strictly fewer reads, and one read per
+  distinct mark where two attempts share their stretch.
+- **The memo cannot change a value**: a fixture reads one mark twice and asserts the two doubles are
+  identical and the counter rose once.
+- **The lattice covers the chord exactly**: the intervals' lengths sum to the chord's own haversine, so
+  the one-interval error cannot hide in an uncovered tail.
+- **The verdicts are the check Phase 1 exists for**: the same chords refused and the same line pulled on
+  every existing fixture, and `LINE distance` and `duration` against the current capture on the pairs.
+- **An unproved stretch keeps today's reads**: near the band's edge or inside a collar the walk reads as
+  it does today, at today's positions, in today's order.
+- **The guard's two sides keep one partition**: the prefix and the chord walk the same lattice, asserted
+  on a fixture whose prefix and chord are both built from it.
+
+## Risks
+
+- **The lattice's error is the plan's worst case** — it moves the guard's arithmetic and so the drawn
+  line, silently, exactly as the aligned shared grid does. It is Phase 1's whole subject: the fixture
+  states the bound, and a bound of zero is the only outcome that needs no user's word.
+- **The memo's key must be the point, never a rounded index**: a cell-keyed memo answers with a
+  neighbour's price while every test still passes on the fixture's own points.
+- **A memo's lifetime is one walk**: a memo that survives an answer would price a second solve with the
+  first's field, and the field is rebuilt per λ pass.
+- **The win may be smaller than the volume suggests**: the attempts that pay most are the long ones, and
+  those are the ones a memo serves last (their first marks are shared, their tails are not). The sibling
+  plan's span proof is what takes the long ones out of this walk altogether.
+- **The instrument still under-counts the total**: `priceReads` counts the price's reads alone, so a
+  saving logged on it is the price half's, never the pull's.
+
+## Open questions
+
+- **The lattice, and the error it accepts — the user's call, not the agent's**, for the reason the
+  aligned shared grid is: the change can reach the drawn line. The plan's own recommendation is to take
+  it only if Phase 1's bound is zero on the shipping pairs, otherwise to leave the volume parked.
+- Whether the lattice is per chord (an anchor origin) or absolute over the corridor — an absolute one
+  serves more marks across anchors and moves more samples with it.
+- Whether the prefix's segments want the memo at all, given their own walk is single-paid.
+
+## Parked / out of scope
+
+- The clearance walk's own mark count beyond what the memo serves — the proof that spares a *read* is
+  landed, and this plan changes only how often a mark is *visited*.
+- Any new key, any new dependency, and any change to the drawn line that the reading does not demand.

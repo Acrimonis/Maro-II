@@ -232,37 +232,110 @@ class AvoidPriceWalkTest {
     }
 
     /**
-     * **The equivalence's own shape: `k − 2` a group.** A constant price whose boundary is declared far
-     * away, on a meridian chord whose fine grid divides into whole groups of `k` — so the coarsened walk
-     * returns today's own double and pays exactly its prove (the declaration read) and its price per
-     * group, sparing `k − 2` reads a group. Its control is its own arithmetic: the fine walk reads every
-     * midpoint and pays no declaration.
+     * **The span proof's own shape: every read but one.** A constant price whose boundary is declared
+     * far away lets the recursion prove the **whole chord** from one clearance read at its midpoint, so
+     * the coarsened walk returns today's own double and pays a single price read where the fine walk
+     * reads every midpoint — the group walk's own saving, taken at the whole chord's scale.
      */
     @Test
-    fun aProvedGroupSavesExactlyTwoReadsPerGroup() {
+    fun aProvedSpanSavesEveryReadButOne() {
         val start = LatLng(CHORD_LAT, 7.00)
         val aim = LatLng(CHORD_LAT + 1595.0 / M_PER_DEG_LAT, 7.00)
+        var fineReads = 0
+        var coarseReads = 0
+
+        val fine = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, flatField { fineReads++ })
+        val coarse = MultipassPull.softPriceSec(start, aim, marginM, coarseStepM, flatField { coarseReads++ })
+
+        assertEquals("the span proof returns today's own double, not a near miss", fine, coarse, 0.0)
+        assertTrue("the fine walk is not vacuous", fineReads > 0)
+        assertEquals("a proved span pays one price read whatever its length", 1, coarseReads)
+        assertEquals("so the saving is every read but one", fineReads - 1, fineReads - coarseReads)
+    }
+
+    /**
+     * **A proved span reads exactly twice and prices zero.** Open water whose arm is 0 but whose source
+     * still declares a boundary far away: the recursion proves the whole chord, so the walk pays one
+     * clearance read and one price read at the midpoint, and its sum is exactly 0.
+     */
+    @Test
+    fun aProvedSpanReadsExactlyTwiceAndPricesZero() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        var reads = 0
+        val field = RouteCostField(
+            listOf(
+                RouteCostSource.Soft(
+                    priceSec = { reads++; 0.0 },
+                    tag = MultipassCellState.ZONE,
+                    clearanceAt = { reads++; CLEAR_OF_ANY_BOUNDARY_M }
+                )
+            )
+        )
+
+        val sum = MultipassPull.softPriceSec(start, aim, marginM, coarseStepM, field)
+
+        assertEquals("the proved span's sum is exactly 0", 0.0, sum, 0.0)
+        assertEquals("and it reads exactly twice: one proof, one price", 2, reads)
+    }
+
+    /**
+     * **The floor holds.** A chord at or under twice the price step never reaches the span proof: it
+     * takes the group path, so a short chord's counts are today's — one prove and one price per proved
+     * group, and never a single whole-chord read.
+     */
+    @Test
+    fun aChordAtTheFloorTakesTheGroupPathAndPaysNoExtraRead() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(150.0))
         var fineReads = 0
         var coarseReads = 0
 
         val fine = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, countingField { fineReads++ })
         val coarse = MultipassPull.softPriceSec(start, aim, marginM, coarseStepM, countingField { coarseReads++ })
 
-        val steps = fineReads
-        val dist = SpatialOperations.haversine(start, aim)
-        val k = floor(coarseStepM * steps / dist).toInt()
-        val groups = steps / k
-
-        assertEquals("the fixture's fine grid divides into whole groups of k", 0, steps % k)
-        assertEquals("k is the shipped 8", 8, k)
-        assertEquals("the coarsened walk returns today's own double, not a near miss", fine, coarse, 0.0)
-        assertEquals(
-            "a proved group pays its prove and its price, and nothing else",
-            groups * 2, coarseReads
+        val steps = ceil(SpatialOperations.haversine(start, aim) / fineStepM).toInt()
+        val k = floor(coarseStepM / fineStepM).toInt()
+        val groups = (steps + k - 1) / k
+        assertTrue(
+            "the fixture is at or under the floor",
+            steps <= floor(2.0 * coarseStepM / fineStepM).toInt()
         )
+        assertEquals("the group path returns today's own double", fine, coarse, 0.0)
+        assertEquals("and pays the group walk's own reads, never one whole-chord read", groups * 2, coarseReads)
+    }
+
+    /**
+     * **The boundary is a boundary.** A chord whose midpoint declaration stands one metre under half
+     * the chord's length is **split** rather than proved — so the walk reads each half's midpoint, not
+     * the whole chord's alone, and still returns today's own double.
+     */
+    @Test
+    fun aSpanJustUnderHalfItsLengthIsSplitNotProved() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        var reads = 0
+        // The chord's midpoint declares a boundary 700 m away — under its 800 m half-length — while a
+        // half's midpoint, 400 m along the chord, stands ~806 m from that same boundary, well clear of
+        // its 400 m half-length. So the top span is refused and its two halves prove.
+        val boundary = LatLng(north(700.0), east(800.0))
+        val field = RouteCostField(
+            listOf(
+                RouteCostSource.Soft(
+                    priceSec = { reads++; fullSec },
+                    tag = MultipassCellState.ZONE,
+                    clearanceAt = { p -> reads++; SpatialOperations.haversine(p, boundary) }
+                )
+            )
+        )
+
+        val sum = MultipassPull.softPriceSec(start, aim, marginM, coarseStepM, field)
+        val fine = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, flatField {})
+
+        assertEquals("the split still returns today's own double", fine, sum, 0.0)
         assertEquals(
-            "so the saving is exactly k − 2 a group",
-            groups * (k - 2), steps - coarseReads
+            "the whole chord was not priced from one read: its two halves were, each proof and price",
+            5, reads
         )
     }
 
