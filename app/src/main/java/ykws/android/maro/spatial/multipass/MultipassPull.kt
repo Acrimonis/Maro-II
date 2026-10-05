@@ -52,6 +52,53 @@ import kotlin.math.floor
  * `blocked` test, since that flag is discarded. A source that declares no boundary proves nothing, and
  * every unproved group keeps today's reads.
  */
+private const val MIN_SAMPLE_STEP_M = 1.0
+
+/**
+ * **The marks of one sampled walk, on a fixed step from the chord's own anchor.** A walk's marks stand
+ * at `anchor + (j + 0.5) × step`, one per whole step along the chord, and the **last interval is sized
+ * to the chord's own remainder** rather than left over — so the intervals' lengths sum to the chord's
+ * haversine exactly and a one-interval error cannot hide in an uncovered tail.
+ *
+ * The fixed anchor is the whole point: two attempts that share an anchor share every mark but the tail,
+ * which is the property a memo of the reads already paid needs to hit **exactly** — the same point, the
+ * same pure function, the same double. Chord-relative marks never do, because their own step
+ * `dist / ceil(dist / step)` carries the chord's length into every mark and the two attempts' marks fall
+ * apart.
+ *
+ * The step is the walk's own — the clearance walk's **coarse** step, the price walk's **sampling** step —
+ * and it is floored here, at the one home that floors it, so no degenerate step can turn the partition
+ * into a runaway loop.
+ */
+internal class MarkLattice(val lengthM: Double, stepM: Double) {
+
+    /** The step in force, floored at the walk's own floor. */
+    val stepM: Double = stepM.coerceAtLeast(MIN_SAMPLE_STEP_M)
+
+    /** The interval count: the whole steps, plus the remainder's own interval where there is one. */
+    val count: Int = ceil(lengthM / this.stepM).toInt().coerceAtLeast(1)
+
+    /** The width (m) of interval [j] — one step, the last one sized to the chord's remainder. */
+    fun widthM(j: Int): Double = minOf((j + 1) * stepM, lengthM) - minOf(j * stepM, lengthM)
+
+    /** The fraction of the chord at interval [j]'s own midpoint — the mark a walk reads there. */
+    fun markT(j: Int): Double = fraction(j * stepM + widthM(j) / 2.0)
+
+    /** The length (m) the interval run `[i0, i1)` covers — never left over at the tail. */
+    fun spanLengthM(i0: Int, i1: Int): Double =
+        minOf(i1 * stepM, lengthM) - minOf(i0 * stepM, lengthM)
+
+    /** The fraction of the chord at the run `[i0, i1)`'s own midpoint — the point a span proof reads. */
+    fun spanMidT(i0: Int, i1: Int): Double =
+        fraction((minOf(i0 * stepM, lengthM) + minOf(i1 * stepM, lengthM)) / 2.0)
+
+    /** The interval covering fraction [t] of the chord — the coarse mark that answers for a fine one. */
+    fun indexOf(t: Double): Int = minOf((t * lengthM / stepM).toInt(), count - 1)
+
+    /** [metres] from the anchor as a fraction of the chord, or a half for a degenerate empty chord. */
+    private fun fraction(metres: Double): Double = if (lengthM > 0.0) metres / lengthM else 0.5
+}
+
 object MultipassPull {
 
     /**
@@ -150,13 +197,6 @@ object MultipassPull {
     /** One evaluation's own verdict: the refusal, or `null` where the chord stands. */
     private data class ChordDecision(val refusal: ChordRefusal?)
 
-    /**
-     * The shortest sampling step the clearance walk will take, in metres — the floor that keeps a
-     * degenerate margin from turning the walk into a two-billion-iteration loop. A step is a property of
-     * the walk, so no caller's margin may drive it to zero.
-     */
-    private const val MIN_SAMPLE_STEP_M = 1.0
-
     /** The wall walk's own sampling step for [marginM], floored — the density and its floor, one home. */
     internal fun clearanceStep(marginM: Double): Double = (marginM / 2.0).coerceAtLeast(MIN_SAMPLE_STEP_M)
 
@@ -216,8 +256,9 @@ object MultipassPull {
      * staircase inside the berth it escaped.
      *
      * @param coarseStepM the coarse sampling step — the walk's own cell on the water it was resolved on.
-     *   The coarse marks stand one per step, at the midpoints of its equal divisions, and each pays the
-     *   distance read; a fine mark pays it only where the coarse mark covering it read under
+     *   The coarse marks stand on a **fixed lattice from the chord's own start**, one per step with the
+     *   last interval sized to the chord's remainder, each at its own interval's midpoint; each pays the
+     *   distance read, and a fine mark pays it only where the coarse mark covering it read under
      *   `marginM + coarseStepM / 2`, so a step at or under the fine one spares nothing at all.
      */
     internal fun legClearCause(
@@ -233,21 +274,22 @@ object MultipassPull {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(marginM)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
-        // The coarse marks, one per step along the chord, at the **midpoints** of the equal divisions:
-        // so every point of the chord, its two ends included, stands within half a coarse step of one,
-        // and no boundary lattice can test the chord's own ends. The step is floored at the fine one —
-        // a finer "coarse" pass could only pay more reads than it saves, and a degenerate zero would
-        // never terminate.
-        val coarseStep = coarseStepM.coerceAtLeast(sampleStep)
-        val coarseCount = ceil(dist / coarseStep).toInt().coerceAtLeast(1)
+        // The coarse marks, on a **fixed lattice from the chord's own start**: one per coarse step, its
+        // last interval sized to the chord's remainder, each standing at its interval's own midpoint —
+        // so every point of the chord, its two ends included, is within half a coarse step of one, no
+        // boundary lattice can test the chord's own ends, and the mark set is the same for every attempt
+        // that shares an anchor. The step is floored at the fine one — a finer "coarse" pass could only
+        // pay more reads than it saves, and a degenerate zero would never terminate.
+        val coarse = MarkLattice(dist, coarseStepM.coerceAtLeast(sampleStep))
+        val coarseStep = coarse.stepM
+        val coarseCount = coarse.count
         // The trigger the 1-Lipschitz bound gives: a reading `d` proves every point within half a
         // coarse step stands at least `d − coarseStep / 2` off the wall, so a mark at or above it
         // proves its own half-step clear — and the fine mark it covers along with it.
         val provedClearM = marginM + coarseStep / 2.0
         val coarseClear = BooleanArray(coarseCount)
         for (k in 0 until coarseCount) {
-            val t = (k + 0.5) / coarseCount
-            coarseClear[k] = field.hardDistanceM(chordPoint(a, b, t)) >= provedClearM
+            coarseClear[k] = field.hardDistanceM(chordPoint(a, b, coarse.markT(k))) >= provedClearM
         }
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
@@ -259,7 +301,7 @@ object MultipassPull {
             if (field.hardBlocked(p)) return ChordRefusal.LAND
             // The materialized distance is the one read the proof may spare, and it is skipped exactly
             // where the coarse mark covering this fine mark has already answered for its half-step.
-            val covering = minOf((t * coarseCount).toInt(), coarseCount - 1)
+            val covering = coarse.indexOf(t)
             if (!coarseClear[covering] && field.hardDistanceM(p) < marginM) return ChordRefusal.LAND
         }
         return null
@@ -301,9 +343,12 @@ object MultipassPull {
     /**
      * The field's prices summed along one straight segment, in **seconds** — the price is the written
      * law's own quantity, a cell's excess in seconds multiplied by the interval's **metres**, read at
-     * the **midpoint of each interval** so the whole segment is covered at `≤ clearanceStep(marginM)`
-     * intervals. That floor is the one home the clearance walk shares, so the two walks can never
-     * disagree about the fine grid's own length.
+     * the **midpoint of each interval**. The intervals are a [MarkLattice] on the walk's own sampling
+     * step `clearanceStep(marginM)`, its last interval sized to the chord's remainder, so the whole
+     * segment is covered exactly and the midpoints — and every group's own midpoint — stand at the same
+     * points for every attempt that shares an anchor. That step is the one home the clearance walk
+     * shares, so the two walks can never disagree about the fine grid's own length; the price step below
+     * coarsens the **grouping** alone and never the interval the sum is taken over.
      *
      * **The mark set does not change; which marks pay a read of their own does.** The walk is read as a
      * recursion over the chord's own fine intervals, from the whole chord down: one clearance read at a
@@ -337,8 +382,12 @@ object MultipassPull {
     ): Double {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(marginM)
-        val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(1)
-        val stepM = dist / steps
+        // The interval partition is a [MarkLattice] on the walk's own sampling step, its last interval
+        // sized to the chord's remainder — so the midpoints, and every group's own midpoint, stand at
+        // the same points whatever the chord's length, which is what a memo of the reads needs to hit.
+        val marks = MarkLattice(dist, sampleStep)
+        val steps = marks.count
+        val stepM = marks.stepM
         // The price step is floored at the fine one, exactly as the clearance walk floors its own, so
         // a coarse pass can only ever save reads.
         val priceStep = priceStepM.coerceAtLeast(sampleStep)
@@ -347,22 +396,22 @@ object MultipassPull {
         // group pays, so a step at or under the fine one leaves the fine midpoints alone.
         if (groupStep <= 1) {
             val acc = doubleArrayOf(0.0)
-            groupPriceSec(a, b, 0, steps, steps, stepM, marginM, priceStep, field, timing, acc)
+            groupPriceSec(a, b, marks, 0, steps, marginM, priceStep, field, timing, acc)
             return acc[0]
         }
         // The recursion's floor: twice the price step, the length the group walk prices in two reads,
         // so a span at or under it goes straight to the group path and a short chord never pays more.
         val floorCount = maxOf(groupStep, floor(2.0 * priceStep / stepM).toInt())
         val acc = doubleArrayOf(0.0)
-        spanPriceSec(a, b, 0, steps, steps, stepM, marginM, priceStep, floorCount, field, timing, acc)
+        spanPriceSec(a, b, marks, 0, steps, marginM, priceStep, floorCount, field, timing, acc)
         return acc[0]
     }
 
     /**
-     * [softPriceSec] read as a recursion over the chord's own fine intervals `[i0, i1)`. A span at or
-     * under [floorCount] intervals is the group walk's own; a longer span is tested by one clearance
-     * read at its midpoint and, proved, priced from one price read there. An unproved span splits in
-     * half and each half is tested in turn, so the walk finds the largest provable spans.
+     * [softPriceSec] read as a recursion over the chord's own intervals `[i0, i1)`. A span at or under
+     * [floorCount] intervals is the group walk's own; a longer span is tested by one clearance read at
+     * its midpoint and, proved, priced from one price read there. An unproved span splits in half and
+     * each half is tested in turn, so the walk finds the largest provable spans.
      *
      * **The sum is one accumulator, visited left to right**, never a tree of `left + right` pairs: a
      * proved span adds its reading once per interval in the same places the fine walk would, so the
@@ -372,10 +421,9 @@ object MultipassPull {
     private fun spanPriceSec(
         a: LatLng,
         b: LatLng,
+        marks: MarkLattice,
         i0: Int,
         i1: Int,
-        totalSteps: Int,
-        stepM: Double,
         marginM: Double,
         priceStepM: Double,
         floorCount: Int,
@@ -385,64 +433,63 @@ object MultipassPull {
     ) {
         val count = i1 - i0
         if (count <= floorCount) {
-            groupPriceSec(a, b, i0, i1, totalSteps, stepM, marginM, priceStepM, field, timing, acc)
+            groupPriceSec(a, b, marks, i0, i1, marginM, priceStepM, field, timing, acc)
             return
         }
-        val halfM = count * stepM / 2.0
-        val t = (i0 + i1) / 2.0 / totalSteps
-        val mid = chordPoint(a, b, t)
+        val halfM = marks.spanLengthM(i0, i1) / 2.0
+        val mid = chordPoint(a, b, marks.spanMidT(i0, i1))
         val clearance = field.priceClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
             val price = field.softPriceSecAt(mid)
             timing?.addPriceReads(1)
-            repeat(count) { acc[0] += price * stepM }
+            for (j in i0 until i1) acc[0] += price * marks.widthM(j)
             return
         }
         val midIndex = i0 + count / 2
-        spanPriceSec(a, b, i0, midIndex, totalSteps, stepM, marginM, priceStepM, floorCount, field, timing, acc)
-        spanPriceSec(a, b, midIndex, i1, totalSteps, stepM, marginM, priceStepM, floorCount, field, timing, acc)
+        spanPriceSec(a, b, marks, i0, midIndex, marginM, priceStepM, floorCount, field, timing, acc)
+        spanPriceSec(a, b, marks, midIndex, i1, marginM, priceStepM, floorCount, field, timing, acc)
     }
 
     /**
      * The group walk over the interval run `[i0, i1)`, adding into [acc]: successive intervals of
      * [priceStepM] worth are grouped, a group is priced from **one** read where the field's declaration
-     * proves no boundary stands inside it, and every unproved group keeps today's fine midpoints, at
-     * today's positions, in today's order. A group of one interval is its own fine interval and is
-     * never asked for a proof, so a walk handed the fine step reads exactly as today.
+     * proves no boundary stands inside it, and every unproved group keeps the fine midpoints, at their
+     * lattice positions, in order. A group of one interval is its own fine interval and is never asked
+     * for a proof, so a walk handed the fine step reads exactly as today.
      */
     private fun groupPriceSec(
         a: LatLng,
         b: LatLng,
+        marks: MarkLattice,
         i0: Int,
         i1: Int,
-        totalSteps: Int,
-        stepM: Double,
         marginM: Double,
         priceStepM: Double,
         field: RouteCostField,
         timing: PullTiming?,
         acc: DoubleArray
     ) {
-        val groupStep = maxOf(1, floor(priceStepM.coerceAtLeast(clearanceStep(marginM)) / stepM).toInt())
+        val groupStep =
+            maxOf(1, floor(priceStepM.coerceAtLeast(clearanceStep(marginM)) / marks.stepM).toInt())
         var i = i0
         while (i < i1) {
             val k = minOf(groupStep, i1 - i)
-            val halfM = k * stepM / 2.0
+            val halfM = marks.spanLengthM(i, i + k) / 2.0
             val proved = if (k > 1) {
                 // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
                 // can never be proved, and a group of one interval is never asked.
-                val clearance = field.priceClearanceM(chordPoint(a, b, (i + k / 2.0) / totalSteps))
+                val clearance = field.priceClearanceM(chordPoint(a, b, marks.spanMidT(i, i + k)))
                 clearance < Double.MAX_VALUE && clearance >= halfM
             } else {
                 false
             }
             if (proved) {
-                val price = field.softPriceSecAt(chordPoint(a, b, (i + k / 2.0) / totalSteps))
+                val price = field.softPriceSecAt(chordPoint(a, b, marks.spanMidT(i, i + k)))
                 timing?.addPriceReads(1)
-                repeat(k) { acc[0] += price * stepM }
+                for (j in i until i + k) acc[0] += price * marks.widthM(j)
             } else {
                 for (j in i until i + k) {
-                    acc[0] += field.softPriceSecAt(chordPoint(a, b, (j + 0.5) / totalSteps)) * stepM
+                    acc[0] += field.softPriceSecAt(chordPoint(a, b, marks.markT(j))) * marks.widthM(j)
                     timing?.addPriceReads(1)
                 }
             }

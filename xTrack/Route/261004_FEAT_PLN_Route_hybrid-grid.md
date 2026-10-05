@@ -11,7 +11,9 @@ cell key, the two windows and the band's membership; Phase 5 lands the seam that
 the two layers and prices it from the two cell centres; Phase 6 carries the band's 20 m into the drawn points
 — the corner radii, the carve reach, the end disc and the snap guard all read the **local** size the water was
 resolved at; **Phase 7 retires the re-walk for `avoid` too**, so both engines answer the interface's *nothing
-to re-search*. Phase 8 (the record) remains.
+to re-search*. Phase 8 (the record) remains, and **Phase 4's two smaller readings were closed unread on the
+user's word of 2026-10-05** — the band's depth-gate arm's parity and `passableCount()`'s unit, neither of
+them a confirmation of a future feature.
 
 Placement: **this document is the algorithm, not the engine.** It is built inside a new engine named
 `evolutive` — see [`261004_FEAT_PLN_Route_evolutive-engine.md`](261004_FEAT_PLN_Route_evolutive-engine.md)

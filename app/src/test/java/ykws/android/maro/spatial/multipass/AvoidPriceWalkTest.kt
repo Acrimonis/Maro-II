@@ -455,6 +455,77 @@ class AvoidPriceWalkTest {
         )
     }
 
+    /**
+     * **The moved sample the phase is for.** The walk's marks stand on a fixed lattice from the chord's
+     * own anchor — `anchor + (j + 0.5) × step`, the last interval sized to the chord's remainder — so the
+     * mark set is fixed by the step alone and no longer carries the chord's length into every point. The
+     * fixture collects the points the walk reads and asserts each mark stands at its own whole-step
+     * offset from the anchor, and that the interval widths sum to the chord exactly.
+     */
+    @Test
+    fun theWalkPlacesItsMarksOnTheFixedLattice() {
+        val anchor = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1595.0))
+        val marks = ArrayList<LatLng>()
+
+        MultipassPull.softPriceSec(anchor, aim, marginM, fineStepM, boundaryEverywhereField { p -> marks.add(p) })
+
+        val dist = SpatialOperations.haversine(anchor, aim)
+        val step = MultipassPull.clearanceStep(marginM)
+        assertTrue("the fixture reads a substantial run of marks", marks.size > 100)
+        assertEquals("one mark per whole step, plus the remainder's own", ceil(dist / step).toInt(), marks.size)
+        for (j in 0 until marks.size - 1) {
+            assertEquals(
+                "mark $j stands at (j + 0.5) steps from the anchor",
+                (j + 0.5) * step,
+                SpatialOperations.haversine(anchor, marks[j]),
+                1e-3
+            )
+        }
+        assertTrue(
+            "and the last mark sits inside the chord, on the remainder, never a step past it",
+            SpatialOperations.haversine(anchor, marks.last()) < dist
+        )
+        val lattice = MarkLattice(dist, step)
+        assertEquals(
+            "the intervals' lengths sum to the chord's own haversine", dist,
+            (0 until lattice.count).sumOf { lattice.widthM(it) }, 1e-9
+        )
+    }
+
+    /**
+     * **The lattice's error, named.** A price arm that changes across a moved sample — here a step from
+     * full price to zero at one point — is the plan's worst case, and the number the user's word rests
+     * on. The lattice reads each interval at its midpoint, so the sum errs by the length the boundary
+     * stands from the nearest interval edge times the price it switches across: **at most one interval's
+     * price**, `price × stepM`, and it is zero exactly where the boundary lands on an edge.
+     */
+    @Test
+    fun aPriceBoundaryAcrossAMovedSampleErrOrsByAtMostOneInterval() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val boundaryM = 1000.7
+        val step = MultipassPull.clearanceStep(marginM)
+        val field = RouteCostField(
+            listOf(
+                RouteCostSource.Soft(
+                    priceSec = { p -> if (eastMetres(p) < boundaryM) fullSec else 0.0 },
+                    tag = MultipassCellState.ZONE,
+                    clearanceAt = { 0.0 }
+                )
+            )
+        )
+
+        val exact = fullSec * boundaryM
+        val sum = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, field)
+
+        assertTrue("the lattice's error never exceeds one interval's price", abs(sum - exact) <= fullSec * step)
+        assertTrue("and the boundary moved a sample, so the error is not trivially zero", sum != exact)
+    }
+
+    /** The metres east of the chord's origin that [p] stands — the step-arm fixture's own abscissa. */
+    private fun eastMetres(p: LatLng): Double = (p.longitude - 7.00) * M_PER_DEG_LON
+
     @After
     fun restoreSpeedZoneSwitch() {
         setSpeedZoneSwitch(false)
@@ -490,6 +561,20 @@ class AvoidPriceWalkTest {
                 priceSec = { counting(); fullSec },
                 tag = MultipassCellState.ZONE,
                 clearanceAt = { counting(); CLEAR_OF_ANY_BOUNDARY_M }
+            )
+        )
+    )
+
+    /**
+     * A constant price whose source declares a boundary **everywhere**, so no group and no span is ever
+     * proved and the walk reads every fine midpoint — the shape the moved-sample fixture collects.
+     */
+    private fun boundaryEverywhereField(onRead: (LatLng) -> Unit): RouteCostField = RouteCostField(
+        listOf(
+            RouteCostSource.Soft(
+                priceSec = { p -> onRead(p); fullSec },
+                tag = MultipassCellState.ZONE,
+                clearanceAt = { 0.0 }
             )
         )
     )
