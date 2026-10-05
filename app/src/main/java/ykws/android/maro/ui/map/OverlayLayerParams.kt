@@ -24,6 +24,8 @@ data class OverlayChrome(
     val showSettings: Boolean,
     val showTrackDrawer: Boolean,
     val showTrackHistory: Boolean,
+    /** The routes list's own gate, mutually exclusive with [showTrackHistory]. */
+    val showRouteHistory: Boolean,
     val showMarkerManagement: Boolean,
     val showWizard: Boolean,
     val wizardStep: WizardStep?,
@@ -52,11 +54,17 @@ data class OverlayChrome(
 @Immutable
 data class MenuOverlayData(
     val firstTrackId: String?,
+    val firstRouteId: String?,
     val firstMarkerId: String?,
     val trackMapFilterState: ListFilter,
     val trackMapCount: Int,
+    val routeMapFilterState: ListFilter,
+    val routeMapCount: Int,
     val markerMapFilterState: ListFilter,
     val markerMapCount: Int,
+    /** The two kinds' own map visibility, so each header's eye draws its on/off face (2026-10-05). */
+    val tracksVisible: Boolean = true,
+    val routesVisible: Boolean = true,
 )
 
 /**
@@ -127,6 +135,18 @@ data class TrackListOverlayData(
     val trackSortState: ListSortState,
     val trackFilterState: ListFilter,
     val trackListState: LazyListState,
+)
+
+/**
+ * `RouteListOverlayData` — read-only data bundle for the routes list, the route-scoped mirror of
+ * [TrackListOverlayData]: its own sort, its own filter and its own scroll state, so the two lists
+ * never share a referential (D4).
+ */
+@Immutable
+data class RouteListOverlayData(
+    val routeSortState: ListSortState = ListSortState(),
+    val routeFilterState: ListFilter = ListFilter(),
+    val routeListState: LazyListState = LazyListState(),
 )
 
 /**

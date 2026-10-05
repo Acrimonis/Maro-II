@@ -153,6 +153,17 @@ android {
             propInt("route.transparency.from", 20).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_ROUTE_TO",
             propInt("route.transparency.to", 80).toString())
+        // The pinned route's own appearance pair (D5, D8): a pinned route runs the pinned path but reads
+        // its own values, seeded green → teal so it reads apart from a pinned track's amber and from an
+        // unpinned route's blue.
+        buildConfigField("int", "TRACKING_COLOR_PINNED_ROUTE_FROM",
+            propColor("route.pinnedColor.from", 0xFF00C853.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED_ROUTE_TO",
+            propColor("route.pinnedColor.to", 0xFF00897B.toInt()).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_ROUTE_FROM",
+            propInt("route.pinnedTransparency.from", 0).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_ROUTE_TO",
+            propInt("route.pinnedTransparency.to", 20).toString())
         buildConfigField("int", "TRACKING_ROUTE_RENDER_NB",
             propInt("route.renderCount", 5).coerceIn(0, 20).toString())
         buildConfigField("boolean", "TRACKING_ROUTE_ALLOW_SPEED_COLOR",

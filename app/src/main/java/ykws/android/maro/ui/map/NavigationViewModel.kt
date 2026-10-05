@@ -1296,6 +1296,14 @@ class NavigationViewModel(
     }
 
     /**
+     * Toggle the routes overlay layer visibility on/off — the routes header's eye, per kind.
+     */
+    fun toggleRoutesVisibility() {
+        Log.d("MaroMapRefresh", "toggleRoutes → ${!settings.value.routesVisible}")
+        settingsManager.update { it.copy(routesVisible = !it.routesVisible) }
+    }
+
+    /**
      * Called whenever the user pans the map or GPS delivers a fix.
      *
      * Records the new center cheaply on the UI thread and persists it so the

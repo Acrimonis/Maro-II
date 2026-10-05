@@ -283,7 +283,14 @@ data class AppSettings(
     val markerHaloUnpinnedFillTransparencyPct: Int = 90,
     /** Unpinned halo border/stroke transparency % (0-100). Default 60 = faint ring. */
     val markerHaloUnpinnedBorderTransparencyPct: Int = 60,
+    /**
+     * The two kinds' own map visibility — the drawer headers' eye toggles. [tracksVisible] gates
+     * recorded tracks (pinned tracks with them) and [routesVisible] gates routes (pinned routes with
+     * them); each is a **render switch alone**, so the menu counts follow the filters and never these
+     * flags. The map's layer fan reads [tracksVisible] alone.
+     */
     val tracksVisible: Boolean = true,
+    val routesVisible: Boolean = true,
     /**
      * Which face the map's speed-scale control wears: true is the expanded card, false the collapsed
      * toggle square. An unwritten key means expanded, i.e. exactly the behaviour before the toggle
@@ -358,10 +365,10 @@ data class AppSettings(
      */
     val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
     /**
-     * ARGB start colour of the route gradient — the newest route. The route role's own pair, never
-     * the past or pinned one, the two drawing in a route whatever its pin says. `from` is the newest
-     * and `to` the oldest, interpolated across the route set exactly as the past pair is across the
-     * historical one.
+     * ARGB start colour of the route gradient — the newest route, taken on a route's own unpinned
+     * path; a pinned route draws from the pinned-route pair instead, through the shared pinned path
+     * (D5). `from` is the newest and `to` the oldest, interpolated across the route set exactly as
+     * the past pair is across the historical one.
      */
     val trackingColorRouteFrom: Int = BuildConfig.TRACKING_COLOR_ROUTE_FROM,
     /** ARGB end colour of the route gradient — the oldest route. */
@@ -406,6 +413,18 @@ data class AppSettings(
      * ARGB end color for pinned track gradient.
      */
     val trackingColorPinnedTo: Int = BuildConfig.TRACKING_COLOR_PINNED_TO,
+    /**
+     * Transparency % (0-100) for the NEWEST **pinned route** (D5, D8): a pinned route runs the one
+     * pinned path, so it takes a pinned ladder of its own rather than the route ladder an unpinned
+     * route reads.
+     */
+    val trackingTransparencyPinnedRouteNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_FROM,
+    /** Transparency % (0-100) for the OLDEST pinned route. */
+    val trackingTransparencyPinnedRouteOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_TO,
+    /** ARGB start colour of the pinned-route gradient — the newest. */
+    val trackingColorPinnedRouteFrom: Int = BuildConfig.TRACKING_COLOR_PINNED_ROUTE_FROM,
+    /** ARGB end colour of the pinned-route gradient — the oldest. */
+    val trackingColorPinnedRouteTo: Int = BuildConfig.TRACKING_COLOR_PINNED_ROUTE_TO,
     /** Enable track point simplification at finalize (Douglas-Peucker + speed-aware). */
     val trackSimplifyEnabled: Boolean = true,
     /** Douglas-Peucker spatial tolerance (metres). */
@@ -430,6 +449,14 @@ data class AppSettings(
     val trackFilterLinked: Boolean = true,
     /** When true the marker list and map filters stay identical (editing one writes both). */
     val markerFilterLinked: Boolean = true,
+    /** Sort state for the routes list (field + direction). */
+    val routeListSort: ykws.android.maro.data.model.ListSortState = ykws.android.maro.data.model.ListSortState(),
+    /** Filter state for the routes list. */
+    val routeListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** Filter state applied to the MAP overlay for routes (decoupled from the list via [routeFilterLinked]). */
+    val routeMapFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** When true the routes list and map filters stay identical (editing one writes both). */
+    val routeFilterLinked: Boolean = true,
     /** Enable automatic map offset in GPS navigation mode. Default true. */
     val mapOffsetGps: Boolean = true,
     /** Enable automatic map offset in demo/manual mode. Default false. */
@@ -694,6 +721,7 @@ class SettingsManager(
         markerHaloUnpinnedFillTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, 90),
         markerHaloUnpinnedBorderTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, 60),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
+        routesVisible = prefs.getBoolean(KEY_ROUTES_VISIBLE, true),
         // Absent means expanded: today's behaviour is the fallback, so no install has anything to migrate.
         trackLegendExpanded = prefs.getBoolean(KEY_TRACK_LEGEND_EXPANDED, true),
         // The two render axes: the arrows' argument runs the retired-value migration and the colours'
@@ -741,18 +769,36 @@ class SettingsManager(
         trackingTransparencyRouteOldest = prefs.getInt(
             KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_ROUTE_TO
         ).coerceIn(0, 100),
+        trackingTransparencyPinnedRouteNewest = prefs.getInt(
+            KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_FROM
+        ).coerceIn(0, 100),
+        trackingTransparencyPinnedRouteOldest = prefs.getInt(
+            KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_TO
+        ).coerceIn(0, 100),
+        trackingColorPinnedRouteFrom = prefs.getInt(
+            KEY_TRACKING_COLOR_PINNED_ROUTE_FROM, BuildConfig.TRACKING_COLOR_PINNED_ROUTE_FROM
+        ),
+        trackingColorPinnedRouteTo = prefs.getInt(
+            KEY_TRACKING_COLOR_PINNED_ROUTE_TO, BuildConfig.TRACKING_COLOR_PINNED_ROUTE_TO
+        ),
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
         trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
         trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble(),
         markerDebugRays = prefs.getBoolean(KEY_MARKER_DEBUG_RAYS, false),
         trackListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_TRACK_LIST_SORT, null)),
         markerListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_MARKER_LIST_SORT, null)),
-        trackListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_LIST_FILTER, null)),
+        // The retired Kind axis is stripped on read: an install that persisted `route=TRACKS|ROUTES`
+        // must not keep filtering on an axis the code no longer reads.
+        trackListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_LIST_FILTER, null)).withoutAxis("route"),
         markerListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_LIST_FILTER, null)),
-        trackMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_MAP_FILTER, null)),
+        trackMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_MAP_FILTER, null)).withoutAxis("route"),
         markerMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_MAP_FILTER, null)),
         trackFilterLinked = prefs.getBoolean(KEY_TRACK_FILTER_LINKED, true),
         markerFilterLinked = prefs.getBoolean(KEY_MARKER_FILTER_LINKED, true),
+        routeListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_ROUTE_LIST_SORT, null)),
+        routeListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_LIST_FILTER, null)),
+        routeMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_MAP_FILTER, null)),
+        routeFilterLinked = prefs.getBoolean(KEY_ROUTE_FILTER_LINKED, true),
         mapOffsetGps = prefs.getBoolean(KEY_MAP_OFFSET_GPS, true),
         mapOffsetDemo = prefs.getBoolean(KEY_MAP_OFFSET_DEMO, false),
         mapOffsetBoatFromBottomPct = prefs.getInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, 33).coerceIn(5, 50),
@@ -876,6 +922,7 @@ class SettingsManager(
             .putInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, updated.markerHaloUnpinnedFillTransparencyPct)
             .putInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, updated.markerHaloUnpinnedBorderTransparencyPct)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
+            .putBoolean(KEY_ROUTES_VISIBLE, updated.routesVisible)
             .putBoolean(KEY_TRACK_LEGEND_EXPANDED, updated.trackLegendExpanded)
             .putBoolean(KEY_TRACK_ARROWS, updated.trackArrows)
             .putBoolean(KEY_TRACK_COLOURS, updated.trackColours)
@@ -902,6 +949,10 @@ class SettingsManager(
             .putInt(KEY_TRACKING_COLOR_PINNED_TO, updated.trackingColorPinnedTo)
             .putInt(KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST, updated.trackingTransparencyRouteNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST, updated.trackingTransparencyRouteOldest)
+            .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_NEWEST, updated.trackingTransparencyPinnedRouteNewest)
+            .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_OLDEST, updated.trackingTransparencyPinnedRouteOldest)
+            .putInt(KEY_TRACKING_COLOR_PINNED_ROUTE_FROM, updated.trackingColorPinnedRouteFrom)
+            .putInt(KEY_TRACKING_COLOR_PINNED_ROUTE_TO, updated.trackingColorPinnedRouteTo)
             .putBoolean(KEY_TRACK_SIMPLIFY_ENABLED, updated.trackSimplifyEnabled)
             .putFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, updated.trackSimplifyEpsilonM.toFloat())
             .putFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, updated.trackSimplifySpeedDeltaKn.toFloat())
@@ -914,6 +965,10 @@ class SettingsManager(
             .putString(KEY_MARKER_MAP_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.markerMapFilter))
             .putBoolean(KEY_TRACK_FILTER_LINKED, updated.trackFilterLinked)
             .putBoolean(KEY_MARKER_FILTER_LINKED, updated.markerFilterLinked)
+            .putString(KEY_ROUTE_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.routeListSort))
+            .putString(KEY_ROUTE_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.routeListFilter))
+            .putString(KEY_ROUTE_MAP_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.routeMapFilter))
+            .putBoolean(KEY_ROUTE_FILTER_LINKED, updated.routeFilterLinked)
             .putBoolean(KEY_MAP_OFFSET_GPS, updated.mapOffsetGps)
             .putBoolean(KEY_MAP_OFFSET_DEMO, updated.mapOffsetDemo)
             .putInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, updated.mapOffsetBoatFromBottomPct)
@@ -1045,6 +1100,8 @@ class SettingsManager(
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
+        /** The routes' own map visibility, the routes header's eye (see [AppSettings.routesVisible]). */
+        private const val KEY_ROUTES_VISIBLE = "routes_visible"
         /** The speed-scale control's face; non-null, so an unwritten key simply reads back as expanded. */
         private const val KEY_TRACK_LEGEND_EXPANDED = "track_legend_expanded"
         /** Whether stored tracks wear direction chevrons; the menu's twin box is its only writer. */
@@ -1090,6 +1147,11 @@ class SettingsManager(
         /** The route ladder's prefs keys; their defaults are the file's own injected pair. */
         private const val KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST = "tracking_transparency_route_newest"
         private const val KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST = "tracking_transparency_route_oldest"
+        /** The pinned route's own pair (D5, D8), beside the pinned track's. */
+        private const val KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_NEWEST = "tracking_transparency_pinned_route_newest"
+        private const val KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_OLDEST = "tracking_transparency_pinned_route_oldest"
+        private const val KEY_TRACKING_COLOR_PINNED_ROUTE_FROM = "tracking_color_pinned_route_from"
+        private const val KEY_TRACKING_COLOR_PINNED_ROUTE_TO = "tracking_color_pinned_route_to"
         /** The route-scoped rendering gates, the route-scoped twins of the two chips. */
         private const val KEY_ROUTE_SPEED_COLOR = "route_speed_color"
         private const val KEY_ROUTE_SPEED_ARROWS = "route_speed_arrows"
@@ -1105,6 +1167,10 @@ class SettingsManager(
         private const val KEY_MARKER_MAP_FILTER = "marker_map_filter"
         private const val KEY_TRACK_FILTER_LINKED = "track_filter_linked"
         private const val KEY_MARKER_FILTER_LINKED = "marker_filter_linked"
+        private const val KEY_ROUTE_LIST_SORT = "route_list_sort"
+        private const val KEY_ROUTE_LIST_FILTER = "route_list_filter"
+        private const val KEY_ROUTE_MAP_FILTER = "route_map_filter"
+        private const val KEY_ROUTE_FILTER_LINKED = "route_filter_linked"
         private const val KEY_MAP_OFFSET_GPS = "map_offset_gps"
         private const val KEY_MAP_OFFSET_DEMO = "map_offset_demo"
         private const val KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT = "map_offset_boat_from_bottom_pct"

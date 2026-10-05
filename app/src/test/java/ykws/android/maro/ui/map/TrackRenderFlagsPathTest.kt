@@ -327,4 +327,45 @@ class TrackRenderFlagsPathTest {
             0.001f
         )
     }
+
+    // ── The legend gate follows the painted id's own kind (2026-10-05) ────
+
+    @Test
+    fun theLegendGateIsPerKindToo() {
+        // The drawer's eyes: the stored-on-map gate reads each painted id's own kind, so a hidden route
+        // stops raising the ramp even while tracks stay on, and a hidden track does the same with routes on.
+        fun gate(
+            paintedIds: Set<String>,
+            routeIds: Set<String>,
+            tracksVisible: Boolean,
+            routesVisible: Boolean
+        ): Boolean = legendVisibleForState(
+            paintedIds = paintedIds,
+            trackArrows = false,
+            trackColours = true,
+            highlightedTrackId = null,
+            eyeOverride = null,
+            tracksVisible = tracksVisible,
+            routesVisible = routesVisible,
+            routeIds = routeIds,
+            routeSpeedColour = true
+        )
+
+        assertFalse(
+            "a route painted while routes are hidden keeps the ramp down, though tracks are on",
+            gate(setOf("route"), setOf("route"), tracksVisible = true, routesVisible = false)
+        )
+        assertTrue(
+            "the same route with routes on raises it",
+            gate(setOf("route"), setOf("route"), tracksVisible = true, routesVisible = true)
+        )
+        assertFalse(
+            "a recorded track painted while tracks are hidden keeps it down, though routes are on",
+            gate(setOf("track"), emptySet(), tracksVisible = false, routesVisible = true)
+        )
+        assertTrue(
+            "the same track with tracks on raises it",
+            gate(setOf("track"), emptySet(), tracksVisible = true, routesVisible = true)
+        )
+    }
 }

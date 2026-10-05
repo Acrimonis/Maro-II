@@ -682,9 +682,10 @@ object AppConfig {
      *  reference). Set via `map.track.width.history`. */
     var trackWidthHistoryDp: Float = 8f / 3f
         private set
-    /** Stroke width (dp) of every route's line — a route. It joins the same table and is taken
-     *  whatever the pin says, the route role having its own stroke rather than the pinned or history
-     *  one. Default 3.0 (the 9 px of the 3× reference). Set via `map.track.width.route`. */
+    /** Stroke width (dp) of a route's line on its own unpinned path: the route role takes this stroke
+     *  rather than the history width, while a pinned route takes the pinned width instead, through
+     *  the shared pinned path (D5). Default 3.0 (the 9 px of the 3× reference).
+     *  Set via `map.track.width.route`. */
     var trackWidthRouteDp: Float = 3f
         private set
     /** The saved-route dash's on length, in dp — the rhythm a route's whole stroke is broken into,

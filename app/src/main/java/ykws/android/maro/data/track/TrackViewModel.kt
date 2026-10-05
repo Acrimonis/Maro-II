@@ -66,6 +66,14 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
 
+    /**
+     * The routes list's own view of [allSummaries]: recorded tracks excluded, filtered by
+     * [AppSettings.routeListFilter] and sorted by [AppSettings.routeListSort]. The track and route
+     * lists are two kind-locked projections of the one source, never a shared filtered set.
+     */
+    private val _routeSummaries = MutableStateFlow<List<TrackSummary>>(emptyList())
+    val routeSummaries: StateFlow<List<TrackSummary>> = _routeSummaries.asStateFlow()
+
     /** Accessor for the service-owned recorder's incremental new-point stream. */
     val newPointStream: SharedFlow<TrackPoint> = TrackRecordingService.newPoint
 
@@ -84,11 +92,38 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             flow.collect { settings ->
                 if (!isLoaded) return@collect
-                val midnightMs = todayMidnightMs()
-                val filtered = _allSummaries.value.filter { it.matchesFilter(settings.trackListFilter, midnightMs) }
-                _summaries.value = sortSummaries(filtered, settings.trackListSort)
+                recomputeListViews(
+                    trackFilter = settings.trackListFilter,
+                    trackSort = settings.trackListSort,
+                    routeFilter = settings.routeListFilter,
+                    routeSort = settings.routeListSort,
+                    midnightMs = todayMidnightMs(),
+                )
             }
         }
+    }
+
+    /**
+     * Recompute the two kind-locked list views from [allSummaries]. The track view holds recorded
+     * tracks alone (`route == false`), the route view saved routes alone, each filtered by its own
+     * filter and sorted by its own sort.
+     */
+    private fun recomputeListViews(
+        trackFilter: ListFilter,
+        trackSort: ListSortState,
+        routeFilter: ListFilter,
+        routeSort: ListSortState,
+        midnightMs: Long,
+    ) {
+        val all = _allSummaries.value
+        _summaries.value = sortSummaries(
+            all.filter { !it.route && it.matchesFilter(trackFilter, midnightMs) },
+            trackSort,
+        )
+        _routeSummaries.value = sortSummaries(
+            all.filter { it.route && it.matchesFilter(routeFilter, midnightMs) },
+            routeSort,
+        )
     }
 
     init {
@@ -279,17 +314,19 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         refreshSummaries()
     }
 
-    /** Reload track summaries, mark active track as [ListableItem.isLive]. */
+    /** Reload track summaries, mark active track as [ListableItem.isLive], rebuild both list views. */
     fun refreshSummaries(sortState: ListSortState? = null, reloadFromDisk: Boolean = true, filter: ListFilter? = null) {
         viewModelScope.launch {
             val settings = settingsFlow?.value
-            val effectiveSort = sortState ?: settings?.trackListSort ?: ListSortState()
-            val effectiveFilter = filter ?: settings?.trackListFilter ?: ListFilter()
+            // The track view honours a caller override (the list's own sort/filter edits); the route
+            // view always reads the route settings, which is the only place its filter is written.
+            val trackSort = sortState ?: settings?.trackListSort ?: ListSortState()
+            val trackFilter = filter ?: settings?.trackListFilter ?: ListFilter()
+            val routeSort = settings?.routeListSort ?: ListSortState()
+            val routeFilter = settings?.routeListFilter ?: ListFilter()
             if (!reloadFromDisk && _allSummaries.value.isNotEmpty()) {
                 // Filter/sort change — filter in memory
-                val midnightMs = todayMidnightMs()
-                val filtered = _allSummaries.value.filter { it.matchesFilter(effectiveFilter, midnightMs) }
-                _summaries.value = sortSummaries(filtered, effectiveSort)
+                recomputeListViews(trackFilter, trackSort, routeFilter, routeSort, todayMidnightMs())
                 return@launch
             }
             val summaries = repository.listTracks()
@@ -297,9 +334,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             summaries.firstOrNull { it.endTimeMs == null }?.isLive = true
             _allSummaries.value = summaries
             isLoaded = true
-            val midnightMs = todayMidnightMs()
-            val filtered = summaries.filter { it.matchesFilter(effectiveFilter, midnightMs) }
-            _summaries.value = sortSummaries(filtered, effectiveSort)
+            recomputeListViews(trackFilter, trackSort, routeFilter, routeSort, todayMidnightMs())
         }
     }
 

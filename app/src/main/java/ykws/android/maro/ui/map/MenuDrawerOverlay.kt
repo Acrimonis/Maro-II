@@ -54,6 +54,8 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
+import ykws.android.maro.ui.icons.Visibility
+import ykws.android.maro.ui.icons.VisibilityOff
 
 /**
  * The bullet the drawer's status band reads its two words apart by — the notification title's own
@@ -110,7 +112,23 @@ fun MenuDrawerOverlay(
     markerFilterLinked: Boolean = true,
     onToggleMarkerLink: () -> Unit = {},
     trackCount: Int = 0,
-    markerCount: Int = 0
+    markerCount: Int = 0,
+    // ── Routes list access + its own map referential (S8) ──────────────────
+    routeCount: Int = 0,
+    onViewRouteList: () -> Unit = {},
+    onOpenFirstRoute: (() -> Unit)? = null,
+    routeFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onRouteFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onRouteReset: () -> Unit = {},
+    routeFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    routeFilterLinked: Boolean = true,
+    onToggleRouteLink: () -> Unit = {},
+    // ── The two kinds' map-visibility eyes (2026-10-05) ─────────────────────
+    // Each gates the map render of its own kind alone — it never moves the count or the list (D6).
+    trackVisible: Boolean = true,
+    routeVisible: Boolean = true,
+    onToggleTrackVisible: () -> Unit = {},
+    onToggleRouteVisible: () -> Unit = {}
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -191,12 +209,79 @@ fun MenuDrawerOverlay(
                     RouteSummaryBlock(routeSummary)
                 }
             }
+
+        }
+
+        Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── ROUTES section + filter controls (2026-10-05, D11) ─────────────
+        // The Routes row left the ROUTING card for a section of its own, mirroring the TRACKS section so
+        // the map-referential filter icons get a section header to live in (D11, superseding D1). The card
+        // above keeps the route ends, the quick access and the gated summary alone.
+        SectionHeader(title = stringResource(R.string.menu_manage_routes)) {
+            // The routes eye stands first and outside the axes gate, so it never disappears with the
+            // filters (D3): it shows or hides the whole route kind on the map, never the count or the list.
+            KindVisibilityToggle(
+                visible = routeVisible,
+                onToggle = onToggleRouteVisible,
+                contentDescription = stringResource(R.string.cd_toggle_routes_map)
+            )
+            if (routeFilterAxes.isNotEmpty()) {
+                IconButton(
+                    onClick = onToggleRouteLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (routeFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    )
+                }
+                FilterControl(
+                    filterState = routeFilterState,
+                    filterAxes = routeFilterAxes,
+                    onFilterChange = onRouteFilterChange
+                )
+                val hasActiveRouteFilter = routeFilterState.axes.isNotEmpty()
+                IconButton(
+                    onClick = onRouteReset,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Refresh,
+                        contentDescription = stringResource(R.string.cd_reset_filter),
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                            .alpha(if (hasActiveRouteFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            // ── Routes list row (2026-10-05, D11) — the ROUTES section's own door to the saved routes ──
+            // Mirrors the Tracks row below it: the label, the count and the chevron to the first route.
+            // No live block: a recording in progress is never a route.
+            RoutesRow(
+                routeCount = routeCount,
+                onViewRouteList = onViewRouteList,
+                onOpenFirstRoute = onOpenFirstRoute
+            )
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── TRACKS section + filter controls ─────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks)) {
+            // The tracks eye, first and outside the axes gate — the routes header's twin (D3).
+            KindVisibilityToggle(
+                visible = trackVisible,
+                onToggle = onToggleTrackVisible,
+                contentDescription = stringResource(R.string.cd_toggle_tracks_map)
+            )
             if (trackFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleTrackLink,
@@ -711,5 +796,82 @@ private fun formatDuration(totalSeconds: Long): String {
         "${hours}h ${minutes}m ${seconds}s"
     } else {
         "${minutes}m ${seconds}s"
+    }
+}
+
+/**
+ * The ROUTES section's **Routes row** (2026-10-05, D11): the drawer's door to the saved routes,
+ * mirroring the Tracks row — the label and the count, a chevron to the first route. Its own Link /
+ * Filter / Reset live in the ROUTES `SectionHeader` above it, bound to the **route map referential**
+ * (the menu's own referential, as the Tracks header's controls are, so a filter edit there moves the
+ * routes the map draws and the count beside it).
+ */
+@Composable
+private fun RoutesRow(
+    routeCount: Int,
+    onViewRouteList: () -> Unit,
+    onOpenFirstRoute: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onViewRouteList)
+            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = stringResource(R.string.menu_manage_routes),
+            color = Color(AppConfig.uiTextPrimary),
+            fontSize = AppConfig.uiFontToggleSize.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "$routeCount",
+                color = Color(AppConfig.uiTextMuted),
+                fontSize = 14.sp // 14sp, not uiFontValueSize (16sp) — count stays compact
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { onOpenFirstRoute?.invoke() },
+                enabled = onOpenFirstRoute != null,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_open_first_route),
+                    tint = Color(AppConfig.uiTextMuted).copy(alpha = if (onOpenFirstRoute != null) 1f else 0.35f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One kind's **map-visibility eye** (2026-10-05): the leftmost control of a section header's trailing
+ * slot, standing **outside** the filter-axes gate so a kind with no axis keeps its switch (D3). It
+ * shows [Visibility] while the kind is drawn and [VisibilityOff] while it is hidden, at the sibling
+ * icons' own tint, and it gates the **map render alone** — the count beside the row follows the filter
+ * and never this flag, and the list keeps its rows (D6).
+ */
+@Composable
+private fun KindVisibilityToggle(
+    visible: Boolean,
+    onToggle: () -> Unit,
+    contentDescription: String
+) {
+    IconButton(
+        onClick = onToggle,
+        modifier = Modifier.size(40.dp)
+    ) {
+        Icon(
+            imageVector = if (visible) Visibility else VisibilityOff,
+            contentDescription = contentDescription,
+            tint = ButtonColors.icon,
+            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+        )
     }
 }

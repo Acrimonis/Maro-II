@@ -811,6 +811,7 @@ fun MapScreen(
 
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
+    val routeListState = rememberLazyListState()
     val markerListState = rememberLazyListState()
     val dashboardController = remember { MapDashboardController() }
     val activeSnacks = dashboardController.activeSnacks
@@ -1338,12 +1339,19 @@ fun MapScreen(
     // own overlay draws it — while a hidden layer contributes nothing, so the mode can never
     // resurrect what the user switched off. The live recording has no card behind it and is excluded.
     val inspectMarkerCandidates = if (markerLayerVisible) mapMarkersState else emptyList()
-    val inspectTrackIds = if (appSettings.tracksVisible) {
+    // Per kind since 2026-10-05: each summary's own layer must be on and its own map filter must
+    // hold, so a hidden route is never offered and a visible one always is (the tracks/routes split).
+    val inspectTrackIds = run {
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
         allTrackSummaries
-            .filter { !it.isLive && it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
+            .filter { summary ->
+                !summary.isLive &&
+                    (if (summary.route) appSettings.routesVisible else appSettings.tracksVisible) &&
+                    (if (summary.route) summary.matchesFilter(appSettings.routeMapFilter, midnightMs)
+                     else summary.matchesFilter(appSettings.trackMapFilter, midnightMs))
+            }
             .map { it.id }
-    } else emptyList()
+    }
 
     /** Whether anything at all is inspectable — the sleuth square's disabled gate while disarmed. */
     val inspectAvailable = inspectMarkerCandidates.isNotEmpty() || inspectTrackIds.isNotEmpty()
@@ -1597,13 +1605,18 @@ fun MapScreen(
             BackHandler { chrome.showTrackHistory = false }
         }
 
+        // ── Intercept system back when route history is open ───────────────
+        if (chrome.showRouteHistory) {
+            BackHandler { chrome.showRouteHistory = false }
+        }
+
         // ── Intercept system back when marker management is open ───────────
         if (chrome.showMarkerManagement) {
             BackHandler { chrome.showMarkerManagement = false }
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !chrome.showSettings && !chrome.showTrackHistory && !chrome.showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen && !anyConfirmDialogOpen) {
+        BackHandler(enabled = !chrome.showSettings && !chrome.showTrackHistory && !chrome.showRouteHistory && !chrome.showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen && !anyConfirmDialogOpen) {
             val now = SystemClock.elapsedRealtime()
             val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
             if (now - lastBackAt <= 2_000L) {
@@ -1790,10 +1803,22 @@ fun MapScreen(
                 // its own landing instead, so the slot never empties between the two cards (plan §5).
                 if (closeMarkerCard) closeMarkerDashboard()
                 if (freshSelection) {
-                    if (!appSettings.tracksVisible) {
-                        viewModel.updateSettings { it.copy(tracksVisible = true) }
+                    // Force the opened kind's layer on — and only its: a route raised here never touches
+                    // the tracks layer, a recorded track never touches routes (2026-10-05).
+                    val openingRoute = candidates.firstOrNull()?.let { id ->
+                        allTrackSummaries.firstOrNull { it.id == id }?.route
+                    }
+                    when (openingRoute) {
+                        true -> if (!appSettings.routesVisible) {
+                            viewModel.updateSettings { it.copy(routesVisible = true) }
+                        }
+                        false -> if (!appSettings.tracksVisible) {
+                            viewModel.updateSettings { it.copy(tracksVisible = true) }
+                        }
+                        null -> Unit
                     }
                     chrome.showTrackHistory = false
+                    chrome.showRouteHistory = false
                 }
                 if (candidates.isEmpty()) {
                     onNone()
@@ -2174,7 +2199,7 @@ fun MapScreen(
                 if (routeArmed) return
                 // The press closes its surface at once; the card's close restore is the refocus, so
                 // nothing here moves the camera afterwards.
-                if (fromList) chrome.showTrackHistory = false else closeTrackDrawer()
+                if (fromList) { chrome.showTrackHistory = false; chrome.showRouteHistory = false } else closeTrackDrawer()
                 if (inspectArmed) disarmInspectMode()
                 routeSaveScope.launch {
                     val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
@@ -2435,7 +2460,7 @@ fun MapScreen(
 
             // ── F2b: Pause auto-follow timer while any drawer is open ──
             val anyDrawerOpen = chrome.showSettings || chrome.showTrackDrawer || chrome.showTrackHistory ||
-                chrome.showMarkerManagement || trackDrawerState.isOpen || trackNavigateState != null ||
+                chrome.showRouteHistory || chrome.showMarkerManagement || trackDrawerState.isOpen || trackNavigateState != null ||
                 drawerState !is MarkerDrawerState.Hidden
             LaunchedEffect(anyDrawerOpen) {
                 viewModel.setDrawerOpen(anyDrawerOpen)
@@ -2559,7 +2584,7 @@ fun MapScreen(
             // one of them is open the trigger clock is suspended and its close starts a fresh wait
             // (§5); the fan is in the set because its own scrim owns the map for as long as it shows.
             val inspectPanelOpen = chrome.showSettings || chrome.showTrackDrawer || chrome.showTrackHistory ||
-                chrome.showMarkerManagement || anyFanExpanded
+                chrome.showRouteHistory || chrome.showMarkerManagement || anyFanExpanded
             MapInspectEffects(
                 mapView = mapView,
                 armed = inspectArmed,
@@ -3101,6 +3126,7 @@ fun MapScreen(
                         highlightedTrackId = highlightedTrackId,
                         eyeOverride = appSettings.trackSelectionBanded,
                         tracksVisible = appSettings.tracksVisible,
+                        routesVisible = appSettings.routesVisible,
                         // The painted routes, so the planner reads each of them as the role it is; read
                         // inside the derived block, where the summaries state is a tracked input.
                         routeIds = allTrackSummaries.filter { it.route }.map { it.id }.toSet(),
@@ -3374,16 +3400,22 @@ fun MapScreen(
         // own. The menu carries a filter and a count but no order of its own, so the collection's own
         // order stands in for it.
         val menuMidnightMs = ykws.android.maro.data.model.todayMidnightMs()
-        // The menu's own track referential (plan §4): the map-filtered stored set, in the collection's
-        // own order. The chevron's first id is read from it, and the whole list is what its card is handed.
+        // The menu's own track referential (plan §4): the map-filtered stored recorded set, in the
+        // collection's own order. The chevron's first id is read from it, and the whole list is what its
+        // card is handed.
         val menuTrackIds = menuTrackIdsOf(allTrackSummaries, appSettings.trackMapFilter, menuMidnightMs)
         val firstTrackId = menuTrackIds.firstOrNull()
+        // The menu's own route referential (S5), the same shape for the routes list's chevron.
+        val menuRouteIds = menuRouteIdsOf(allTrackSummaries, appSettings.routeMapFilter, menuMidnightMs)
+        val firstRouteId = menuRouteIds.firstOrNull()
         val firstMarkerId = mapMarkersState.firstOrNull()?.id
 
-        // Menu (map-referential) track counter: stored non-live tracks matching the map filter —
+        // Menu (map-referential) track counter: stored non-live recorded tracks matching the map filter —
         // pinned included (they always render). Render-cap divergence is acceptable.
         val trackMapVisibleCount =
             trackMapVisibleCountOf(allTrackSummaries, appSettings.trackMapFilter, menuMidnightMs)
+        val routeMapVisibleCount =
+            routeMapVisibleCountOf(allTrackSummaries, appSettings.routeMapFilter, menuMidnightMs)
 
         // The track drawer's walk world (plan §4): the world its opener handed over — the frozen inspect
         // ladder, or the menu chevron's map-referential list — and the list world the drawer derives
@@ -3397,6 +3429,7 @@ fun MapScreen(
                 showSettings = chrome.showSettings,
                 showTrackDrawer = chrome.showTrackDrawer,
                 showTrackHistory = chrome.showTrackHistory,
+                showRouteHistory = chrome.showRouteHistory,
                 showMarkerManagement = chrome.showMarkerManagement,
                 showWizard = showWizard,
                 wizardStep = wizardStep,
@@ -3416,6 +3449,7 @@ fun MapScreen(
             onDismissSettings = { chrome.showSettings = false },
             onDismissMenu = { chrome.showTrackDrawer = false },
             onDismissTrackHistory = { chrome.showTrackHistory = false },
+            onDismissRouteHistory = { chrome.showRouteHistory = false },
             onDismissMarkerManagement = { chrome.showMarkerManagement = false },
             onWizardCancel = { markersViewModel.wizardCancel() },
             onMarkerDrawerClose = { closeMarkerDrawerUnlessHandoff(inspectHandoff, markersViewModel) },
@@ -3424,7 +3458,9 @@ fun MapScreen(
             // R1: the drawer Edit path needs only the track half closed — the marker half is replaced
             // by the wizard's own MarkerDrawerState, so the marker being edited is never closed.
             onMarkerWizardEntry = { closeTrackDrawer() },
-            onOpenTrackHistoryFromMenu = { chrome.showTrackHistory = true },
+            // The two lists are mutually exclusive: each opener raises its own flag and clears the other.
+            onOpenTrackHistoryFromMenu = { chrome.showRouteHistory = false; chrome.showTrackHistory = true },
+            onOpenRouteHistoryFromMenu = { chrome.showTrackHistory = false; chrome.showRouteHistory = true },
             onOpenMarkerManagementFromMenu = { chrome.showMarkerManagement = true },
             onOpenSettingsFromMenu = { chrome.showSettings = true },
             // The track chevron hands its card the menu's own map-referential list (plan §4): a door of
@@ -3434,6 +3470,16 @@ fun MapScreen(
                 openSelectedTrack(
                     candidates = listOf(id),
                     walkWorld = menuTrackIds,
+                    source = TrackCardSource.MENU
+                )
+            },
+            // The routes chevron hands its card the menu's own **route** referential (S13), mirroring the
+            // track chevron above: a menu-door card walks the route map filter, so a route map-filter
+            // write closes it.
+            onOpenFirstRoute = { id ->
+                openSelectedTrack(
+                    candidates = listOf(id),
+                    walkWorld = menuRouteIds,
                     source = TrackCardSource.MENU
                 )
             },
@@ -3455,8 +3501,10 @@ fun MapScreen(
             menu = buildMenuOverlayData(
                 appSettings = appSettings,
                 firstTrackId = firstTrackId,
+                firstRouteId = firstRouteId,
                 firstMarkerId = firstMarkerId,
                 trackMapVisibleCount = trackMapVisibleCount,
+                routeMapVisibleCount = routeMapVisibleCount,
                 markerMapCount = mapMarkersState.size,
             ),
             onTrackAction = { action ->
@@ -3476,6 +3524,10 @@ fun MapScreen(
                 appSettings = appSettings,
                 trackListState = trackListState,
             ),
+            routeList = buildRouteListOverlayData(
+                appSettings = appSettings,
+                routeListState = routeListState,
+            ),
             onTrackSortStateChange = { newState ->
                 applyTrackSortChange(viewModel, appSettings, trackViewModel, mapView, closeDashboards, newState)
             },
@@ -3490,6 +3542,23 @@ fun MapScreen(
             onTrackMapReset = { applyTrackMapReset(viewModel, appSettings, trackViewModel, mapView, closeDashboards) },
             trackFilterLinked = appSettings.trackFilterLinked,
             onToggleTrackLink = { toggleTrackFilterLink(viewModel) },
+            // ── Routes list referential + link (the route-scoped mirror) ──
+            onRouteSortStateChange = { newState ->
+                applyRouteSortChange(viewModel, appSettings, closeDashboards, newState)
+            },
+            onRouteFilterChange = { newFilter ->
+                applyRouteFilterChange(viewModel, appSettings, closeDashboards, newFilter)
+            },
+            onRouteReset = { applyRouteReset(viewModel, appSettings, closeDashboards) },
+            onRouteMapFilterChange = { newFilter ->
+                applyRouteMapFilterChange(viewModel, appSettings, mapView, closeDashboards, newFilter)
+            },
+            onRouteMapReset = { applyRouteMapReset(viewModel, appSettings, mapView, closeDashboards) },
+            routeFilterLinked = appSettings.routeFilterLinked,
+            onToggleRouteLink = { toggleRouteFilterLink(viewModel) },
+            // The two kinds' map-visibility eyes in the drawer headers (2026-10-05).
+            onToggleTrackVisible = viewModel::toggleTracksVisibility,
+            onToggleRouteVisible = viewModel::toggleRoutesVisibility,
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             settings = buildSettingsOverlayData(
@@ -3783,7 +3852,7 @@ fun MapScreen(
             // ── Resume confirmation — its retained copy moved with the dialog ──
             resumeTarget = chrome.pendingResume,
             onClearResume = { chrome.pendingResume = null },
-            onResumed = { fromList -> if (fromList) chrome.showTrackHistory = false else closeTrackDrawer() }
+            onResumed = { fromList -> if (fromList) { chrome.showTrackHistory = false; chrome.showRouteHistory = false } else closeTrackDrawer() }
         )
 
         // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) — host in MapImportConflictHost ──
@@ -3866,23 +3935,45 @@ private fun routeLeadFixOf(
  * The menu's own track referential (plan §4): the map-filtered stored set, in the collection's own order —
  * the menu carries a filter and a count but no order of its own, so the collection's order stands in.
  */
-private fun menuTrackIdsOf(
+internal fun menuTrackIdsOf(
     allTrackSummaries: List<TrackSummary>,
     mapFilter: ListFilter,
     midnightMs: Long
 ): List<String> = allTrackSummaries
-    .filter { !it.isLive && it.matchesFilter(mapFilter, midnightMs) }
+    .filter { !it.isLive && !it.route && it.matchesFilter(mapFilter, midnightMs) }
     .map { it.id }
 
 /**
- * Menu (map-referential) track counter: stored non-live tracks matching the map filter — pinned included
- * (they always render). Render-cap divergence is acceptable.
+ * Menu (map-referential) track counter: stored non-live **recorded** tracks matching the map filter —
+ * pinned included (they always render). Routes are excluded: they carry their own count and referential.
  */
-private fun trackMapVisibleCountOf(
+internal fun trackMapVisibleCountOf(
     allTrackSummaries: List<TrackSummary>,
     mapFilter: ListFilter,
     midnightMs: Long
-): Int = allTrackSummaries.count { !it.isLive && it.matchesFilter(mapFilter, midnightMs) }
+): Int = allTrackSummaries.count { !it.isLive && !it.route && it.matchesFilter(mapFilter, midnightMs) }
+
+/**
+ * The menu's own route referential (S5): the route-map-filtered saved routes, in the collection's own
+ * order. The routes chevron's first id is read from it, and the whole list is what its card is handed.
+ */
+internal fun menuRouteIdsOf(
+    allTrackSummaries: List<TrackSummary>,
+    mapFilter: ListFilter,
+    midnightMs: Long
+): List<String> = allTrackSummaries
+    .filter { it.route && it.matchesFilter(mapFilter, midnightMs) }
+    .map { it.id }
+
+/**
+ * Menu (map-referential) route counter: saved routes matching the route map filter — pinned included
+ * (they always render). Render-cap divergence is acceptable.
+ */
+internal fun routeMapVisibleCountOf(
+    allTrackSummaries: List<TrackSummary>,
+    mapFilter: ListFilter,
+    midnightMs: Long
+): Int = allTrackSummaries.count { it.route && it.matchesFilter(mapFilter, midnightMs) }
 
 /**
  * The track drawer's walk world (plan §4): the world its opener handed over — the frozen inspect ladder,
@@ -4034,6 +4125,85 @@ private fun applyTrackMapReset(
     // The map reset always invalidates the session boost.
     trackViewModel.clearRenderBoost()
     mapView?.invalidate()
+}
+
+/** R2 + the routes list sort (the route-scoped mirror of [applyTrackSortChange]). */
+private fun applyRouteSortChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    closeDashboards: CloseDashboards,
+    newState: ListSortState
+) {
+    closeDashboards(false, false, true, appSettings.routeFilterLinked)
+    viewModel.updateSettings { it.copy(routeListSort = newState) }
+}
+
+/** R2 + the routes list filter (the route-scoped mirror of [applyTrackFilterChange]). */
+private fun applyRouteFilterChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    closeDashboards: CloseDashboards,
+    newFilter: ListFilter
+) {
+    closeDashboards(false, false, true, appSettings.routeFilterLinked)
+    viewModel.updateSettings { s ->
+        if (s.routeFilterLinked) s.copy(routeListFilter = newFilter, routeMapFilter = newFilter)
+        else s.copy(routeListFilter = newFilter)
+    }
+}
+
+/** R2 + the routes list reset. */
+private fun applyRouteReset(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    closeDashboards: CloseDashboards
+) {
+    closeDashboards(false, false, true, appSettings.routeFilterLinked)
+    val resetFilter = ykws.android.maro.data.model.ListFilter()
+    viewModel.updateSettings { s ->
+        if (s.routeFilterLinked) s.copy(routeListSort = ykws.android.maro.data.model.ListSortState(), routeListFilter = resetFilter, routeMapFilter = resetFilter)
+        else s.copy(routeListSort = ykws.android.maro.data.model.ListSortState(), routeListFilter = resetFilter)
+    }
+}
+
+/** R2 + the routes map-referential filter (the route-scoped mirror of [applyTrackMapFilterChange]). */
+private fun applyRouteMapFilterChange(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    mapView: MapView?,
+    closeDashboards: CloseDashboards,
+    newFilter: ListFilter
+) {
+    val linked = appSettings.routeFilterLinked
+    closeDashboards(false, true, linked, true)
+    viewModel.updateSettings { s ->
+        if (s.routeFilterLinked) s.copy(routeListFilter = newFilter, routeMapFilter = newFilter)
+        else s.copy(routeMapFilter = newFilter)
+    }
+    mapView?.invalidate()
+}
+
+/** R2 + the routes map-referential reset. */
+private fun applyRouteMapReset(
+    viewModel: NavigationViewModel,
+    appSettings: AppSettings,
+    mapView: MapView?,
+    closeDashboards: CloseDashboards
+) {
+    val resetFilter = ykws.android.maro.data.model.ListFilter()
+    val linked = appSettings.routeFilterLinked
+    closeDashboards(false, true, linked, true)
+    viewModel.updateSettings { s ->
+        if (s.routeFilterLinked) s.copy(routeListFilter = resetFilter, routeMapFilter = resetFilter)
+        else s.copy(routeMapFilter = resetFilter)
+    }
+    mapView?.invalidate()
+}
+
+/** The routes list/map link toggle. */
+private fun toggleRouteFilterLink(viewModel: NavigationViewModel) {
+    // Pure flip: no filter carry-over. Next linked edit writes both.
+    viewModel.updateSettings { s -> s.copy(routeFilterLinked = !s.routeFilterLinked) }
 }
 
 /** R2 + the marker list sort. */
