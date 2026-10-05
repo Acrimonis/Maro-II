@@ -68,7 +68,7 @@ class TrackRenderStringsTest {
     fun theSettingsHeadingIsRenamedInBothLocales() {
         val (en, fr) = bothLocales().map { it.second }
 
-        assertTrue(en.contains("name=\"settings_colors_label\">Default Colors<"))
+        assertTrue(en.contains("name=\"settings_colors_label\">Default colours<"))
         assertTrue(fr.contains("name=\"settings_colors_label\">Couleurs par défaut<"))
     }
 
@@ -82,21 +82,28 @@ class TrackRenderStringsTest {
 
     @Test
     fun bothLocalesCarryEveryRouteAndStartupLineTheWorkAdded() {
-        // The kind axis and its three options, the two estimated-cell labels, the route colour row, the
-        // opacity row, the count row, the two gates and the start-time colour report: each is a
-        // locale-keyed line this work added, and each could lose one locale silently without this.
+        // The shared axis options, the two estimated-cell labels, the route colour row, the opacity row,
+        // the count row, the two gates and the start-time colour report: each is a locale-keyed line this
+        // work added, and each could lose one locale silently without this. The Kind axis and its two
+        // option words have since been retired (S3) and are asserted gone by the retirement test above.
         val expected = listOf(
-            "filter_axis_kind",
             "filter_option_all",
-            "filter_option_tracks",
-            "filter_option_routes",
             "track_stat_total_estimated",
             "track_stat_avg_estimated",
             "settings_color_routes",
+            "settings_color_pinned_routes",
             "settings_route_transparency_label",
+            "settings_pinned_route_transparency_label",
             "settings_routes_count_label",
             "settings_routes_speed_color_label",
             "settings_routes_arrows_label",
+            "settings_routes_appearance_label",
+            "settings_routes_speed_direction_label",
+            "settings_routes_appearance_desc",
+            "settings_routes_speed_direction_desc",
+            "settings_track_appearance_desc",
+            "settings_routes_colors_desc",
+            "settings_tracks_transfer_desc",
             "startup_colour_value_unreadable"
         )
 
@@ -129,6 +136,7 @@ class TrackRenderStringsTest {
             "settings_section_position_source",
             "settings_section_appearance",
             "settings_section_routing_tuning",
+            "settings_section_tracks_and_routes",
             "settings_depth_cutoff_expander"
         )
         val retired = listOf(

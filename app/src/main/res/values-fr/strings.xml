@@ -234,6 +234,9 @@
     <string name="sort_group_custom">Personnalisé</string>
     <string name="track_history_title_fmt">Historique des traces · %1$d</string>
     <string name="track_history_section">TRACES ENREGISTRÉES</string>
+    <string name="route_history_title_fmt">Historique des itinéraires · %1$d</string>
+    <string name="route_history_section">ITINÉRAIRES ENREGISTRÉS</string>
+    <string name="route_history_empty">Aucun itinéraire enregistré</string>
     <string name="marker_list_title_fmt">Repères · %1$d</string>
     <string name="marker_list_section">VOS REPÈRES</string>
     <string name="track_point_count_fmt">%1$d pts</string>
@@ -304,6 +307,7 @@
 
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Traces</string>
+    <string name="menu_manage_routes">Itinéraires</string>
     <string name="menu_render_arrows">Flèches</string>
     <string name="menu_render_colours">Couleurs de vitesse</string>
     <string name="menu_manage_markers">Repères</string>
@@ -350,10 +354,6 @@
     <string name="filter_option_last_6_months">6 derniers mois</string>
     <string name="filter_option_all">Tous</string>
     <string name="filter_option_unpinned">Non épinglé</string>
-    <!-- The kind axis: a recorded track against a saved route. -->
-    <string name="filter_axis_kind">Nature</string>
-    <string name="filter_option_tracks">Traces</string>
-    <string name="filter_option_routes">Itinéraires</string>
     <string name="filter_option_on_water">Sur l\'eau</string>
     <string name="filter_option_with_icon">Avec icône</string>
     <string name="filter_option_without_icon">Sans icône</string>
@@ -374,9 +374,11 @@
     <string name="settings_reg_info_desc">Afficher le texte d\'info à côté des icônes</string>
     <string name="settings_reg_info_visible">Texte d\'info visible</string>
     <string name="settings_section_tracks">Traces</string>
-    <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
-    <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
-    <string name="settings_tracks_direction_settings_label">Direction et Vitesse de direction</string>
+    <string name="settings_section_tracks_and_routes">Traces et itinéraires</string>
+    <string name="settings_tracks_and_routes_desc">Traces et itinéraires enregistrés sur la carte</string>
+    <string name="settings_tracks_transfer_desc">Exporter les traces enregistrées, ou importer des traces depuis un fichier</string>
+    <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces et des itinéraires</string>
+    <string name="settings_tracks_direction_settings_label">Vitesse et direction des traces et itinéraires</string>
     <string name="settings_tracks_speed_display_label">Affichage de la vitesse</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
     <string name="settings_tracks_direction_density_uniform">Uniforme</string>
@@ -389,19 +391,23 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
-    <string name="settings_routes_count_label">Itinéraires à afficher</string>
-    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Un itinéraire épinglé s\'affiche toujours.</string>
-    <string name="settings_transparency_label">Transparence des non épinglées</string>
-    <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_track_appearance_desc">Comment les traces enregistrées sont dessinées sur la carte</string>
+    <string name="settings_routes_count_label">Itinéraires non épinglés à afficher</string>
+    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Les épinglés s\'affichent toujours.</string>
+    <string name="settings_transparency_label">Transparence des traces non épinglées</string>
+    <string name="settings_transparency_desc" formatted="false">Dégradé sur les traces non épinglées, du plus récent au plus ancien. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
     <string name="settings_transparency_border_fill_label">Transparence</string>
     <string name="settings_transparency_border_fill_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
-    <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_route_transparency_label">Transparence des itinéraires</string>
-    <string name="settings_route_transparency_desc" formatted="false">Dégradé sur les itinéraires affichés, du plus récent au plus ancien, indépendant des deux plages ci-dessus. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_transparency_label">Transparence des traces épinglées</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant de la plage non épinglée. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_route_transparency_label">Transparence des itinéraires non épinglés</string>
+    <string name="settings_route_transparency_desc" formatted="false">Dégradé sur les itinéraires non épinglés, du plus récent au plus ancien. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_route_transparency_label">Transparence des itinéraires épinglés</string>
+    <string name="settings_pinned_route_transparency_desc" formatted="false">Dégradé sur les itinéraires épinglés uniquement, indépendant de la plage non épinglée. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
-    <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
+    <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Traces passées : dégradé du plus récent (De) au plus ancien (Vers). Traces épinglées : leur propre dégradé.</string>
+    <string name="settings_routes_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Itinéraires : dégradé du plus récent (De) au plus ancien (Vers). Itinéraires épinglés : leur propre dégradé.</string>
     <string name="settings_section_markers">Repères</string>
     <string name="settings_markers_desc">Configurer le rendu des repères et la création des repères automatiques d\'arrêt</string>
     <string name="settings_marker_idle_threshold_label">Seuil d\'arrêt</string>
@@ -441,6 +447,9 @@
     <string name="cd_view_tracks">Voir la liste des traces</string>
     <string name="cd_manage_markers">Gérer les repères</string>
     <string name="cd_open_first_track">Ouvrir la première trace</string>
+    <string name="cd_open_first_route">Ouvrir le premier itinéraire</string>
+    <string name="cd_toggle_routes_map">Afficher ou masquer les itinéraires sur la carte</string>
+    <string name="cd_toggle_tracks_map">Afficher ou masquer les traces sur la carte</string>
     <string name="cd_open_first_marker">Ouvrir le premier repère</string>
     <string name="cd_create_marker">Créer un repère</string>
     <string name="cd_set_icon">Définir l\'icône</string>
@@ -563,8 +572,13 @@
     <string name="settings_color_pinned_tracks">Traces épinglées</string>
     <string name="settings_color_active_route">Route active</string>
     <string name="settings_color_routes">Itinéraires</string>
+    <string name="settings_color_pinned_routes">Itinéraires épinglés</string>
     <string name="settings_routes_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
     <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>
+    <string name="settings_routes_appearance_label">Rendu des itinéraires</string>
+    <string name="settings_routes_appearance_desc">Comment les itinéraires enregistrés sont dessinés sur la carte</string>
+    <string name="settings_routes_speed_direction_label">Vitesse et direction des itinéraires</string>
+    <string name="settings_routes_speed_direction_desc">Couleurs de vitesse et flèches de direction sur les itinéraires. Les interrupteurs Speed Colors et Arrows de la carte sont maîtres pour tous les types ; ceux-ci ne peuvent que désactiver ceux des itinéraires.</string>
     <string name="settings_section_appearance">Apparence</string>
     <string name="settings_section_routing_tuning">Réglages</string>
     <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->

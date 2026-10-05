@@ -18,6 +18,13 @@ import java.util.Calendar
 data class ListFilter(val axes: Map<String, String> = emptyMap()) {
     val isEmpty: Boolean get() = axes.isEmpty()
 
+    /**
+     * A copy with [key] removed. Used to retire an axis a persisted filter may still carry, so a
+     * stored value for a dropped axis cannot keep filtering after the axis is gone.
+     */
+    fun withoutAxis(key: String): ListFilter =
+        if (axes.containsKey(key)) copy(axes = axes - key) else this
+
     companion object {
         fun parse(raw: String?): ListFilter {
             if (raw.isNullOrBlank()) return ListFilter()
@@ -64,9 +71,8 @@ fun dateInRange(startTimeMs: Long, range: String, todayMidnightMs: Long): Boolea
 
 /**
  * Live tracks are exempt from the axes whose subject a recording cannot answer for: the date range,
- * whose `isLive` arm is the original case, the position, whose classification would otherwise move
- * under the user's eyes as the track grows, and the kind, because a recording in progress is not a
- * route and must not vanish from the list mid-journey.
+ * whose `isLive` arm is the original case, and the position, whose classification would otherwise
+ * move under the user's eyes as the track grows.
  */
 fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
     f.axes.all { (key, value) ->
@@ -80,13 +86,6 @@ fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
             "position" -> isLive || when (value) {
                 "WATER" -> positionIsWater
                 "LAND" -> !positionIsWater
-                else -> true
-            }
-            // The field's own two words: a route is a track the app saved, everything else is a
-            // recorded track. A live recording passes whatever the flag says (see the note above).
-            "route" -> isLive || when (value) {
-                "TRACKS" -> !route
-                "ROUTES" -> route
                 else -> true
             }
             else -> true
@@ -176,15 +175,6 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("WATER", R.string.filter_option_on_water),
             FilterOptionSpec("LAND", R.string.dash_not_at_sea)
-        )
-    ),
-    FilterAxisSpec(
-        key = "route",
-        labelResId = R.string.filter_axis_kind,
-        options = listOf(
-            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
-            FilterOptionSpec("TRACKS", R.string.filter_option_tracks),
-            FilterOptionSpec("ROUTES", R.string.filter_option_routes)
         )
     )
 )

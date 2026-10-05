@@ -18,16 +18,23 @@ import ykws.android.maro.data.settings.AppSettings
 internal fun buildMenuOverlayData(
     appSettings: AppSettings,
     firstTrackId: String?,
+    firstRouteId: String?,
     firstMarkerId: String?,
     trackMapVisibleCount: Int,
+    routeMapVisibleCount: Int,
     markerMapCount: Int,
 ): MenuOverlayData = MenuOverlayData(
     firstTrackId = firstTrackId,
+    firstRouteId = firstRouteId,
     firstMarkerId = firstMarkerId,
     trackMapFilterState = appSettings.trackMapFilter,
     trackMapCount = trackMapVisibleCount,
+    routeMapFilterState = appSettings.routeMapFilter,
+    routeMapCount = routeMapVisibleCount,
     markerMapFilterState = appSettings.markerMapFilter,
     markerMapCount = markerMapCount,
+    tracksVisible = appSettings.tracksVisible,
+    routesVisible = appSettings.routesVisible,
 )
 
 /** The track-history surface's data bundle, moved verbatim from the `OverlayLayer` call site. */
@@ -38,6 +45,16 @@ internal fun buildTrackListOverlayData(
     trackSortState = appSettings.trackListSort,
     trackFilterState = appSettings.trackListFilter,
     trackListState = trackListState,
+)
+
+/** The routes list's data bundle — the route-scoped mirror of [buildTrackListOverlayData] (D4). */
+internal fun buildRouteListOverlayData(
+    appSettings: AppSettings,
+    routeListState: LazyListState,
+): RouteListOverlayData = RouteListOverlayData(
+    routeSortState = appSettings.routeListSort,
+    routeFilterState = appSettings.routeListFilter,
+    routeListState = routeListState,
 )
 
 /** The settings surface's data bundle, moved verbatim from the `OverlayLayer` call site. */

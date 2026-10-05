@@ -9,10 +9,9 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.matchesFilter
 
 /**
- * The route flag's own behaviours, read where they live on the summary: the filter axis both ways with
- * the live recording exempt (R31), the Resume refusal the summary owns (R41), the merge candidacy that
- * drops a route (R41), and the blob the exporter writes carrying the flag and a foreign track not
- * (R29, R30).
+ * The route flag's own behaviours, read where they live on the summary: the retired Kind axis no longer
+ * gating a summary, the Resume refusal the summary owns (R41), the merge candidacy that drops a route
+ * (R41), and the blob the exporter writes carrying the flag and a foreign track not (R29, R30).
  */
 class TrackRouteTest {
 
@@ -34,25 +33,14 @@ class TrackRouteTest {
     private fun axis(value: String) = ListFilter(mapOf("route" to value))
 
     @Test
-    fun theAxisReadsBothSidesOfTheFlag() {
+    fun theRetiredKindAxisNoLongerGatesTheSummary() {
+        // S3/D2: the Kind axis is retired, so a `route=…` entry left in a decoded filter is unknown to
+        // `matchesFilter` and passes for both kinds. The load-time strip (`ListFilter.withoutAxis`) is the
+        // only thing that removes such an entry; the axis itself no longer reads.
         assertTrue(summary(route = true).matchesFilter(axis("ROUTES"), 0L))
-        assertFalse(summary(route = true).matchesFilter(axis("TRACKS"), 0L))
+        assertTrue(summary(route = true).matchesFilter(axis("TRACKS"), 0L))
+        assertTrue(summary(route = false).matchesFilter(axis("ROUTES"), 0L))
         assertTrue(summary(route = false).matchesFilter(axis("TRACKS"), 0L))
-        assertFalse(summary(route = false).matchesFilter(axis("ROUTES"), 0L))
-    }
-
-    @Test
-    fun allLeavesEverySummaryInWhateverItIs() {
-        assertTrue(summary(route = true).matchesFilter(axis("ALL"), 0L))
-        assertTrue(summary(route = false).matchesFilter(axis("ALL"), 0L))
-    }
-
-    @Test
-    fun aLiveRecordingPassesWhateverTheAxisSays() {
-        val live = summary(route = false, live = true)
-
-        assertTrue(live.matchesFilter(axis("ROUTES"), 0L))
-        assertTrue(live.matchesFilter(axis("TRACKS"), 0L))
     }
 
     @Test

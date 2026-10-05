@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -44,6 +45,7 @@ import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.components.DropdownField
 import ykws.android.maro.ui.components.DropdownPairRow
+import ykws.android.maro.ui.components.DropdownPairWidth
 import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.MarkerCreateAction
 import ykws.android.maro.ui.components.NestedCard
@@ -54,6 +56,8 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
+import ykws.android.maro.ui.icons.Visibility
+import ykws.android.maro.ui.icons.VisibilityOff
 
 /**
  * The bullet the drawer's status band reads its two words apart by — the notification title's own
@@ -110,7 +114,23 @@ fun MenuDrawerOverlay(
     markerFilterLinked: Boolean = true,
     onToggleMarkerLink: () -> Unit = {},
     trackCount: Int = 0,
-    markerCount: Int = 0
+    markerCount: Int = 0,
+    // ── Routes list access + its own map referential (S8) ──────────────────
+    routeCount: Int = 0,
+    onViewRouteList: () -> Unit = {},
+    onOpenFirstRoute: (() -> Unit)? = null,
+    routeFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onRouteFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onRouteReset: () -> Unit = {},
+    routeFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    routeFilterLinked: Boolean = true,
+    onToggleRouteLink: () -> Unit = {},
+    // ── The two kinds' map-visibility eyes (2026-10-05) ─────────────────────
+    // Each gates the map render of its own kind alone — it never moves the count or the list (D6).
+    trackVisible: Boolean = true,
+    routeVisible: Boolean = true,
+    onToggleTrackVisible: () -> Unit = {},
+    onToggleRouteVisible: () -> Unit = {}
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -191,12 +211,79 @@ fun MenuDrawerOverlay(
                     RouteSummaryBlock(routeSummary)
                 }
             }
+
+        }
+
+        Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── ROUTES section + filter controls (2026-10-05, D11) ─────────────
+        // The Routes row left the ROUTING card for a section of its own, mirroring the TRACKS section so
+        // the map-referential filter icons get a section header to live in (D11, superseding D1). The card
+        // above keeps the route ends, the quick access and the gated summary alone.
+        SectionHeader(title = stringResource(R.string.menu_manage_routes)) {
+            // The routes eye stands first and outside the axes gate, so it never disappears with the
+            // filters (D3): it shows or hides the whole route kind on the map, never the count or the list.
+            KindVisibilityToggle(
+                visible = routeVisible,
+                onToggle = onToggleRouteVisible,
+                contentDescription = stringResource(R.string.cd_toggle_routes_map)
+            )
+            if (routeFilterAxes.isNotEmpty()) {
+                IconButton(
+                    onClick = onToggleRouteLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (routeFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    )
+                }
+                FilterControl(
+                    filterState = routeFilterState,
+                    filterAxes = routeFilterAxes,
+                    onFilterChange = onRouteFilterChange
+                )
+                val hasActiveRouteFilter = routeFilterState.axes.isNotEmpty()
+                IconButton(
+                    onClick = onRouteReset,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Refresh,
+                        contentDescription = stringResource(R.string.cd_reset_filter),
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                            .alpha(if (hasActiveRouteFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            // ── Routes list row (2026-10-05, D11) — the ROUTES section's own door to the saved routes ──
+            // Mirrors the Tracks row below it: the label, the count and the chevron to the first route.
+            // No live block: a recording in progress is never a route.
+            RoutesRow(
+                routeCount = routeCount,
+                onViewRouteList = onViewRouteList,
+                onOpenFirstRoute = onOpenFirstRoute
+            )
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── TRACKS section + filter controls ─────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks)) {
+            // The tracks eye, first and outside the axes gate — the routes header's twin (D3).
+            KindVisibilityToggle(
+                visible = trackVisible,
+                onToggle = onToggleTrackVisible,
+                contentDescription = stringResource(R.string.cd_toggle_tracks_map)
+            )
             if (trackFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleTrackLink,
@@ -473,6 +560,10 @@ fun MenuDrawerOverlay(
  * group, whichever way they sit — so the ends' stacked pair and the pair control's side-by-side one read as
  * spaced the same.
  *
+ * **Both boxes read left, and their wheels follow** (the user's word, 2026-10-05): each row is handed
+ * `TextAlign.Start`, and because the field's one alignment drives both surfaces the wheel's rows sit on the
+ * box's own axis rather than centring under it.
+ *
  * **The action that armed the acquisition was removed from here** (the user's word, 2026-10-04): the map's
  * square and the fan's own child are the doors now, so R49's "second door onto the same arming" no longer
  * counts this one, and the callback the sub-section carried went with it.
@@ -490,14 +581,16 @@ private fun RouteEndsSection(section: RouteSummaryData) {
             options = section.startOptions.map { it.selection to it.label },
             selected = section.startSelection,
             onSelect = section.onStartSelect,
-            accessibleName = stringResource(R.string.route_label_start)
+            accessibleName = stringResource(R.string.route_label_start),
+            textAlign = TextAlign.Start
         )
         DropdownRow(
             label = null,
             options = section.destinationOptions.map { it.selection to it.label },
             selected = section.destinationSelection,
             onSelect = section.onDestinationSelect,
-            accessibleName = stringResource(R.string.route_label_destination)
+            accessibleName = stringResource(R.string.route_label_destination),
+            textAlign = TextAlign.Start
         )
     }
 }
@@ -511,9 +604,10 @@ private fun RouteEndsSection(section: RouteSummaryData) {
  * `routeSlowWaterAversion` through the same callbacks the Settings page's sliders use, so the two surfaces
  * cannot disagree — and the pace box shows the **set** pace, not the boat's own fitted one.
  *
- * **The width rule is the control's own capability, and this call site leaves it on its defaults**: the
- * pace's side is measured to the longest of its words — `35 kn` — so none of the seven stops can ever be cut,
- * and the preference's takes the row's remainder and is what trims there.
+ * **The width rule is the control's own capability, and this call site asks for the proportional split**
+ * (the user's word, 2026-10-05): each box takes a share of the row matching its own longest word, so the
+ * preference's longer labels — `Balanced`, `Équilibré` — earn more room than the pace's `35 kn`, where the
+ * earlier fixed/elastic split left the pair narrow on the left and roomy on the right.
  */
 @Composable
 private fun RouteQuickAccessSection(section: RouteSummaryData) {
@@ -539,7 +633,9 @@ private fun RouteQuickAccessSection(section: RouteSummaryData) {
             selected = section.preference,
             onSelect = section.onPreferenceSelect,
             accessibleName = stringResource(R.string.settings_route_preference_label)
-        )
+        ),
+        leftWidth = DropdownPairWidth.Proportional,
+        rightWidth = DropdownPairWidth.Proportional
     )
 }
 
@@ -711,5 +807,82 @@ private fun formatDuration(totalSeconds: Long): String {
         "${hours}h ${minutes}m ${seconds}s"
     } else {
         "${minutes}m ${seconds}s"
+    }
+}
+
+/**
+ * The ROUTES section's **Routes row** (2026-10-05, D11): the drawer's door to the saved routes,
+ * mirroring the Tracks row — the label and the count, a chevron to the first route. Its own Link /
+ * Filter / Reset live in the ROUTES `SectionHeader` above it, bound to the **route map referential**
+ * (the menu's own referential, as the Tracks header's controls are, so a filter edit there moves the
+ * routes the map draws and the count beside it).
+ */
+@Composable
+private fun RoutesRow(
+    routeCount: Int,
+    onViewRouteList: () -> Unit,
+    onOpenFirstRoute: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onViewRouteList)
+            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = stringResource(R.string.menu_manage_routes),
+            color = Color(AppConfig.uiTextPrimary),
+            fontSize = AppConfig.uiFontToggleSize.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "$routeCount",
+                color = Color(AppConfig.uiTextMuted),
+                fontSize = 14.sp // 14sp, not uiFontValueSize (16sp) — count stays compact
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { onOpenFirstRoute?.invoke() },
+                enabled = onOpenFirstRoute != null,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_open_first_route),
+                    tint = Color(AppConfig.uiTextMuted).copy(alpha = if (onOpenFirstRoute != null) 1f else 0.35f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One kind's **map-visibility eye** (2026-10-05): the leftmost control of a section header's trailing
+ * slot, standing **outside** the filter-axes gate so a kind with no axis keeps its switch (D3). It
+ * shows [Visibility] while the kind is drawn and [VisibilityOff] while it is hidden, at the sibling
+ * icons' own tint, and it gates the **map render alone** — the count beside the row follows the filter
+ * and never this flag, and the list keeps its rows (D6).
+ */
+@Composable
+private fun KindVisibilityToggle(
+    visible: Boolean,
+    onToggle: () -> Unit,
+    contentDescription: String
+) {
+    IconButton(
+        onClick = onToggle,
+        modifier = Modifier.size(40.dp)
+    ) {
+        Icon(
+            imageVector = if (visible) Visibility else VisibilityOff,
+            contentDescription = contentDescription,
+            tint = ButtonColors.icon,
+            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+        )
     }
 }

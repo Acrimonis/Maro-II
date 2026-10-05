@@ -12,8 +12,9 @@ import ykws.android.maro.data.track.TrackSummary
 
 /**
  * The route role's decisions (R34, R35, R37, R38): the path a route takes and why, the stroke it earns
- * whatever its pin says, the set split that lets the count bound the unpinned ones alone, and the pair
- * and ladder it interpolates over its own set.
+ * on its own unpinned path (a pinned route takes the pinned stroke through the shared pinned path, D5),
+ * the set split that lets the count bound the unpinned ones alone, and the pair and ladder it
+ * interpolates over its own set.
  */
 class TrackRouteRoleTest {
 
@@ -49,44 +50,49 @@ class TrackRouteRoleTest {
     }
 
     @Test
-    fun aPinnedRouteDrawsByTheSamePlanAnUnpinnedOneDoes() {
-        // Read through the two functions the loops really call, each with its own argument set — the
-        // counted pass plans a route role outright, the pinned pass reads the summary's own flag — so the
-        // pinned loop's `route = summary.route` is what this holds. Reverting it to a plain stored plan
-        // is the change that fails here (R34).
+    fun aPinnedRouteKeepsItsDashOnTheOnePinnedPath() {
+        // D5: a pinned route runs the one pinned path, exactly as a pinned recorded track does — the
+        // `isRoute` special case that pushed it back to the route role is gone. Only the values that
+        // path paints (the pinned-route pair and ladder) are selected per kind, and that lives in the
+        // effect, not here. D12: the dash follows the summary's own identity, so a pinned route stays
+        // dashed while a pinned recorded track is solid, on that same shared pinned path.
         val route = summary("route-pinned", route = true, pinned = true)
-        val unpinned = routeTrackRenderPlan(
-            trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
-            routeSpeedColour = false, routeSpeedArrows = true
-        )
-        val pinned = pinnedTrackRenderPlan(
+        val pinnedRoute = pinnedTrackRenderPlan(
             summary = route,
             trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
             routeSpeedColour = false, routeSpeedArrows = true
         )
+        val pinnedRecorded = pinnedTrackRenderPlan(
+            summary = summary("recording-pinned", pinned = true),
+            trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
+            routeSpeedColour = true, routeSpeedArrows = true
+        )
+        val routeRole = routeTrackRenderPlan(
+            trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
+            routeSpeedColour = false, routeSpeedArrows = true
+        )
 
-        assertEquals(unpinned, pinned)
-        assertEquals(TrackRenderPath.ROUTE, pinned.path)
-        // And the route's own flag does not leak to a recorded track whose pin is set: the pinned
-        // recorded row keeps the stored plan it has always had.
-        assertNotEquals(
-            TrackRenderPath.ROUTE,
-            pinnedTrackRenderPlan(
-                summary = summary("recording-pinned", pinned = true),
-                trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
-                routeSpeedColour = true, routeSpeedArrows = true
-            ).path
-        )
+        // The two pinned kinds share one path and one role, and the dash is the only thing the route's
+        // own identity adds (D12): a pinned route is dashed, a pinned recorded track is not.
         assertEquals(
-            "the route stroke wins over the pinned one",
-            AppConfig.trackWidthRouteDp,
-            storedTrackWidth(selected = false, route = true, pinned = true, newest = false),
-            1e-6f
+            "a pinned route and a pinned track share one pinned path",
+            pinnedRecorded.path,
+            pinnedRoute.path
         )
+        assertTrue("a pinned route keeps its dash (D12)", pinnedRoute.dashed)
+        assertFalse("a pinned recorded track stays solid", pinnedRecorded.dashed)
+        assertNotEquals("the route role is what a pinned route no longer takes", routeRole, pinnedRoute)
+        // The pinned stroke governs every pinned item: the loop passes route = false for both kinds.
         assertEquals(
-            "and the pinned stroke still governs a recorded track",
             AppConfig.trackWidthPinnedDp,
             storedTrackWidth(selected = false, route = false, pinned = true, newest = false),
+            1e-6f
+        )
+        // The helper still ranks the route stroke over the pin where it is asked to — the route role an
+        // unpinned route takes — so the table itself is unchanged (R34, D11).
+        assertEquals(
+            AppConfig.trackWidthRouteDp,
+            storedTrackWidth(selected = false, route = true, pinned = true, newest = false),
             1e-6f
         )
     }
@@ -172,7 +178,8 @@ class TrackRouteRoleTest {
 
         val selection = storedTrackSelection(
             summaries = summaries,
-            filter = ListFilter(),
+            trackFilter = ListFilter(),
+            routeFilter = ListFilter(),
             focus = MapRenderFocus(),
             tracksVisible = true,
             todayMidnightMs = 0L,
@@ -193,7 +200,8 @@ class TrackRouteRoleTest {
         // pinned pass capped by the route count would answer nothing here (R35).
         val noRoutes = storedTrackSelection(
             summaries = summaries,
-            filter = ListFilter(),
+            trackFilter = ListFilter(),
+            routeFilter = ListFilter(),
             focus = MapRenderFocus(),
             tracksVisible = true,
             todayMidnightMs = 0L,
@@ -219,7 +227,8 @@ class TrackRouteRoleTest {
         )
         val selection = storedTrackSelection(
             summaries = summaries,
-            filter = ListFilter(mapOf("dateRange" to "LAST_7_DAYS")),
+            trackFilter = ListFilter(mapOf("dateRange" to "LAST_7_DAYS")),
+            routeFilter = ListFilter(mapOf("dateRange" to "LAST_7_DAYS")),
             focus = MapRenderFocus(),
             tracksVisible = true,
             todayMidnightMs = today,
@@ -268,9 +277,9 @@ class TrackRouteRoleTest {
     }
 
     @Test
-    fun aBandedRouteAndABandedTrackDifferOnlyByTheRouteFlag() {
-        // The dashed stroke is keyed on the plan's role, never on the path: a route and a recorded
-        // track can both take BANDED, so the flag is what tells the dispatcher which one to dash.
+    fun aBandedRouteAndABandedTrackDifferOnlyByTheDashedFlag() {
+        // The dashed stroke is keyed on the summary's route identity, never on the path: a route and a
+        // recorded track can both take BANDED, so the flag is what tells the dispatcher which to dash.
         val route = trackRenderPlan(
             trackArrows = true, trackColours = true, selected = false,
             eyeOverride = null, route = true, routeSpeedColour = true
@@ -280,9 +289,120 @@ class TrackRouteRoleTest {
             eyeOverride = null, route = false
         )
 
-        assertTrue(route.route)
-        assertFalse(recorded.route)
+        assertTrue(route.dashed)
+        assertFalse(recorded.dashed)
         assertEquals(TrackRenderPath.BANDED, route.path)
         assertEquals(TrackRenderPath.BANDED, recorded.path)
+    }
+
+    @Test
+    fun thePinnedSetIsFilteredByItsOwnKind() {
+        // S6: the pinned escape reads each kind's own map filter. A pinned route is excluded by the route
+        // filter, a pinned track by the track filter, and neither escapes the other's.
+        val today = 1_000_000_000_000L
+        val summaries = listOf(
+            summary("pinned-route", route = true, pinned = true, startTimeMs = 0L),
+            summary("pinned-track", pinned = true, startTimeMs = 0L)
+        )
+        val dateOnly = ListFilter(mapOf("dateRange" to "LAST_7_DAYS"))
+
+        val none = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = dateOnly, routeFilter = dateOnly,
+            focus = MapRenderFocus(), tracksVisible = true, todayMidnightMs = today,
+            recordingNb = 10, routeNb = 10
+        )
+        assertTrue("both kinds excluded leaves the pinned set empty", none.pinned.isEmpty())
+
+        val trackOnly = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(), routeFilter = dateOnly,
+            focus = MapRenderFocus(), tracksVisible = true, todayMidnightMs = today,
+            recordingNb = 10, routeNb = 10
+        )
+        assertEquals(listOf("pinned-track"), trackOnly.pinned.map { it.id })
+
+        val routeOnly = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = dateOnly, routeFilter = ListFilter(),
+            focus = MapRenderFocus(), tracksVisible = true, todayMidnightMs = today,
+            recordingNb = 10, routeNb = 10
+        )
+        assertEquals(listOf("pinned-route"), routeOnly.pinned.map { it.id })
+    }
+
+    @Test
+    fun theCountedHalvesAreFilteredPerKindToo() {
+        // S6: the recorded half reads the track filter, the route half the route filter.
+        val today = 1_000_000_000_000L
+        val summaries = listOf(
+            summary("track-in", startTimeMs = today),
+            summary("track-out", startTimeMs = 0L),
+            summary("route-in", route = true, startTimeMs = today),
+            summary("route-out", route = true, startTimeMs = 0L)
+        )
+        val dateOnly = ListFilter(mapOf("dateRange" to "LAST_7_DAYS"))
+
+        val selection = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(), routeFilter = dateOnly,
+            focus = MapRenderFocus(), tracksVisible = true, todayMidnightMs = today,
+            recordingNb = 10, routeNb = 10
+        )
+        assertEquals(listOf("track-in", "track-out"), selection.recorded.map { it.id }.sorted())
+        assertEquals(listOf("route-in"), selection.routes.map { it.id })
+    }
+
+    @Test
+    fun theTwoKindsHaveTheirOwnVisibilitySwitch() {
+        // The drawer's eyes (2026-10-05): each kind's layer is gated on its own flag, and the pinned
+        // items follow their kind — a route hidden by routesVisible takes its pinned route with it, a
+        // track hidden by tracksVisible takes its pinned track, and neither flag touches the other kind.
+        val summaries = listOf(
+            summary("track", startTimeMs = 1_000L),
+            summary("track-pinned", pinned = true, startTimeMs = 1_000L),
+            summary("route", route = true, startTimeMs = 1_000L),
+            summary("route-pinned", route = true, pinned = true, startTimeMs = 1_000L)
+        )
+
+        // Tracks hidden, routes drawn.
+        val tracksOff = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(),
+            routeFilter = ListFilter(),
+            focus = MapRenderFocus(),
+            tracksVisible = false,
+            routesVisible = true,
+            todayMidnightMs = 0L,
+            recordingNb = 10,
+            routeNb = 10
+        )
+        assertTrue("the recorded half is empty when tracksVisible is off", tracksOff.recorded.isEmpty())
+        assertEquals(listOf("route"), tracksOff.routes.map { it.id })
+        assertEquals(
+            "a pinned track follows tracksVisible",
+            listOf("route-pinned"),
+            tracksOff.pinned.map { it.id }
+        )
+
+        // Routes hidden, tracks drawn.
+        val routesOff = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(),
+            routeFilter = ListFilter(),
+            focus = MapRenderFocus(),
+            tracksVisible = true,
+            routesVisible = false,
+            todayMidnightMs = 0L,
+            recordingNb = 10,
+            routeNb = 10
+        )
+        assertEquals(listOf("track"), routesOff.recorded.map { it.id })
+        assertTrue("the route half is empty when routesVisible is off", routesOff.routes.isEmpty())
+        assertEquals(
+            "a pinned route follows routesVisible",
+            listOf("track-pinned"),
+            routesOff.pinned.map { it.id }
+        )
     }
 }

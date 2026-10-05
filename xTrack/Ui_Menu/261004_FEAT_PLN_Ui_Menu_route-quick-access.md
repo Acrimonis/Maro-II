@@ -257,3 +257,7 @@ longest string** — none of its seven stops can be cut — with the preference'
 `dropdownBoxWidth` beside the control. The pair was then **extracted as its own composable**
 (`DropdownPairRow`, §2.16 of the component guidelines) with the width as a settable parameter, and the
 measurement was fixed to merge the theme's own text style. `apk-build.bat` green.
+
+**Superseded 2026-10-05.** §2's last bullet and §9's fixed-pace / elastic-preference split were replaced by the
+**proportional** split — each box taking a row share matching its own longest word — on `feature/menu-align`;
+see `261005_FEAT_PLN_Ui_Menu_menu-align.md`. The pair's default widths (`Content` / `Remainder`) are unchanged.

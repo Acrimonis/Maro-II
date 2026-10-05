@@ -224,11 +224,11 @@ private fun LayersSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Tracks ──────────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_tracks))
+        // ── Tracks and Routes ───────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_tracks_and_routes))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
-            CardDescription(stringResource(R.string.settings_tracks_desc))
+            CardDescription(stringResource(R.string.settings_tracks_and_routes_desc))
 
             Expander(
                 label = stringResource(R.string.settings_track_settings_label),
@@ -237,6 +237,7 @@ private fun LayersSettings(
             ) {
                 Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
                 NestedCard {
+                    CardDescription(stringResource(R.string.settings_track_appearance_desc))
                     // Number of tracks
                     Text(
                         text = stringResource(R.string.settings_tracks_count_label),
@@ -266,49 +267,6 @@ private fun LayersSettings(
                         value = settings.trackingRenderNb.toFloat(),
                         onValueChange = { v ->
                             onUpdateSettings { it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, 20)) }
-                        },
-                        valueRange = 0f..20f,
-                        steps = 20,
-                        colors = SliderDefaults.colors(
-                            thumbColor = ComposeColor(AppConfig.uiAccent),
-                            activeTrackColor = ComposeColor(AppConfig.uiAccent),
-                            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
-                        )
-                    )
-
-                    SectionDivider()
-
-                    // Number of routes to render: its own row beside its sibling above, bounded the
-                    // same way, and bounding the route set alone — a pinned route is drawn whatever
-                    // this says, the pin being what marks a route already saved.
-                    Text(
-                        text = stringResource(R.string.settings_routes_count_label),
-                        color = ComposeColor(AppConfig.uiTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_routes_count_desc),
-                            color = ComposeColor(AppConfig.uiTextMuted),
-                            fontSize = AppConfig.uiFontDescSize.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "%d".format(settings.routeRenderNb),
-                            color = ComposeColor(AppConfig.uiValueText),
-                            fontSize = AppConfig.uiFontValueSize.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Slider(
-                        value = settings.routeRenderNb.toFloat(),
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(routeRenderNb = v.roundToInt().coerceIn(0, 20)) }
                         },
                         valueRange = 0f..20f,
                         steps = 20,
@@ -367,32 +325,6 @@ private fun LayersSettings(
                         }
                     )
 
-                    SectionDivider()
-
-                    // The route ladder: the same control the pinned pair uses, writing the route
-                    // role's own range — the ladders a recorded track takes are never applied here.
-                    RangeSliderRow(
-                        label = stringResource(R.string.settings_route_transparency_label),
-                        description = stringResource(R.string.settings_route_transparency_desc),
-                        valueLabel = stringResource(
-                            R.string.settings_transparency_value_fmt,
-                            settings.trackingTransparencyRouteNewest,
-                            settings.trackingTransparencyRouteOldest
-                        ),
-                        value = settings.trackingTransparencyRouteNewest.toFloat()
-                            ..settings.trackingTransparencyRouteOldest.toFloat(),
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChange = { range ->
-                            onUpdateSettings {
-                                it.copy(
-                                    trackingTransparencyRouteNewest = range.start.roundToInt(),
-                                    trackingTransparencyRouteOldest = range.endInclusive.roundToInt()
-                                )
-                            }
-                        }
-                    )
-
                     Spacer(Modifier.height(8.dp))
 
                     // Colors
@@ -426,23 +358,6 @@ private fun LayersSettings(
                         onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
                         onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                     )
-                    // The followed route's own line colour: **one key**, `route.line.color`, edited
-                    // here rather than duplicated — the row and the file's drawing value are one fact.
-                    ColorRow(
-                        label = stringResource(R.string.settings_color_active_route),
-                        color = settings.routeLineColor,
-                        onColorSelected = { c -> onUpdateSettings { it.copy(routeLineColor = c) } }
-                    )
-                    // The route pair joins the colour pairs, the tappable swatch being the whole
-                    // control on each side as it is on the three above.
-                    ColorPairRow(
-                        label = stringResource(R.string.settings_color_routes),
-                        fromColor = settings.trackingColorRouteFrom,
-                        toColor = settings.trackingColorRouteTo,
-                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteFrom = c) } },
-                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteTo = c) } }
-                    )
-
                 }
             }
 
@@ -543,7 +458,175 @@ private fun LayersSettings(
                 }
             }
 
+            // ── The routes' own rendering values (S17/D15) — the card's 2nd section ──
+            // Divided from the track group above (2026-10-05, the user's word) and from the export/import
+            // row that closes the card; the two route collapsibles stand adjacent within this section, with
+            // **no divider between them** (2026-10-05, the user's word — the one that stood between Routes
+            // Appearance and Routes Speed and Direction was removed).
             SectionDivider()
+            Expander(
+                label = stringResource(R.string.settings_routes_appearance_label),
+                expanded = settingsVm.isExpanded("routes_appearance"),
+                onToggle = { settingsVm.setExpanded("routes_appearance", !settingsVm.isExpanded("routes_appearance")) }
+            ) {
+                Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
+                NestedCard {
+                    CardDescription(stringResource(R.string.settings_routes_appearance_desc))
+                    // The Routes count, the route ladder, the pinned-route ladder and every route
+                    // colour: a route's whole appearance is edited in one place (D5, D6, D8).
+                    Text(
+                        text = stringResource(R.string.settings_routes_count_label),
+                        color = ComposeColor(AppConfig.uiTextPrimary),
+                        fontSize = AppConfig.uiFontToggleSize.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_routes_count_desc),
+                            color = ComposeColor(AppConfig.uiTextMuted),
+                            fontSize = AppConfig.uiFontDescSize.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "%d".format(settings.routeRenderNb),
+                            color = ComposeColor(AppConfig.uiValueText),
+                            fontSize = AppConfig.uiFontValueSize.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Slider(
+                        value = settings.routeRenderNb.toFloat(),
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(routeRenderNb = v.roundToInt().coerceIn(0, 20)) }
+                        },
+                        valueRange = 0f..20f,
+                        steps = 20,
+                        colors = SliderDefaults.colors(
+                            thumbColor = ComposeColor(AppConfig.uiAccent),
+                            activeTrackColor = ComposeColor(AppConfig.uiAccent),
+                            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
+                        )
+                    )
+
+                    SectionDivider()
+
+                    // The route ladder: the pin bounds the non-pinned routes alone, a pinned route drawn
+                    // whatever it says.
+                    RangeSliderRow(
+                        label = stringResource(R.string.settings_route_transparency_label),
+                        description = stringResource(R.string.settings_route_transparency_desc),
+                        valueLabel = stringResource(
+                            R.string.settings_transparency_value_fmt,
+                            settings.trackingTransparencyRouteNewest,
+                            settings.trackingTransparencyRouteOldest
+                        ),
+                        value = settings.trackingTransparencyRouteNewest.toFloat()
+                            ..settings.trackingTransparencyRouteOldest.toFloat(),
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { range ->
+                            onUpdateSettings {
+                                it.copy(
+                                    trackingTransparencyRouteNewest = range.start.roundToInt(),
+                                    trackingTransparencyRouteOldest = range.endInclusive.roundToInt()
+                                )
+                            }
+                        }
+                    )
+
+                    SectionDivider()
+
+                    // The pinned route's own ladder (D5, D8): a pinned route runs the pinned path but
+                    // fades across this range, over its own pair below.
+                    RangeSliderRow(
+                        label = stringResource(R.string.settings_pinned_route_transparency_label),
+                        description = stringResource(R.string.settings_pinned_route_transparency_desc),
+                        valueLabel = stringResource(
+                            R.string.settings_transparency_value_fmt,
+                            settings.trackingTransparencyPinnedRouteNewest,
+                            settings.trackingTransparencyPinnedRouteOldest
+                        ),
+                        value = settings.trackingTransparencyPinnedRouteNewest.toFloat()
+                            ..settings.trackingTransparencyPinnedRouteOldest.toFloat(),
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { range ->
+                            onUpdateSettings {
+                                it.copy(
+                                    trackingTransparencyPinnedRouteNewest = range.start.roundToInt(),
+                                    trackingTransparencyPinnedRouteOldest = range.endInclusive.roundToInt()
+                                )
+                            }
+                        }
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Colours
+                    Text(
+                        text = stringResource(R.string.settings_colors_label),
+                        color = ComposeColor(AppConfig.uiTextPrimary),
+                        fontSize = AppConfig.uiFontToggleSize.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_routes_colors_desc),
+                        color = ComposeColor(AppConfig.uiTextMuted),
+                        fontSize = 12.sp
+                    )
+                    // The followed route's own line colour: **one key**, `route.line.color`.
+                    ColorRow(
+                        label = stringResource(R.string.settings_color_active_route),
+                        color = settings.routeLineColor,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(routeLineColor = c) } }
+                    )
+                    ColorPairRow(
+                        label = stringResource(R.string.settings_color_routes),
+                        fromColor = settings.trackingColorRouteFrom,
+                        toColor = settings.trackingColorRouteTo,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteFrom = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorRouteTo = c) } }
+                    )
+                    ColorPairRow(
+                        label = stringResource(R.string.settings_color_pinned_routes),
+                        fromColor = settings.trackingColorPinnedRouteFrom,
+                        toColor = settings.trackingColorPinnedRouteTo,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedRouteFrom = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedRouteTo = c) } }
+                    )
+                }
+            }
+
+            Expander(
+                label = stringResource(R.string.settings_routes_speed_direction_label),
+                expanded = settingsVm.isExpanded("routes_speed_direction"),
+                onToggle = { settingsVm.setExpanded("routes_speed_direction", !settingsVm.isExpanded("routes_speed_direction")) }
+            ) {
+                Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
+                NestedCard {
+                    CardDescription(stringResource(R.string.settings_routes_speed_direction_desc))
+                    ToggleRow(
+                        label = stringResource(R.string.settings_routes_speed_color_label),
+                        labelStyle = ToggleLabelStyle.COMMENT,
+                        checked = settings.routeSpeedColor,
+                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedColor = on) } }
+                    )
+                    Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+                    ToggleRow(
+                        label = stringResource(R.string.settings_routes_arrows_label),
+                        labelStyle = ToggleLabelStyle.COMMENT,
+                        checked = settings.routeSpeedArrows,
+                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
+                    )
+                }
+            }
+
+            SectionDivider()
+            CardDescription(stringResource(R.string.settings_tracks_transfer_desc))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -565,8 +648,6 @@ private fun LayersSettings(
                     modifier = Modifier.weight(1f)
                 )
             }
-
-            Spacer(Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -1486,32 +1567,6 @@ private fun RoutingSettings(
                     AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat(),
                 steps = 1,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterAversion = v) } }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
-
-        // ── Appearance ────────────────────────────────────────────────────────
-        // The route's two rendering gates, each gating its drawer chip: the colour one bands a route
-        // only while the Colours chip is on too, the arrow one can only veto the Arrows chip's
-        // chevrons (R37, R38). Their names are comments — the block's own title heads them — so both
-        // rows ask for the comment label style rather than the row norm.
-        SectionHeader(title = stringResource(R.string.settings_section_appearance))
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-
-        CardArea {
-            ToggleRow(
-                label = stringResource(R.string.settings_routes_speed_color_label),
-                labelStyle = ToggleLabelStyle.COMMENT,
-                checked = settings.routeSpeedColor,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedColor = on) } }
-            )
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-            ToggleRow(
-                label = stringResource(R.string.settings_routes_arrows_label),
-                labelStyle = ToggleLabelStyle.COMMENT,
-                checked = settings.routeSpeedArrows,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
             )
         }
     }
