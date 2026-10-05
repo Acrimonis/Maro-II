@@ -7,7 +7,7 @@ import ykws.android.maro.data.route.RouteEndSelection
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineChoice
-import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.multipass.MultipassWorld
 
 /**
  * The route family's effects (code-health step 3, tier 2d). Each host is called from `MapScreen` at the
@@ -22,7 +22,7 @@ import ykws.android.maro.spatial.avoid.AvoidWorld
 internal fun MapRouteEngineEffect(
     appSettings: AppSettings,
     routeEngineSelection: MutableStateFlow<RouteEngine>,
-    avoidWorldProvider: () -> AvoidWorld,
+    avoidWorldProvider: () -> MultipassWorld,
     settingsProvider: () -> AppSettings
 ) {
     LaunchedEffect(appSettings.routeEngineId) {

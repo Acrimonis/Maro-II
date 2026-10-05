@@ -7,8 +7,8 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
-import ykws.android.maro.spatial.avoid.AvoidEdge
-import ykws.android.maro.spatial.avoid.AvoidWorld
+import ykws.android.maro.spatial.multipass.MultipassEdge
+import ykws.android.maro.spatial.multipass.MultipassWorld
 
 /**
  * The registry's own contract: every shipped id resolves to its own row, each row builds the engine it
@@ -38,6 +38,10 @@ class RouteEngineChoiceTest {
             "the avoid row builds the avoid engine",
             RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteAvoidEngine
         )
+        assertTrue(
+            "the evolutive row builds the evolutive engine",
+            RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteEvolutiveEngine
+        )
     }
 
     @Test
@@ -59,12 +63,12 @@ class RouteEngineChoiceTest {
 }
 
 /** A ready, water-everywhere world — the factory never invokes it at build time, only stores it. */
-private class ChoiceWorld : AvoidWorld {
+private class ChoiceWorld : MultipassWorld {
     override val coastlineReady: Boolean get() = true
     override val depthReady: Boolean get() = true
     override val bandWidthM: Double get() = 0.0
     override val regionBounds: BBox? get() = null
-    override fun segmentsIn(box: BBox): List<AvoidEdge> = emptyList()
+    override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
     override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
     override fun isWater(latitude: Double, longitude: Double): Boolean = true
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE

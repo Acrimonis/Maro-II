@@ -169,6 +169,25 @@ object AppConfig {
     var routeRepairMaxRadiusM: Double = 200.0
         private set
 
+    /**
+     * The most cells one walk's own layers may hold, coarse and fine together — `route.walk.maxCells`,
+     * default 600 000, clamped [ROUTE_WALK_MAX_CELLS_MIN]..[ROUTE_WALK_MAX_CELLS_MAX].
+     *
+     * A **guard, never a tuning value**: the rasterizer's dense cells and its ring fill's own allocations
+     * share the heap, and a walk wide enough dies there rather than answering — measured 2026-10-04 on one
+     * long route, 476 700 fine cells survived where the 1 178 555 of its grown retry did not. A walk over
+     * this ceiling is refused **before** anything is rastered, with a trace line, so the caller answers the
+     * line it already has instead of the app dying.
+     */
+    var routeWalkMaxCells: Int = 600_000
+        private set
+
+    /** Lowest walk ceiling the load accepts — below it a long coastal route would be refused by an accident of the file. */
+    const val ROUTE_WALK_MAX_CELLS_MIN = 10_000
+
+    /** Highest walk ceiling the load accepts — the point past which the guard could not save the heap anyway. */
+    const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
+
 
     /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
     var routeAvoidObstacleMarginM: Double = 25.0
@@ -200,6 +219,47 @@ object AppConfig {
      * subdivides nothing and stays inert.
      */
     const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
+
+    /**
+     * The `evolutive` engine's own coarse cell (m) — `route.evolutive.grid.cellM`, default 100, clamped
+     * 10.0..500.0 like `avoid`'s. It is the plan's own answer, so `route.avoid.grid.cellM` stays untouched.
+     */
+    var routeEvolutiveGridCellM: Double = 100.0
+        private set
+
+    /**
+     * The `evolutive` engine's second-pass cell (m) — `route.evolutive.grid.fineCellM`, default 20,
+     * clamped [ROUTE_EVOLUTIVE_FINE_CELL_M_MIN]..[ROUTE_EVOLUTIVE_FINE_CELL_M_MAX].
+     *
+     * The **metres value is the fact** and the coarse-to-fine ratio is derived from the two cells, so this
+     * is the one home for the precision a drawn line resolves at. The load also holds it at or under
+     * [routeEvolutiveGridCellM], so the pair can never invert and the pass can never ask for a cell
+     * coarser than the walk it refines.
+     */
+    var routeEvolutiveGridFineCellM: Double = 20.0
+        private set
+
+    /**
+     * The corridor chain's guaranteed perpendicular half-width (m) —
+     * `route.evolutive.fine.corridorHalfWidthM`, default 150, clamped
+     * [ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN]..[ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX]. The box
+     * side is derived (`2 × w`), so no second key states it; the corridor chain that reads it is the grid
+     * plan's Phase 3.
+     */
+    var routeEvolutiveFineCorridorHalfWidthM: Double = 150.0
+        private set
+
+    /** Lowest fine cell (m) the evolutive load accepts — the precision's own floor. */
+    const val ROUTE_EVOLUTIVE_FINE_CELL_M_MIN = 10.0
+
+    /** Highest fine cell (m) the evolutive load accepts — the 20 m contract is this ceiling. */
+    const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
+
+    /** Lowest corridor half-width (m) the evolutive load accepts — the 100 m price collar's own floor. */
+    const val ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN = 100.0
+
+    /** Highest corridor half-width (m) the evolutive load accepts. */
+    const val ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX = 400.0
 
     /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
@@ -1715,6 +1775,8 @@ object AppConfig {
                 ?.let { routeMinAcquisitionLengthM = it.coerceAtLeast(0.0) }
             props.getProperty("route.repair.maxRadiusM")?.toDoubleOrNull()
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
+            props.getProperty("route.walk.maxCells")?.toIntOrNull()
+                ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine ratio Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
@@ -1738,6 +1800,23 @@ object AppConfig {
                 routeAvoidFineCellRatio = it.coerceIn(
                     ROUTE_AVOID_FINE_CELL_RATIO_MIN,
                     ROUTE_AVOID_FINE_CELL_RATIO_MAX
+                )
+            }
+            // ── The evolutive engine's grid: its coarse cell, its fine cell (metres, the precision
+            //    fact) and the corridor chain's half-width. `avoid`'s own keys are untouched ──
+            props.getProperty("route.evolutive.grid.cellM")?.toDoubleOrNull()?.let {
+                routeEvolutiveGridCellM = it.coerceIn(10.0, 500.0)
+            }
+            props.getProperty("route.evolutive.grid.fineCellM")?.toDoubleOrNull()?.let {
+                routeEvolutiveGridFineCellM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
+                ).coerceAtMost(routeEvolutiveGridCellM)
+            }
+            props.getProperty("route.evolutive.fine.corridorHalfWidthM")?.toDoubleOrNull()?.let {
+                routeEvolutiveFineCorridorHalfWidthM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN,
+                    ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX
                 )
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {

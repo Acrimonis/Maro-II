@@ -119,6 +119,22 @@ enum class RouteReason(val labelResId: Int) {
 }
 
 /**
+ * **A provisional reading of a line a rung is still settling** — the distance and the time the line
+ * already supports the moment it is first taut, and nothing the pipeline may still move.
+ *
+ * It is engine-neutral on purpose: a pair of figures any engine can stand behind, taken before the
+ * corner pass has rounded the line and before the profile clock has timed it. It is not an answer —
+ * [RouteUpdate.result] is — so it never decides anything, and it is replaced by the settled figures the
+ * instant the rung's terminal update lands.
+ */
+data class RouteProvisional(
+    /** The pulled line's own length, in metres. */
+    val distanceM: Double,
+    /** That same line timed by the enforced-limit clock, in seconds. */
+    val durationSec: Double
+)
+
+/**
  * **One update the flow learns about a lookup** — the id, the stage pair, the line so far, the
  * finished result and the reason a lookup cannot be answered.
  *
@@ -134,7 +150,49 @@ data class RouteUpdate(
     val nextStage: RouteStage?,
     val line: List<RoutePoint>,
     val result: RouteResult.Success?,
-    val reason: RouteReason?
+    val reason: RouteReason?,
+    /**
+     * **The figures the stage that just finished can stand behind**, or empty where it counts nothing.
+     *
+     * The default is honest here where a defaulted value would not be: an engine that measures nothing —
+     * the dummy reads no layer at all — reports nothing, and the empty list is that statement rather than
+     * a gap. The list belongs to [stageDone], never to [nextStage]: a stage reports what it *did*.
+     */
+    val readings: List<RouteStepReading> = emptyList(),
+    /**
+     * **The provisional pair a rung's line already supports**, or `null` where the engine has none to
+     * report — the absent default states that plainly, so an engine that measures nothing says so.
+     *
+     * It rides the boundary update that already carries [line] and [readings], and it belongs to the
+     * **pulled** line the boundary just made taut: the figures a row can print while the rung is still
+     * settling, replaced by the settled answer when the rung's terminal update lands. An engine that
+     * takes no such reading leaves it null everywhere.
+     */
+    val provisional: RouteProvisional? = null
+)
+
+/**
+ * **One figure a stage reports about its own work** — a count, a time or a length, with the id of the line
+ * a user reads and the id of the unit it carries.
+ *
+ * The `CustomSortField` shape again: [labelResId] and [unitResId] are `@StringRes`, so no engine holds
+ * user-facing text and both locales carry every key. [value] is a plain number in that unit, and the
+ * surface decides how to round and lay it out — the engine never formats.
+ *
+ * It is deliberately **not** on [`RouteResult`]: that type records that the two engines carrying dossiers
+ * were removed on 2026-09-22 and that no instrumentation field and no engine-specific vocabulary are left
+ * on an answer. A reading is per **stage**, while a lookup runs, and it dies with the lookup — so it rides
+ * the seam's own update, where the stage pair already is.
+ */
+data class RouteStepReading(
+    /** The stage this figure is about — the one that just finished. */
+    val stage: RouteStage,
+    /** The id of the line a user reads, e.g. `Expansions`. */
+    val labelResId: Int,
+    /** The figure itself, in [unitResId]'s unit. */
+    val value: Double,
+    /** The id of the unit's line, e.g. `cells` — or 0 where the figure is a bare count. */
+    val unitResId: Int
 )
 
 /**

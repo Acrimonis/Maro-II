@@ -41,8 +41,11 @@ class TrackFromCourseTest {
 
         assertEquals(3, track.trackPoints.size)
         assertEquals(listOf(0L, 120_000L, 360_000L), track.trackPoints.map { it.timeOffsetMs })
-        // Every vertex wears the pace of the leg leaving it, and the destination the last leg's.
-        assertEquals(track.trackPoints[0].speedMps!!, track.trackPoints[1].speedMps!!, 1e-4f)
+        // Every vertex wears the pace of the leg **leaving** it, and the destination the last leg's — so the
+        // middle vertex takes leg 1's pace, not leg 0's, and matches the destination. The two legs differ, so
+        // this also pins the direction: labelling a vertex with the leg *arriving* would make 0 and 1 equal.
+        assertEquals(track.trackPoints[1].speedMps!!, track.trackPoints[2].speedMps!!, 1e-4f)
+        assertTrue(track.trackPoints[0].speedMps!! != track.trackPoints[1].speedMps!!)
         assertTrue(track.trackPoints[2].speedMps!! > 0f)
         assertTrue(track.trackPoints.all { it.type == PointType.NORMAL })
     }

@@ -16,6 +16,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.route.RoutePace
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.track.TrackFromCourse
@@ -24,6 +25,7 @@ import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.RouteStage
+import ykws.android.maro.spatial.RouteStepReading
 import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -76,7 +78,12 @@ data class RoutePlan(
      * The priced speed zones the route had to enter, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
-    val computedAtMs: Long
+    val computedAtMs: Long,
+    /**
+     * The time spent per speed limit, the 300 m band standing apart — the panel's Speed limits line.
+     * Empty on a partial line and on a saved route read back, neither of which carries the attribution.
+     */
+    val slowLimitSeconds: List<RouteSlowLimit> = emptyList()
 ) {
     /** The plan's length in nautical miles — the trip figure's own unit. */
     val distanceNm: Double get() = Units.metresToNauticalMiles(distanceM)
@@ -170,7 +177,8 @@ data class RoutePlan(
                 durationSec = result.durationSec,
                 budgetUnmetZoneShare = result.budgetUnmetZoneShare,
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
-                computedAtMs = nowMs
+                computedAtMs = nowMs,
+                slowLimitSeconds = result.slowLimitSeconds
             )
         }
     }
@@ -327,6 +335,16 @@ class RouteViewModel(
     private val _stage = MutableStateFlow<RouteStage?>(null)
     val stage: StateFlow<RouteStage?> = _stage.asStateFlow()
 
+    /**
+     * The figures the stage that just finished reported — what the panel prints beside its
+     * `Acquiring (stage)…` word, and nothing where the engine counts nothing.
+     *
+     * Scoped to the main lookup like the stage word itself: a candidate's pass narrates nothing, and every
+     * terminal update empties the list, so a landed answer shows none.
+     */
+    private val _stepReadings = MutableStateFlow<List<RouteStepReading>>(emptyList())
+    val stepReadings: StateFlow<List<RouteStepReading>> = _stepReadings.asStateFlow()
+
     /** The main lookup's partial line, for the provisional overlay. */
     private val _provisionalLine = MutableStateFlow<List<RoutePoint>>(emptyList())
     val provisionalLine: StateFlow<List<RoutePoint>> = _provisionalLine.asStateFlow()
@@ -457,6 +475,11 @@ class RouteViewModel(
     private fun onUpdate(update: RouteUpdate) {
         if (update.routeId in cancelledLookups) return
         val index = lookupPages[update.routeId] ?: return
+        if (index == MAIN_INDEX) {
+            // One home for the narration: whichever branch below moves the stage word, the figures that
+            // arrived with the same update ride beside it, and the terminal update clears them.
+            _stepReadings.value = if (update.nextStage == null) emptyList() else update.readings
+        }
         val current = _pages.value
         if (index !in current.indices) return
         val nowMs = System.currentTimeMillis()
@@ -472,7 +495,17 @@ class RouteViewModel(
             if (survivor != null) {
                 val newPages = current.filterIndexed { i, _ -> i != index }.toMutableList()
                 val survivorIndex = if (survivor > index) survivor - 1 else survivor
-                newPages[survivorIndex] = newPages[survivorIndex].copy(collapsed = true)
+                // The survivor keeps every rung's name: its own label first (or the names it already
+                // gathered from an earlier fold), then the dropped page's, so the duplicate's name is
+                // not lost with it.
+                val survivorPage = newPages[survivorIndex]
+                val foldedNames = survivorPage.foldedDescriptionResIds
+                    .ifEmpty { listOfNotNull(survivorPage.descriptionResId) } +
+                    listOfNotNull(current[index].descriptionResId)
+                newPages[survivorIndex] = survivorPage.copy(
+                    collapsed = true,
+                    foldedDescriptionResIds = foldedNames
+                )
                 _pages.value = newPages
                 // Re-map the surviving lookups to their new indices so a later rung still lands.
                 remapLookupPages(newPages)
@@ -495,7 +528,9 @@ class RouteViewModel(
                 return
             }
             if (!session.containsKey(plan)) putSession(plan, null)
-            val updated = current[index].copy(plan = plan)
+            // A landed page prints the settled figures alone: the provisional pair the boundary update
+            // carried while it waited is cleared here, so no row can show a stale pair beside a plan.
+            val updated = current[index].copy(plan = plan, provisional = null)
             val newPages = current.toMutableList().also { it[index] = updated }
             _pages.value = newPages
             // The main lookup drives the stage and the provisional line. The provisional line clears with
@@ -529,7 +564,13 @@ class RouteViewModel(
             }
             return
         }
-        val updated = if (update.reason != null) current[index].copy(reason = update.reason) else current[index]
+        // A provisional pair rides its own boundary update and lands on the page that owns the id; a
+        // terminal refusal clears it with the same stroke as a landing, since neither will settle further.
+        val updated = when {
+            update.reason != null -> current[index].copy(reason = update.reason, provisional = null)
+            update.provisional != null -> current[index].copy(provisional = update.provisional)
+            else -> current[index]
+        }
         val newPages = current.toMutableList().also { it[index] = updated }
         _pages.value = newPages
         if (index == MAIN_INDEX) {
@@ -598,6 +639,19 @@ class RouteViewModel(
         val order = routeEtaOrder(pages)
         val standing = order.indexOf(_selectedIndex.value).coerceIn(0, order.lastIndex)
         _selectedIndex.value = order[routeStepIndex(standing, delta, order.size)]
+        syncChoosing(pages)
+    }
+
+    /**
+     * **Set the seat to a page by its position in the ETA-ordered view** — the panel's absolute set, so
+     * a swipe, a row tap or a pager sync names a page rather than stepping from wherever the seat stood.
+     * A position off the set is clamped.
+     */
+    fun selectPage(etaViewIndex: Int) {
+        val pages = _pages.value
+        if (pages.isEmpty()) return
+        val order = routeEtaOrder(pages)
+        _selectedIndex.value = order[etaViewIndex.coerceIn(0, order.lastIndex)]
         syncChoosing(pages)
     }
 

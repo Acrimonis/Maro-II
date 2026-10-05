@@ -82,16 +82,19 @@ object TrackFromCourse {
 
         val points = ArrayList<TrackPoint>(legs.size + 1)
         var elapsedMs = 0L
-        var previous = start
 
-        // The start carries the first leg's pace — a vertex describes the leg **arriving** at it, the
-        // start repeating leg 0's — and the destination carries the last leg's.
+        // A vertex carries the speed of the leg **leaving** it — the water it stands on and is about to
+        // cross, which is what [TrackPoint.speedMps] means ("the speed over ground at this point") and what
+        // this class's own doc promises ("the speed the plan intended for its outgoing leg"). Labelling a
+        // vertex with the leg *arriving* at it put every stored speed one leg out of step with the water it
+        // was drawn over: the first vertex inside a zone wore the open-water leg behind it and read at the
+        // pace, and every boundary sat one leg away from the water that changed there. The destination is
+        // the one vertex no leg leaves, so it keeps the last leg's own speed.
+        val legSpeeds = legs.map { if (it.durationSec > 0.0) it.distanceM / it.durationSec else 0.0 }
+        if (legs.isNotEmpty()) points += plannedPoint(start, legSpeeds.first(), 0L)
         for ((index, leg) in legs.withIndex()) {
-            val legSpeedMps = if (leg.durationSec > 0.0) leg.distanceM / leg.durationSec else 0.0
-            if (index == 0) points += plannedPoint(previous, legSpeedMps, 0L)
             elapsedMs += (leg.durationSec * 1_000.0).toLong()
-            points += plannedPoint(leg.point, legSpeedMps, elapsedMs)
-            previous = leg.point
+            points += plannedPoint(leg.point, legSpeeds.getOrElse(index + 1) { legSpeeds[index] }, elapsedMs)
         }
 
         // Both figures are read off the vertex set the track actually carries, which is the very set

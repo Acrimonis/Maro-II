@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Test
 import java.io.File
 import java.util.Properties
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
@@ -26,16 +27,21 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
-import ykws.android.maro.spatial.avoid.AvoidEdge
-import ykws.android.maro.spatial.avoid.AvoidWorld
-import ykws.android.maro.spatial.avoid.bandReachM
-import ykws.android.maro.spatial.avoid.EndApproaches
-import ykws.android.maro.spatial.avoid.insideBandWidthM
-import ykws.android.maro.spatial.avoid.speedZonesInBox
-import ykws.android.maro.spatial.avoid.strictestLimitKnAt
-import ykws.android.maro.spatial.avoid.TimedLine
-import ykws.android.maro.spatial.avoid.ZoneRing
-import ykws.android.maro.spatial.avoid.zoneSlowShare
+import ykws.android.maro.spatial.multipass.MultipassEdge
+import ykws.android.maro.spatial.multipass.MultipassWorld
+import ykws.android.maro.spatial.multipass.bandReachM
+import ykws.android.maro.spatial.multipass.EndApproaches
+import ykws.android.maro.spatial.multipass.GridTile
+import ykws.android.maro.spatial.multipass.RouteFinePass
+import ykws.android.maro.spatial.multipass.RouteGridPlan
+import ykws.android.maro.spatial.multipass.RoutePassRules
+import ykws.android.maro.spatial.multipass.UniformGridPlan
+import ykws.android.maro.spatial.multipass.insideBandWidthM
+import ykws.android.maro.spatial.multipass.speedZonesInBox
+import ykws.android.maro.spatial.multipass.strictestLimitKnAt
+import ykws.android.maro.spatial.multipass.TimedLine
+import ykws.android.maro.spatial.multipass.ZoneRing
+import ykws.android.maro.spatial.multipass.zoneSlowShare
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -61,7 +67,7 @@ class RouteAvoidEngineTest {
 
     private fun newEngine(
         budgetPct: Int = AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
-        world: () -> AvoidWorld = { FakeWorld() }
+        world: () -> MultipassWorld = { FakeWorld() }
     ) = RouteAvoidEngine(
         paceKn = { paceKn },
         aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
@@ -644,6 +650,115 @@ class RouteAvoidEngineTest {
         )
     }
 
+    // ── The step readings (the seam's own instrumentation) ─────────────────────
+
+    /**
+     * Every stage that counts something says so on the update it closes — the search's two counts at the
+     * boundary that follows it, and the pull's own point count at the boundary after that. The reading
+     * belongs to `stageDone`, never to `nextStage`: a stage reports what it *did*.
+     */
+    @Test
+    fun everyStageReportsItsOwnFiguresOnTheUpdate() = runBlocking {
+        val engine = newEngine()
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture's pair declares its rung", declared)
+
+        val reported = ArrayList<Pair<RouteStage?, List<RouteStepReading>>>()
+        val subscribed = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    reported += update.stageDone to update.readings
+                    if (update.nextStage == null) {
+                        done.complete(Unit)
+                        return@collect
+                    }
+                }
+        }
+        subscribed.await()
+        engine.startLookup(declared!!.computations[0].id)
+        withTimeout(120_000) { done.await() }
+        collector.cancel()
+
+        val atSearch = reported.firstOrNull { it.first == RouteStage.SEARCH }?.second
+        assertNotNull("the update closing the search carries its figures", atSearch)
+        assertEquals("the search reports its two counts", 2, atSearch!!.size)
+        assertEquals(
+            "and they are the expansions and the passable cells",
+            listOf(R.string.route_reading_expansions, R.string.route_reading_passable_cells),
+            atSearch.map { it.labelResId }
+        )
+        assertTrue(
+            "both counted in cells",
+            atSearch.all { it.unitResId == R.string.route_unit_cells }
+        )
+        assertTrue("with figures a user could read", atSearch.all { it.value >= 0.0 })
+
+        val atPull = reported.firstOrNull { it.first == RouteStage.PULL }?.second
+        assertNotNull("the update closing the pull carries its own", atPull)
+        assertEquals("one figure: the pulled points", 1, atPull!!.size)
+        assertEquals(R.string.route_reading_pulled_points, atPull.first().labelResId)
+        assertEquals(
+            "counted in points",
+            R.string.route_unit_points,
+            atPull.first().unitResId
+        )
+    }
+
+    // ── The plan seam: the engine's own injection point ────────────────────────
+
+    /** A plan that behaves exactly like the shipped one and counts how often the engine consults it. */
+    private class CountingPlan(private val inner: RouteGridPlan = UniformGridPlan) : RouteGridPlan {
+        var cellReads = 0
+        var regionReads = 0
+        var fineReads = 0
+
+        override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
+            cellReads++
+            return inner.firstWalkGrid(corridor, baseCellM)
+        }
+
+        override fun secondPassRegions(
+            line: List<LatLng>,
+            corridor: BBox,
+            outsideMarginM: Double,
+            cellM: Double
+        ): List<BBox> {
+            regionReads++
+            return inner.secondPassRegions(line, corridor, outsideMarginM, cellM)
+        }
+
+        override fun fineCellM(baseCellM: Double): Double {
+            fineReads++
+            return inner.fineCellM(baseCellM)
+        }
+    }
+
+    /**
+     * The plan is the engine's **whole** difference from a second algorithm: a lookup asks it for the
+     * walk's cell, for the finest cell its clock steps at and for the second pass's region, and nothing
+     * else about the pipeline moves.
+     */
+    @Test
+    fun aLookupTakesItsCellAndItsSecondPassRegionFromThePlan() = runBlocking {
+        val plan = CountingPlan()
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            worldProvider = { FakeWorld() },
+            plan = plan
+        )
+
+        success(solve(engine, origin, aim))
+
+        assertTrue("the first walk asks the plan for its cell", plan.cellReads > 0)
+        assertTrue("the clock asks it for the finest cell", plan.fineReads > 0)
+        assertTrue("and the second pass asks it for its region", plan.regionReads > 0)
+    }
+
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────
 
     /**
@@ -653,27 +768,25 @@ class RouteAvoidEngineTest {
      */
     @Test
     fun theLoopKeepsTheBetterPassAndNeverTheLastOne() {
-        val engine = newEngine()
-
         assertTrue(
             "a corrective pass with a smaller zone share wins although it is slower on the clock",
-            engine.betterPass(
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
-                RouteAvoidEngine.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
+            RoutePassRules.betterPass(
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
+                RoutePassRules.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
             )
         )
         assertFalse(
             "a corrective pass that is faster but spends more time in a zone loses to the incumbent",
-            engine.betterPass(
-                RouteAvoidEngine.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
+            RoutePassRules.betterPass(
+                RoutePassRules.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
             )
         )
         assertTrue(
             "at an equal share the fewer in-zone metres win, before the clock",
-            engine.betterPass(
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
-                RouteAvoidEngine.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
+            RoutePassRules.betterPass(
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
+                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
             )
         )
     }
@@ -688,7 +801,6 @@ class RouteAvoidEngineTest {
      */
     @Test
     fun theFineReSearchRefusesAFasterLineThatIsSlowerWater() {
-        val engine = newEngine()
         val paceMps = Units.knotsToMps(paceKn)
         val fineA = LatLng(43.5000, 7.0000)
         val fineB = LatLng(43.5000, 7.0050)
@@ -712,13 +824,13 @@ class RouteAvoidEngineTest {
         )
         assertFalse(
             "so the guard refuses the faster line that is slower-water",
-            engine.fineSpliceBetter(slowFine, incumbent, paceKn)
+            RoutePassRules.fineSpliceBetter(slowFine, incumbent, paceKn)
         )
 
         val cleanFine = TimedLine(listOf(fineA, fineB), listOf(fineLeg / paceMps))
         assertTrue(
             "the same shorter line run at the pace is spliced",
-            engine.fineSpliceBetter(cleanFine, incumbent, paceKn)
+            RoutePassRules.fineSpliceBetter(cleanFine, incumbent, paceKn)
         )
     }
 
@@ -729,7 +841,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
         val world = FakeWorld(zones = listOf(zone))
-        val engine = newEngine { world }
+        val finePass = RouteFinePass()
         val start = LatLng(43.50, 7.00)
         val p1 = LatLng(43.50, 7.015)
         val p2 = LatLng(43.50, 7.025)
@@ -738,7 +850,7 @@ class RouteAvoidEngineTest {
         val priced = listOf(ZoneRing(zone.outerRing, zone.holes, zone.speedLimitKn))
         val line = listOf(start, p1, p2, aimLat)
 
-        val spliced = engine.solveCrossing(
+        val spliced = finePass.solveCrossing(
             world = world,
             corridor = corridor,
             line = line,
@@ -774,14 +886,14 @@ class RouteAvoidEngineTest {
         private var depthLoaded: Boolean = true,
         /** The priced band's width (m) — 0 by default, so a test that is not about the band pays none. */
         private val band: Double = 0.0,
-        private val edges: MutableList<AvoidEdge> = mutableListOf(),
+        private val edges: MutableList<MultipassEdge> = mutableListOf(),
         private val openCoast: MutableList<List<LatLng>> = mutableListOf(),
         private val water: (Double, Double) -> Boolean = { _, _ -> true },
         /** The sounding (m) the depth layer answers, or `NaN` for an unsurveyed point. */
         private val depth: (Double, Double) -> Double = { _, _ -> Double.NaN },
         /** The speed zones the world answers, priced only while the engine's switch is armed. */
         private val zones: List<SpeedZone> = emptyList()
-    ) : AvoidWorld {
+    ) : MultipassWorld {
         val boxes = mutableListOf<BBox>()
 
         override val coastlineReady: Boolean get() = ready
@@ -789,7 +901,7 @@ class RouteAvoidEngineTest {
         override val bandWidthM: Double get() = band
         override val regionBounds: BBox? get() = null
 
-        override fun segmentsIn(box: BBox): List<AvoidEdge> {
+        override fun segmentsIn(box: BBox): List<MultipassEdge> {
             boxes.add(box)
             return edges.filter { edge ->
                 val minLat = min(edge.a.latitude, edge.b.latitude)
@@ -845,9 +957,9 @@ class RouteAvoidEngineTest {
         LatLng(latSouth, lonWest)
     )
 
-    private fun polygonRing(points: List<LatLng>): List<AvoidEdge> =
-        points.zipWithNext().map { (a, b) -> AvoidEdge(a, b, LandRingOrientation.CCW_RING) } +
-            AvoidEdge(points.last(), points.first(), LandRingOrientation.CCW_RING)
+    private fun polygonRing(points: List<LatLng>): List<MultipassEdge> =
+        points.zipWithNext().map { (a, b) -> MultipassEdge(a, b, LandRingOrientation.CCW_RING) } +
+            MultipassEdge(points.last(), points.first(), LandRingOrientation.CCW_RING)
 
     /** A horizontal coast at 43.51 with [teeth] downward triangles; land is the north side. */
     private fun sawtoothCoast(teeth: Int): List<LatLng> {
@@ -867,7 +979,7 @@ class RouteAvoidEngineTest {
         return pts
     }
 
-    private fun circleRing(center: LatLng, radiusM: Double, n: Int = 32): List<AvoidEdge> {
+    private fun circleRing(center: LatLng, radiusM: Double, n: Int = 32): List<MultipassEdge> {
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
         val mPerDegLon = mPerDegLat * cos(Math.toRadians(center.latitude))
         val polygon = (0 until n).map { i ->

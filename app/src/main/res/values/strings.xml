@@ -626,7 +626,7 @@
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
          asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
     <string name="route_action_save_track">Save</string>
-    <string name="route_action_select">Select</string>
+    <string name="route_action_select">Follow</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
@@ -645,6 +645,10 @@
     <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
     <string name="route_status_active">Routing</string>
     <string name="route_status_selected">Selected — finishing the line…</string>
+    <!-- The settled status once the search stops: the pages standing and the cruising speed they plan
+         at, plural above one page; `settings_route_pace_value_fmt` renders the pace. -->
+    <string name="route_status_done_one">1 route @ %1$s</string>
+    <string name="route_status_done_many">%1$d routes @ %2$s</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -692,7 +696,6 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="route_trip_forced">forced: %1$s</string>
-    <string name="route_forced_crossing">Forced crossing of %1$s</string>
     <!-- The budget's own verdict, apart from the forced crossing above: a way around exists and the
          price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
     <string name="route_budget_unmet">Slow-water budget not met</string>
@@ -707,22 +710,35 @@
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
+    <string name="route_engine_evolutive">Adaptive</string>
+    <!-- The step readings a stage reports while a lookup runs — one label per figure and one unit per kind. -->
+    <string name="route_reading_expansions">Expansions</string>
+    <string name="route_reading_passable_cells">Passable</string>
+    <string name="route_reading_pulled_points">Pulled points</string>
+    <string name="route_unit_cells">cells</string>
+    <string name="route_unit_points">points</string>
     <!-- The settings' hurry-versus-fun labels for the three ladder rungs — the same three aversions the
-         acquisition's first column names by their slow-water treatment. -->
+         acquisition's first column names in its own vocabulary. -->
     <string name="route_computation_through">Fast</string>
     <string name="route_computation_balanced">Balanced</string>
     <string name="route_computation_around">Fun</string>
-    <!-- The acquisition's first-column rung descriptions — the three fixed aversions named by how they
-         treat the slow water: around it, a balanced line, or through it. -->
-    <string name="route_rung_through">Through slow water</string>
+    <!-- The acquisition's first-column rung labels — the three fixed aversions named short, kept apart
+         from the settings' own hurry-versus-fun words above. -->
+    <string name="route_rung_through">Coastal</string>
     <string name="route_rung_balanced">Balanced</string>
-    <string name="route_rung_around">Around slow water</string>
-    <string name="route_collapsed_note">Every preference gives this same line</string>
-    <!-- The panel's comparison once a second finished page exists — "Route #n is taking x less/more",
-         the flow's arithmetic of each route's duration against the selected one. -->
-    <string name="route_comparison_fmt">Route #%1$d is taking %2$s %3$s</string>
+    <string name="route_rung_around">Around</string>
+    <!-- The separator between a folded page's rung names, read left to right. -->
+    <string name="route_rung_names_sep">" | "</string>
+    <!-- The panel's delta once a second finished page exists — a page's duration against the selected
+         one, read as "x less" or "x more". -->
     <string name="route_comparison_less">less</string>
     <string name="route_comparison_more">more</string>
+    <!-- The acquisition panel's Speed limits table: the time the route spends slowed, one short reading per
+         regulated limit — the 300 m zone labelled "300M", a limit as its speed in knots — the ramp into and
+         out of each counted in, and each value carrying its own unit ("5 min"). -->
+    <string name="route_slow_band_label">300M</string>
+    <string name="route_slow_limit_label_fmt">%1$.0f kn</string>
+    <string name="route_slow_minutes_fmt">%1$d min</string>
     <!-- One page row in the panel: which route it is, its description and its own duration. -->
     <string name="route_page_fmt">Route #%1$d · %2$s · %3$s</string>
 </resources>

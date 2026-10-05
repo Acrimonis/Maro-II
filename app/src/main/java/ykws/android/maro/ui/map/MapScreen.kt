@@ -6,8 +6,8 @@ import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
 import ykws.android.maro.spatial.RouteEngineChoice
-import ykws.android.maro.spatial.avoid.AvoidWorld
-import ykws.android.maro.spatial.avoid.LiveAvoidWorld
+import ykws.android.maro.spatial.multipass.MultipassWorld
+import ykws.android.maro.spatial.multipass.LiveMultipassWorld
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -717,8 +717,8 @@ fun MapScreen(
     // The avoid engine's world provider, built over the repositories the map already holds — the same
     // instances the water, band and depth reads go through. It always answers a live world over them,
     // so a layer that lands after the engine is built is read on the next search.
-    val avoidWorldProvider: () -> AvoidWorld = {
-        LiveAvoidWorld(
+    val avoidWorldProvider: () -> MultipassWorld = {
+        LiveMultipassWorld(
             viewModel.coastlineRepository,
             depthViewModel.depthRepository,
             zonesProvider = { viewModel.speedZones.value },
@@ -783,6 +783,7 @@ fun MapScreen(
     // **The session's link table, the main lookup's stage and its provisional line**, read reactively.
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
     val routeStage by routeViewModel.stage.collectAsState()
+    val routeStepReadings by routeViewModel.stepReadings.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
     // first (index 0) — and the one the selection stands on, both in computation order, so the map's
@@ -2991,6 +2992,7 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
+                        stepReadings = routeStepReadings,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -2998,7 +3000,9 @@ fun MapScreen(
                         committed = routeCommitted,
                         isLandscape = true,
                         dashboardBaseHeight = dashboardBaseHeight,
+                        paceKn = routePaceKn,
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
+                        onSelectPage = { index -> routeViewModel.selectPage(index) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
                         onDiscard = { discardRoute() },
@@ -3032,6 +3036,7 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
+                        stepReadings = routeStepReadings,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3039,9 +3044,11 @@ fun MapScreen(
                         committed = routeCommitted,
                         isLandscape = false,
                         dashboardBaseHeight = dashboardBaseHeight,
+                        paceKn = routePaceKn,
                         onMeasuredHeight = { dashboardBand.measuredRoute = it },
                         panelMaxHeight = bandCeiling,
                         onStepPage = { delta -> routeViewModel.stepPage(delta) },
+                        onSelectPage = { index -> routeViewModel.selectPage(index) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
                         onDiscard = { discardRoute() },
