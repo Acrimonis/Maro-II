@@ -376,7 +376,8 @@ All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) 
 **One row serves the whole family.** Every member draws its rows through `PopupRow`, its
 groups through `PopupSectionCard`, its section titles through `PopupSectionTitle` and its outer surface
 through **`PopupSurface`** — `uiBackground` on a 12dp corner behind the 1dp **`uiAccent` rim**, an 8dp
-shadow, the family's **12dp inset on all four sides** and a height bound it scrolls past — all in
+shadow, the family's **12dp inset on all four sides** — which the dropdown's wheel opts out of, its card
+filling the surface so no `uiBackground` ring shows (2026-10-05) — and a height bound it scrolls past — all in
 [`PopupFamily.kt`](../app/src/main/java/ykws/android/maro/ui/components/PopupFamily.kt), together with the
 geometry above as constants: the 240dp width, the 16dp/2dp row padding, the 24dp check box holding the `✓`
 in `uiAccent` at 16sp SemiBold on the selected row alone, the 15sp Medium–SemiBold label and the 0.4 dim of
@@ -387,11 +388,17 @@ list popups read the rows and the constants but still state their own outer surf
 **The dropdown's list is a wheel, and it is this family's one exception**: `DropdownWheel`
 draws a snapped column of three to five rows where the centre slot is marked by the taken-choice face rather
 than a `✓`, and only that label is bold — so the wheel's row is not `PopupRow`, deliberately, and a change to
-the row family does not reach it. Its arithmetic is in
+the row family does not reach it. **The rows' alignment is the control's, not the wheel's own** (2026-10-05):
+it arrives as a parameter, so the wheel's labels and the field's value are drawn on one axis. **Its slot is
+the box's own measured height and the popup is centred on the box** (2026-10-05), so the banded slot is
+exactly the box's rectangle at every count and font scale. Its
+arithmetic is in
 [`WheelPolicy.kt`](../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt) and its rule of entry
 is §2.15's. **It lands the entry it is given**: the popup scrolls by that entry's own distance on
 the slot grid, from the rest frame it opens in, and then compares the row the band names with the entry the
-caller holds — once per open. §2.12 states what the control shows.
+caller holds — once per open, keyed on the open, nothing being written while the popup is open.
+**The commit is a tap on a row** (§2.15): the drag only scrolls and snaps and an outside click cancels, so
+nothing is written while the popup is open. §2.12 states what the control shows.
 
 **Overflow.** A popup wraps its own height and **scrolls** once its content exceeds the space it can
 occupy — a popup whose content fits stays exactly as tall as that content, and nothing is pushed past
@@ -431,18 +438,18 @@ For a single choice whose option list may grow past the two or three segments a 
 │  optional label (16sp Medium uiTextPrimary)                               │
 │  optional description (13sp uiTextMuted)                                  │
 │  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 8×10dp padding ─────┐ │
-│  │  value (uiTextPrimary, Bold)                      ⌄ (uiAccent)        │ │
+│  │  value (uiTextPrimary, Bold)                                           │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **The box is its own component** (`DropdownBox`, a file of its own) — a `Row` on the bars' base holding the
-  value and the arrow, and **it is the control, the anchor and the tap target**: it carries `clickable`, the
-  call site's `accessibleName` as its `contentDescription` and `Role.DropdownList`, and it reports its own
-  measured size, so nothing about the list's placement is left to a library. **Its metrics and the style its
-  value reads are that file's own**, and that same style measures it (`dropdownBoxWidth`), so the width a
-  caller fixes and the width drawn cannot drift apart. `DropdownRow` composes it and owns the label, the
-  description, the popup and the wheel.
+  value (**no arrow**, 2026-10-05), and **it is the control, the anchor and the tap target**: it carries
+  `clickable`, the call site's `accessibleName` as its `contentDescription` and `Role.DropdownList`, and it
+  reports its own measured size, so nothing about the list's placement is left to a library — and the wheel
+  takes that same size as its slot. **Its metrics and the style its value reads are that file's own**, and
+  that same style measures it (`dropdownBoxWidth`), so the width a caller fixes and the width drawn cannot
+  drift apart. `DropdownRow` composes it and owns the label, the description, the popup and the wheel.
 - **What a caller sets is the behaviour, never a width** — `DropdownSizing.Fill` takes the width the caller
   gives (the default) and `DropdownSizing.Content` takes the width this field's longest entry needs, which the
   field asks of the box. No call site spells a dp, an arrow or a padding.
@@ -452,28 +459,34 @@ For a single choice whose option list may grow past the two or three segments a 
 - **The box is the bars' own base** — `uiRadiusCard` behind the **1dp `uiAccent` edge** a
   `MultiSelectRow`'s on half or a `SegmentedRow`'s selected cell wears, with their **10dp vertical
   padding** and no surface of its own. The value reads `uiTextPrimary` at `${ui.font.value.size}` Bold on one
-  line, ellipsised when a marker's own name is long, and the arrow is the app's `KeyboardArrowDown` in
-  `uiAccent`. **Its height is that padding's consequence, not a number** — the same way the bars get
-  theirs — which is what M3's `OutlinedTextField` could not give: its internal padding, 56dp floor, caret
-  and theme selection highlight are all gone with it.
-- **Its horizontal chrome is deliberately small** — **8dp** of padding and a **4dp** arrow gap (2026-10-04): a
-  box's chrome is paid **twice** in a row of two, and a wider field is what cut the second word of the pair. Its
-  vertical padding stays the bars' 10dp, the arrow keeps the icon's own 24dp, and the rim's 1dp is still added
-  on each side of a measured width as that answer's rounding slack.
-- **The list is a §2.10 popup the box itself positions** — a `Popup` at the box's **bottom
-  left**, as wide as the box's own measured width and bounded in height by `popupMaxHeightDp()`, so it
-  opens flush under the box in either orientation and can never reach past the space the box already fits.
-  **Why it is not M3's menu:** `ExposedDropdownMenu` sized itself from the anchor and then shifted to stay
-  inside the window, which showed as a horizontal offset against the box in landscape — placement neither
-  review could see in the source and no parameter could override. The content is the family's own —
-  `PopupSurface` outside, `PopupRow` for every option ([§2.10](#210-popup-styling-canonical)) — so 16dp/2dp
-  padding, the 15sp Medium–SemiBold label and the 24dp `✓` box in `uiAccent` on the current option are one
-  implementation for all three lists. **Its body is a wheel**, so that sentence is narrowed:
-  `DropdownWheel` draws a snapped column of three to five rows whose centre slot is the choice —
-  `uiSelectContainer` behind an accent rule above and below, only the centred label bold — where the drag
-  scrolls and snaps and **a tap does the choosing**. `PopupSurface` is its outer surface with
-  `scrollable = false`, the wheel owning the only scroll; its arithmetic lives in `WheelPolicy.kt`,
-  unit-tested beside it.
+  line, **on the axis the control's one `TextAlign` names — centred by default and shared with the wheel's
+  rows** (2026-10-05), ellipsised when a marker's own name is long. **Its height is that padding's consequence,
+  not a number** — the same way the bars get theirs, and the wheel's slot reads it — which is what M3's
+  `OutlinedTextField` could not give: its internal padding, 56dp floor, caret and theme selection highlight are
+  all gone with it, and its `KeyboardArrowDown` arrow is gone too (2026-10-05).
+- **Its horizontal chrome is deliberately small** — **8dp** of padding (2026-10-04): a box's chrome is paid
+  **twice** in a row of two, and a wider field is what cut the second word of the pair. Its vertical padding
+  stays the bars' 10dp, and the rim's 1dp is still added on each side of a measured width as that answer's
+  rounding slack. **The 24dp arrow and its 4dp gap are gone** (2026-10-05), so the width a field asks for is
+  the value's own plus that chrome.
+- **The list is a §2.10 popup the box itself positions, and it is centred on the box** (2026-10-05) — a
+  `Popup` with `alignment = TopStart`, its width the box's own measured width, and an offset that closes the
+  card's own vertical inset and the wheel's end padding, so the banded slot is exactly the box's rectangle and
+  the rows either side spill over the panel. **Its surface carries no inset** (2026-10-05): the wheel passes
+  `contentPadding = 0.dp` to `PopupSurface`, so the section card fills the popup and no `uiBackground` ring
+  shows around it. Its height is bounded by
+  `popupMaxHeightDp()`, which caps the slot count. **Why it is not M3's menu:** `ExposedDropdownMenu` sized
+  itself from the anchor and then shifted to stay inside the window, which showed as a horizontal offset
+  against the box in landscape — placement neither review could see in the source and no parameter could
+  override. The content is the family's own — `PopupSurface` outside, `PopupRow` for every option
+  ([§2.10](#210-popup-styling-canonical)) — so 16dp/2dp padding, the 15sp Medium–SemiBold label and the 24dp
+  `✓` box in `uiAccent` on the current option are one implementation for all three lists. **Its body is a
+  wheel**, so that sentence is narrowed: `DropdownWheel` draws a snapped column of three to five rows whose
+  centre slot is the choice — `uiSelectContainer` behind an accent rule above and below, only the centred
+  label bold — **the commit being a tap on a row** (2026-10-05, revision 1), so the drag only scrolls and
+  snaps, a row tap writes its own row and closes, and an outside click cancels. `PopupSurface` is its outer
+  surface with `scrollable = false` and `contentPadding = 0.dp`, the wheel owning the only scroll; its
+  arithmetic lives in `WheelPolicy.kt`, unit-tested beside it.
 - **The selection is resolved once, and the popup names the row it lands on** — one index feeds
   the box's word and the wheel's entry alike, and the wheel reaches that entry by scrolling *by* its own
   distance on the slot grid from the popup's rest frame, then comparing the row the band names with the entry
@@ -581,9 +594,26 @@ sections divided by the vertical rule (§2.6), each side taking the share of the
 ### 2.15 Rule of Entry — a wheel in a popup
 
 The dropdown's list is a **wheel** ([§2.12](#212-dropdown-row--dropdownrow)): a snapped column of three to
-five rows inside a popup, and **a tap on a row is what chooses** — the drag only scrolls and snaps, and the
-band shows what a tap would take. So a list of choices is **a dropdown, a bar, or a wheel in a popup with a
-tap path**; a drag that commits on its own stays out.
+five rows inside a popup, and **the commit is a tap** (2026-10-05, revision 1) — the drag only scrolls and
+snaps, so **nothing is written while the popup is open** and the box carries the value it had; a tap on any
+row, the banded one included, writes that row and closes, and **an outside click cancels**, writing nothing
+because nothing was pending.
+
+- **Opening is a drag or a tap, and the drag is taken unconditionally** (2026-10-05): a vertical drag
+  beginning on the box opens the popup and that same drag spins the wheel — the popup being a separate window,
+  the field's own detector scrolls the hoisted wheel state and snaps it to the nearest slot on release.
+  **A tap on the box still opens it**, so the control is never drag-only.
+- **The enclosing scroller loses that drag, by decision:** the page under a finger that lands on a box does
+  not scroll with it. The lost scroll is the accepted cost, not a defect.
+- **The band is the box's rectangle:** the popup is centred on the box and its centre slot is the same width
+  and height as the box and covers it exactly, so the chosen entry is drawn *on* the control and the rows
+  either side spill over the panel.
+
+So a list of choices is **a dropdown, a bar, or a wheel in a popup**, and the wheel's commit is **a tap on a
+row**. **A drag that commits on its own stays out** — that is where this gesture parted from the retired
+roller — and the guard is that the tap reads the same band the wheel draws, so the marked entry and the
+committed value are one read. **The root cause of that old fault was never established**, so the claim is that
+the commit is *guarded*, not that the shape is proven unrelated. R70 stays retired.
 
 ### 2.16 Dropdown Pair — `DropdownPairRow`
 

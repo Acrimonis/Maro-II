@@ -1,33 +1,33 @@
-# Context Hydration — Ui_General — 2026-10-04
+# Context Hydration — Ui_General — 2026-10-05
 
-**Last Bake:** 2026-10-04 14:02 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-05 09:53 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met this session — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, the implementation on `#impl`, the revision on the user's own directive to make the command face that control, the bake on `#bake`), the device was never touched (builds only; the device pass that drove Revision 2 was the user's own), and every claim written about the code rests on a file read in the session. The gaps are named, not hidden: the toasts' look, the compact control's measured height and the 6 dp gap are device judgements, and the Focus History entry standing above this one was left untouched rather than rewritten to this session's work.
+**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, pass 1 on `#impl`, revisions 1 and 2 on the user's own directives, the bake on `#bake`), the device was never touched (builds only), and every claim written about the code here came from a file read in the session. The gaps are named rather than hidden: nothing is device-validated, and no Ask verdict is recorded for revision 1's payload.
 
 ## State
 
-One branch, `feature/ui-toast`, cut from `origin/develop` (`11dd182`) on `#new`, carrying no upstream yet — the first `#push` writes its own name.
+One branch, `feature/wheel-down`, cut from `origin/develop` (`e6c2a63`) on `#new`, carrying no upstream yet — the first `#push` writes its own name. Three passes shipped: the plan of record is `xTrack/Ui_General/261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`, whose §12, §14 and §16 record them.
 
-**The map's action and undo toasts joined the bottom banner family.** [`SnackRow`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:448) renders through [`MapBanner`](../../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt:314) as the family's third **full-width face**, so its 14 dp corner, 2 dp border, fill and 8 dp shadow are the one control's own; [`MapSnackbarHost`](../../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt:32) no longer pads its column, `MapBanner` owning `bannerStartInset(tagsDrawn)` and the right-column reserve, with the tag Boolean threaded from `MapScreen`. `bannerLineStyle()` is the family's one text definition, read by the pill's line and by the row's message, which stays left with `maxLines = 2` while its commands sit right and everything anchors to the row's top.
+**The dropdown is one gesture now.** A vertical drag on the box opens the popup and, through the hoisted `LazyListState`, drives the wheel's scroll — the pointer cannot cross into the popup's window — with the opening drag's snap taken by the new pure `wheelSnapTargetSlots` and a later drag keeping the library's centre snap, two mechanisms for one motion. The drag is taken unconditionally, so the menu drawer, the Routing card and the settings tabs no longer scroll under a finger that lands on a box.
 
-**The three hardcoded English messages became resources** — `snack_track_deleted`, `snack_marker_deleted` and `snack_marker_created` in both locales, the French reading `Trace` and `Repère`, the app's own words — closing the §1 breach on the lines the pass touched. The Ask hop returned no blocker and its one Medium (the French twins first read `Piste` and `Marqueur`, words that appear nowhere in `values-fr`) and one Low (a §5.7 pointer naming a section that does not exist) were folded.
+**The commit is a tap on a row**, and an outside click cancels. Revision 1 removed the settle watcher pass 1 had shipped — the `snapshotFlow` collector over `listState.isScrollInProgress` and its last-written guard — so nothing is written while the popup is open and the band is a candidate rather than the value; a tap on any row writes that row and closes, and an outside tap or back closes and writes nothing, which makes the cancel the absence of a write rather than a revert.
 
-**The device pass drove Revision 2.** The stack now clears the dashboard by the band's own gutter — `AppConfig.uiMapToggleGutter`, 6 dp, added with the landscape branch preserved so the band offset is not doubled — and the row's commands left `ui.accent` text, measured at roughly 1.5:1 on the family's translucent fill, for [`ConfirmActionButton`](../../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt:337)'s new **compact `SECONDARY`** face: white bold on the accent at 50 % under the 2 dp full-opacity rim, 8 dp corner, 28 dp height, 12 sp label. The compact size lives inside that one control, so §5.6's "the app's only rendering of a `ConfirmAction`" holds and no second button appeared.
+**The box lost its arrow**, and `dropdownBoxWidth` the 28 dp its gap and glyph reserved. **The slot is the box's own measured height**, in place of the retired `WHEEL_ITEM_DP`. **The popup is centred on the box**: its surface carries no inset (`contentPadding = 0.dp`, the family's 12 dp default kept for the other members), its width is the box's own measured width, and the offset is `x = 0`, `y = −(endPadPx + POPUP_SECTION_PAD_VERTICAL_DP)`, so the banded entry is exactly the box's rectangle and the neighbours spill over the panel. **One text alignment**, `TextAlign.Center` by default, drives both the field's value and the wheel's rows, so the two cannot be drawn on different axes.
 
-**Rules moved once.** [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md:817) §5.6 holds the compact size with its numbers, §5.7 carries six instances and three full-width faces, §5.9 tier 1's host list gained the map row; [`docs/ui-lists-guidelines.md`](../../docs/ui-lists-guidelines.md:252) keeps the dismiss contract, points at §5.7 for the skin, and records that the list's own Undo stays accent text — the deliberate divergence the map row now runs against.
+**Rules moved once.** §2.15, §2.12 and §2.10 of `docs/ui-component-guidelines.md` and this feature's `### dropdown row` carry the new rule set; the 2026-09-29 wheel plan is marked superseded where it states a requirement; the epic's `## Implemented` holds one entry per pass.
 
-`apk-build.bat` BUILD SUCCESSFUL on every pass with no new warning naming the touched files, and `gradlew :app:testDebugUnitTest --tests "ykws.android.maro.ui.map.*"` green; nothing committed before this bake.
+`apk-build.bat` BUILD SUCCESSFUL on every pass with no new warning naming a touched file, and the scoped `ui.components` suite green; no new string, no dependency and no git write before this bake. Two non-blocking findings stand unfixed — the `TextAlign.Center` default spelled in three signatures, and `DropdownRow`'s KDoc not naming `textAlign` — and the duplicate `## Implemented` heading in the epic, predating this session, was seen and left.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `SnackRow`'s container, its top-anchored contents, `SnackAction` on the compact control
-- `app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt` — the band gutter, the `tagsDrawn` parameter, the three extracted messages
-- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `bannerLineStyle`, and `MapBannerText`'s refactor onto it
-- `app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt` — `ConfirmActionButton`'s `compact` size
-- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — the three new keys
-- `docs/ui-component-guidelines.md` · `docs/ui-lists-guidelines.md` — the two rule homes
-- `xTrack/Ui_General/261004_FEAT_PLN_Ui_General_action-toasts.md` — the plan, its Outcome and its §8 Revision 2
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the drag detector, the hoisted list state, the centred popup and the text alignment
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt` — the slot and the state as inputs, the row tap that commits, the alignment
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownBox.kt` — no arrow, the shrunk width, the alignment
+- `app/src/main/java/ykws/android/maro/ui/components/PopupFamily.kt` — `PopupSurface`'s new `contentPadding`
+- `app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt` · `app/src/test/java/ykws/android/maro/ui/components/WheelPolicyTest.kt` — `WHEEL_ITEM_DP` retired, `wheelSnapTargetSlots` added
+- `docs/ui-component-guidelines.md` — §2.10 · §2.12 · §2.15
+- `xTrack/Ui_General/261005_FEAT_PLN_Ui_General_single-gesture-wheel.md` — the plan, its decisions and its three shipped records
 
 ## Next Step
 
-The device pass over the revision is owed: whether the 6 dp reads as a gap above the dashboard, whether the compact control's **measured** height is the painted 28 dp or Material3's interactive minimum, and whether two 2 dp rims in the route-discard row read as heavy. Nothing here is device-validated.
+The device pass, owed and unstarted: the centred field, the candidate-versus-value read while the popup is open, the outside-click cancel, the flush card, the drawer's own scroll lost to the drag, the two snap mechanisms, and the shorter box in the pair.

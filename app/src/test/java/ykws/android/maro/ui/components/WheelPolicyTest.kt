@@ -113,6 +113,24 @@ class WheelPolicyTest {
     }
 
     @Test
+    fun `a released drag snaps to the nearest slot`() {
+        // A drag's own distance on the slot grid, rounded to the row it is nearest; half a slot rounds up.
+        assertEquals(0, wheelSnapTargetSlots(offsetPx = 0f, slotPx = 38f))
+        assertEquals(0, wheelSnapTargetSlots(offsetPx = 18f, slotPx = 38f))
+        assertEquals(1, wheelSnapTargetSlots(offsetPx = 19f, slotPx = 38f))
+        assertEquals(1, wheelSnapTargetSlots(offsetPx = 38f, slotPx = 38f))
+        assertEquals(2, wheelSnapTargetSlots(offsetPx = 57f, slotPx = 38f))
+        assertEquals(3, wheelSnapTargetSlots(offsetPx = 100f, slotPx = 38f))
+        assertEquals(5, wheelSnapTargetSlots(offsetPx = 190f, slotPx = 38f))
+    }
+
+    @Test
+    fun `a degenerate slot names the first row rather than dividing`() {
+        assertEquals(0, wheelSnapTargetSlots(offsetPx = 120f, slotPx = 0f))
+        assertEquals(0, wheelSnapTargetSlots(offsetPx = 120f, slotPx = -5f))
+    }
+
+    @Test
     fun `a wheel landed on its entry names that entry, in the wheel's own frame`() {
         // The landing and the band read the same layout, so their round trip is asserted in the one frame
         // both can be stated in — rows placed relative to the band, its top at 0. The library's own anchors
