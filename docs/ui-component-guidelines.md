@@ -971,9 +971,24 @@ actions in its `footer`, so it auto-grows to its content like the other selected
 
 | Block | Spec |
 |---|---|
-| Header | the title; its trailing slot carries the stage status and the ‹ › dots (shown while more than one route stands) |
-| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
+| Header | the title; its trailing slot carries the status and the ‹ › dots (shown while more than one route stands) — the acquiring word while the search runs, the committed word once a route is taken, and `<N> routes @ <kn> kn` (the routes standing and the cruising speed) once it has settled |
+| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route — **bold, on the column's first line**, a two-column **Speed limits** table beneath it — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
 | Footer | `Save to track` · `Select route` · `Discard route` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER |
+
+**The Speed limits table.** In the third column, below the bold delta, the panel names the time the route spends
+slowed as a two-column table of the shared reading cell (`StatCell`) — the shape the drawer's live-tracks block
+wears — one entry per regulated speed limit with its ramp counted in, the 300 m zone standing first and the limits
+after it ascending: `300M · 5 min`, `3 kn · 10 min`, `10 kn · 3 min`. A short label names the water (`300M`, `%1$.0f kn`)
+and the value carries its minutes (a sub-minute entry dropped, the table omitted when nothing slowed the route). No
+footnote stands under it; the engine sums the figures over the timed legs and the panel only formats them.
+
+**A folded row names its rungs.** Where two rungs collapse into one line (D14), the first column prints the names of
+every rung the survivor stands for, ` | ` between them — *Around | Balanced* — rather than a note, so the row says what
+it holds instead of that it holds something. The three rung names are *Coastal*, *Balanced* and *Around*.
+
+**The pager settles, it never rests between pages.** The table's lateral paging always comes to rest on a whole
+page: the selection follows the pager only once it has settled, and a programmatic move jumps rather than
+animates, so no seat change can cancel a move mid-flight and strand the table between two pages.
 
 **The pending mark — authority.** A figure the mode does not hold yet prints
 [`R.string.route_value_pending`](../app/src/main/res/values/strings.xml) (`--`) wherever it would stand — in this

@@ -23,21 +23,15 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -56,6 +50,7 @@ import ykws.android.maro.ui.components.NestedCard
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
 import ykws.android.maro.ui.components.StatCell
+import ykws.android.maro.ui.components.rememberLabelColumnWidth
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
@@ -704,32 +699,6 @@ private fun RouteSummaryBlock(summary: RouteSummaryData) {
                     labelWidth = labelWidth
                 )
             }
-        }
-    }
-}
-
-/**
- * The label column's width for a table of readings: the widest label, measured once in the reading cell's
- * own label style, so a table's cells share one column instead of each following its own label's end. Keyed
- * on the labels rather than on live state, so a ticking recording or a moving boat never re-measures.
- */
-@Composable
-private fun rememberLabelColumnWidth(labels: List<String>): Dp {
-    val measurer = rememberTextMeasurer()
-    // The style the cell's own label resolves to: it sets its size and its line height and inherits the rest
-    // — the theme's letter spacing included — from `LocalTextStyle`, so the measurement merges that same
-    // source instead of spelling a style of its own and coming out short on every character.
-    val style = LocalTextStyle.current.merge(
-        TextStyle(
-            color = Color(AppConfig.uiTextMuted),
-            fontSize = 11.sp,
-            lineHeight = 12.sp
-        )
-    )
-    val density = LocalDensity.current
-    return remember(labels.joinToString("\u0000")) {
-        with(density) {
-            labels.maxOf { measurer.measure(it, style).size.width }.toDp()
         }
     }
 }

@@ -49,6 +49,8 @@ import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.StatCell
+import ykws.android.maro.ui.components.rememberLabelColumnWidth
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The route acquisition's own dashboard — the panel the slot carries while a route is being acquired
@@ -80,10 +82,13 @@ import ykws.android.maro.ui.components.DrawerScaffold
  * @param committed       whether an early `Select route` is waiting on the main line's finalization.
  * @param isLandscape     whether the device is in landscape orientation.
  * @param dashboardBaseHeight the dashboard's base height — the floor the panel uses in portrait.
+ * @param paceKn          the cruising speed the settled line names (kn) — the pace the trip figure plans at.
  * @param onMeasuredHeight optional report of the open panel's measured height (Phase 2).
  * @param panelMaxHeight  the portrait frame's own ceiling (F5) — the band cap the map leaves,
  *                        under which a taller panel's body scrolls instead of covering the map
  *                        strip. Null keeps the full-screen ceiling; landscape ignores it.
+ * @param onSelectPage    **absolute set**: names the page the pager, a row tap or the ‹ › pair lands on,
+ *                        by its position in the ETA-ordered view.
  * @param onStepPage      **next/prev**: steps the selection and loops it.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
@@ -101,9 +106,11 @@ internal fun RouteConfirmationPanel(
     committed: Boolean,
     isLandscape: Boolean,
     dashboardBaseHeight: Dp,
+    paceKn: Double,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null,
     onStepPage: (Int) -> Unit,
+    onSelectPage: (Int) -> Unit,
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
     onDiscard: () -> Unit,
@@ -115,13 +122,17 @@ internal fun RouteConfirmationPanel(
     val selectedPlan = selected?.plan
     // The header's short state word: a committed early select reads its own word, the search reads
     // the acquiring word with the stage inside it — `Acquiring (Search)…` — and a settled page reads
-    // nothing.
+    // the settled line, the pages standing and the cruising speed they plan at.
     val status = when {
         committed -> stringResource(R.string.route_status_selected)
         acquiring.searching -> stage?.let {
             stringResource(R.string.route_status_acquiring_stage, stringResource(it.labelResId))
         } ?: stringResource(R.string.route_status_acquiring)
-        else -> null
+        else -> {
+            val speedText = stringResource(R.string.settings_route_pace_value_fmt, paceKn)
+            if (pages.size == 1) stringResource(R.string.route_status_done_one, speedText)
+            else stringResource(R.string.route_status_done_many, pages.size, speedText)
+        }
     }
     val refusal = acquiring.refusal ?: selected?.reason
     val canSelect = selectedPlan != null || (partialDrawn && !committed)
@@ -211,10 +222,12 @@ internal fun RouteConfirmationPanel(
                 RouteTablePager(
                     pages = pages,
                     selectedIndex = clampedIndex,
-                    onStepPage = onStepPage
+                    onSelectPage = onSelectPage
                 )
             }
-            selectedPlan?.let { PlanNotes(it) }
+            selectedPlan?.let { plan ->
+                PlanNotes(plan)
+            }
         }
     }
 }
@@ -284,44 +297,58 @@ private fun PanelSentence(text: String) {
 }
 
 /**
- * **The summary table pages laterally** — one swipe per route. Each page is the same three-column
- * table with that page's row selected, so a swipe or the header's ‹ › pair pages the whole thing.
+ * **The summary table pages laterally and always settles on one page.** Each page is the same
+ * three-column table with that page's row selected, so a swipe or the header's ‹ › pair pages the whole
+ * thing.
+ *
+ * The two-way sync is settled and jump-only on purpose: the selection follows the pager **only once it
+ * has settled** ([PagerState.settledPage]), and a programmatic move uses `scrollToPage`, never an
+ * animation. An `animateScrollToPage` cancelled mid-flight by the next seat change is what used to
+ * strand the table at a fractional offset — the "stuck between two pages" look.
  */
 @Composable
 private fun RouteTablePager(
     pages: List<RoutePage>,
     selectedIndex: Int,
-    onStepPage: (Int) -> Unit
+    onSelectPage: (Int) -> Unit
 ) {
     val safeIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     val pagerState = rememberPagerState(initialPage = safeIndex) { pages.size }
     val currentSelectedIndex by rememberUpdatedState(safeIndex)
 
-    // Selection → pager: a tap on ‹ › (or a settled candidate) moves the page.
+    // Selection → pager: a row tap or a landed re-seat moves the page. Jump, and never while the user
+    // is dragging, so the pager's own gesture is never fought.
     LaunchedEffect(safeIndex, pages.size) {
-        if (pagerState.currentPage != safeIndex) pagerState.animateScrollToPage(safeIndex)
+        if (pagerState.currentPage != safeIndex && !pagerState.isScrollInProgress) {
+            pagerState.scrollToPage(safeIndex)
+        }
     }
-    // Pager → selection: a swipe steps the selection by the distance travelled.
+    // Pager → selection: a swipe steps the selection, but only once the pager has settled, so a
+    // mid-fling page index never moves the seat under the user's finger.
     LaunchedEffect(pagerState, pages.size) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
-            if (page != currentSelectedIndex) onStepPage(page - currentSelectedIndex)
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            if (page != currentSelectedIndex) onSelectPage(page)
         }
     }
 
-    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth()) { index ->
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxWidth(),
+        beyondViewportPageCount = 0
+    ) { index ->
         RouteSummaryTable(
             pages = pages,
             selectedIndex = index,
-            onStepPage = onStepPage
+            onSelectPage = onSelectPage
         )
     }
 }
 
 /**
  * **The summary table** — one line per route, three columns. Column 1 is the engine's own description;
- * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's delta
- * against the selected route and the forced-crossing note. Columns are fixed weights so the boundaries
- * stay consistent across rows, a hairline separates the columns, and rows are top-aligned and wrap.
+ * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's bold delta
+ * against the selected route, over that page's own Speed limits table. Columns are fixed weights so the
+ * boundaries stay consistent across rows, a hairline separates the columns, and rows are top-aligned and wrap.
  * The selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent`
  * edge, white bold text — with corners that adapt to the row's position in the bar.
  */
@@ -329,7 +356,7 @@ private fun RouteTablePager(
 private fun RouteSummaryTable(
     pages: List<RoutePage>,
     selectedIndex: Int,
-    onStepPage: (Int) -> Unit
+    onSelectPage: (Int) -> Unit
 ) {
     val selectedDurationSec = pages.getOrNull(selectedIndex)?.plan?.durationSec
     val radius = AppConfig.uiRadiusCard.dp
@@ -365,7 +392,7 @@ private fun RouteSummaryTable(
                             Modifier
                         }
                     )
-                    .clickable { onStepPage(index - selectedIndex) },
+                    .clickable { onSelectPage(index) },
                 verticalAlignment = Alignment.Top
             ) {
                 Column(
@@ -373,20 +400,20 @@ private fun RouteSummaryTable(
                         .weight(0.75f)
                         .padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
                 ) {
+                    // A folded page names every rung it stands for; an unfolded one states its own label.
+                    val label = if (page.foldedDescriptionResIds.isNotEmpty()) {
+                        val names = mutableListOf<String>()
+                        for (id in page.foldedDescriptionResIds) names += stringResource(id)
+                        names.joinToString(stringResource(R.string.route_rung_names_sep))
+                    } else {
+                        page.descriptionResId?.let { stringResource(it) } ?: ""
+                    }
                     Text(
-                        text = page.descriptionResId?.let { stringResource(it) } ?: "",
+                        text = label,
                         color = textColor,
                         fontSize = 13.sp,
                         fontWeight = weight
                     )
-                    if (page.collapsed) {
-                        Text(
-                            text = stringResource(R.string.route_collapsed_note),
-                            color = textColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-                    }
                 }
                 ColumnDivider()
                 Column(
@@ -440,17 +467,10 @@ private fun RouteSummaryTable(
                             text = it,
                             color = textColor,
                             fontSize = 13.sp,
-                            fontWeight = weight
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                    val names = page.plan?.forcedCrossingZoneNames.orEmpty()
-                    if (names.isNotEmpty()) {
-                        Text(
-                            text = stringResource(R.string.route_forced_crossing, names.joinToString(", ")),
-                            color = textColor,
-                            fontSize = 11.sp
-                        )
-                    }
+                    page.plan?.let { plan -> SpeedLimitsGrid(plan) }
                 }
             }
         }
@@ -512,6 +532,39 @@ private fun routeDeltaText(
         if (delta < 0.0) R.string.route_comparison_less else R.string.route_comparison_more
     )
     return "${routeSpanText(abs(delta))} $direction"
+}
+
+/**
+ * **The Speed limits table** — one route's slow time, one reading per regulated limit, the 300 m zone
+ * first then the limits ascending (the engine's own order), laid out two cells to a row in the shared
+ * [StatCell] over one label column measured once from every label. It stands in the summary table's third
+ * column, under that page's own bold delta, so each route's row carries its own figures.
+ */
+@Composable
+private fun SpeedLimitsGrid(plan: RoutePlan) {
+    val cells = routeSlowLimitEntries(plan).map { entry ->
+        val label = if (entry.isBand) {
+            stringResource(R.string.route_slow_band_label)
+        } else {
+            stringResource(R.string.route_slow_limit_label_fmt, entry.limitKn)
+        }
+        label to stringResource(R.string.route_slow_minutes_fmt, entry.minutes)
+    }
+    if (cells.isEmpty()) return
+    val labelWidth = rememberLabelColumnWidth(cells.map { it.first })
+    Column(modifier = Modifier.fillMaxWidth()) {
+        cells.chunked(2).forEach { rowCells ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                rowCells.forEach { (label, value) ->
+                    Box(Modifier.weight(1f)) {
+                        StatCell(label = label, value = value, labelWidth = labelWidth)
+                    }
+                }
+                // An odd count leaves the tail cell in a column of its own, not stretched across both.
+                if (rowCells.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
 }
 
 /**

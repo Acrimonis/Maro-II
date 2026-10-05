@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.avoid
 
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import kotlin.math.abs
@@ -192,6 +193,89 @@ fun slowShares(
         (ramp / total).coerceIn(0.0, 1.0)
     )
 }
+
+/**
+ * **The time a route spends in slow water, summed per speed limit** — the companion of [slowShares],
+ * keyed by the limit rather than by the water's kind.
+ *
+ * Each slow leg's own seconds are charged to the water standing at its midpoint: a leg inside a priced
+ * ring answers the strictest limit in force there ([limitKnAt], the clock's own read), and a leg inside
+ * the 300 m band answers [bandLimitKn] as its own entry. A slow leg outside both is a **ramp** — the
+ * deceleration before a limit or the acceleration after it — and is folded into the **nearest** entry by
+ * walking outward from the leg, the forward one winning a tie, so a limit's figure counts its ramp up and
+ * down. The zone wins over the band where both hold, so the entries never double-count. Entries come
+ * band-first, then by ascending limit. Empty when nothing slowed the route.
+ */
+fun slowTimeByLimit(
+    timed: TimedLine,
+    paceKn: Double,
+    limitKnAt: (LatLng) -> Double?,
+    inZone: (LatLng) -> Boolean,
+    inBand: (LatLng) -> Boolean,
+    bandLimitKn: Double
+): List<RouteSlowLimit> {
+    val legs = timed.legTimesSec.size
+    if (legs == 0 || paceKn <= 0.0) return emptyList()
+    val paceMps = Units.knotsToMps(paceKn)
+    val slow = BooleanArray(legs)
+    val keyed = BooleanArray(legs)
+    val keyLimit = DoubleArray(legs)
+    val keyBand = BooleanArray(legs)
+    for (i in 0 until legs) {
+        val dist = SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+        if (timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
+        slow[i] = true
+        val mid = midpoint(timed.points[i], timed.points[i + 1])
+        when {
+            inZone(mid) -> {
+                keyed[i] = true
+                keyLimit[i] = limitKnAt(mid) ?: bandLimitKn
+            }
+            inBand(mid) -> {
+                keyed[i] = true
+                keyLimit[i] = bandLimitKn
+                keyBand[i] = true
+            }
+        }
+    }
+    val origKeyed = keyed.copyOf()
+    val ok = BooleanArray(legs)
+    val limitOf = DoubleArray(legs)
+    val bandOf = BooleanArray(legs)
+    for (i in 0 until legs) {
+        if (!slow[i]) continue
+        if (origKeyed[i]) {
+            ok[i] = true
+            limitOf[i] = keyLimit[i]
+            bandOf[i] = keyBand[i]
+            continue
+        }
+        var chosen = -1
+        for (d in 1..legs) {
+            val after = i + d
+            if (after < legs && origKeyed[after]) { chosen = after; break }
+            val before = i - d
+            if (before >= 0 && origKeyed[before]) { chosen = before; break }
+        }
+        if (chosen >= 0) {
+            ok[i] = true
+            limitOf[i] = keyLimit[chosen]
+            bandOf[i] = keyBand[chosen]
+        }
+    }
+    val totals = LinkedHashMap<Pair<Double, Boolean>, Double>()
+    for (i in 0 until legs) {
+        if (!ok[i]) continue
+        val key = roundHalfKn(limitOf[i]) to bandOf[i]
+        totals[key] = (totals[key] ?: 0.0) + timed.legTimesSec[i]
+    }
+    return totals.entries
+        .map { RouteSlowLimit(it.key.first, it.value, it.key.second) }
+        .sortedWith(compareBy({ if (it.isBand) 0 else 1 }, { it.limitKn }))
+}
+
+/** The limit key rounded to the nearest half knot, so float noise never splits one bucket in two. */
+private fun roundHalfKn(limitKn: Double): Double = kotlin.math.round(limitKn * 2.0) / 2.0
 
 /** The band the budget loop stops inside: a share this close to the budget is left alone (±20 %). */
 const val ZONE_BUDGET_BAND = 0.20

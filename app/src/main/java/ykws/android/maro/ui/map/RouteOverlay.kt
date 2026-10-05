@@ -59,7 +59,12 @@ data class RoutePage(
     val plan: RoutePlan? = null,
     val reason: RouteReason? = null,
     /** True when this page stands for every collapsed rung — the same line at every preference. */
-    val collapsed: Boolean = false
+    val collapsed: Boolean = false,
+    /**
+     * The rung labels this page stands for — its own [descriptionResId] first, then each folded rung in
+     * fold order. Empty until a fold.
+     */
+    val foldedDescriptionResIds: List<Int> = emptyList()
 )
 
 /**
@@ -83,6 +88,23 @@ internal fun routeDeltaSec(
     if (delta == 0.0) return null
     return delta
 }
+
+/**
+ * **One printable entry of the Speed limits line** — the limit's whole-minute figure, the 300 m band
+ * standing apart ([isBand]). The seconds a route reports per limit, as the panel reads them: whole
+ * minutes only, an entry under a minute dropped so the line never prints a zero.
+ */
+internal data class RouteSlowLimitEntry(val limitKn: Double, val minutes: Int, val isBand: Boolean)
+
+/**
+ * **The Speed limits entries of a plan** — [RoutePlan.slowLimitSeconds] in whole minutes, sub-minute
+ * entries dropped and the band kept apart. Empty when nothing slowed the route, which is what leaves
+ * the line off the panel.
+ */
+internal fun routeSlowLimitEntries(plan: RoutePlan): List<RouteSlowLimitEntry> =
+    plan.slowLimitSeconds
+        .map { RouteSlowLimitEntry(it.limitKn, (it.seconds / 60.0).toInt(), it.isBand) }
+        .filter { it.minutes >= 1 }
 
 /**
  * **The acquisition's anchor** (R3): [fix]'s position led by [leadSec] along its own course and speed,

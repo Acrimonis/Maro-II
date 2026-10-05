@@ -3,6 +3,7 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-05 10:02 UTC] Route — the workflow UI takes a tweak pass on `feature/route-displayS`, the surfaces still to be pinned → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-05 09:53 UTC] Ui_General — the dropdown takes one drag to open, loses its arrow, centres its wheel on the box and shares one text alignment between the field and its rows, in three passes → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-10-04 14:02 UTC] Ui_General — the map's action and undo toasts joined the bottom banner family as its third full-width face, and on the device pass they took the band's own gutter and the dialog button's compact SECONDARY command face → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-10-04 12:16 UTC] Ui_Menu — the drawer's Routing card: the ends simplified to their two dropdowns, a quick access to the cruising speed and the driving preference as a wheel pair on a 5–35 kn grid defaulting to 25, the live blocks on a sub-card in one banded treatment, and the dropdown's box extracted as its own component with the width a behaviour → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
@@ -12,7 +13,6 @@
 - [2026-10-03 16:13 UTC] Route — the curve fitter removed and the settled line drawn and clocked directly; the two post-passes shipped — the single-bend racing-line corner pass (clothoid–arc–clothoid, corner as apex, `route.turn.reachFraction` lever, vMin floor dropped) and the backward/forward speed profile with the enforced limit the hard ceiling → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-03 14:29 UTC] Ui_Dashboard — the whole bottom dashboard family on one auto-resizing frame with one base size and one map ceiling, its corners square at every size after the device look rejected the round-once-grown effect, then the walk's residue landed: the dead probe, the badge residue and the stray landscape measurement gone, and the inset tightened → xTrack/Ui_Dashboard/FEAT_HYD_Ui_Dashboard.md
 - [2026-10-03 12:03 UTC] Route — a saved route draws dashed in both fill modes, the rhythm read from `map.track.width.route.dashOn` / `dashOff`, so it reads apart from a recorded track; the casing under-stroke was rolled back → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-03 08:29 UTC] Route — `feature/route-n-floOow`: every discard a two-phase gesture with an undo toast, the fan closing on acquire/follow, and every explicit arming re-searching (R91, R92) → xTrack/Route/FEAT_HYD_Route.md
 
 ## Routing Map
 | Keyword | Feature File |

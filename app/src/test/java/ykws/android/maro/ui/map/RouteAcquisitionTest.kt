@@ -113,6 +113,11 @@ class RouteAcquisitionTest {
 
         assertEquals("the duplicate page is dropped", 2, viewModel.pages.value.size)
         assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
+        assertEquals(
+            "the survivor carries both rungs' labels, its own first",
+            listOf(1, 2),
+            viewModel.pages.value[0].foldedDescriptionResIds
+        )
 
         engine.publish(ids[2], line(start, shortcut))
         assertEquals(
@@ -589,7 +594,7 @@ private class CountingEngine(private val computations: Int = 1) : RouteEngine {
     private var nextLookup = 0L
 
     override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations =
-        RouteDeclarations.Available((1..computations).map { RouteComputation(RouteId(it.toLong()), 0) })
+        RouteDeclarations.Available((1..computations).map { RouteComputation(RouteId(it.toLong()), it) })
 
     override fun startLookup(computationId: RouteId): RouteId {
         started += computationId
