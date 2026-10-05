@@ -625,8 +625,10 @@ and without its width.
 - **The width is the pair's capability, set per side** — `DropdownPairWidth.Content` sizes a box to its
   **longest option**, so no entry of that list can be cut and the box holds that width whatever the row does;
   `DropdownPairWidth.Remainder` gives it whatever the row leaves, which makes it the **elastic** side, its
-  value trimming on one line. The defaults are `Content` left and `Remainder` right; two `Remainder` sides
-  share the row evenly, and two `Content` sides leave the row's tail empty.
+  value trimming on one line; `DropdownPairWidth.Proportional` gives it a share of the row **in proportion to
+  its own longest option** (2026-10-05), so a wider word earns a wider box. The defaults are `Content` left and
+  `Remainder` right; two `Remainder` sides share the row evenly, two `Content` sides leave the row's tail empty,
+  and two `Proportional` sides split the row in the ratio of the words they must hold.
 - **The content width is asked of the box** — `dropdownBoxWidth(words)`, in `DropdownBox.kt`, answers it from
   the box's own metrics (its padding, its arrow gap, its arrow and its rim) and from the style its value really
   reads — `LocalTextStyle` merged with the size and the weight, the box's one statement of it. A caller
@@ -936,12 +938,14 @@ remaining call sites in `MapScreen.kt`.
   `ErrorOverlay` the title, message and Retry, and the action row its message beside its commands. The
   family owns none of them.
 - **The action row's own interior** — one full-width line, message **left** with `Modifier.weight(1f)`,
-  `maxLines = 2` and an ellipsis, then its commands **right** and wrap-content, anchored to the **top** of
-  the row rather than centred vertically. The message reads `bannerLineStyle`, aligned `Start`; each command
-  is §5.6's `ConfirmActionButton` in its **compact `SECONDARY` face** — the same control, its size and its
-  numbers home in §5.6 — so the row never hand-rolls a button of its own. It is drawn one above the other,
-  up to three at once, under the snackbar stack's own dismiss contract (`docs/ui-lists-guidelines.md`
-  §Swipe, **Delete lifecycle**).
+  `maxLines = 2` and an ellipsis, **centred vertically**, then its commands **right and bottom**
+  (2026-10-05, the user's word): each command rides `Modifier.align(Alignment.Bottom)`, so a two-line message
+  centres against the row while its commands stay on the bottom edge rather than being dragged up with the
+  first line. The message reads `bannerLineStyle`, aligned `Start`; each command is §5.6's
+  `ConfirmActionButton` in its **compact `SECONDARY` face** — the same control, its size and its numbers home
+  in §5.6 — so the row never hand-rolls a button of its own. It is drawn one above the other, up to three at
+  once, under the snackbar stack's own dismiss contract (`docs/ui-lists-guidelines.md` §Swipe,
+  **Delete lifecycle**).
 
 **Numbers** (shipped defaults — this table is the only place they are written)
 

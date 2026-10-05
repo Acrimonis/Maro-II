@@ -100,3 +100,8 @@ The shipped pass left two things visible on the device; both are decided, and ne
 - **Unproven, claimed as such.** `app/src` carries no Compose UI harness, so the row's top-anchoring, its wrap and three rows' weight over the map are device judgements, as is the accent label's contrast — `AppConfig.uiAccent` over the family's translucent fill computes to roughly 1.5:1 where the teal it replaced was about 7.8:1, which is the order's own choice and the device pass's to judge.
 - **Findings left unpatched.** [`MapScreen.kt:3657`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3657)'s `savedMarker?.name ?: "Unknown"` now feeds `snack_marker_created`, an English fallback in the French locale and a §1 breach on this same surface, outside the plan's named scope.
 - **Revision 2 shipped the same day.** §8 followed this pass: the stack clears the dashboard by `AppConfig.uiMapToggleGutter`, and the row's commands wear [`ConfirmActionButton`](../../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt:337)'s compact `SECONDARY` face; `apk-build.bat` and the scoped `ui.map` run are green again, with the compact control's measured height left to the device.
+
+**Superseded 2026-10-05 on `feature/menu-align`.** The action row's interior moved: the message is
+**centred vertically** and its commands sit **bottom-right** (`Modifier.align(Alignment.Bottom)`), so this
+plan's "everything anchors to the row's top" — and the same clause in §5.7 of the component guidelines — no
+longer stands. See `261005_FEAT_PLN_Ui_General_action-toast-alignment.md`.
