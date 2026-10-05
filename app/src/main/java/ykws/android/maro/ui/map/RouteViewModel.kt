@@ -16,6 +16,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.route.RoutePace
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.track.TrackFromCourse
@@ -77,7 +78,12 @@ data class RoutePlan(
      * The priced speed zones the route had to enter, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
-    val computedAtMs: Long
+    val computedAtMs: Long,
+    /**
+     * The time spent per speed limit, the 300 m band standing apart — the panel's Speed limits line.
+     * Empty on a partial line and on a saved route read back, neither of which carries the attribution.
+     */
+    val slowLimitSeconds: List<RouteSlowLimit> = emptyList()
 ) {
     /** The plan's length in nautical miles — the trip figure's own unit. */
     val distanceNm: Double get() = Units.metresToNauticalMiles(distanceM)
@@ -171,7 +177,8 @@ data class RoutePlan(
                 durationSec = result.durationSec,
                 budgetUnmetZoneShare = result.budgetUnmetZoneShare,
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
-                computedAtMs = nowMs
+                computedAtMs = nowMs,
+                slowLimitSeconds = result.slowLimitSeconds
             )
         }
     }
@@ -488,7 +495,17 @@ class RouteViewModel(
             if (survivor != null) {
                 val newPages = current.filterIndexed { i, _ -> i != index }.toMutableList()
                 val survivorIndex = if (survivor > index) survivor - 1 else survivor
-                newPages[survivorIndex] = newPages[survivorIndex].copy(collapsed = true)
+                // The survivor keeps every rung's name: its own label first (or the names it already
+                // gathered from an earlier fold), then the dropped page's, so the duplicate's name is
+                // not lost with it.
+                val survivorPage = newPages[survivorIndex]
+                val foldedNames = survivorPage.foldedDescriptionResIds
+                    .ifEmpty { listOfNotNull(survivorPage.descriptionResId) } +
+                    listOfNotNull(current[index].descriptionResId)
+                newPages[survivorIndex] = survivorPage.copy(
+                    collapsed = true,
+                    foldedDescriptionResIds = foldedNames
+                )
                 _pages.value = newPages
                 // Re-map the surviving lookups to their new indices so a later rung still lands.
                 remapLookupPages(newPages)
@@ -622,6 +639,19 @@ class RouteViewModel(
         val order = routeEtaOrder(pages)
         val standing = order.indexOf(_selectedIndex.value).coerceIn(0, order.lastIndex)
         _selectedIndex.value = order[routeStepIndex(standing, delta, order.size)]
+        syncChoosing(pages)
+    }
+
+    /**
+     * **Set the seat to a page by its position in the ETA-ordered view** — the panel's absolute set, so
+     * a swipe, a row tap or a pager sync names a page rather than stepping from wherever the seat stood.
+     * A position off the set is clamped.
+     */
+    fun selectPage(etaViewIndex: Int) {
+        val pages = _pages.value
+        if (pages.isEmpty()) return
+        val order = routeEtaOrder(pages)
+        _selectedIndex.value = order[etaViewIndex.coerceIn(0, order.lastIndex)]
         syncChoosing(pages)
     }
 

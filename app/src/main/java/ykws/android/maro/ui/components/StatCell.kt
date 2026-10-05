@@ -5,12 +5,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -147,6 +152,35 @@ internal fun StatCell(
             StatLabel(label = label, separatorCentred = false, labelModifier = Modifier.weight(0.33f))
             Spacer(Modifier.width(3.dp))
             StatValue(value = value, modifier = Modifier.weight(0.66f))
+        }
+    }
+}
+
+/**
+ * The label column's width for a table of readings: the widest label, measured once in the reading cell's
+ * own label style, so a table's cells share one column instead of each following its own label's end. Keyed
+ * on the labels rather than on live state, so a ticking recording or a moving boat never re-measures.
+ *
+ * **This is the one home of the measurement** — the drawer's live-tracks block and the route panel's Speed
+ * limits table both read it, so the two tables' label columns are measured identically and cannot drift.
+ */
+@Composable
+internal fun rememberLabelColumnWidth(labels: List<String>): Dp {
+    val measurer = rememberTextMeasurer()
+    // The style the cell's own label resolves to: it sets its size and its line height and inherits the rest
+    // — the theme's letter spacing included — from `LocalTextStyle`, so the measurement merges that same
+    // source instead of spelling a style of its own and coming out short on every character.
+    val style = LocalTextStyle.current.merge(
+        TextStyle(
+            color = Color(AppConfig.uiTextMuted),
+            fontSize = 11.sp,
+            lineHeight = 12.sp
+        )
+    )
+    val density = LocalDensity.current
+    return remember(labels.joinToString("\u0000")) {
+        with(density) {
+            labels.maxOf { measurer.measure(it, style).size.width }.toDp()
         }
     }
 }

@@ -67,7 +67,12 @@ data class RoutePage(
      */
     val provisional: RouteProvisional? = null,
     /** True when this page stands for every collapsed rung — the same line at every preference. */
-    val collapsed: Boolean = false
+    val collapsed: Boolean = false,
+    /**
+     * The rung labels this page stands for — its own [descriptionResId] first, then each folded rung in
+     * fold order. Empty until a fold.
+     */
+    val foldedDescriptionResIds: List<Int> = emptyList()
 )
 
 /**
@@ -90,6 +95,46 @@ internal fun routeDeltaSec(
     val delta = page - selected
     if (delta == 0.0) return null
     return delta
+}
+
+/**
+ * **One printable entry of the Speed limits line** — the limit's whole-minute figure, the 300 m band
+ * standing apart ([isBand]). The seconds a route reports per limit, as the panel reads them: whole
+ * minutes only, an entry under a minute dropped so the line never prints a zero.
+ */
+internal data class RouteSlowLimitEntry(val limitKn: Double, val minutes: Int, val isBand: Boolean)
+
+/**
+ * **The Speed limits entries of a plan** — [RoutePlan.slowLimitSeconds] in whole minutes, sub-minute
+ * entries dropped and the band kept apart. Empty when nothing slowed the route, which is what leaves
+ * the line off the panel.
+ */
+internal fun routeSlowLimitEntries(plan: RoutePlan): List<RouteSlowLimitEntry> =
+    plan.slowLimitSeconds
+        .map { RouteSlowLimitEntry(it.limitKn, (it.seconds / 60.0).toInt(), it.isBand) }
+        .filter { it.minutes >= 1 }
+
+/**
+ * **The Speed limits entries wrapped into the table's lines** — a zone shares the 300 m band's first
+ * line only when it makes the table no longer than it must be: with an **odd** count of three or more
+ * the first line carries the band and the first zone and every line after is a full pair, while a
+ * **single** zone and every **even** count leave the band alone on the first line, the zones then two
+ * per line. The entries arrive band first then ascending limit ([routeSlowLimitEntries]); this fixes
+ * only how they wrap — empty in, empty out, and a list carrying no band falls back to plain pairs.
+ */
+internal fun routeSlowLimitRows(
+    entries: List<RouteSlowLimitEntry>
+): List<List<RouteSlowLimitEntry>> {
+    if (entries.isEmpty()) return emptyList()
+    val band = entries.firstOrNull { it.isBand } ?: return entries.chunked(2)
+    val zones = entries.filterNot { it.isBand }
+    // A lone zone stays on its own line, and an even count leaves the band alone: only an odd count of
+    // three or more pairs the first zone with the band, so every zone line below is a full pair.
+    return if (zones.size > 1 && zones.size % 2 == 1) {
+        listOf(listOf(band, zones.first())) + zones.drop(1).chunked(2)
+    } else {
+        listOf(listOf(band)) + zones.chunked(2)
+    }
 }
 
 /**

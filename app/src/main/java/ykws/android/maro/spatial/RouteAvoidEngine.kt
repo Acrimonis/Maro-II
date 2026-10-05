@@ -16,6 +16,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.multipass.MultipassGrid
 import ykws.android.maro.spatial.multipass.MultipassSearch
@@ -45,6 +46,7 @@ import ykws.android.maro.spatial.multipass.inZone
 import ykws.android.maro.spatial.multipass.insideBandWidthM
 import ykws.android.maro.spatial.multipass.msSince
 import ykws.android.maro.spatial.multipass.slowShares
+import ykws.android.maro.spatial.multipass.slowTimeByLimit
 import ykws.android.maro.spatial.multipass.timeLineWithLimits
 import ykws.android.maro.spatial.multipass.timeLineWithProfile
 import ykws.android.maro.spatial.multipass.zonePriceSec
@@ -372,6 +374,11 @@ class RouteAvoidEngine(
             clockSampleM(ctx.cellM, ctx.fineCellM)
         )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
+        // The report's own reading: the seconds each limit slowed, ramps folded in, the band apart.
+        val slowLimits = slowTimeByLimit(
+            timedLine, ctx.pace, ctx.limitAt, inZone(ctx.zones), inBand(ctx.world),
+            AppConfig.routeAvoidZone300LimitKn
+        )
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
             ctx.startCell, ctx.aimCell, reSearched
@@ -389,7 +396,7 @@ class RouteAvoidEngine(
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
                 "forced=[${forced.joinToString(", ")}]"
         }
-        return success(timedLine, forced, null)
+        return success(timedLine, forced, null, slowLimitSeconds = slowLimits)
     }
 
     /**
@@ -551,7 +558,8 @@ class RouteAvoidEngine(
         forcedCrossingZoneNames: List<String>,
         budgetUnmetZoneShare: Double?,
         distanceM: Double = lineLengthM(timed.points),
-        durationSec: Double = timed.durationSec
+        durationSec: Double = timed.durationSec,
+        slowLimitSeconds: List<RouteSlowLimit> = emptyList()
     ): RouteResult.Success = RouteResult.Success(
         points = timed.points.map { RoutePoint.of(it) },
         legTimesSec = timed.legTimesSec,
@@ -562,7 +570,8 @@ class RouteAvoidEngine(
         // user dragged, and the snapped cell is only the search's anchor.
         destinationMoved = false,
         budgetUnmetZoneShare = budgetUnmetZoneShare,
-        forcedCrossingZoneNames = forcedCrossingZoneNames
+        forcedCrossingZoneNames = forcedCrossingZoneNames,
+        slowLimitSeconds = slowLimitSeconds
     )
 
     /** The polyline's own length in metres — one home, read by the answer and by every candidate alike. */
