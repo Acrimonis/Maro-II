@@ -55,8 +55,10 @@ private const val DISABLED_ALPHA = 0.4f
 /**
  * **§2.10's outer surface, the family's one entrance**: `uiBackground` on a 12dp corner behind the accent
  * rim, an 8dp shadow, the given width, and a height bound it scrolls past rather than clipping. Inside is
- * [POPUP_PAD_DP] on all four sides and [POPUP_GROUP_GAP_DP] between groups, so a member passes its
- * sections and nothing else.
+ * [contentPadding] on all four sides — [POPUP_PAD_DP] unless a member opts out — and [POPUP_GROUP_GAP_DP]
+ * between groups, so a member passes its sections and nothing else. **The dropdown's wheel is the opt-out**
+ * (2026-10-05): it passes `0.dp`, so its `PopupSectionCard` fills the surface and no `uiBackground` ring
+ * shows around it.
  *
  * **`scrollable = false` is for a member that scrolls itself** (2026-09-29): the wheel owns its own snap
  * scroll, and nesting it inside this one would give two same-axis scrollers — two scroll nodes for a
@@ -68,6 +70,7 @@ internal fun PopupSurface(
     modifier: Modifier = Modifier,
     width: Dp = POPUP_WIDTH_DP.dp,
     scrollable: Boolean = true,
+    contentPadding: Dp = POPUP_PAD_DP.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -86,7 +89,7 @@ internal fun PopupSurface(
             modifier = Modifier
                 .heightIn(max = maxHeight)
                 .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
-                .padding(POPUP_PAD_DP.dp),
+                .padding(contentPadding),
             verticalArrangement = Arrangement.spacedBy(POPUP_GROUP_GAP_DP.dp),
             content = content
         )

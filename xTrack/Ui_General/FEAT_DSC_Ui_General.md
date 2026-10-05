@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-10-04 14:02
+modified: 2026-10-05 09:53
 ---
 
 # Feature: Ui_General
@@ -63,24 +63,17 @@ The route's panel — the dashboard slot's own content — and the one exit dial
 
 ### dropdown row
 
-The app's dropdown — label, optional description, and the value with its down-arrow on the right — is the row family's own box: the row is the anchor, the list is a `Popup` the box itself positions, and every slot M3 would have painted from `MaterialTheme.colorScheme` reads an `AppConfig` token instead, the menu taking §2.10's popup surface. M3's `ExposedDropdownMenu` was retired for the placement drift it caused, and the popup's body is now the wheel — so the control resolves its selection once and the popup names the row it lands on. All three call sites (the route's two ends in the menu drawer, the route algorithm in settings) go through the one control; the route ends stay label-less and value-only. §2.12's clause forbidding a control to paint a surface was retired with the M3 form.
+The app's dropdown is the row family's own box: the row is the anchor, the list is a `Popup` the box itself positions, and every slot M3 would have painted from `MaterialTheme.colorScheme` reads an `AppConfig` token instead, the menu taking §2.10's popup surface. M3's `ExposedDropdownMenu` was retired for the placement drift it caused. **The control is one gesture now** (2026-10-05): a vertical drag on the box opens the popup and spins the wheel, which **only scrolls and snaps** — the band is a candidate, not the value, so the box keeps what it holds while the popup is open — and **a tap on any row commits that row and closes**, while **an outside click cancels**, writing nothing; a tap on the box still opens it. **The box carries no arrow**, and the width it asks for no longer reserves one. **The popup is centred on the box** and its centre slot is the box's own measured height, so the chosen entry is drawn on the control, same width and same height, with the neighbours spilling over the panel. All three call sites (the route's two ends in the menu drawer, the route algorithm in settings) go through the one control; the route ends stay label-less and value-only. §2.12's clause forbidding a control to paint a surface was retired with the M3 form.
 
 #### Docs
-- `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-wheel.md` — the wheel, its selection fix and that fix's review
+- `xTrack/Ui_General/261005_FEAT_PLN_Ui_General_single-gesture-wheel.md` — the one gesture, the arrowless box and the wheel on the box; the rule set of record
+- `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-wheel.md` — the wheel and its selection fix (**superseded** where it states a requirement)
 - `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-exposed-menu.md` — the rewrite, the colour mapping and the retired clause
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the control: the box, its anchor and the popup that holds the wheel
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the control: the box, its anchor, the drag detector and the centred popup that holds the wheel
 - `app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt` · `WheelPolicy.kt` — the popup's body and its arithmetic
-- `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the popup surface the wheel sits on
-
-## Walk
-**Level 1 — Date:** 2026-09-28 · **Source:** `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_edit-return-and-advance.md` · **Closed:** 2026-09-28 — all five items resolved by the user's word; nothing parked, nothing dropped
-- [x] 1 · A card that cannot find its marker — settled 2026-09-28: it closes instead of showing an empty card, and the card and the editor both resolve in the world the card walks, so a legitimate open is never blind to its own marker
-- [x] 2 · Stepping to the next marker — settled 2026-09-28: yes, a step frames its target the way opening it does, zoom included
-- [x] 3 · Who decides when an item leaves the list — settled 2026-09-28: whoever has the hand, so the write that changes the item checks, through one shared ordering rule the delete path also uses
-- [x] 4 · The card's neighbours after a removal — settled 2026-09-28: the list is rebuilt from the current screen, minus the departed marker, with the cursor on its neighbour
-- [x] 5 · Two bits of bookkeeping — settled 2026-09-28: the moved plan is archived with an index row, and the next bake writes the front-matter date and the pointer list
+- `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the popup surface the wheel sits on; §2.15 the rule of entry
 
 ## Implemented
 
@@ -111,6 +104,59 @@ controls differing only in what they announce).
 - `docs/ui-component-guidelines.md` §5.6 · §5.9 — the doctrine and the tiers, its only home
 
 ## Implemented
+
+- **single-gesture-wheel, revision 2 (2026-10-05, `feature/wheel-down`)** — the control gained one text
+  alignment: `textAlign: TextAlign = TextAlign.Center` sits on `DropdownRow`, `DropdownBox` and
+  `DropdownWheel`, and `DropdownRow` hands that one value to both readers — the box's value `Text` and every
+  row label of the wheel, in place of its hardcoded centre. Nothing else moved: `dropdownBoxWidth` is
+  untouched and no popup offset, drag detector or width changed, and no call site passes the parameter, so the
+  drawer's two route ends and the settings Route algorithm take the centred default and the field is no longer
+  left-aligned. §2.10 and §2.12 of `ui-component-guidelines.md` carry the shared alignment.
+  `apk-build.bat` BUILD SUCCESSFUL with no new warning naming a touched file and the scoped `ui.components`
+  run green; no new string, no dependency, no git write. Two non-blocking findings stand unfixed, the pipeline
+  forbidding ping-pong: the centring default is spelled in three signatures, a single-home candidate, and
+  `DropdownRow`'s KDoc names `sizing` as its behaviour parameter but not the new `textAlign`. Nothing here is
+  device-validated → [`261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`](261005_FEAT_PLN_Ui_General_single-gesture-wheel.md) §15 · §16
+
+- **single-gesture-wheel, revision 1 (2026-10-05, `feature/wheel-down`)** — the commit returned to a tap. The
+  `snapshotFlow` settle watcher over `listState.isScrollInProgress` and the last-written guard that deduped it
+  left `DropdownWheel`, with `rememberUpdatedState` and the `snapshotFlow` / `distinctUntilChanged` / `drop`
+  imports, so **nothing is written while the popup is open** and no dead state survives; the row tap —
+  `onChoose(index)` followed by the close — is again the only commit, the drag only scrolls and snaps, and an
+  outside tap or back closes and writes nothing, which makes the cancel the absence of a write rather than a
+  revert. The landing effect stays keyed on the open, now stated as such: nothing writes under it, so
+  `selectedIndex` cannot change and the per-open key keeps it to one run. `DropdownRow`'s `onDismissRequest` was
+  confirmed to only close — the outside click is the cancel — and its row tap to write through `onSelect` and
+  close, both made explicit in the KDoc. §2.15, §2.12 and §2.10 of `ui-component-guidelines.md` and this epic's
+  `### dropdown row` were restated to §2 with the cancel clause. **A user-directed addition rode the same hop**
+  (2026-10-05): the wheel's popup now takes no surface inset, so no `uiBackground` ring shows — `PopupSurface`
+  gained a `contentPadding` parameter defaulting to the family's 12 dp and the dropdown passes `0.dp`, making
+  `menuWidth` the box's own width and the offset close only the card's vertical inset and the wheel's end
+  padding; §2.12 and §2.10 carry it. `apk-build.bat` BUILD SUCCESSFUL with no new
+  warning naming a touched file and the scoped `ui.components` suite green; no new string, no dependency and no
+  git write entered. Nothing here is device-validated →
+  [`261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`](261005_FEAT_PLN_Ui_General_single-gesture-wheel.md) §13
+
+- **single-gesture-wheel (2026-10-05, `feature/wheel-down`)** — the dropdown got one gesture and lost its
+  arrow. A vertical drag on the box now opens the popup and spins the wheel, and the wheel **commits as it
+  settles** — `centred` read through a `snapshotFlow` on `listState.isScrollInProgress` and written out
+  through `onChoose` only when it differs from the last write — so the box carries the live value, nothing is
+  confirmed and there is no cancel; a tap still opens it and a row tap writes its own row. `DropdownRow` hoists
+  the `LazyListState`, drives the wheel imperatively from the field, the pointer being unable to cross into the
+  popup's window, and snaps it with the new pure `wheelSnapTargetSlots`, while a drag begun inside the popup
+  keeps the library's own centre snap — two mechanisms for one motion, named. `DropdownBox` lost its
+  `KeyboardArrowDown` and `dropdownBoxWidth` the 28 dp they reserved, and the slot became the box's own
+  measured height in place of the retired `WHEEL_ITEM_DP`. The popup is centred on the box and its banded entry
+  is the box's own rectangle — `x = −POPUP_PAD_DP`, `y = −(endPadPx + POPUP_PAD_DP +
+  POPUP_SECTION_PAD_VERTICAL_DP)` at a width of `boxWidth + 2 × POPUP_PAD_DP` — so the chosen entry is drawn on
+  the control and the neighbours spill over the panel. §2.15, §2.12 and §2.10 of `ui-component-guidelines.md`
+  and this epic's `### dropdown row` were rewritten to the new rule set, and the 2026-09-29 wheel plan is
+  marked superseded where it states a requirement. `apk-build.bat` BUILD SUCCESSFUL and the scoped
+  `ui.components` suite green; the Ask hop returned **ship** with four records — the settle watch firing
+  between the opening drag's events, an edge box letting the platform clamp the popup so the band leaves it,
+  `WHEEL_SLOT_FALLBACK_DP = 38f` restating the figure the plan retired, and the drag state passing through one
+  `DisposableEffect`-written holder. Nothing here is device-validated →
+  [`261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`](261005_FEAT_PLN_Ui_General_single-gesture-wheel.md)
 
 - **action-toasts (2026-10-04)** — the map's action and undo rows are now the banner family's third **full-width face**: `SnackRow` renders through `MapBanner` in `MapControls.kt`, so it keeps no corner, fill, border or shadow of its own — 14 dp corner, a 2 dp border in `ui.dashboard.background`, `ui.card.background` over `ui.button.background` and an 8 dp shadow come from the one control — and its message reads the family's own line through the new `bannerLineStyle` (16 sp Medium in `ui.toast.text`), left-aligned with the commands right and the contents anchored to the row's **top** rather than centred. `MapSnackbarHost` no longer pads its column: `MapBanner` owns `bannerStartInset(tagsDrawn)` and the right-column reserve, the tag Boolean threaded from `MapScreen`. The three messages that were hardcoded English became `snack_track_deleted`, `snack_marker_deleted` and `snack_marker_created` in both locales — the French reading `Trace` and `Repère`, the app's own words — and the two action labels moved from a hardcoded teal to `AppConfig.uiAccent`, the token the list snackbar's Undo wears. Rules moved once: `docs/ui-component-guidelines.md` §5.7 now carries six instances and three full-width faces, with `docs/ui-lists-guidelines.md` keeping the dismiss contract and pointing at it. The 4 s timeout, the 48 dp swipe, the three-deep stack, its overflow queue and the route discard's queue-jump are untouched. `apk-build.bat` BUILD SUCCESSFUL with no new warning and `:app:testDebugUnitTest --tests "ykws.android.maro.ui.map.*"` green; the Ask hop returned no blocker, its one Medium — the French twins first read `Piste` and `Marqueur` — folded with its one Low, a dangling guideline pointer. The user's device pass followed the same day and drove the plan's §8 Revision 2: the stack now clears the dashboard by the band's own gutter, and the row's commands left `ui.accent` text — about 1.5:1 on the family's translucent fill — for `ConfirmActionButton`'s new **compact `SECONDARY`** face, white bold on the accent at 50 % under the 2 dp full-opacity rim, with the build and the scoped tests green again. The compact control's measured height stays a device judgement, M3's interactive minimum being what no unit run can settle → [`261004_FEAT_PLN_Ui_General_action-toasts.md`](261004_FEAT_PLN_Ui_General_action-toasts.md) §8
 
