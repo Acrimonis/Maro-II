@@ -13,7 +13,7 @@ count this plan's own model predicts, because the step a priced rung hands the w
 one interval a group. **Phase 4b landed (2026-10-05)** — the step's own value, the cut that reading named:
 [`RoutePassRunner`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:163) now
 answers it through the pure `priceStepFor(walk)`, both steps travel as required parameters, five tests pin it,
-and the build is green. **Phase 5, the aligned shared grid, stays the user's call.** Written on the order of the feature's own
+and the build is green. **Phase 5, the aligned shared grid, stays the user's call.** **The saving's capture was closed unread on the user's word of 2026-10-05** — it confirms no future feature — while **the one test that drives `runPass` itself stays owed**. Written on the order of the feature's own
 work list, whose step 4 says the plan comes first: the price walk is **80 % of the pull** and the pull is the
 solve's cost centre.
 

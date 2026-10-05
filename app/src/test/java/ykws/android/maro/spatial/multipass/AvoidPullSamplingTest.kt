@@ -7,6 +7,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.cos
 
 /**
@@ -43,11 +44,14 @@ class AvoidPullSamplingTest {
         val coarse = RouteCostField.ofHard { coarseReads++; Double.MAX_VALUE }
 
         val denseLine = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, marginM, MultipassPull.clearanceStep(marginM),
-            MultipassPull.clearanceStep(marginM), dense
+            PullSetup(
+                marginM, MultipassPull.clearanceStep(marginM), MultipassPull.clearanceStep(marginM),
+                dense, start, aim
+            ),
+            listOf(start, mid, aim)
         )
         val coarseLine = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, marginM, coarseStepM, coarseStepM, coarse
+            PullSetup(marginM, coarseStepM, coarseStepM, coarse, start, aim), listOf(start, mid, aim)
         )
 
         assertEquals("the coarse walk returns the fine walk's own line", denseLine, coarseLine)
@@ -68,7 +72,9 @@ class AvoidPullSamplingTest {
         val wall = LatLng(south(20.0), east(800.0))
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
+        val pulled = MultipassPull.pull(
+            PullSetup(marginM, coarseStepM, coarseStepM, field, start, aim), path
+        )
 
         assertEquals("the grazed chord is refused, as the fine walk refuses it", path, pulled)
     }
@@ -92,7 +98,9 @@ class AvoidPullSamplingTest {
             )
         )
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
+        val pulled = MultipassPull.pull(
+            PullSetup(marginM, coarseStepM, coarseStepM, field, start, aim), path
+        )
 
         assertEquals("a shallow patch the coarse marks step over is still refused", path, pulled)
     }
@@ -112,9 +120,45 @@ class AvoidPullSamplingTest {
         val wall = LatLng(south(24.0), east(100.0))
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
+        val pulled = MultipassPull.pull(
+            PullSetup(marginM, coarseStepM, coarseStepM, field, start, aim), path
+        )
 
         assertEquals("a wall just inside the margin is never proved clear", path, pulled)
+    }
+
+    /**
+     * **The coarse marks moved onto a fixed lattice.** The coarse marks are what pay the coastline read,
+     * so they are the site a memo of those reads serves. The fixture collects them and asserts each
+     * stands at `(k + 0.5) × coarseStep` from the chord's own anchor — fixed by the step alone, so two
+     * attempts that share an anchor share every coarse mark but the last.
+     */
+    @Test
+    fun theCoarseMarksStandOnAFixedLatticeFromTheAnchor() {
+        val anchor = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1595.0))
+        val marks = ArrayList<LatLng>()
+        val field = RouteCostField.ofHard { p -> marks.add(p); Double.MAX_VALUE }
+
+        MultipassPull.legClearCause(
+            anchor, aim,
+            PullContext(marginM, coarseStepM, MultipassPull.clearanceStep(marginM), field, anchor, aim)
+        )
+
+        val dist = SpatialOperations.haversine(anchor, aim)
+        assertTrue("the fixture reads the chord's coarse marks", marks.isNotEmpty())
+        assertEquals(
+            "one coarse mark per whole step, plus the remainder's own",
+            ceil(dist / coarseStepM).toInt(), marks.size
+        )
+        for (k in 0 until marks.size - 1) {
+            assertEquals(
+                "coarse mark $k stands at (k + 0.5) coarse steps from the anchor",
+                (k + 0.5) * coarseStepM,
+                SpatialOperations.haversine(anchor, marks[k]),
+                1e-3
+            )
+        }
     }
 
     /** A patch of 2 m water, 30 m across, centred on the path's middle — one coarse interval's width. */

@@ -1,50 +1,48 @@
 # Context Hydration — Route — 2026-10-05
 
-**Last Bake:** 2026-10-05 11:30 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-05 19:56 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-05 10:19 UTC) every change ran on an order — the span
-proof on *Start with the span proof, hand to Code*, and the questions that followed (the device
-expectations) were answered, no file touched. No dependency was added, no machine-shaped data file was
-opened, no work started without an order, the device was not touched by the agent, and every claim about
-the code follows a file read. Phase 2's device pass is the user's own and has not run.
+**Directive trace:** Since the last bake (2026-10-05 16:35 UTC) every change ran on an order — the mark count's
+Phases 1 and 2, the review's fixes, the walk context's Phases 1, 3 and 4, the seam plan's planning orders and its
+three review hops, and then the seam's three phases on the user's `#implement`. No dependency was added, no
+machine-shaped data file was opened, no work started without an order, the device was not touched by the agent, and
+every claim about the code follows a file read. No device pass was taken, and none is owed on any landed phase (R97).
 
 ## State
 
-**The span-level price proof's Phase 1 landed.** [`softPriceSec()`](app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:330)
-now reads the price as a recursion over the chord's own fine intervals: one clearance read at a span's
-midpoint proves every interval where the declaration reaches the span's half-length, an unproved span
-splits in half and each half is tested, and a span at or under `2 × priceStepM` falls to the group walk
-[`groupPriceSec()`](app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:405) still
-walks. The sum is one in-order accumulator, so a proved span is **bit-identical** to the fine sum — a
-`left + right` split re-associates the additions and moves the last bits — and the proof is skipped where
-the price step cannot group, so the fine-step walk reads exactly as before. `apk-build.bat` is green;
-[`AvoidPriceWalkTest`](app/src/test/java/ykws/android/maro/spatial/multipass/AvoidPriceWalkTest.kt:30) is
-15/15 with four new fixtures and one read-count assertion retargeted from the group walk to the span
-proof; the suite reads 908 / 1 / 10, the red the parked `route.avoid.fine.cellRatio` value test.
+**Three lands, nothing left in design.** The mark count's **Phases 1 and 2 landed** — [`MarkLattice`](app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:73)
+stands a walk's marks at `anchor + (j + 0.5) × step` with the last interval sized to the chord's remainder, and
+[`MarkMemo`](app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:125) — made per walk inside
+[`pull()`](app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:246), keyed on the mark's own point
+and bound to its field so a rebuild wipes it — pays each mark's distance read and price read once. The **walk
+context's Phases 1, 3 and 4 landed** with it: one `PullContext` built inside `pull` and threaded in place of the
+repeated bundles, plus the two tidies. And the **seam's three phases landed** on `#implement`:
+[`PullSetup`](app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:193) is that context cut back to
+the water, built in the **four** calls that hand a field to a walk-side consumer, taken by `pull`, `snapToCorners` and
+`pricedLineCost`, with the three tallies staying arguments and **both bridging adapters deleted**. `apk-build.bat` is
+green, the suite stands at **923 / 1 / 11** with the single red the parked `route.avoid.fine.cellRatio` test, and the
+counting fixture reads **270 against the memo-less 410** with the drawn line unmoved.
 
-**What is owed on it, and in what order.** (1) **the reading** — its own
-[Phase 2](261005_FEAT_PLN_Route_chord-price-proof.md:94): `priceReads` and `priceMs` on the `PULL` and
-`FINAL` lines for both engines against **5 048 reads at 3.5 km and 87 176 at 13.3 km**, with `LINE
-distance` and `duration` the check nothing moved; the user's own device pass. (2) the plan's own record.
-Beside it, 4b's two owed items stay: a test driving `runPass` itself, and the saving's capture.
+**Two should-fixes open from the seam's review, and neither is a regression** — the tally-free context fold is
+duplicated verbatim at the snap and the price walk (a one-line factory would collapse it), and the per-walk memo is a
+convention no fixture guards, since a memo shared across a pass's two pulls would pass every existing test. The
+latter is closed only by the owed `runPass`-driving test, which is also the feature's oldest code-side debt.
 
-**The order after that.** [`261005_FEAT_PLN_Route_mark-count.md`](261005_FEAT_PLN_Route_mark-count.md)
-— **the mark count, in design, second**: its marks must move onto a step lattice before a memo of their
-reads can hit, so its lattice's error bound is the user's word before the memo is built.
-
-**The walk stays closed by decision** — items 14 and 15 parked, `avoid`'s parked ratio test the user's
-own, and both plans stay in design (or partial) until their pointers reach the epic's `## Implemented`.
+**The bound, and who owns it.** The lattice can move a chord's price by at most **one interval's price** (`price ×
+stepM`, 25 m at the shipped margin), and exactly zero where a boundary lands on an interval edge; **the user accepted
+it on their word of 2026-10-05**, their own pass having found no difference in the routes created, and the three
+recorded routes in [`route-phase8.txt`](route-phase8.txt:1) are unchanged.
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `softPriceSec`, `spanPriceSec` and `groupPriceSec`: the walk the span proof changed
-- `app/src/test/java/ykws/android/maro/spatial/multipass/AvoidPriceWalkTest.kt` — the four new span-proof fixtures, the retargeted read-count test, and 4b's own five
-- `xTrack/Route/261005_FEAT_PLN_Route_chord-price-proof.md` — Phase 1 landed, Phase 2 (the reading) owed
-- `xTrack/Route/261005_FEAT_PLN_Route_mark-count.md` — in design, the mark count next
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — `priceStepFor`, the trace lines Phase 2 reads
-- `xTrack/Route/261004_FEAT_PLN_Route_price-walk-reads.md` — the landed cut, its parked mark count, and 4b's two owed items
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `MarkLattice`, `MarkMemo`, `PullSetup`, `PullContext`, `readHard`, `readPrice`, `softPriceSec`, `spanPriceSec`, `groupPriceSec`, `legClearCause`, `pull`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt`, `RouteFinePass.kt`, `RoutePassPrimitives.kt` — the four field-build sites, the seam's callers, and the duplicated tally-free fold
+- `app/src/test/java/ykws/android/maro/spatial/multipass/` — the five fixtures whose 21 `pull` call sites moved onto `PullSetup`
+- `xTrack/Route/261005_FEAT_PLN_Route_mark-count.md` — Phases 1–2 landed with the review folded; Phase 3 open
+- `xTrack/Route/261005_FEAT_PLN_Route_walk-context.md` — Phases 1, 3, 4 and its hived-off Phase 2 all landed
+- `xTrack/Route/261005_FEAT_PLN_Route_walk-context-seam.md` — three phases landed, two should-fixes open
+- `xTrack/Route/261005_FEAT_PLN_Route_chord-price-proof.md` — Phase 1 landed, Phase 2 closed unread
 
 ## Next Step
-**The span proof's Phase 2 reading is the next action, and it is the user's own device pass** — the
-`priceReads` and `priceMs` on the phase-8 pairs, both engines, against the record's baselines, with the
-unmoved line as the control. After it: the plan's record, then the mark count's lattice and its error
-bound.
+**The mark count's Phase 3 reading is the one device pass the feature keeps, and it is your own** — everything else
+is code-side debt: the `runPass`-driving test, the duplicated context fold, `MarkMemo.price`'s test-only life, the
+hygiene trio, and the field-stability exits parked in the feature's todos.

@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the span-level price proof: one read prices a whole span
 
-**Date:** 2026-10-05 · **Status:** in design, nothing built, no file outside this one touched.
+**Date:** 2026-10-05 · **Status updated 2026-10-05:** **Phase 1 landed** and **Phase 2 closed unread on the user's word of 2026-10-05** — their own pass found no difference in the routes created, which is the acceptance half, and the measurement confirms no future feature, so the recursion stays as landed with its downside bounded by the floor. Only the record remains.
 **Order:** the user's word of 2026-10-05, *"do plan the 2 tasks"* — the first of two, beside
 [`261005_FEAT_PLN_Route_mark-count.md`](261005_FEAT_PLN_Route_mark-count.md).
 **Rev 2 (2026-10-05):** the plan's own review landed — the chord-scale condition's reach is stated,
@@ -144,7 +144,8 @@ stands in the guard field wherever the price is armed.
 - **Whether the recursion is worth its failure path on the coastal pairs** — the pairs where the band's
   water is most of the line get little from it, and the pull's share is measured on those. The plan's own
   recommendation is to ship Phase 1 and let Phase 2's reading answer it, since the floor bounds the
-  downside to a few extra reads a chord.
+  downside to a few extra reads a chord. **Closed by the user's word of 2026-10-05:** the reading was
+  withdrawn, so the recursion stays as landed, its downside bounded by the floor.
 - **Whether the floor is the group walk's span or a coarser one** — a coarser floor saves more reads and
   gives up the group proof; the shipped value is derived, not chosen, and changing it is a reading's call.
 - **Whether the proof's own read travels on `PullTiming`** so the instrument reports a proved span

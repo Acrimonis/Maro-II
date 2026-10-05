@@ -76,6 +76,9 @@ internal class RoutePassRunner {
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
                 lambda = lambda
             )
+        // The water this pass walks, built once here — immediately after the field the walk is handed,
+        // and never cached: the corridor-growth paths hand a grown context to a fresh call.
+        val setup = PullSetup(marginM, coarseStepM, priceStepM, guardField, start, aim, approaches)
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
         val search = MultipassSearch.searchWalk(
             windows, startCell, aimCell, Units.knotsToMps(pace),
@@ -111,9 +114,7 @@ internal class RoutePassRunner {
         )
         val pullTiming = PullTiming()
         val pullStartNs = System.nanoTime()
-        val pulled = MultipassPull.pull(
-            full, start, aim, marginM, coarseStepM, priceStepM, guardField, approaches, refusals, pullTiming
-        )
+        val pulled = MultipassPull.pull(setup, full, refusals, pullTiming)
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
@@ -137,15 +138,11 @@ internal class RoutePassRunner {
             provisional
         )
         val snapStartNs = System.nanoTime()
-        val snapped = snapToCorners(
-            pulled, sets, marginM, coarseStepM, priceStepM, guardField, start, aim, approaches
-        )
+        val snapped = snapToCorners(setup, sets, pulled)
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
-        val final = MultipassPull.pull(
-            snapped, start, aim, marginM, coarseStepM, priceStepM, guardField, approaches, refusals, finalTiming
-        )
+        val final = MultipassPull.pull(setup, snapped, refusals, finalTiming)
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +

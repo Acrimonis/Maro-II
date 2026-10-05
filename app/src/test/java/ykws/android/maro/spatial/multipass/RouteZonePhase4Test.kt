@@ -374,8 +374,11 @@ class RouteZonePhase4Test {
         val path = listOf(start, LatLng(43.50, 7.005), LatLng(43.50, 7.01), LatLng(43.50, 7.015), aim)
 
         val pulled = MultipassPull.pull(
-            path, start, aim, marginM = 25.0, coarseStepM = MultipassPull.clearanceStep(25.0),
-            priceStepM = MultipassPull.clearanceStep(25.0), field = field
+            PullSetup(
+                marginM = 25.0, coarseStepM = MultipassPull.clearanceStep(25.0),
+                priceStepM = MultipassPull.clearanceStep(25.0), field = field, start = start, aim = aim
+            ),
+            path
         )
 
         assertEquals(
@@ -477,8 +480,11 @@ class RouteZonePhase4Test {
         val path = listOf(start, LatLng(43.52, 7.01), LatLng(43.52, 7.05), aim)
 
         val pulled = MultipassPull.pull(
-            path, start, aim, marginM = 50.0, coarseStepM = MultipassPull.clearanceStep(50.0),
-            priceStepM = MultipassPull.clearanceStep(50.0), field = field
+            PullSetup(
+                marginM = 50.0, coarseStepM = MultipassPull.clearanceStep(50.0),
+                priceStepM = MultipassPull.clearanceStep(50.0), field = field, start = start, aim = aim
+            ),
+            path
         )
 
         assertFalse("the line never enters the fast zone", lineEntersZone(pulled, fast))

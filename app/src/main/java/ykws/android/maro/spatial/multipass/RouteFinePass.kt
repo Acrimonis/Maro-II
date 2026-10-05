@@ -20,23 +20,22 @@ internal class RouteFinePass(
 ) {
 
     /**
-     * The λ-priced soft cost of [points] against [field] — the same per-segment walk the pull's
-     * `softPricePrefix` uses, summed to the whole line, so this comparison prices exactly what the
-     * search and the pull priced.
+     * The λ-priced soft cost of [points] against the [setup]'s field — the same per-segment walk the
+     * pull's `softPricePrefix` uses, summed to the whole line, so this comparison prices exactly what
+     * the search and the pull priced. The setup arrives from the call that resolved the line, so this
+     * site inherits the walk's own price step rather than inventing a partition of its own.
      *
-     * @param priceStepM the price walk's own step, the same one the walk that produced [points] was
-     *   handed, so this site inherits the walk's own proof rather than inventing a partition of its own.
+     * It reads the setup's margin, price step and field alone, and folds the water into a tally-free
+     * context here — a line cost counts and caches nothing.
      */
-    internal fun pricedLineCost(
-        points: List<LatLng>,
-        marginM: Double,
-        priceStepM: Double,
-        field: RouteCostField
-    ): Double {
-        if (!field.hasSoft || points.size < 2) return 0.0
+    internal fun pricedLineCost(setup: PullSetup, points: List<LatLng>): Double {
+        if (!setup.field.hasSoft || points.size < 2) return 0.0
+        val ctx = PullContext(
+            setup.marginM, setup.coarseStepM, setup.priceStepM, setup.field, setup.start, setup.aim, setup.approaches
+        )
         var total = 0.0
         for (i in 1 until points.size) {
-            total += MultipassPull.softPriceSec(points[i - 1], points[i], marginM, priceStepM, field)
+            total += MultipassPull.softPriceSec(points[i - 1], points[i], ctx)
         }
         return total
     }
@@ -84,15 +83,10 @@ internal class RouteFinePass(
         }
         val fineGuard =
             costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
-        val pulled = MultipassPull.pull(
-            out, start, aim, marginM, coarseStepM, priceStepM, fineGuard, approaches, refusals
-        )
-        val snapped = snapToCorners(
-            pulled, sets, marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches
-        )
-        val settled = MultipassPull.pull(
-            snapped, start, aim, marginM, coarseStepM, priceStepM, fineGuard, approaches, refusals
-        )
+        val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
+        val pulled = MultipassPull.pull(setup, out, refusals)
+        val snapped = snapToCorners(setup, sets, pulled)
+        val settled = MultipassPull.pull(setup, snapped, refusals)
         trace { "FINE settled points=${settled.size} fineCell=${fmt(fineCellM)}m" }
         return settled
     }
@@ -149,6 +143,11 @@ internal class RouteFinePass(
         val guard = costField(
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda
         )
+        // This crossing walks one fine grid, so both its steps are that grid's own cell; the water is
+        // built once here, immediately after the field, and never cached.
+        val coarseStepM = fineCellM
+        val priceStepM = fineCellM
+        val setup = PullSetup(marginM, coarseStepM, priceStepM, guard, start, aim, approaches)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
             zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
@@ -177,18 +176,12 @@ internal class RouteFinePass(
             }
             return null
         }
-        val coarseStepM = fineCellM
-        val priceStepM = fineCellM
         val localPath = listOf(from) + path.map { grid.center(it.row, it.col) } + listOf(to)
-        val pulled = MultipassPull.pull(
-            localPath, start, aim, marginM, coarseStepM, priceStepM, guard, approaches, refusals
-        )
-        val snapped = snapToCorners(pulled, sets, marginM, coarseStepM, priceStepM, guard, start, aim, approaches)
-        val local = MultipassPull.pull(
-            snapped, start, aim, marginM, coarseStepM, priceStepM, guard, approaches, refusals
-        )
-        val localCost = pricedLineCost(local, marginM, priceStepM, guard)
-        val coarseCost = pricedLineCost(line.subList(first, last + 1), marginM, priceStepM, guard)
+        val pulled = MultipassPull.pull(setup, localPath, refusals)
+        val snapped = snapToCorners(setup, sets, pulled)
+        val local = MultipassPull.pull(setup, snapped, refusals)
+        val localCost = pricedLineCost(setup, local)
+        val coarseCost = pricedLineCost(setup, line.subList(first, last + 1))
         if (localCost > coarseCost) {
             trace {
                 "FINE zone=${zone.name} spliced=no reason=worse " +
@@ -245,6 +238,9 @@ internal class RouteFinePass(
         }
         val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val guard = costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
+        // The water the two line costs are priced against — built once here, immediately after the field
+        // and never cached; this pass walks one fine grid, so its price step is that grid's own cell.
+        val setup = PullSetup(marginM, fineCellM, fineCellM, guard, ctx.start, ctx.aim, ctx.approaches)
         val limitAt = limitAtFor(world)
         val pass = fineWalk(ctx, boxes, lambda, base, guard, trace)
         val fineTimed = pass.timed
@@ -255,8 +251,8 @@ internal class RouteFinePass(
         val coarseTimed = timeLineWithLimits(
             line, pace, limitAt, clockSampleM(cellM, fineCellM)
         )
-        val fineCost = pricedLineCost(pass.line, marginM, fineCellM, guard)
-        val coarseCost = pricedLineCost(line, marginM, fineCellM, guard)
+        val fineCost = pricedLineCost(setup, pass.line)
+        val coarseCost = pricedLineCost(setup, line)
         val better = fineCost <= coarseCost
         trace {
             "FINE research answered=true spliced=$better " +

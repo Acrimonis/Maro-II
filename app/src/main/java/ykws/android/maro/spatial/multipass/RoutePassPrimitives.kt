@@ -169,22 +169,22 @@ internal fun limitAtFor(world: MultipassWorld): (LatLng) -> Double? {
  * across all sets — only when both legs stay clear; open water keeps the bend.
  *
  * It asks two clearances and four priced segments per candidate, so it is a clearance site in its own
- * right rather than a reader of the field it is handed: it takes the walk's own [coarseStepM] for its
- * legs and the walk's [priceStepM] for its priced segments, so a corner is never moved on a reading
- * the pull would not have made and the two sites keep one partition.
+ * right rather than a reader of the field it is handed: it takes the walk's own steps from [setup] —
+ * [PullSetup.coarseStepM] for its legs and [PullSetup.priceStepM] for its priced segments — so a corner
+ * is never moved on a reading the pull would not have made and the two sites keep one partition.
+ *
+ * The [sets] stay explicit: they are geometry, not water. The walk runs from a context folded from
+ * [setup] with no tallies, since a corner snap counts and caches nothing of its own.
  */
 internal fun snapToCorners(
-    path: List<LatLng>,
+    setup: PullSetup,
     sets: List<CornerSet>,
-    marginM: Double,
-    coarseStepM: Double,
-    priceStepM: Double,
-    field: RouteCostField,
-    start: LatLng,
-    aim: LatLng,
-    approaches: EndApproaches
+    path: List<LatLng>
 ): List<LatLng> {
     if (sets.all { it.points.isEmpty() }) return path
+    val ctx = PullContext(
+        setup.marginM, setup.coarseStepM, setup.priceStepM, setup.field, setup.start, setup.aim, setup.approaches
+    )
     val out = path.toMutableList()
     for (i in 1 until path.size - 1) {
         var nearest: LatLng? = null
@@ -200,12 +200,12 @@ internal fun snapToCorners(
         }
         val corner = nearest ?: continue
         val hardClear =
-            MultipassPull.legClear(out[i - 1], corner, marginM, coarseStepM, field, start, aim, approaches) &&
-                MultipassPull.legClear(corner, path[i + 1], marginM, coarseStepM, field, start, aim, approaches)
-        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], marginM, priceStepM, field) +
-            MultipassPull.softPriceSec(path[i], path[i + 1], marginM, priceStepM, field)
-        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, marginM, priceStepM, field) +
-            MultipassPull.softPriceSec(corner, path[i + 1], marginM, priceStepM, field)
+            MultipassPull.legClear(out[i - 1], corner, ctx) &&
+                MultipassPull.legClear(corner, path[i + 1], ctx)
+        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], ctx) +
+            MultipassPull.softPriceSec(path[i], path[i + 1], ctx)
+        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, ctx) +
+            MultipassPull.softPriceSec(corner, path[i + 1], ctx)
         if (hardClear && snappedPrice <= replacedPrice) {
             out[i] = corner
         }

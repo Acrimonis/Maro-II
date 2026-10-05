@@ -243,8 +243,10 @@ class AvoidStage1Test {
         val openWater = RouteCostField.ofHard { Double.MAX_VALUE }
 
         val waypoints = MultipassPull.pull(
-            path, start, aim, 25.0, MultipassPull.clearanceStep(25.0),
-            MultipassPull.clearanceStep(25.0), openWater
+            PullSetup(
+                25.0, MultipassPull.clearanceStep(25.0), MultipassPull.clearanceStep(25.0), openWater, start, aim
+            ),
+            path
         )
 
         assertEquals(listOf(start, aim), waypoints)
@@ -261,8 +263,10 @@ class AvoidStage1Test {
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, obstacle) }
 
         val waypoints = MultipassPull.pull(
-            path, start, aim, margin, MultipassPull.clearanceStep(margin),
-            MultipassPull.clearanceStep(margin), field
+            PullSetup(
+                margin, MultipassPull.clearanceStep(margin), MultipassPull.clearanceStep(margin), field, start, aim
+            ),
+            path
         )
 
         assertEquals("the bulge is kept because the straight chord grazes the obstacle", listOf(start, bulge, aim), waypoints)
@@ -305,9 +309,11 @@ class AvoidStage1Test {
         val tally = PullRefusals()
 
         val onStretch = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, margin, MultipassPull.clearanceStep(margin),
-            MultipassPull.clearanceStep(margin), field,
-            approaches = EndApproaches(start = stretch), refusals = tally
+            PullSetup(
+                margin, MultipassPull.clearanceStep(margin), MultipassPull.clearanceStep(margin),
+                field, start, aim, EndApproaches(start = stretch)
+            ),
+            listOf(start, mid, aim), tally
         )
 
         assertEquals("the chord on the carved approach stands", listOf(start, aim), onStretch)
@@ -318,9 +324,11 @@ class AvoidStage1Test {
         val shifted = stretch.map { LatLng(it.latitude + 20.0 / mPerDegLat, it.longitude) }
         val refused = PullRefusals()
         val offStretch = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, margin, MultipassPull.clearanceStep(margin),
-            MultipassPull.clearanceStep(margin), field,
-            approaches = EndApproaches(start = shifted), refusals = refused
+            PullSetup(
+                margin, MultipassPull.clearanceStep(margin), MultipassPull.clearanceStep(margin),
+                field, start, aim, EndApproaches(start = shifted)
+            ),
+            listOf(start, mid, aim), refused
         )
 
         assertEquals(
@@ -346,8 +354,11 @@ class AvoidStage1Test {
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, obstacle) }
 
         val waypoints = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, margin, MultipassPull.clearanceStep(margin),
-            MultipassPull.clearanceStep(margin), field
+            PullSetup(
+                margin, MultipassPull.clearanceStep(margin), MultipassPull.clearanceStep(margin),
+                field, start, aim
+            ),
+            listOf(start, mid, aim)
         )
 
         assertEquals("the chord is rejected and the midpoint kept", listOf(start, mid, aim), waypoints)
