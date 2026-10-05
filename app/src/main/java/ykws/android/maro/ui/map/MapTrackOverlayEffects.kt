@@ -78,12 +78,19 @@ internal fun MapTrackOverlayHistoryDiff(
         add(appSettings.trackingRenderNb)
         add(appSettings.routeRenderNb)
         add(appSettings.trackMapFilter)
+        add(appSettings.routeMapFilter)
         add(appSettings.trackFilterLinked)
+        add(appSettings.routeFilterLinked)
         add(allTrackSummaries)
         add(appSettings.trackingTransparencyNewest)
         add(appSettings.trackingTransparencyOldest)
         add(appSettings.trackingTransparencyPinnedNewest)
         add(appSettings.trackingTransparencyPinnedOldest)
+        // The pinned route's own ladder (D5, D8): a pinned route runs the pinned path but reads its own
+        // values, so its transparency is read in every combination; its colours join below, only where
+        // the pinned path's plain face is the one drawn.
+        add(appSettings.trackingTransparencyPinnedRouteNewest)
+        add(appSettings.trackingTransparencyPinnedRouteOldest)
         // The route role's own four values, and its two gates: a route reads them in every mode, so
         // they are keys in every combination.
         add(appSettings.trackingTransparencyRouteNewest)
@@ -92,8 +99,9 @@ internal fun MapTrackOverlayHistoryDiff(
         add(appSettings.routeSpeedArrows)
         // The per-type widths are read on every path in every mode, so the seven join the list
         // unconditionally rather than behind a mode test — the casing's width with them, since the
-        // selection it outlines is drawn in all three, and the route's, which a route takes whatever
-        // its pin says. The route's own dash rhythm joins them: it is read wherever a route draws.
+        // selection it outlines is drawn in all three, and the route's, which the unpinned route path
+        // reads (a pinned route takes the pinned width, D5). The route's own dash rhythm joins them:
+        // it is read wherever a route draws.
         add(AppConfig.trackWidthLiveDp)
         add(AppConfig.trackWidthSelectedDp)
         add(AppConfig.trackWidthNewestDp)
@@ -104,11 +112,14 @@ internal fun MapTrackOverlayHistoryDiff(
         add(AppConfig.trackRouteDashOnDp)
         add(AppConfig.trackRouteDashOffDp)
         if (!trackColours) {
-            // Colours off means the default colours are the fill, so their four keys join here.
+            // Colours off means the default colours are the fill, so their keys join here — the pinned
+            // route's own pair with them, now that a pinned route draws the pinned path.
             add(appSettings.trackingColorPastFrom)
             add(appSettings.trackingColorPastTo)
             add(appSettings.trackingColorPinnedFrom)
             add(appSettings.trackingColorPinnedTo)
+            add(appSettings.trackingColorPinnedRouteFrom)
+            add(appSettings.trackingColorPinnedRouteTo)
         }
         if (!(trackColours && appSettings.routeSpeedColor)) {
             // A route paints from its own pair unless **both** its colour gate and the Colours chip are
@@ -174,7 +185,8 @@ internal fun MapTrackOverlayHistoryDiff(
         // [storedTrackSelection]).
         val selection = storedTrackSelection(
             summaries = storedSummaries,
-            filter = appSettings.trackMapFilter,
+            trackFilter = appSettings.trackMapFilter,
+            routeFilter = appSettings.routeMapFilter,
             focus = focus,
             tracksVisible = appSettings.tracksVisible,
             todayMidnightMs = midnightMs,
@@ -339,12 +351,24 @@ internal fun MapTrackOverlayHistoryDiff(
             if (track.trackPoints.isEmpty()) continue
 
             val selected = summary.id == highlightedTrackId
-            // A pinned route is drawn whatever the route count says — the pin is what marks a route
-            // already saved — and it draws as an *unpinned* route does: the route role's own pair,
-            // ladder and stroke, never the pinned ones. The pin buys the escape from the count and
-            // nothing else (R34, R35).
+            // D5: every pinned item runs the **one pinned path** — the pinned stroke and the pinned render
+            // plan — and only its **values** are selected per kind, on this single branch. A pinned route
+            // is still drawn whatever the route count says (R34, R35): the pin buys the escape from the
+            // count and nothing else.
             val isRoute = summary.route
-            val width = storedTrackWidth(selected = selected, route = isRoute, pinned = true, newest = false)
+            val pinnedTransparencyNewest =
+                if (isRoute) appSettings.trackingTransparencyPinnedRouteNewest
+                else appSettings.trackingTransparencyPinnedNewest
+            val pinnedTransparencyOldest =
+                if (isRoute) appSettings.trackingTransparencyPinnedRouteOldest
+                else appSettings.trackingTransparencyPinnedOldest
+            val pinnedColorFrom =
+                if (isRoute) appSettings.trackingColorPinnedRouteFrom
+                else appSettings.trackingColorPinnedFrom
+            val pinnedColorTo =
+                if (isRoute) appSettings.trackingColorPinnedRouteTo
+                else appSettings.trackingColorPinnedTo
+            val width = storedTrackWidth(selected = selected, route = false, pinned = true, newest = false)
             val rendering = storedTrackRendering(
                 points = track.trackPoints,
                 title = "track_pin_${summary.id}",
@@ -360,28 +384,22 @@ internal fun MapTrackOverlayHistoryDiff(
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
                 density = densityScale,
-                // D8: a pinned track fades across its own range, exactly as it does today — a route
-                // across the route ladder instead, so the pin changes nothing about its appearance.
+                // D8: a pinned track fades across its own range, exactly as it does today — a pinned route
+                // across the pinned-route ladder instead, so the pin changes nothing about its appearance.
                 fade = trackFadeAlpha(
                     index = index,
                     total = pinnedTotal,
-                    transparencyNewest = if (isRoute) appSettings.trackingTransparencyRouteNewest
-                                         else appSettings.trackingTransparencyPinnedNewest,
-                    transparencyOldest = if (isRoute) appSettings.trackingTransparencyRouteOldest
-                                         else appSettings.trackingTransparencyPinnedOldest
+                    transparencyNewest = pinnedTransparencyNewest,
+                    transparencyOldest = pinnedTransparencyOldest
                 ),
                 plainAppearance = {
                     computeTrackPolylineAppearance(
                         index = index,
                         total = pinnedTotal,
-                        transparencyNewest = if (isRoute) appSettings.trackingTransparencyRouteNewest
-                                             else appSettings.trackingTransparencyPinnedNewest,
-                        transparencyOldest = if (isRoute) appSettings.trackingTransparencyRouteOldest
-                                             else appSettings.trackingTransparencyPinnedOldest,
-                        colorFrom = if (isRoute) appSettings.trackingColorRouteFrom
-                                    else appSettings.trackingColorPinnedFrom,
-                        colorTo = if (isRoute) appSettings.trackingColorRouteTo
-                                  else appSettings.trackingColorPinnedTo,
+                        transparencyNewest = pinnedTransparencyNewest,
+                        transparencyOldest = pinnedTransparencyOldest,
+                        colorFrom = pinnedColorFrom,
+                        colorTo = pinnedColorTo,
                         strokeWidth = width
                     )
                 }
@@ -440,10 +458,12 @@ internal fun MapTrackOverlayHistoryDiff(
 /**
  * The width one stored track earns, read from `maro.properties` by track type rather than by the
  * loop's position: the selected track takes `track.width.selected` whatever its class, a **route**
- * `track.width.route` whatever its pin says, a pinned track `track.width.pinned`, and a history track
- * `track.width.newest` when it is the newest track of the set being drawn, else `track.width.history`.
- * Every rendering role reads the same table (D11), and the route's rank above the pin is the whole of
- * what R34 asks for here.
+ * `track.width.route`, a pinned item `track.width.pinned`, and a history track `track.width.newest`
+ * when it is the newest track of the set being drawn, else `track.width.history`.
+ *
+ * The `route` test sits above the `pinned` one, but no drawing caller reaches that rank: the shared
+ * pinned path passes `route = false` for both kinds (D5), so a pinned route takes the pinned width.
+ * Every rendering role reads the same table (D11).
  */
 internal fun storedTrackWidth(
     selected: Boolean,
@@ -489,20 +509,22 @@ internal data class StoredTrackSelection(
  * What one pass asks each of the three roles for, from one entry point so the two counts cannot drift
  * apart:
  *
- * - [StoredTrackSelection.recorded] — the recorded half, ranked, filtered and bounded by
- *   [recordingNb]'s own count;
- * - [StoredTrackSelection.routes] — the route half, bounded by [routeNb] and **never** by the recorded
- *   count: the two sibling counts limit their own role alone (R35);
- * - [StoredTrackSelection.pinned] — every pinned summary **the map filter holds**, **uncapped**: the pin
- *   is what marks a route already saved, so it escapes [routeNb] (R34, R35), but the pin is no escape
- *   from the filter — the map draws its filter's set and nothing else (2026-09-28).
+ * - [StoredTrackSelection.recorded] — the recorded half, ranked, filtered by [trackFilter] and bounded
+ *   by [recordingNb]'s own count;
+ * - [StoredTrackSelection.routes] — the route half, filtered by [routeFilter], bounded by [routeNb] and
+ *   **never** by the recorded count: the two sibling counts limit their own role alone (R35);
+ * - [StoredTrackSelection.pinned] — every pinned summary **its own kind's filter holds**, **uncapped**:
+ *   the pin is what marks a route already saved, so it escapes [routeNb] (R34, R35), but the pin is no
+ *   escape from the filter — the map draws its filter's set and nothing else (2026-09-28). The choice is
+ *   made here, inside the one entry point, so every caller and test holds one home for "per kind".
  *
  * Membership is [storedTrackSets]' decision; this one only decides what each half is asked for. The
  * two caps are taken here rather than at the call site, so a test can hold the count's home.
  */
 internal fun storedTrackSelection(
     summaries: List<TrackSummary>,
-    filter: ListFilter,
+    trackFilter: ListFilter,
+    routeFilter: ListFilter,
     focus: MapRenderFocus,
     tracksVisible: Boolean,
     todayMidnightMs: Long,
@@ -515,20 +537,23 @@ internal fun storedTrackSelection(
     return StoredTrackSelection(
         recorded = policy.select(
             items = sets.recorded,
-            filter = filter,
+            filter = trackFilter,
             cap = recordingNb.coerceIn(0, 20),
             focus = focus,
             todayMidnightMs = todayMidnightMs
         ),
         routes = policy.select(
             items = sets.routes,
-            filter = filter,
+            filter = routeFilter,
             cap = routeNb.coerceIn(0, 20),
             focus = focus,
             todayMidnightMs = todayMidnightMs
         ),
         pinned = summaries
-            .filter { it.pinned && it.matchesFilter(filter, todayMidnightMs) }
+            .filter {
+                it.pinned && (if (it.route) it.matchesFilter(routeFilter, todayMidnightMs)
+                              else it.matchesFilter(trackFilter, todayMidnightMs))
+            }
             .sortedByDescending { it.startTimeMs }
     )
 }
@@ -557,10 +582,13 @@ internal fun routeTrackRenderPlan(
 )
 
 /**
- * The plan a **pinned** summary draws by, read off the summary's own flag rather than its pin: a pinned
- * route takes the route role — its own pair, ladder and stroke, never the pinned ones — so the pin buys
- * the escape from the route count and nothing else (R34, R35), while a pinned recorded track is planned
- * as the stored track it is.
+ * The plan a **pinned** summary draws by — the **one pinned path**, for both kinds (D5): a pinned route
+ * takes the pinned stroke and the pinned face exactly as a pinned recorded track does, so the pin buys
+ * the escape from the route count and nothing else (R34, R35). The pinned path's role is never the route
+ * role, but its **dash follows the summary's own identity** (D12): a pinned route stays dashed while a
+ * pinned track is solid, read from `summary.route` at this one home and never branched again in the
+ * pinned loop. Only the *values* the pinned face paints (its transparency and colours) are chosen per
+ * kind, and that choice lives at the effect's one branch, never here.
  */
 internal fun pinnedTrackRenderPlan(
     summary: TrackSummary,
@@ -575,10 +603,10 @@ internal fun pinnedTrackRenderPlan(
     trackColours = trackColours,
     selected = selected,
     eyeOverride = eyeOverride,
-    route = summary.route,
+    route = false,
     routeSpeedColour = routeSpeedColour,
     routeSpeedArrows = routeSpeedArrows
-)
+).copy(dashed = summary.route)
 
 /**
  * The widest width the stored table can hand a track — the reference the chevron length's ceiling is
@@ -638,14 +666,18 @@ internal fun newestTrackId(summaries: List<ykws.android.maro.data.track.TrackSum
 internal enum class TrackRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
 
 /**
- * A stored track's path, whether it draws arrows, whether it is the selected track, and whether it
- * is a route — the role the dispatcher keys the dashed stroke on.
+ * A stored track's path, whether it draws arrows, whether it is the selected track, and whether its
+ * stroke is dashed.
+ *
+ * [dashed] is the summary's own `route` **identity**, not the render role its [path] was chosen by
+ * (D12): a saved route draws dashed pinned or not, while the pinned path passes `route = false` for
+ * its role. The dispatcher reads this one field on every path, so the dash keeps one home.
  */
 internal data class TrackRenderPlan(
     val path: TrackRenderPath,
     val drawArrows: Boolean,
     val selected: Boolean,
-    val route: Boolean = false
+    val dashed: Boolean = false
 )
 
 /**
@@ -675,16 +707,17 @@ internal fun trackRenderPlan(
     routeSpeedColour: Boolean = false,
     routeSpeedArrows: Boolean = true
 ): TrackRenderPlan {
-    // The route role is decided **before** the pinned one: a route paints from its own pair whatever
-    // its pin says, and the drawer eye never reaches it. Its two gates join the chips instead (R37,
-    // R38) — the colour one bands a route only while [trackColours] is on too, the arrow one can only
-    // veto the chevrons — so a route's appearance is the same pinned or not (R34).
+    // The **unpinned** route role, decided **before** the recorded one: it paints from its own pair,
+    // its two gates join the chips (R37, R38) — the colour one bands it only while [trackColours] is
+    // on too, the arrow one can only veto the chevrons — and the drawer eye never reaches it. A
+    // **pinned** route never lands here: it takes the shared pinned path through [pinnedTrackRenderPlan]
+    // with `route = false` (D5), so the pin changes both its stroke and its face.
     if (route) {
         return TrackRenderPlan(
             path = if (trackColours && routeSpeedColour) TrackRenderPath.BANDED else TrackRenderPath.ROUTE,
             drawArrows = trackArrows && routeSpeedArrows,
             selected = selected,
-            route = true
+            dashed = true
         )
     }
     val banded = if (selected) {
@@ -699,7 +732,7 @@ internal fun trackRenderPlan(
         path = path,
         drawArrows = trackArrows,
         selected = selected,
-        route = false
+        dashed = false
     )
 }
 
@@ -885,14 +918,14 @@ internal fun storedTrackRendering(
             strokeWidth = strokeWidth,
             density = density,
             fade = storedTrackFade(plan.selected, fade),
-            dashed = plan.route
+            dashed = plan.dashed
         )
         TrackRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth, density)
         // The route role's own pair arrives through the same lazily-built appearance the plain path
-        // takes — the caller owns which pair a route paints from — and a route's stroke is dashed, so
-        // a saved route reads apart from a recorded track.
-        TrackRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density, dashed = true)
-        TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density)
+        // takes — the caller owns which pair a route paints from — and the dash follows the summary's
+        // identity on every path (D12), so a saved route reads apart from a recorded track.
+        TrackRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
+        TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
     }
     if (!plan.selected) return rendering.copy(drawArrows = plan.drawArrows)
     // The casing returns beneath the selected track on every path — under the gold core and under

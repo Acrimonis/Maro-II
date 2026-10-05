@@ -144,7 +144,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TrackHistoryOverlay(
+internal fun TrackHistoryOverlay(
     trackSummaries: List<TrackSummary>,
     liveTrackState: TrackRecorderUiState? = null,
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
@@ -185,8 +185,40 @@ fun TrackHistoryOverlay(
     trackingTransparencyRouteNewest: Int = 20,
     trackingTransparencyRouteOldest: Int = 80,
     trackingColorRouteFrom: Int = 0xFF1565C0.toInt(),
-    trackingColorRouteTo: Int = 0xFF0000FF.toInt()
+    trackingColorRouteTo: Int = 0xFF0000FF.toInt(),
+    /**
+     * The pinned route's own pair (D5, D8), which its accent strip previews: a pinned route runs the
+     * pinned path but reads these values, so its strip reads apart from a pinned track's amber.
+     */
+    trackingTransparencyPinnedRouteNewest: Int = 0,
+    trackingTransparencyPinnedRouteOldest: Int = 20,
+    trackingColorPinnedRouteFrom: Int = 0xFF00C853.toInt(),
+    trackingColorPinnedRouteTo: Int = 0xFF00897B.toInt(),
+    /**
+     * Which kind-locked list this surface shows (D2, S11). The ROUTES scope binds the route sort, the
+     * route filter and the route scroll state (passed in by the caller) and hides the live recording
+     * card and the Merge action.
+     */
+    scope: ListScope = ListScope.TRACKS
 ) {
+    val isRoutes = scope == ListScope.ROUTES
+
+    // The routes list's own empty state: it names the kind, where the tracks list keeps the scaffold's.
+    val listEmptyState: @Composable () -> Unit = if (isRoutes) {
+        {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = stringResource(R.string.route_history_empty),
+                    color = Color(AppConfig.uiTextMuted),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    } else {
+        {}
+    }
+
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
     val trackCustomSortFields = remember {
@@ -197,73 +229,80 @@ fun TrackHistoryOverlay(
         )
     }
 
-    // Pre-compute accent bar colors — batch lambda for scaffold
-    val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb, routeRenderNb,
+    // Pre-compute accent bar colours — batch lambda for the scaffold. The pinned group stands first and,
+    // per kind, reads its own pair: a pinned track the pinned-track pair, a pinned route the pinned-route
+    // pair (D5). Beyond the pinned group the recorded history and the unpinned routes are bounded by their
+    // own counts and greyed past them, exactly as the map paints them (R34, R35).
+    val accentColorMap = remember(trackSummaries, scope, tracksVisible, trackingRenderNb, routeRenderNb,
         trackingTransparencyNewest, trackingTransparencyOldest,
         trackingColorPastFrom, trackingColorPastTo,
         trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
         trackingColorPinnedFrom, trackingColorPinnedTo,
+        trackingTransparencyPinnedRouteNewest, trackingTransparencyPinnedRouteOldest,
+        trackingColorPinnedRouteFrom, trackingColorPinnedRouteTo,
         trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
         trackingColorRouteFrom, trackingColorRouteTo
     ) {
-        val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
-        // The recorded tracks only: a route's strip is its own pair, written last below.
-        val historySummaries = trackSummaries.filter { !it.pinned && !it.route }.sortedByDescending { it.startTimeMs }
         val map = mutableMapOf<String, Color>()
         val greyColor = Color(AppConfig.uiTextMuted).copy(alpha = 0.15f)
+        fun accentOf(argb: Int): Color =
+            Color(red = (argb shr 16) and 0xFF, green = (argb shr 8) and 0xFF, blue = argb and 0xFF, alpha = (argb ushr 24) and 0xFF)
+
+        // The pinned group first, per kind (D5): a pinned track reads the pinned-track pair, a pinned
+        // route the pinned-route pair. Only the appearance's colour is read; its width rides along.
+        val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
         val pinnedTotal = pinnedSummaries.size
         for ((index, summary) in pinnedSummaries.withIndex()) {
-            // Only the appearance's colour is read here; its width is dp like the type's, so the old
-            // 6 px / 8 px pair is written as the 2 dp / 2.667 dp the 3× reference makes them.
-            val appearance = computeTrackPolylineAppearance(
-                index, pinnedTotal,
-                trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
-                trackingColorPinnedFrom, trackingColorPinnedTo, 2f
-            )
-            val a = appearance.argb
-            map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
+            val argb = if (summary.route) {
+                computeTrackPolylineAppearance(
+                    index, pinnedTotal,
+                    trackingTransparencyPinnedRouteNewest, trackingTransparencyPinnedRouteOldest,
+                    trackingColorPinnedRouteFrom, trackingColorPinnedRouteTo, 2f
+                ).argb
+            } else {
+                computeTrackPolylineAppearance(
+                    index, pinnedTotal,
+                    trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
+                    trackingColorPinnedFrom, trackingColorPinnedTo, 2f
+                ).argb
+            }
+            map[summary.id] = accentOf(argb)
         }
+
+        // The recorded tracks (tracks scope): bounded by the recorded count, greyed beyond it.
+        val historySummaries = trackSummaries.filter { !it.pinned && !it.route }.sortedByDescending { it.startTimeMs }
         val renderCount = trackingRenderNb.coerceIn(0, 20)
         for ((index, summary) in historySummaries.withIndex()) {
-            if (index < renderCount) {
-                val effectiveTotal = renderCount
-                val appearance = computeTrackPolylineAppearance(
-                    index, effectiveTotal,
-                    trackingTransparencyNewest, trackingTransparencyOldest,
-                    trackingColorPastFrom, trackingColorPastTo,
-                    if (index == 0) 8f / 3f else 2f
+            map[summary.id] = if (index < renderCount) {
+                accentOf(
+                    computeTrackPolylineAppearance(
+                        index, renderCount,
+                        trackingTransparencyNewest, trackingTransparencyOldest,
+                        trackingColorPastFrom, trackingColorPastTo,
+                        if (index == 0) 8f / 3f else 2f
+                    ).argb
                 )
-                val a = appearance.argb
-                map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
             } else {
-                map[summary.id] = greyColor
+                greyColor
             }
         }
-        // The routes follow the policy the map paints by (R34, R35): the pin buys the escape from the
-        // count and nothing else — a pinned route keeps the route pair, written last so it wins over the
-        // pinned group's amber above — while the unpinned ones are bounded by the route count and greyed
-        // beyond it, exactly as the recorded ones above are.
+
+        // The unpinned routes (routes scope): bounded by the route count, greyed beyond it. The pinned
+        // routes were written above and keep the pinned-route pair (R34, R35).
         val routeCount = routeRenderNb.coerceIn(0, 20)
-        val pinnedRouteSummaries = trackSummaries.filter { it.route && it.pinned }.sortedByDescending { it.startTimeMs }
         val openRouteSummaries = trackSummaries.filter { it.route && !it.pinned }.sortedByDescending { it.startTimeMs }
         val drawnRoutes = openRouteSummaries.take(routeCount)
-        fun routeAccent(index: Int, total: Int): Color {
-            val appearance = computeTrackPolylineAppearance(
-                index, total,
-                trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
-                trackingColorRouteFrom, trackingColorRouteTo,
-                AppConfig.trackWidthRouteDp
-            )
-            val a = appearance.argb
-            return Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
-        }
         for ((index, summary) in drawnRoutes.withIndex()) {
-            map[summary.id] = routeAccent(index, drawnRoutes.size)
+            map[summary.id] = accentOf(
+                computeTrackPolylineAppearance(
+                    index, drawnRoutes.size,
+                    trackingTransparencyRouteNewest, trackingTransparencyRouteOldest,
+                    trackingColorRouteFrom, trackingColorRouteTo,
+                    AppConfig.trackWidthRouteDp
+                ).argb
+            )
         }
         openRouteSummaries.drop(drawnRoutes.size).forEach { map[it.id] = greyColor }
-        for ((index, summary) in pinnedRouteSummaries.withIndex()) {
-            map[summary.id] = routeAccent(index, pinnedRouteSummaries.size)
-        }
         map
     }
 
@@ -379,12 +418,15 @@ fun TrackHistoryOverlay(
 
     ListOverlayScaffold(
         items = trackSummaries,
-        title = stringResource(R.string.track_history_title_fmt, trackSummaries.count { !it.isLive }),
-        sectionLabel = stringResource(R.string.track_history_section),
+        title = stringResource(
+            if (isRoutes) R.string.route_history_title_fmt else R.string.track_history_title_fmt,
+            trackSummaries.count { !it.isLive }
+        ),
+        sectionLabel = stringResource(if (isRoutes) R.string.route_history_section else R.string.track_history_section),
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = trackCustomSortFields,
-        customSortLabelResId = R.string.menu_manage_tracks,
+        customSortLabelResId = if (isRoutes) R.string.menu_manage_routes else R.string.menu_manage_tracks,
         filterAxes = trackFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,
@@ -406,15 +448,18 @@ fun TrackHistoryOverlay(
                 isRecording = liveState?.state == TrackRecorderState.ON
             )
         },
-        liveCardContent = if (liveState != null && liveState.state == TrackRecorderState.ON) {
+        // The live card belongs to the tracks list alone: a recording in progress is never a route.
+        liveCardContent = if (!isRoutes && liveState != null && liveState.state == TrackRecorderState.ON) {
             { _ -> LiveTrackCard(liveState = liveState, dateFormat = dateFormat, onUpdateMeta = onUpdateLiveTrack) }
         } else {
             {}
         },
+        emptyState = listEmptyState,
         onAction = onAction,
         onDismiss = onDismiss,
         modifier = modifier,
-        multiActions = trackMultiActions,
+        // A route is a line between two points, not a leg of a journey: Merge is a tracks-list action.
+        multiActions = if (isRoutes) trackMultiActions.filterNot { it.id == "merge" } else trackMultiActions,
         lazyListState = lazyListState
     )
 }

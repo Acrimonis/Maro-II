@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-23 06:50
+modified: 2026-10-05 18:40
 ---
 
 # Feature: Tracks
@@ -343,6 +343,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 
 ## Implemented
 
+- **route-list-separation — the list split (2026-10-05, `feature/list-tracks-routes`)** — the one combined list became two **kind-locked** lists. `TrackViewModel` now exposes `routeSummaries` (saved routes filtered by `routeListFilter`, sorted by `routeListSort`) beside `summaries`, which holds **recorded tracks alone**: the track view filters `!it.route` and the route view `it.route`, each under its own filter and sort. `storedTrackSelection` takes **two** filters and selects per kind for all three memberships — the recorded half and the pinned set's track half read the track map filter, the route half and the pinned set's route half the route map filter — and the pinned loop runs **one path for both kinds** with the `isRoute` special case removed (D5), only the values it paints selected per kind, with `routeMapFilter` / `routeFilterLinked` and the four pinned-route keys added to the rebuild keys → [`../Ui_Menu/261005_FEAT_PLN_Ui_Menu_route-list-separation.md`](../Ui_Menu/261005_FEAT_PLN_Ui_Menu_route-list-separation.md)
 - **Tracks — the saved line's word became Route (2026-09-23)** — the flag is `Track.route` and `TrackSummary.route`, `@ProtoNumber(19)` kept on both so the stored blobs and the summary index are wire-identical; the role family reads `TrackRenderPath.ROUTE` with `routeTrackRenderPlan` · `StoredTrackSets.routes` · `routeNb` · `routeIds` · `routeSpeedColour`/`routeSpeedArrows`; the settings and values carry `routeSpeedColor`/`routeSpeedArrows` · `routeRenderNb` · the route colour pair and its ladder · the five `maro.properties` keys · the eight `BuildConfig` fields · `AppConfig.trackWidthRouteDp`; the strings lost their EN `(traces)` parentheticals along with the resource names, and the Kind axis keys `route` with `TRACKS`/`ROUTES`, closing a shipped contradiction whose matcher had still read `TRACES`; three test classes were renamed with the prose around them. A stored Kind axis falls to All and the route display preferences reset once, both named in the plan → `xTrack/Tracks/260923_FEAT_PLN_Tracks_trace-word-to-route.md`
 
 - **Data model** — `Track`/`TrackPoint` protobuf, `TrackSummary` index, relative `timeOffsetSec`

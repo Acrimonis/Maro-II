@@ -110,7 +110,17 @@ fun MenuDrawerOverlay(
     markerFilterLinked: Boolean = true,
     onToggleMarkerLink: () -> Unit = {},
     trackCount: Int = 0,
-    markerCount: Int = 0
+    markerCount: Int = 0,
+    // ── Routes list access + its own map referential (S8) ──────────────────
+    routeCount: Int = 0,
+    onViewRouteList: () -> Unit = {},
+    onOpenFirstRoute: (() -> Unit)? = null,
+    routeFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onRouteFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onRouteReset: () -> Unit = {},
+    routeFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    routeFilterLinked: Boolean = true,
+    onToggleRouteLink: () -> Unit = {}
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -191,6 +201,60 @@ fun MenuDrawerOverlay(
                     RouteSummaryBlock(routeSummary)
                 }
             }
+
+        }
+
+        Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── ROUTES section + filter controls (2026-10-05, D11) ─────────────
+        // The Routes row left the ROUTING card for a section of its own, mirroring the TRACKS section so
+        // the map-referential filter icons get a section header to live in (D11, superseding D1). The card
+        // above keeps the route ends, the quick access and the gated summary alone.
+        SectionHeader(title = stringResource(R.string.menu_manage_routes)) {
+            if (routeFilterAxes.isNotEmpty()) {
+                IconButton(
+                    onClick = onToggleRouteLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (routeFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    )
+                }
+                FilterControl(
+                    filterState = routeFilterState,
+                    filterAxes = routeFilterAxes,
+                    onFilterChange = onRouteFilterChange
+                )
+                val hasActiveRouteFilter = routeFilterState.axes.isNotEmpty()
+                IconButton(
+                    onClick = onRouteReset,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Refresh,
+                        contentDescription = stringResource(R.string.cd_reset_filter),
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                            .alpha(if (hasActiveRouteFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            // ── Routes list row (2026-10-05, D11) — the ROUTES section's own door to the saved routes ──
+            // Mirrors the Tracks row below it: the label, the count and the chevron to the first route.
+            // No live block: a recording in progress is never a route.
+            RoutesRow(
+                routeCount = routeCount,
+                onViewRouteList = onViewRouteList,
+                onOpenFirstRoute = onOpenFirstRoute
+            )
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -711,5 +775,56 @@ private fun formatDuration(totalSeconds: Long): String {
         "${hours}h ${minutes}m ${seconds}s"
     } else {
         "${minutes}m ${seconds}s"
+    }
+}
+
+/**
+ * The ROUTES section's **Routes row** (2026-10-05, D11): the drawer's door to the saved routes,
+ * mirroring the Tracks row — the label and the count, a chevron to the first route. Its own Link /
+ * Filter / Reset live in the ROUTES `SectionHeader` above it, bound to the **route map referential**
+ * (the menu's own referential, as the Tracks header's controls are, so a filter edit there moves the
+ * routes the map draws and the count beside it).
+ */
+@Composable
+private fun RoutesRow(
+    routeCount: Int,
+    onViewRouteList: () -> Unit,
+    onOpenFirstRoute: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onViewRouteList)
+            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = stringResource(R.string.menu_manage_routes),
+            color = Color(AppConfig.uiTextPrimary),
+            fontSize = AppConfig.uiFontToggleSize.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "$routeCount",
+                color = Color(AppConfig.uiTextMuted),
+                fontSize = 14.sp // 14sp, not uiFontValueSize (16sp) — count stays compact
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { onOpenFirstRoute?.invoke() },
+                enabled = onOpenFirstRoute != null,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_open_first_route),
+                    tint = Color(AppConfig.uiTextMuted).copy(alpha = if (onOpenFirstRoute != null) 1f else 0.35f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
     }
 }

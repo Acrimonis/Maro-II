@@ -101,12 +101,14 @@ internal fun OverlayLayer(
     onDismissSettings: () -> Unit,
     onDismissMenu: () -> Unit,
     onDismissTrackHistory: () -> Unit,
+    onDismissRouteHistory: () -> Unit = {},
     onDismissMarkerManagement: () -> Unit,
     onWizardCancel: () -> Unit,
     onMarkerDrawerClose: () -> Unit,
     /** R1: the marker wizard takes the dashboard slot — the other selected-item dashboard closes first. */
     onMarkerWizardEntry: () -> Unit = {},
     onOpenTrackHistoryFromMenu: () -> Unit,
+    onOpenRouteHistoryFromMenu: () -> Unit = {},
     onOpenMarkerManagementFromMenu: () -> Unit,
     onOpenSettingsFromMenu: () -> Unit,
     onOpenFirstTrack: (String) -> Unit = {},
@@ -128,6 +130,8 @@ internal fun OverlayLayer(
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     trackList: TrackListOverlayData,
+    /** The routes list's own bundle, read only at [ListScope.ROUTES] (S11, D4). */
+    routeList: RouteListOverlayData = RouteListOverlayData(),
     onTrackSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
     onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackReset: () -> Unit = {},
@@ -136,6 +140,16 @@ internal fun OverlayLayer(
     onTrackMapReset: () -> Unit = {},
     trackFilterLinked: Boolean = true,
     onToggleTrackLink: () -> Unit = {},
+    // ── Routes list filter + map referential (the route-scoped mirror of the track set) ──
+    onRouteSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit = {},
+    onRouteFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onRouteReset: () -> Unit = {},
+    onRouteMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onRouteMapReset: () -> Unit = {},
+    routeFilterLinked: Boolean = true,
+    onToggleRouteLink: () -> Unit = {},
+    /** The routes chevron's own menu world, mirroring [onOpenFirstTrack]. */
+    onOpenFirstRoute: (String) -> Unit = {},
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
@@ -188,6 +202,7 @@ internal fun OverlayLayer(
     val showSettings = chrome.showSettings
     val showTrackDrawer = chrome.showTrackDrawer
     val showTrackHistory = chrome.showTrackHistory
+    val showRouteHistory = chrome.showRouteHistory
     val showMarkerManagement = chrome.showMarkerManagement
     val showWizard = chrome.showWizard
     val wizardStep = chrome.wizardStep
@@ -241,6 +256,23 @@ internal fun OverlayLayer(
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
+    val routeSummaries by trackViewModel.routeSummaries.collectAsState()
+
+    // ── The one list surface, resolved to a scope (S4, S11) ──────────────────
+    // The two chrome flags are mutually exclusive, so whichever stands names the scope — never a
+    // nullable scope and never both at once. Every value the surface reads is picked here, so the
+    // tracks list and the routes list share one composable and one shape without sharing a referential.
+    val listScope = listScopeOf(showTrackHistory, showRouteHistory) ?: ListScope.TRACKS
+    val activeListSummaries = if (listScope == ListScope.ROUTES) routeSummaries else trackSummaries
+    val activeListSortState = if (listScope == ListScope.ROUTES) routeList.routeSortState else trackSortState
+    val activeListFilterState = if (listScope == ListScope.ROUTES) routeList.routeFilterState else trackFilterState
+    val activeListState = if (listScope == ListScope.ROUTES) routeList.routeListState else trackListState
+    val activeListOnSortChange = if (listScope == ListScope.ROUTES) onRouteSortStateChange else onTrackSortStateChange
+    val activeListOnFilterChange = if (listScope == ListScope.ROUTES) onRouteFilterChange else onTrackFilterChange
+    val activeListOnReset = if (listScope == ListScope.ROUTES) onRouteReset else onTrackReset
+    val activeListLinked = if (listScope == ListScope.ROUTES) routeFilterLinked else trackFilterLinked
+    val activeListOnToggleLink = if (listScope == ListScope.ROUTES) onToggleRouteLink else onToggleTrackLink
+    val activeListOnDismiss = if (listScope == ListScope.ROUTES) onDismissRouteHistory else onDismissTrackHistory
 
     // ── Keyboard: read for the scrim only ────────────────────────────────
     // The wizard is positioned by the platform's own pan, as the track card's fields are (P7a).
@@ -257,6 +289,7 @@ internal fun OverlayLayer(
     val showScrim = (showSettings
         || showTrackDrawer
         || showTrackHistory
+        || showRouteHistory
         || showMarkerManagement
         || (showWizard && imeHeightDp > 0.dp))
         && !dialogScrimActive
@@ -268,7 +301,7 @@ internal fun OverlayLayer(
     // The ladder declares the scrim and the menu before the detail slots, so the slots stand down here:
     // without this gate a surviving dashboard would draw over the panel's own scrim. State is untouched,
     // so the dashboard returns when the panel closes.
-    val panelOwnsRegion = showTrackDrawer || showSettings || showTrackHistory || showMarkerManagement
+    val panelOwnsRegion = showTrackDrawer || showSettings || showTrackHistory || showRouteHistory || showMarkerManagement
 
     // ── The open portrait bottom dashboard's measured height (Phase 2) ─────────────────
     // Each wrap-content bottom panel reports its own measured height, and the base is reported
@@ -289,6 +322,7 @@ internal fun OverlayLayer(
                     showSettings -> onDismissSettings()
                     showTrackDrawer -> onDismissMenu()
                     showTrackHistory -> onDismissTrackHistory()
+                    showRouteHistory -> onDismissRouteHistory()
                     showMarkerManagement -> onDismissMarkerManagement()
                     showWizard -> {
                         focusManager.clearFocus()
@@ -383,6 +417,18 @@ internal fun OverlayLayer(
                     onDismissMenu()
                     onOpenTrackHistoryFromMenu()
                 },
+                routeCount = menu.routeMapCount,
+                onViewRouteList = {
+                    onDismissMenu()
+                    onOpenRouteHistoryFromMenu()
+                },
+                onOpenFirstRoute = menu.firstRouteId?.let { id -> { onDismissMenu(); onOpenFirstRoute(id) } },
+                routeFilterState = menu.routeMapFilterState,
+                onRouteFilterChange = onRouteMapFilterChange,
+                onRouteReset = onRouteMapReset,
+                routeFilterLinked = routeFilterLinked,
+                onToggleRouteLink = onToggleRouteLink,
+                routeFilterAxes = ykws.android.maro.data.model.trackFilterAxes(),
                 onManageMarkers = {
                     onDismissMenu()
                     onOpenMarkerManagementFromMenu()
@@ -716,9 +762,9 @@ internal fun OverlayLayer(
             }
         }
 
-        // ── 5. TrackHistory ──────────────────────────────────────────────
+        // ── 5. Track / Route history ─────────────────────────────────────
         DrawerSlot(
-            visible = showTrackHistory,
+            visible = showTrackHistory || showRouteHistory,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .then(
@@ -730,7 +776,7 @@ internal fun OverlayLayer(
             shadowEdge = ShadowEdge.LEFT
         ) {
             TrackHistoryOverlay(
-                trackSummaries = trackSummaries,
+                trackSummaries = activeListSummaries,
                 liveTrackState = trackRecorderState,
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
@@ -740,20 +786,20 @@ internal fun OverlayLayer(
                     trackViewModel.updateLiveTrackMeta(name, comment)
                 },
                 onAction = onTrackAction,
-                onDismiss = onDismissTrackHistory,
+                onDismiss = activeListOnDismiss,
                 onNavigateToTrack = onNavigateToTrack,
                 onResumeTrack = { id -> onResumeRequest(id, true) },
                 onFollowTrack = { id -> onFollowRequest(id, true) },
                 onMergeTracks = { ids, name, keepOriginals ->
                     trackViewModel.mergeTracks(ids, name, keepOriginals)
                 },
-                sortState = trackSortState,
-                onSortStateChange = onTrackSortStateChange,
-                filterState = trackFilterState,
-                onFilterChange = onTrackFilterChange,
-                onReset = onTrackReset,
-                filterLinked = trackFilterLinked,
-                onToggleLink = onToggleTrackLink,
+                sortState = activeListSortState,
+                onSortStateChange = activeListOnSortChange,
+                filterState = activeListFilterState,
+                onFilterChange = activeListOnFilterChange,
+                onReset = activeListOnReset,
+                filterLinked = activeListLinked,
+                onToggleLink = activeListOnToggleLink,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
                 routeRenderNb = appSettings.routeRenderNb,
@@ -765,11 +811,16 @@ internal fun OverlayLayer(
                 trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
                 trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
+                trackingTransparencyPinnedRouteNewest = appSettings.trackingTransparencyPinnedRouteNewest,
+                trackingTransparencyPinnedRouteOldest = appSettings.trackingTransparencyPinnedRouteOldest,
+                trackingColorPinnedRouteFrom = appSettings.trackingColorPinnedRouteFrom,
+                trackingColorPinnedRouteTo = appSettings.trackingColorPinnedRouteTo,
                 trackingTransparencyRouteNewest = appSettings.trackingTransparencyRouteNewest,
                 trackingTransparencyRouteOldest = appSettings.trackingTransparencyRouteOldest,
                 trackingColorRouteFrom = appSettings.trackingColorRouteFrom,
                 trackingColorRouteTo = appSettings.trackingColorRouteTo,
-                lazyListState = trackListState
+                scope = listScope,
+                lazyListState = activeListState
             )
         }
 

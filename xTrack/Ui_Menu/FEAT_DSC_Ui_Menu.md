@@ -2,23 +2,25 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-10-04 12:16
+modified: 2026-10-05 19:05
 ---
 
 # Feature: Ui_Menu
 
 **Description:**
 Hamburger menu drawer — right-side sliding panel (75% width) with the routing card
-(ends, the two settings' quick access, the live summary), track recording, and marker
-management sections. Rendered via `OverlayLayer` →
+(ends, the two settings' quick access, the live summary), the routes list access, the
+track list access, and marker management sections. Rendered via `OverlayLayer` →
 `DrawerSlot` → `MenuDrawerOverlay`; the drawer's read-only menu data travels in the
 `MenuOverlayData` bundle (`OverlayLayerParams.kt`) rather than as individual `OverlayLayer`
 params (callbacks stay individual). Uses `DrawerScaffold` for fixed-header +
-scrollable body, and renders its three sections with the shared Settings stencils
+scrollable body, and renders its four sections with the shared Settings stencils
 (`SectionHeader` / `CardArea` / `SectionDivider` / `ToggleRow` in `ui/components`).
 
 
 ## Implemented
+
+- **route-list-separation (2026-10-05, `feature/list-tracks-routes`)** — the drawer gained a **ROUTES section** mirroring TRACKS, the row moved out of the ROUTING card (D11, superseding D1): a `SectionHeader` titled Routes holds the section's own Link / Filter / Reset bound to the **route map referential**, and the card under it holds the **Routes row** — a label, its count and a chevron to the first route — opening a **routes list** through `chrome.showRouteHistory`; the ROUTING card keeps the route ends, the quick access and the gated summary. The two lists are hard-separated and share the one `TrackHistoryOverlay` through a `ListScope` (`listScopeOf`, the two chrome flags mutually exclusive at every opener), the Kind axis retired so a Tracks list holds recorded tracks alone and a Routes list saved routes alone; the routes list hides the live card and the Merge action, wears `route_history_title_fmt` / `route_history_section` and a routes empty state. The route settings moved home too: the routes count, the route ladder and every route colour left the Layers tab's Tracks card for the Routing tab's Appearance block, the **Active route** line colour with them, and a pinned route gained its own transparency and colour pair. A pinned route also stays **dashed** (D12): the dash reads the summary's route **identity** rather than the render role, so the shared pinned path keeps the route's dash while a pinned recorded track stays solid. `apk-build.bat` SUCCESSFUL; `gradlew :app:testDebugUnitTest` at 927 green with one pre-existing Route-engine failure unrelated to this work → [`261005_FEAT_PLN_Ui_Menu_route-list-separation.md`](261005_FEAT_PLN_Ui_Menu_route-list-separation.md)
 
 - **dropdown-box-extract (2026-10-04)** — the dropdown's box became its own component: `ui/components/DropdownBox.kt` holds the surface, the box's four metrics and the one statement of the style its value reads — the same style the `Text` draws with and `dropdownBoxWidth` measures in — while `DropdownRow` composes it and keeps the label, the description, the anchor, the popup and the wheel. **What an environment sets is a behaviour** (`DropdownSizing.Fill` takes the width it is given, `.Content` takes the width its longest entry needs, asked of the box itself), so neither a caller nor the pair hands over a number; the pair translates its own per-side choice into it. Its chrome was then trimmed — an 8dp field, a 4dp arrow gap and a 4dp pair gap, 28dp freed across the pair — because two boxes pay that chrome twice in one row and the second one's word was being cut → [`261004_FEAT_PLN_Ui_Menu_route-quick-access.md`](261004_FEAT_PLN_Ui_Menu_route-quick-access.md) §10–§11
 - **route-quick-access (2026-10-04)** — the drawer's first card is titled `Routing` and holds three sub-sections in order: the route's two ends, the quick access to the mode's two settings, then the live summary when the mode has something to say. The pair — cruising speed beside driving preference, each a label-less `DropdownRow` whose list opens as the wheel — writes `routeFreeWaterPaceKn` / `routeSlowWaterAversion` through the same values the Settings sliders write, so the drawer is a second door and never a second home. The pace moves on a 5-knot grid, 5 … 35 kn, default 25, snapping to the nearest stop wherever it is loaded; the pair's width is a **behaviour, measured by the box itself**: the pace's side takes the width of its longest entry and the preference's the row's remainder → [`261004_FEAT_PLN_Ui_Menu_route-quick-access.md`](261004_FEAT_PLN_Ui_Menu_route-quick-access.md)
@@ -28,7 +30,7 @@ scrollable body, and renders its three sections with the shared Settings stencil
 - **toggle-zones-marker-in-menu** — "Show Zones on Map" switch in MARKERS card → `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
 
 ## Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — menu drawer content (ROUTING, TRACKS, MARKERS sections)
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — menu drawer content (ROUTING, ROUTES, TRACKS, MARKERS sections)
 - `app/src/main/java/ykws/android/maro/ui/components/DropdownBox.kt` — one dropdown's box alone: its surface, its metrics, its value style and `dropdownBoxWidth`, with `DropdownSizing` as the behaviour it is handed
 - `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the labelled field over that box: label, anchor, popup, wheel
 - `app/src/main/java/ykws/android/maro/ui/components/DropdownPairRow.kt` — two fields side by side, each side's width a behaviour

@@ -235,6 +235,9 @@
     <string name="sort_group_custom">Custom</string>
     <string name="track_history_title_fmt">Track History · %1$d</string>
     <string name="track_history_section">RECORDED TRACKS</string>
+    <string name="route_history_title_fmt">Route History · %1$d</string>
+    <string name="route_history_section">SAVED ROUTES</string>
+    <string name="route_history_empty">No saved routes yet</string>
     <string name="marker_list_title_fmt">Markers · %1$d</string>
     <string name="marker_list_section">YOUR MARKERS</string>
     <string name="track_point_count_fmt">%1$d pts</string>
@@ -305,6 +308,7 @@
 
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Tracks</string>
+    <string name="menu_manage_routes">Routes</string>
     <string name="menu_render_arrows">Arrows</string>
     <string name="menu_render_colours">Speed Colors</string>
     <string name="menu_manage_markers">Markers</string>
@@ -351,10 +355,6 @@
     <string name="filter_option_last_6_months">Last 6 month</string>
     <string name="filter_option_all">All</string>
     <string name="filter_option_unpinned">Unpinned</string>
-    <!-- The kind axis: the route field's own two words. -->
-    <string name="filter_axis_kind">Kind</string>
-    <string name="filter_option_tracks">Tracks</string>
-    <string name="filter_option_routes">Routes</string>
     <string name="filter_option_on_water">On water</string>
     <string name="filter_option_with_icon">With icon</string>
     <string name="filter_option_without_icon">Without icon</string>
@@ -375,9 +375,11 @@
     <string name="settings_reg_info_desc">Show zone info text beside the icon strip</string>
     <string name="settings_reg_info_visible">Info text visible</string>
     <string name="settings_section_tracks">Tracks</string>
-    <string name="settings_tracks_desc">Recorded tracks on the map</string>
-    <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
-    <string name="settings_tracks_direction_settings_label">Track Speed and Direction</string>
+    <string name="settings_section_tracks_and_routes">Tracks and Routes</string>
+    <string name="settings_tracks_and_routes_desc">Recorded tracks and routes on the map</string>
+    <string name="settings_tracks_transfer_desc">Export and import recorded tracks and routes</string>
+    <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks and routes</string>
+    <string name="settings_tracks_direction_settings_label">Tracks and Routes Speed and Direction</string>
     <string name="settings_tracks_speed_display_label">Speed Display</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>
     <string name="settings_tracks_direction_density_uniform">Uniform</string>
@@ -390,19 +392,23 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
     <string name="settings_tracks_count_label">Not-pinned tracks to render</string>
     <string name="settings_tracks_count_desc">This count limits non-pinned tracks only (0-20). Pinned tracks always render.</string>
-    <string name="settings_routes_count_label">Nb of routes to render</string>
-    <string name="settings_routes_count_desc">This count limits non-pinned routes only (0-20). A pinned route always renders.</string>
-    <string name="settings_transparency_label">Not-pinned transparency</string>
-    <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_track_appearance_desc">How recorded tracks are drawn on the map</string>
+    <string name="settings_routes_count_label">Not-pinned routes to render</string>
+    <string name="settings_routes_count_desc">This count limits non-pinned routes only (0-20). Pinned routes always render.</string>
+    <string name="settings_transparency_label">Not-pinned tracks transparency</string>
+    <string name="settings_transparency_desc" formatted="false">Fade across the not-pinned tracks, newest to oldest. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
     <string name="settings_transparency_border_fill_label">Transparency</string>
     <string name="settings_transparency_border_fill_value_fmt">Border %1$d%% · Fill %2$d%%</string>
-    <string name="settings_pinned_transparency_label">Pinned transparency</string>
+    <string name="settings_pinned_transparency_label">Pinned tracks transparency</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_route_transparency_label">Routes transparency</string>
-    <string name="settings_route_transparency_desc" formatted="false">Fade across the routes drawn, newest to oldest, independent of both ranges above. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_colors_label">Default Colors</string>
-    <string name="settings_colors_desc">The colours drawn while Colours is off. Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
+    <string name="settings_route_transparency_label">Not-pinned routes transparency</string>
+    <string name="settings_route_transparency_desc" formatted="false">Fade across the not-pinned routes, newest to oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_route_transparency_label">Pinned routes transparency</string>
+    <string name="settings_pinned_route_transparency_desc" formatted="false">Fade across pinned routes only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_colors_label">Default colours</string>
+    <string name="settings_colors_desc">The colours drawn while Colours is off. Past tracks: gradient from newest (From) to oldest (To). Pinned tracks: their own gradient.</string>
+    <string name="settings_routes_colors_desc">The colours drawn while Colours is off. Routes: gradient from newest (From) to oldest (To). Pinned routes: their own gradient.</string>
     <string name="settings_section_markers">Markers</string>
     <string name="settings_markers_desc">Configure how markers are rendered and when automatic idle markers are created</string>
     <string name="settings_marker_idle_threshold_label">Idle threshold</string>
@@ -442,6 +448,7 @@
     <string name="cd_view_tracks">View track list</string>
     <string name="cd_manage_markers">Manage markers</string>
     <string name="cd_open_first_track">Open first track</string>
+    <string name="cd_open_first_route">Open first route</string>
     <string name="cd_open_first_marker">Open first marker</string>
     <string name="cd_create_marker">Create marker</string>
     <string name="cd_set_icon">Set icon</string>
@@ -564,8 +571,13 @@
     <string name="settings_color_pinned_tracks">Pinned tracks</string>
     <string name="settings_color_active_route">Active route</string>
     <string name="settings_color_routes">Routes</string>
+    <string name="settings_color_pinned_routes">Pinned routes</string>
     <string name="settings_routes_speed_color_label">Speed colours on routes</string>
     <string name="settings_routes_arrows_label">Arrows on routes</string>
+    <string name="settings_routes_appearance_label">Routes Appearance</string>
+    <string name="settings_routes_appearance_desc">How saved routes are drawn on the map</string>
+    <string name="settings_routes_speed_direction_label">Routes Speed and Direction</string>
+    <string name="settings_routes_speed_direction_desc">Speed colours and direction arrows on routes</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_section_routing_tuning">Tuning</string>
     <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->
