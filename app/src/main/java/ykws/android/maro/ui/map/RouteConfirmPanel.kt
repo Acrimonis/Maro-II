@@ -83,7 +83,7 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
  * @param committed       whether an early `Select route` is waiting on the main line's finalization.
  * @param isLandscape     whether the device is in landscape orientation.
  * @param dashboardBaseHeight the dashboard's base height — the floor the panel uses in portrait.
- * @param paceKn          the cruising speed the settled line names (kn) — the pace the trip figure plans at.
+ * @param paceKn          the cruising speed the settled line names (kn) — printed in the settled status word.
  * @param onMeasuredHeight optional report of the open panel's measured height (Phase 2).
  * @param panelMaxHeight  the portrait frame's own ceiling (F5) — the band cap the map leaves,
  *                        under which a taller panel's body scrolls instead of covering the map

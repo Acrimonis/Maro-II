@@ -351,7 +351,7 @@ class RouteViewModel(
 
     private val _paceKn = MutableStateFlow(AppConfig.routeFreeWaterPaceKn.toDouble())
 
-    /** The pace the trip figure plans at (kn) — set pace, or the boat's own once it has evidence. */
+    /** The pace the settled status word names (kn) — set pace, or the boat's own once it has evidence. */
     val paceKn: StateFlow<Double> = _paceKn.asStateFlow()
 
     /**

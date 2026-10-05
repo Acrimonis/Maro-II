@@ -374,7 +374,7 @@ class RouteAvoidEngine(
             clockSampleM(ctx.cellM, ctx.fineCellM)
         )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
-        // The report's own reading: the seconds each limit slowed, ramps folded in, the band apart.
+        // The report's own reading: the seconds each limit's own water slowed, the band apart.
         val slowLimits = slowTimeByLimit(
             timedLine, ctx.pace, ctx.limitAt, inZone(ctx.zones), inBand(ctx.world),
             AppConfig.routeAvoidZone300LimitKn
