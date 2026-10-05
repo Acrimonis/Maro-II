@@ -320,10 +320,11 @@ disagree, and the pace shown is the **set** pace rather than the boat's own fitt
   and the preference's are the ladder's three rungs in its own order; each rung's word and λ come off the
   ladder (`routeRungLabelRes` / `routeRungLambdaOf`), so the wheel and the Settings slider name a rung the
   same way.
-- **The pair is the pair control** (`DropdownPairRow`, §2.16 of the component guidelines), left on its default
-  widths: the pace's side is `Content` — measured to its own longest word, `35 kn`, so **none of its seven stops
-  can ever be cut** — and the preference's is `Remainder`, taking whatever that box and the 4dp gap leave and
-  trimming its own value on one line only where the row is too short for both words whole.
+- **The pair is the pair control** (`DropdownPairRow`, §2.16 of the component guidelines), asking for the
+  **proportional split** (the user's word, 2026-10-05): each box takes a share of the row matching its own
+  longest word, so the preference's longer labels — `Balanced`, `Équilibré` — earn more room than the pace's
+  `35 kn`. This supersedes the earlier fixed-pace / elastic-preference split, under which the pair read narrow
+  on the left and roomy on the right.
 
 **Sub-section 3 — the summary, when applicable** (`RouteSummaryBlock`): it stands while the engine searches
 **and** while a route is followed — the routing-phase-alone gate of 2026-09-28 was widened on 2026-10-04 — and

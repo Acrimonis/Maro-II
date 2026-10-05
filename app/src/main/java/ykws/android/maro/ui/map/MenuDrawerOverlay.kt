@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -44,6 +45,7 @@ import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.components.DropdownField
 import ykws.android.maro.ui.components.DropdownPairRow
+import ykws.android.maro.ui.components.DropdownPairWidth
 import ykws.android.maro.ui.components.DropdownRow
 import ykws.android.maro.ui.components.MarkerCreateAction
 import ykws.android.maro.ui.components.NestedCard
@@ -558,6 +560,10 @@ fun MenuDrawerOverlay(
  * group, whichever way they sit — so the ends' stacked pair and the pair control's side-by-side one read as
  * spaced the same.
  *
+ * **Both boxes read left, and their wheels follow** (the user's word, 2026-10-05): each row is handed
+ * `TextAlign.Start`, and because the field's one alignment drives both surfaces the wheel's rows sit on the
+ * box's own axis rather than centring under it.
+ *
  * **The action that armed the acquisition was removed from here** (the user's word, 2026-10-04): the map's
  * square and the fan's own child are the doors now, so R49's "second door onto the same arming" no longer
  * counts this one, and the callback the sub-section carried went with it.
@@ -575,14 +581,16 @@ private fun RouteEndsSection(section: RouteSummaryData) {
             options = section.startOptions.map { it.selection to it.label },
             selected = section.startSelection,
             onSelect = section.onStartSelect,
-            accessibleName = stringResource(R.string.route_label_start)
+            accessibleName = stringResource(R.string.route_label_start),
+            textAlign = TextAlign.Start
         )
         DropdownRow(
             label = null,
             options = section.destinationOptions.map { it.selection to it.label },
             selected = section.destinationSelection,
             onSelect = section.onDestinationSelect,
-            accessibleName = stringResource(R.string.route_label_destination)
+            accessibleName = stringResource(R.string.route_label_destination),
+            textAlign = TextAlign.Start
         )
     }
 }
@@ -596,9 +604,10 @@ private fun RouteEndsSection(section: RouteSummaryData) {
  * `routeSlowWaterAversion` through the same callbacks the Settings page's sliders use, so the two surfaces
  * cannot disagree — and the pace box shows the **set** pace, not the boat's own fitted one.
  *
- * **The width rule is the control's own capability, and this call site leaves it on its defaults**: the
- * pace's side is measured to the longest of its words — `35 kn` — so none of the seven stops can ever be cut,
- * and the preference's takes the row's remainder and is what trims there.
+ * **The width rule is the control's own capability, and this call site asks for the proportional split**
+ * (the user's word, 2026-10-05): each box takes a share of the row matching its own longest word, so the
+ * preference's longer labels — `Balanced`, `Équilibré` — earn more room than the pace's `35 kn`, where the
+ * earlier fixed/elastic split left the pair narrow on the left and roomy on the right.
  */
 @Composable
 private fun RouteQuickAccessSection(section: RouteSummaryData) {
@@ -624,7 +633,9 @@ private fun RouteQuickAccessSection(section: RouteSummaryData) {
             selected = section.preference,
             onSelect = section.onPreferenceSelect,
             accessibleName = stringResource(R.string.settings_route_preference_label)
-        )
+        ),
+        leftWidth = DropdownPairWidth.Proportional,
+        rightWidth = DropdownPairWidth.Proportional
     )
 }
 

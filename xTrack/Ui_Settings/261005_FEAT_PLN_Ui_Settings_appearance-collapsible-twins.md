@@ -93,3 +93,9 @@ No setting's behaviour changed — copy, one new description line and two new lo
 :app:testDebugUnitTest` at 928 tests completed / 1 failed — the pre-existing, unrelated
 `RouteAvoidEngineTest > theFineCellRatioShipsAtFortyPercentOfTheCoarseCell` — so 927 green, matching
 the baseline. Device pass owed.
+
+**Follow-up 2026-10-05 (`feature/menu-align`).** The `SectionDivider()` that stood between the **Routes
+Appearance** and **Routes Speed and Direction** collapsibles was removed (the user's word), so the two route
+collapsibles now sit adjacent, as the card's own comment already claimed. The dividers that bound the section —
+one above **Routes Appearance**, separating it from the tracks group, and one below **Routes Speed and
+Direction**, separating it from the export/import row — remain.

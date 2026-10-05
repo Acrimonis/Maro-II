@@ -460,7 +460,9 @@ private fun LayersSettings(
 
             // ── The routes' own rendering values (S17/D15) — the card's 2nd section ──
             // Divided from the track group above (2026-10-05, the user's word) and from the export/import
-            // row that closes the card; the two route collapsibles stand adjacent within this section.
+            // row that closes the card; the two route collapsibles stand adjacent within this section, with
+            // **no divider between them** (2026-10-05, the user's word — the one that stood between Routes
+            // Appearance and Routes Speed and Direction was removed).
             SectionDivider()
             Expander(
                 label = stringResource(R.string.settings_routes_appearance_label),
@@ -598,8 +600,6 @@ private fun LayersSettings(
                     )
                 }
             }
-
-            SectionDivider()
 
             Expander(
                 label = stringResource(R.string.settings_routes_speed_direction_label),

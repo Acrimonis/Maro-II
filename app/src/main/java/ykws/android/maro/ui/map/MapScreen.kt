@@ -498,8 +498,10 @@ internal fun SnackRow(
                     }
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                // The message and its commands anchor to the row's **top**, not centred vertically.
-                verticalAlignment = Alignment.Top
+                // **The message centres vertically; the commands sit bottom-right** (the user's word,
+                // 2026-10-05). A two-line message no longer drags its buttons up with it: the text rides the
+                // row's own centre while each command anchors to the bottom edge.
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = message,
@@ -511,22 +513,35 @@ internal fun SnackRow(
                 )
                 if (secondActionLabel != null && onSecondAction != null) {
                     Spacer(Modifier.width(12.dp))
-                    SnackAction(label = secondActionLabel, onClick = onSecondAction)
+                    SnackAction(
+                        label = secondActionLabel,
+                        onClick = onSecondAction,
+                        modifier = Modifier.align(Alignment.Bottom)
+                    )
                 }
                 if (showUndo) {
                     Spacer(Modifier.width(12.dp))
-                    SnackAction(label = stringResource(R.string.action_undo), onClick = onUndo)
+                    SnackAction(
+                        label = stringResource(R.string.action_undo),
+                        onClick = onUndo,
+                        modifier = Modifier.align(Alignment.Bottom)
+                    )
                 }
             }
         }
     }
 }
 
-/** One command on the action row — the family's own button in its compact `SECONDARY` face (§5.7). */
+/**
+ * One command on the action row — the family's own button in its compact `SECONDARY` face (§5.7).
+ * [modifier] is how the row places it: the action row anchors each command to the bottom edge
+ * (`Modifier.align(Alignment.Bottom)`), so a wrapped message centres above them.
+ */
 @Composable
-private fun SnackAction(label: String, onClick: () -> Unit) {
+private fun SnackAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     ConfirmActionButton(
         action = ConfirmAction(label = label, role = ConfirmActionRole.SECONDARY, onClick = onClick),
+        modifier = modifier,
         compact = true
     )
 }
