@@ -1,6 +1,6 @@
 # Plan — the dropdown's list as a snapped wheel
 
-**Feature:** Ui_General · **Date:** 2026-09-29 · **Status:** implemented — the wheel is the popup's body, `WheelPolicy` unit-tested, the doctrine amended (§6); the device pass is owed
+**Feature:** Ui_General · **Date:** 2026-09-29 · **Status:** implemented then **superseded** (2026-10-05) by [`261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`](261005_FEAT_PLN_Ui_General_single-gesture-wheel.md), which retires this plan's commit rule (§3.3) and its settled list (§4), replaces the slot's measurement with the box's own height, and centres the popup on the box — so this plan is **superseded wherever it states a requirement** and kept only for its mechanism history (the wheel is the popup's body, `WheelPolicy` unit-tested, the doctrine amended in §6; the device pass is owed)
 
 ## 1. The requirement
 

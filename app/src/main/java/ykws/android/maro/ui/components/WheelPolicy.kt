@@ -1,13 +1,14 @@
 package ykws.android.maro.ui.components
 
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * **The wheel's arithmetic, stated once and free of Compose.**
  *
  * Every figure it needs is an input — the measured slot height, the height bound, the visible rows' own
  * bounds — so the slot count, the end padding and the row under the band can be unit-tested without a
- * device. The design of record is `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_dropdown-wheel.md`.
+ * device. The design of record is `xTrack/Ui_General/261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`.
  */
 
 /** The most slots a wheel opens with, whatever the list holds. */
@@ -15,9 +16,6 @@ internal const val WHEEL_MAX_SLOTS = 5
 
 /** The fewest slots a wheel opens with, unless the height bound cannot carry even these. */
 internal const val WHEEL_MIN_SLOTS = 3
-
-/** The slot height at font scale 1.0 — a bar cell's own: `18dp` of glyph plus 10dp of padding twice. */
-internal const val WHEEL_ITEM_DP = 38f
 
 /**
  * The slots a wheel opens with for [itemCount] entries, the user's rule: **five for five or more, four at
@@ -85,3 +83,13 @@ internal fun wheelTargetScrollPx(selectedIndex: Int, slotDp: Float): Float = sel
  * sit off the band. The guard applies it once per open, and never fights a clamp it cannot win.
  */
 internal fun wheelCorrectionSlots(targetIndex: Int, centredIndex: Int): Int = targetIndex - centredIndex
+
+/**
+ * **The slot a released drag lands on** — the nearest whole number of slots to [offsetPx], the distance an
+ * opening drag scrolled the wheel. It rounds to nearest, so a finger lifted between two rows takes the closer
+ * one; the popup being a separate window, the library's snap cannot reach a scroll the field itself performed,
+ * so this helper is the whole of that landing. Answers `0` when [slotPx] is not a positive figure rather than
+ * dividing by it, and is pure so it can be unit-tested beside the rest of the wheel's arithmetic.
+ */
+internal fun wheelSnapTargetSlots(offsetPx: Float, slotPx: Float): Int =
+    if (slotPx <= 0f) 0 else (offsetPx / slotPx).roundToInt()
