@@ -169,14 +169,16 @@ internal fun limitAtFor(world: MultipassWorld): (LatLng) -> Double? {
  * across all sets — only when both legs stay clear; open water keeps the bend.
  *
  * It asks two clearances and four priced segments per candidate, so it is a clearance site in its own
- * right rather than a reader of the field it is handed: it takes the walk's own [coarseStepM] and its
- * legs inherit the walk's proof, so a corner is never moved on a reading the pull would not have made.
+ * right rather than a reader of the field it is handed: it takes the walk's own [coarseStepM] for its
+ * legs and the walk's [priceStepM] for its priced segments, so a corner is never moved on a reading
+ * the pull would not have made and the two sites keep one partition.
  */
 internal fun snapToCorners(
     path: List<LatLng>,
     sets: List<CornerSet>,
     marginM: Double,
     coarseStepM: Double,
+    priceStepM: Double,
     field: RouteCostField,
     start: LatLng,
     aim: LatLng,
@@ -200,10 +202,10 @@ internal fun snapToCorners(
         val hardClear =
             MultipassPull.legClear(out[i - 1], corner, marginM, coarseStepM, field, start, aim, approaches) &&
                 MultipassPull.legClear(corner, path[i + 1], marginM, coarseStepM, field, start, aim, approaches)
-        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], marginM, coarseStepM, field) +
-            MultipassPull.softPriceSec(path[i], path[i + 1], marginM, coarseStepM, field)
-        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, marginM, coarseStepM, field) +
-            MultipassPull.softPriceSec(corner, path[i + 1], marginM, coarseStepM, field)
+        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], marginM, priceStepM, field) +
+            MultipassPull.softPriceSec(path[i], path[i + 1], marginM, priceStepM, field)
+        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, marginM, priceStepM, field) +
+            MultipassPull.softPriceSec(corner, path[i + 1], marginM, priceStepM, field)
         if (hardClear && snappedPrice <= replacedPrice) {
             out[i] = corner
         }

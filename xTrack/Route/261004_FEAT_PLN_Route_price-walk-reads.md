@@ -1,18 +1,21 @@
 <!-- scope: feature -->
 # 261004_FEAT_PLN_Route_price-walk-reads
 
-Topic: **the price walk's own reads** — the pull's priced half stops paying a live read at every 12.5 m
+Topic: **the price walk's own reads** — the pull's priced half stops paying a live read at every 25 m
 interval, behind a proof the soft sources themselves declare.
 
-Status: **Phases 1 to 3 landed** (2026-10-04, `#implement`) — reviewed before the build, and the review's
+Status: **Phases 1 to 3 and 4b landed** (2026-10-05, `#implement`) — reviewed before the build, and the review's
 findings folded in: a zone's **holes** are boundaries the declaration must cover, a mark also paid the **hard
 walls' test**, the guard's unit is named, and a group's midpoint is pinned to the fine grid. **Phase 4's device
 reading is taken** (2026-10-04, [`route-phase8.txt`](../../route-phase8.txt:1)) and what it says is that the cut
 lands exact and **saves nothing yet**: `priceMs` still holds 80 % of the pull and `priceReads` equals the mark
 count this plan's own model predicts, because the step a priced rung hands the walk collapses the grouping to
-one interval a group. **Phase 5 is the user's call.** Written on the order of the feature's own work list,
-whose step 4 says the plan comes first: the price walk is **80 % of the pull** and the pull is the solve's cost
-centre.
+one interval a group. **Phase 4b landed (2026-10-05)** — the step's own value, the cut that reading named:
+[`RoutePassRunner`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:163) now
+answers it through the pure `priceStepFor(walk)`, both steps travel as required parameters, five tests pin it,
+and the build is green. **Phase 5, the aligned shared grid, stays the user's call.** Written on the order of the feature's own
+work list, whose step 4 says the plan comes first: the price walk is **80 % of the pull** and the pull is the
+solve's cost centre.
 
 Placement: the work is the shared `multipass` layer's, so **both engines** take it and only the step
 travels per engine. The grid, the search, the corner pass, the clock and the drawn line are untouched —
@@ -30,10 +33,11 @@ paces as [`route-phase7.txt`](../../route-phase7.txt:1):
   `clearanceNanos` and `priceNanos` are told apart, so the win this plan buys is read on `priceMs` alone.
 
 **The cost model, from the loop itself.** [`softPriceSec()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:294)
-walks one chord at `marginM / 2` = **12.5 m** intervals (`route.avoid.obstacle.marginM` = 25, the shipped
-value), placing a read at each interval's midpoint:
+walks one chord at `marginM / 2` = **25 m** intervals (`route.avoid.obstacle.marginM` = 50, the shipped value
+— this line's *25 → 12.5 m* reading was stale and is corrected 2026-10-05), placing a read at each interval's
+midpoint:
 
-- the two-pointer evaluates `O(n²)` chord candidates, so the read count is `Σ over chords (chordM / 12.5)`
+- the two-pointer evaluates `O(n²)` chord candidates, so the read count is `Σ over chords (chordM / 25)`
   — the same `n² / 2` volume the mark-count item names, measured through the price;
 - the prefix [`softPricePrefix()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:308)
   adds one chord walk per path segment, and the path is the raw cell chain, so ~2 reads a point on the band's
@@ -79,10 +83,13 @@ the proof is declared by the sources it protects, never inferred by the walk.**
   exact rather than approximate.
 - **Consecutive fine intervals group into one coarse interval**, whose length is a whole number of fine
   intervals, so a group's price is a multiple of the fine grid's own `stepM` and the sum's partition is
-  refined rather than replaced. The group's length follows the walk's own cell (100 m on `avoid`, 100 m
-  interior / 20 m band on `evolutive`), the value the clearance cut already threads per engine.
+  refined rather than replaced. **The price step is the walk's interior cell — 100 m on both engines → `k = 4`
+  at the shipped margin (`marginM` 50, so the fine interval is 25 m), a 50 m proof radius — and never the
+  walk's local cell**, which the measurement of 2026-10-04 showed to be the band's own 20 m on `evolutive`,
+  collapsing the quotient to 1. The clearance walk keeps the local cell it already threads per engine, and the
+  two steps travel together as required parameters.
 - **One read prices a whole group where it is proved to hold one price.** A group is a whole number `k` of
-  the fine grid's own intervals — whose length is `dist / steps`, never a nominal 12.5 m — so its read stands
+  the fine grid's own intervals — whose length is `dist / steps`, never a nominal 25 m — so its read stands
   at `chordPoint(a, b, (i0 + k / 2) / steps)`, the group's own midpoint on that grid, and its half-length is
   `k × stepM / 2`. The fine midpoints inside it are then skipped.
 - **A proved group's hard test is skipped with it, and no verdict moves.** The depth gate is a *step*, so no
@@ -103,10 +110,10 @@ the proof is declared by the sources it protects, never inferred by the walk.**
   **one** coast read to prove itself and then one for its price, against the `k` fine reads it replaces: a win
   of `k − 2` a group, not the `k` the first model claimed. The landed hop states this as its one deviation, and
   `priceReads` carries the figure the measurement will price.
-- **The step is required, never defaulted**: it is the same parameter, from the same source, that
-  [`legClearCause()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:211)
-  already takes as `coarseStepM`, and this corpus has already ruled that a defaulted step re-arms the
-  defect the first time a caller forgets.
+- **Both steps are required, never defaulted**: the price step travels as its own required parameter beside
+  the clearance step [`legClearCause()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:211)
+  takes as `coarseStepM`, and this corpus has already ruled that a defaulted step re-arms the defect the
+  first time a caller forgets.
 - **No plan member, no property key and no new vocabulary**: the thresholds are the shipped keys the law
   already reads, and the step is a parameter.
 
@@ -185,7 +192,7 @@ Shipped declarations:
 ## The cut — where it lands
 
 - [`softPriceSec()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:294)
-  takes the coarse step as a **required** parameter, groups the fine intervals into whole coarse
+  takes the price step as a **required** parameter, groups the fine intervals into whole price steps
   intervals, reads each group's midpoint, and asks the field's clearance at that reading before it
   honours it; the group's product replaces its fine walks where proved.
 - [`softPricePrefix()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:308)
@@ -197,9 +204,9 @@ Shipped declarations:
   asks four priced segments per candidate and its verdict decides where a bend lands, and
   [`RouteFinePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:30)
   prints the fine pass's own price; both take the same step and inherit the same proof.
-- **The step is threaded from the callers as the clearance step already is**
-  ([`RoutePassRunner`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:64)'s
-  local rule hands the walk's own cell).
+- **The step is threaded from the callers**: [`RoutePassRunner`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:163)
+  answers the pure `priceStepFor(walk)` — the walk's interior cell, never its fine one — and hands it beside
+  the clearance step.
 - **One grid, one floor**: `softPriceSec` samples at the raw `marginM / 2` today while
   [`clearanceStep()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:149)
   floors the same quantity at `MIN_SAMPLE_STEP_M`; the cut routes both through the one home, so the two
@@ -215,7 +222,7 @@ Shipped declarations:
 ## The second lever, named and parked
 
 - Today the clearance walk's marks stand at `i / steps` of a chord and the price walk's at
-  `(i + 0.5) / steps` — the **same 12.5 m grid, offset by half an interval**. So the coast read a proved
+  `(i + 0.5) / steps` — the **same 25 m grid, offset by half an interval**. So the coast read a proved
   price group makes is a *second* read of a point a mark stands beside, not a shared one.
 - Aligning the price's interval midpoints onto the fine marks, and letting both halves read one coast
   distance at that point, would halve the coast reads — but it replaces the Riemann partition and so
@@ -258,12 +265,25 @@ Shipped declarations:
    15987.3 / 91767. **The split is unchanged**: `priceMs` is 80.4 % and 79.7 % of the pull — the share the `## Why`
    opened with — and 87 176 reads on a 13.3 km route is the mark count this plan's own model predicts rather than
    a fraction of it. **The diagnosis is arithmetic**: [`softPriceSec()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:338)
-   groups `floor(coarseStepM / stepM)` fine intervals, and the step a priced rung hands it is the walk's own
+   groups `floor(priceStepM / stepM)` fine intervals, and the step a priced rung handed it was the walk's own
    **local** cell — the band's **20 m**, which is exactly the water a price is paid in — so the quotient is **1**,
    no group is ever formed, and every fine mark reads as it did before. What the pass also records: the merge's
    own count is 11 and 26 windows at **~0.013 ms a cell** with no per-window overhead left (the old shape was
    0.033 ms a cell plus 12 ms a window), and the price half's per-read cost stands at **169 µs**
    (`14738.3 ms / 87176` reads).
+4b. **The step's own value — done 2026-10-05, the cut the measurement named** — `priceStepFor(walk)` answers
+   the walk's interior cell and never its fine one, and that step travels as a **required** parameter beside
+   the clearance step: [`pull`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:70)
+   and [`snapToCorners()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassPrimitives.kt:175)
+   take both, the priced sites take the price step alone, and the prefix and the guard keep one partition.
+   Nothing else moved: exactness rests on the arm being constant and never on the step's size, so the line, the
+   distance, the guard and the clock cannot move. Landed: five tests in
+   [`AvoidPriceWalkTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/AvoidPriceWalkTest.kt:236)
+   — the equivalence with the `k − 2` saving, the seam, the two-layer fixture, the collar chord and the shipped
+   declaration closure — the suite at 903 tests with its one parked red, and `apk-build.bat` green. **Two gaps
+   this landing's review named, both owed**: the seam test pins `priceStepFor` but drives no `runPass`, so a
+   reverted call site would collapse the grouping with the suite green; and the collar chord's deep half passes
+   on the hole's own `|d − 100|` term, a reason its comment does not state and its assertions do not count.
 5. **The second lever, only on the user's word** — the aligned shared grid, with its own stated error and
    its own reading.
 
@@ -273,6 +293,11 @@ Shipped declarations:
   boundary and a counting price source, the coarsened `softPriceSec` returns **the same double** as
   today's walk and pays **strictly fewer** reads — one test, two assertions, and it is the proof rather
   than a proxy for it.
+- **The step handed at the seam is asserted, not assumed**: Phase 4's collapse was invisible to the whole
+  suite, because every fixture threads its own step, so the engine's own choice could fall to `k = 1` with
+  every test green. Landed 2026-10-05 **short of its own claim**: `priceStepFor` is pinned and a two-layer
+  fixture proves a group forms, but no test drives `runPass`, so the call site that hands the step is still
+  unasserted — the gap the landing's review named and the next pass owes.
 - **An unproved group keeps today's reads and today's verdict**: a chord running along the band's edge at
   350 m reads at every fine midpoint, and the chord's acceptance is the one today's walk gives.
 - **A shallow patch inside a group is still refused** — the depth gate is a hard step and
@@ -286,9 +311,9 @@ Shipped declarations:
   the saving is read once and the discarded `blocked` flag is proven discarded.
 - **The prefix is asserted, not inferred**: the coarsened `softPricePrefix` equals today's prefix over a path
   fixture, since its identity follows from the chord's by construction alone.
-- **Two gaps the landing's review left, owed with Phase 4**: the ring collar has a declaration test but no
-  walk-level chord, and the **shipped** declaration closure in `costField` is exercised by no test — every
-  fixture hand-rolls its own, so the one declaration that ships is the one the suite never asks.
+- **Two gaps an earlier review left, now closed** (2026-10-05): the ring collar has its walk-level chord, and
+  the **shipped** declaration closure in `costField` is exercised by a test of its own — every fixture used to
+  hand-roll its own, so the one declaration that ships is no longer the one the suite never asks.
 - **A ring's collar boundary is proved like the band's**: a fixture whose chord runs inside the collar's
   100 m ring keeps the fine reads, and one deep inside the ring proves the group from its own ring
   distance.
@@ -332,18 +357,21 @@ Shipped declarations:
   Fixed sample marks along a chord with a memo of the reads they already paid is the next lever, and it
   is measurable once the per-read cost is down.
 - **The second lever above** — the aligned shared grid, whose error is up to one interval's price.
-- **The landing's hygiene trio** (the review's, 2026-10-04) — the stale `pull` `@param coarseStepM` KDoc beside
-  the landed step, the test titled `aProvedGroupPaysNoHardRead` where only the price read is what is proven,
-  and `RouteCostField`'s vestigial field-level clearance loop.
+- **The landing's hygiene pair** (2026-10-04) — the test titled `aProvedGroupPaysNoHardRead` where only the
+  price read is what is proven, and `RouteCostField`'s vestigial field-level clearance loop; the trio's third,
+  the stale `pull` `@param coarseStepM` KDoc, was repaired by Phase 4b when the two steps split.
 
 ## Open questions
 
-- **The coarse step's value — the measurement has overtaken the recommendation**: the walk's own cell was
-  recommended because it needs no key and already describes the water's resolution, and the pass shows what that
-  means on the water a price is paid in: the local cell *is* the band's fine one, so the quotient is 1 and no
-  group ever forms. The lever is the walk's **interior** cell (100 m → `k = 8`, a 50 m proof radius) or an
-  explicit multiple of the fine cell, and the exactness argument is unchanged by it, because exactness rests on
-  the arm being constant and never on the step's size.
+- **The coarse step's value — settled 2026-10-05: the walk's interior cell**, the law stated once in *The
+  rule* above and carried by its own phase. The walk's own cell was the original recommendation because it
+  needs no key and already describes the water's resolution, and the measurement showed what that means on the
+  water a price is paid in: on `evolutive` the local cell *is* the band's fine one, so the quotient was 1 and
+  no group ever formed. The same reading makes plain that the collapse is that engine's alone — `avoid`'s single
+  100 m walk had been grouping at the shipped margin's `k = 4` all along, its price share never measured — so the settlement makes
+  the two engines agree instead of opening a gap. The named alternative, an explicit multiple of the fine
+  cell, is **not taken**: it invents a factor the walk already carries, and exactness rests on the arm being
+  constant and never on the step's size.
 - **The aligned shared grid — the user's call, not the agent's**: it moves the guard's arithmetic by a
   stated step and so can move the line, which is a change the user sees; the proof above cannot.
 - **Whether the collar's own price is worth protecting separately — settled in shape, open in value**: the

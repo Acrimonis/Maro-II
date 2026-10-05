@@ -43,10 +43,11 @@ class AvoidPullSamplingTest {
         val coarse = RouteCostField.ofHard { coarseReads++; Double.MAX_VALUE }
 
         val denseLine = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, marginM, MultipassPull.clearanceStep(marginM), dense
+            listOf(start, mid, aim), start, aim, marginM, MultipassPull.clearanceStep(marginM),
+            MultipassPull.clearanceStep(marginM), dense
         )
         val coarseLine = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, marginM, coarseStepM, coarse
+            listOf(start, mid, aim), start, aim, marginM, coarseStepM, coarseStepM, coarse
         )
 
         assertEquals("the coarse walk returns the fine walk's own line", denseLine, coarseLine)
@@ -67,7 +68,7 @@ class AvoidPullSamplingTest {
         val wall = LatLng(south(20.0), east(800.0))
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, field)
+        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
 
         assertEquals("the grazed chord is refused, as the fine walk refuses it", path, pulled)
     }
@@ -91,7 +92,7 @@ class AvoidPullSamplingTest {
             )
         )
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, field)
+        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
 
         assertEquals("a shallow patch the coarse marks step over is still refused", path, pulled)
     }
@@ -111,7 +112,7 @@ class AvoidPullSamplingTest {
         val wall = LatLng(south(24.0), east(100.0))
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, field)
+        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
 
         assertEquals("a wall just inside the margin is never proved clear", path, pulled)
     }

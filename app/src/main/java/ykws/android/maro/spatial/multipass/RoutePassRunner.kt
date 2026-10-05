@@ -62,11 +62,15 @@ internal class RoutePassRunner {
         // The guard reads the water the snap guards: for a two-layer walk that is the fine band's own cell,
         // not the interior's, so the tail's prices sit at the resolution the line was resolved at (Phase 6).
         val tailCellM = if ((walk.windows?.layerCount ?: 1) > 1) ctx.fineCellM else cellM
-        // The coarse step is the walk's own local cell — `tailCellM` above: the fine band's cell where
-        // the walk is two-layer, the single grid's own cell elsewhere — so the step travels per engine
+        // The **clearance** step is the walk's own local cell — `tailCellM` above: the fine band's cell
+        // where the walk is two-layer, the single grid's own cell elsewhere — so it travels per engine
         // while the pull stays one walk. A step under the fine one would spare nothing at all, and the
         // caller never hands one: both shipped cells stand well above it.
         val coarseStepM = tailCellM
+        // The **price** step is the walk's own **interior** cell, read from the walk by its own pure
+        // function — never the local band cell above, whose 20 m collapsed the price grouping to one
+        // interval a group and made the shared price walk save nothing (Phase 4b).
+        val priceStepM = priceStepFor(walk)
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
@@ -108,11 +112,12 @@ internal class RoutePassRunner {
         val pullTiming = PullTiming()
         val pullStartNs = System.nanoTime()
         val pulled = MultipassPull.pull(
-            full, start, aim, marginM, coarseStepM, guardField, approaches, refusals, pullTiming
+            full, start, aim, marginM, coarseStepM, priceStepM, guardField, approaches, refusals, pullTiming
         )
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
-                "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)}"
+                "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
+                "priceReads=${pullTiming.priceReads}"
         }
         // The provisional pair belongs to this boundary and to the pulled line alone: the line is taut
         // here, but the settled clock is still the pull → snap → pull tail and the corner pass away, so
@@ -133,17 +138,18 @@ internal class RoutePassRunner {
         )
         val snapStartNs = System.nanoTime()
         val snapped = snapToCorners(
-            pulled, sets, marginM, coarseStepM, guardField, start, aim, approaches
+            pulled, sets, marginM, coarseStepM, priceStepM, guardField, start, aim, approaches
         )
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
         val final = MultipassPull.pull(
-            snapped, start, aim, marginM, coarseStepM, guardField, approaches, refusals, finalTiming
+            snapped, start, aim, marginM, coarseStepM, priceStepM, guardField, approaches, refusals, finalTiming
         )
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
-                "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)}"
+                "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
+                "priceReads=${finalTiming.priceReads}"
         }
         val timed = timeLineWithLimits(
             final, pace, limitAt, clockSampleM(cellM, ctx.fineCellM)
@@ -151,6 +157,16 @@ internal class RoutePassRunner {
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
     }
+
+    /**
+     * **The price walk's own step for [walk]** — the walk's **interior** cell, and never under its
+     * fine one: `GridContext.cellM` is the interior's however many windows the walk spans, so this is
+     * the 100 m cell both engines carry, not the band's 20 m. It is a named pure function of the walk
+     * alone, so a test can pin the step the runner hands the pull — the collapse Phase 4's whole suite
+     * could not see, because every fixture threaded its own step and the engine's own choice was never
+     * read.
+     */
+    internal fun priceStepFor(walk: GridWalk): Double = walk.cellM
 
     /** The pulled polyline's own length (m) — the provisional distance, never a staircase's. */
     private fun pulledLengthM(points: List<LatLng>): Double {

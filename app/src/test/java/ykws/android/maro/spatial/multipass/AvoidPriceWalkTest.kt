@@ -1,16 +1,21 @@
 package ykws.android.maro.spatial.multipass
 
+import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.min
 
 /**
@@ -105,8 +110,8 @@ class AvoidPriceWalkTest {
         assertEquals("and every fine midpoint is still read", fineReads, coarseReads)
         assertTrue("the walk is not vacuous: the collar is priced", coarseSum > 0.0)
 
-        val fineLine = MultipassPull.pull(path, start, aim, marginM, fineStepM, bandEdgeField {})
-        val coarseLine = MultipassPull.pull(path, start, aim, marginM, coarseStepM, bandEdgeField {})
+        val fineLine = MultipassPull.pull(path, start, aim, marginM, fineStepM, fineStepM, bandEdgeField {})
+        val coarseLine = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, bandEdgeField {})
         assertEquals("and the chord's verdict is the one today's walk gives", fineLine, coarseLine)
     }
 
@@ -133,7 +138,7 @@ class AvoidPriceWalkTest {
             )
         )
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, field)
+        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
 
         assertEquals("a shallow patch the coarse marks step over is still refused", path, pulled)
     }
@@ -226,6 +231,168 @@ class AvoidPriceWalkTest {
         assertTrue("the hole is seen, so its edge is nearer than the outer ring's", declared < outerOnly)
     }
 
+    /**
+     * **The equivalence's own shape: `k − 2` a group.** A constant price whose boundary is declared far
+     * away, on a meridian chord whose fine grid divides into whole groups of `k` — so the coarsened walk
+     * returns today's own double and pays exactly its prove (the declaration read) and its price per
+     * group, sparing `k − 2` reads a group. Its control is its own arithmetic: the fine walk reads every
+     * midpoint and pays no declaration.
+     */
+    @Test
+    fun aProvedGroupSavesExactlyTwoReadsPerGroup() {
+        val start = LatLng(CHORD_LAT, 7.00)
+        val aim = LatLng(CHORD_LAT + 1595.0 / M_PER_DEG_LAT, 7.00)
+        var fineReads = 0
+        var coarseReads = 0
+
+        val fine = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, countingField { fineReads++ })
+        val coarse = MultipassPull.softPriceSec(start, aim, marginM, coarseStepM, countingField { coarseReads++ })
+
+        val steps = fineReads
+        val dist = SpatialOperations.haversine(start, aim)
+        val k = floor(coarseStepM * steps / dist).toInt()
+        val groups = steps / k
+
+        assertEquals("the fixture's fine grid divides into whole groups of k", 0, steps % k)
+        assertEquals("k is the shipped 8", 8, k)
+        assertEquals("the coarsened walk returns today's own double, not a near miss", fine, coarse, 0.0)
+        assertEquals(
+            "a proved group pays its prove and its price, and nothing else",
+            groups * 2, coarseReads
+        )
+        assertEquals(
+            "so the saving is exactly k − 2 a group",
+            groups * (k - 2), steps - coarseReads
+        )
+    }
+
+    /**
+     * **The seam the Phase 4 collapse hid.** The phase's whole suite was green while the engine handed
+     * the pull the *fine* cell, because every fixture threaded its own step and the runner's own choice
+     * was never read. The step is now a named pure function of the walk, so this pins what the runner
+     * hands the pull on the `evolutive` pair: the walk's **interior** cell, never the band's fine one.
+     */
+    @Test
+    fun theRunnerHandsThePriceWalkTheInteriorCellNeverTheFineOne() {
+        val walk = twoLayerWalk()
+        val runner = RoutePassRunner()
+
+        assertEquals(
+            "the price step is the walk's interior cell — 100 m, the interior's own",
+            100.0, runner.priceStepFor(walk), 0.0
+        )
+        val fine = walk.windows!!.cellSizeM(1)
+        assertEquals("while the band's local cell is the fine 20 m", 20.0, fine, 0.0)
+        assertTrue("so a collapse to the fine cell would be visible", runner.priceStepFor(walk) != fine)
+
+        val single = GridWalk(walk.grid, CellIndex(0, 0), CellIndex(1, 1), 100.0)
+        assertEquals("a single-grid walk answers its own cell", 100.0, runner.priceStepFor(single), 0.0)
+    }
+
+    /**
+     * **The two-layer fixture the collapse cannot return through.** On the same `evolutive` pair the
+     * interior step groups and spares reads, while the band's local step collapses the quotient to one
+     * interval a group and reads every midpoint — the defect, and its fix, on one fixture.
+     */
+    @Test
+    fun aTwoLayerWalkGroupsItsPriceWhereTheFineStepCouldNot() {
+        val walk = twoLayerWalk()
+        val interiorStep = RoutePassRunner().priceStepFor(walk)
+        val localStep = walk.windows!!.cellSizeM(1)
+
+        val start = LatLng(CHORD_LAT, 7.00)
+        val aim = LatLng(CHORD_LAT + 1595.0 / M_PER_DEG_LAT, 7.00)
+        var interiorReads = 0
+        var localReads = 0
+
+        val interiorSum = MultipassPull.softPriceSec(start, aim, marginM, interiorStep, flatField { interiorReads++ })
+        val localSum = MultipassPull.softPriceSec(start, aim, marginM, localStep, flatField { localReads++ })
+
+        assertEquals("the two steps price the same water identically", interiorSum, localSum, 0.0)
+        assertTrue("the interior step groups and spares reads", interiorReads < localReads)
+        assertTrue("while the fine local step reads every midpoint, exactly as before", localReads > 0)
+    }
+
+    /**
+     * **The ring collar's own walk-level chord** — the test Phase 4's review left owed: the collar had a
+     * declaration test but no chord. A chord running through the collar keeps today's fine reads (its
+     * declaration never reaches a group's half-length), while a chord deep inside the ring proves its
+     * groups from the ring's own distance.
+     */
+    @Test
+    fun aRingCollarChordKeepsItsFineReadsAndADeepRingChordGroups() {
+        // The outer ring spans east(150)..east(1450); its south edge is at south(445), so this chord sits
+        // 20 m inside the 100 m collar.
+        val collarStart = LatLng(south(465.0), east(200.0))
+        val collarAim = LatLng(south(465.0), east(1400.0))
+        var collarFine = 0
+        var collarCoarse = 0
+        val collarFineSum =
+            MultipassPull.softPriceSec(collarStart, collarAim, marginM, fineStepM, holeField { collarFine++ })
+        val collarCoarseSum =
+            MultipassPull.softPriceSec(collarStart, collarAim, marginM, coarseStepM, holeField { collarCoarse++ })
+        assertEquals("the collar keeps today's sum exactly", collarFineSum, collarCoarseSum, 0.0)
+        assertEquals("and every fine midpoint is still read", collarFine, collarCoarse)
+        assertTrue("the collar's water is priced, so the walk is not vacuous", collarFineSum > 0.0)
+
+        // 200 m north of the chord: inside the ring, 89 m from the hole's own edge and 245 m from the
+        // outer ring, so the declaration clears a group's 50 m half-length and the groups are proved.
+        val deepStart = LatLng(north(200.0), east(400.0))
+        val deepAim = LatLng(north(200.0), east(1200.0))
+        var deepFine = 0
+        var deepCoarse = 0
+        MultipassPull.softPriceSec(deepStart, deepAim, marginM, fineStepM, holeField { deepFine++ })
+        MultipassPull.softPriceSec(deepStart, deepAim, marginM, coarseStepM, holeField { deepCoarse++ })
+        assertTrue("deep inside the ring the declaration proves groups", deepCoarse < deepFine)
+        assertTrue("and the ring water is priced", deepFine > 0)
+    }
+
+    /**
+     * **The shipped `costField` declaration closure** — the second test Phase 4's review left owed: every
+     * fixture hand-rolls its own declaration, so the one that ships was the one the suite never asked.
+     * This builds the field through `costField` and reads its declaration, exercising both arms — the
+     * band's two circles and the ring's own edge.
+     */
+    @Test
+    fun theShippedCostFieldClosureDeclaresTheBandsCirclesAndTheRings() {
+        setSpeedZoneSwitch(true)
+        val world = BandWorld(bandM = bandWidthM, coastLat = CHORD_LAT, zones = listOf(holedZone))
+        val field = costField(
+            world, cellM = 50.0, pace = paceKn, withZones = true, withBand = true,
+            zones = listOf(holedZone), lambda = lambda
+        )
+
+        // 310 m off the coast: inside the band's 300 m circle by 10 m, and far from the ring.
+        val inBand = LatLng(CHORD_LAT + 310.0 / M_PER_DEG_LAT, east(0.0))
+        assertEquals(
+            "the band's own circle at 300 m is named",
+            min(abs(310.0 - bandWidthM), abs(310.0 - bandReachM(bandWidthM, bandOutsideMarginM))),
+            field.priceClearanceM(inBand),
+            1e-6
+        )
+        assertTrue("and the closure's band arm prices that point", field.softPriceSecAt(inBand) > 0.0)
+
+        // On the ring's own south edge: the closure's zone arm names it, at distance 0.
+        val onRingEdge = LatLng(south(445.0), east(800.0))
+        assertEquals(
+            "the ring's own edge is named too",
+            0.0,
+            field.priceClearanceM(onRingEdge),
+            1e-6
+        )
+    }
+
+    @After
+    fun restoreSpeedZoneSwitch() {
+        setSpeedZoneSwitch(false)
+    }
+
+    private fun setSpeedZoneSwitch(value: Boolean) {
+        val field = AppConfig::class.java.getDeclaredField("routeAvoidSpeedZoneEnabled")
+        field.isAccessible = true
+        field.setBoolean(AppConfig, value)
+    }
+
     // ── Fixtures ──────────────────────────────────────────────────────────────
 
     /** A constant price whose source declares its nearest boundary far past any group's half-length. */
@@ -238,6 +405,41 @@ class AvoidPriceWalkTest {
             )
         )
     )
+
+    /**
+     * A constant price counting **both** the reads a proved group pays: its declaration
+     * ([RouteCostSource.Soft.priceClearanceM]) and its price ([RouteCostField.softPriceSecAt]), so a
+     * proved group's `k − 2` saving is read net of what proving it costs.
+     */
+    private fun countingField(counting: () -> Unit): RouteCostField = RouteCostField(
+        listOf(
+            RouteCostSource.Soft(
+                priceSec = { counting(); fullSec },
+                tag = MultipassCellState.ZONE,
+                clearanceAt = { counting(); CLEAR_OF_ANY_BOUNDARY_M }
+            )
+        )
+    )
+
+    /** The `evolutive` pair: an interior grid at 100 m and a band window at 20 m, one two-layer walk. */
+    private fun twoLayerWalk(): GridWalk {
+        val family = LatticeFamily.of(BBox(43.45, 43.55, 6.95, 7.05), coarseCellM = 100.0, fineCellM = 20.0)
+        val coarseGrid = MultipassGrid(
+            family.coarse.latSouth, family.coarse.lonWest,
+            family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon,
+            2, 2, family.coarse.cellM, baseCostSec(family.coarse.cellM, paceKn)
+        )
+        val fineGrid = MultipassGrid(
+            family.fine.latSouth, family.fine.lonWest,
+            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+            10, 10, family.fine.cellM, baseCostSec(family.fine.cellM, paceKn)
+        )
+        val windows = WalkWindows.onLattice(
+            family.layers,
+            listOf(WalkWindow(coarseGrid, 0, 0, layer = 0), WalkWindow(fineGrid, 0, 0, layer = 1))
+        )
+        return GridWalk(coarseGrid, CellIndex(0, 0), CellIndex(1, 1), family.coarse.cellM, windows)
+    }
 
     /**
      * The band's own law off a synthetic straight coast 340 m from the chord: the collar arm where the
@@ -305,6 +507,30 @@ class AvoidPriceWalkTest {
             nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, ring[i], ring[i + 1]))
         }
         return nearest
+    }
+
+    /** A world with one straight coast parallel to the chord — the shipped closure's own input. */
+    private class BandWorld(
+        private val bandM: Double,
+        private val coastLat: Double,
+        private val zones: List<SpeedZone> = emptyList()
+    ) : MultipassWorld {
+        private val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+
+        override val coastlineReady = true
+        override val depthReady = false
+        override val bandWidthM = bandM
+        override val regionBounds: BBox? = null
+
+        override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
+        override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
+        override fun isWater(latitude: Double, longitude: Double) = true
+        override fun distanceToCoastM(latitude: Double, longitude: Double): Double =
+            abs(latitude - coastLat) * mPerDegLat
+        override fun depthAt(latitude: Double, longitude: Double) = DepthSample.NONE
+        override fun speedZonesIn(box: BBox): List<SpeedZone> = zones
+        override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
+            strictestLimitKnAt(zones, emptySet(), latitude, longitude)
     }
 
     private companion object {
