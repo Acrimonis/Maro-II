@@ -148,6 +148,9 @@ internal fun OverlayLayer(
     onRouteMapReset: () -> Unit = {},
     routeFilterLinked: Boolean = true,
     onToggleRouteLink: () -> Unit = {},
+    /** The two kinds' map-visibility eyes in the drawer headers (2026-10-05). */
+    onToggleTrackVisible: () -> Unit = {},
+    onToggleRouteVisible: () -> Unit = {},
     /** The routes chevron's own menu world, mirroring [onOpenFirstTrack]. */
     onOpenFirstRoute: (String) -> Unit = {},
 
@@ -428,6 +431,10 @@ internal fun OverlayLayer(
                 onRouteReset = onRouteMapReset,
                 routeFilterLinked = routeFilterLinked,
                 onToggleRouteLink = onToggleRouteLink,
+                trackVisible = menu.tracksVisible,
+                routeVisible = menu.routesVisible,
+                onToggleTrackVisible = onToggleTrackVisible,
+                onToggleRouteVisible = onToggleRouteVisible,
                 routeFilterAxes = ykws.android.maro.data.model.trackFilterAxes(),
                 onManageMarkers = {
                     onDismissMenu()
@@ -800,7 +807,10 @@ internal fun OverlayLayer(
                 onReset = activeListOnReset,
                 filterLinked = activeListLinked,
                 onToggleLink = activeListOnToggleLink,
-                tracksVisible = appSettings.tracksVisible,
+                // The scope's own kind gates the preview: the routes list keys off routesVisible, the
+                // tracks list off tracksVisible (2026-10-05).
+                tracksVisible = if (listScope == ListScope.ROUTES) appSettings.routesVisible
+                                else appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
                 routeRenderNb = appSettings.routeRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,

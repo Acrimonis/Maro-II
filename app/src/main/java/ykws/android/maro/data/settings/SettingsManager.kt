@@ -283,7 +283,14 @@ data class AppSettings(
     val markerHaloUnpinnedFillTransparencyPct: Int = 90,
     /** Unpinned halo border/stroke transparency % (0-100). Default 60 = faint ring. */
     val markerHaloUnpinnedBorderTransparencyPct: Int = 60,
+    /**
+     * The two kinds' own map visibility — the drawer headers' eye toggles. [tracksVisible] gates
+     * recorded tracks (pinned tracks with them) and [routesVisible] gates routes (pinned routes with
+     * them); each is a **render switch alone**, so the menu counts follow the filters and never these
+     * flags. The map's layer fan reads [tracksVisible] alone.
+     */
     val tracksVisible: Boolean = true,
+    val routesVisible: Boolean = true,
     /**
      * Which face the map's speed-scale control wears: true is the expanded card, false the collapsed
      * toggle square. An unwritten key means expanded, i.e. exactly the behaviour before the toggle
@@ -714,6 +721,7 @@ class SettingsManager(
         markerHaloUnpinnedFillTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, 90),
         markerHaloUnpinnedBorderTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, 60),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
+        routesVisible = prefs.getBoolean(KEY_ROUTES_VISIBLE, true),
         // Absent means expanded: today's behaviour is the fallback, so no install has anything to migrate.
         trackLegendExpanded = prefs.getBoolean(KEY_TRACK_LEGEND_EXPANDED, true),
         // The two render axes: the arrows' argument runs the retired-value migration and the colours'
@@ -914,6 +922,7 @@ class SettingsManager(
             .putInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, updated.markerHaloUnpinnedFillTransparencyPct)
             .putInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, updated.markerHaloUnpinnedBorderTransparencyPct)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
+            .putBoolean(KEY_ROUTES_VISIBLE, updated.routesVisible)
             .putBoolean(KEY_TRACK_LEGEND_EXPANDED, updated.trackLegendExpanded)
             .putBoolean(KEY_TRACK_ARROWS, updated.trackArrows)
             .putBoolean(KEY_TRACK_COLOURS, updated.trackColours)
@@ -1091,6 +1100,8 @@ class SettingsManager(
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
+        /** The routes' own map visibility, the routes header's eye (see [AppSettings.routesVisible]). */
+        private const val KEY_ROUTES_VISIBLE = "routes_visible"
         /** The speed-scale control's face; non-null, so an unwritten key simply reads back as expanded. */
         private const val KEY_TRACK_LEGEND_EXPANDED = "track_legend_expanded"
         /** Whether stored tracks wear direction chevrons; the menu's twin box is its only writer. */

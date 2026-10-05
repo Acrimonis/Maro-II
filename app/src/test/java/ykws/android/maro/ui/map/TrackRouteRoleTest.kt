@@ -352,4 +352,57 @@ class TrackRouteRoleTest {
         assertEquals(listOf("track-in", "track-out"), selection.recorded.map { it.id }.sorted())
         assertEquals(listOf("route-in"), selection.routes.map { it.id })
     }
+
+    @Test
+    fun theTwoKindsHaveTheirOwnVisibilitySwitch() {
+        // The drawer's eyes (2026-10-05): each kind's layer is gated on its own flag, and the pinned
+        // items follow their kind — a route hidden by routesVisible takes its pinned route with it, a
+        // track hidden by tracksVisible takes its pinned track, and neither flag touches the other kind.
+        val summaries = listOf(
+            summary("track", startTimeMs = 1_000L),
+            summary("track-pinned", pinned = true, startTimeMs = 1_000L),
+            summary("route", route = true, startTimeMs = 1_000L),
+            summary("route-pinned", route = true, pinned = true, startTimeMs = 1_000L)
+        )
+
+        // Tracks hidden, routes drawn.
+        val tracksOff = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(),
+            routeFilter = ListFilter(),
+            focus = MapRenderFocus(),
+            tracksVisible = false,
+            routesVisible = true,
+            todayMidnightMs = 0L,
+            recordingNb = 10,
+            routeNb = 10
+        )
+        assertTrue("the recorded half is empty when tracksVisible is off", tracksOff.recorded.isEmpty())
+        assertEquals(listOf("route"), tracksOff.routes.map { it.id })
+        assertEquals(
+            "a pinned track follows tracksVisible",
+            listOf("route-pinned"),
+            tracksOff.pinned.map { it.id }
+        )
+
+        // Routes hidden, tracks drawn.
+        val routesOff = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(),
+            routeFilter = ListFilter(),
+            focus = MapRenderFocus(),
+            tracksVisible = true,
+            routesVisible = false,
+            todayMidnightMs = 0L,
+            recordingNb = 10,
+            routeNb = 10
+        )
+        assertEquals(listOf("track"), routesOff.recorded.map { it.id })
+        assertTrue("the route half is empty when routesVisible is off", routesOff.routes.isEmpty())
+        assertEquals(
+            "a pinned route follows routesVisible",
+            listOf("track-pinned"),
+            routesOff.pinned.map { it.id }
+        )
+    }
 }

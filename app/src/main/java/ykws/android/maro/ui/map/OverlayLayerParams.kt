@@ -62,6 +62,9 @@ data class MenuOverlayData(
     val routeMapCount: Int,
     val markerMapFilterState: ListFilter,
     val markerMapCount: Int,
+    /** The two kinds' own map visibility, so each header's eye draws its on/off face (2026-10-05). */
+    val tracksVisible: Boolean = true,
+    val routesVisible: Boolean = true,
 )
 
 /**

@@ -458,11 +458,10 @@ private fun LayersSettings(
                 }
             }
 
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-
-            // ── The routes' own rendering values (S17/D15, merged into the first section by S18/D16) ──
-            // The two route collapsibles each open a section of their own, divided from one another and
-            // from the export/import row that closes the card.
+            // ── The routes' own rendering values (S17/D15) — the card's 2nd section ──
+            // Divided from the track group above (2026-10-05, the user's word) and from the export/import
+            // row that closes the card; the two route collapsibles stand adjacent within this section.
+            SectionDivider()
             Expander(
                 label = stringResource(R.string.settings_routes_appearance_label),
                 expanded = settingsVm.isExpanded("routes_appearance"),

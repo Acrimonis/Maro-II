@@ -449,6 +449,8 @@
     <string name="cd_manage_markers">Manage markers</string>
     <string name="cd_open_first_track">Open first track</string>
     <string name="cd_open_first_route">Open first route</string>
+    <string name="cd_toggle_routes_map">Show or hide routes on the map</string>
+    <string name="cd_toggle_tracks_map">Show or hide tracks on the map</string>
     <string name="cd_open_first_marker">Open first marker</string>
     <string name="cd_create_marker">Create marker</string>
     <string name="cd_set_icon">Set icon</string>
@@ -577,7 +579,7 @@
     <string name="settings_routes_appearance_label">Routes Appearance</string>
     <string name="settings_routes_appearance_desc">How saved routes are drawn on the map</string>
     <string name="settings_routes_speed_direction_label">Routes Speed and Direction</string>
-    <string name="settings_routes_speed_direction_desc">Speed colours and direction arrows on routes</string>
+    <string name="settings_routes_speed_direction_desc">Speed colours and direction arrows on routes. The map\'s Speed Colors and Arrows switches are the master for every kind; these switches can only turn a route\'s own off.</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_section_routing_tuning">Tuning</string>
     <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->

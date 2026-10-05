@@ -54,6 +54,8 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
+import ykws.android.maro.ui.icons.Visibility
+import ykws.android.maro.ui.icons.VisibilityOff
 
 /**
  * The bullet the drawer's status band reads its two words apart by — the notification title's own
@@ -120,7 +122,13 @@ fun MenuDrawerOverlay(
     onRouteReset: () -> Unit = {},
     routeFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
     routeFilterLinked: Boolean = true,
-    onToggleRouteLink: () -> Unit = {}
+    onToggleRouteLink: () -> Unit = {},
+    // ── The two kinds' map-visibility eyes (2026-10-05) ─────────────────────
+    // Each gates the map render of its own kind alone — it never moves the count or the list (D6).
+    trackVisible: Boolean = true,
+    routeVisible: Boolean = true,
+    onToggleTrackVisible: () -> Unit = {},
+    onToggleRouteVisible: () -> Unit = {}
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -211,6 +219,13 @@ fun MenuDrawerOverlay(
         // the map-referential filter icons get a section header to live in (D11, superseding D1). The card
         // above keeps the route ends, the quick access and the gated summary alone.
         SectionHeader(title = stringResource(R.string.menu_manage_routes)) {
+            // The routes eye stands first and outside the axes gate, so it never disappears with the
+            // filters (D3): it shows or hides the whole route kind on the map, never the count or the list.
+            KindVisibilityToggle(
+                visible = routeVisible,
+                onToggle = onToggleRouteVisible,
+                contentDescription = stringResource(R.string.cd_toggle_routes_map)
+            )
             if (routeFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleRouteLink,
@@ -261,6 +276,12 @@ fun MenuDrawerOverlay(
 
         // ── TRACKS section + filter controls ─────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks)) {
+            // The tracks eye, first and outside the axes gate — the routes header's twin (D3).
+            KindVisibilityToggle(
+                visible = trackVisible,
+                onToggle = onToggleTrackVisible,
+                contentDescription = stringResource(R.string.cd_toggle_tracks_map)
+            )
             if (trackFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleTrackLink,
@@ -826,5 +847,31 @@ private fun RoutesRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * One kind's **map-visibility eye** (2026-10-05): the leftmost control of a section header's trailing
+ * slot, standing **outside** the filter-axes gate so a kind with no axis keeps its switch (D3). It
+ * shows [Visibility] while the kind is drawn and [VisibilityOff] while it is hidden, at the sibling
+ * icons' own tint, and it gates the **map render alone** — the count beside the row follows the filter
+ * and never this flag, and the list keeps its rows (D6).
+ */
+@Composable
+private fun KindVisibilityToggle(
+    visible: Boolean,
+    onToggle: () -> Unit,
+    contentDescription: String
+) {
+    IconButton(
+        onClick = onToggle,
+        modifier = Modifier.size(40.dp)
+    ) {
+        Icon(
+            imageVector = if (visible) Visibility else VisibilityOff,
+            contentDescription = contentDescription,
+            tint = ButtonColors.icon,
+            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+        )
     }
 }

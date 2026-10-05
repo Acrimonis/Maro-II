@@ -33,6 +33,8 @@ internal fun buildMenuOverlayData(
     routeMapCount = routeMapVisibleCount,
     markerMapFilterState = appSettings.markerMapFilter,
     markerMapCount = markerMapCount,
+    tracksVisible = appSettings.tracksVisible,
+    routesVisible = appSettings.routesVisible,
 )
 
 /** The track-history surface's data bundle, moved verbatim from the `OverlayLayer` call site. */

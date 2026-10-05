@@ -1339,12 +1339,19 @@ fun MapScreen(
     // own overlay draws it — while a hidden layer contributes nothing, so the mode can never
     // resurrect what the user switched off. The live recording has no card behind it and is excluded.
     val inspectMarkerCandidates = if (markerLayerVisible) mapMarkersState else emptyList()
-    val inspectTrackIds = if (appSettings.tracksVisible) {
+    // Per kind since 2026-10-05: each summary's own layer must be on and its own map filter must
+    // hold, so a hidden route is never offered and a visible one always is (the tracks/routes split).
+    val inspectTrackIds = run {
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
         allTrackSummaries
-            .filter { !it.isLive && it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
+            .filter { summary ->
+                !summary.isLive &&
+                    (if (summary.route) appSettings.routesVisible else appSettings.tracksVisible) &&
+                    (if (summary.route) summary.matchesFilter(appSettings.routeMapFilter, midnightMs)
+                     else summary.matchesFilter(appSettings.trackMapFilter, midnightMs))
+            }
             .map { it.id }
-    } else emptyList()
+    }
 
     /** Whether anything at all is inspectable — the sleuth square's disabled gate while disarmed. */
     val inspectAvailable = inspectMarkerCandidates.isNotEmpty() || inspectTrackIds.isNotEmpty()
@@ -1796,8 +1803,19 @@ fun MapScreen(
                 // its own landing instead, so the slot never empties between the two cards (plan §5).
                 if (closeMarkerCard) closeMarkerDashboard()
                 if (freshSelection) {
-                    if (!appSettings.tracksVisible) {
-                        viewModel.updateSettings { it.copy(tracksVisible = true) }
+                    // Force the opened kind's layer on — and only its: a route raised here never touches
+                    // the tracks layer, a recorded track never touches routes (2026-10-05).
+                    val openingRoute = candidates.firstOrNull()?.let { id ->
+                        allTrackSummaries.firstOrNull { it.id == id }?.route
+                    }
+                    when (openingRoute) {
+                        true -> if (!appSettings.routesVisible) {
+                            viewModel.updateSettings { it.copy(routesVisible = true) }
+                        }
+                        false -> if (!appSettings.tracksVisible) {
+                            viewModel.updateSettings { it.copy(tracksVisible = true) }
+                        }
+                        null -> Unit
                     }
                     chrome.showTrackHistory = false
                     chrome.showRouteHistory = false
@@ -3108,6 +3126,7 @@ fun MapScreen(
                         highlightedTrackId = highlightedTrackId,
                         eyeOverride = appSettings.trackSelectionBanded,
                         tracksVisible = appSettings.tracksVisible,
+                        routesVisible = appSettings.routesVisible,
                         // The painted routes, so the planner reads each of them as the role it is; read
                         // inside the derived block, where the summaries state is a tracked input.
                         routeIds = allTrackSummaries.filter { it.route }.map { it.id }.toSet(),
@@ -3537,6 +3556,9 @@ fun MapScreen(
             onRouteMapReset = { applyRouteMapReset(viewModel, appSettings, mapView, closeDashboards) },
             routeFilterLinked = appSettings.routeFilterLinked,
             onToggleRouteLink = { toggleRouteFilterLink(viewModel) },
+            // The two kinds' map-visibility eyes in the drawer headers (2026-10-05).
+            onToggleTrackVisible = viewModel::toggleTracksVisibility,
+            onToggleRouteVisible = viewModel::toggleRoutesVisibility,
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             settings = buildSettingsOverlayData(
