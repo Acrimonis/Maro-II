@@ -99,6 +99,68 @@ internal class MarkLattice(val lengthM: Double, stepM: Double) {
     private fun fraction(metres: Double): Double = if (lengthM > 0.0) metres / lengthM else 0.5
 }
 
+/**
+ * **The reads one walk has already paid, keyed on the mark's own point.** One memo per walk, shared by
+ * the clearance walk and the price walk.
+ *
+ * **The key is the point itself, never a rounded cell index.** The marks stand on the fixed lattice, so
+ * two attempts that share a stretch land on the very same [LatLng] — the same double coordinates — and a
+ * `HashMap` keyed by the point answers them with the same value the field would. A cell-rounded key
+ * would answer a neighbouring mark's price while every fixture on the walk's own points still passed.
+ *
+ * **It is bound to its field, and a different field wipes it.** Every accessor checks the field's own
+ * **identity** before it answers: a memo that outlived its walk — the field is rebuilt per λ pass — can
+ * only ever re-read under the new field, never answer it with the previous field's numbers, so the
+ * plan's one-walk lifetime is structural rather than assumed.
+ *
+ * **Both walks share it, but in the pull's own shape the win is the price half's.** The pull threads one
+ * memo through the clearance walk and the price walk alike, and a hit answers the field's own double.
+ * The clearance half is **inert** in that walk — every chord evaluation is a fresh `(anchor, probe)`
+ * pair, so its marks are its own and none is re-visited — while the price half's hits come from
+ * [MultipassPull.softPricePrefix] walking each raw segment before an attempt walks the chord that
+ * retraces it.
+ *
+ * Nothing here is static, shared or cached across walks.
+ */
+internal class MarkMemo {
+
+    /** The field the two tables were filled under; a different identity wipes them. */
+    private var boundField: RouteCostField? = null
+
+    /** The materialized walls' distance already read, by the point it was read at. */
+    private val hard = HashMap<LatLng, Double>()
+
+    /** The summed soft price already read, by the point it was read at. */
+    private val price = HashMap<LatLng, Double>()
+
+    /** The materialized walls' distance at [p] under [field] — read once, then answered from here. */
+    fun hardDistance(field: RouteCostField, p: LatLng): Double {
+        bind(field)
+        return hard.getOrPut(p) { field.hardDistanceM(p) }
+    }
+
+    /** The soft price at [p] under [field] — read once, then answered, the same double each time. */
+    fun price(field: RouteCostField, p: LatLng): Double {
+        bind(field)
+        return price.getOrPut(p) { field.softPriceSecAt(p) }
+    }
+
+    /** True where [p]'s price is already held under [field] — a hit, so no read is paid for it. */
+    fun hasPrice(field: RouteCostField, p: LatLng): Boolean {
+        bind(field)
+        return price.containsKey(p)
+    }
+
+    /** Wipes both tables when the field's identity changes, so no answer can cross a rebuild. */
+    private fun bind(field: RouteCostField) {
+        if (boundField !== field) {
+            hard.clear()
+            price.clear()
+            boundField = field
+        }
+    }
+}
+
 object MultipassPull {
 
     /**
@@ -107,15 +169,23 @@ object MultipassPull {
      *
      * @param coarseStepM the **clearance walk's** coarse sampling step — the walk's own cell on the
      *   water it was resolved on, handed in by the caller and never defaulted.
-     * @param priceStepM the **price walk's** own step — the walk's interior cell, the same one its
-     *   prefix and its guard are coarsened by, so the two sides of the guard keep one partition.
+     * @param priceStepM the **price walk's** own step — the walk's interior cell, the same step and the
+     *   same grouping rule the prefix is built from, so the guard compares two walks of one law and one
+     *   unit. The anchors are not shared: the prefix lattices each raw segment from its own start while a
+     *   chord lattices the whole line from its own, so the two meet mark for mark on a straight run and
+     *   part where the path bends.
      * @param field the unified cost field — its materialized walls' distance is the clearance read
      *   here, and its rastered walls' step is tested at every mark beside it.
      * @param approaches the two ends' carved approaches, whose stretches the margin does not bind.
      * @param refusals the tally the walk counts its refused chords into, or `null` where none is read.
      * @param timing the walk's own tally of what it spent, or `null` where no reader wants it.
+     * @param memo the walk's own read memo — **one per walk**, keyed on the mark's own point and bound to
+     *   the field it fills under, so a rebuild wipes it rather than letting it answer stale. In this
+     *   walk's own shape the shared points are the price walk's: the prefix walks each raw segment before
+     *   an attempt walks the chord that retraces it, while the clearance walk never re-visits a point. A
+     *   fresh memo is made here, at the walk's own start. A caller passing `null` walks as before.
      */
-    fun pull(
+    internal fun pull(
         path: List<LatLng>,
         start: LatLng,
         aim: LatLng,
@@ -125,19 +195,22 @@ object MultipassPull {
         field: RouteCostField,
         approaches: EndApproaches = EndApproaches.NONE,
         refusals: PullRefusals? = null,
-        timing: PullTiming? = null
+        timing: PullTiming? = null,
+        memo: MarkMemo? = MarkMemo()
     ): List<LatLng> {
         if (path.size <= 2) return path
         val result = ArrayList<LatLng>(path.size)
         result.add(path.first())
         val prefixStartNs = System.nanoTime()
-        val pathPriceSec = if (field.hasSoft) softPricePrefix(path, marginM, priceStepM, field, timing) else null
+        val pathPriceSec =
+            if (field.hasSoft) softPricePrefix(path, marginM, priceStepM, field, timing, memo) else null
         timing?.addPrice(System.nanoTime() - prefixStartNs)
         var anchor = 0
         var probe = 1
         while (probe < path.size) {
             val decision = chordDecision(
-                pathPriceSec, path, anchor, probe, marginM, coarseStepM, priceStepM, field, start, aim, approaches, timing
+                pathPriceSec, path, anchor, probe, marginM, coarseStepM, priceStepM, field, start, aim, approaches,
+                timing, memo
             )
             val refused = decision.refusal
             when {
@@ -178,16 +251,17 @@ object MultipassPull {
         start: LatLng,
         aim: LatLng,
         approaches: EndApproaches,
-        timing: PullTiming?
+        timing: PullTiming?,
+        memo: MarkMemo?
     ): ChordDecision {
         val a = path[anchor]
         val b = path[probe]
         val clearanceStartNs = System.nanoTime()
-        val cause = legClearCause(a, b, marginM, coarseStepM, field, start, aim, approaches)
+        val cause = legClearCause(a, b, marginM, coarseStepM, field, start, aim, approaches, memo)
         timing?.addClearance(System.nanoTime() - clearanceStartNs)
         if (cause == null) {
             val priceStartNs = System.nanoTime()
-            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, marginM, priceStepM, field, timing)
+            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, marginM, priceStepM, field, timing, memo)
             timing?.addPrice(System.nanoTime() - priceStartNs)
             return ChordDecision(refusal)
         }
@@ -269,7 +343,8 @@ object MultipassPull {
         field: RouteCostField,
         start: LatLng,
         aim: LatLng,
-        approaches: EndApproaches = EndApproaches.NONE
+        approaches: EndApproaches = EndApproaches.NONE,
+        memo: MarkMemo? = null
     ): ChordRefusal? {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(marginM)
@@ -289,7 +364,7 @@ object MultipassPull {
         val provedClearM = marginM + coarseStep / 2.0
         val coarseClear = BooleanArray(coarseCount)
         for (k in 0 until coarseCount) {
-            coarseClear[k] = field.hardDistanceM(chordPoint(a, b, coarse.markT(k))) >= provedClearM
+            coarseClear[k] = readHard(memo, field, chordPoint(a, b, coarse.markT(k))) >= provedClearM
         }
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
@@ -302,7 +377,7 @@ object MultipassPull {
             // The materialized distance is the one read the proof may spare, and it is skipped exactly
             // where the coarse mark covering this fine mark has already answered for its half-step.
             val covering = coarse.indexOf(t)
-            if (!coarseClear[covering] && field.hardDistanceM(p) < marginM) return ChordRefusal.LAND
+            if (!coarseClear[covering] && readHard(memo, field, p) < marginM) return ChordRefusal.LAND
         }
         return null
     }
@@ -319,8 +394,10 @@ object MultipassPull {
 
     /**
      * The price guard's own cause: `PRICE` where the chord costs more than the span it would replace.
-     * Both sides of that comparison are built on the **same** partition — the prefix is coarsened by the
-     * same [priceStepM] rule the chord is — so the guard's arithmetic is two readings of one walk.
+     * Both sides are read on the **same step and the same grouping rule** — the prefix's per-segment
+     * walks and the chord's own one-line walk obey one law — so the guard compares like with like. They
+     * are not one partition: a segment is anchored at its own start and the chord at its own, so the two
+     * coincide mark for mark on a straight run and diverge where the path bends.
      */
     private fun priceRefusal(
         pathPriceSec: DoubleArray?,
@@ -330,10 +407,11 @@ object MultipassPull {
         marginM: Double,
         priceStepM: Double,
         field: RouteCostField,
-        timing: PullTiming?
+        timing: PullTiming?,
+        memo: MarkMemo?
     ): ChordRefusal? {
         val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] } ?: return null
-        return if (softPriceSec(path[anchor], path[probe], marginM, priceStepM, field, timing) > replacedPriceSec) {
+        return if (softPriceSec(path[anchor], path[probe], marginM, priceStepM, field, timing, memo) > replacedPriceSec) {
             ChordRefusal.PRICE
         } else {
             null
@@ -378,7 +456,8 @@ object MultipassPull {
         marginM: Double,
         priceStepM: Double,
         field: RouteCostField,
-        timing: PullTiming? = null
+        timing: PullTiming? = null,
+        memo: MarkMemo? = null
     ): Double {
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(marginM)
@@ -396,14 +475,14 @@ object MultipassPull {
         // group pays, so a step at or under the fine one leaves the fine midpoints alone.
         if (groupStep <= 1) {
             val acc = doubleArrayOf(0.0)
-            groupPriceSec(a, b, marks, 0, steps, marginM, priceStep, field, timing, acc)
+            groupPriceSec(a, b, marks, 0, steps, marginM, priceStep, field, timing, memo, acc)
             return acc[0]
         }
         // The recursion's floor: twice the price step, the length the group walk prices in two reads,
         // so a span at or under it goes straight to the group path and a short chord never pays more.
         val floorCount = maxOf(groupStep, floor(2.0 * priceStep / stepM).toInt())
         val acc = doubleArrayOf(0.0)
-        spanPriceSec(a, b, marks, 0, steps, marginM, priceStep, floorCount, field, timing, acc)
+        spanPriceSec(a, b, marks, 0, steps, marginM, priceStep, floorCount, field, timing, memo, acc)
         return acc[0]
     }
 
@@ -429,11 +508,12 @@ object MultipassPull {
         floorCount: Int,
         field: RouteCostField,
         timing: PullTiming?,
+        memo: MarkMemo?,
         acc: DoubleArray
     ) {
         val count = i1 - i0
         if (count <= floorCount) {
-            groupPriceSec(a, b, marks, i0, i1, marginM, priceStepM, field, timing, acc)
+            groupPriceSec(a, b, marks, i0, i1, marginM, priceStepM, field, timing, memo, acc)
             return
         }
         val halfM = marks.spanLengthM(i0, i1) / 2.0
@@ -446,8 +526,8 @@ object MultipassPull {
             return
         }
         val midIndex = i0 + count / 2
-        spanPriceSec(a, b, marks, i0, midIndex, marginM, priceStepM, floorCount, field, timing, acc)
-        spanPriceSec(a, b, marks, midIndex, i1, marginM, priceStepM, floorCount, field, timing, acc)
+        spanPriceSec(a, b, marks, i0, midIndex, marginM, priceStepM, floorCount, field, timing, memo, acc)
+        spanPriceSec(a, b, marks, midIndex, i1, marginM, priceStepM, floorCount, field, timing, memo, acc)
     }
 
     /**
@@ -467,6 +547,7 @@ object MultipassPull {
         priceStepM: Double,
         field: RouteCostField,
         timing: PullTiming?,
+        memo: MarkMemo?,
         acc: DoubleArray
     ) {
         val groupStep =
@@ -484,13 +565,11 @@ object MultipassPull {
                 false
             }
             if (proved) {
-                val price = field.softPriceSecAt(chordPoint(a, b, marks.spanMidT(i, i + k)))
-                timing?.addPriceReads(1)
+                val price = readPrice(memo, field, chordPoint(a, b, marks.spanMidT(i, i + k)), timing)
                 for (j in i until i + k) acc[0] += price * marks.widthM(j)
             } else {
                 for (j in i until i + k) {
-                    acc[0] += field.softPriceSecAt(chordPoint(a, b, marks.markT(j))) * marks.widthM(j)
-                    timing?.addPriceReads(1)
+                    acc[0] += readPrice(memo, field, chordPoint(a, b, marks.markT(j)), timing) * marks.widthM(j)
                 }
             }
             i += k
@@ -503,13 +582,34 @@ object MultipassPull {
         marginM: Double,
         priceStepM: Double,
         field: RouteCostField,
-        timing: PullTiming? = null
+        timing: PullTiming? = null,
+        memo: MarkMemo? = null
     ): DoubleArray {
         val prefix = DoubleArray(path.size)
         for (i in 1 until path.size) {
-            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, priceStepM, field, timing)
+            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, priceStepM, field, timing, memo)
         }
         return prefix
+    }
+
+    /**
+     * The materialized walls' distance at [p], from the walk's memo where it holds the point and from
+     * the field otherwise — one home for the read the clearance walk pays, so the memo is consulted at
+     * every mark and no caller can forget it.
+     */
+    private fun readHard(memo: MarkMemo?, field: RouteCostField, p: LatLng): Double =
+        memo?.hardDistance(field, p) ?: field.hardDistanceM(p)
+
+    /**
+     * The soft price at [p], from the walk's memo where it holds the point and from the field otherwise —
+     * and it is the **one** home that decides whether a price read was paid, incrementing
+     * [PullTiming.priceReads] on a miss alone, so a memo hit lowers the count without touching the sum.
+     */
+    private fun readPrice(memo: MarkMemo?, field: RouteCostField, p: LatLng, timing: PullTiming?): Double {
+        val fresh = memo == null || !memo.hasPrice(field, p)
+        val price = memo?.price(field, p) ?: field.softPriceSecAt(p)
+        if (fresh) timing?.addPriceReads(1)
+        return price
     }
 }
 

@@ -523,6 +523,167 @@ class AvoidPriceWalkTest {
         assertTrue("and the boundary moved a sample, so the error is not trivially zero", sum != exact)
     }
 
+    /**
+     * **The memo reads a mark once and answers the same double.** The fixture the plan names: the same
+     * point is read twice through one [MarkMemo], the two doubles are asserted **identical**, and the
+     * field's own counter rises **once** — the second lookup is answered by the memo, never by the field.
+     */
+    @Test
+    fun aMemoReadsOneMarkOnceAndAnswersTheSameDouble() {
+        val p = LatLng(CHORD_LAT, east(400.0))
+        var reads = 0
+        val field = flatField { reads++ }
+        val memo = MarkMemo()
+
+        val first = memo.price(field, p)
+        val second = memo.price(field, p)
+
+        assertEquals("the memo answers the identical double on the repeat", first, second, 0.0)
+        assertEquals("and the one mark was read once for the two lookups", 1, reads)
+    }
+
+    /**
+     * **The reads fall across the attempts of one anchor, and the sum does not move.** The value half
+     * is pinned exactly: a walk repeated over the same chord answers the identical double on the hit.
+     * The read half is the pull's own two attempts from one anchor — the second stretch answered by the
+     * memo the first already paid — so the same line is drawn from strictly fewer price reads.
+     */
+    @Test
+    fun theMemoLowersTheReadsAcrossTheAttemptsOfOneAnchor() {
+        val start = LatLng(CHORD_LAT, 7.00)
+        val detour = LatLng(CHORD_LAT + 0.003, 7.01)
+        val aim = LatLng(CHORD_LAT, 7.02)
+        val path = listOf(start, detour, aim)
+
+        // The value half: one chord walked twice through one memo, against the memo-less walk's double.
+        val memo = MarkMemo()
+        val field = pricedCornerField {}
+        val first = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, field, memo = memo)
+        val second = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, field, memo = memo)
+        val plain = MultipassPull.softPriceSec(start, aim, marginM, fineStepM, pricedCornerField {})
+        assertEquals("a memo hit answers the identical double", first, second, 0.0)
+        assertEquals("and the memo changes no sum", plain, second, 0.0)
+
+        // The read half: the pull's two attempts from the anchor, the re-walk answered by the first's memo.
+        var memoReads = 0
+        var plainReads = 0
+        val pulled = MultipassPull.pull(path, start, aim, marginM, fineStepM, fineStepM, pricedCornerField { memoReads++ })
+        val plainPulled = MultipassPull.pull(
+            path, start, aim, marginM, fineStepM, fineStepM, pricedCornerField { plainReads++ }, memo = null
+        )
+        assertEquals("the memo returns the line today's walk draws", plainPulled, pulled)
+        assertTrue("the memo walk reads the price strictly less", memoReads < plainReads)
+        assertTrue("and the walk is not vacuous: the price was read", plainReads > 0)
+        // The plan's own 410 → 270, asserted on the fixture's numbers rather than left in prose: a change
+        // that moves either count must answer to these two lines.
+        assertEquals("the memo walk's price reads, exactly as the plan records", 270, memoReads)
+        assertEquals("against the memo-less walk's, exactly as the plan records", 410, plainReads)
+    }
+
+    /**
+     * **The overlap the triangle never produced: two attempts sharing a stretch.** The path is straight,
+     * so the fixed lattice makes the attempts' marks sit on shared points — the plain walk pays a repeat
+     * for every mark a later attempt retraces, while the memo answers each from the first read. The field
+     * is therefore read **once per distinct mark**, and the memo run visits exactly the point set the
+     * memo-less run does, with the repeats removed.
+     */
+    @Test
+    fun twoAttemptsThatShareAStretchReadEachDistinctMarkOnce() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val mid = LatLng(CHORD_LAT, east(800.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val path = listOf(start, mid, aim)
+
+        val memoPoints = ArrayList<LatLng>()
+        MultipassPull.pull(
+            path, start, aim, marginM, fineStepM, fineStepM, recordingField { memoPoints.add(it) },
+            memo = MarkMemo()
+        )
+        val plainPoints = ArrayList<LatLng>()
+        MultipassPull.pull(
+            path, start, aim, marginM, fineStepM, fineStepM, recordingField { plainPoints.add(it) },
+            memo = null
+        )
+
+        assertTrue("the fixture reads a substantial run of marks", memoPoints.isNotEmpty())
+        assertEquals(
+            "the memo reads each distinct shared mark exactly once, never asking twice",
+            memoPoints.size, memoPoints.distinct().size
+        )
+        assertEquals(
+            "and it visits exactly the marks the memo-less walk reads, each once",
+            plainPoints.distinct(), memoPoints
+        )
+        assertTrue(
+            "the two attempts genuinely share their stretch, so the plain walk pays the repeat",
+            plainPoints.size > memoPoints.size
+        )
+    }
+
+    /**
+     * **An unproved stretch reads at the lattice's own positions, memo or not.** The chord runs along the
+     * band's collar, so no span and no group is ever proved and every fine midpoint is read. The points
+     * recorded with a memo and without it are the **same**, and they are the landed lattice's own
+     * midpoints in order — pinning the clause's "today's positions, in today's order" rather than letting
+     * the count and the verdict stand in for it.
+     */
+    @Test
+    fun anUnprovedStretchReadsTodaysPositionsWithAndWithoutTheMemo() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val lattice = MarkLattice(SpatialOperations.haversine(start, aim), MultipassPull.clearanceStep(marginM))
+
+        val withMemo = ArrayList<LatLng>()
+        MultipassPull.softPriceSec(
+            start, aim, marginM, coarseStepM, recordingBandEdgeField { withMemo.add(it) }, memo = MarkMemo()
+        )
+        val withoutMemo = ArrayList<LatLng>()
+        MultipassPull.softPriceSec(
+            start, aim, marginM, coarseStepM, recordingBandEdgeField { withoutMemo.add(it) }
+        )
+
+        assertTrue("the unproved stretch reads every fine midpoint", withMemo.size > 100)
+        assertEquals("the memo answers the same marks at the same positions", withoutMemo, withMemo)
+        assertEquals(
+            "and they are the lattice's own midpoints, in order",
+            (0 until lattice.count).map { chordAt(start, aim, lattice.markT(it)) }, withMemo
+        )
+    }
+
+    /**
+     * **A changed field wipes the memo rather than answering stale.** The memo is bound to the field it
+     * fills under: the same point read under a second field re-reads under that field's own law, and a
+     * return to the first re-reads it too — so no number can cross a rebuild even if a memo outlived its
+     * walk.
+     */
+    @Test
+    fun theMemoWipesItsCacheWhenTheFieldChanges() {
+        val p = LatLng(CHORD_LAT, east(400.0))
+        var firstReads = 0
+        var secondReads = 0
+        val first = flatField { firstReads++ }
+        val second = RouteCostField(
+            listOf(
+                RouteCostSource.Soft(
+                    priceSec = { secondReads++; 2.0 * fullSec },
+                    tag = MultipassCellState.ZONE,
+                    clearanceAt = { CLEAR_OF_ANY_BOUNDARY_M }
+                )
+            )
+        )
+        val memo = MarkMemo()
+
+        assertEquals("the first field's own price", fullSec, memo.price(first, p), 0.0)
+        assertEquals(
+            "a second field is read under its own law, never answered from the first's cache",
+            2.0 * fullSec, memo.price(second, p), 0.0
+        )
+        assertEquals("the first field was read once", 1, firstReads)
+        assertEquals("and the second field once, not served from the first's entry", 1, secondReads)
+        assertEquals("a return to the first re-reads it rather than answering stale", fullSec, memo.price(first, p), 0.0)
+        assertEquals("with the first field's own counter risen again", 2, firstReads)
+    }
+
     /** The metres east of the chord's origin that [p] stands — the step-arm fixture's own abscissa. */
     private fun eastMetres(p: LatLng): Double = (p.longitude - 7.00) * M_PER_DEG_LON
 
@@ -546,6 +707,20 @@ class AvoidPriceWalkTest {
                 priceSec = { counting(); fullSec },
                 tag = MultipassCellState.ZONE,
                 clearanceAt = { CLEAR_OF_ANY_BOUNDARY_M }
+            )
+        )
+    )
+
+    /**
+     * The [`thePullRefusesAChordDearerThanThePathItReplaces`] corner, counting its price reads: a band
+     * priced [CORNER_PRICE_SEC] seconds on the low side, its declaration naming no boundary, so every
+     * fine mark is read and a memo has marks to answer.
+     */
+    private fun pricedCornerField(counting: () -> Unit): RouteCostField = RouteCostField(
+        listOf(
+            RouteCostSource.Soft(
+                priceSec = { p -> counting(); if (p.latitude < CHORD_LAT + 0.0015) CORNER_PRICE_SEC else 0.0 },
+                tag = MultipassCellState.BAND
             )
         )
     )
@@ -617,6 +792,43 @@ class AvoidPriceWalkTest {
                 }
             )
         )
+    )
+
+    /** The band-edge field of [bandEdgeField], recording the point each price read lands on. */
+    private fun recordingBandEdgeField(onRead: (LatLng) -> Unit): RouteCostField = RouteCostField(
+        listOf(
+            RouteCostSource.Soft(
+                priceSec = { p ->
+                    onRead(p)
+                    bandPriceAt(bandWidthM, bandOutsideMarginM, fullSec, fraction, bandDistanceM(p))
+                },
+                tag = MultipassCellState.BAND,
+                clearanceAt = { p ->
+                    val d = bandDistanceM(p)
+                    min(abs(d - bandWidthM), abs(d - bandReachM(bandWidthM, bandOutsideMarginM)))
+                }
+            )
+        )
+    )
+
+    /**
+     * A flat priced field that records the point each price read lands on — the sharing fixture's own,
+     * carrying [flatField]'s far-away declaration so every mark is read.
+     */
+    private fun recordingField(onRead: (LatLng) -> Unit): RouteCostField = RouteCostField(
+        listOf(
+            RouteCostSource.Soft(
+                priceSec = { p -> onRead(p); fullSec },
+                tag = MultipassCellState.ZONE,
+                clearanceAt = { CLEAR_OF_ANY_BOUNDARY_M }
+            )
+        )
+    )
+
+    /** The point at fraction [t] of the chord [a]→[b] — the walk's own interpolation, mirrored for the pin. */
+    private fun chordAt(a: LatLng, b: LatLng, t: Double): LatLng = LatLng(
+        a.latitude + (b.latitude - a.latitude) * t,
+        a.longitude + (b.longitude - a.longitude) * t
     )
 
     /** The holed ring's own price and declaration — the declaration optionally blind to the holes. */
@@ -698,6 +910,9 @@ class AvoidPriceWalkTest {
 
         /** A declared boundary this far away is outside every group the fixture walks. */
         private const val CLEAR_OF_ANY_BOUNDARY_M = 10_000.0
+
+        /** The priced corner's own price, in seconds — the band the dearer chord crosses. */
+        private const val CORNER_PRICE_SEC = 120.0
 
         /** The outer ring's own half-width, and the hole's: 324 m wide and 222 m tall. */
         private const val OUTER_HALF_X_M = 650.0

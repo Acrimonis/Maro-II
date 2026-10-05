@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the mark count: the two-pointer's sampled volume
 
-**Date:** 2026-10-05 · **Status:** **Phase 1 (the lattice) landed 2026-10-05** — `apk-build.bat` green, the suite at 918 with the one parked red, no verdict assertion moved; Phases 2 (the memo) and 3 (the reading) remain, and Phase 2 waits on the user's word for the bound recorded below.
+**Date:** 2026-10-05 · **Status:** **Phases 1 (the lattice) and 2 (the memo) landed 2026-10-05, the review's six should-fixes folded the same day** — `apk-build.bat` green, the suite at 923 with the one parked red, no verdict assertion moved; **the bound recorded below was accepted on the user's word of 2026-10-05**, and the memo built on it turns a counting fixture from 410 price reads to **270** (now asserted, no longer prose) with the sums unchanged, so **Phase 3 (the reading) remains the one pass this line keeps.**
 **Order:** the user's word of 2026-10-05, *"do plan the 2 tasks"* — the second of two, beside
 [`261005_FEAT_PLN_Route_chord-price-proof.md`](261005_FEAT_PLN_Route_chord-price-proof.md).
 **Rev 2 (2026-10-05):** the plan's own review landed — the phases were split so the lattice's error and
@@ -113,10 +113,39 @@ lattice alone changes positions and saves nothing, and a memo alone can never hi
   three new fixtures green: the moved sample with the lattice's exact coverage, the bound, and the coarse
   marks' own lattice.
 
+## Phase 2 — the memo, as landed (2026-10-05)
+
+- **Built, and the exit is met.** One [`MarkMemo`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:116)
+  stands at a walk's own start — [`pull()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:118) made
+  one per call — keyed on the mark's own `LatLng` (never a rounded index), shared by
+  [`legClearCause()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:264) and
+  [`softPriceSec()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:375) and threaded through
+  `chordDecision`, `softPricePrefix`, `spanPriceSec` and `groupPriceSec`. A hit answers the field's own double, so
+  no sum can move, and the price-read tally increments on a **miss alone**.
+- **The numbers.** The counting fixture on the priced-corner pair reads **270 against 410** — a 140-read fall,
+  now **asserted** on the fixture's own counts rather than left in prose — with the pulled line identical to
+  the memo-less walk's; the one-mark-twice fixture asserts the two doubles identical and the counter at **1**.
+  `apk-build.bat` green, the suite at **923 / 1 / 11** (the two fixtures add two to Phase 1's 918, and the
+  review's three fixtures below add three more; the single parked red unchanged), **no verdict assertion
+  moved**, and the span proof's own read was left untouched.
+- **The review's six should-fixes landed (2026-10-05, the `#implement` Ask hop).** A straight-path fixture now
+  pins the overlap the triangle never produced — one read per distinct shared mark, asserted on the points
+  themselves; the counting fixture asserts its own **410 → 270** instead of naming it in prose; the guard's
+  claim was cut to **one step and one grouping rule, not one partition**; the unproved stretch is pinned
+  **point for point** at the lattice's midpoints with the memo armed and without it; `MarkMemo` is **internal**
+  (with `pull`), and it is **bound to its field** — a different field identity wipes both tables and `hasPrice`
+  reads the field too, so no answer can cross a rebuild, pinned by `theMemoWipesItsCacheWhenTheFieldChanges`;
+  and the pull's KDoc now says what the walk does, the clearance half inert and the price half the win.
+- **Where the win lands, named.** Within one walk the exact-point hits come from the prefix walking each chord
+  before the attempt does; two *different* chords from one anchor land on different points — the marks carry the
+  chord's direction and its haversine length — so the clearance half of the memo is effectively inert in a real
+  walk and the shipped win is the price half the plan names.
+
 ## Verification
 
 - **A counting field proves both halves at once**: the same sum, strictly fewer reads, and one read per
-  distinct mark where two attempts share their stretch.
+  distinct mark where two attempts share their stretch — the overlap pinned by
+  `twoAttemptsThatShareAStretchReadEachDistinctMarkOnce`.
 - **The memo cannot change a value**: a fixture reads one mark twice and asserts the two doubles are
   identical and the counter rose once.
 - **The lattice covers the chord exactly**: the intervals' lengths sum to the chord's own haversine, so
@@ -124,9 +153,11 @@ lattice alone changes positions and saves nothing, and a memo alone can never hi
 - **The verdicts are the check Phase 1 exists for**: the same chords refused and the same line pulled on
   every existing fixture, and `LINE distance` and `duration` against the current capture on the pairs.
 - **An unproved stretch keeps today's reads**: near the band's edge or inside a collar the walk reads as
-  it does today, at today's positions, in today's order.
-- **The guard's two sides keep one partition**: the prefix and the chord walk the same lattice, asserted
-  on a fixture whose prefix and chord are both built from it.
+  it does today — at the landed lattice's own midpoints, in order, whether the memo is armed or not —
+  pinned point for point by `anUnprovedStretchReadsTodaysPositionsWithAndWithoutTheMemo`.
+- **The guard's two sides share one step, not one partition**: the prefix's per-segment walks and the
+  chord's one-line walk obey the same step and the same grouping rule, so the guard compares like with
+  like; their anchors differ, so they meet mark for mark only on a straight run.
 
 ## Risks
 
@@ -148,6 +179,9 @@ lattice alone changes positions and saves nothing, and a memo alone can never hi
 - **The lattice, and the error it accepts — the user's call, not the agent's**, for the reason the
   aligned shared grid is: the change can reach the drawn line. The plan's own recommendation is to take
   it only if Phase 1's bound is zero on the shipping pairs, otherwise to leave the volume parked.
+  **Settled 2026-10-05 on the user's word — accepted**: the bound is at most one interval's price, zero
+  where a boundary lands on an interval edge, and the three recorded routes did not move, so the volume is
+  taken rather than parked.
 - Whether the lattice is per chord (an anchor origin) or absolute over the corridor — an absolute one
   serves more marks across anchors and moves more samples with it.
 - Whether the prefix's segments want the memo at all, given their own walk is single-paid.
