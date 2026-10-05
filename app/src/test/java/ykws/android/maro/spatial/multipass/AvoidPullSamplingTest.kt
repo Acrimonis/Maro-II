@@ -44,11 +44,14 @@ class AvoidPullSamplingTest {
         val coarse = RouteCostField.ofHard { coarseReads++; Double.MAX_VALUE }
 
         val denseLine = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, marginM, MultipassPull.clearanceStep(marginM),
-            MultipassPull.clearanceStep(marginM), dense
+            PullSetup(
+                marginM, MultipassPull.clearanceStep(marginM), MultipassPull.clearanceStep(marginM),
+                dense, start, aim
+            ),
+            listOf(start, mid, aim)
         )
         val coarseLine = MultipassPull.pull(
-            listOf(start, mid, aim), start, aim, marginM, coarseStepM, coarseStepM, coarse
+            PullSetup(marginM, coarseStepM, coarseStepM, coarse, start, aim), listOf(start, mid, aim)
         )
 
         assertEquals("the coarse walk returns the fine walk's own line", denseLine, coarseLine)
@@ -69,7 +72,9 @@ class AvoidPullSamplingTest {
         val wall = LatLng(south(20.0), east(800.0))
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
+        val pulled = MultipassPull.pull(
+            PullSetup(marginM, coarseStepM, coarseStepM, field, start, aim), path
+        )
 
         assertEquals("the grazed chord is refused, as the fine walk refuses it", path, pulled)
     }
@@ -93,7 +98,9 @@ class AvoidPullSamplingTest {
             )
         )
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
+        val pulled = MultipassPull.pull(
+            PullSetup(marginM, coarseStepM, coarseStepM, field, start, aim), path
+        )
 
         assertEquals("a shallow patch the coarse marks step over is still refused", path, pulled)
     }
@@ -113,7 +120,9 @@ class AvoidPullSamplingTest {
         val wall = LatLng(south(24.0), east(100.0))
         val field = RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }
 
-        val pulled = MultipassPull.pull(path, start, aim, marginM, coarseStepM, coarseStepM, field)
+        val pulled = MultipassPull.pull(
+            PullSetup(marginM, coarseStepM, coarseStepM, field, start, aim), path
+        )
 
         assertEquals("a wall just inside the margin is never proved clear", path, pulled)
     }
@@ -131,7 +140,10 @@ class AvoidPullSamplingTest {
         val marks = ArrayList<LatLng>()
         val field = RouteCostField.ofHard { p -> marks.add(p); Double.MAX_VALUE }
 
-        MultipassPull.legClearCause(anchor, aim, marginM, coarseStepM, field, anchor, aim)
+        MultipassPull.legClearCause(
+            anchor, aim,
+            PullContext(marginM, coarseStepM, MultipassPull.clearanceStep(marginM), field, anchor, aim)
+        )
 
         val dist = SpatialOperations.haversine(anchor, aim)
         assertTrue("the fixture reads the chord's coarse marks", marks.isNotEmpty())

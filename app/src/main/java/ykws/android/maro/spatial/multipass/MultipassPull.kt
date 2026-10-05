@@ -145,10 +145,20 @@ internal class MarkMemo {
         return price.getOrPut(p) { field.softPriceSecAt(p) }
     }
 
-    /** True where [p]'s price is already held under [field] — a hit, so no read is paid for it. */
-    fun hasPrice(field: RouteCostField, p: LatLng): Boolean {
+    /**
+     * The price at [p] under [field], or `null` where no read is held yet — the **one** lookup that
+     * answers both questions the read's own home asks: whether a read is owed and what its answer is.
+     * The caller stores the fresh reading with [putPrice], so the probe is never paid twice.
+     */
+    fun priceOrNull(field: RouteCostField, p: LatLng): Double? {
         bind(field)
-        return price.containsKey(p)
+        return price[p]
+    }
+
+    /** Stores [value] as the price at [p] under [field] — the other half of [priceOrNull]'s one probe. */
+    fun putPrice(field: RouteCostField, p: LatLng, value: Double) {
+        bind(field)
+        price[p] = value
     }
 
     /** Wipes both tables when the field's identity changes, so no answer can cross a rebuild. */
@@ -161,70 +171,113 @@ internal class MarkMemo {
     }
 }
 
+/**
+ * **The water one call walks, in one value.** It holds the seven constants every walking call re-listed
+ * before this step — the margin, the two steps, the field, the two raw ends and the carved approaches —
+ * and it **is the walk's own context ([PullContext]) cut back to those seven**: the walk's three tallies
+ * stay out, because a counter shared between two walks of one pass cannot change an answer while a cache
+ * can, so the two constructs keep one lifetime each — the setup per call, the context per walk.
+ *
+ * The two steps are the walk's own cells and are **never defaulted**: [coarseStepM] is the clearance
+ * walk's sampling step (the cell the call was resolved on) and [priceStepM] the price walk's own interior
+ * cell, the step and grouping rule its prefix is built from, so the guard compares two walks of one law.
+ * [field] is the unified cost field, [marginM] the shore clearance, and [start] and [aim] the two raw
+ * ends whose discs, beside the carved [approaches], the margin waives.
+ *
+ * **One lifetime, per call.** A call builds its setup once, immediately after the field it hands the
+ * walk, and never stores it: a corridor that grows hands the grown context's fresh field to a new setup,
+ * never a cached one. Inside [MultipassPull.pull] the setup is folded, with the walk's own tallies, into
+ * the context the internal walk threads — and it wraps the field value the call already holds, so it
+ * never builds one.
+ */
+internal class PullSetup(
+    val marginM: Double,
+    val coarseStepM: Double,
+    val priceStepM: Double,
+    val field: RouteCostField,
+    val start: LatLng,
+    val aim: LatLng,
+    val approaches: EndApproaches = EndApproaches.NONE
+)
+
+/**
+ * **One walk's own values, made once at its start and threaded instead of re-declared.** The context
+ * carries the walk's constants — the margin, the two steps, the field, the two raw ends and the carved
+ * approaches — beside its three tallies: the refusals it counts, the timing it keeps and the memo it
+ * fills, each **exactly as nullable as the walk demands**, so a solve that wants none of them passes
+ * none. Nothing per-chord lives here — no endpoint, no anchor or probe index, no prefix array, no
+ * lattice — and the membership is closed at what travels with the walk today: a new field is a new
+ * decision, never an addition.
+ *
+ * **It is made inside [MultipassPull.pull] and never stored**, so a memo can no more outlive its walk
+ * than it can today; the context is never a field of an engine, a runner or a seat.
+ */
+internal class PullContext(
+    val marginM: Double,
+    val coarseStepM: Double,
+    val priceStepM: Double,
+    val field: RouteCostField,
+    val start: LatLng,
+    val aim: LatLng,
+    val approaches: EndApproaches = EndApproaches.NONE,
+    val refusals: PullRefusals? = null,
+    val timing: PullTiming? = null,
+    val memo: MarkMemo? = null
+)
+
 object MultipassPull {
 
     /**
      * Pulls [path] (raw start first, raw aim last) taut into the ordered waypoint list, as direct as
      * the field's margin allows and independent of grid orientation.
      *
-     * @param coarseStepM the **clearance walk's** coarse sampling step — the walk's own cell on the
-     *   water it was resolved on, handed in by the caller and never defaulted.
-     * @param priceStepM the **price walk's** own step — the walk's interior cell, the same step and the
-     *   same grouping rule the prefix is built from, so the guard compares two walks of one law and one
-     *   unit. The anchors are not shared: the prefix lattices each raw segment from its own start while a
-     *   chord lattices the whole line from its own, so the two meet mark for mark on a straight run and
-     *   part where the path bends.
-     * @param field the unified cost field — its materialized walls' distance is the clearance read
-     *   here, and its rastered walls' step is tested at every mark beside it.
-     * @param approaches the two ends' carved approaches, whose stretches the margin does not bind.
+     * @param setup the water this call walks — the margin, the clearance and price steps, the field,
+     *   the two raw ends and the carved approaches — built by the caller once and immediately after
+     *   the field it hands the walk, never cached across a corridor's growth.
      * @param refusals the tally the walk counts its refused chords into, or `null` where none is read.
      * @param timing the walk's own tally of what it spent, or `null` where no reader wants it.
      * @param memo the walk's own read memo — **one per walk**, keyed on the mark's own point and bound to
      *   the field it fills under, so a rebuild wipes it rather than letting it answer stale. In this
      *   walk's own shape the shared points are the price walk's: the prefix walks each raw segment before
      *   an attempt walks the chord that retraces it, while the clearance walk never re-visits a point. A
-     *   fresh memo is made here, at the walk's own start. A caller passing `null` walks as before.
+     *   fresh memo is made here, at the walk's own start, and **no call at the seam passes one**. A
+     *   caller passing `null` walks as before.
      */
     internal fun pull(
+        setup: PullSetup,
         path: List<LatLng>,
-        start: LatLng,
-        aim: LatLng,
-        marginM: Double,
-        coarseStepM: Double,
-        priceStepM: Double,
-        field: RouteCostField,
-        approaches: EndApproaches = EndApproaches.NONE,
         refusals: PullRefusals? = null,
         timing: PullTiming? = null,
         memo: MarkMemo? = MarkMemo()
     ): List<LatLng> {
+        val ctx = PullContext(
+            marginM = setup.marginM, coarseStepM = setup.coarseStepM, priceStepM = setup.priceStepM,
+            field = setup.field, start = setup.start, aim = setup.aim, approaches = setup.approaches,
+            refusals = refusals, timing = timing, memo = memo
+        )
         if (path.size <= 2) return path
         val result = ArrayList<LatLng>(path.size)
         result.add(path.first())
         val prefixStartNs = System.nanoTime()
-        val pathPriceSec =
-            if (field.hasSoft) softPricePrefix(path, marginM, priceStepM, field, timing, memo) else null
-        timing?.addPrice(System.nanoTime() - prefixStartNs)
+        val pathPriceSec = if (ctx.field.hasSoft) softPricePrefix(path, ctx) else null
+        ctx.timing?.addPrice(System.nanoTime() - prefixStartNs)
         var anchor = 0
         var probe = 1
         while (probe < path.size) {
-            val decision = chordDecision(
-                pathPriceSec, path, anchor, probe, marginM, coarseStepM, priceStepM, field, start, aim, approaches,
-                timing, memo
-            )
+            val decision = chordDecision(pathPriceSec, path, anchor, probe, ctx)
             val refused = decision.refusal
             when {
                 refused == null -> probe++
                 // The immediate step grazes land in a corner: it cannot be pulled, so it is accepted
                 // once and the walk moves on — the bounded form of the concave re-walk.
                 probe == anchor + 1 -> {
-                    refusals?.record(refused)
+                    ctx.refusals?.record(refused)
                     result.add(path[probe])
                     anchor = probe
                     probe++
                 }
                 else -> {
-                    refusals?.record(refused)
+                    ctx.refusals?.record(refused)
                     result.add(path[probe - 1])
                     anchor = probe - 1
                     // probe stands; the loop re-walks the chord from the new anchor exactly once.
@@ -244,25 +297,17 @@ object MultipassPull {
         path: List<LatLng>,
         anchor: Int,
         probe: Int,
-        marginM: Double,
-        coarseStepM: Double,
-        priceStepM: Double,
-        field: RouteCostField,
-        start: LatLng,
-        aim: LatLng,
-        approaches: EndApproaches,
-        timing: PullTiming?,
-        memo: MarkMemo?
+        ctx: PullContext
     ): ChordDecision {
         val a = path[anchor]
         val b = path[probe]
         val clearanceStartNs = System.nanoTime()
-        val cause = legClearCause(a, b, marginM, coarseStepM, field, start, aim, approaches, memo)
-        timing?.addClearance(System.nanoTime() - clearanceStartNs)
+        val cause = legClearCause(a, b, ctx)
+        ctx.timing?.addClearance(System.nanoTime() - clearanceStartNs)
         if (cause == null) {
             val priceStartNs = System.nanoTime()
-            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, marginM, priceStepM, field, timing, memo)
-            timing?.addPrice(System.nanoTime() - priceStartNs)
+            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, ctx)
+            ctx.timing?.addPrice(System.nanoTime() - priceStartNs)
             return ChordDecision(refusal)
         }
         return ChordDecision(cause)
@@ -306,48 +351,29 @@ object MultipassPull {
         return false
     }
 
-    internal fun legClear(
-        a: LatLng,
-        b: LatLng,
-        marginM: Double,
-        coarseStepM: Double,
-        field: RouteCostField,
-        start: LatLng,
-        aim: LatLng,
-        approaches: EndApproaches = EndApproaches.NONE
-    ): Boolean =
-        legClearCause(a, b, marginM, coarseStepM, field, start, aim, approaches) == null
+    /** The walk's [legClearCause] answered with a boolean, from the walk's own context. */
+    internal fun legClear(a: LatLng, b: LatLng, ctx: PullContext): Boolean =
+        legClearCause(a, b, ctx) == null
 
     /**
      * The same walk [legClear] answers with a boolean, read for its **cause** — so the instrument can
      * count which of the pull's tests refused a chord instead of leaving the three to guesswork.
      *
      * **The exemption is one rule with two halves**, and it is the margin's own scope: the shore
-     * clearance binds the **route**, never the ends. A sample standing within [marginM] of either end
-     * is skipped, and so is one standing on that end's **carved approach** — the stretch the berth
-     * carve opened, which the disc cannot cover once the berth runs deeper than [marginM]. Without
-     * that second half the pull re-closes the very channel it just used, and the drawn line becomes a
-     * staircase inside the berth it escaped.
+     * clearance binds the **route**, never the ends. A sample standing within [PullContext.marginM] of
+     * either end is skipped, and so is one standing on that end's **carved approach** — the stretch the
+     * berth carve opened, which the disc cannot cover once the berth runs deeper than the margin.
+     * Without that second half the pull re-closes the very channel it just used, and the drawn line
+     * becomes a staircase inside the berth it escaped.
      *
-     * @param coarseStepM the coarse sampling step — the walk's own cell on the water it was resolved on.
-     *   The coarse marks stand on a **fixed lattice from the chord's own start**, one per step with the
-     *   last interval sized to the chord's remainder, each at its own interval's midpoint; each pays the
-     *   distance read, and a fine mark pays it only where the coarse mark covering it read under
-     *   `marginM + coarseStepM / 2`, so a step at or under the fine one spares nothing at all.
+     * The coarse marks stand on a **fixed lattice from the chord's own start**, one per [PullContext.coarseStepM]
+     * with the last interval sized to the chord's remainder, each at its own interval's midpoint; each
+     * pays the distance read, and a fine mark pays it only where the coarse mark covering it read under
+     * `marginM + coarseStepM / 2`, so a step at or under the fine one spares nothing at all.
      */
-    internal fun legClearCause(
-        a: LatLng,
-        b: LatLng,
-        marginM: Double,
-        coarseStepM: Double,
-        field: RouteCostField,
-        start: LatLng,
-        aim: LatLng,
-        approaches: EndApproaches = EndApproaches.NONE,
-        memo: MarkMemo? = null
-    ): ChordRefusal? {
+    internal fun legClearCause(a: LatLng, b: LatLng, ctx: PullContext): ChordRefusal? {
         val dist = SpatialOperations.haversine(a, b)
-        val sampleStep = clearanceStep(marginM)
+        val sampleStep = clearanceStep(ctx.marginM)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
         // The coarse marks, on a **fixed lattice from the chord's own start**: one per coarse step, its
         // last interval sized to the chord's remainder, each standing at its interval's own midpoint —
@@ -355,29 +381,29 @@ object MultipassPull {
         // boundary lattice can test the chord's own ends, and the mark set is the same for every attempt
         // that shares an anchor. The step is floored at the fine one — a finer "coarse" pass could only
         // pay more reads than it saves, and a degenerate zero would never terminate.
-        val coarse = MarkLattice(dist, coarseStepM.coerceAtLeast(sampleStep))
+        val coarse = MarkLattice(dist, ctx.coarseStepM.coerceAtLeast(sampleStep))
         val coarseStep = coarse.stepM
         val coarseCount = coarse.count
         // The trigger the 1-Lipschitz bound gives: a reading `d` proves every point within half a
         // coarse step stands at least `d − coarseStep / 2` off the wall, so a mark at or above it
         // proves its own half-step clear — and the fine mark it covers along with it.
-        val provedClearM = marginM + coarseStep / 2.0
+        val provedClearM = ctx.marginM + coarseStep / 2.0
         val coarseClear = BooleanArray(coarseCount)
         for (k in 0 until coarseCount) {
-            coarseClear[k] = readHard(memo, field, chordPoint(a, b, coarse.markT(k))) >= provedClearM
+            coarseClear[k] = readHard(ctx, chordPoint(a, b, coarse.markT(k))) >= provedClearM
         }
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
             val p = chordPoint(a, b, t)
             // The end-disc and the carved approach, one rule: the margin binds the path, never the ends.
-            if (marginWaived(p, marginM, start, aim, approaches, sampleStep)) continue
+            if (marginWaived(p, ctx.marginM, ctx.start, ctx.aim, ctx.approaches, sampleStep)) continue
             // The rastered walls are a **step**, so every mark tests them: no bound could prove a
             // half-step holds no shallow cell, and a coarse-only walk would sail one.
-            if (field.hardBlocked(p)) return ChordRefusal.LAND
+            if (ctx.field.hardBlocked(p)) return ChordRefusal.LAND
             // The materialized distance is the one read the proof may spare, and it is skipped exactly
             // where the coarse mark covering this fine mark has already answered for its half-step.
             val covering = coarse.indexOf(t)
-            if (!coarseClear[covering] && readHard(memo, field, p) < marginM) return ChordRefusal.LAND
+            if (!coarseClear[covering] && readHard(ctx, p) < ctx.marginM) return ChordRefusal.LAND
         }
         return null
     }
@@ -404,14 +430,10 @@ object MultipassPull {
         path: List<LatLng>,
         anchor: Int,
         probe: Int,
-        marginM: Double,
-        priceStepM: Double,
-        field: RouteCostField,
-        timing: PullTiming?,
-        memo: MarkMemo?
+        ctx: PullContext
     ): ChordRefusal? {
         val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] } ?: return null
-        return if (softPriceSec(path[anchor], path[probe], marginM, priceStepM, field, timing, memo) > replacedPriceSec) {
+        return if (softPriceSec(path[anchor], path[probe], ctx) > replacedPriceSec) {
             ChordRefusal.PRICE
         } else {
             null
@@ -447,20 +469,12 @@ object MultipassPull {
      * than the cell path it replaces and no line would ever be pulled taut. A field with no price
      * reads 0 and the guard is inert.
      *
-     * @param priceStepM the price walk's own step — a required parameter, the walk's interior cell and
-     *   never its fine one: a defaulted step would re-arm the collapse this step exists to close.
+     * The price step is the context's own [PullContext.priceStepM] — a required value, the walk's
+     * interior cell and never its fine one: a defaulted step would re-arm the collapse it exists to close.
      */
-    internal fun softPriceSec(
-        a: LatLng,
-        b: LatLng,
-        marginM: Double,
-        priceStepM: Double,
-        field: RouteCostField,
-        timing: PullTiming? = null,
-        memo: MarkMemo? = null
-    ): Double {
+    internal fun softPriceSec(a: LatLng, b: LatLng, ctx: PullContext): Double {
         val dist = SpatialOperations.haversine(a, b)
-        val sampleStep = clearanceStep(marginM)
+        val sampleStep = clearanceStep(ctx.marginM)
         // The interval partition is a [MarkLattice] on the walk's own sampling step, its last interval
         // sized to the chord's remainder — so the midpoints, and every group's own midpoint, stand at
         // the same points whatever the chord's length, which is what a memo of the reads needs to hit.
@@ -468,21 +482,22 @@ object MultipassPull {
         val steps = marks.count
         val stepM = marks.stepM
         // The price step is floored at the fine one, exactly as the clearance walk floors its own, so
-        // a coarse pass can only ever save reads.
-        val priceStep = priceStepM.coerceAtLeast(sampleStep)
+        // a coarse pass can only ever save reads. The group step is the walk's own lattice and step
+        // read once, here, and handed to the grouping rather than recomputed on every call.
+        val priceStep = ctx.priceStepM.coerceAtLeast(sampleStep)
         val groupStep = maxOf(1, floor(priceStep / stepM).toInt())
         // A walk whose step cannot group reads as today: the span proof exists to spare the reads a
         // group pays, so a step at or under the fine one leaves the fine midpoints alone.
         if (groupStep <= 1) {
             val acc = doubleArrayOf(0.0)
-            groupPriceSec(a, b, marks, 0, steps, marginM, priceStep, field, timing, memo, acc)
+            groupPriceSec(a, b, marks, 0, steps, groupStep, ctx, acc)
             return acc[0]
         }
         // The recursion's floor: twice the price step, the length the group walk prices in two reads,
         // so a span at or under it goes straight to the group path and a short chord never pays more.
         val floorCount = maxOf(groupStep, floor(2.0 * priceStep / stepM).toInt())
         val acc = doubleArrayOf(0.0)
-        spanPriceSec(a, b, marks, 0, steps, marginM, priceStep, floorCount, field, timing, memo, acc)
+        spanPriceSec(a, b, marks, 0, steps, floorCount, groupStep, ctx, acc)
         return acc[0]
     }
 
@@ -503,39 +518,37 @@ object MultipassPull {
         marks: MarkLattice,
         i0: Int,
         i1: Int,
-        marginM: Double,
-        priceStepM: Double,
         floorCount: Int,
-        field: RouteCostField,
-        timing: PullTiming?,
-        memo: MarkMemo?,
+        groupStep: Int,
+        ctx: PullContext,
         acc: DoubleArray
     ) {
         val count = i1 - i0
         if (count <= floorCount) {
-            groupPriceSec(a, b, marks, i0, i1, marginM, priceStepM, field, timing, memo, acc)
+            groupPriceSec(a, b, marks, i0, i1, groupStep, ctx, acc)
             return
         }
         val halfM = marks.spanLengthM(i0, i1) / 2.0
         val mid = chordPoint(a, b, marks.spanMidT(i0, i1))
-        val clearance = field.priceClearanceM(mid)
+        val clearance = ctx.field.priceClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
-            val price = field.softPriceSecAt(mid)
-            timing?.addPriceReads(1)
+            val price = ctx.field.softPriceSecAt(mid)
+            ctx.timing?.addPriceReads(1)
             for (j in i0 until i1) acc[0] += price * marks.widthM(j)
             return
         }
         val midIndex = i0 + count / 2
-        spanPriceSec(a, b, marks, i0, midIndex, marginM, priceStepM, floorCount, field, timing, memo, acc)
-        spanPriceSec(a, b, marks, midIndex, i1, marginM, priceStepM, floorCount, field, timing, memo, acc)
+        spanPriceSec(a, b, marks, i0, midIndex, floorCount, groupStep, ctx, acc)
+        spanPriceSec(a, b, marks, midIndex, i1, floorCount, groupStep, ctx, acc)
     }
 
     /**
-     * The group walk over the interval run `[i0, i1)`, adding into [acc]: successive intervals of
-     * [priceStepM] worth are grouped, a group is priced from **one** read where the field's declaration
+     * The group walk over the interval run `[i0, i1)`, adding into [acc]: successive intervals of the
+     * price step's worth are grouped, a group is priced from **one** read where the field's declaration
      * proves no boundary stands inside it, and every unproved group keeps the fine midpoints, at their
      * lattice positions, in order. A group of one interval is its own fine interval and is never asked
-     * for a proof, so a walk handed the fine step reads exactly as today.
+     * for a proof, so a walk handed the fine step reads exactly as today. [groupStep] is the walk's own
+     * lattice and step read once — the grouping is the same arithmetic, computed where it belongs.
      */
     private fun groupPriceSec(
         a: LatLng,
@@ -543,15 +556,10 @@ object MultipassPull {
         marks: MarkLattice,
         i0: Int,
         i1: Int,
-        marginM: Double,
-        priceStepM: Double,
-        field: RouteCostField,
-        timing: PullTiming?,
-        memo: MarkMemo?,
+        groupStep: Int,
+        ctx: PullContext,
         acc: DoubleArray
     ) {
-        val groupStep =
-            maxOf(1, floor(priceStepM.coerceAtLeast(clearanceStep(marginM)) / marks.stepM).toInt())
         var i = i0
         while (i < i1) {
             val k = minOf(groupStep, i1 - i)
@@ -559,17 +567,17 @@ object MultipassPull {
             val proved = if (k > 1) {
                 // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
                 // can never be proved, and a group of one interval is never asked.
-                val clearance = field.priceClearanceM(chordPoint(a, b, marks.spanMidT(i, i + k)))
+                val clearance = ctx.field.priceClearanceM(chordPoint(a, b, marks.spanMidT(i, i + k)))
                 clearance < Double.MAX_VALUE && clearance >= halfM
             } else {
                 false
             }
             if (proved) {
-                val price = readPrice(memo, field, chordPoint(a, b, marks.spanMidT(i, i + k)), timing)
+                val price = readPrice(ctx, chordPoint(a, b, marks.spanMidT(i, i + k)))
                 for (j in i until i + k) acc[0] += price * marks.widthM(j)
             } else {
                 for (j in i until i + k) {
-                    acc[0] += readPrice(memo, field, chordPoint(a, b, marks.markT(j)), timing) * marks.widthM(j)
+                    acc[0] += readPrice(ctx, chordPoint(a, b, marks.markT(j))) * marks.widthM(j)
                 }
             }
             i += k
@@ -577,17 +585,10 @@ object MultipassPull {
     }
 
     /** [softPriceSec] accumulated along [path], so one span's price is a single subtraction. */
-    internal fun softPricePrefix(
-        path: List<LatLng>,
-        marginM: Double,
-        priceStepM: Double,
-        field: RouteCostField,
-        timing: PullTiming? = null,
-        memo: MarkMemo? = null
-    ): DoubleArray {
+    internal fun softPricePrefix(path: List<LatLng>, ctx: PullContext): DoubleArray {
         val prefix = DoubleArray(path.size)
         for (i in 1 until path.size) {
-            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], marginM, priceStepM, field, timing, memo)
+            prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], ctx)
         }
         return prefix
     }
@@ -597,18 +598,27 @@ object MultipassPull {
      * the field otherwise — one home for the read the clearance walk pays, so the memo is consulted at
      * every mark and no caller can forget it.
      */
-    private fun readHard(memo: MarkMemo?, field: RouteCostField, p: LatLng): Double =
-        memo?.hardDistance(field, p) ?: field.hardDistanceM(p)
+    private fun readHard(ctx: PullContext, p: LatLng): Double =
+        ctx.memo?.hardDistance(ctx.field, p) ?: ctx.field.hardDistanceM(p)
 
     /**
      * The soft price at [p], from the walk's memo where it holds the point and from the field otherwise —
      * and it is the **one** home that decides whether a price read was paid, incrementing
      * [PullTiming.priceReads] on a miss alone, so a memo hit lowers the count without touching the sum.
+     * The memo is probed **once**: a held point answers with its own double, a miss reads the field and
+     * stores the answer, so a hit and a miss each cost one lookup and never two.
      */
-    private fun readPrice(memo: MarkMemo?, field: RouteCostField, p: LatLng, timing: PullTiming?): Double {
-        val fresh = memo == null || !memo.hasPrice(field, p)
-        val price = memo?.price(field, p) ?: field.softPriceSecAt(p)
-        if (fresh) timing?.addPriceReads(1)
+    private fun readPrice(ctx: PullContext, p: LatLng): Double {
+        val memo = ctx.memo
+        if (memo == null) {
+            ctx.timing?.addPriceReads(1)
+            return ctx.field.softPriceSecAt(p)
+        }
+        val held = memo.priceOrNull(ctx.field, p)
+        if (held != null) return held
+        val price = ctx.field.softPriceSecAt(p)
+        memo.putPrice(ctx.field, p, price)
+        ctx.timing?.addPriceReads(1)
         return price
     }
 }
