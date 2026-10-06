@@ -471,6 +471,7 @@
     <string name="toast_screen_locked">Screen locked</string>
     <string name="toast_screen_unlocked">Screen unlocked</string>
     <string name="cd_selected">Selected</string>
+    <string name="cd_select">Select</string>
     <string name="cd_collapse_speed_scale">Collapse the speed scale</string>
     <string name="cd_expand_speed_scale">Expand the speed scale</string>
     <string name="cd_find_markers_at_position">Find markers at your position</string>
@@ -478,7 +479,8 @@
     <!-- Multiselect -->
     <string name="multiselect_count">%d selected</string>
     <string name="multiselect_select_all">Select all</string>
-    <string name="multiselect_deselect_all">Deselect all</string>
+    <string name="multiselect_clear">Clear</string>
+    <string name="multiselect_invert">Invert</string>
     <string name="action_pin">Pin</string>
     <string name="action_unpin">Unpin</string>
     <string name="action_export">Export</string>

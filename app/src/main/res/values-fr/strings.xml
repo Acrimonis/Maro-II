@@ -470,6 +470,7 @@
     <string name="toast_screen_locked">Écran verrouillé</string>
     <string name="toast_screen_unlocked">Écran déverrouillé</string>
     <string name="cd_selected">Sélectionné</string>
+    <string name="cd_select">Sélectionner</string>
     <string name="cd_collapse_speed_scale">Réduire l\'échelle de vitesse</string>
     <string name="cd_expand_speed_scale">Déplier l\'échelle de vitesse</string>
     <string name="cd_find_markers_at_position">Rechercher les repères à votre position</string>
@@ -477,7 +478,8 @@
     <!-- Multiselect -->
     <string name="multiselect_count">%d sélectionnés</string>
     <string name="multiselect_select_all">Tout sélectionner</string>
-    <string name="multiselect_deselect_all">Tout désélectionner</string>
+    <string name="multiselect_clear">Effacer</string>
+    <string name="multiselect_invert">Inverser</string>
     <string name="action_pin">Épingler</string>
     <string name="action_unpin">Désépingler</string>
     <string name="action_export">Exporter</string>

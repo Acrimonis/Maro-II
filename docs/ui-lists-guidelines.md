@@ -42,7 +42,12 @@ fun <T : ListableItem> ListOverlayScaffold(
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
     accentColors: (List<T>) -> Map<String, Color>,
-    cardContent: @Composable (T) -> Unit,
+    cardContent: @Composable (
+        item: T,
+        isSelected: Boolean,
+        onSelect: (() -> Unit)?,
+        onLongPress: (() -> Unit)?
+    ) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
     emptyState: @Composable () -> Unit = {},
     onAction: (ListAction) -> Unit,
@@ -62,7 +67,7 @@ fun <T : ListableItem> ListOverlayScaffold(
 | `filterAxes` | Per-type filter axis specs for dropdown rendering |
 | `onReset` | Clears filter + sort to defaults |
 | `accentColors` | Batch lambda — called once per items change, returns `Map<id, Color>` |
-| `cardContent` | Standard card slot — wrapped in `SwipeableItemCard` |
+| `cardContent` | Standard card slot — wrapped in `SwipeableItemCard`; receives `(item, isSelected, onSelect, onLongPress)`, the selection state and the leading door's callbacks |
 | `liveCardContent` | Live item slot — no swipe, rendered for `isLive = true` |
 | `emptyState` | Rendered when items is empty; shows "No items match filters" + clear button when filter active |
 
@@ -375,7 +380,7 @@ Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/
 - The card `Row` carries a `.combinedClickable(onClick = { onTap() }, onLongClick = onLongPress)` modifier — the entire card is tappable and long-pressable
 - Tap and long-press are handled at the card content level (`MarkerCardContent` / `TrackCardContent`), not in `SwipeableItemCard`
 - `SwipeableItemCard` handles only swipe gestures; taps/long-presses pass through to `cardContent`
-- The scaffold provides the `onLongPress` callback through `cardContent` slot signature `(T, onLongPress: (() -> Unit)?)`
+- The scaffold provides the selection state and the door's callbacks through the `cardContent` slot signature `(item, isSelected, onSelect, onLongPress)`
 
 **Chevron affordance:**
 - Each marker card carries a `KeyboardArrowRight` chevron at `Alignment.BottomEnd`
@@ -417,15 +422,24 @@ ListOverlayScaffold<T>
 │   └── Back + Title + filter/sort row
 │
 ├── Header (multiselect mode)
-│   ├── Close (X) + "N selected"
-│   ├── "Select all" / "Deselect all" chip
+│   ├── Close (X) + "N selected" count
+│   ├── Invert ("Invert"/"Clear") + Select all text chips
 │   ├── Action bar: scrollable Row of action buttons (in-flow, 4dp below header)
 │   │   └── HorizontalDivider(uiDividerColor) below
 │   └── Filter/sort row hidden
 │
 └── LazyColumn (fillMaxSize)
-    └── Cards with checkmark overlay + tonal shift + border on selected
+    └── Cards with the leading selection door + first-line check + tonal shift + 2dp border
 ```
+
+### Header Controls
+
+In multiselect mode the header row carries, left to right: **Close (X)** — a 32dp `CircleShape` `IconButton` on `uiSwitchTrackInactive` with an 18dp `Close` icon — then the **"N selected"** count (`multiselect_count`, 17sp Bold `uiTextPrimary`, `weight(1f)`, `maxLines = 1`), then two **`TextButton` chips** in the accent text idiom these controls already wore (`uiAccent`, 14 sp SemiBold).
+
+- **Invert** (`multiselect_invert` = "Invert") — **one action with two words**: its label is `multiselect_clear` ("Clear") once every non-live item is picked. It stays enabled throughout; inverting a full selection clears it and exits multiselect, exactly as deselecting the last item and the retired `deselectAll()` did.
+- **Select all** (`multiselect_select_all`) — **enabled only while the selection is partial** (`enabled = !allSelected`), and its label dims to **0.25 alpha** once everything is picked, the list's own dim idiom, because its action would then be a no-op.
+
+Both sit under the same `nonLiveCount > 0` gate that draws them; the count recomputes on its own after an invert or a select-all, and nothing is cached. `multiselect_deselect_all` and `deselectAll()` are gone — the clear role lives on invert now.
 
 ### MultiActionSpec
 
@@ -486,22 +500,17 @@ mode) are committed immediately — `ListAction.PermanentDelete` emitted for eac
 | Layer | Token / Spec |
 |---|---|
 | Tonal shift | `uiCardBackground` + `Color.White.copy(alpha = 0.15f)` overlay |
-| Border | 1dp `uiAccent` (#1565C0), `RoundedCornerShape(12.dp)` |
-| Checkmark circle | 24dp, `uiAccent` fill, `CircleShape` |
-| Checkmark icon | White `Icons.Filled.Check`, 16dp, centered in circle |
-| Position | `Alignment.TopEnd`, 4dp padding |
+| Border | 2dp `uiAccent` (#1565C0), `RoundedCornerShape(12.dp)` |
+| Selection door | [`ListSelectionRail`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 6dp accent bar in its 14dp visual zone, with [`ListSelectionTouchZone`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 24dp touch band |
+| Selection check | 24dp [`ListSelectionCheck`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) disc at the head of the card's first line — the scaffold draws no check mark of its own |
 
-### Long-Press Entry
+### Selection door
 
-Consumers use `combinedClickable(onClick, onLongClick)` on their card `Row` instead of plain
-`clickable`. The scaffold passes an `onLongPress` callback through the `cardContent` slot
-signature `(T, onLongPress: (() -> Unit)?) -> Unit`. In multiselect mode, the scaffold
-replaces the consumer's tap behavior with a selection toggle via a transparent `.clickable`
-overlay inside `SwipeableItemCard`.
+Each card's whole leading edge is the multiselect door, in two halves. [`ListSelectionRail`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) draws the visual half — the item's own accent colour as a **6 dp bar**, full height, inside a **14 dp visual zone** that folds in the content's former 8 dp leading padding, so the width is the same in both modes and no card reflows as selection comes and goes. [`ListSelectionTouchZone`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) owns the pointer half — a **24 dp full-height touch band** at the card's leading edge, drawn as an overlay (`matchParentSize()`) so it consumes no layout width; its last **10 dp overlaps the card body by design**, the accepted cost of the wider pointer zone, and no pixel of that 10 dp is drawn.
 
-**Why not an overlay in normal mode?** Compose dispatches pointer events innermost-first.
-A parent `combinedClickable` cannot detect long-press if a child `.clickable` consumes
-the down event first. The consumer must own the `combinedClickable`.
+Consumers use `combinedClickable(onClick, onLongClick)` on their card `Row`. A tap on the door enters multiselect and selects the item through `onSelect`; a long-press resolves exactly as a long-press on the card body through `onLongPress`. The scaffold hands both, with the selection state, through the `cardContent` slot signature `(item: T, isSelected: Boolean, onSelect: (() -> Unit)?, onLongPress: (() -> Unit)?) -> Unit`. In multiselect mode the scaffold replaces the consumer's tap behavior with a selection toggle via a transparent `.clickable` overlay inside `SwipeableItemCard`, so the door carries no handler there. Both callbacks null — the drawer and inspect call sites — emits no node at all, so those cards are untouched.
+
+The check is a separate face, not the door: [`ListSelectionCheck`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) draws the **24 dp `uiAccent` disc bearing the white 16 dp `Check`** at the head of the card's first line, and only while the card is selected — an unselected card reserves no slot, so the header text shifts right by the disc plus its 6 dp gap when selection arrives.
 
 ### Swipe Gate
 
@@ -533,5 +542,7 @@ In multiselect mode, horizontal drags are ignored.
 | Delete | Confirmation dialog (`confirmMessage`), destructive tint, per-item `PermanentDelete` |
 | Export | 1 track → `.gpx` file (named by track title); 2+ tracks → `maro-tracks-yyyy_MM_dd_HHmmss.zip` via `BatchExportGpx` |
 | Pin | `DropdownMenu` with 3 sub-actions: Pin all, Unpin all, Toggle pins (always enabled) |
+
+The batch **export** action wears the **same glyph as the card's own export button** — `Icons.Filled.Upload`, the one the list item's `cd_export_gpx` button draws in [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:680) — so one action reads as one icon on both surfaces.
 
 Uses `remember(trackSummaries)` to capture the item list for pin sub-action closures.

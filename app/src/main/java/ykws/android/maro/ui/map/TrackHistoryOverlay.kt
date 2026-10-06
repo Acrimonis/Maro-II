@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -55,7 +54,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
@@ -119,6 +117,9 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.ListSelectionCheck
+import ykws.android.maro.ui.components.ListSelectionRail
+import ykws.android.maro.ui.components.ListSelectionTouchZone
 import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.ui.components.StatCell
 import ykws.android.maro.ui.icons.route
@@ -335,7 +336,7 @@ internal fun TrackHistoryOverlay(
             MultiActionSpec(
                 id = "export",
                 label = exportLabel,
-                icon = Icons.Filled.Share,
+                icon = Icons.Filled.Upload,
                 action = { ids ->
                     if (ids.size == 1) {
                         onAction(ListAction.ExportGpx(ids.first()))
@@ -434,7 +435,7 @@ internal fun TrackHistoryOverlay(
         filterLinked = filterLinked,
         onToggleLink = onToggleLink,
         accentColors = { accentColorMap },
-        cardContent = { summary, onLongPress ->
+        cardContent = { summary, isSelected, onSelect, onLongPress ->
             TrackCardContent(
                 summary = summary,
                 dateFormat = dateFormat,
@@ -445,7 +446,9 @@ internal fun TrackHistoryOverlay(
                 onLongPress = onLongPress,
                 onResumeTrack = onResumeTrack,
                 onFollowRoute = onFollowTrack,
-                isRecording = liveState?.state == TrackRecorderState.ON
+                isRecording = liveState?.state == TrackRecorderState.ON,
+                isSelected = isSelected,
+                onSelect = onSelect
             )
         },
         // The live card belongs to the tracks list alone: a recording in progress is never a route.
@@ -527,7 +530,9 @@ internal fun TrackCardContent(
     onResumeTrack: ((String) -> Unit)? = null,
     onFollowRoute: ((String) -> Unit)? = null,
     isRecording: Boolean = false,
-    showChevron: Boolean = true
+    showChevron: Boolean = true,
+    isSelected: Boolean = false,
+    onSelect: (() -> Unit)? = null
 ) {
     // Original values for revert-on-back
     val originalName = remember(summary.id) { summary.name }
@@ -577,17 +582,16 @@ internal fun TrackCardContent(
                     onLongClick = onLongPress
                 )
         ) {
-            // Left-edge accent bar — previews the track's polyline render color
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(accentColor)
+            // The leading selection door's bar — the 6 dp accent strip on the track's own colour,
+            // reserving the 14 dp the card's folded leading padding used to take. The door's pointer
+            // handling is the touch zone below, drawn over this row.
+            ListSelectionRail(
+                accentColor = accentColor
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp, top = 2.dp, end = 8.dp, bottom = 6.dp)
+                    .padding(top = 2.dp, end = 8.dp, bottom = 6.dp)
             ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
@@ -610,10 +614,17 @@ internal fun TrackCardContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // The selection check leads the header line — drawn only while selected, so an
+            // unselected card reserves the slot for nothing and the date/time keeps its place.
+            if (isSelected) {
+                ListSelectionCheck()
+                Spacer(Modifier.width(6.dp))
+            }
             Text(
                 text = if (endTime != null) "$dateLabel  $startTime→$endTime"
                        else "$dateLabel  $startTime",
-                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp
+                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp,
+                modifier = Modifier.weight(1f)
             )
             Text(
                 text = stringResource(R.string.track_point_count_fmt, summary.pointCount),
@@ -714,24 +725,30 @@ internal fun TrackCardContent(
                     .heightIn(min = 0.dp)
             )
         } else {
-            Text(
-                text = summary.name,
-                color = Color(AppConfig.uiTextPrimary),
-                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp,
-                modifier = Modifier.fillMaxWidth()
-                    .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp)
-                    .combinedClickable(
-                        onClick = { onTap?.invoke() },
-                        onDoubleClick = {
-                            // Commit currently-edited field before switching
-                            if (editingField == EditingField.COMMENT) {
-                                onUpdateTrack(summary.id, null, commentField.text, null)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = summary.name,
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp,
+                    modifier = Modifier.weight(1f)
+                        .combinedClickable(
+                            onClick = { onTap?.invoke() },
+                            onDoubleClick = {
+                                // Commit currently-edited field before switching
+                                if (editingField == EditingField.COMMENT) {
+                                    onUpdateTrack(summary.id, null, commentField.text, null)
+                                }
+                                nameField = TextFieldValue(summary.name, TextRange(0, summary.name.length))
+                                editingField = EditingField.NAME
                             }
-                            nameField = TextFieldValue(summary.name, TextRange(0, summary.name.length))
-                            editingField = EditingField.NAME
-                        }
-                    )
-            )
+                        )
+                )
+            }
         }
 
         // ── Editable comment ────────────────────────────────────────
@@ -818,6 +835,14 @@ internal fun TrackCardContent(
         }
     }
     }
+        // The door's touch zone — 24 dp at the card's leading edge, drawn after the row so it sits
+        // above the content and owns the leading band's pointer work. Inert when both callbacks are
+        // null, which is what the drawer and inspect call sites pass.
+        ListSelectionTouchZone(
+            isSelected = isSelected,
+            onSelect = onSelect,
+            onLongPress = onLongPress
+        )
     }
 }
 

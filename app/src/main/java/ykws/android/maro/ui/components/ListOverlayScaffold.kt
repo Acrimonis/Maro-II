@@ -53,7 +53,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
@@ -466,28 +465,13 @@ private fun <T : ListableItem> SwipeableItemCard(
                 ) {
                     // Layer 1: consumer's card content
                     cardContent(item)
-                    // Layer 2: multiselect visuals — tonal shift + checkmark (only when selected)
+                    // Layer 2: the multiselect tonal shift alone (only when selected) — the check mark
+                    // itself now lives on the title line's type glyph, which the consumer draws.
                     if (isSelected) {
                         Box(
                             modifier = Modifier.matchParentSize()
                                 .background(Color.White.copy(alpha = 0.15f))
                         )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(4.dp)
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Color(AppConfig.uiAccent)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = stringResource(R.string.cd_selected),
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
                     }
                     // Layer 3: tap interceptor overlay — only in multiselect mode
                     if (isMultiSelectMode) {
@@ -559,7 +543,12 @@ fun <T : ListableItem> ListOverlayScaffold(
     filterLinked: Boolean = true,
     onToggleLink: () -> Unit = {},
     accentColors: (List<T>) -> Map<String, Color>,
-    cardContent: @Composable (T, onLongPress: (() -> Unit)?) -> Unit,
+    cardContent: @Composable (
+        item: T,
+        isSelected: Boolean,
+        onSelect: (() -> Unit)?,
+        onLongPress: (() -> Unit)?
+    ) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
     emptyState: @Composable () -> Unit = {},
     onAction: (ListAction) -> Unit,
@@ -615,9 +604,11 @@ fun <T : ListableItem> ListOverlayScaffold(
         selectedIds.addAll(items.filter { !it.isLive }.map { it.id })
     }
 
-    fun deselectAll() {
+    fun invertSelection() {
+        val nonLiveIds = items.filter { !it.isLive }.map { it.id }
+        val inverted = nonLiveIds.filterNot { selectedIds.contains(it) }
         selectedIds.clear()
-        exitMultiselect()
+        if (inverted.isEmpty()) exitMultiselect() else selectedIds.addAll(inverted)
     }
 
     // ── BackHandler ────────────────────────────────────────────────────
@@ -679,7 +670,7 @@ fun <T : ListableItem> ListOverlayScaffold(
         Column(modifier = Modifier.fillMaxSize()) {
             // ── Header ─────────────────────────────────────────────────
             if (isMultiSelectMode) {
-                // Multiselect header: Close (X) + "N selected" + select-all chip
+                // Multiselect header: Close (X) + "N selected" + invert and select-all text chips
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -696,15 +687,30 @@ fun <T : ListableItem> ListOverlayScaffold(
                         color = Color(AppConfig.uiTextPrimary),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
                         modifier = Modifier.weight(1f)
                     )
                     if (nonLiveCount > 0) {
-                        TextButton(onClick = { if (allSelected) deselectAll() else selectAll() }) {
+                        // Invert — one action, two words: inverting a full selection is a clear.
+                        TextButton(onClick = { invertSelection() }) {
                             Text(
-                                if (allSelected) stringResource(R.string.multiselect_deselect_all) else stringResource(R.string.multiselect_select_all),
+                                stringResource(if (allSelected) R.string.multiselect_clear else R.string.multiselect_invert),
                                 color = Color(AppConfig.uiAccent),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        // Select all — a no-op once every non-live item is picked, so it dims then.
+                        TextButton(
+                            onClick = { selectAll() },
+                            enabled = !allSelected
+                        ) {
+                            Text(
+                                stringResource(R.string.multiselect_select_all),
+                                color = Color(AppConfig.uiAccent),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.alpha(if (allSelected) 0.25f else 1f)
                             )
                         }
                     }
@@ -934,14 +940,23 @@ fun <T : ListableItem> ListOverlayScaffold(
                                     modifier = Modifier
                                         .clip(cardShape)
                                         .then(
-                                            if (isSelected) Modifier.border(1.dp, Color(AppConfig.uiAccent), cardShape)
+                                            // The selection ring at 2 dp — a step up from the 1 dp
+                                            // baseline, so the picked card's outline reads at a glance.
+                                            if (isSelected) Modifier.border(2.dp, Color(AppConfig.uiAccent), cardShape)
                                             else Modifier
                                         )
                                 ) {
                                     SwipeableItemCard(
                                         item = item,
                                         accentColor = colorMap[item.id] ?: Color.Unspecified,
-                                        cardContent = { cardContent(it, if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null) },
+                                        cardContent = {
+                                            cardContent(
+                                                it,
+                                                isSelected,
+                                                if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null,
+                                                if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null
+                                            )
+                                        },
                                         onSoftDelete = { pendingDeletes.add(it.id); onAction(ListAction.SoftDelete(it.id, it.title)) },
                                         onUndoDelete = { pendingDeletes.remove(it.id); onAction(ListAction.UndoDelete(it.id)) },
                                         onPermanentDelete = { pendingDeletes.remove(it.id); onAction(ListAction.PermanentDelete(it.id)) },
