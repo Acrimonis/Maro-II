@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -72,7 +73,9 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.ListTypeGlyph
 import ykws.android.maro.ui.components.MarkerCreateAction
+import ykws.android.maro.ui.icons.LocationOn
 
 /**
  * Full-screen overlay displaying a LazyColumn of user marker cards with
@@ -197,7 +200,9 @@ fun MarkerManagementOverlay(
         filterLinked = filterLinked,
         onToggleLink = onToggleLink,
         accentColors = { list -> list.associate { it.id to Color(ykws.android.maro.ui.map.MarkerColors.of(it.colorIndex)) } },
-        cardContent = { marker, onLongPress ->
+        // Every marker card leads with the fan's own marker icon.
+        typeIcon = { LocationOn },
+        cardContent = { marker, typeIcon, isSelected, onSelect, onLongPress ->
             MarkerCardContent(
                 marker = marker,
                 trackTitle = marker.trackId?.let(trackTitleLookup),
@@ -207,7 +212,10 @@ fun MarkerManagementOverlay(
                 onSetIcon = onSetIcon,
                 onSetPin = onSetPin,
                 onUpdateText = { name, desc -> onUpdateMarkerText(marker.id, name, desc) },
-                onLongPress = onLongPress
+                onLongPress = onLongPress,
+                typeIcon = typeIcon,
+                isSelected = isSelected,
+                onSelect = onSelect
             )
         },
         emptyState = {
@@ -257,7 +265,6 @@ private val MARKER_HEADER_FONT_SIZE = 11.sp
 private val MARKER_TITLE_FONT_SIZE = 15.sp
 private val MARKER_GEOMETRY_FONT_SIZE = 14.sp
 private val MARKER_DESC_FONT_SIZE = 13.sp
-private val MARKER_HEADER_ICON_GAP = 4.dp
 
 @Composable
 internal fun MarkerCardContent(
@@ -270,7 +277,10 @@ internal fun MarkerCardContent(
     onSetPin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateText: (String?, String?) -> Unit,
     onLongPress: (() -> Unit)? = null,
-    showChevron: Boolean = true
+    showChevron: Boolean = true,
+    typeIcon: ImageVector? = null,
+    isSelected: Boolean = false,
+    onSelect: (() -> Unit)? = null
 ) {
     var editingField by remember(marker.id) { mutableStateOf<String?>(null) }
     var showIconPicker by remember(marker.id) { mutableStateOf(false) }
@@ -310,21 +320,6 @@ internal fun MarkerCardContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { showIconPicker = true },
-                        modifier = Modifier.size(width = 24.dp, height = 36.dp)
-                    ) {
-                        if (marker.icon != null) {
-                            Text(marker.icon!!, fontSize = 20.sp, maxLines = 1)
-                        } else {
-                            Icon(
-                                imageVector = Icons.Outlined.LocationOff,
-                                contentDescription = stringResource(R.string.cd_set_icon),
-                                tint = ButtonColors.icon,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
                     Text(
                         text = coordinateHeader(marker),
                         color = Color(AppConfig.uiTextMuted),
@@ -332,9 +327,25 @@ internal fun MarkerCardContent(
                         lineHeight = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(start = MARKER_HEADER_ICON_GAP)
+                        modifier = Modifier.weight(1f)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        // The icon/pick door leads the cluster, at the cluster's own 36 dp.
+                        IconButton(
+                            onClick = { showIconPicker = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            if (marker.icon != null) {
+                                Text(marker.icon!!, fontSize = 20.sp, maxLines = 1)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.LocationOff,
+                                    contentDescription = stringResource(R.string.cd_set_icon),
+                                    tint = ButtonColors.icon,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = { onSetPin(marker.id, !marker.pinned) },
                             modifier = Modifier.size(36.dp)
@@ -395,20 +406,34 @@ internal fun MarkerCardContent(
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
-                    Text(
-                        text = marker.name,
-                        color = Color(AppConfig.uiTextPrimary),
-                        fontSize = MARKER_TITLE_FONT_SIZE,
-                        lineHeight = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.fillMaxWidth().combinedClickable(
-                            onClick = onTap,
-                            onDoubleClick = {
-                                nameText = marker.name
-                                editingField = "name"
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // The type glyph leads the title line and is the multiselect door.
+                        if (typeIcon != null) {
+                            ListTypeGlyph(
+                                icon = typeIcon,
+                                isSelected = isSelected,
+                                onSelect = onSelect
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = marker.name,
+                            color = Color(AppConfig.uiTextPrimary),
+                            fontSize = MARKER_TITLE_FONT_SIZE,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f).combinedClickable(
+                                onClick = onTap,
+                                onDoubleClick = {
+                                    nameText = marker.name
+                                    editingField = "name"
+                                }
+                            )
                         )
-                    )
+                    }
                 }
 
                 Spacer(Modifier.height(2.dp))

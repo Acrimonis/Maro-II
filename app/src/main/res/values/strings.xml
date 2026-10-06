@@ -471,6 +471,7 @@
     <string name="toast_screen_locked">Screen locked</string>
     <string name="toast_screen_unlocked">Screen unlocked</string>
     <string name="cd_selected">Selected</string>
+    <string name="cd_select">Select</string>
     <string name="cd_collapse_speed_scale">Collapse the speed scale</string>
     <string name="cd_expand_speed_scale">Expand the speed scale</string>
     <string name="cd_find_markers_at_position">Find markers at your position</string>

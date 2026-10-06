@@ -83,6 +83,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -119,8 +120,10 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.ListTypeGlyph
 import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.ui.components.StatCell
+import ykws.android.maro.ui.icons.Conversion_path
 import ykws.android.maro.ui.icons.route
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -434,7 +437,9 @@ internal fun TrackHistoryOverlay(
         filterLinked = filterLinked,
         onToggleLink = onToggleLink,
         accentColors = { accentColorMap },
-        cardContent = { summary, onLongPress ->
+        // The type glyph: a route reads the fan's route icon, a recorded track the conversion path.
+        typeIcon = { summary -> if (summary.route) route else Conversion_path },
+        cardContent = { summary, typeIcon, isSelected, onSelect, onLongPress ->
             TrackCardContent(
                 summary = summary,
                 dateFormat = dateFormat,
@@ -445,7 +450,10 @@ internal fun TrackHistoryOverlay(
                 onLongPress = onLongPress,
                 onResumeTrack = onResumeTrack,
                 onFollowRoute = onFollowTrack,
-                isRecording = liveState?.state == TrackRecorderState.ON
+                isRecording = liveState?.state == TrackRecorderState.ON,
+                typeIcon = typeIcon,
+                isSelected = isSelected,
+                onSelect = onSelect
             )
         },
         // The live card belongs to the tracks list alone: a recording in progress is never a route.
@@ -527,7 +535,10 @@ internal fun TrackCardContent(
     onResumeTrack: ((String) -> Unit)? = null,
     onFollowRoute: ((String) -> Unit)? = null,
     isRecording: Boolean = false,
-    showChevron: Boolean = true
+    showChevron: Boolean = true,
+    typeIcon: ImageVector? = null,
+    isSelected: Boolean = false,
+    onSelect: (() -> Unit)? = null
 ) {
     // Original values for revert-on-back
     val originalName = remember(summary.id) { summary.name }
@@ -714,24 +725,39 @@ internal fun TrackCardContent(
                     .heightIn(min = 0.dp)
             )
         } else {
-            Text(
-                text = summary.name,
-                color = Color(AppConfig.uiTextPrimary),
-                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp,
-                modifier = Modifier.fillMaxWidth()
-                    .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp)
-                    .combinedClickable(
-                        onClick = { onTap?.invoke() },
-                        onDoubleClick = {
-                            // Commit currently-edited field before switching
-                            if (editingField == EditingField.COMMENT) {
-                                onUpdateTrack(summary.id, null, commentField.text, null)
-                            }
-                            nameField = TextFieldValue(summary.name, TextRange(0, summary.name.length))
-                            editingField = EditingField.NAME
-                        }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // The type glyph leads the title line and is the multiselect door.
+                if (typeIcon != null) {
+                    ListTypeGlyph(
+                        icon = typeIcon,
+                        isSelected = isSelected,
+                        onSelect = onSelect
                     )
-            )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = summary.name,
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp,
+                    modifier = Modifier.weight(1f)
+                        .combinedClickable(
+                            onClick = { onTap?.invoke() },
+                            onDoubleClick = {
+                                // Commit currently-edited field before switching
+                                if (editingField == EditingField.COMMENT) {
+                                    onUpdateTrack(summary.id, null, commentField.text, null)
+                                }
+                                nameField = TextFieldValue(summary.name, TextRange(0, summary.name.length))
+                                editingField = EditingField.NAME
+                            }
+                        )
+                )
+            }
         }
 
         // ── Editable comment ────────────────────────────────────────

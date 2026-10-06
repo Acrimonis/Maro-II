@@ -424,7 +424,7 @@ ListOverlayScaffold<T>
 │   └── Filter/sort row hidden
 │
 └── LazyColumn (fillMaxSize)
-    └── Cards with checkmark overlay + tonal shift + border on selected
+    └── Cards with a title-line type glyph (the check mark on selection) + tonal shift + border
 ```
 
 ### MultiActionSpec
@@ -487,17 +487,21 @@ mode) are committed immediately — `ListAction.PermanentDelete` emitted for eac
 |---|---|
 | Tonal shift | `uiCardBackground` + `Color.White.copy(alpha = 0.15f)` overlay |
 | Border | 1dp `uiAccent` (#1565C0), `RoundedCornerShape(12.dp)` |
-| Checkmark circle | 24dp, `uiAccent` fill, `CircleShape` |
-| Checkmark icon | White `Icons.Filled.Check`, 16dp, centered in circle |
-| Position | `Alignment.TopEnd`, 4dp padding |
+| Type glyph | 24dp `ListTypeGlyph`, the item's own type icon, leading the title line |
+| Selected glyph | 24dp `uiAccent` circle (`CircleShape`) bearing the white 16dp `Icons.Filled.Check` |
+| Position | The title-line glyph — the scaffold draws no check mark of its own |
 
 ### Long-Press Entry
 
 Consumers use `combinedClickable(onClick, onLongClick)` on their card `Row` instead of plain
-`clickable`. The scaffold passes an `onLongPress` callback through the `cardContent` slot
-signature `(T, onLongPress: (() -> Unit)?) -> Unit`. In multiselect mode, the scaffold
-replaces the consumer's tap behavior with a selection toggle via a transparent `.clickable`
-overlay inside `SwipeableItemCard`.
+`clickable`. The scaffold resolves the item's type icon from `typeIcon: ((T) -> ImageVector)?` and
+passes it, with the selection state, through the `cardContent` slot signature
+`(T, typeIcon: ImageVector?, isSelected: Boolean, onSelect: (() -> Unit)?, onLongPress: (() -> Unit)?) -> Unit`.
+The consumer draws the shared `ListTypeGlyph` leading the title line: in normal mode `onSelect`
+enters multiselect and selects the item, and the glyph morphs to the accent check whenever
+`isSelected`. In multiselect mode, the scaffold replaces the consumer's tap behavior with a
+selection toggle via a transparent `.clickable` overlay inside `SwipeableItemCard`, so the glyph
+carries no handler there.
 
 **Why not an overlay in normal mode?** Compose dispatches pointer events innermost-first.
 A parent `combinedClickable` cannot detect long-press if a child `.clickable` consumes

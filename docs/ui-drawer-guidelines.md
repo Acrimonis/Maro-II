@@ -365,8 +365,12 @@ Row(
         HorizontalDivider(0.5dp, uiDividerColor)
         Spacer(2.dp)
 
-        // ── Title: 15sp SemiBold white ──
-        Text(title, 15sp, SemiBold, uiTextPrimary, maxLines=1, ellipsis)
+        // ── Title line: the 24dp type glyph (the multiselect door) + the name, 15sp SemiBold white ──
+        Row(verticalAlignment = CenterVertically) {
+            ListTypeGlyph(typeIcon, isSelected, onSelect)  // type icon → accent check when selected
+            Spacer(6.dp)
+            Text(title, 15sp, SemiBold, uiTextPrimary, maxLines=1, ellipsis, modifier = Modifier.weight(1f))
+        }
 
         // ── Detail row: 14sp Normal white ──
         Text(detailText, 14sp, uiTextPrimary)
@@ -388,6 +392,7 @@ Row(
 | Content padding | 8dp h × 4dp v | Both |
 | Header font | 11sp, `uiTextMuted` | Both |
 | Title font | 15sp, SemiBold, `uiTextPrimary` | Both |
+| Type glyph | `ListTypeGlyph`, 24dp, leading the title line — the item's type icon, morphing to the `uiAccent` check when selected | Both |
 | Detail font | 14sp, Normal, `uiTextPrimary` | Both |
 | Comment font | 13sp, Normal, `uiTextMuted` | Both |
 | Action icon | `IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)` | Both |
@@ -401,8 +406,12 @@ Row(
 | Accent color source | `computeTrackPolylineAppearance()` → ARGB int | `MarkerColors.of(colorIndex)` |
 | Header metadata | `dateLabel  startTime→endTime` + `pts` | `coordinateHeader()`: `[lat,lon]` (Pin/Circle) or `[lat,lon]→[lat,lon]` (Corridor) |
 | Detail text | 3-col × 2-row stats grid, each cell the shared `StatCell` (`ui/components/StatCell.kt`) | `markerFormatText()`: `📌 - 200m prox` / `⭕ - 200m r - 200m prox` / `📏 - 100m w - 200m prox` |
-| Action icons | Pin toggle + Export GPX | Edit only |
+| Action icons | Pin toggle + Export GPX | Icon/pick (36dp, leading the cluster) + Pin toggle + Edit |
 | Accent bar when hidden | Always real color | Always marker color |
+
+> **The marker card's icon/pick button moved out of the header's leading edge** (2026-10-06): it now leads the
+> trailing action cluster at the cluster's own 36 dp, and the coordinate text loses its 4 dp start gap — the marker
+> header reads coordinate → cluster → chevron, and the glyph on the title line is the only leading mark.
 
 > **The live stats block is the pattern's second wearer** (2026-10-04) — the TRACKS card, under its own Tracks row,
 > lays its six readings in a **two-column by three-row** grid of the same [`StatCell`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt),

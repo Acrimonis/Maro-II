@@ -53,7 +53,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
@@ -82,6 +81,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -466,28 +466,13 @@ private fun <T : ListableItem> SwipeableItemCard(
                 ) {
                     // Layer 1: consumer's card content
                     cardContent(item)
-                    // Layer 2: multiselect visuals — tonal shift + checkmark (only when selected)
+                    // Layer 2: the multiselect tonal shift alone (only when selected) — the check mark
+                    // itself now lives on the title line's type glyph, which the consumer draws.
                     if (isSelected) {
                         Box(
                             modifier = Modifier.matchParentSize()
                                 .background(Color.White.copy(alpha = 0.15f))
                         )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(4.dp)
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Color(AppConfig.uiAccent)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = stringResource(R.string.cd_selected),
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
                     }
                     // Layer 3: tap interceptor overlay — only in multiselect mode
                     if (isMultiSelectMode) {
@@ -559,7 +544,14 @@ fun <T : ListableItem> ListOverlayScaffold(
     filterLinked: Boolean = true,
     onToggleLink: () -> Unit = {},
     accentColors: (List<T>) -> Map<String, Color>,
-    cardContent: @Composable (T, onLongPress: (() -> Unit)?) -> Unit,
+    typeIcon: ((T) -> ImageVector)? = null,
+    cardContent: @Composable (
+        item: T,
+        typeIcon: ImageVector?,
+        isSelected: Boolean,
+        onSelect: (() -> Unit)?,
+        onLongPress: (() -> Unit)?
+    ) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
     emptyState: @Composable () -> Unit = {},
     onAction: (ListAction) -> Unit,
@@ -941,7 +933,15 @@ fun <T : ListableItem> ListOverlayScaffold(
                                     SwipeableItemCard(
                                         item = item,
                                         accentColor = colorMap[item.id] ?: Color.Unspecified,
-                                        cardContent = { cardContent(it, if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null) },
+                                        cardContent = {
+                                            cardContent(
+                                                it,
+                                                typeIcon?.invoke(it),
+                                                isSelected,
+                                                if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null,
+                                                if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null
+                                            )
+                                        },
                                         onSoftDelete = { pendingDeletes.add(it.id); onAction(ListAction.SoftDelete(it.id, it.title)) },
                                         onUndoDelete = { pendingDeletes.remove(it.id); onAction(ListAction.UndoDelete(it.id)) },
                                         onPermanentDelete = { pendingDeletes.remove(it.id); onAction(ListAction.PermanentDelete(it.id)) },
