@@ -8,32 +8,26 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ykws.android.maro.R
-import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.PageDots
 import ykws.android.maro.ui.markers.wizard.steps.PositionStep
 import ykws.android.maro.ui.markers.wizard.steps.RoutingCostStep
 import ykws.android.maro.ui.markers.wizard.steps.SliderStep
@@ -59,9 +53,8 @@ import ykws.android.maro.ui.markers.wizard.steps.TypeSelectStep
  * @param viewModel                The [MarkersViewModel] driving the wizard.
  * @param isLandscape              Whether the device is in landscape orientation.
  * @param onCancel                 Called when the wizard is dismissed (Cancel / back).
+ * @param steps                    The ordered steps for the form's current type.
  * @param step                     The current wizard step (non-null, guaranteed by caller).
- * @param totalSteps               Total number of steps in the sequence.
- * @param stepIndex                0-based index of the current step.
  * @param dashboardBaseHeight      The dashboard's base height — the floor the panel uses in portrait.
  * @param onMeasuredHeight         Optional report of the open panel's measured height (Phase 2).
  * @param panelMaxHeight           The portrait frame's own ceiling (F5) — the band cap the map
@@ -74,9 +67,8 @@ fun WizardDrawer(
     viewModel: MarkersViewModel,
     isLandscape: Boolean,
     onCancel: () -> Unit,
+    steps: List<WizardStep>,
     step: WizardStep,
-    totalSteps: Int,
-    stepIndex: Int,
     dashboardBaseHeight: Dp,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null
@@ -86,6 +78,8 @@ fun WizardDrawer(
     // keyboard with nothing lifted by hand. (P7a, 2026-09-26.)
     BackHandler { onCancel() }
 
+    val totalSteps = steps.size
+    val stepIndex = steps.indexOf(step).coerceAtLeast(0)
     val isLastStep = stepIndex >= totalSteps - 1
     val isFirstStep = stepIndex <= 0
 
@@ -103,7 +97,7 @@ fun WizardDrawer(
         onClose = onCancel,
         headerHorizontalPadding = 12.dp,
         headerVerticalPadding = 12.dp,
-        headerActions = { WizardStepDots(stepIndex = stepIndex, totalSteps = totalSteps) },
+        headerActions = { PageDots(currentIndex = stepIndex, total = totalSteps) },
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
         scrollable = true,
         suppressOverscrollWhenFits = true,
@@ -127,6 +121,9 @@ fun WizardDrawer(
             )
         }
     ) {
+        // The step switch is the slide the wizard's own direction flag selects: a forward step enters
+        // from the right, a Previous enters from the left. The footer's Next/Previous drive it; there
+        // is no lateral swipe here — that was built and withdrawn the same session (2026-10-06).
         val forward = viewModel.wizardForward
         AnimatedContent(
             targetState = step,
@@ -221,29 +218,6 @@ private fun WizardStepContent(
 // ─────────────────────────────────────────────────────────────────────────────
 // Header trailing slot and footer
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * The step progress: one dot per step, filled up to the current one. It lives in the drawer header's
- * trailing slot, reading the step state, so nothing else has to know which step is current.
- */
-@Composable
-private fun WizardStepDots(stepIndex: Int, totalSteps: Int) {
-    val accent = ComposeColor(AppConfig.uiAccent)
-    val divider = ComposeColor(AppConfig.uiDividerColor)
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        for (i in 0 until totalSteps) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(if (i <= stepIndex) accent else divider)
-            )
-        }
-    }
-}
 
 /**
  * The wizard's three actions, drawn by the app's shared action button so the enabled and disabled

@@ -635,8 +635,6 @@
          part de l'horloge du trajet retenu — et la paire qui fait défiler la sélection. -->
     <string name="route_candidates_title">Alternatives</string>
     <string name="route_candidate_fmt">Route n°%1$d · %2$s · économise %3$s (%4$d %%)</string>
-    <string name="cd_route_candidate_prev">Alternative précédente</string>
-    <string name="cd_route_candidate_next">Alternative suivante</string>
     <!-- Les étiquettes du tableau : deux colonnes, une extrémité chacune, les chiffres en dessous. -->
     <string name="route_label_start">Départ</string>
     <string name="route_label_destination">Destination</string>

@@ -347,8 +347,6 @@ internal fun OverlayLayer(
             // Compute step sequence from form type
             val form by markersViewModel.createForm.collectAsState()
             val seq = stepSequenceFor(form.type)
-            val stepIndex = seq.indexOf(activeStep)
-            val totalSteps = seq.size
 
             if (isLandscape) {
                 DrawerSlot(
@@ -364,9 +362,8 @@ internal fun OverlayLayer(
                         viewModel = markersViewModel,
                         isLandscape = true,
                         onCancel = onWizardCancel,
+                        steps = seq,
                         step = activeStep,
-                        totalSteps = totalSteps,
-                        stepIndex = stepIndex,
                         dashboardBaseHeight = dashboardBaseHeight
                     )
                 }
@@ -385,9 +382,8 @@ internal fun OverlayLayer(
                         viewModel = markersViewModel,
                         isLandscape = false,
                         onCancel = onWizardCancel,
+                        steps = seq,
                         step = activeStep,
-                        totalSteps = totalSteps,
-                        stepIndex = stepIndex,
                         dashboardBaseHeight = dashboardBaseHeight,
                         onMeasuredHeight = onDashboardMeasuredHeight,
                         panelMaxHeight = panelMaxHeight

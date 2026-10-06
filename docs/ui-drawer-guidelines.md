@@ -530,8 +530,12 @@ SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body)
 
 `ListOverlayScaffold` is not migrated — it already has its own fixed-header structure (fixed header plus
 section label/sort/filter controls). `WizardDrawer` **is** a `DrawerScaffold` and reads
-through it exactly as §3's second row and §6's header table describe: the title and the dot progress in
-the header, the three actions in `footer`, no frame of its own.
+through it exactly as §3's second row and §6's header table describe: the title and the shared page
+dots ([`PageDots`](../app/src/main/java/ykws/android/maro/ui/components/PageDots.kt)) in the header,
+in their progress fill up to and including the current step, the step body its own `AnimatedContent`
+slide, the three actions in `footer`, no frame of its own. The indicator is the one the route
+acquisition panel wears, though each surface keeps its own page-switch effect — the wizard's swipe was
+built and withdrawn the same session (2026-10-06).
 Settings uses the shared `DrawerHeader` for its header row but keeps its own tab bar + `HorizontalPager` body
 (not the full `DrawerScaffold` shell).
 
