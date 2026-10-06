@@ -1,48 +1,45 @@
 # Context Hydration — Route — 2026-10-06
 
-**Last Bake:** 2026-10-06 07:33 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-06 13:18 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the bake of 2026-10-05 21:58 UTC every change ran on an order — the mark count's
-Phase 3 instrument on *instrumlentalize*, the branch on `#new`, the pass on the user's own deploy, the review
-of its capture, the fine-walk plan on *plan*, its Phase 1 on *Go!*, then this bake and the commit that follows.
-No dependency was added, no machine-shaped data file was opened, no work was started without an order, the
-device was touched by the user alone, and every claim about the code follows a file read.
+**Directive trace:** Since the last bake (2026-10-06 07:33 UTC) every change ran on an order — the fine-walk
+plan and its Phase 1, the stored-route removal on the user's own words re-asked and confirmed, the EMODnet
+filter on *Yes same filter*, five device passes the user took themselves, three rounds of instrumentation on
+*instrumentalize*, and the removal of every instrument on *remove all instrumentation and dead code*. No
+dependency was added, no machine-shaped data file was opened, no work was started without an order, the device
+was touched only by the user, and every claim about the code follows a file read.
 
 ## State
 
-**The price walk's instrument landed, and the pass it enabled named the next address.** [`PullTiming`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:681)
-now carries `marks`, `memoPriceHits`, `memoHardHits`, `stepM` and `priceStepM` printed on the PULL and FINAL
-lines, and the pass of 2026-10-06 ([`route-phase9.txt`](../../route-phase9.txt:1)) reads every **fine-only** walk
-at **99–100 % of its marks** with the one-read-covered term exactly **zero**, against **11–52 %** on every walk
-at the interior cell — Phase 4b's collapse, alive wherever a walk is fine-only.
+**One fix kept, one defect accepted, and a session of diagnosis closed by decision.** The routing's depth read
+now passes the chart's own **EMODnet shallow filter** at `emodnetShallowCutoffM`, so a coarse EMODnet cell below
+the cutoff no longer walls a chord while a shallow fine-source cell still does. The **stored-route pull-back is
+gone** — R83 to R87 struck, one acquiring case in its place, every arming running a fresh acquisition — and the
+**off-axis first leg is accepted as a known defect**: at λ = 0 on open water every monotone staircase is
+equally optimal, so the search's tie-break picks the lattice's axes and the pull then tautens that staircase
+into one long leg at its own bearing before turning.
 
-**Phase 1 of the fine-walk price-step plan then landed** — [`GridWalk`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt:13)
-states its own price step, [`priceStepFor()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:170)
-answers that field, and [`fineReSearch()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:243)
-prices at the interior cell while its clearance step stays the fine one, so the group forms where it could not;
-the price double is identical to the bit, pinned by fixture, and the main walk needed no edit because its
-`cellM` was already the interior cell.
+**The diagnosis's conclusions, kept for the record** — the step walls were real water (Litto3D, confidence 90,
+2.2 to 2.9 m), the coast walls one real **mainland** OSM segment at 41 to 49 m against the 50 m margin, and the
+long leg needed no wall at all: its cells were free, its chords all clear, and the straight alternative priced
+at zero. **Every instrument that found this was removed on the same word**, so those figures live in
+`route-phase9` to `route-phase13` at the repo root and in the two plans, never in the code.
 
-**Gates green** — `apk-build.bat` and the suite at **951 / 3 / 11**: the parked `route.avoid.fine.cellRatio` red
-and the two `TrackOutlineTest` dash reds develop imported, no fourth. **What is open** — the fine-walk plan's
-**Phase 2** (the pass named on the pull's line) and **Phase 3** (the reading on both engines); the phase-9 pass's
-own two gaps, its 35 kn on pairs that are not the phase-8 ones and its unread 13.3 km arm; the band row's **3
-min** on a recorded rung; and Phase 1's `fineWalk` walks, whose interior-cell price step is shipped but whose
-saving is unmeasured.
+**Gates green, with the three known reds and no fourth** — the suite stands at **937 / 3 / 11** (the parked
+`route.avoid.fine.cellRatio` test and the two `TrackOutlineTest` dash reds) and `apk-build.bat` is green.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — the counters, `softPriceSec`'s `marks` home and `MarkMemo`'s hit sides
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt`, `RoutePassRunner.kt`, `RouteFinePass.kt` — the walk's price step, `priceStepFor`, and the fine pass's setup and walks
-- `app/src/test/java/ykws/android/maro/spatial/multipass/AvoidPriceWalkTest.kt` — the fine-only step fixture and the identical-sum fixture
-- `xTrack/Route/261006_FEAT_PLN_Route_fine-walk-price-step.md` — **in design, Phase 1 landed**, Phases 2 and 3 open
-- `xTrack/Route/261005_FEAT_PLN_Route_mark-count.md` — its Phase 3 taken 2026-10-06, the pass's gaps named in `## Phase 3`
-- `xTrack/Route/FEAT_DSC_Route.md`, `xTrack/GLOBAL_CONTEXT.md` — this session's record, folded by the bake of 2026-10-06
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt`, `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `app/src/test/java/ykws/android/maro/spatial/multipass/RouteEmodnetShallowGateTest.kt` — the kept fix and its guard
+- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `RouteViewModel.kt`, `MapScreen.kt`, `app/src/test/java/ykws/android/maro/ui/map/RouteAcquisitionTest.kt` — the removal, and the case that pins it
+- `xTrack/Route/261006_FEAT_PLN_Route_stored-pullback-removal.md` — **landed**, its Outcome written
+- `xTrack/Route/261006_FEAT_PLN_Route_open-water-bends.md` — **closed by decision**, the accepted defect and what would re-open it
+- `xTrack/Route/FEAT_DSC_Route.md`, `xTrack/GLOBAL_CONTEXT.md` — this bake's record
 
 ## Next Step
 
-**Phase 2 is next, and it is what makes Phase 3 readable**: name the pass on the pull's own trace line, because
-the capture could tell a main pull from a fine one only by `stepM` equalling `priceStepM`, and the fine walk's
-share of a pulll's wall time is the one figure the reading still lacks. The phase-9 capture is the baseline to
-read against — 62 009 reads and 6 942 ms of price on one fine walk — and the band row's 3 min stays the user's
-own pass.
+**Nothing on this line waits.** The fix is in, the defect is accepted by decision, and both plans carry the
+reasoning, so the next session opens from the record rather than from this code. The one gap the bake could not
+close is stated rather than hidden: the Route row in `GLOBAL_CONTEXT.md`'s summary table is a single
+4 000-character line, so its one-liner and its Modified date were left as they stand while the feature's own
+front matter and the Focus History carry this session's chapter.

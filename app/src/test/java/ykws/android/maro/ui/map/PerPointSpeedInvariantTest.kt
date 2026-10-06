@@ -17,8 +17,8 @@ import ykws.android.maro.spatial.SpatialOperations
  * destination, the one vertex no leg leaves, keeps the last leg's; a recorded track keeps its own GPS
  * speeds and is exempt; and a plan-less draft carries zero, read as *no speed* rather than a wrong one.
  *
- * The readers are checked together — the built track, [`routePlanOf`]'s read-back and [`mirroredPlanOf`]'s
- * reversed line — the same invariant on each, with no expectation elsewhere retargeted. Unequal legs
+ * The readers are checked together — the built track and [`routePlanOf`]'s read-back — the same
+ * invariant on each, with no expectation elsewhere retargeted. Unequal legs
  * (0.01° then 0.02° of latitude) make each leg's own speed distinguishable, so a direction swap cannot hide.
  */
 class PerPointSpeedInvariantTest {
@@ -102,25 +102,6 @@ class PerPointSpeedInvariantTest {
         )
     }
 
-    /** The mirrored plan: the invariant holds over the reversed line, mirrored leg k being stored leg n−1−k. */
-    @Test
-    fun theMirroredPlanHoldsTheInvariantOverTheReversedLine() {
-        val track = builtTrack()
-        val mirrored = mirroredPlanOf(track, nowMs = 42L) ?: error("a saved route mirrors")
-
-        assertEquals("the line runs backwards", listOf(c, b, a), mirrored.points)
-        val n = track.trackPoints.size - 1
-        for (k in 0 until mirrored.legTimesSec.size) {
-            val stored = n - 1 - k
-            assertEquals(
-                "mirrored leg $k reproduces stored leg $stored's vertex speed",
-                track.trackPoints[stored].speedMps!!.toDouble(),
-                speed(metres(mirrored.points[k], mirrored.points[k + 1]), mirrored.legTimesSec[k]),
-                1e-4
-            )
-        }
-    }
-
     /** A plan-less draft carries zero — read as *no speed* rather than a paced wrong one. */
     @Test
     fun aPlanLessDraftCarriesZeroSpeed() {
@@ -141,7 +122,7 @@ class PerPointSpeedInvariantTest {
         )
     }
 
-    /** A recorded track keeps its own GPS speeds and is exempt: the readers only read its times. */
+    /** A recorded track keeps its own GPS speeds and is exempt: the reader only reads its times. */
     @Test
     fun aRecordedTrackKeepsItsOwnGpsSpeeds() {
         val recorded = Track(
@@ -158,7 +139,6 @@ class PerPointSpeedInvariantTest {
         )
 
         routePlanOf(recorded)
-        mirroredPlanOf(recorded, 42L)
 
         assertEquals(
             "the GPS speeds survive verbatim — the leg arithmetic is not theirs",

@@ -275,18 +275,6 @@ data class RouteEnds(
     val destinationMarkerId: String? = null
 )
 
-/**
- * **A stored route matched to the armed pair** (R82, R86) — the line rebuilt from its track, handed to
- * [RouteViewModel.arm] so the acquisition lands on the stored line instead of searching.
- *
- * [trackId] is the track the line is already written as for the exact pair, so the save door is shut
- * (R85); it is **null for the return trip** (R87), whose mirrored plan is a new line no track holds, so
- * the session registers it with no link and the save door stays open.
- */
-data class StoredRouteMatch(
-    val plan: RoutePlan,
-    val trackId: String?
-)
 
 /**
  * All of the Route feature's runtime state, in one place and on `StateFlow`.
@@ -399,17 +387,8 @@ class RouteViewModel(
      * and each declared computation is started as a lookup — the main first, the rest after it. A
      * refused pair arms the toggle and the status line carries the reason: no engine answer gates the
      * mode.
-     *
-     * **[storedMatch]** replaces the search (R82): where a saved route already stands between the same
-     * two markers, the line rebuilt from it lands as the sole, settled page — no lookup started, no
-     * engine asked. Its plan is registered in the session **under the very instance the page carries**,
-     * so `isRouteSaved` reads it through the same equality with no new predicate — shut for the exact
-     * pair, whose track id is carried (R85), and **open for the mirrored return trip** (R87), a new line
-     * no track holds and whose match therefore carries a null track id. [RouteState.Choosing.start] is
-     * the **line's own first point** rather than the marker's current position, which may have moved
-     * since the save.
      */
-    suspend fun arm(ends: RouteEnds, storedMatch: StoredRouteMatch? = null) {
+        suspend fun arm(ends: RouteEnds) {
         if (_state.value !is RouteState.Idle) return
         clearSession()
         _sessionEngine.value = selection.value
@@ -423,17 +402,6 @@ class RouteViewModel(
         armedDestinationMarkerId = ends.destinationMarkerId
         val start = ends.start
         val destination = ends.destination
-        if (storedMatch != null) {
-            putSession(storedMatch.plan, storedMatch.trackId)
-            _pages.value = listOf(RoutePage(plan = storedMatch.plan))
-            _state.value = RouteState.Choosing(
-                start = storedMatch.plan.start,
-                plan = storedMatch.plan,
-                searching = false,
-                asked = true
-            )
-            return
-        }
         if (start == null || destination == null) {
             _state.value = RouteState.Choosing(start = start, plan = null)
             return
