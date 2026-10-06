@@ -603,7 +603,8 @@ class RouteAvoidEngine(
      * Two lines, one per **rung**: `lambda` tells them apart, and `paceKn` tells two runs at different
      * cruise speeds apart. `DEVICE PASS` is the coarse walk's own cost — the cells it was rasterized
      * over, how many were passable, how many the A\* expanded, how many cells its answer holds and how
-     * long it took — with the second pass's own duration beside it. `DEVICE DEV` is how far the coarse
+     * long it took, the pull's own refusals — how many chords the land margin refused and how many the
+     * price guard — with the second pass's own duration beside it. `DEVICE DEV` is how far the coarse
      * line sits from a fine line: `devChain*` reads the plan's own region, whose deviation saturates
      * where the corridor's wall stands, and `devRef*` reads the same walk over `avoid`'s second-pass
      * region, which has no such cap — so `devRef*` is the coarse walk's real error, the figure the
@@ -633,6 +634,7 @@ class RouteAvoidEngine(
                 "cellsInterior=${ctx.grid.rows * ctx.grid.cols} passableUnique=${search.passableCells} " +
                 "expansions=${search.expansions} pathCells=${search.path?.size ?: 0} " +
                 "pulled=${pass.pulledCount} snapped=${pass.snappedCount} " +
+                "landRefusals=${ctx.refusals.land} priceRefusals=${ctx.refusals.price} " +
                 "coarseM=${fmt(lineLengthM(coarse))}m " +
                 "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)}"
         }

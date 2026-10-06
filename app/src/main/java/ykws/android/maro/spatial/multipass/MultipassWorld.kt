@@ -51,8 +51,11 @@ interface MultipassWorld {
     fun distanceToCoastM(latitude: Double, longitude: Double): Double
 
     /**
-     * The depth at a point, as the depth layer answers it — [DepthSample.NONE] (no data) when the
-     * point is unsurveyed or no grid is loaded. The 3 m gate reads this once per cell centre.
+     * The depth at a point **as the router reads the water** — [DepthSample.NONE] (no data) when the
+     * point is unsurveyed or no grid is loaded, and, on a coarse EMODnet cell reading shallower than
+     * the chart's own `emodnetShallowCutoffM`, [DepthSample.NONE] too: the same gate the chart draws
+     * with ([DepthSample.gatedForEmodnetShallow]), at the same setting's value, so a cell the chart
+     * calls no-data never walls the route. The 3 m gate reads this once per cell centre.
      */
     fun depthAt(latitude: Double, longitude: Double): DepthSample
 
@@ -87,7 +90,13 @@ class LiveMultipassWorld(
     private val coastline: CoastlineRepository,
     private val depth: DepthRepository,
     private val zonesProvider: () -> List<SpeedZone> = { emptyList() },
-    private val excludedZoneIds: () -> Set<String> = { emptySet() }
+    private val excludedZoneIds: () -> Set<String> = { emptySet() },
+    /**
+     * The chart's own `emodnetShallowCutoffM`, read fresh on every call so a slider move reaches the
+     * next search — the same setting the bitmap, the warning layer, the isobaths and the chart
+     * readout are built with. 0 disables the gate.
+     */
+    private val emodnetShallowCutoffM: () -> Float = { 0f }
 ) : MultipassWorld {
 
     override val coastlineReady: Boolean
@@ -122,8 +131,14 @@ class LiveMultipassWorld(
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double =
         coastline.distanceToCoastMeters(latitude, longitude)
 
+    /**
+     * The live depth read, passed through the same EMODnet shallow gate the chart applies
+     * ([DepthSample.gatedForEmodnetShallow]) at the setting's own value: a coarse EMODnet cell the
+     * chart calls no-data reads as no-data here, so the engine's shallow wall stands only where the
+     * water is trustworthy, and a finer source (Litto3D/SDB) shallower than the gate still walls.
+     */
     override fun depthAt(latitude: Double, longitude: Double): DepthSample =
-        depth.depthAt(latitude, longitude)
+        depth.depthAt(latitude, longitude).gatedForEmodnetShallow(emodnetShallowCutoffM())
 
     override fun speedZonesIn(box: BBox): List<SpeedZone> =
         speedZonesInBox(zonesProvider(), box, excludedZoneIds())

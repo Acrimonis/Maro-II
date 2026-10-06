@@ -266,92 +266,35 @@ class RouteAcquisitionTest {
     }
 
     /**
-     * A stored match replaces the search (R82): no lookup is started, the sole page carries the stored
-     * plan, the anchor is the line's own first point, and the session already links the plan to its
-     * track — so the save door is shut with no second predicate.
+     * **Every arming runs the fresh acquisition and takes no stored line** (R83 struck) — an arming over
+     * a pair a stored route already stands between is searched like any other: the engine is asked, one
+     * page opens per declared computation, no settled stored page is seeded and the save predicate stays
+     * open, so nothing reads a saved line behind an arming.
      */
     @Test
-    fun aStoredMatchSeedsOneSettledPageWithNoEngineAsk() = runTest {
+    fun anArmingAlwaysAcquiresAndTakesNoStoredLine() = runTest {
         val engine = CountingEngine(computations = 2)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
-        val plan = RoutePlan(
+        val ends = RouteEnds(
             start = start,
+            fallbackStart = null,
             destination = aim,
-            destinationMoved = false,
-            points = listOf(start, aim),
-            legTimesSec = listOf(120.0),
-            distanceM = 1_000.0,
-            durationSec = 120.0,
-            computedAtMs = 0L
+            startMarkerId = "m-start",
+            destinationMarkerId = "m-dest"
         )
 
-        viewModel.arm(
-            RouteEnds(
-                start = start,
-                fallbackStart = null,
-                destination = aim,
-                startMarkerId = "m-start",
-                destinationMarkerId = "m-dest"
-            ),
-            StoredRouteMatch(plan, "track-1")
-        )
+        viewModel.arm(ends)
 
-        assertTrue("no lookup was started", engine.started.isEmpty())
-        assertEquals("the sole page is the stored line", listOf(plan), viewModel.pages.value.map { it.plan })
-        assertNull("and it carries no lookup id", viewModel.pages.value.first().lookupId)
+        assertTrue("the engine was asked", engine.started.isNotEmpty())
+        assertEquals("one page per declared computation", 2, viewModel.pages.value.size)
+        assertTrue("every page is a started lookup", viewModel.pages.value.all { it.lookupId != null })
+        assertTrue("no settled stored page stands", viewModel.pages.value.all { it.plan == null })
         val choosing = viewModel.state.value as RouteState.Choosing
-        assertEquals("the anchor is the line's own first point", plan.start, choosing.start)
-        assertEquals("the settled plan stands", plan, choosing.plan)
-        assertFalse("nothing is searching", choosing.searching)
-        assertTrue("the save door is already shut", viewModel.isRouteSaved(plan))
+        assertTrue("the pair is searching", choosing.searching)
         assertEquals("the pair was retained for the save site", "m-start" to "m-dest", viewModel.armedMarkerIds())
 
         viewModel.end()
         assertEquals("and the end cleared it", null to null, viewModel.armedMarkerIds())
-    }
-
-    /**
-     * A mirrored match (R86, R87) is a **new line**: it lands exactly as the exact pair does — one settled
-     * page, no engine ask, the pair retained — but carries **no track id**, so the session registers it
-     * with no link and the save door stays **open**, unlike the forward match's shut one (R85).
-     */
-    @Test
-    fun aMirroredMatchLeavesTheSaveDoorOpen() = runTest {
-        val engine = CountingEngine(computations = 2)
-        val viewModel = RouteViewModel(MutableStateFlow(engine))
-        val plan = RoutePlan(
-            start = aim,
-            destination = start,
-            destinationMoved = false,
-            points = listOf(aim, start),
-            legTimesSec = listOf(120.0),
-            distanceM = 1_000.0,
-            durationSec = 120.0,
-            computedAtMs = 42_424L
-        )
-
-        viewModel.arm(
-            RouteEnds(
-                start = start,
-                fallbackStart = null,
-                destination = aim,
-                startMarkerId = "m-start",
-                destinationMarkerId = "m-dest"
-            ),
-            StoredRouteMatch(plan, trackId = null)
-        )
-
-        assertTrue("no lookup was started", engine.started.isEmpty())
-        assertEquals("the sole page is the mirrored line", listOf(plan), viewModel.pages.value.map { it.plan })
-        assertFalse("the return trip is not written", viewModel.isRouteSaved(plan))
-        assertEquals(
-            "the session holds the plan with no link",
-            mapOf<RoutePlan, String?>(plan to null),
-            viewModel.sessionLinks.value
-        )
-        val choosing = viewModel.state.value as RouteState.Choosing
-        assertEquals("the settled plan stands", plan, choosing.plan)
-        assertFalse("nothing is searching", choosing.searching)
     }
 
     /**

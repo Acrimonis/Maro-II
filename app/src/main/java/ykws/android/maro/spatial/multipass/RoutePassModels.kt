@@ -6,9 +6,10 @@ import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 
 /**
- * **One walk's grid, and the four values that are its own.** A walk is the grid the A\* expands, the
- * two cells it starts and aims at, and the cell size it was rasterized at; carrying them as one value
- * is what lets the coarse walk and the fine re-walk travel through the same door.
+ * **One walk's grid, and the values that are its own.** A walk is the grid the A\* expands, the two
+ * cells it starts and aims at, the cell size it was rasterized at and the step its price walk groups
+ * at; carrying them as one value is what lets the coarse walk and the fine re-walk travel through the
+ * same door.
  */
 internal data class GridWalk(
     val grid: MultipassGrid,
@@ -20,7 +21,15 @@ internal data class GridWalk(
      * pass, whose single grid is its own walk. The path answers the walk's own coordinates either way: the
      * grid's for one window, the lattice's for a chain, and this is what resolves a path back to points.
      */
-    val windows: WalkWindows? = null
+    val windows: WalkWindows? = null,
+    /**
+     * The step the price walk groups at (**m**) — the walk's own **interior** cell, defaulting to [cellM]
+     * so a single-grid walk states one step while a fine-only walk names the interior's and keeps [cellM]
+     * as the fine cell it clears and samples at. It governs **grouping alone**: the sampling step, the
+     * marks and every clearance step stay [cellM]'s, and a step at or under one sampling interval simply
+     * cannot group.
+     */
+    val priceStepM: Double = cellM
 )
 
 /**

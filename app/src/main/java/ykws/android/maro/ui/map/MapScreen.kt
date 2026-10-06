@@ -737,7 +737,10 @@ fun MapScreen(
             viewModel.coastlineRepository,
             depthViewModel.depthRepository,
             zonesProvider = { viewModel.speedZones.value },
-            excludedZoneIds = { appSettings.excludedSpeedZoneIds }
+            excludedZoneIds = { appSettings.excludedSpeedZoneIds },
+            // The chart's own EMODnet shallow cutoff, so the router reads the same water the chart
+            // draws; read through the provider so a slider move reaches the next search.
+            emodnetShallowCutoffM = { appSettings.emodnetShallowCutoffM }
         )
     }
     val routeEngineSelection = remember {
@@ -2075,34 +2078,19 @@ fun MapScreen(
              * the surface shows, and nothing is asked a third time.
              */
             fun armRouteMode(forceFresh: Boolean = false) {
+                // `forceFresh` is retained for the explicit doors that pass it (R92), but every arming now
+                // runs the fresh acquisition — the stored-route match is gone — so it gates nothing.
                 // **A new arming commits a pending discard first** (the window's own rule): the
                 // disposal is made real, then this arming proceeds on the pair read below.
                 if (pendingDiscard != null) commitPendingDiscard()
                 if (routeArmed) return
-                // The pair is read **once**, here, and handed to every path below (R71): the stored-route
-                // match and the search work from this one reading, so the points and the ids cannot drift
-                // within an arming.
+                // The pair is read **once**, here, and handed to the search below (R71): the points and the
+                // ids cannot drift within an arming.
                 val ends = routeEndsAtTrigger()
-                // **A stored route standing between the same two markers replaces the search** (R82), the
-                // return trip included (R86): the match runs over the summaries the index already carries,
-                // so it opens no track file, and a pair it answers is self-validating through the plan's
-                // two-point check — hence it skips the guard below, which applies again where the matched
-                // file cannot be read and the ordinary search takes over (§12).
-                // **An explicit arming forces the search**: the fan's `Route` child, the toggle, the
-                // drawer's Route action and the discard toast's New acquisition pass `forceFresh = true`,
-                // so only the autoselect (`Route auto`) consults the R83 stored-route match below.
-                val storedMatch = if (forceFresh) null else storedRouteMatch(
-                    trackViewModel.allSummaries.value,
-                    ends.startMarkerId,
-                    ends.destinationMarkerId
-                )
                 // The short-pair guard: a press whose resolved ends sit within the minimum distance is
                 // refused with a toast rather than armed — the search would answer a line too short to
-                // be a route. A stored match skips it, but only where the line is actually reused: the
-                // fallback raises it again (§12).
-                if (storedMatch == null &&
-                    !routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)
-                ) {
+                // be a route.
+                if (!routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)) {
                     refuseShortRoutePair()
                     return
                 }
@@ -2117,32 +2105,9 @@ fun MapScreen(
                 // found, shut from the map and shut behind the press that armed inside it.
                 chrome.showTrackDrawer = false
                 routeSaveScope.launch {
-                    // A matched summary is loaded and rebuilt through the shipped inverse; a reverse match
-                    // is **mirrored** as the return trip (R86) instead, dated the arming instant and
-                    // carrying a null track id so its save door stays open (R87). A load that yields no
-                    // plan falls back to the search, so a broken file never arms nothing.
-                    val match = storedMatch?.summary?.id?.let { id ->
-                        trackViewModel.loadTrackDetail(id)?.let { track ->
-                            if (storedMatch.reversed) {
-                                mirroredPlanOf(track, System.currentTimeMillis())?.let {
-                                    StoredRouteMatch(plan = it, trackId = null)
-                                }
-                            } else {
-                                routePlanOf(track)?.let { StoredRouteMatch(it, id) }
-                            }
-                        }
-                    }
-                    // **The fallback is the search**, so the guard the stored line was to skip applies
-                    // again: a matched-but-unreadable file on a sub-minimum pair refuses rather than
-                    // arms a search, and the mode stands back down (§12).
-                    if (storedMatch != null && match == null &&
-                        !routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)
-                    ) {
-                        routeArmed = false
-                        refuseShortRoutePair()
-                        return@launch
-                    }
-                    routeViewModel.arm(ends, match)
+                    // Every arming runs the fresh acquisition: no stored line is read, so the engine is
+                    // asked for the pair the press resolved.
+                    routeViewModel.arm(ends)
                 }
             }
 
@@ -2756,8 +2721,6 @@ fun MapScreen(
                     if (routeDisplayArmed) followRoute()
                     else {
                         if (pendingDiscard != null) commitPendingDiscard()
-                        // An explicit arming forces the fresh multi-route acquisition: only the
-                        // autoselect (`Route auto`) consults the R83 stored-route pull-back.
                         routeAutoPick = false
                         armRouteMode(forceFresh = true)
                     }

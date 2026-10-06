@@ -1,48 +1,45 @@
-# Context Hydration — Route — 2026-10-05
+# Context Hydration — Route — 2026-10-06
 
-**Last Bake:** 2026-10-05 21:41 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-06 13:18 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-05 16:35 UTC) every change ran on an order — the mark count's
-Phases 1 and 2, the review's fixes, the walk context's Phases 1, 3 and 4, the seam plan's planning orders and
-reviews, the seam's three phases on `#implement`, the plan-time diagnosis and its fix on a second `#impl`, then the
-band-time diagnosis on device evidence with an `#impl` whose first attempt was struck and re-done. No dependency was
-added, no machine-shaped data file was opened, no work started without an order, the device was touched only by the
-user, and every claim about the code follows a file read. No device pass was taken by the agent.
+**Directive trace:** Since the last bake (2026-10-06 07:33 UTC) every change ran on an order — the fine-walk
+plan and its Phase 1, the stored-route removal on the user's own words re-asked and confirmed, the EMODnet
+filter on *Yes same filter*, five device passes the user took themselves, three rounds of instrumentation on
+*instrumentalize*, and the removal of every instrument on *remove all instrumentation and dead code*. No
+dependency was added, no machine-shaped data file was opened, no work was started without an order, the device
+was touched only by the user, and every claim about the code follows a file read.
 
 ## State
 
-**Five lands and one strike, all green at the same suite shape.** The mark count's **Phases 1 and 2**; the pull's
-**walk context** through the helper signatures with its two cleanups; the **seam** (`PullSetup` at the callers, both
-bridging adapters deleted); **the plan's time as the only time** (the followed figure reads the plan's remaining
-duration, the paced early-save draft retired); and **a limit's figure is its own water** — where the first attempt's
-bounded fold shipped, was deployed, and was **struck** the same evening: the user's trace read `slowMetres=6906.4m`
-against `distance=6906.4m`, every one of 245 legs slower than the 25 kn pace, so the whole line folded into the
-300 m band's cell and it read the route's own 12 min where the time spent inside 300 m is **3**. The fold is now
-deleted outright: each slow leg is charged to the water at its **own midpoint**, a slow leg on open water counts in
-**no** entry, and an entry is the full seconds its own legs take. `apk-build.bat` is green; the suite stands at
-**933 / 1 / 11**, the single red the parked `route.avoid.fine.cellRatio` test.
+**One fix kept, one defect accepted, and a session of diagnosis closed by decision.** The routing's depth read
+now passes the chart's own **EMODnet shallow filter** at `emodnetShallowCutoffM`, so a coarse EMODnet cell below
+the cutoff no longer walls a chord while a shallow fine-source cell still does. The **stored-route pull-back is
+gone** — R83 to R87 struck, one acquiring case in its place, every arming running a fresh acquisition — and the
+**off-axis first leg is accepted as a known defect**: at λ = 0 on open water every monotone staircase is
+equally optimal, so the search's tie-break picks the lattice's axes and the pull then tautens that staircase
+into one long leg at its own bearing before turning.
 
-**The two readings in hand, and the one still owed** — the band's cell should read **3 min** on the recorded rung
-after the next install; the four should-fixes the review left (a part-band leg charged whole, the dead
-`?: bandLimitKn` keying, an unused import, the panel's sub-minute drop) and the `slowMetres == distance` observation
-are carried in the feature's todos.
+**The diagnosis's conclusions, kept for the record** — the step walls were real water (Litto3D, confidence 90,
+2.2 to 2.9 m), the coast walls one real **mainland** OSM segment at 41 to 49 m against the 50 m margin, and the
+long leg needed no wall at all: its cells were free, its chords all clear, and the straight alternative priced
+at zero. **Every instrument that found this was removed on the same word**, so those figures live in
+`route-phase9` to `route-phase13` at the repo root and in the two plans, never in the code.
 
-**Still open, all code-side** — the seam's duplicated tally-free context fold, the memo's one-per-walk convention no
-fixture guards (only the owed `runPass`-driving test can), the one KDoc typo at
-[`RouteOverlay.kt:350`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:350), the hygiene trio,
-`MarkMemo.price`'s test-only life, and the field-stability exits.
+**Gates green, with the three known reds and no fourth** — the suite stands at **937 / 3 / 11** (the parked
+`route.avoid.fine.cellRatio` test and the two `TrackOutlineTest` dash reds) and `apk-build.bat` is green.
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt` — `slowTimeByLimit`'s own-water rule and `slowShares` beside it
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt`, `RoutePassRunner.kt`, `RouteFinePass.kt`, `RoutePassPrimitives.kt` — the walk's context, the seam and its four setup sites
-- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `MapScreen.kt` — the plan's time in the display and the store, and the Speed limits entries and rows
-- `app/src/test/java/ykws/android/maro/spatial/multipass/SlowTimeByLimitTest.kt`, `app/src/test/java/ykws/android/maro/ui/map/PerPointSpeedInvariantTest.kt` — the fold's fixtures and the speed invariant's five
-- `xTrack/Route/261005_FEAT_PLN_Route_band-time-attribution.md` — landed, rev 2, its first phase struck, four should-fixes open
-- `xTrack/Route/261005_FEAT_PLN_Route_plan-time-single-source.md` — landed, its early-save decision named
-- `xTrack/Route/261005_FEAT_PLN_Route_walk-context-seam.md` — landed, two should-fixes open
-- `xTrack/Route/261005_FEAT_PLN_Route_mark-count.md` — Phases 1–2 landed; Phase 3 open
+
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt`, `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `app/src/test/java/ykws/android/maro/spatial/multipass/RouteEmodnetShallowGateTest.kt` — the kept fix and its guard
+- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `RouteViewModel.kt`, `MapScreen.kt`, `app/src/test/java/ykws/android/maro/ui/map/RouteAcquisitionTest.kt` — the removal, and the case that pins it
+- `xTrack/Route/261006_FEAT_PLN_Route_stored-pullback-removal.md` — **landed**, its Outcome written
+- `xTrack/Route/261006_FEAT_PLN_Route_open-water-bends.md` — **closed by decision**, the accepted defect and what would re-open it
+- `xTrack/Route/FEAT_DSC_Route.md`, `xTrack/GLOBAL_CONTEXT.md` — this bake's record
 
 ## Next Step
-**The band cell's next reading is the one that closes this defect, and the mark count's Phase 3 is the one device
-pass the feature keeps — both yours.** The build is in the tree; on the recorded rung the band row should read
-3 minutes, and the trace's own line beside it is the whole diagnosis if it does not.
+
+**Nothing on this line waits.** The fix is in, the defect is accepted by decision, and both plans carry the
+reasoning, so the next session opens from the record rather than from this code. The one gap the bake could not
+close is stated rather than hidden: the Route row in `GLOBAL_CONTEXT.md`'s summary table is a single
+4 000-character line, so its one-liner and its Modified date were left as they stand while the feature's own
+front matter and the Focus History carry this session's chapter.

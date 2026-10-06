@@ -14,7 +14,6 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.Track
-import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
@@ -381,30 +380,6 @@ internal fun routePlanOf(track: Track): RoutePlan? {
     )
 }
 
-/**
- * **A stored route read back as the return trip** (R86) — the same line walked the other way, and
- * **exactly [routePlanOf] with its lists reversed**: the same stretch takes the same time either way, so
- * mirrored leg *k* is stored leg *n−1−k*, and reversing the forward plan's points and leg times carries
- * the **stored millisecond figures** over rather than redoing any pace arithmetic.
- *
- * The distance is the track's own [Track.distanceNm] as in [routePlanOf], the duration is the mirrored
- * legs' sum, and the plan is dated [nowMs] — **the arming instant, not the stored `startTimeMs`**: the
- * return trip is a new plan whose name belongs to its own day. It returns null for fewer than two points,
- * and it invents nothing else — no crossing badge, no moved destination.
- */
-internal fun mirroredPlanOf(track: Track, nowMs: Long): RoutePlan? {
-    val forward = routePlanOf(track) ?: return null
-    val points = forward.points.asReversed()
-    val legTimesSec = forward.legTimesSec.asReversed()
-    return forward.copy(
-        start = points.first(),
-        destination = points.last(),
-        points = points,
-        legTimesSec = legTimesSec,
-        durationSec = legTimesSec.sum(),
-        computedAtMs = nowMs
-    )
-}
 
 /**
  * **A partial plan from the main lookup's provisional points** — the early-save's own line.
@@ -443,52 +418,6 @@ internal fun partialPlanOf(
     )
 }
 
-/**
- * **The stored-route match's answer** (R82, R86) — the summary the armed pair resolved to and which pass
- * found it: [reversed] false for the exact pair, true when the return trip matched the pair the other
- * way. The summary rather than the rebuilt plan, because the plan is built once the track is loaded.
- */
-internal data class StoredRouteHit(val summary: TrackSummary, val reversed: Boolean)
-
-/**
- * **The stored-route match** (R82, R86) — the newest route-flagged summary the armed pair resolves to,
- * or null when either id is absent or nothing matches.
- *
- * The **first pass** is directional: the armed start id is compared to the stored start field and the
- * armed destination to the stored destination, never crossed, so an exact A→B line is pulled back as it
- * was saved. When that finds nothing the **second pass** (R86) looks for the pair the other way — a
- * summary whose stored start is the **armed destination** and whose stored destination is the **armed
- * start** — and answers it with [StoredRouteHit.reversed] set: the everyday out-and-back. The forward
- * pass wins when both exist, an exact pair being the truer answer.
- *
- * Both passes run over the summaries — the projection the index pass already carries — so neither opens
- * a track file, and an ordinary recording (its `route` flag off) is filtered out by the same predicate
- * the lists read. Newest `startTimeMs` wins within a pass, so the most recently saved line is the one
- * pulled back. No legality gate stands here: the drawer's `RouteEndSelection.resolve` has already
- * dropped a marker its own end's flag does not offer, so a pair whose markers cannot carry the opposite
- * flags never reaches the trigger.
- */
-internal fun storedRouteMatch(
-    summaries: List<TrackSummary>,
-    startMarkerId: String?,
-    destinationMarkerId: String?
-): StoredRouteHit? {
-    if (startMarkerId == null || destinationMarkerId == null) return null
-    val routes = summaries.filter { it.route }
-    newestRouteBetween(routes, startMarkerId, destinationMarkerId)
-        ?.let { return StoredRouteHit(it, reversed = false) }
-    return newestRouteBetween(routes, destinationMarkerId, startMarkerId)
-        ?.let { StoredRouteHit(it, reversed = true) }
-}
-
-/** The newest route-flagged summary whose stored pair is exactly [from]→[to], or null. */
-private fun newestRouteBetween(
-    routes: List<TrackSummary>,
-    from: String,
-    to: String
-): TrackSummary? = routes
-    .filter { it.routeStartMarkerId == from && it.routeDestinationMarkerId == to }
-    .maxByOrNull { it.startTimeMs }
 
 /**
  * **The short-pair guard** — whether the two resolved ends clear the minimum distance the acquisition
