@@ -77,7 +77,7 @@ internal fun MapSnackbarHost(
                         tagsDrawn = tagsDrawn,
                         showUndo = true,
                         secondActionLabel = if (routeDiscard != null) {
-                            stringResource(R.string.route_action_new_acquisition)
+                            stringResource(R.string.route_action_new)
                         } else null,
                         onSecondAction = if (routeDiscard != null) {
                             { onSecondAction(snack) }

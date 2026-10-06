@@ -99,7 +99,7 @@ A toggle is a **row**, never a card. The rendering is identical whether the card
 |---------|-------|
 | Label | 16sp Medium, `uiTextPrimary` (`ui.font.toggle.size`) |
 | Description | 13sp, `uiTextMuted` (`ui.font.desc.size`) — **optional**; omit the parameter for label-only rows |
-| Label style (`labelStyle`) | `ToggleLabelStyle.ROW` (**default**) — 16sp Medium `uiTextPrimary`; `ToggleLabelStyle.COMMENT` — the name drawn in the **description's own typography**, 13sp `uiTextMuted` regular, for a row whose name comments under a title the block already carries (§2.9). Its one use is the Routing tab's Appearance block. |
+| Label style (`labelStyle`) | `ToggleLabelStyle.ROW` (**default**) — 16sp Medium `uiTextPrimary`; `ToggleLabelStyle.COMMENT` — the name drawn in the **description's own typography**, 13sp `uiTextMuted` regular, for a row whose name comments under a title the block already carries (§2.9). Its one use is the two route rendering gates in the Layers tab's Tracks and Routes card, whose own blocks moved there on 2026-10-05. |
 | Leading icon (`leadingIcon`) | **optional** `@Composable (() -> Unit)?` slot rendered **before** the label column with the standard 8dp gap (precedent: `CategoryToggleGroup`'s icon/strike overlay) |
 | Label→control gap | `${ui.spacing.label.control}` (16dp) |
 | Control | `Switch` with accent colours (`uiAccent`) |
@@ -163,7 +163,7 @@ CardArea {
 }
 ```
 
-**Worked examples:** Coastline = `CardArea { ToggleRow(…) }` — one section, no divider. Orientation aids = three rows with two `SectionDivider`s — one section per control. Auto-show zones = two rows 8dp apart (one section) + `SectionDivider` + one row (second section). The Routing tab = the *Route* block (pace and budget sliders) then the *Appearance* block, one `CardArea` of two comment-named toggle rows 8dp apart (§2.1) — a block per purpose, a card per block.
+**Worked examples:** Coastline = `CardArea { ToggleRow(…) }` — one section, no divider. Orientation aids = three rows with two `SectionDivider`s — one section per control. Auto-show zones = two rows 8dp apart (one section) + `SectionDivider` + one row (second section). The Routing tab = the *Route algorithm* block (the engine dropdown) then the *Route* block (the pace and preference sliders), each in its own `CardArea` (§2.1) — a block per purpose, a card per block.
 
 **No settings visibility is conditional on another setting's state.** Settings are always shown; a toggle controls *behavior*, never *visibility*. E.g. the GPS-tuning expander is always visible regardless of GPS mode — the GPS mode toggle only controls whether GPS tuning takes effect, not whether the expander renders. Do not wrap a setting or expander in `if (someOtherSetting)`.
 
@@ -334,7 +334,7 @@ The two-thumb row: optional label/description, a **mandatory** value line, and t
 
 ### 2.9 Header Hierarchy
 
-- `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant.
+- `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant. It is always followed by `Spacer(uiSpacingHeaderBottom)` (`ui.spacing.header.bottom`, 6dp) before its card — one header-to-card gap for every section in every tab (2026-10-06).
 - `SubSectionHeader` — 16sp SemiBold, `ui.text.primary` + optional 13sp `ui.text.secondary` description; the standard header for a **titled** sub-section inside a card/expander. Headings are white like every other heading — hierarchy comes from **weight + spacing**, not a dimmed colour.
 - **`CardDescription`** — 13sp `ui.text.muted`, one lead-in sentence placed **inside the card, before its first control**; it owns its trailing 4dp spacer (`${ui.spacing.grouped.after-expander}`) and has **no horizontal inset of its own** now that the `CardArea` supplies it (§2.0).
 
@@ -438,7 +438,7 @@ For a single choice whose option list may grow past the two or three segments a 
 │  optional label (16sp Medium uiTextPrimary)                               │
 │  optional description (13sp uiTextMuted)                                  │
 │  ┌─ the bars' base: uiRadiusCard + 1dp uiAccent rim, 8×10dp padding ─────┐ │
-│  │  value (uiTextPrimary, Bold)                                           │ │
+│  │  value (uiTextPrimary, Normal)                                         │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
@@ -458,7 +458,7 @@ For a single choice whose option list may grow past the two or three segments a 
   paints nothing of its own: the call site supplies the `CardArea`/`NestedCard` (§2.0).
 - **The box is the bars' own base** — `uiRadiusCard` behind the **1dp `uiAccent` edge** a
   `MultiSelectRow`'s on half or a `SegmentedRow`'s selected cell wears, with their **10dp vertical
-  padding** and no surface of its own. The value reads `uiTextPrimary` at `${ui.font.value.size}` Bold on one
+  padding** and no surface of its own. The value reads `uiTextPrimary` at `${ui.font.value.size}` Normal on one
   line, **on the axis the control's one `TextAlign` names — centred by default and shared with the wheel's
   rows** (2026-10-05), ellipsised when a marker's own name is long. **Its height is that padding's consequence,
   not a number** — the same way the bars get theirs, and the wheel's slot reads it — which is what M3's
@@ -668,7 +668,7 @@ Canonical list-item card spec (accent-bar shell, shared tokens, per-type variati
 
 ### 5.3 Dashboard Tiles (`DashboardCard`)
 
-Three-line `Column` inside a rounded card (`8dp` radius, `4×2dp` pad, `uiCardBackground`). Used in the 2×2 dashboard grid (Distance, Zone, Depth, Speed).
+Three-line `Column` inside a rounded card (`8dp` radius, `4dp` pad, `uiCardBackground`). Used in the 2×2 dashboard grid (Distance, Zone, Depth, Speed).
 
 ```
 ┌────────────────────┐

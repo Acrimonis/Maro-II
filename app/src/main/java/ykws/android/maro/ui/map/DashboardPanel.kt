@@ -126,7 +126,7 @@ fun DashboardPanel(
 ) {
     // The frame's vertical padding lives once (F3): both the scaffold's contentPadding and the
     // grid's bounded height derive from it, so editing one cannot mis-size the panel.
-    val padV = 2.dp
+    val padV = 4.dp
     // The frame's horizontal padding lives once (W20): both branches read it, so editing one
     // cannot desync the orientations' outer insets.
     val padH = 4.dp
@@ -292,7 +292,7 @@ private fun DashboardCard(
             .clip(RoundedCornerShape(8.dp))
             .background(cardColor)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),

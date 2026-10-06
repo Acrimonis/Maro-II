@@ -614,7 +614,7 @@
          own; each row shows only its value, on the right. -->
     <string name="route_comment_ends">Origin and destination</string>
     <!-- The quick-access pair's short comment: the two settings it heads, the pace first. -->
-    <string name="route_comment_quick_access">Cruising speed and preference</string>
+    <string name="route_comment_quick_access">Cruising speed and pref</string>
     <string name="route_end_current">Current position</string>
     <string name="route_end_position">Marker position</string>
     <!-- The fixed entries' own dress: a marker's name is data and cannot wear it, which is what tells the
@@ -679,9 +679,9 @@
     <string name="route_exit_stop_following">Stop following</string>
     <!-- The deferred discard's toast: the acquisition's ending and a followed route's, told apart, each
          offering Undo (reusing `action_undo`) and New acquisition, which re-arms the same ends. -->
-    <string name="route_discard_acq_toast">Route discarded.</string>
-    <string name="route_discard_followed_toast">Route discarded.</string>
-    <string name="route_action_new_acquisition">New...</string>
+    <string name="route_discard_acq_toast">Route discarded</string>
+    <string name="route_discard_followed_toast">Route discarded</string>
+    <string name="route_action_new">New...</string>
     <!-- The map's action and undo rows (`MapSnackbarHost`): the three delete and create messages, each
          naming its own item, beside the route discard's two above. -->
     <string name="snack_track_deleted">Track \"%1$s\" deleted</string>
