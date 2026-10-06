@@ -54,8 +54,10 @@ shared reading cell, the drawer live-card's label-width measurer, and string res
   - Charge each slow leg's **own seconds** to the water at its midpoint: inside a priced zone, the strictest limit in
     force there (the engine's limit provider); inside the 300 m zone, the configured band limit as its own bucket;
     outside both, a **ramp**.
-  - Fold every ramp into the **nearest keyed leg**, walking outward from it, the forward one winning a tie — so a
-    limit's figure counts the ramp into and out of it.
+  - A slow leg on **open water is charged to no entry at all**: the figure counts the time **spent** on a limit's own
+    water and nothing else, so a bend's floor and an acceleration are the line's own ramp seconds rather than a
+    limit's. (The fold that once joined a ramp to the nearest keyed limit was struck on 2026-10-05 — a device reading
+    showed a whole coastal line folding into the band, since every leg of it was slower than the cruise pace.)
   - A zone wins over the band where both hold, so no bucket double-counts.
   - Accumulate by a key of (limit rounded to the nearest half knot, band flag); return the entries **band first, then
     ascending limit**.

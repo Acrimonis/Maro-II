@@ -84,9 +84,11 @@ problem is *where* it looks.
 - **Pass it at** [`timeLineWithLimits(final, pace, limitAt)`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:608),
   [`timeLineWithLimits(line, pace, limitAt)`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:1068)
   and [`timeLineWithProfile(rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt)`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:438).
-- **Trace the count**: the `LINE` trace beside [`timedLine.points`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:448)
-  gains `mixedLegs=${timedLine.mixedLegs}`, so a device pass can see whether the blind spot is ever
-  entered.
+- **The count never landed** (correction, 2026-10-05): this line promised the `LINE` trace beside
+  [`timedLine.points`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:448) a
+  `mixedLegs=${timedLine.mixedLegs}`, so a device pass could see whether the blind spot is entered — but
+  the contract's *no count and no new field* won over it, `TimedLine` carries no `mixedLegs`, and the
+  trace never gained one, so the blind spot stays uncounted.
 
 Nothing else moves: [`Success`](../../app/src/main/java/ykws/android/maro/spatial/RouteResult.kt:39) already
 carries `legSpeedsMps` per leg, the drawing reads it, and no proto field changes.
@@ -175,6 +177,6 @@ carries `legSpeedsMps` per leg, the drawing reads it, and no proto field changes
 ## Open questions
 
 - Whether the early-save line should be re-timed at each iteration's landing, or left paced until the full
-  line arrives.
-- Whether `mixedLegs` should surface in the acquisition panel or stay in the trace until the readings plan
-  puts a table there.
+  line arrives — **answered 2026-10-05** by [`261005_FEAT_PLN_Route_plan-time-single-source.md`](261005_FEAT_PLN_Route_plan-time-single-source.md): the draft now carries **no time** until a plan lands.
+- **Answered** (2026-10-05): `mixedLegs` never landed — the contract's *no count and no new field* won,
+  so there is no count to surface and no trace to carry it.

@@ -2298,7 +2298,7 @@ fun MapScreen(
                 if (partial.size < 2) return
                 val nowMs = System.currentTimeMillis()
                 val start = (routeState as? RouteState.Choosing)?.start
-                val partialPlan = partialPlanOf(partial, start, routePaceKn, nowMs) ?: return
+                val partialPlan = partialPlanOf(partial, start, nowMs) ?: return
                 routeDraftId = java.util.UUID.randomUUID().toString()
                 routeDraftCreatedAtMs = nowMs
                 routeDraftName = partialPlan.trackName()
@@ -2790,7 +2790,7 @@ fun MapScreen(
                 val partial = routeProvisionalLine
                 if (partial.size < 2) return@LaunchedEffect
                 val start = (routeState as? RouteState.Choosing)?.start
-                val plan = partialPlanOf(partial, start, routePaceKn, routeDraftCreatedAtMs)
+                val plan = partialPlanOf(partial, start, routeDraftCreatedAtMs)
                     ?: return@LaunchedEffect
                 routeDraftWriteMutex.withLock {
                     writeRouteTrack(
@@ -3023,7 +3023,6 @@ fun MapScreen(
                 routeTripFigure(
                     plan = following.plan,
                     from = routeBoatPosition,
-                    paceKn = routePaceKn,
                     nowMs = System.currentTimeMillis()
                 )
             }

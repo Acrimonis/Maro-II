@@ -322,6 +322,10 @@ private fun oneWayDeviationM(from: List<RoutePoint>, to: List<RoutePoint>): Doub
 
 /**
  * The trip figure: what is left of a followed route, in the two units the dashboard cell shows.
+ *
+ * Its [RouteTripFigure.etaSeconds] is the **plan's own remaining time** — [`RoutePlan.remainingFrom`]'s
+ * `durationSec`, which prices each leg at the limit the search resolved for its water — and never
+ * distance ÷ pace, which would understate every line carrying any slow water.
  */
 data class RouteTripFigure(
     val distanceNm: Double,
@@ -339,22 +343,23 @@ data class RouteTripFigure(
     val computedAtMs: Long
 )
 
-/** @see RouteTripFigure */
+/**
+ * **The followed figure, read from the plan's own remaining time** (2026-10-05) — the one home the
+ * dashboard trip cell, the drawer summary and the acquisition row all read is
+ * [`RoutePlan.remainingFrom`], and this reads its `durationSec` and nothing else. **There is no
+ * distance ÷ pace here**: that division survives only where no plan timest a line — the acquisition's
+ * provisional pair, which the engine already prices at the limit in force — and never on a followed,
+ * planned line, where it would discard the plan's slow-water time. @see RouteTripFigure
+ */
 internal fun routeTripFigure(
     plan: RoutePlan,
     from: RoutePoint,
-    paceKn: Double,
     nowMs: Long
 ): RouteTripFigure {
     val remaining = plan.remainingFrom(from)
-    val etaSeconds = if (paceKn > 0.0) {
-        remaining.distanceM / Units.knotsToMps(paceKn)
-    } else {
-        remaining.durationSec
-    }
     return RouteTripFigure(
         distanceNm = Units.metresToNauticalMiles(remaining.distanceM),
-        etaSeconds = etaSeconds,
+        etaSeconds = remaining.durationSec,
         budgetUnmetZoneShare = plan.budgetUnmetZoneShare,
         forcedCrossingZoneNames = plan.forcedCrossingZoneNames,
         computedAtMs = plan.computedAtMs
@@ -417,33 +422,34 @@ internal fun mirroredPlanOf(track: Track, nowMs: Long): RoutePlan? {
  * **A partial plan from the main lookup's provisional points** — the early-save's own line.
  *
  * The points are the provisional line as drawn so far, the start is the acquisition's anchor
- * (falling back to the line's first point), and every leg's time is the segment distance at
- * [paceKn] — the planned pace, since a partial line carries no zone-aware times. The plan is
- * dated [nowMs], which the draft's whole life reuses so its name and id stay one identity.
+ * (falling back to the line's first point), and the plan is dated [nowMs], which the draft's whole
+ * life reuses so its name and id stay one identity.
+ *
+ * **It carries no time** (2026-10-05): a partial line has no plan's times yet, and the distance ÷ pace
+ * the legs once held invented a plausible-but-wrong figure for water the settled plan has yet to
+ * price — the same cruise pace stamped on every leg whatever the slow water under it. So every leg is
+ * `0.0` and the duration is zero: **a draft that never sees a plan is a track that reports no time
+ * rather than one that lies.** The landing overwrites it with the plan's own times at the same id, so
+ * the two orders of that race — plan-lands-then-save and save-then-plan-lands — end on the same track.
  */
 internal fun partialPlanOf(
     points: List<RoutePoint>,
     start: RoutePoint?,
-    paceKn: Double,
     nowMs: Long
 ): RoutePlan? {
     if (points.size < 2) return null
-    val paceMps = if (paceKn > 0.0) Units.knotsToMps(paceKn) else 0.0
     var distanceM = 0.0
-    val legTimesSec = ArrayList<Double>(points.size - 1)
     for (i in 0 until points.size - 1) {
-        val segM = SpatialOperations.haversine(points[i].toLatLng(), points[i + 1].toLatLng())
-        distanceM += segM
-        legTimesSec += if (paceMps > 0.0) segM / paceMps else 0.0
+        distanceM += SpatialOperations.haversine(points[i].toLatLng(), points[i + 1].toLatLng())
     }
     return RoutePlan(
         start = start ?: points.first(),
         destination = points.last(),
         destinationMoved = false,
         points = points,
-        legTimesSec = legTimesSec,
+        legTimesSec = List(points.size - 1) { 0.0 },
         distanceM = distanceM,
-        durationSec = legTimesSec.sum(),
+        durationSec = 0.0,
         forcedCrossingZoneNames = emptyList(),
         computedAtMs = nowMs
     )

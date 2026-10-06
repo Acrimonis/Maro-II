@@ -18,8 +18,8 @@ import ykws.android.maro.spatial.Units
  *
  * The trip figure is the reading the epic hangs arrival on — reaching the destination *is* the cell
  * reading zero — so the central test is that what is left of the route is zero at the destination
- * and the whole route at the start, with the ETA being that remainder over the pace rather than a
- * figure carried over from the plan.
+ * and the whole route at the start, with the ETA being **that remainder in the plan's own time**
+ * rather than distance ÷ pace.
  *
  * **The anchor's lead is the one new rule here** (R3): every entry into the acquisition projects the
  * boat's own position forward along its course and speed, and it stands down — answering the live fix
@@ -273,32 +273,92 @@ class RoutePlanTest {
         assertTrue("and the latitude rises with a northward course", ten.latitude > p0.latitude)
     }
 
+    /**
+     * **The followed figure is the plan's own remaining time** (the plan's decision, 2026-10-05) — the
+     * dashboard trip cell, the drawer summary and the acquisition row all read this one home,
+     * [`RoutePlan.remainingFrom`], and the figure prints its `durationSec`. **It is not distance ÷ pace**:
+     * on a line with slow water that division understates the figure, and this fixture **would have
+     * failed against it** — 600 s of plan against a paced reading near 360 s at the cruise pace.
+     */
     @Test
-    fun theTripTimeIsTheRemainderOverThePaceInForce() {
-        val route = plan()
+    fun theFollowedFigureReadsThePlansOwnRemainingTimeNotDistanceOverPace() {
+        val slow = RoutePlan(
+            start = p0,
+            destination = p2,
+            destinationMoved = false,
+            points = listOf(p0, p1, p2),
+            legTimesSec = listOf(120.0, 600.0),
+            distanceM = d0 + d1,
+            durationSec = 720.0,
+            computedAtMs = computedAt
+        )
         val figure = routeTripFigure(
-            plan = route,
+            plan = slow,
             from = p1,
-            paceKn = 6.0,
             nowMs = computedAt + 5_000L
         )
 
         assertEquals(Units.metresToNauticalMiles(d1), figure.distanceNm, 1e-6)
-        assertEquals(d1 / Units.knotsToMps(6.0), figure.etaSeconds, 1e-6)
+        assertEquals(
+            "the figure is the plan's remaining time, not distance ÷ pace",
+            600.0,
+            figure.etaSeconds,
+            1e-9
+        )
         assertEquals(computedAt, figure.computedAtMs)
     }
 
-    /** With no pace in force the figure falls back on the plan's own drawn seconds. */
+    /**
+     * **The early save's paced fingerprint is gone** (2026-10-05) — a draft written from a line with
+     * slow water no longer stamps the cruise pace on every vertex, and the landed save's own card reads
+     * the plan's duration. The draft's average used to equal the cruise pace **exactly**; now the draft
+     * reports no time and the landed track carries the plan's own figures.
+     */
     @Test
-    fun withNoPaceInForceTheFigureKeepsThePlansOwnSeconds() {
-        val figure = routeTripFigure(
-            plan = plan(),
-            from = p1,
-            paceKn = 0.0,
-            nowMs = computedAt
+    fun aDraftsPacedFingerprintIsGoneAndTheLandedSaveKeepsThePlansTime() {
+        val slow = RoutePlan(
+            start = p0,
+            destination = p2,
+            destinationMoved = false,
+            points = listOf(p0, p1, p2),
+            legTimesSec = listOf(120.0, 600.0),
+            distanceM = d0 + d1,
+            durationSec = 720.0,
+            computedAtMs = computedAt
+        )
+        val cruisePaceMps = Units.knotsToMps(6.0).toFloat()
+
+        fun trackOf(legTimes: List<Double>) = TrackFromCourse.build(
+            start = p0,
+            legs = listOf(
+                TrackFromCourse.legBetween(p0, p1, legTimes[0]),
+                TrackFromCourse.legBetween(p1, p2, legTimes[1])
+            ),
+            id = "draft-1",
+            createdAtMs = computedAt
         )
 
-        assertEquals(240.0, figure.etaSeconds, 1e-9)
+        // The draft, built from the partial line alone: no plan has landed, so it holds no time.
+        val draft = partialPlanOf(slow.points, slow.start, computedAt)!!
+        val draftTrack = trackOf(draft.legTimesSec)
+        assertFalse(
+            "no vertex wears the cruise pace anymore",
+            draftTrack.averageSpeedMps == cruisePaceMps
+        )
+        assertEquals("and the draft reports no time rather than a wrong one", 0L, draftTrack.navigatingDurationSec)
+
+        // The landing rewrites the same id with the plan's own times.
+        val landedTrack = trackOf(slow.legTimesSec)
+        assertEquals(
+            "the landed save's total is the plan's duration",
+            slow.durationSec,
+            landedTrack.navigatingDurationSec.toDouble(),
+            1e-9
+        )
+        assertFalse(
+            "and its average is the plan's, not the pace's",
+            landedTrack.averageSpeedMps == cruisePaceMps
+        )
     }
 
     /** A saved route reads back as the plan that wrote it — the follow door's round trip. */

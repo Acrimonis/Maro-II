@@ -3,8 +3,9 @@ package ykws.android.maro.data.model
 /**
  * **One slow-water entry of a route's report** — the seconds spent under a single speed limit, or in
  * the 300 m band when [isBand] is set. [limitKn] is the enforced limit the entry stands for (the band's
- * own limit when [isBand]); the seconds are the route's own time, the deceleration into the limit and
- * the acceleration out of it counted in.
+ * own limit when [isBand]); the seconds are the route's own time on that limit's water **alone** — the
+ * legs whose midpoint stands on it — with nothing folded in from neighbouring water, so a limit's
+ * figure is never inflated by slow legs on open water.
  */
 data class RouteSlowLimit(
     val limitKn: Double,
@@ -87,10 +88,10 @@ sealed interface RouteResult {
         val forcedCrossingZoneNames: List<String> = emptyList(),
         /**
          * **The time the route spends in slow water, one entry per speed limit** — the seconds its legs
-         * take under each regulated limit that slowed it, the ramps into and out of a limit counted in,
-         * and the 300 m band standing as its own entry ([RouteSlowLimit.isBand]). Empty on an ordinary
-         * route with no slow water, on a partial line and on a saved route read back, none of which
-         * carries the attribution.
+         * take on each regulated limit's own water, a leg charged by its midpoint alone and the 300 m
+         * band standing as its own entry ([RouteSlowLimit.isBand]). A slow leg on open water is no
+         * limit's and stands in no entry. Empty on an ordinary route with no slow water, on a partial
+         * line and on a saved route read back, none of which carries the attribution.
          */
         val slowLimitSeconds: List<RouteSlowLimit> = emptyList()
     ) : RouteResult
