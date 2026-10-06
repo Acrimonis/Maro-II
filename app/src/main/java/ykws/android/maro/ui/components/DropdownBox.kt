@@ -60,8 +60,8 @@ internal enum class DropdownSizing { Fill, Content }
 
 /**
  * **One dropdown's box** — the control the whole family stands on: a `Row` on the bars' own base
- * (`uiRadiusCard` behind the **1dp `uiAccent`** edge), holding the value in `uiTextPrimary` **Bold** on one
- * line, **drawn on the axis the caller's `textAlign` names** (centred by default, 2026-10-05), ellipsised only
+ * (`uiRadiusCard` behind the **1dp `uiAccent`** edge), holding the value in `uiTextPrimary` at **Normal**
+ * weight on one line, **drawn on the axis the caller's `textAlign` names** (centred by default, 2026-10-05), ellipsised only
  * where it is given less than it needs. **It carries no arrow** (2026-10-05): the
  * `KeyboardArrowDown` glyph and the width it reserved are gone, so the field is its value alone. It paints no
  * surface of its own, as the bars paint none.
@@ -118,14 +118,15 @@ internal fun DropdownBox(
  * **How the box's value reads** — the one statement of it, read by the `Text` that draws the value and by
  * [`dropdownBoxWidth`] that measures it. The size and the weight are the box's own; the rest is the theme's,
  * merged in exactly the way `Text` merges `LocalTextStyle`, so the two read the same style and a measurement
- * can never come out short of what is drawn.
+ * can never come out short of what is drawn. The weight is **Normal** (2026-10-06) so the box never outranks
+ * the wheel's one bold label — the centred item alone.
  */
 @Composable
 private fun boxValueStyle(): TextStyle = LocalTextStyle.current.merge(
     TextStyle(
         color = ComposeColor(AppConfig.uiTextPrimary),
         fontSize = AppConfig.uiFontValueSize.sp,
-        fontWeight = FontWeight.Bold
+        fontWeight = FontWeight.Normal
     )
 )
 

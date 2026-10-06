@@ -1480,6 +1480,7 @@ private fun NavigationSettings(
 
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_section_map_offset))
+    Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
     CardArea {
         // GPS mode toggle
@@ -1530,11 +1531,28 @@ private fun RoutingSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
+        // ── Route algorithm ──────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_route_algorithm))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            CardDescription(stringResource(R.string.settings_route_algorithm_desc))
+            DropdownRow(
+                label = null,
+                options = RouteEngineChoice.all.map { it.id to stringResource(it.labelResId) },
+                selected = RouteEngineChoice.resolve(settings.routeEngineId).id,
+                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } },
+                accessibleName = stringResource(R.string.settings_section_route_algorithm)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
         // ── Tuning ────────────────────────────────────────────────────────────
         // The free-water pace: the trip figure's own setting, and the third of the three seams. The
         // bounds are read from AppConfig, where they live beside the accessor, so the slider, the
         // properties loader and the settings clamp cannot disagree about 3 and 40.
         SectionHeader(title = stringResource(R.string.settings_section_routing_tuning))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
             SliderRow(
@@ -1602,22 +1620,6 @@ private fun SystemSettings(
                 ),
                 selected = settings.languageCode,
                 onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
-
-        // ── Route algorithm ──────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_route_algorithm))
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        CardArea {
-            CardDescription(stringResource(R.string.settings_route_algorithm_desc))
-            DropdownRow(
-                label = null,
-                options = RouteEngineChoice.all.map { it.id to stringResource(it.labelResId) },
-                selected = RouteEngineChoice.resolve(settings.routeEngineId).id,
-                onSelect = { id -> onUpdateSettings { it.copy(routeEngineId = id) } },
-                accessibleName = stringResource(R.string.settings_section_route_algorithm)
             )
         }
 

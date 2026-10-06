@@ -455,7 +455,7 @@ internal fun SnackRow(
     tagsDrawn: Boolean = false,
     /** False for a message with nothing to reverse — a failure says what happened and no more. */
     showUndo: Boolean = true,
-    /** An optional second action's label, or null for the three delete snacks. */
+    /** An optional second action's label, drawn after Undo, or null for the three delete snacks. */
     secondActionLabel: String? = null,
     /** The second action's callback, paired with [secondActionLabel]. */
     onSecondAction: (() -> Unit)? = null
@@ -511,19 +511,19 @@ internal fun SnackRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                if (secondActionLabel != null && onSecondAction != null) {
-                    Spacer(Modifier.width(12.dp))
-                    SnackAction(
-                        label = secondActionLabel,
-                        onClick = onSecondAction,
-                        modifier = Modifier.align(Alignment.Bottom)
-                    )
-                }
                 if (showUndo) {
                     Spacer(Modifier.width(12.dp))
                     SnackAction(
                         label = stringResource(R.string.action_undo),
                         onClick = onUndo,
+                        modifier = Modifier.align(Alignment.Bottom)
+                    )
+                }
+                if (secondActionLabel != null && onSecondAction != null) {
+                    Spacer(Modifier.width(12.dp))
+                    SnackAction(
+                        label = secondActionLabel,
+                        onClick = onSecondAction,
                         modifier = Modifier.align(Alignment.Bottom)
                     )
                 }
