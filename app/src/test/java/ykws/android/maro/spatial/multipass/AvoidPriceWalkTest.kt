@@ -412,6 +412,53 @@ class AvoidPriceWalkTest {
     }
 
     /**
+     * **The fine-only walk prices at the interior cell.** Its own cell is the fine one it clears and
+     * samples at, while its price step is the interior cell the setup and the walk are built with —
+     * the reading that refuted the old comment *this pass walks one fine grid, so its price step is
+     * that grid's own cell*.
+     */
+    @Test
+    fun aFineOnlyWalkPricesAtItsInteriorCellNotItsOwnFineOne() {
+        val walk = fineOnlyWalk()
+
+        assertEquals(
+            "the fine-only walk prices at the interior cell, not its own fine one",
+            coarseStepM, RoutePassRunner().priceStepFor(walk), 0.0
+        )
+        assertEquals("its own cell is the fine one it clears at", fineStepM, walk.cellM, 0.0)
+        assertTrue(
+            "so the price step is never the cell the walk itself clears at",
+            RoutePassRunner().priceStepFor(walk) != walk.cellM
+        )
+    }
+
+    /**
+     * **The group forms at the interior step.** The fine-only walk's own cell is under one sampling
+     * interval, so priced there its quotient is one interval a group and every mark is read; priced at
+     * the interior step it names, the groups form and the reads fall while the returned double stays
+     * **identically** today's — the identity that makes the wider step safe.
+     */
+    @Test
+    fun theFineOnlyWalkGroupsAtItsInteriorStepWithTodaysSumFromFewerReads() {
+        val walk = fineOnlyWalk()
+        val interiorStep = RoutePassRunner().priceStepFor(walk)
+        val innerStep = walk.cellM
+        val start = LatLng(CHORD_LAT, 7.00)
+        val aim = LatLng(CHORD_LAT + 1595.0 / M_PER_DEG_LAT, 7.00)
+        var innerReads = 0
+        var interiorReads = 0
+
+        val innerSum =
+            MultipassPull.softPriceSec(start, aim, walkCtx(priceStepM = innerStep, field = flatField { innerReads++ }))
+        val interiorSum =
+            MultipassPull.softPriceSec(start, aim, walkCtx(priceStepM = interiorStep, field = flatField { interiorReads++ }))
+
+        assertEquals("the interior step returns the inner step's own double, to the bit", innerSum, interiorSum, 0.0)
+        assertTrue("the interior step groups, so the reads fall", interiorReads < innerReads)
+        assertTrue("while the inner step reads every mark, not vacuously", innerReads > 0)
+    }
+
+    /**
      * **The ring collar's own walk-level chord** — the test Phase 4's review left owed: the collar had a
      * declaration test but no chord. A chord running through the collar keeps today's fine reads (its
      * declaration never reaches a group's half-length), while a chord deep inside the ring proves its
@@ -649,6 +696,50 @@ class AvoidPriceWalkTest {
     }
 
     /**
+     * **The instrument's own figures, pinned on the shared stretch.** The mark count is the model's own
+     * — one interval per fine step of the chord's lattice, read directly from a single
+     * [MultipassPull.softPriceSec] partition. The memo's price half is then read on the straight pair:
+     * the second attempt's retrace is answered from the first's reads, so the memo run's [PullTiming]
+     * carries a **hit count above zero** beside strictly fewer `priceReads` than the memo-less run,
+     * while `marks` is the walk's own count, memo or not.
+     */
+    @Test
+    fun theMemoRaisesTheHitCountWhileLoweringTheReadsBesideTheModelsMarkCount() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val mid = LatLng(CHORD_LAT, east(800.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val path = listOf(start, mid, aim)
+
+        // marks: the model's own interval count on the chord, from one fine partition.
+        val marksTiming = PullTiming()
+        MultipassPull.softPriceSec(start, aim, walkCtx(field = flatField {}, timing = marksTiming))
+        val lattice = MarkLattice(SpatialOperations.haversine(start, aim), fineStepM)
+        assertEquals(
+            "marks is the model's own interval count on the chord",
+            lattice.count.toLong(), marksTiming.marks
+        )
+
+        // The shared-stretch pair: the memo answers the retraced marks, so its hits rise and its reads fall.
+        val memoTiming = PullTiming()
+        MultipassPull.pull(
+            PullSetup(marginM, fineStepM, fineStepM, flatField {}, start, aim),
+            path, timing = memoTiming, memo = MarkMemo()
+        )
+        val plainTiming = PullTiming()
+        MultipassPull.pull(
+            PullSetup(marginM, fineStepM, fineStepM, flatField {}, start, aim),
+            path, timing = plainTiming, memo = null
+        )
+
+        assertTrue("the memo's price reads are counted on their hit side", memoTiming.memoPriceHits > 0)
+        assertEquals("while the memo-less walk answers none from a memo", 0L, plainTiming.memoPriceHits)
+        assertTrue("and a memo hit lowers the price reads", memoTiming.priceReads < plainTiming.priceReads)
+        assertEquals("marks counts the walk's own intervals, memo or not", plainTiming.marks, memoTiming.marks)
+        // The fine walk reads every mark, so the memo-less run's reads are the model's own count too.
+        assertEquals("the model's count is the memo-less walk's read count", plainTiming.marks, plainTiming.priceReads)
+    }
+
+    /**
      * **An unproved stretch reads at the lattice's own positions, memo or not.** The chord runs along the
      * band's collar, so no span and no group is ever proved and every fine midpoint is read. The points
      * recorded with a memo and without it are the **same**, and they are the landed lattice's own
@@ -801,6 +892,13 @@ class AvoidPriceWalkTest {
         )
         return GridWalk(coarseGrid, CellIndex(0, 0), CellIndex(1, 1), family.coarse.cellM, windows)
     }
+
+    /**
+     * `avoid`'s fine-only walk: the fine cell for its own clearance and sampling, the interior cell it
+     * names for its price step — the shape the fine pass builds its walk with.
+     */
+    private fun fineOnlyWalk(): GridWalk =
+        GridWalk(twoLayerWalk().grid, CellIndex(0, 0), CellIndex(1, 1), fineStepM, priceStepM = coarseStepM)
 
     /**
      * The band's own law off a synthetic straight coast 340 m from the chord: the collar arm where the

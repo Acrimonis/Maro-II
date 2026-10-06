@@ -118,7 +118,9 @@ internal class RoutePassRunner {
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
-                "priceReads=${pullTiming.priceReads}"
+                "priceReads=${pullTiming.priceReads} marks=${pullTiming.marks} " +
+                "memoPriceHits=${pullTiming.memoPriceHits} memoHardHits=${pullTiming.memoHardHits} " +
+                "stepM=${fmt(pullTiming.stepM)} priceStepM=${fmt(pullTiming.priceStepM)}"
         }
         // The provisional pair belongs to this boundary and to the pulled line alone: the line is taut
         // here, but the settled clock is still the pull → snap → pull tail and the corner pass away, so
@@ -146,7 +148,9 @@ internal class RoutePassRunner {
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
-                "priceReads=${finalTiming.priceReads}"
+                "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +
+                "memoPriceHits=${finalTiming.memoPriceHits} memoHardHits=${finalTiming.memoHardHits} " +
+                "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
         }
         val timed = timeLineWithLimits(
             final, pace, limitAt, clockSampleM(cellM, ctx.fineCellM)
@@ -156,14 +160,15 @@ internal class RoutePassRunner {
     }
 
     /**
-     * **The price walk's own step for [walk]** — the walk's **interior** cell, and never under its
-     * fine one: `GridContext.cellM` is the interior's however many windows the walk spans, so this is
-     * the 100 m cell both engines carry, not the band's 20 m. It is a named pure function of the walk
-     * alone, so a test can pin the step the runner hands the pull — the collapse Phase 4's whole suite
-     * could not see, because every fixture threaded its own step and the engine's own choice was never
-     * read.
+     * **The price walk's own step for [walk]** — the step the walk itself names, its **interior** cell,
+     * and never under its fine one: [GridWalk.priceStepM] defaults to the walk's own cell, so the
+     * two-layer walk answers the interior 100 m it is built with and a fine-only walk names the
+     * interior's while keeping its own cell as the fine one it clears at. It is a named pure function of
+     * the walk alone, so a test can pin the step the runner hands the pull — the collapse Phase 4's whole
+     * suite could not see, because every fixture threaded its own step and the engine's own choice was
+     * never read.
      */
-    internal fun priceStepFor(walk: GridWalk): Double = walk.cellM
+    internal fun priceStepFor(walk: GridWalk): Double = walk.priceStepM
 
     /** The pulled polyline's own length (m) — the provisional distance, never a staircase's. */
     private fun pulledLengthM(points: List<LatLng>): Double {

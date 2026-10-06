@@ -141,6 +141,40 @@ lattice alone changes positions and saves nothing, and a memo alone can never hi
   chord's direction and its haversine length — so the clearance half of the memo is effectively inert in a real
   walk and the shipped win is the price half the plan names.
 
+## Phase 3 — the instrumentation and the pass, ordered 2026-10-06
+
+**Why an instrument comes before the pass.** The phase-8 capture of 2026-10-04 is the baseline, and it prints
+`priceReads` alone: 5 048 at 3.5 km and 87 176 at 13.3 km, at a time when `priceReads` **equalled the model's
+own mark count** ([`route-phase8.txt`](../../route-phase8.txt:52)). Three cuts have landed since — the group
+proof, the span proof and the memo — and one number cannot say which of them the fall belongs to. The pass is
+therefore read on four figures that the line does not carry today.
+
+- **`marks` — the intervals the price walk walked**, one increment in `softPriceSec`'s own partition. It makes
+  the model's mark count explicit, so `priceReads / marks` is the read density after the memo and `1 − it` the
+  memo's own hit rate, which no clock and no sum can show.
+- **`memoPriceHits` and `memoHardHits` — the reads answered from the memo**, counted in [`MarkMemo`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:125)'s
+  two accessors and copied into the timing at [`pull()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:71)'s own end. They price the memo on real water, and they
+  settle on a device the claim that the **clearance half is inert** in the pull's own shape.
+- **`stepM` and `priceStepM` — the two steps the walk actually took**, read from the `PullSetup` the walk was
+  handed. The clean pass of 2026-10-05 stayed unread in part because no line said which step was in force.
+- **The figures ride the PULL and FINAL lines** beside today's `ms` · `clearMs` · `priceMs` · `priceReads` in
+  [`RoutePassRunner`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:118), and **no behaviour moves**: every one is a tally read by a log
+  line, [`PullTiming`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:681) stays the optional the walk is handed, and no verdict, sum, guard or step reads a counter.
+
+**The pass, and what each arm is read against** — the same pairs as the phase-8 capture, once per engine, with
+the drawn line's own figures as the acceptance half (R97):
+
+| Arm | Baseline `priceReads` | Baseline `priceMs` | Acceptance on the line |
+|---|---|---|---|
+| 3.5 km, λ = 2.5 | 5 048 | 223.3 | `LINE distance=3514.1m duration=1366.2s` |
+| 13.3 km, λ = 5 | 87 176 (twin 91 767) | 14 738.3 | `LINE distance=13330.5m duration=1111.4s` |
+
+**The order of the pass, and who takes each step.** The instrumentation lands with the unit suite at its own
+triple and `apk-build.bat` green, and the build is then ready — the agent stops there. The user sets the
+instrument's gate with the app stopped (`adb shell setprop log.tag.MaroRoute INFO`, the level being read once
+and remembered), deploys, arms the two pairs on each engine, and hands the capture over; the agent reads it on
+that word alone and nowhere earlier.
+
 ## Verification
 
 - **A counting field proves both halves at once**: the same sum, strictly fewer reads, and one read per

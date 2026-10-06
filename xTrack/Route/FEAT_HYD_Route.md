@@ -1,48 +1,48 @@
-# Context Hydration — Route — 2026-10-05
+# Context Hydration — Route — 2026-10-06
 
-**Last Bake:** 2026-10-05 21:41 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-06 07:33 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-05 16:35 UTC) every change ran on an order — the mark count's
-Phases 1 and 2, the review's fixes, the walk context's Phases 1, 3 and 4, the seam plan's planning orders and
-reviews, the seam's three phases on `#implement`, the plan-time diagnosis and its fix on a second `#impl`, then the
-band-time diagnosis on device evidence with an `#impl` whose first attempt was struck and re-done. No dependency was
-added, no machine-shaped data file was opened, no work started without an order, the device was touched only by the
-user, and every claim about the code follows a file read. No device pass was taken by the agent.
+**Directive trace:** Since the bake of 2026-10-05 21:58 UTC every change ran on an order — the mark count's
+Phase 3 instrument on *instrumlentalize*, the branch on `#new`, the pass on the user's own deploy, the review
+of its capture, the fine-walk plan on *plan*, its Phase 1 on *Go!*, then this bake and the commit that follows.
+No dependency was added, no machine-shaped data file was opened, no work was started without an order, the
+device was touched by the user alone, and every claim about the code follows a file read.
 
 ## State
 
-**Five lands and one strike, all green at the same suite shape.** The mark count's **Phases 1 and 2**; the pull's
-**walk context** through the helper signatures with its two cleanups; the **seam** (`PullSetup` at the callers, both
-bridging adapters deleted); **the plan's time as the only time** (the followed figure reads the plan's remaining
-duration, the paced early-save draft retired); and **a limit's figure is its own water** — where the first attempt's
-bounded fold shipped, was deployed, and was **struck** the same evening: the user's trace read `slowMetres=6906.4m`
-against `distance=6906.4m`, every one of 245 legs slower than the 25 kn pace, so the whole line folded into the
-300 m band's cell and it read the route's own 12 min where the time spent inside 300 m is **3**. The fold is now
-deleted outright: each slow leg is charged to the water at its **own midpoint**, a slow leg on open water counts in
-**no** entry, and an entry is the full seconds its own legs take. `apk-build.bat` is green; the suite stands at
-**933 / 1 / 11**, the single red the parked `route.avoid.fine.cellRatio` test.
+**The price walk's instrument landed, and the pass it enabled named the next address.** [`PullTiming`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:681)
+now carries `marks`, `memoPriceHits`, `memoHardHits`, `stepM` and `priceStepM` printed on the PULL and FINAL
+lines, and the pass of 2026-10-06 ([`route-phase9.txt`](../../route-phase9.txt:1)) reads every **fine-only** walk
+at **99–100 % of its marks** with the one-read-covered term exactly **zero**, against **11–52 %** on every walk
+at the interior cell — Phase 4b's collapse, alive wherever a walk is fine-only.
 
-**The two readings in hand, and the one still owed** — the band's cell should read **3 min** on the recorded rung
-after the next install; the four should-fixes the review left (a part-band leg charged whole, the dead
-`?: bandLimitKn` keying, an unused import, the panel's sub-minute drop) and the `slowMetres == distance` observation
-are carried in the feature's todos.
+**Phase 1 of the fine-walk price-step plan then landed** — [`GridWalk`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt:13)
+states its own price step, [`priceStepFor()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:170)
+answers that field, and [`fineReSearch()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:243)
+prices at the interior cell while its clearance step stays the fine one, so the group forms where it could not;
+the price double is identical to the bit, pinned by fixture, and the main walk needed no edit because its
+`cellM` was already the interior cell.
 
-**Still open, all code-side** — the seam's duplicated tally-free context fold, the memo's one-per-walk convention no
-fixture guards (only the owed `runPass`-driving test can), the one KDoc typo at
-[`RouteOverlay.kt:350`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:350), the hygiene trio,
-`MarkMemo.price`'s test-only life, and the field-stability exits.
+**Gates green** — `apk-build.bat` and the suite at **951 / 3 / 11**: the parked `route.avoid.fine.cellRatio` red
+and the two `TrackOutlineTest` dash reds develop imported, no fourth. **What is open** — the fine-walk plan's
+**Phase 2** (the pass named on the pull's line) and **Phase 3** (the reading on both engines); the phase-9 pass's
+own two gaps, its 35 kn on pairs that are not the phase-8 ones and its unread 13.3 km arm; the band row's **3
+min** on a recorded rung; and Phase 1's `fineWalk` walks, whose interior-cell price step is shipped but whose
+saving is unmeasured.
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt` — `slowTimeByLimit`'s own-water rule and `slowShares` beside it
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt`, `RoutePassRunner.kt`, `RouteFinePass.kt`, `RoutePassPrimitives.kt` — the walk's context, the seam and its four setup sites
-- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `MapScreen.kt` — the plan's time in the display and the store, and the Speed limits entries and rows
-- `app/src/test/java/ykws/android/maro/spatial/multipass/SlowTimeByLimitTest.kt`, `app/src/test/java/ykws/android/maro/ui/map/PerPointSpeedInvariantTest.kt` — the fold's fixtures and the speed invariant's five
-- `xTrack/Route/261005_FEAT_PLN_Route_band-time-attribution.md` — landed, rev 2, its first phase struck, four should-fixes open
-- `xTrack/Route/261005_FEAT_PLN_Route_plan-time-single-source.md` — landed, its early-save decision named
-- `xTrack/Route/261005_FEAT_PLN_Route_walk-context-seam.md` — landed, two should-fixes open
-- `xTrack/Route/261005_FEAT_PLN_Route_mark-count.md` — Phases 1–2 landed; Phase 3 open
+
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — the counters, `softPriceSec`'s `marks` home and `MarkMemo`'s hit sides
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassModels.kt`, `RoutePassRunner.kt`, `RouteFinePass.kt` — the walk's price step, `priceStepFor`, and the fine pass's setup and walks
+- `app/src/test/java/ykws/android/maro/spatial/multipass/AvoidPriceWalkTest.kt` — the fine-only step fixture and the identical-sum fixture
+- `xTrack/Route/261006_FEAT_PLN_Route_fine-walk-price-step.md` — **in design, Phase 1 landed**, Phases 2 and 3 open
+- `xTrack/Route/261005_FEAT_PLN_Route_mark-count.md` — its Phase 3 taken 2026-10-06, the pass's gaps named in `## Phase 3`
+- `xTrack/Route/FEAT_DSC_Route.md`, `xTrack/GLOBAL_CONTEXT.md` — this session's record, folded by the bake of 2026-10-06
 
 ## Next Step
-**The band cell's next reading is the one that closes this defect, and the mark count's Phase 3 is the one device
-pass the feature keeps — both yours.** The build is in the tree; on the recorded rung the band row should read
-3 minutes, and the trace's own line beside it is the whole diagnosis if it does not.
+
+**Phase 2 is next, and it is what makes Phase 3 readable**: name the pass on the pull's own trace line, because
+the capture could tell a main pull from a fine one only by `stepM` equalling `priceStepM`, and the fine walk's
+share of a pulll's wall time is the one figure the reading still lacks. The phase-9 capture is the baseline to
+read against — 62 009 reads and 6 942 ms of price on one fine walk — and the band row's 3 min stays the user's
+own pass.

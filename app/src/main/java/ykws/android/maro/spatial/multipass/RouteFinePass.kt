@@ -239,8 +239,9 @@ internal class RouteFinePass(
         val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val guard = costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
         // The water the two line costs are priced against — built once here, immediately after the field
-        // and never cached; this pass walks one fine grid, so its price step is that grid's own cell.
-        val setup = PullSetup(marginM, fineCellM, fineCellM, guard, ctx.start, ctx.aim, ctx.approaches)
+        // and never cached: the walk's clearance stays the fine cell it samples, while its price step is
+        // the interior cell, the step its line costs group at (the fine-walk price step).
+        val setup = PullSetup(marginM, fineCellM, cellM, guard, ctx.start, ctx.aim, ctx.approaches)
         val limitAt = limitAtFor(world)
         val pass = fineWalk(ctx, boxes, lambda, base, guard, trace)
         val fineTimed = pass.timed
@@ -304,7 +305,8 @@ internal class RouteFinePass(
             openEndDisc(grid, world, aim, marginM, depthGateActive, minDepthM)
             walk = GridWalk(
                 grid, grid.cellOf(start.latitude, start.longitude),
-                grid.cellOf(aim.latitude, aim.longitude), fineCellM
+                grid.cellOf(aim.latitude, aim.longitude), fineCellM,
+                priceStepM = ctx.cellM
             )
         } else {
             // A chain: every box a window on **one** lattice, so the seam between two of them is arithmetic.
@@ -329,7 +331,8 @@ internal class RouteFinePass(
                 CellIndex(lattice.rowOf(start.latitude), lattice.colOf(start.longitude)),
                 CellIndex(lattice.rowOf(aim.latitude), lattice.colOf(aim.longitude)),
                 fineCellM,
-                WalkWindows.onLattice(lattice, windows)
+                WalkWindows.onLattice(lattice, windows),
+                priceStepM = ctx.cellM
             )
         }
         return runner.runPass(

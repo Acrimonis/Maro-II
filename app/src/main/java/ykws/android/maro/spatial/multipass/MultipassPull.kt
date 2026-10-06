@@ -133,16 +133,41 @@ internal class MarkMemo {
     /** The summed soft price already read, by the point it was read at. */
     private val price = HashMap<LatLng, Double>()
 
+    /** The hard reads answered from the table rather than the field — raised on [hardDistance]'s hit side. */
+    var hardHits: Long = 0L
+        private set
+
+    /**
+     * The price reads answered from the table rather than the field — raised on the hit side of both
+     * [price] and [priceOrNull], the pair the one-probe read in `readPrice` splits across.
+     */
+    var priceHits: Long = 0L
+        private set
+
     /** The materialized walls' distance at [p] under [field] — read once, then answered from here. */
     fun hardDistance(field: RouteCostField, p: LatLng): Double {
         bind(field)
-        return hard.getOrPut(p) { field.hardDistanceM(p) }
+        val held = hard[p]
+        if (held != null) {
+            hardHits++
+            return held
+        }
+        val value = field.hardDistanceM(p)
+        hard[p] = value
+        return value
     }
 
     /** The soft price at [p] under [field] — read once, then answered, the same double each time. */
     fun price(field: RouteCostField, p: LatLng): Double {
         bind(field)
-        return price.getOrPut(p) { field.softPriceSecAt(p) }
+        val held = price[p]
+        if (held != null) {
+            priceHits++
+            return held
+        }
+        val value = field.softPriceSecAt(p)
+        price[p] = value
+        return value
     }
 
     /**
@@ -152,7 +177,9 @@ internal class MarkMemo {
      */
     fun priceOrNull(field: RouteCostField, p: LatLng): Double? {
         bind(field)
-        return price[p]
+        val held = price[p]
+        if (held != null) priceHits++
+        return held
     }
 
     /** Stores [value] as the price at [p] under [field] — the other half of [priceOrNull]'s one probe. */
@@ -255,7 +282,10 @@ object MultipassPull {
             field = setup.field, start = setup.start, aim = setup.aim, approaches = setup.approaches,
             refusals = refusals, timing = timing, memo = memo
         )
-        if (path.size <= 2) return path
+        if (path.size <= 2) {
+            ctx.timing?.recordWalk(setup, memo)
+            return path
+        }
         val result = ArrayList<LatLng>(path.size)
         result.add(path.first())
         val prefixStartNs = System.nanoTime()
@@ -285,6 +315,7 @@ object MultipassPull {
             }
         }
         if (result.last() != path.last()) result.add(path.last())
+        ctx.timing?.recordWalk(setup, memo)
         return result
     }
 
@@ -480,6 +511,9 @@ object MultipassPull {
         // the same points whatever the chord's length, which is what a memo of the reads needs to hit.
         val marks = MarkLattice(dist, sampleStep)
         val steps = marks.count
+        // The one home of the mark count: the partition's own interval count, so the tally equals the
+        // model's marks and no reader has to re-derive them.
+        ctx.timing?.addMarks(steps)
         val stepM = marks.stepM
         // The price step is floored at the fine one, exactly as the clearance walk floors its own, so
         // a coarse pass can only ever save reads. The group step is the walk's own lattice and step
@@ -696,6 +730,38 @@ class PullTiming {
     var priceReads: Long = 0L
         private set
 
+    /**
+     * **The intervals the price walk walked** — one per whole fine step of a chord's own lattice, its
+     * last interval sized to the chord's remainder, summed over every `softPriceSec` partition the walk
+     * makes. It is the model's own mark count, so `priceReads / marks` reads the density the memo leaves
+     * behind and `1 − it` the memo's own hit rate — a fall no clock and no sum can show. It is
+     * incremented where the partition is made and nowhere else, and it reads no verdict, sum or step.
+     */
+    var marks: Long = 0L
+        private set
+
+    /**
+     * The price reads the walk answered from its own [MarkMemo] rather than the field — the price half
+     * of the memo's tally, copied from the memo at the walk's own end.
+     */
+    var memoPriceHits: Long = 0L
+        private set
+
+    /**
+     * The hard-wall distance reads the walk answered from its own [MarkMemo] rather than the field — the
+     * clearance half of the memo's tally, copied from the memo at the walk's own end.
+     */
+    var memoHardHits: Long = 0L
+        private set
+
+    /** The clearance walk's own sampling step (m), read from the [PullSetup] the walk was handed. */
+    var stepM: Double = 0.0
+        private set
+
+    /** The price walk's own grouping step (m), read from the [PullSetup] the walk was handed. */
+    var priceStepM: Double = 0.0
+        private set
+
     /** [clearanceNanos] in the log's own unit. */
     val clearanceMs: Double get() = clearanceNanos / NANOS_PER_MS
 
@@ -712,5 +778,21 @@ class PullTiming {
 
     internal fun addPriceReads(count: Int) {
         priceReads += count
+    }
+
+    internal fun addMarks(count: Int) {
+        marks += count
+    }
+
+    /**
+     * Copies the walk's two steps and its memo's two hit counts into the tally at the walk's own end,
+     * read from the [PullSetup] and [MarkMemo] the walk was handed — so the line proves the steps in
+     * force and prices the memo on the water it actually walked.
+     */
+    internal fun recordWalk(setup: PullSetup, memo: MarkMemo?) {
+        stepM = setup.coarseStepM
+        priceStepM = setup.priceStepM
+        memoPriceHits = memo?.priceHits ?: 0L
+        memoHardHits = memo?.hardHits ?: 0L
     }
 }
