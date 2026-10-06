@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-10-05 09:53
+modified: 2026-10-06 12:38
 ---
 
 # Feature: Ui_General
@@ -21,9 +21,10 @@ Track list (TrackHistoryOverlay) color review — ensure track cards/stats/label
 
 ### multi-select
 
-Long-press multiselect mode on list items: scaffold owns selection state + contextual bottom action bar; consumer-injected multi-actions (batch delete/export/pin).
+Long-press multiselect mode on list items: scaffold owns selection state + contextual bottom action bar; consumer-injected multi-actions (batch delete/export/pin). The per-item entry is the card's leading selection door, the check leads the first line, and the header carries invert / select-all text chips.
 
 #### Docs
+- `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md` — the door, the first-line check and the multiselect header
 - `xTrack/Ui_General/260712_FEAT_PLN_Ui_General_multiselect-list-plan.md`
 
 ### bottom banner
@@ -77,7 +78,7 @@ The app's dropdown is the row family's own box: the row is the anchor, the list 
 
 ## Implemented
 
-- **list-selection-type-icon (2026-10-06, `feature/list-selection`)** — every card on the two list surfaces now leads its title line with a **type glyph that is also the multiselect door**: one shared [`ListTypeGlyph`](../../app/src/main/java/ykws/android/maro/ui/components/ListTypeGlyph.kt) draws the item's own type icon — a route's `route`, a track's `Conversion_path`, a marker's `LocationOn` — and morphs to the 24 dp `uiAccent` circle bearing the white check when the item is selected, which is where the scaffold's old `Alignment.BottomEnd` check mark moved; the card keeps its 1 dp `uiAccent` border and its 15 % tonal shift. [`ListOverlayScaffold`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) gained `typeIcon: ((T) -> ImageVector)? = null` and its `cardContent` slot now hands the consumer `(T, typeIcon, isSelected, onSelect, onLongPress)` — `onSelect` entering multiselect and selecting the item in normal mode, standing null in multiselect where the card's own tap interceptor holds the tap; and the marker card's icon/pick button moved out of the header's leading edge into the trailing cluster at 36 dp, its leading slot and the 4 dp coordinate gap dropped. `cd_select` joined both locale files (`cd_selected` reused), and `docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md` §9 and `docs/ui-component-guidelines.md` §5.9 were updated. `apk-build.bat` BUILD SUCCESSFUL with no new warning naming a touched file and the scoped `ui.components` suite green; two `TrackOutlineTest` failures stand red on the branch's base, a `maro.properties` route-dash drift untouched by this change. Nothing here is device-validated → [`261006_FEAT_PLN_Ui_General_list-selection-type-icon.md`](261006_FEAT_PLN_Ui_General_list-selection-type-icon.md)
+- **list-selection-type-icon (2026-10-06, `feature/list-selection`)** — the two list surfaces now enter multiselect through a **leading selection door** on each card: [`ListSelectionRail`](../../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) draws the item's own colour as a **6 dp accent bar** inside a **14 dp visual zone** that folds in the content's former 8 dp leading padding, and [`ListSelectionTouchZone`](../../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) carries the door's **24 dp touch band** as an overlay (`matchParentSize()`, above the content) whose last **10 dp overlaps the card body by design**, so no layout width moves. The picked card wears a **2 dp `uiAccent` border** (was 1 dp) and the 15 % tonal shift, and [`ListSelectionCheck`](../../app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) draws the **24 dp `uiAccent` disc bearing the white 16 dp check** at the head of the card's first line, selected only. The multiselect header carries Close (X), the "N selected" count and two **`TextButton` chips** in the accent idiom — invert (its word `multiselect_invert` normally and `multiselect_clear` once everything is picked, enabled throughout) and select all (`multiselect_select_all`, enabled only while the selection is partial, dimmed to 0.25 alpha when full); `multiselect_deselect_all` and the dead `deselectAll()` left with the chip, and the scaffold's `cardContent` slot now hands the consumer `(item, isSelected, onSelect, onLongPress)` with no `typeIcon`. The selection's batch **export** action now wears the card's own `Icons.Filled.Upload` glyph — the one the list item's `cd_export_gpx` button draws in [`TrackHistoryOverlay`](../../app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:680) — so one action reads as one icon on both surfaces. **What left:** the type-glyph path through the scaffold and both card contents, `ListTypeGlyph`, and the marker header's leading icon/pick button. `docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md` §9 and `docs/ui-component-guidelines.md` §5.9 were reconciled to the shipped shape in the same session. `apk-build.bat` BUILD SUCCESSFUL with no new warning naming a touched file and the scoped `ui.components` suite green; the two `TrackOutlineTest` reds noted earlier on the branch's base are untouched by this change. Nothing here is device-validated → [`261006_FEAT_PLN_Ui_General_list-selection-type-icon.md`](261006_FEAT_PLN_Ui_General_list-selection-type-icon.md)
 
 - **route-toast-order (2026-10-06)** — the route discard toast draws its two commands Undo-then-New... now: the optional second action moved after Undo in [`SnackRow`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:514), its `secondActionLabel` KDoc naming the order, while the three delete snacks keep Undo alone; the second action's key went from `route_action_new_acquisition` to `route_action_new` in [`values/strings.xml`](../../app/src/main/res/values/strings.xml:684) and [`values-fr/strings.xml`](../../app/src/main/res/values-fr/strings.xml:691), read once in [`MapSnackbarHost`](../../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt:80), so the key keeps the `route_action_*` command family rather than carrying a surface suffix. `apk-build.bat` BUILD SUCCESSFUL and the branch `feature/ui-small` cut from `origin/develop`; no unit test covers the row order, no plan of record, and nothing is device-validated.
 
@@ -90,24 +91,6 @@ The app's dropdown is the row family's own box: the row is the anchor, the list 
 - **map-cards-and-the-filter (2026-09-28)** — the map draws its filter's set and nothing else, and a click on the map stands. Three escapes deleted: the marker reveal-on-select, the highlighted track's eligibility override in `TrackSelectionPolicy` (its dead cap rescue with it, the ranking that puts the highlighted first kept), and the pinned carve-out's repeated OR in `storedTrackSelection` (its `highlightedTrackId` parameter gone) — so no pinned, highlighted or opened item rides past the map filter. R2's map-world close left the map-opened card: `scopeClosed`'s `MAP` arm is `false` while `LIST` and `INSPECT` keep theirs, so a filter write leaves a map tap standing and still closes the spy card. The map-opened card now reads the map's own source of truth (`cardWalkWorld`'s fourth collection, the unfiltered markers), so one item holds through its own write and closes only on a genuine deletion. The dead `DrawerSource.WHERE_AM_I` went at every site — the match panel staying and walking nothing — a plain map tap opens `listOf(sel)` on the `MAP` source, and the menu chevron's first item now reads the menu's own referential (the map filter) rather than the list world, the marker chevron's opener handed that world and source at last. Its Prev/Next now grey both ends on every door of the item's-list kind — the menu chevron's card reading its ends exactly as the panel's does through the pure `cardStepEnds`. `gradlew :app:assembleDebug` SUCCESS; the full unit suite green at 767 tests
 
 - **edit-return-and-advance (2026-09-28)** — the editor hands its card back, and an item's departure advances. One pure rule, `advanceAfterDeparture(departedId, world, excluded)` in [`CardWalkPolicy.kt`](../../app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt) — next, else previous, else none — serves both cards, and the card and the editor resolve in the world the card walks rather than in the list world, so a map-tapped marker renders its own card; the close is issued from the state layer's `reconcileOpenCard`, one call per write, and that is what let the drawer's `marker_not_found` branch and its string in both locale files be deleted — no live card could reach them, and a momentarily null marker now returns early and draws nothing. `startWizard(markerId, door)` gained its required door: a card-entered edit restores `Viewing` on a save and on a cancel, a list-entered one keeps its close, and the management delete advances the deleted item's own card rather than closing every open card. `gradlew :app:assembleDebug` SUCCESS; the scoped `Marker`/`Track`/`Dashboard`/`Inspect` suites green at 249 tests with the new `AdvanceAfterDepartureTest` and `CardWalkDecisionsTest`
-### action faces
-
-**An action's face says whether it can be taken.** The family's three roles are settled and shipped; what
-this pass settles is the pair of faces that were never told apart — the **enabled middle action** and the
-**disabled action**. The model it landed on is **one hue, a weight of fill and a rim**: the accent full for
-the surface's own outcome, the **same accent at 50 % under a 2 dp full-opacity rim**
-(`ui.action.neutral.background`) for a middle action with the primary's own white bold label, and
-`uiDividerColor` at 1 dp with a muted label as the whole of the disabled face — the only one with neither a
-fill nor a drop of accent. Six faces were tried and withdrawn in one day — accent outlines at 1 dp and 2 dp
-(too faint), a navy body (another family), a tonal fill (a second species), a borderless 66 % fill (a third),
-and separate pills for the flags (against the app's own norm: **one bar serves any set of choices**, the two
-controls differing only in what they announce).
-
-#### Docs
-- `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_active-action-face.md` — the rule, the two sentences it corrects and the near-twin it removes
-- `docs/ui-component-guidelines.md` §5.6 · §5.9 — the doctrine and the tiers, its only home
-
-## Implemented
 
 - **single-gesture-wheel, revision 2 (2026-10-05, `feature/wheel-down`)** — the control gained one text
   alignment: `textAlign: TextAlign = TextAlign.Center` sits on `DropdownRow`, `DropdownBox` and
@@ -249,6 +232,7 @@ controls differing only in what they announce).
 ## Docs
 - `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_selector-entry-order.md` — the selector's entry order, the shared title order and the ignored prefixes, with both its reviews
 - `xTrack/Ui_General/260929_FEAT_PLN_Ui_General_filter-popup-dismissal.md` — the filter popup's dismissal, its review and what it leaves to the device
+- `xTrack/Ui_General/260928_FEAT_PLN_Ui_General_active-action-face.md` — the action-face doctrine; §5.6 · §5.9 its home
 - `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, swipe-to-delete
 - `docs/ui-component-guidelines.md` — canonical UI component patterns
 - `docs/ui-drawer-guidelines.md` — DrawerScaffold API

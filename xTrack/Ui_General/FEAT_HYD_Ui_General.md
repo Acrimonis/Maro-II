@@ -1,33 +1,32 @@
-# Context Hydration — Ui_General — 2026-10-05
+# Context Hydration — Ui_General — 2026-10-06
 
-**Last Bake:** 2026-10-05 09:53 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-06 12:38 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed an order (the branch on `#new`, pass 1 on `#impl`, revisions 1 and 2 on the user's own directives, the bake on `#bake`), the device was never touched (builds only), and every claim written about the code here came from a file read in the session. The gaps are named rather than hidden: nothing is device-validated, and no Ask verdict is recorded for revision 1's payload.
+**Directive trace:** All five covered action classes were met — no dependency was added (the two new icons are hand-written `ImageVector`s already in place), no machine-shaped data file was opened, every write followed an order (the branch work on `feature/list-selection`, the docs reconciliation and the bake on the user's own directive, the commit and push on the same word), the device was never touched (builds only), and every claim written about the code came from a file read this session. The gaps are named rather than hidden: nothing is device-validated, and no Ask verdict is recorded for this session's payload.
 
 ## State
 
-One branch, `feature/wheel-down`, cut from `origin/develop` (`e6c2a63`) on `#new`, carrying no upstream yet — the first `#push` writes its own name. Three passes shipped: the plan of record is `xTrack/Ui_General/261005_FEAT_PLN_Ui_General_single-gesture-wheel.md`, whose §12, §14 and §16 record them.
+One branch, `feature/list-selection`, cut from `origin/develop`, carrying no upstream yet — the first `#push` writes its own name. One thing shipped: the list-selection rework, whose plan of record is `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md`, its §10–§14 recording the trials.
 
-**The dropdown is one gesture now.** A vertical drag on the box opens the popup and, through the hoisted `LazyListState`, drives the wheel's scroll — the pointer cannot cross into the popup's window — with the opening drag's snap taken by the new pure `wheelSnapTargetSlots` and a later drag keeping the library's centre snap, two mechanisms for one motion. The drag is taken unconditionally, so the menu drawer, the Routing card and the settings tabs no longer scroll under a finger that lands on a box.
+**The per-item door is the card's leading edge.** `ListSelectionRail` draws the item's own colour as a 6 dp accent bar inside a 14 dp visual zone that folds in the content's former 8 dp leading padding; `ListSelectionTouchZone` carries the 24 dp touch band as an overlay above the content (`matchParentSize()`), its last 10 dp overlapping the card body by design, so no layout width moves. A tap enters multiselect and selects through `onSelect`, a long-press resolves as the card's own `onLongPress`; both callbacks null — the drawer and inspect call sites — emits no node.
 
-**The commit is a tap on a row**, and an outside click cancels. Revision 1 removed the settle watcher pass 1 had shipped — the `snapshotFlow` collector over `listState.isScrollInProgress` and its last-written guard — so nothing is written while the popup is open and the band is a candidate rather than the value; a tap on any row writes that row and closes, and an outside tap or back closes and writes nothing, which makes the cancel the absence of a write rather than a revert.
+**The picked card and the header.** The selected card wears a 2 dp `uiAccent` border (was 1 dp) and the 15 % tonal shift, and `ListSelectionCheck` draws the 24 dp `uiAccent` disc bearing the white 16 dp check at the head of the first line, selected only, so an unselected card reserves no slot. The multiselect header carries Close (X), the "N selected" count and two text chips — invert (its word `multiselect_invert`, or `multiselect_clear` once everything is picked) and select all (`multiselect_select_all`, enabled only while the selection is partial, dimmed to 0.25 alpha when full); `multiselect_deselect_all` and the dead `deselectAll()` are gone. The batch **export** action wears the card's own `Icons.Filled.Upload` glyph — the one the list item's `cd_export_gpx` button draws — so one action reads as one icon on both surfaces.
 
-**The box lost its arrow**, and `dropdownBoxWidth` the 28 dp its gap and glyph reserved. **The slot is the box's own measured height**, in place of the retired `WHEEL_ITEM_DP`. **The popup is centred on the box**: its surface carries no inset (`contentPadding = 0.dp`, the family's 12 dp default kept for the other members), its width is the box's own measured width, and the offset is `x = 0`, `y = −(endPadPx + POPUP_SECTION_PAD_VERTICAL_DP)`, so the banded entry is exactly the box's rectangle and the neighbours spill over the panel. **One text alignment**, `TextAlign.Center` by default, drives both the field's value and the wheel's rows, so the two cannot be drawn on different axes.
+**What left.** The type-glyph path through the scaffold and both card contents, `ListTypeGlyph`, and the marker header's leading icon/pick button — which now leads the trailing cluster at 36 dp, ahead of pin and edit, the coordinate text owning the header's left. The scaffold's `cardContent` slot hands the consumer `(item, isSelected, onSelect, onLongPress)` with no `typeIcon`.
 
-**Rules moved once.** §2.15, §2.12 and §2.10 of `docs/ui-component-guidelines.md` and this feature's `### dropdown row` carry the new rule set; the 2026-09-29 wheel plan is marked superseded where it states a requirement; the epic's `## Implemented` holds one entry per pass.
-
-`apk-build.bat` BUILD SUCCESSFUL on every pass with no new warning naming a touched file, and the scoped `ui.components` suite green; no new string, no dependency and no git write before this bake. Two non-blocking findings stand unfixed — the `TextAlign.Center` default spelled in three signatures, and `DropdownRow`'s KDoc not naming `textAlign` — and the duplicate `## Implemented` heading in the epic, predating this session, was seen and left.
+`docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md` §9 and `docs/ui-component-guidelines.md` §5.9 were reconciled to the shipped shape in the same session, and the bake folded the settled `### action faces` section and merged the epic's duplicate `## Implemented` heading. `apk-build.bat` BUILD SUCCESSFUL with no new warning naming a touched file and the scoped `ui.components` suite green; the two `TrackOutlineTest` reds on the branch's base are untouched by this change.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the drag detector, the hoisted list state, the centred popup and the text alignment
-- `app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt` — the slot and the state as inputs, the row tap that commits, the alignment
-- `app/src/main/java/ykws/android/maro/ui/components/DropdownBox.kt` — no arrow, the shrunk width, the alignment
-- `app/src/main/java/ykws/android/maro/ui/components/PopupFamily.kt` — `PopupSurface`'s new `contentPadding`
-- `app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt` · `app/src/test/java/ykws/android/maro/ui/components/WheelPolicyTest.kt` — `WHEEL_ITEM_DP` retired, `wheelSnapTargetSlots` added
-- `docs/ui-component-guidelines.md` — §2.10 · §2.12 · §2.15
-- `xTrack/Ui_General/261005_FEAT_PLN_Ui_General_single-gesture-wheel.md` — the plan, its decisions and its three shipped records
+- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt` — the 6 dp bar / 14 dp zone and `ListSelectionTouchWidth`'s 24 dp touch band
+- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt` — the 24 dp check disc
+- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — the `cardContent` signature, the 2 dp border, the two header text chips
+- `app/src/main/java/ykws/android/maro/ui/components/ListTypeGlyph.kt` — deleted
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` · `MarkerManagementOverlay.kt` — the door, the check, the marker cluster order
+- `app/src/main/java/ykws/android/maro/ui/icons/SwapHoriz.kt` · `SelectAll.kt` — deleted
+- `docs/ui-lists-guidelines.md` · `docs/ui-drawer-guidelines.md` §9 · `docs/ui-component-guidelines.md` §5.9
+- `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md` — the plan and its §10–§14 shipped records
 
 ## Next Step
 
-The device pass, owed and unstarted: the centred field, the candidate-versus-value read while the popup is open, the outside-click cancel, the flush card, the drawer's own scroll lost to the drag, the two snap mechanisms, and the shorter box in the pair.
+The device pass, owed and unstarted: the door's tap and long-press against the ancestor swipe detector, the 10 dp overlap, the check's shift of the header line, the 2 dp border's weight, and the two header chips' states.

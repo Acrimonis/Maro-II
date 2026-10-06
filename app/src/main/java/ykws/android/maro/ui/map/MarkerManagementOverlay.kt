@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,7 +51,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -73,9 +71,10 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.ui.components.ListOverlayScaffold
-import ykws.android.maro.ui.components.ListTypeGlyph
+import ykws.android.maro.ui.components.ListSelectionCheck
+import ykws.android.maro.ui.components.ListSelectionRail
+import ykws.android.maro.ui.components.ListSelectionTouchZone
 import ykws.android.maro.ui.components.MarkerCreateAction
-import ykws.android.maro.ui.icons.LocationOn
 
 /**
  * Full-screen overlay displaying a LazyColumn of user marker cards with
@@ -200,9 +199,7 @@ fun MarkerManagementOverlay(
         filterLinked = filterLinked,
         onToggleLink = onToggleLink,
         accentColors = { list -> list.associate { it.id to Color(ykws.android.maro.ui.map.MarkerColors.of(it.colorIndex)) } },
-        // Every marker card leads with the fan's own marker icon.
-        typeIcon = { LocationOn },
-        cardContent = { marker, typeIcon, isSelected, onSelect, onLongPress ->
+        cardContent = { marker, isSelected, onSelect, onLongPress ->
             MarkerCardContent(
                 marker = marker,
                 trackTitle = marker.trackId?.let(trackTitleLookup),
@@ -213,7 +210,6 @@ fun MarkerManagementOverlay(
                 onSetPin = onSetPin,
                 onUpdateText = { name, desc -> onUpdateMarkerText(marker.id, name, desc) },
                 onLongPress = onLongPress,
-                typeIcon = typeIcon,
                 isSelected = isSelected,
                 onSelect = onSelect
             )
@@ -258,7 +254,6 @@ fun MarkerManagementOverlay(
 // ─────────────────────────────────────────────────────────────────────────────
 
 private val MARKER_CARD_RADIUS = 12.dp
-private val MARKER_ACCENT_BAR_WIDTH = 4.dp
 private val MARKER_CONTENT_PAD_H = 8.dp
 private val MARKER_CONTENT_PAD_V = 2.dp
 private val MARKER_HEADER_FONT_SIZE = 11.sp
@@ -278,7 +273,6 @@ internal fun MarkerCardContent(
     onUpdateText: (String?, String?) -> Unit,
     onLongPress: (() -> Unit)? = null,
     showChevron: Boolean = true,
-    typeIcon: ImageVector? = null,
     isSelected: Boolean = false,
     onSelect: (() -> Unit)? = null
 ) {
@@ -304,22 +298,28 @@ internal fun MarkerCardContent(
                     onLongClick = onLongPress
                 )
         ) {
-            Box(
-                modifier = Modifier
-                    .width(MARKER_ACCENT_BAR_WIDTH)
-                    .fillMaxHeight()
-                    .background(Color(MarkerColors.of(marker.colorIndex)))
+            // The leading selection door's bar — the 6 dp accent strip on the marker's own colour,
+            // reserving the 14 dp the card's folded leading padding used to take. The door's pointer
+            // handling is the touch zone below, drawn over this row.
+            ListSelectionRail(
+                accentColor = Color(MarkerColors.of(marker.colorIndex))
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = MARKER_CONTENT_PAD_H, top = MARKER_CONTENT_PAD_V, end = MARKER_CONTENT_PAD_H, bottom = 4.dp)
+                    .padding(top = MARKER_CONTENT_PAD_V, end = MARKER_CONTENT_PAD_H, bottom = 4.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // The selection check leads the header line — drawn only while selected, so an
+                    // unselected card reserves the slot for nothing and the coordinates keep their place.
+                    if (isSelected) {
+                        ListSelectionCheck()
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Text(
                         text = coordinateHeader(marker),
                         color = Color(AppConfig.uiTextMuted),
@@ -410,15 +410,6 @@ internal fun MarkerCardContent(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // The type glyph leads the title line and is the multiselect door.
-                        if (typeIcon != null) {
-                            ListTypeGlyph(
-                                icon = typeIcon,
-                                isSelected = isSelected,
-                                onSelect = onSelect
-                            )
-                            Spacer(Modifier.width(6.dp))
-                        }
                         Text(
                             text = marker.name,
                             color = Color(AppConfig.uiTextPrimary),
@@ -510,6 +501,15 @@ internal fun MarkerCardContent(
                 }
             }
         }
+
+        // The door's touch zone — 24 dp at the card's leading edge, drawn after the row so it sits
+        // above the content and owns the leading band's pointer work. Inert when both callbacks are
+        // null, which is what the drawer and inspect call sites pass.
+        ListSelectionTouchZone(
+            isSelected = isSelected,
+            onSelect = onSelect,
+            onLongPress = onLongPress
+        )
 
         if (showIconPicker) {
             IconPickerDialog(

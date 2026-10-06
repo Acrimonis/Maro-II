@@ -1007,10 +1007,12 @@ instead**: a chosen choice takes the tonal container `ui.select.container` — t
 **1dp accent border** and a check glyph (§2.7 / §2.7b), a value read-out over a stepped set takes the accent
 in **bold text with no fill**, and a middle action wears the accent as a **50 % fill under a 2 dp accent
 rim**: the two ranks of fill are told apart by weight and by context, never by hue
-(the dropdown's value, §2.12), and a card or row picked out of a list takes an **accent border with a check glyph and
-no fill** (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)) — on a list-item card that check glyph is the
-title line's own type glyph, [`ListTypeGlyph`](../app/src/main/java/ykws/android/maro/ui/components/ListTypeGlyph.kt),
-which carries the item's type icon until the item is selected. Binary controls are the deliberate
+(the dropdown's value, §2.12), and a card or row picked out of a list takes an **accent border with a check mark and
+no fill** (§9 of [`ui-drawer-guidelines.md`](ui-drawer-guidelines.md)) — on a list-item card that is the **2 dp
+`uiAccent` border**, the 15 % tonal shift and the 24 dp
+[`ListSelectionCheck`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) disc at the head
+of the first line, entered through the leading door's
+[`ListSelectionTouchZone`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt). Binary controls are the deliberate
 exception, following M3: a selected `Switch` and a selected `Checkbox` take the primary role, so `ToggleRow`
 and `OptionRow` keep `uiAccent` and are consistent rather than exempt. The reserved thing is therefore
 narrower than "the accent is for actions": it is **the accent as a filled container on a group of choices**.

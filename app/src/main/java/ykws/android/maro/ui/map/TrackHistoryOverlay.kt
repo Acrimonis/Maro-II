@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -55,7 +54,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
@@ -83,7 +81,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -120,10 +117,11 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
-import ykws.android.maro.ui.components.ListTypeGlyph
+import ykws.android.maro.ui.components.ListSelectionCheck
+import ykws.android.maro.ui.components.ListSelectionRail
+import ykws.android.maro.ui.components.ListSelectionTouchZone
 import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.ui.components.StatCell
-import ykws.android.maro.ui.icons.Conversion_path
 import ykws.android.maro.ui.icons.route
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -338,7 +336,7 @@ internal fun TrackHistoryOverlay(
             MultiActionSpec(
                 id = "export",
                 label = exportLabel,
-                icon = Icons.Filled.Share,
+                icon = Icons.Filled.Upload,
                 action = { ids ->
                     if (ids.size == 1) {
                         onAction(ListAction.ExportGpx(ids.first()))
@@ -437,9 +435,7 @@ internal fun TrackHistoryOverlay(
         filterLinked = filterLinked,
         onToggleLink = onToggleLink,
         accentColors = { accentColorMap },
-        // The type glyph: a route reads the fan's route icon, a recorded track the conversion path.
-        typeIcon = { summary -> if (summary.route) route else Conversion_path },
-        cardContent = { summary, typeIcon, isSelected, onSelect, onLongPress ->
+        cardContent = { summary, isSelected, onSelect, onLongPress ->
             TrackCardContent(
                 summary = summary,
                 dateFormat = dateFormat,
@@ -451,7 +447,6 @@ internal fun TrackHistoryOverlay(
                 onResumeTrack = onResumeTrack,
                 onFollowRoute = onFollowTrack,
                 isRecording = liveState?.state == TrackRecorderState.ON,
-                typeIcon = typeIcon,
                 isSelected = isSelected,
                 onSelect = onSelect
             )
@@ -536,7 +531,6 @@ internal fun TrackCardContent(
     onFollowRoute: ((String) -> Unit)? = null,
     isRecording: Boolean = false,
     showChevron: Boolean = true,
-    typeIcon: ImageVector? = null,
     isSelected: Boolean = false,
     onSelect: (() -> Unit)? = null
 ) {
@@ -588,17 +582,16 @@ internal fun TrackCardContent(
                     onLongClick = onLongPress
                 )
         ) {
-            // Left-edge accent bar — previews the track's polyline render color
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(accentColor)
+            // The leading selection door's bar — the 6 dp accent strip on the track's own colour,
+            // reserving the 14 dp the card's folded leading padding used to take. The door's pointer
+            // handling is the touch zone below, drawn over this row.
+            ListSelectionRail(
+                accentColor = accentColor
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp, top = 2.dp, end = 8.dp, bottom = 6.dp)
+                    .padding(top = 2.dp, end = 8.dp, bottom = 6.dp)
             ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
@@ -621,10 +614,17 @@ internal fun TrackCardContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // The selection check leads the header line — drawn only while selected, so an
+            // unselected card reserves the slot for nothing and the date/time keeps its place.
+            if (isSelected) {
+                ListSelectionCheck()
+                Spacer(Modifier.width(6.dp))
+            }
             Text(
                 text = if (endTime != null) "$dateLabel  $startTime→$endTime"
                        else "$dateLabel  $startTime",
-                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp
+                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp,
+                modifier = Modifier.weight(1f)
             )
             Text(
                 text = stringResource(R.string.track_point_count_fmt, summary.pointCount),
@@ -731,15 +731,6 @@ internal fun TrackCardContent(
                     .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // The type glyph leads the title line and is the multiselect door.
-                if (typeIcon != null) {
-                    ListTypeGlyph(
-                        icon = typeIcon,
-                        isSelected = isSelected,
-                        onSelect = onSelect
-                    )
-                    Spacer(Modifier.width(6.dp))
-                }
                 Text(
                     text = summary.name,
                     color = Color(AppConfig.uiTextPrimary),
@@ -844,6 +835,14 @@ internal fun TrackCardContent(
         }
     }
     }
+        // The door's touch zone — 24 dp at the card's leading edge, drawn after the row so it sits
+        // above the content and owns the leading band's pointer work. Inert when both callbacks are
+        // null, which is what the drawer and inspect call sites pass.
+        ListSelectionTouchZone(
+            isSelected = isSelected,
+            onSelect = onSelect,
+            onLongPress = onLongPress
+        )
     }
 }
 

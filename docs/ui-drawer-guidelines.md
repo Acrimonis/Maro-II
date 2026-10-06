@@ -337,49 +337,55 @@ Both `TrackHistoryOverlay` and `MarkerManagementOverlay` share an identical item
 ### Shell
 
 ```kotlin
-Row(
-    modifier = Modifier.fillMaxWidth()
-        .height(IntrinsicSize.Min)
-        .clip(RoundedCornerShape(12.dp))
-        .background(uiCardBackground)
-) {
-    // Left-edge accent bar — 4dp wide, full height, color from data
-    Box(Modifier.width(4.dp).fillMaxHeight().background(accentColor))
+Box {                                    // outer Box: hosts the door overlay
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(12.dp))
+            .background(uiCardBackground)
+            .combinedClickable(onClick = { onTap() }, onLongClick = onLongPress)
+    ) {
+        // Leading selection door (visual half) — a 6dp accent bar, the item's own colour, full
+        // height, inside the 14dp visual zone that folds in the content's former 8dp leading padding.
+        ListSelectionRail(accentColor = accentColor)
 
-    // Content column
-    Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
-        // ── Header row: metadata (11sp muted) + action icons + open-details chevron right-aligned ──
-        Row(Modifier.fillMaxWidth(), SpaceBetween, CenterVertically) {
-            Text(metadata, 11sp, uiTextMuted, weight 1f, ellipsis)
-            Row(spacedBy(2.dp)) {
-                IconButton(36dp) { Icon(actionIcon, 24dp, tint = ButtonColors.icon) }
-                // ... more action icons
+        // Content column — the 14dp door owns the leading inset; 8dp end, 4dp vertical
+        Column(Modifier.weight(1f).padding(end = 8.dp, top = 2.dp, bottom = 6.dp)) {
+            // ── Header row: [check] metadata (11sp muted) + action icons + chevron right-aligned ──
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), SpaceBetween, CenterVertically) {
+                // The selection check leads the first line — selected only, so it reserves no slot.
+                if (isSelected) { ListSelectionCheck(); Spacer(6.dp) }
+                Text(metadata, 11sp, uiTextMuted, weight 1f, ellipsis)
+                Row(spacedBy(2.dp)) {
+                    IconButton(36dp) { Icon(actionIcon, 24dp, tint = ButtonColors.icon) }
+                    // ... more action icons
+                }
+                // Open-details chevron — canonical 28dp muted, plain Icon (not IconButton).
+                // Gated by showChevron (false in the detail-drawer contexts).
+                if (showChevron) {
+                    Icon(KeyboardArrowRight, cd_view, uiTextMuted, 28dp)
+                }
             }
-            // Open-details chevron — canonical 28dp muted, plain Icon (not IconButton).
-            // Gated by showChevron (false in the detail-drawer contexts).
-            if (showChevron) {
-                Icon(KeyboardArrowRight, cd_view, uiTextMuted, 28dp)
+            Spacer(2.dp)
+            HorizontalDivider(0.5dp, uiDividerColor)
+            Spacer(2.dp)
+
+            // ── Title line: the name, 15sp SemiBold white ──
+            Text(title, 15sp, SemiBold, uiTextPrimary, maxLines=1, ellipsis)
+
+            // ── Detail row: 14sp Normal white ──
+            Text(detailText, 14sp, uiTextPrimary)
+
+            // ── Comment/description: 13sp muted (if present) ──
+            if (comment.isNotBlank()) {
+                Text(comment, 13sp, uiTextMuted, maxLines=3)
             }
-        }
-        Spacer(2.dp)
-        HorizontalDivider(0.5dp, uiDividerColor)
-        Spacer(2.dp)
-
-        // ── Title line: the 24dp type glyph (the multiselect door) + the name, 15sp SemiBold white ──
-        Row(verticalAlignment = CenterVertically) {
-            ListTypeGlyph(typeIcon, isSelected, onSelect)  // type icon → accent check when selected
-            Spacer(6.dp)
-            Text(title, 15sp, SemiBold, uiTextPrimary, maxLines=1, ellipsis, modifier = Modifier.weight(1f))
-        }
-
-        // ── Detail row: 14sp Normal white ──
-        Text(detailText, 14sp, uiTextPrimary)
-
-        // ── Comment/description: 13sp muted (if present) ──
-        if (comment.isNotBlank()) {
-            Text(comment, 13sp, uiTextMuted, maxLines=3)
         }
     }
+    // Leading selection door (pointer half) — a 24dp full-height touch band at the card's leading
+    // edge, drawn as an overlay so it consumes no layout width. Its last 10dp overlaps the card
+    // body by design.
+    ListSelectionTouchZone(isSelected = isSelected, onSelect = onSelect, onLongPress = onLongPress)
 }
 ```
 
@@ -388,11 +394,12 @@ Row(
 | Token | Value | Applies to |
 |-------|-------|------------|
 | Card radius | 12dp | Both |
-| Accent bar width | 4dp, `fillMaxHeight()` | Both |
-| Content padding | 8dp h × 4dp v | Both |
+| Selection door | [`ListSelectionRail`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 6dp accent bar (item's colour) in a 14dp visual zone | Both |
+| Door touch band | [`ListSelectionTouchZone`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 24dp, overlay; last 10dp overlaps the card body | Both |
+| Selection check | [`ListSelectionCheck`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) — 24dp `uiAccent` disc, white 16dp `Check`, head of the first line (selected only) | Both |
+| Content padding | vertical + 8dp end; the 8dp leading inset is folded into the 14dp door | Both |
 | Header font | 11sp, `uiTextMuted` | Both |
 | Title font | 15sp, SemiBold, `uiTextPrimary` | Both |
-| Type glyph | `ListTypeGlyph`, 24dp, leading the title line — the item's type icon, morphing to the `uiAccent` check when selected | Both |
 | Detail font | 14sp, Normal, `uiTextPrimary` | Both |
 | Comment font | 13sp, Normal, `uiTextMuted` | Both |
 | Action icon | `IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)` | Both |
@@ -410,8 +417,9 @@ Row(
 | Accent bar when hidden | Always real color | Always marker color |
 
 > **The marker card's icon/pick button moved out of the header's leading edge** (2026-10-06): it now leads the
-> trailing action cluster at the cluster's own 36 dp, and the coordinate text loses its 4 dp start gap — the marker
-> header reads coordinate → cluster → chevron, and the glyph on the title line is the only leading mark.
+> trailing action cluster at the cluster's own 36 dp, ahead of pin and edit, and the coordinate text loses its
+> 4 dp start gap — the marker header reads coordinate → cluster → chevron, and the coordinate text owns the
+> header's left. No type glyph stands anywhere on either card.
 
 > **The live stats block is the pattern's second wearer** (2026-10-04) — the TRACKS card, under its own Tracks row,
 > lays its six readings in a **two-column by three-row** grid of the same [`StatCell`](../app/src/main/java/ykws/android/maro/ui/components/StatCell.kt),
