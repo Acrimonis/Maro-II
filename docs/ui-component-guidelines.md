@@ -975,9 +975,15 @@ actions in its `footer`, so it auto-grows to its content like the other selected
 
 | Block | Spec |
 |---|---|
-| Header | the title; its trailing slot carries the stage status and the ‹ › dots (shown while more than one route stands) |
-| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally by swipe or the ‹ › pair |
+| Header | the title; its trailing slot carries the stage status and the **page dots** — the shared [`PageDots`](../app/src/main/java/ykws/android/maro/ui/components/PageDots.kt) in its **current-only fill** (`fillUpToCurrent = false`), shown while more than one route stands, with **no arrows** (2026-10-06) |
+| Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally through the shared [`SwipePager`](../app/src/main/java/ykws/android/maro/ui/components/SwipePager.kt) — a swipe or a row tap |
 | Footer | `Save to track` · `Select route` · `Discard route` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER |
+
+**The indicator is shared; each surface keeps its own page-switch effect.** The panel's header dots are
+the shared `PageDots`, and the marker wizard ([`WizardDrawer`](../app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt))
+wears the same row in its progress fill (up to and including the current step); but only the acquisition
+panel pages through `SwipePager` — the wizard's step body is its own `AnimatedContent` slide, its swipe
+having been built and withdrawn the same session (2026-10-06).
 
 **The pending mark — authority.** A figure the mode does not hold yet prints
 [`R.string.route_value_pending`](../app/src/main/res/values/strings.xml) (`--`) wherever it would stand — in this

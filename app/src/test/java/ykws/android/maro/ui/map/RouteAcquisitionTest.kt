@@ -179,9 +179,9 @@ class RouteAcquisitionTest {
         assertTrue("a route hundreds of metres away reads far", routeDispersionM(a, far) > 100.0)
     }
 
-    /** Next/prev walks the ETA-ordered view — fastest first — and the selection is what the buttons act on. */
+    /** The absolute set — a row tap or a swipe names an ETA-ordered position — and the selection is what Select route acts on. */
     @Test
-    fun theSelectionWalksTheEtaOrderedView() = runTest {
+    fun theSelectionTakesAnEtaOrderedPosition() = runTest {
         val engine = CountingEngine(computations = 2)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
@@ -194,19 +194,18 @@ class RouteAcquisitionTest {
             listOf(start, aim),
             viewModel.selectedPlan()?.points
         )
-        viewModel.stepPage(1)
-        assertEquals("a step forward walks to the faster candidate", 1, viewModel.selectedIndex.value)
+        // The ETA view's first position is the faster candidate, so the absolute set seats page 1.
+        viewModel.selectPage(0)
+        assertEquals("the ETA view's fastest position seats the faster candidate", 1, viewModel.selectedIndex.value)
         assertEquals(
             "and the selected plan is the fastest candidate's",
             listOf(start, shortcut),
             viewModel.selectedPlan()?.points
         )
-        viewModel.stepPage(1)
-        assertEquals("stepping past the end loops back to the main", 0, viewModel.selectedIndex.value)
 
         viewModel.selectRoute()
         val following = viewModel.state.value as RouteState.Following
-        assertEquals("Select route follows the selected line", listOf(start, aim), following.plan.points)
+        assertEquals("Select route follows the seated candidate", listOf(start, shortcut), following.plan.points)
     }
 
     /** A written route greys the save — the one predicate, read through the session link. */
@@ -472,8 +471,8 @@ class RouteAcquisitionTest {
         engine.publish(ids[0], line(start, aim))
         assertEquals("the main landed and the seat took it", 0, viewModel.selectedIndex.value)
 
-        viewModel.stepPage(1)
-        assertEquals("a step stands on the still-pending row", 1, viewModel.selectedIndex.value)
+        viewModel.selectPage(1)
+        assertEquals("the absolute set stands on the still-pending row", 1, viewModel.selectedIndex.value)
 
         engine.publish(ids[2], line(start, shortcut))
         assertEquals("the landed preference re-seats itself", 2, viewModel.selectedIndex.value)

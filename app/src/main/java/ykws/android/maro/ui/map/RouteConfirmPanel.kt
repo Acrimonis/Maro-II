@@ -14,22 +14,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,7 +39,9 @@ import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.PageDots
 import ykws.android.maro.ui.components.StatCell
+import ykws.android.maro.ui.components.SwipePager
 import ykws.android.maro.ui.components.rememberLabelColumnWidth
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +53,7 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
 //
 // **The frame is the dashboards' frame** — the shared [DrawerScaffold] the selected-item dashboards
 // and the wizard use. The header carries the title and, at its trailing edge, the stage status and
-// the paging controls; the body carries the three-column summary table, which pages laterally; the
+// the page dots; the body carries the three-column summary table, which pages laterally; the
 // footer carries the three actions. In portrait the panel wraps its content, floored at the dashboard
 // height, so it auto-grows instead of scrolling internally.
 //
@@ -88,9 +79,8 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
  * @param panelMaxHeight  the portrait frame's own ceiling (F5) — the band cap the map leaves,
  *                        under which a taller panel's body scrolls instead of covering the map
  *                        strip. Null keeps the full-screen ceiling; landscape ignores it.
- * @param onSelectPage    **absolute set**: names the page the pager, a row tap or the ‹ › pair lands on,
- *                        by its position in the ETA-ordered view.
- * @param onStepPage      **next/prev**: steps the selection and loops it.
+ * @param onSelectPage    **absolute set**: names the page the pager or a row tap lands on, by its
+ *                        position in the ETA-ordered view.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
  * @param onDiscard       **Discard route**: presents the ending at once — the panel and the line leave,
@@ -111,7 +101,6 @@ internal fun RouteConfirmationPanel(
     paceKn: Double,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null,
-    onStepPage: (Int) -> Unit,
     onSelectPage: (Int) -> Unit,
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
@@ -182,12 +171,8 @@ internal fun RouteConfirmationPanel(
                 )
             }
             if (pages.size > 1) {
-                Spacer(Modifier.width(4.dp))
-                PagingControls(
-                    pageCount = pages.size,
-                    selectedIndex = clampedIndex,
-                    onStepPage = onStepPage
-                )
+                Spacer(Modifier.width(8.dp))
+                PageDots(currentIndex = clampedIndex, total = pages.size, fillUpToCurrent = false)
             }
         },
         contentPadding = PaddingValues(horizontal = 12.dp),
@@ -252,58 +237,6 @@ internal fun RouteConfirmationPanel(
     }
 }
 
-/**
- * The ‹ › pair and the position dots — the pager's own controls, at the header's trailing edge. The
- * pair does not loop: the back arrow is disabled on the first page and the forward arrow on the last.
- */
-@Composable
-private fun PagingControls(
-    pageCount: Int,
-    selectedIndex: Int,
-    onStepPage: (Int) -> Unit
-) {
-    val accent = Color(AppConfig.uiAccent)
-    val muted = Color(AppConfig.uiDividerColor)
-    val canStepBack = selectedIndex > 0
-    val canStepForward = selectedIndex < pageCount - 1
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
-            onClick = { onStepPage(-1) },
-            enabled = canStepBack,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.cd_route_candidate_prev),
-                tint = if (canStepBack) accent else muted,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        repeat(pageCount) { dot ->
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 2.dp)
-                    .size(5.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(
-                        if (dot == selectedIndex) accent else muted
-                    )
-            )
-        }
-        IconButton(
-            onClick = { onStepPage(1) },
-            enabled = canStepForward,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = stringResource(R.string.cd_route_candidate_next),
-                tint = if (canStepForward) accent else muted,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-    }
-}
 
 /** The panel's one sentence: the refusal, or the state while nothing stands. */
 @Composable
@@ -318,13 +251,8 @@ private fun PanelSentence(text: String) {
 
 /**
  * **The summary table pages laterally and always settles on one page.** Each page is the same
- * three-column table with that page's row selected, so a swipe or the header's ‹ › pair pages the whole
- * thing.
- *
- * The two-way sync is settled and jump-only on purpose: the selection follows the pager **only once it
- * has settled** ([PagerState.settledPage]), and a programmatic move uses `scrollToPage`, never an
- * animation. An `animateScrollToPage` cancelled mid-flight by the next seat change is what used to
- * strand the table at a fractional offset — the "stuck between two pages" look.
+ * three-column table with that page's row selected, so a swipe or a row tap pages the whole thing
+ * through the shared [SwipePager] — the one effect the marker wizard's steps use too.
  */
 @Composable
 private fun RouteTablePager(
@@ -332,29 +260,10 @@ private fun RouteTablePager(
     selectedIndex: Int,
     onSelectPage: (Int) -> Unit
 ) {
-    val safeIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
-    val pagerState = rememberPagerState(initialPage = safeIndex) { pages.size }
-    val currentSelectedIndex by rememberUpdatedState(safeIndex)
-
-    // Selection → pager: a row tap or a landed re-seat moves the page. Jump, and never while the user
-    // is dragging, so the pager's own gesture is never fought.
-    LaunchedEffect(safeIndex, pages.size) {
-        if (pagerState.currentPage != safeIndex && !pagerState.isScrollInProgress) {
-            pagerState.scrollToPage(safeIndex)
-        }
-    }
-    // Pager → selection: a swipe steps the selection, but only once the pager has settled, so a
-    // mid-fling page index never moves the seat under the user's finger.
-    LaunchedEffect(pagerState, pages.size) {
-        snapshotFlow { pagerState.settledPage }.collect { page ->
-            if (page != currentSelectedIndex) onSelectPage(page)
-        }
-    }
-
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier.fillMaxWidth(),
-        beyondViewportPageCount = 0
+    SwipePager(
+        pageCount = pages.size,
+        currentIndex = selectedIndex,
+        onSettled = onSelectPage
     ) { index ->
         RouteSummaryTable(
             pages = pages,

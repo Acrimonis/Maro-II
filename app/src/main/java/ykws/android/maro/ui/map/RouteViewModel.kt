@@ -630,19 +630,6 @@ class RouteViewModel(
     }
 
     /**
-     * **Next/prev over the page set** — [delta] steps the selection and it **loops**. A set of one has
-     * nothing to step through and the press is ignored.
-     */
-    fun stepPage(delta: Int) {
-        val pages = _pages.value
-        if (pages.size <= 1 || delta == 0) return
-        val order = routeEtaOrder(pages)
-        val standing = order.indexOf(_selectedIndex.value).coerceIn(0, order.lastIndex)
-        _selectedIndex.value = order[routeStepIndex(standing, delta, order.size)]
-        syncChoosing(pages)
-    }
-
-    /**
      * **Set the seat to a page by its position in the ETA-ordered view** — the panel's absolute set, so
      * a swipe, a row tap or a pager sync names a page rather than stepping from wherever the seat stood.
      * A position off the set is clamped.

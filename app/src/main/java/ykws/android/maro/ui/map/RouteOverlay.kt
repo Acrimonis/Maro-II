@@ -195,18 +195,6 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
 internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState): Boolean =
     autoPick && state is RouteState.Choosing && state.plan != null
 
-/**
- * **Next/prev over a set of [count] entries** (R54): [index] stepped by [delta] and **looped**, so a
- * press past either end comes back on the other.
- *
- * One home for the wrap, so the row the panel prints at full strength and the line the map paints are
- * read from the same arithmetic. A set of one, or none, has nowhere to step and the index stays.
- */
-internal fun routeStepIndex(index: Int, delta: Int, count: Int): Int {
-    if (count <= 1 || delta == 0) return index.coerceIn(0, (count - 1).coerceAtLeast(0))
-    return ((index + delta) % count + count) % count
-}
-
 /** The ladder's rung count — the acquisition's pages, and the map's line pool. */
 internal const val ROUTE_LADDER_RUNG_COUNT = 3
 

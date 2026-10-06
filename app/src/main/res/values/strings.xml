@@ -630,8 +630,6 @@
          a share of the settled trip's clock — and the pair that loops the selection. -->
     <string name="route_candidates_title">Alternatives</string>
     <string name="route_candidate_fmt">Route #%1$d · %2$s · saves %3$s (%4$d %%)</string>
-    <string name="cd_route_candidate_prev">Previous alternative</string>
-    <string name="cd_route_candidate_next">Next alternative</string>
     <!-- The data table's own labels: two columns, an end each, the figures below them. -->
     <string name="route_label_start">Start</string>
     <string name="route_label_destination">Destination</string>
