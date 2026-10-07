@@ -691,6 +691,9 @@
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <!-- The followed trip's one bottom line: the distance left, the Driving preference's word and the
+         cruising pace in force, joined by one format so the separators stay localisable. -->
+    <string name="route_trip_line_fmt">%1$s · %2$s @ %3$s</string>
     <string name="route_summary_distance_value_fmt">%1$.1f</string>
     <string name="route_summary_distance_unit">NM</string>
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
@@ -706,19 +709,21 @@
     <!-- The pending mark: what a figure prints where the mode does not hold it yet — the route panel's
          cells and the drawer's alike, one word for all of them. -->
     <string name="route_value_pending">--</string>
-    <string name="route_trip_ago">%1$s ago</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
-    <string name="route_trip_forced">forced: %1$s</string>
-    <!-- The budget's own verdict, apart from the forced crossing above: a way around exists and the
-         price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
+    <!-- The budget's own verdict: a way around exists and the price could not reach it. Reported,
+         never a refusal — nothing is hidden while it stands. -->
     <string name="route_budget_unmet">Slow-water budget not met</string>
     <string name="route_budget_unmet_desc">The route spends more of its time slowed by speed zones than the budget allows.</string>
     <string name="settings_route_pace_label">Cruising speed</string>
     <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
     <string name="settings_route_preference_label">Driving preference</string>
-    <string name="settings_route_preference_desc">Which route is picked first: around slow water, a balanced line, or straight through it.</string>
+    <string name="settings_route_preference_desc">Which route is picked first: around slow water, the quickest line that still stays under the slow-water budget, or straight through it.</string>
+    <!-- Best's gate: the ratio of a trip's own time a speed zone may slow before the cleaner route wins. -->
+    <string name="settings_section_route_budget">Slow-water budget</string>
+    <string name="settings_route_budget_label">Budget</string>
+    <string name="settings_route_budget_desc">The share of the trip Best lets speed zones slow before the cleaner route wins. 0 keeps only zone-free lines; 100 lets the clock decide.</string>
     <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
@@ -734,7 +739,7 @@
     <!-- The settings' hurry-versus-fun labels for the three ladder rungs — the same three aversions the
          acquisition's first column names in its own vocabulary. -->
     <string name="route_computation_through">Fast</string>
-    <string name="route_computation_balanced">Balanced</string>
+    <string name="route_computation_balanced">Best</string>
     <string name="route_computation_around">Fun</string>
     <!-- The acquisition's first-column rung labels — the three fixed aversions named short, kept apart
          from the settings' own hurry-versus-fun words above. -->
@@ -743,6 +748,8 @@
     <string name="route_rung_around">Around</string>
     <!-- The separator between a folded page's rung names, read left to right. -->
     <string name="route_rung_names_sep">" | "</string>
+    <!-- The mark a row wears while the ladder still computes: the ranking's best so far, never a verdict. -->
+    <string name="route_winner_so_far">so far</string>
     <!-- The panel's delta once a second finished page exists — a page's duration against the selected
          one, read as "x less" or "x more". -->
     <string name="route_comparison_less">less</string>

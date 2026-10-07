@@ -19,6 +19,7 @@ import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
+import ykws.android.maro.spatial.multipass.RoutePreference
 import ykws.android.maro.ui.components.OptionRow
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,6 +159,22 @@ internal fun routeRowFigures(page: RoutePage): RouteRowFigures? {
     return RouteRowFigures(Units.metresToNauticalMiles(provisional.distanceM), provisional.durationSec)
 }
 
+/** Which of a row's two figures a line carries — the time or the distance. */
+internal enum class RouteRowKind { DURATION, DISTANCE }
+
+/** One line of a row's figures column, with its value — or `null` where the row is still waiting. */
+internal data class RouteRowLine(val kind: RouteRowKind, val value: Double?)
+
+/**
+ * **A row's two figure lines, in the panel's own order — the time first, the distance second**
+ * (the user's word of 2026-10-07), so the swap leaves the row's own emphasis untouched. A waiting row
+ * ([figures] null) reverses with it, so no pending row reads in the old order beside a landed one.
+ */
+internal fun routeRowLines(figures: RouteRowFigures?): List<RouteRowLine> = listOf(
+    RouteRowLine(RouteRowKind.DURATION, figures?.durationSec),
+    RouteRowLine(RouteRowKind.DISTANCE, figures?.distanceNm)
+)
+
 /**
  * **The acquisition's anchor** (R3): [fix]'s position led by [leadSec] along its own course and speed,
  * or the live fix itself where there is nothing trustworthy to project from.
@@ -182,53 +199,41 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
 
 /**
  * **The auto-pick's one-shot, as a reading of the machine** (R80) — the fan's *Route (auto)* child
- * armed with the intent to take the settled answer.
+ * armed with the intent to take the **final best** of the settled set.
  *
- * It is true the moment the intent is armed **and the main line has landed**, and false either side of
- * that instant. It keys on `plan != null` rather than on a non-empty page set on purpose:
- * `Choosing.plan` **is the main's** (index 0), so the readiness never follows the seat — a candidate
- * that lands first is not the answer this child promises and cannot make this fire. The caller then
- * names **index 0** through `selectMainRoute()`, since the seat may have followed onto that
- * candidate.
+ * It is true the moment the intent is armed and the set is **settled** — nothing is still searching
+ * and at least one line has landed ([anyLanded]) — so it waits for the ladder's last rung rather than
+ * for the main's line alone, which is what lets it take the ranking's own winner instead of index 0.
+ * The caller then seats the running best, so this child's promise and the seat agree on every arming
+ * the user has not touched.
  */
-internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState): Boolean =
-    autoPick && state is RouteState.Choosing && state.plan != null
+internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState, anyLanded: Boolean): Boolean =
+    autoPick && state is RouteState.Choosing && !state.searching && anyLanded
 
 /** The ladder's rung count — the acquisition's pages, and the map's line pool. */
 internal const val ROUTE_LADDER_RUNG_COUNT = 3
 
 /**
- * **The ladder's rung for a configured aversion** (D12): the three rungs sit at λ = 5, 2.5 and 0, listed
- * most-fun first — 0 around, 1 balanced, 2 through. A stored value snaps to the nearest rung's index.
- * The thresholds are the midpoints between the evenly spaced rungs.
+ * **The ladder's rung for a configured aversion** (D12) — the UI's half of a mapping the engine shares.
+ * The thresholds and the three λ values live once, in [RoutePreference], so the Settings slider, the
+ * drawer's quick access and the engine's own ranking cannot disagree about where a stop sits.
  */
-internal fun routeRungIndex(aversionKn: Double): Int = when {
-    aversionKn <= 1.25 -> 2
-    aversionKn <= 3.75 -> 1
-    else -> 0
-}
+internal fun routeRungIndex(aversionKn: Double): Int = RoutePreference.of(aversionKn).index
 
-/** **The λ a rung index carries** — the one home for the ladder's three values, [routeRungIndex]'s inverse. */
-internal fun routeRungLambdaOf(index: Int): Double = when (index) {
-    0 -> 5.0
-    1 -> 2.5
-    else -> 0.0
-}
+/** **The λ a rung index carries** — read off [RoutePreference], the ladder's one home. */
+internal fun routeRungLambdaOf(index: Int): Double = RoutePreference.ofIndex(index).lambda
 
-/** The rung λ a configured aversion snaps to — the inverse of [routeRungIndex], one home for the thresholds. */
-internal fun routeRungLambda(aversionKn: Double): Double = routeRungLambdaOf(routeRungIndex(aversionKn))
+/** The rung λ a configured aversion snaps to — [routeRungIndex] then [routeRungLambdaOf]. */
+internal fun routeRungLambda(aversionKn: Double): Double = RoutePreference.of(aversionKn).lambda
 
 /**
- * **The word a rung is read by**: `Fun` at the λ 5 end, `Balanced` at 2.5 and `Fast` at 0 — the order
- * [routeRungIndex] lists them in. One home for the mapping, so the Settings page's slider and the drawer's
- * quick access name a rung the same way.
+ * **The word a rung is read by** — `Fun` at the λ 5 end, `Best` at 2.5 and `Fast` at 0, read off
+ * [RoutePreference] so the Settings page's slider and the drawer's quick access name a rung the same way.
+ * It is the **preference family's** word (`route_computation_*`), naming an intent, and never the
+ * acquisition row's own rung vocabulary (`route_rung_*`), which names where the line goes.
  */
 @StringRes
-internal fun routeRungLabelRes(index: Int): Int = when (index) {
-    2 -> R.string.route_computation_through
-    1 -> R.string.route_computation_balanced
-    else -> R.string.route_computation_around
-}
+internal fun routeRungLabelRes(index: Int): Int = RoutePreference.ofIndex(index).labelResId
 
 /**
  * **The page the seat stands on** — the preferred page when it holds a plan, otherwise the page
@@ -308,7 +313,7 @@ private fun oneWayDeviationM(from: List<RoutePoint>, to: List<RoutePoint>): Doub
 }
 
 /**
- * The trip figure: what is left of a followed route, in the two units the dashboard cell shows.
+ * The trip figure: what is left of a followed route, in the units the dashboard cell shows.
  *
  * Its [RouteTripFigure.etaSeconds] is the **plan's own remaining time** — [`RoutePlan.remainingFrom`]'s
  * `durationSec`, which prices each leg at the limit the search resolved for its water — and never
@@ -318,14 +323,12 @@ data class RouteTripFigure(
     val distanceNm: Double,
     val etaSeconds: Double,
     /**
-     * The zone share of the trip's own time, set only where the slow-water budget was missed — `null`
-     * means the line is inside the budget. Reported, never refused.
+     * The **Driving preference's own word** as a `@StringRes` id — the ladder rung in force, carried as
+     * the id the card resolves rather than a literal. @see routeRungLabelRes
      */
-    val budgetUnmetZoneShare: Double? = null,
-    /**
-     * The zones a forced crossing entered, by name — empty on an ordinary route.
-     */
-    val forcedCrossingZoneNames: List<String> = emptyList(),
+    val preferenceLabelResId: Int,
+    /** The **cruising pace in force**, in knots — the set pace the plan was read at. */
+    val paceKn: Double,
     /** When the plan the figure is read from was computed. */
     val computedAtMs: Long
 )
@@ -341,14 +344,16 @@ data class RouteTripFigure(
 internal fun routeTripFigure(
     plan: RoutePlan,
     from: RoutePoint,
+    preferenceLabelResId: Int,
+    paceKn: Double,
     nowMs: Long
 ): RouteTripFigure {
     val remaining = plan.remainingFrom(from)
     return RouteTripFigure(
         distanceNm = Units.metresToNauticalMiles(remaining.distanceM),
         etaSeconds = remaining.durationSec,
-        budgetUnmetZoneShare = plan.budgetUnmetZoneShare,
-        forcedCrossingZoneNames = plan.forcedCrossingZoneNames,
+        preferenceLabelResId = preferenceLabelResId,
+        paceKn = paceKn,
         computedAtMs = plan.computedAtMs
     )
 }
@@ -452,17 +457,6 @@ internal fun routeSpanText(seconds: Double): String {
     val whole = seconds.toInt().coerceAtLeast(0)
     return if (whole < 60) stringResource(R.string.route_age_sec, whole)
     else stringResource(R.string.route_age_min, whole / 60)
-}
-
-/** Route age as a short read-out: seconds under a minute, whole minutes above it. */
-@Composable
-internal fun routeAgeText(ageSeconds: Long): String {
-    val span = if (ageSeconds < 60) {
-        stringResource(R.string.route_age_sec, ageSeconds)
-    } else {
-        stringResource(R.string.route_age_min, ageSeconds / 60)
-    }
-    return stringResource(R.string.route_trip_ago, span)
 }
 
 /**

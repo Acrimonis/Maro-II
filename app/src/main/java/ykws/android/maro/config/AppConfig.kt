@@ -417,17 +417,17 @@ object AppConfig {
         private set
 
     /**
-     * **The share of a trip the search may spend slowed by speed zones**, in per cent — the budget the
-     * λ loop aims at. 0–100, default **33**: how much slow water a trip may use is a preference rather
-     * than a tuning constant, which is why this one is a lever with a Settings row of its own rather
-     * than a value in the drawing family.
+     * The **share of a trip the Best preference lets speed zones slow**, in per cent — the gate the
+     * ranking measures a rung's zone share against. 0–100, default **25**, matching the shipped
+     * `route.avoid.speedZone.timeBudgetPct`: a rung inside the gate is led on the clock, one over it is
+     * beaten by the smaller zone share. How much slow water a trip may use is a preference rather than a
+     * tuning constant, which is why this one is a lever with a Settings row of its own.
      *
      * The share it is a fraction of is the **zone share alone** — the line's seconds inside a ring, from
-     * `slowShares`. The band's slow seconds and the approach ramps' are read apart and never drive the
-     * budget, so band-only slowness cannot move λ. A share still outside the loop's ±20 % band after its
-     * two passes is reported and never chased.
+     * `slowShares`. The band's slow seconds and the approach ramps' are read apart and never enter the
+     * gate, so band-only slowness cannot decide the winner.
      */
-    var routeAvoidSpeedZoneTimeBudgetPct: Int = 33
+    var routeAvoidSpeedZoneTimeBudgetPct: Int = 25
         private set
 
     /** Lowest slow-water budget (per cent) the properties load accepts — one home for that end. */

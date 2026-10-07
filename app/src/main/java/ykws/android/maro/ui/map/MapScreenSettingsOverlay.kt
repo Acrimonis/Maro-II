@@ -1569,9 +1569,9 @@ private fun RoutingSettings(
 
             SectionDivider()
 
-            // The Driving preference: the one cursor over the effort ladder — three stops, through slow
-            // water, balanced, and around it. The stored value snaps to the nearest rung's λ (0 / 2.5 / 5),
-            // the very value the engine reads at solve time.
+            // The Driving preference: the one cursor over the effort ladder — three stops, fast, best
+            // and fun. The stored value snaps to the nearest rung's λ (0 / 2.5 / 5); it now **names the
+            // intent** the engine's own ranking serves rather than the rung it seats.
             SliderRow(
                 label = stringResource(R.string.settings_route_preference_label),
                 description = stringResource(R.string.settings_route_preference_desc),
@@ -1585,6 +1585,32 @@ private fun RoutingSettings(
                     AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat(),
                 steps = 1,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeSlowWaterAversion = v) } }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Slow-water budget ────────────────────────────────────────────────
+        // The gate the **Best** preference measures against: the ratio of a trip's own time a speed zone
+        // may slow. It has had a stored preference and no row until now, so the number a user is judged
+        // by was invisible; this block is its one surface, seeded from the same key the engine's
+        // provider reads.
+        SectionHeader(title = stringResource(R.string.settings_section_route_budget))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            SliderRow(
+                label = stringResource(R.string.settings_route_budget_label),
+                description = stringResource(R.string.settings_route_budget_desc),
+                valueLabel = "${settings.routeSlowWaterBudgetPct}%",
+                value = settings.routeSlowWaterBudgetPct.toFloat(),
+                valueRange = AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN.toFloat()..
+                    AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX.toFloat(),
+                // Whole fives between 0 and 100 — twenty intervals, the grid the budget's clamp leaves.
+                steps = 19,
+                onValueChange = { v ->
+                    onUpdateSettings { it.copy(routeSlowWaterBudgetPct = (v / 5f).roundToInt() * 5) }
+                }
             )
         }
     }

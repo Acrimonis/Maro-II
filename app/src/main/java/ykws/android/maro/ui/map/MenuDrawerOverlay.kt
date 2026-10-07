@@ -606,7 +606,7 @@ private fun RouteEndsSection(section: RouteSummaryData) {
  *
  * **The width rule is the control's own capability, and this call site asks for the proportional split**
  * (the user's word, 2026-10-05): each box takes a share of the row matching its own longest word, so the
- * preference's longer labels — `Balanced`, `Équilibré` — earn more room than the pace's `35 kn`, where the
+ * preference's longer labels — `Optimal`, `Rapide` — earn more room than the pace's `35 kn`, where the
  * earlier fixed/elastic split left the pair narrow on the left and roomy on the right.
  */
 @Composable

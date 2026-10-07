@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the rungs ranked, and the winner preselected
 
-**Date:** 2026-10-07 · **Status:** in design · **Order:** the user's word of 2026-10-07 in the
+**Date:** 2026-10-07 · **Status:** landed 2026-10-07 · **Order:** the user's word of 2026-10-07 in the
 `RoutePassRules` discussion — *"The three rungs — go with (b): rank the rungs against each other and
 preselect the winner"*.
 
@@ -155,3 +155,20 @@ pair and three KDocs. **The plan is buildable as it stands.**
 ## Parked
 
 - The two-pass λ correction inside a rung (option (a) of the discussion) — the keep rule would then rank a corrected pass against its incumbent, as it was written to; not taken now.
+
+## Outcome
+
+Built 2026-10-07 in one `#implement` run, all six phases, on the French word **Optimal** the user chose for
+the renamed middle stop. Two deviations: the collapsed-rung exclusion is flow-side — the seat resolves the
+running best through `lookupPages` and falls back when the winner's page was folded away — because collapse
+is a flow decision the engine does not hold; and phase 3's *the gate's fixture reads the stored value back*
+is met by the ranking's gate fixture parameterised by the budget rather than a `SettingsManager` round-trip,
+since no unit-test seam reaches that persistence without an Android context. One extra fixture retarget was
+needed beyond the one the plan named: `aLandingSeatsTheSelectionOffAPendingRow` asserted that a landing
+re-seats the preference after a hand tap, which the freeze-for-good rule reverses. Suite **940 / 1 / 11**,
+the parked `route.avoid.fine.cellRatio` red alone, and `assembleDebug` green.
+
+**Reversal, 2026-10-07.** Phase 6's pulsing disc was dropped on the user's word the same day — *remove the
+pulsating dot, it is distracting, selection is enough* — so the winner's row now carries the *so far* mark
+alone and the `RouteSummaryTable` winner plumbing went with it. The ranking, the running best, the seat's
+follow-then-freeze and the time-first figure order are untouched.

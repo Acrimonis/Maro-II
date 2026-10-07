@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -31,7 +33,9 @@ import ykws.android.maro.spatial.multipass.RouteCostField
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridBuilder
 import ykws.android.maro.spatial.multipass.RouteGridPlan
+import ykws.android.maro.spatial.multipass.RoutePassRanking
 import ykws.android.maro.spatial.multipass.RoutePassRunner
+import ykws.android.maro.spatial.multipass.RoutePreference
 import ykws.android.maro.spatial.multipass.TimedLine
 import ykws.android.maro.spatial.multipass.UniformGridPlan
 import ykws.android.maro.spatial.multipass.ZoneRing
@@ -48,6 +52,7 @@ import ykws.android.maro.spatial.multipass.slowShares
 import ykws.android.maro.spatial.multipass.slowTimeByLimit
 import ykws.android.maro.spatial.multipass.timeLineWithLimits
 import ykws.android.maro.spatial.multipass.timeLineWithProfile
+import ykws.android.maro.spatial.multipass.zoneMetres
 import ykws.android.maro.spatial.multipass.zonePriceSec
 import ykws.android.maro.spatial.multipass.zoneSlowShare
 
@@ -108,6 +113,13 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * `route.avoid.fine.cellRatio`. There is no budget loop: the slow-water budget is demoted, so a rung is
  * computed at its own λ and never corrected.
  *
+ * **The ranking.** The engine folds its own rungs: at every rung's terminal the settled costs of the
+ * rungs that have landed are ranked through [RoutePassRanking] under the preference in force, and the
+ * winner rides that terminal as [RouteRunningBest] — a **running best**, so a surface can read *so far,
+ * the winner is…*. The two inputs the ranking reads are the engine's own providers, `aversionKn` (the
+ * preference) and `slowWaterBudgetPct` (Best's gate); the answer carries no instrumentation vocabulary,
+ * which is why the ranking lives here and never on an emitted line.
+ *
  * Coroutines and `Flow` only: no thread of its own, and the search checks the calling job between its
  * expansions so a flung map never queues behind a computation nobody wants any more.
  */
@@ -115,15 +127,17 @@ class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
     private val paceKn: () -> Double,
     /**
-     * The **aversion λ** (0–5) the slow water is priced at, asked fresh like the pace so a slider
-     * move reaches the next line: 0 prices slow water as open water, 1 minimises real time, and the
-     * top of the scale stays out. It is the λ seed the budget loop then corrects.
+     * The **aversion λ** (0–5) the user's Driving preference stands at, asked fresh like the pace so a
+     * slider move reaches the next line. It no longer prices the search — the three rungs carry their
+     * own fixed λ — but it **names the stop the ranking measures against** ([RoutePreference]): the
+     * preference states an intent, and the ranking answers which settled rung delivers it.
      */
     private val aversionKn: () -> Double,
     /**
-     * The **slow-water budget** (per cent of a trip, 0–100), asked fresh like the pace so a slider
-     * move reaches the next line: the λ loop aims at it, and a share still out of its band is
-     * reported on the answer rather than chased.
+     * The **slow-water budget** (per cent of a trip, 0–100), asked fresh like the pace so a slider move
+     * reaches the next line: it is **Best's gate** in the ranking, the ratio a rung's zone share must
+     * stay within to be led on the clock. 0 leaves only a zero-zone line qualifying, 100 qualifies every
+     * line, and a share above it is beaten by the smaller share rather than reported here.
      */
     private val slowWaterBudgetPct: () -> Int,
     /** The world provider — the map always holds the layers it wraps, so it answers a live world. */
@@ -174,6 +188,16 @@ class RouteAvoidEngine(
     /** The shared grid the ladder's rungs await — built once per arm, by the first rung to reach it. */
     private var ladderGrid: Deferred<GridContext?>? = null
 
+    /**
+     * **The rungs that have landed this arm, in landing order** — each with the lookup that owns it and
+     * its own ladder index, so the running best can be folded and reported without the engine ever
+     * holding a page. Small, per-arm and dropped with the arm, like the declarations and the shared grid.
+     */
+    private var landedRungs: MutableList<LandedRung> = mutableListOf()
+
+    /** One lock for the fold: the rungs land concurrently, so add-and-rank is one critical step. */
+    private val rankingLock = Mutex()
+
     /** The first declared computation's id — the one that narrates the panel's stage line. */
     private var stageComputationId: RouteId? = null
 
@@ -214,13 +238,15 @@ class RouteAvoidEngine(
         val to = repair(destination, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
         repairedOrigin = from
         repairedDestination = to
-        // A fresh arm builds a fresh grid: the ladder's three rungs share the one built on the first
-        // lookup to reach it. The rungs are the three fixed aversions — none, the split, and the maximum.
+        // A fresh arm builds a fresh grid and a fresh ranking: the ladder's three rungs share the one
+        // grid built on the first lookup to reach it, and their settled costs are folded afresh. The
+        // rungs are the three fixed aversions of [RoutePreference] — around, best and fast.
         ladderGrid = null
+        landedRungs = mutableListOf()
         val computations = listOf(
-            Computation(RouteId(++nextComputationId), R.string.route_rung_around, LAMBDA_MAX),
-            Computation(RouteId(++nextComputationId), R.string.route_rung_balanced, (LAMBDA_MIN + LAMBDA_MAX) / 2.0),
-            Computation(RouteId(++nextComputationId), R.string.route_rung_through, LAMBDA_MIN)
+            Computation(RouteId(++nextComputationId), R.string.route_rung_around, RoutePreference.AROUND),
+            Computation(RouteId(++nextComputationId), R.string.route_rung_balanced, RoutePreference.BEST),
+            Computation(RouteId(++nextComputationId), R.string.route_rung_through, RoutePreference.FAST)
         )
         declarations = computations.associateBy { it.id }
         stageComputationId = computations.first().id
@@ -258,10 +284,21 @@ class RouteAvoidEngine(
         }
         try {
             val grid = sharedGrid(world, from, to).await()
-            val result = grid?.let {
+            val rung = grid?.let {
                 searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
             }
-            emitTerminal(lookupId, result, if (result == null) RouteReason.NO_PATH else null)
+            // The fold and the read are one critical step: the rungs land concurrently, so a running
+            // best reported beside a rival's landing must see it whole or not at all.
+            val best = rankingLock.withLock {
+                if (rung != null) landedRungs += LandedRung(lookupId, computation.rungIndex, rung.cost)
+                runningBest()
+            }
+            emitTerminal(
+                lookupId,
+                rung?.result,
+                if (rung == null) RouteReason.NO_PATH else null,
+                best
+            )
         } finally {
             if (narrates) {
                 mainLookupId = null
@@ -285,6 +322,26 @@ class RouteAvoidEngine(
     }
 
     /**
+     * **The ladder's running best right now** — the landed rungs folded through the preference's own
+     * rule ([RoutePassRanking]), with the budget in force as Best's gate. Called under [rankingLock],
+     * so the read is never half a landing; a rung that found no path never enters [landedRungs] and is
+     * no candidate, so a set that has all failed ranks nothing.
+     */
+    private fun runningBest(): RouteRunningBest? {
+        if (landedRungs.isEmpty()) return null
+        val ranked = landedRungs.map { RoutePassRanking.RungCost(it.ladderIndex, it.cost) }
+        val winner = RoutePassRanking.bestRungIndex(
+            RoutePreference.of(aversionKn()),
+            slowWaterBudgetPct().coerceIn(
+                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN,
+                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
+            ),
+            ranked
+        ) ?: return null
+        return RouteRunningBest(landedRungs[winner].lookupId, landedRungs.size)
+    }
+
+    /**
      * **One rung's solve** — the fixed-λ pipeline over the shared grid, with the one growth step when
      * the first answer finds no path. The growth escalation alone re-rasterises; a rung's own passes
      * never do.
@@ -294,7 +351,7 @@ class RouteAvoidEngine(
         lambda: Double,
         publishStage: Boolean,
         lookupId: RouteId
-    ): RouteResult.Success? {
+    ): Rung? {
         val first = solveAtLambda(grid, lambda, publishStage, lookupId)
         if (first == null) {
             if (grid.regionSaturated) return null
@@ -303,10 +360,10 @@ class RouteAvoidEngine(
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
         // the "around" rung's whole job. The wider answer is kept only where it forces fewer crossings.
-        if (grid.regionSaturated || first.forcedCrossingZoneNames.isEmpty()) return first
+        if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) return first
         val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), traceSink) ?: return first
-        val grownResult = solveAtLambda(grown, lambda, publishStage, lookupId) ?: return first
-        return if (grownResult.forcedCrossingZoneNames.size < first.forcedCrossingZoneNames.size) grownResult else first
+        val grownRung = solveAtLambda(grown, lambda, publishStage, lookupId) ?: return first
+        return if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
     }
 
     /**
@@ -319,7 +376,7 @@ class RouteAvoidEngine(
         lambda: Double,
         publishStage: Boolean,
         lookupId: RouteId
-    ): RouteResult.Success? {
+    ): Rung? {
         val coarseStartNs = System.nanoTime()
         // The plan's own two-layer walk where it answered more than one tile; `avoid`'s plan answers one, so
         // `ctx.windows` is null and the walk is the single grid it has always been.
@@ -394,7 +451,14 @@ class RouteAvoidEngine(
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
                 "forced=[${forced.joinToString(", ")}]"
         }
-        return success(timedLine, forced, null, slowLimitSeconds = slowLimits)
+        // The rung's own cost, exactly the figures the ranking reads: the zone share the answer already
+        // carries, the metres standing inside a priced zone's interior, and the settled clock.
+        val cost = RoutePassRanking.PassCost(
+            zoneShare = finalShares.zone,
+            zoneMetresM = zoneMetres(ctx.zones, timedLine.points),
+            durationSec = timedLine.durationSec
+        )
+        return Rung(success(timedLine, forced, null, slowLimitSeconds = slowLimits), cost)
     }
 
     /**
@@ -488,7 +552,12 @@ class RouteAvoidEngine(
     }
 
     /** The terminal update: the last stage finished, `nextStage` null, the result or the reason. */
-    private fun emitTerminal(lookupId: RouteId, result: RouteResult.Success?, reason: RouteReason?) {
+    private fun emitTerminal(
+        lookupId: RouteId,
+        result: RouteResult.Success?,
+        reason: RouteReason?,
+        runningBest: RouteRunningBest? = null
+    ) {
         _updates.tryEmit(
             RouteUpdate(
                 routeId = lookupId,
@@ -496,7 +565,8 @@ class RouteAvoidEngine(
                 nextStage = null,
                 line = result?.points ?: emptyList(),
                 result = result,
-                reason = reason
+                reason = reason,
+                runningBest = runningBest
             )
         )
         trace {
@@ -685,18 +755,31 @@ class RouteAvoidEngine(
     }
 }
 
-/** One declared computation — a ladder rung: its id, its description and its fixed λ. */
+/** One declared computation — a ladder rung: its id, its description and the stop it solves at. */
 private data class Computation(
     val id: RouteId,
     val descriptionResId: Int,
-    val lambda: Double
+    val preference: RoutePreference
+) {
+    /** The λ this rung is solved at — the stop's own fixed value. */
+    val lambda: Double get() = preference.lambda
+
+    /** This rung's ladder index — where a total tie falls back to. */
+    val rungIndex: Int get() = preference.index
+}
+
+/** One landed rung this arm: the lookup that owns its line, its ladder index and its own cost. */
+private data class LandedRung(
+    val lookupId: RouteId,
+    val ladderIndex: Int,
+    val cost: RoutePassRanking.PassCost
 )
 
-/** The ladder's lowest rung: λ = 0 — slow water priced as open water, the "through" line. */
-private const val LAMBDA_MIN = 0.0
-
-/** The ladder's highest rung: λ = 5 — the configured maximum aversion, the "around" line. */
-private const val LAMBDA_MAX = 5.0
+/** One rung's settled answer and the cost the ranking reads it by. */
+private data class Rung(
+    val result: RouteResult.Success,
+    val cost: RoutePassRanking.PassCost
+)
 
 
 /** The repair's ring step (m) — a constant of the algorithm, not a key. */

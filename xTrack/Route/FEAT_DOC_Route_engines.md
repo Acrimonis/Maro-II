@@ -29,8 +29,9 @@ The types on the seam, all in the same file:
 - `RouteDeclarations` — `Available(computations)` or `Refused(reason)`, so a refusal is a value, never a throw.
 - `RouteReason` — `CANNOT_REPAIR` and `WORLD_NOT_READY` answer at `routesToCompute`; `NO_PATH` and `OFF_WATER` answer on the flow.
 - `RouteStage` — `CORRIDOR` · `GRID` · `SEARCH` · `PULL` · `SNAP`, the boundary set an engine publishes.
-- `RouteUpdate(routeId, stageDone, nextStage, line, result, reason, readings, provisional)` — the stage pair is **finished-then-next**, `nextStage = null` marks the terminal update, and `line` is a value to paint, never a drawing.
+- `RouteUpdate(routeId, stageDone, nextStage, line, result, reason, readings, provisional, runningBest)` — the stage pair is **finished-then-next**, `nextStage = null` marks the terminal update, and `line` is a value to paint, never a drawing.
 - `RouteProvisional(distanceM, durationSec)` — the pair a rung's first taut line already supports, replaced by the settled figures.
+- `RouteRunningBest(lookupId, compared)` — the rung a running ranking currently names, and how many rungs it has compared; it rides **every terminal** of a ladder.
 - `RouteStepReading(stage, labelResId, value, unitResId)` — one figure a stage reports about **its own** work.
 
 **The registry** is [`RouteEngineChoice`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt):
@@ -53,10 +54,18 @@ is one row there plus one class implementing `RouteEngine`.
 ## The ladder
 
 One arming declares **three rungs**, each a full solve at its own fixed λ over **one shared grid**: `around`
-(the maximum aversion), `balanced` (the midpoint) and `through` (λ = 0). The first is the **main** and the only
-one that narrates the stage line; every other rung publishes its terminal update alone, plus the provisional
-pair it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and never
-corrected, and a share still out of the budget's band is **reported** on the answer, never chased.
+(λ = 5), `best` (λ = 2.5) and `fast` (λ = 0) — the three stops of [`RoutePreference`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt),
+the ladder's one home for its λ values, its indices and its words. The first is the **main** and the only one
+that narrates the stage line; every other rung publishes its terminal update alone, plus the provisional pair
+it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and never corrected.
+
+**The rungs are ranked, and the winner rides the terminal.** At every rung's terminal the engine folds the
+settled costs of the rungs that have landed through [`RoutePassRanking`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt)
+under the Driving preference: **Fast** leads on the trip's total time, **Best** on the total time provided the
+zone share stays within `route.avoid.speedZone.timeBudgetPct`, and **Fun** on the absolute zone seconds — the
+clock entering only as the last resort. One shared tail settles a lead tie, and a total tie falls to the rung
+nearest the preference. The result travels as `RouteRunningBest` on the terminal update: a **running best**,
+not a verdict, so a surface reads *so far, the winner is…* until the last rung lands.
 
 ## The pipeline
 
@@ -104,7 +113,7 @@ Everything the engines stand on, under
 - **The search** — [`MultipassSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt): `search(grid, …)` and `searchWalk(windows, …)`, one loop over whichever walk it is handed.
 - **The pull** — [`MultipassPull`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt): the clearance walk, the price walk (grouped behind a declaration the source makes, with a span-level proof above it), the corner snap's entry and the refusals it counts.
 - **The field** — `RouteCostField` and [`RoutePassPrimitives`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassPrimitives.kt): `costField(...)` builds the walls and the prices, `limitAtFor(world)` is the λ-free clock read, and `snapToCorners`, `zoneMetres`, `inZone`, `inBand` and `clampTo` sit beside them.
-- **The seats** — `RouteGridBuilder` (the build), `RoutePassRunner` (one pass), `RouteFinePass` (the refinement) and `RoutePassRules` (the keep rules), each composed once by the engine. `RoutePassModels` holds `GridWalk`, `GridContext` and `PassReading`.
+- **The seats** — `RouteGridBuilder` (the build), `RoutePassRunner` (one pass), `RouteFinePass` (the refinement) and `RoutePassRanking` (the preference-aware ranking, `RoutePreference` beside it as the ladder's one home), each composed once by the engine. `RoutePassModels` holds `GridWalk`, `GridContext` and `PassReading`.
 - **The post-passes** — [`RouteCornerPass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteCornerPass.kt) and the clock in [`RouteEta`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt).
 - **The geometry** — `TangentCorners` (the tangent corner sets) and `ZoneGeometry` (rings, collars, the price law).
 - **The ends** — [`BerthCarve`](../../app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt): the end discs, the carve reach and the shore margin.
@@ -147,8 +156,7 @@ starts under the family that owns it:
 
 Current state, not history — these are the open facts a reader should not be surprised by:
 
-- `RouteAvoidEngine` still takes an **aversion** and a **slow-water budget** provider, which no shipped path reads: the ladder's rungs carry fixed λ constants.
-- `RoutePassRules.betterPass` and `RoutePassRules.fineSpliceBetter` have **no production caller** — the keep rules are exercised by tests alone.
+- The engine's `aversionKn` and `slowWaterBudgetPct` providers are **live**: the first names the ranking's stop, the second is Best's gate. Those are their only readers, and the ranking's tail (`betterPass`) has its one caller.
 - `LineDeviation.kt` and the `route.evolutive.fine.corridorHalfWidthM` key are **unread** by any shipped path.
 - No test **drives `runPass` itself**, so a reverted call site that hands the pull the wrong step would not be caught.
 - Three unit tests are **red on purpose-known grounds**: the parked `route.avoid.fine.cellRatio` check and two `TrackOutlineTest` dash drifts.
