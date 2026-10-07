@@ -1,8 +1,8 @@
 package ykws.android.maro.spatial.multipass
 
 /**
- * **The keep rules, pure and total** — the λ loop's comparator with its input [PassCost], and the fine
- * re-search's splice rule, lifted out of the pass pipeline so the ranking and the splice decision are
+ * **The keep rules, pure and total** — the λ loop's comparator with its input [PassCost], and the splice
+ * rule a fine line is kept by, lifted out of the pass pipeline so the ranking and the splice decision are
  * a named seat of their own: a pair of passes ranks, and a fine line is kept, with no grid, world or
  * trace in hand.
  */
@@ -32,7 +32,7 @@ internal object RoutePassRules {
     )
 
     /**
-     * **The fine re-search's keep rule** — the fine line replaces the incumbent only where it is
+     * **The fine line's keep rule** — the fine line replaces the incumbent only where it is
      * strictly faster **and** no worse in its **slow share**, both read off the same two timed lines
      * with [zoneSlowShare]. The clock alone is λ-blind: a fine line quicker on the clock but spending
      * more of its own time slowed would undo the λ loop the moment it is spliced.

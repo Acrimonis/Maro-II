@@ -2,7 +2,6 @@ package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
@@ -16,16 +15,11 @@ import ykws.android.maro.data.regulation.SpeedZone
  * **The fine stage's reachability pin** — one test that fails when a plan handed to the engine reaches no
  * fine walk, so a walk nobody runs can never again be changed without the suite saying so.
  *
- * Both shipped plans **retire the re-search**: [`UniformGridPlan.secondPassRegions`] and
- * [`EvolutiveGridPlan.secondPassRegions`] answer `emptyList()`, so [`RouteFinePass.fineReSearch`] returns
- * before it ever builds its walk — which is exactly how the parked price-step plan's Phase 1 shipped
- * unread. The pin therefore hands the fine stage a **region-restoring decorator** of each shipped plan,
- * the first walk and the fine cell untouched, so the walk is reached and its own part asserted; emptying
- * that decorator's regions turns the test red, which is what proves it catches the case it exists for.
- *
- * The refinement half needs no such decorator — [`RouteFinePass.finePass`] runs for both shipped plans
- * whatever the region answers — so the pin asserts it too, and a plan that reached neither walk would
- * fail the same test.
+ * The walk that runs is [`RouteFinePass.finePass`] — the refinement along the settled line — and both
+ * shipped plans reach it whatever their own answers, so the pin hands each plan to the grid builder and
+ * asserts the refinement's own settled pull is produced. A plan whose fine cell is at or above its coarse
+ * one reaches no fine walk, and the assertion turns red on it, which is what proves the pin catches the
+ * case it exists for.
  */
 class RouteFineReachabilityTest {
 
@@ -48,81 +42,30 @@ class RouteFineReachabilityTest {
     }
 
     /**
-     * **The pin.** For each shipped plan's own first walk and fine cell — the decorator restores only the
-     * region the retirement removed — the fine stage produces both of its parts: the refinement's own
-     * settled pull, and the re-search's walk, whose `answered=` line only a walk that ran can emit.
+     * **The pin.** For each shipped plan's own first walk and fine cell, the fine stage reaches its
+     * refinement, so its settled pull — the `FINE settled` line only a walk that ran can emit — is
+     * produced.
      */
     @Test
-    fun theFineStageProducesBothItsPartsForEachShippedPlanWithARegion() = runBlocking {
+    fun theFineStageReachesItsRefinementForEachShippedPlan() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
 
-        for (inner in listOf<RouteGridPlan>(UniformGridPlan, EvolutiveGridPlan)) {
-            val plan = RegionPlan(inner)
+        for (plan in listOf<RouteGridPlan>(UniformGridPlan, EvolutiveGridPlan)) {
             val ctx = RouteGridBuilder(plan).buildGrid(
                 world, from, to, AppConfig.routeAvoidCorridorReachM, pace
             )
-            assertTrue("$inner reaches a corridor context", ctx != null)
+            assertTrue("$plan reaches a corridor context", ctx != null)
 
             val refineTrace = mutableListOf<String>()
-            val fine = RouteFinePass(plan)
-            val refined = fine.finePass(ctx!!, line, lambda) { refineTrace += it() }
+            RouteFinePass().finePass(ctx!!, line, lambda) { refineTrace += it() }
             assertTrue(
-                "$inner: the refinement runs, so its settled pull is produced",
+                "$plan reaches the fine walk, so its refinement's settled pull is produced",
                 refineTrace.any { it.startsWith("FINE settled ") }
-            )
-
-            val researchTrace = mutableListOf<String>()
-            fine.fineReSearch(ctx, refined, lambda) { researchTrace += it() }
-            assertTrue(
-                "$inner: the re-search walks, so its own answered line is produced",
-                researchTrace.any { it.contains("FINE research answered=") }
             )
         }
     }
 
-    /**
-     * **The case the pin exists to catch.** A shipped plan answers no region, so the re-search never
-     * builds a walk — the empty-region short circuit — while the refinement still runs. This is the
-     * assertion the pin fails on when the decorator's regions are emptied again.
-     */
-    @Test
-    fun anEmptyRegionStopsBeforeTheReSearchWalk() = runBlocking {
-        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        val plan: RouteGridPlan = UniformGridPlan
-        val ctx = RouteGridBuilder(plan).buildGrid(
-            world, from, to, AppConfig.routeAvoidCorridorReachM, pace
-        )!!
-        val fine = RouteFinePass(plan)
-
-        val refineTrace = mutableListOf<String>()
-        val refined = fine.finePass(ctx, line, lambda) { refineTrace += it() }
-        assertTrue(
-            "the refinement runs for the shipped plan too",
-            refineTrace.any { it.startsWith("FINE settled ") }
-        )
-
-        val researchTrace = mutableListOf<String>()
-        fine.fineReSearch(ctx, refined, lambda) { researchTrace += it() }
-        assertTrue(
-            "the shipped plan's empty region is read as nothing to re-search",
-            researchTrace.any { it.contains("FINE research box=empty") }
-        )
-        assertFalse(
-            "so the re-search walk is never reached",
-            researchTrace.any { it.contains("FINE research answered=") }
-        )
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /** A shipped plan with the region the retirement removed put back: the interface's own default. */
-    private class RegionPlan(private val inner: RouteGridPlan) : RouteGridPlan {
-        override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
-            inner.firstWalkGrid(corridor, baseCellM)
-
-        override fun fineCellM(baseCellM: Double): Double = inner.fineCellM(baseCellM)
-        // secondPassRegions: the interface default — the line-span region the retirement emptied.
-    }
 
     /** A water-everywhere world whose only source is its speed zones — the corridor reads no land or depth. */
     private class ZoneWorld(private val zones: List<SpeedZone>) : MultipassWorld {

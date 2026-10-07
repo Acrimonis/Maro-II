@@ -5,7 +5,7 @@ import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
 
 /**
- * **The corridor chain: the second pass's region as a chain of small boxes along the pulled line.**
+ * **The corridor chain: a ribbon of small boxes along the pulled line.**
  *
  * A bounding box sizes a region by the line's **span**, so a U-shaped or dog-legged route pays for the
  * rectangle that contains it; the chain pays for a ribbon of side `2w` around the line itself. Its boxes

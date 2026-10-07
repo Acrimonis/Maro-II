@@ -712,22 +712,11 @@ class RouteAvoidEngineTest {
     /** A plan that behaves exactly like the shipped one and counts how often the engine consults it. */
     private class CountingPlan(private val inner: RouteGridPlan = UniformGridPlan) : RouteGridPlan {
         var cellReads = 0
-        var regionReads = 0
         var fineReads = 0
 
         override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
             cellReads++
             return inner.firstWalkGrid(corridor, baseCellM)
-        }
-
-        override fun secondPassRegions(
-            line: List<LatLng>,
-            corridor: BBox,
-            outsideMarginM: Double,
-            cellM: Double
-        ): List<BBox> {
-            regionReads++
-            return inner.secondPassRegions(line, corridor, outsideMarginM, cellM)
         }
 
         override fun fineCellM(baseCellM: Double): Double {
@@ -738,11 +727,10 @@ class RouteAvoidEngineTest {
 
     /**
      * The plan is the engine's **whole** difference from a second algorithm: a lookup asks it for the
-     * walk's cell, for the finest cell its clock steps at and for the second pass's region, and nothing
-     * else about the pipeline moves.
+     * walk's cell and for the finest cell its clock steps at, and nothing else about the pipeline moves.
      */
     @Test
-    fun aLookupTakesItsCellAndItsSecondPassRegionFromThePlan() = runBlocking {
+    fun aLookupTakesItsCellAndItsFineCellFromThePlan() = runBlocking {
         val plan = CountingPlan()
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
@@ -755,8 +743,7 @@ class RouteAvoidEngineTest {
         success(solve(engine, origin, aim))
 
         assertTrue("the first walk asks the plan for its cell", plan.cellReads > 0)
-        assertTrue("the clock asks it for the finest cell", plan.fineReads > 0)
-        assertTrue("and the second pass asks it for its region", plan.regionReads > 0)
+        assertTrue("and the clock asks it for the finest cell", plan.fineReads > 0)
     }
 
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────
@@ -791,13 +778,13 @@ class RouteAvoidEngineTest {
         )
     }
 
-    // ── The fine re-search's priced splice (Phase 4) ────────────────────────────
+    // ── The fine splice's own rule (Phase 4) ────────────────────────────────────
 
     /**
-     * The re-search's guard: a fine line **faster on the clock but slower-water** is refused — the clock
-     * alone is λ-blind, and splicing that line would undo the λ loop — while the same shorter line run
-     * at the pace is spliced. The two timed lines are built here, not timed through the world, so the
-     * share is the test's own arithmetic.
+     * The splice's rule: a fine line **faster on the clock but slower-water** is refused — the clock alone
+     * is λ-blind, and splicing that line would undo the λ loop — while the same shorter line run at the
+     * pace is spliced. The two timed lines are built here, not timed through the world, so the share is
+     * the test's own arithmetic.
      */
     @Test
     fun theFineReSearchRefusesAFasterLineThatIsSlowerWater() {

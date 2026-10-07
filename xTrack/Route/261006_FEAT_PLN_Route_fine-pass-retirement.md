@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the fine pass's dead scaffolding, retired
 
-**Date:** 2026-10-06 · **Status:** in design · **Order:** the user's word of 2026-10-06 —
+**Date:** 2026-10-06 · **Status:** landed 2026-10-07 · **Order:** the user's word of 2026-10-06 —
 *"again we are dropping this fine pass step. You will retire everything that is linked to it and have
 no impact on anything else. Plan it."* — plus, of 2026-10-07, *"the guard must stay"* and *"no regression
 (perf or functional) allowed"*.
@@ -165,3 +165,32 @@ it removed that subject's one consumer.
 - The fine-only walk's price step itself, now **dropped** rather than parked; its plan is a retirement
   candidate for `#archive`, not a resume.
 - The owed `runPass`-driving seam test, which stays owed on its own line and is untouched here.
+
+## Outcome
+
+**Landed 2026-10-07 as one change, its five steps together, on the user's `#impl`.**
+
+- **The second fine pass left whole.** `fineReSearch()`, `fineWalk()` and `referenceWalk()` are gone from
+  [`RouteFinePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:1), whose
+  seat now holds `finePass()`, `solveCrossing()` and `pricedLineCost()` alone and takes no constructor
+  argument; the engine's `reSearched` · `reSearchMs` · `refineMs` step left
+  [`solveAtLambda()`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:318), the fine
+  stage now the single `fineMs`, and the instrument's reference half (`DEVICE DEV`, `refMs`, `devRef*`,
+  `deviationText()`, `corridorHalfWidthText()`, the `deviationTo` import and the `chainFine` parameter) is
+  gone — [`instrumentCoarseWalk()`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:609)
+  keeps the `DEVICE PASS` line alone.
+- **The plan seam is one decision.** `RouteGridPlan.secondPassRegions()` and both plans' `emptyList()`
+  overrides left with `lineBBox()`, so the interface keeps `firstWalkGrid()` and `fineCellM()`.
+- **The walk's own step collapsed.** `GridWalk.priceStepM` and `RoutePassRunner.priceStepFor()` are gone;
+  [`runPass()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt:70) prices at
+  the walk's own `cellM`, Phase 4b's lesson recorded on that step's own comment.
+- **The guard is refined, not retired.** `RouteFineReachabilityTest` asserts the refinement for each shipped
+  plan, the `RegionPlan` decorator and the re-search test gone; `RouteCorridorChainTest.bothPlansAnswerNoRegionNow`,
+  `AvoidPriceWalkTest`'s four interior-cell pins with their `twoLayerWalk()` / `fineOnlyWalk()` fixtures, and
+  `CountingPlan`'s region half with its renamed lookup test all left.
+- **Gates.** `apk-build.bat` green; the suite reads **933 / 3 / 11** — the same three known reds and no
+  fourth, lower by exactly the six retired/refined tests.
+- **Named, not hidden.** The parked price-step plan was **not** moved: only `#archive` may enter
+  `xxArchive/`, so it stays a retirement candidate for that command; `LineDeviation.kt` / `deviationTo()`
+  and `route.evolutive.fine.corridorHalfWidthM` are now unread and await their own word.
+- **Not verified here:** the on-device acceptance, which is the user's own.

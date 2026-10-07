@@ -38,7 +38,6 @@ import ykws.android.maro.spatial.multipass.ZoneRing
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.clockSampleM
 import ykws.android.maro.spatial.multipass.depthClearsGate
-import ykws.android.maro.spatial.multipass.deviationTo
 import ykws.android.maro.spatial.multipass.fmt
 import ykws.android.maro.spatial.multipass.forcedCrossingZoneNames
 import ykws.android.maro.spatial.multipass.inBand
@@ -130,10 +129,10 @@ class RouteAvoidEngine(
     /** The world provider — the map always holds the layers it wraps, so it answers a live world. */
     private val worldProvider: () -> MultipassWorld,
     /**
-     * **The two decisions this engine makes about its own walk** — the cell it rasterizes the corridor at
-     * and the region its second pass may re-rasterize. `avoid` ships [`UniformGridPlan`], which is exactly
-     * the behaviour this engine had before the plan existed, so the default changes nothing; a second
-     * algorithm passes its own and inherits the whole pipeline, the clock and the readings unchanged.
+     * **The decisions this engine makes about its own walk** — the cell it rasterizes the corridor at and
+     * the fine cell its clock steps at. `avoid` ships [`UniformGridPlan`], which is exactly the behaviour
+     * this engine had before the plan existed, so the default changes nothing; a second algorithm passes
+     * its own and inherits the whole pipeline, the clock and the readings unchanged.
      */
     private val plan: RouteGridPlan = UniformGridPlan
 ) : RouteEngine {
@@ -150,7 +149,7 @@ class RouteAvoidEngine(
     private val runner = RoutePassRunner()
 
     /** The fine pass — the refinement along the settled line, composed once. */
-    private val finePass = RouteFinePass(plan, runner)
+    private val finePass = RouteFinePass()
 
     /** The engine's own `trace`, handed to the seats so the instrument stays the engine's. */
     private val traceSink: (() -> String) -> Unit = { message -> trace(message) }
@@ -350,34 +349,23 @@ class RouteAvoidEngine(
         }
         val waypoints = passReading.line
         if (publishStage) publish(lookupId, publishStage, RouteStage.PULL)
-        // The fine stage keeps its total `fineMs` and gains its two parts beside it: the refinement along
-        // the settled line — the crossings and the re-tension — and the fine re-search, so a shipped
-        // trace names which half spends the time rather than folding both into one figure.
+        // The fine stage is the refinement along the settled line alone — the crossings and the
+        // re-tension — timed as one `fineMs`.
         val fineStartNs = System.nanoTime()
-        val refineStartNs = System.nanoTime()
         val refined = finePass.finePass(ctx, waypoints, lambda, traceSink)
-        val refineMs = msSince(refineStartNs)
-        val reSearchStartNs = System.nanoTime()
-        val reSearched = finePass.fineReSearch(ctx, refined, lambda, traceSink)
-        val reSearchMs = msSince(reSearchStartNs)
         val fineMs = msSince(fineStartNs)
 
-        // **Phase 2's device reading** — behind the tag's own level, never on a shipped path: the coarse
-        // walk's own A* cost and duration, the second pass's duration and its two parts beside it, and how
-        // far the coarse line sits from a fine reference walked over its own span box rather than the
-        // plan's corridor. The reference is built on **every** rung, so the three branches are measured
-        // alike.
+        // **The device reading** — behind the tag's own level, never on a shipped path: the coarse
+        // walk's own A* cost and duration, with the fine stage's duration beside them.
         if (logEnabled) {
-            instrumentCoarseWalk(
-                ctx, lambda, waypoints, reSearched, passReading, coarseMs, fineMs, refineMs, reSearchMs
-            )
+            instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
         }
         // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
         // an outward-bulging curve — clear by construction, slowed where the bulge would foul — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
         // limit stays the hard ceiling throughout.
         val rounded = RouteCornerPass.round(
-            reSearched, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
+            refined, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
         )
         val timedLine = timeLineWithProfile(
             rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt,
@@ -391,7 +379,7 @@ class RouteAvoidEngine(
         )
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
-            ctx.startCell, ctx.aimCell, reSearched
+            ctx.startCell, ctx.aimCell, refined
         )
         val bandLawM = bandMetres(ctx.world, timedLine.points)
         val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
@@ -607,35 +595,21 @@ class RouteAvoidEngine(
     }
 
     /**
-     * **Phase 2's device reading — the coarse walk and the fine reference**, emitted only where the
-     * `MaroRoute` tag's own level is on.
+     * **The device reading** — emitted only where the `MaroRoute` tag's own level is on.
      *
-     * Two lines, one per **rung**: `lambda` tells them apart, and `paceKn` tells two runs at different
-     * cruise speeds apart. `DEVICE PASS` is the coarse walk's own cost — the cells it was rasterized
-     * over, how many were passable, how many the A\* expanded, how many cells its answer holds and how
-     * long it took, the pull's own refusals — how many chords the land margin refused and how many the
-     * price guard — with the second pass's own duration and its two parts beside it — `refineMs` and
-     * `reSearchMs`. `DEVICE DEV` is how far the coarse
-     * line sits from a fine line: `devChain*` reads the plan's own region, whose deviation saturates
-     * where the corridor's wall stands, and `devRef*` reads the same walk over `avoid`'s second-pass
-     * region, which has no such cap — so `devRef*` is the coarse walk's real error, the figure the
-     * corridor's half-width rests on. `refMs` is that reference's own duration, the cost the adaptive
-     * grid exists to remove.
-     *
-     * The reference is built on **every** rung rather than the narrating one alone, so the ladder's
-     * three branches are measured alike; it is still only built where the tag's level is on, and it is
-     * the expensive half of this instrument by design.
+     * One line per **rung**: `lambda` tells them apart, and `paceKn` tells two runs at different cruise
+     * speeds apart. `DEVICE PASS` is the coarse walk's own cost — the cells it was rasterized over, how
+     * many were passable, how many the A\* expanded, how many cells its answer holds and how long it
+     * took, the pull's own refusals — how many chords the land margin refused and how many the price
+     * guard — with the fine stage's own duration beside it, `coarseMs` and `fineMs` one pair.
      */
-    private suspend fun instrumentCoarseWalk(
+    private fun instrumentCoarseWalk(
         ctx: GridContext,
         lambda: Double,
         coarse: List<LatLng>,
-        chainFine: List<LatLng>,
         pass: PassReading,
         coarseMs: Double,
-        fineMs: Double,
-        refineMs: Double,
-        reSearchMs: Double
+        fineMs: Double
     ) {
         val search = pass.search
         // (e) A coarse cell is twenty-five fine ones, so the walk's own counts name their layer: the interior's
@@ -649,45 +623,12 @@ class RouteAvoidEngine(
                 "pulled=${pass.pulledCount} snapped=${pass.snappedCount} " +
                 "landRefusals=${ctx.refusals.land} priceRefusals=${ctx.refusals.price} " +
                 "coarseM=${fmt(lineLengthM(coarse))}m " +
-                "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)} " +
-                "refineMs=${fmt(refineMs)} reSearchMs=${fmt(reSearchMs)}"
-        }
-        val refStartNs = System.nanoTime()
-        val reference = finePass.referenceWalk(ctx, coarse, lambda, traceSink)
-        val refMs = msSince(refStartNs)
-        val refLine = reference?.line
-        val chainTo = deviationTo(coarse, chainFine)
-        val chainBack = deviationTo(chainFine, coarse)
-        val refTo = refLine?.let { deviationTo(coarse, it) }
-        val refBack = refLine?.let { deviationTo(it, coarse) }
-        trace {
-            "DEVICE DEV lambda=${fmt(lambda, 2)} paceKn=${fmt(ctx.pace)} plan=${planName()} " +
-                "corridorHalfWidthM=${corridorHalfWidthText()} " +
-                "devChainMax=${deviationText(chainTo?.maxM)}m devChainMean=${deviationText(chainTo?.meanM)}m " +
-                "devChainBackMax=${deviationText(chainBack?.maxM)}m " +
-                "ref=${if (refLine == null) "none" else "yes"} " +
-                "refExpansions=${reference?.search?.expansions ?: 0} " +
-                "refPassable=${reference?.search?.passableCells ?: 0} " +
-                "refM=${refLine?.let { fmt(lineLengthM(it)) } ?: "n/a"}m refMs=${fmt(refMs)} " +
-                "chainFineM=${fmt(lineLengthM(chainFine))}m " +
-                "devRefMax=${deviationText(refTo?.maxM)}m devRefMean=${deviationText(refTo?.meanM)}m " +
-                "devRefBackMax=${deviationText(refBack?.maxM)}m " +
-                "devRefBackMean=${deviationText(refBack?.meanM)}m"
+                "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)}"
         }
     }
 
     /** The plan this engine walks by, named as the log prints it. */
     private fun planName(): String = if (plan === EvolutiveGridPlan) "evolutive" else "uniform"
-
-    /**
-     * The corridor's half-width as the log prints it — `n/a` where the plan's own region is not a
-     * corridor, so the figure is never read onto a plan that does not have one.
-     */
-    private fun corridorHalfWidthText(): String =
-        if (plan === EvolutiveGridPlan) "${fmt(AppConfig.routeEvolutiveFineCorridorHalfWidthM)}m" else "n/a"
-
-    /** One deviation figure as the log prints it — `n/a` where the measurement had no segment to take. */
-    private fun deviationText(value: Double?): String = value?.let { fmt(it) } ?: "n/a"
 
     /**
      * The metres of a line whose own middle stands inside the band's own **width** — the law's water,

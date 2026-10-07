@@ -67,10 +67,10 @@ internal class RoutePassRunner {
         // while the pull stays one walk. A step under the fine one would spare nothing at all, and the
         // caller never hands one: both shipped cells stand well above it.
         val coarseStepM = tailCellM
-        // The **price** step is the walk's own **interior** cell, read from the walk by its own pure
-        // function — never the local band cell above, whose 20 m collapsed the price grouping to one
-        // interval a group and made the shared price walk save nothing (Phase 4b).
-        val priceStepM = priceStepFor(walk)
+        // The **price** step is the walk's own cell — never the local band cell above, whose 20 m
+        // collapsed the price grouping to one interval a group and made the shared price walk save
+        // nothing (Phase 4b) — so the two-layer walk groups at its interior 100 m.
+        val priceStepM = cellM
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
@@ -158,17 +158,6 @@ internal class RoutePassRunner {
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
     }
-
-    /**
-     * **The price walk's own step for [walk]** — the step the walk itself names, its **interior** cell,
-     * and never under its fine one: [GridWalk.priceStepM] defaults to the walk's own cell, so the
-     * two-layer walk answers the interior 100 m it is built with and a fine-only walk names the
-     * interior's while keeping its own cell as the fine one it clears at. It is a named pure function of
-     * the walk alone, so a test can pin the step the runner hands the pull — the collapse Phase 4's whole
-     * suite could not see, because every fixture threaded its own step and the engine's own choice was
-     * never read.
-     */
-    internal fun priceStepFor(walk: GridWalk): Double = walk.priceStepM
 
     /** The pulled polyline's own length (m) — the provisional distance, never a staircase's. */
     private fun pulledLengthM(points: List<LatLng>): Double {
