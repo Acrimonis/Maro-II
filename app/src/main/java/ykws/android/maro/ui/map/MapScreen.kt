@@ -3183,8 +3183,11 @@ fun MapScreen(
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
                     onMarkerTap = { ids ->
-                        ids.firstOrNull()?.let { sel ->
-                            if (inspectArmed) {
+                        // A plain tap on a marker selects nothing (2026-10-07): the map is no longer a
+                        // door onto a marker card. The marker list, the menu chevron and an inspect pick
+                        // are the remaining doors, and the armed branch below keeps its own untouched.
+                        if (inspectArmed) {
+                            ids.firstOrNull()?.let { sel ->
                                 // A tap on a marker while armed is the spy kind's own door (plan §4): it
                                 // opens on the frozen ladder when one exists — the tap seats the cursor in
                                 // it — and otherwise asks the mode for one, so the card carries the
@@ -3199,13 +3202,6 @@ fun MapScreen(
                                 } else {
                                     inspectTapPickId = sel
                                 }
-                            } else {
-                                // R1: one selected item at a time — a map tap closes the track detail drawer.
-                                closeTrackDrawer()
-                                // A click on the map opens the item it clicked and nothing else (plan §4):
-                                // one item, no arrows. Its card stands while that marker exists, whatever
-                                // the map filter says of it — the tap's world is the map's source of truth.
-                                markersViewModel.openEditDrawer(listOf(sel), selectedId = sel, source = DrawerSource.MAP)
                             }
                         }
                     },
