@@ -34,13 +34,14 @@ class RouteListSettingsTest {
     @Test
     fun thePinnedRouteAppearanceDefaultsSeededFromTheFile() {
         val s = settingsFrom()
+        val config = ykws.android.maro.config.AppConfig
 
-        assertEquals(BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_FROM, s.trackingTransparencyPinnedRouteNewest)
-        assertEquals(BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_TO, s.trackingTransparencyPinnedRouteOldest)
-        assertEquals(BuildConfig.TRACKING_COLOR_PINNED_ROUTE_FROM, s.trackingColorPinnedRouteFrom)
-        assertEquals(BuildConfig.TRACKING_COLOR_PINNED_ROUTE_TO, s.trackingColorPinnedRouteTo)
+        assertEquals(config.routePinnedFadeFrom, s.trackingTransparencyPinnedRouteNewest)
+        assertEquals(config.routePinnedFadeTo, s.trackingTransparencyPinnedRouteOldest)
+        assertEquals(config.routePinnedColourFrom, s.trackingColorPinnedRouteFrom)
+        assertEquals(config.routePinnedColourTo, s.trackingColorPinnedRouteTo)
         // The seed reads apart from the pinned track's amber, which is the point of a pair of its own (D8).
-        assertFalse(s.trackingColorPinnedRouteFrom == BuildConfig.TRACKING_COLOR_PINNED_FROM)
+        assertFalse(s.trackingColorPinnedRouteFrom == config.trackColourPinnedFrom)
     }
 
     @Test

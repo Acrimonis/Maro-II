@@ -38,7 +38,7 @@ internal fun MapTrackOverlayHistoryDiff(
      * The drawer eye's own value (D10), persisted on the selection rather than session-only: null
      * follows [trackColours] — an install whose eye was never tapped holds no value at all — true bands
      * the selected track, false paints it gold. It decides that one track's *fill* and nothing else:
-     * the chevrons follow [trackArrows] alone (see [trackRenderPlan]), and because the value belongs to
+     * the chevrons follow [trackArrows] alone (see [lineRenderPlan]), and because the value belongs to
      * the selection rather than to a track id, it applies to whichever track the drawer has open.
      */
     eyeOverride: Boolean?,
@@ -112,6 +112,11 @@ internal fun MapTrackOverlayHistoryDiff(
         add(AppConfig.trackWidthSelectedCasingDp)
         add(AppConfig.trackRouteDashOnDp)
         add(AppConfig.trackRouteDashOffDp)
+        // The two literals the file now owns (S3, S12): the selection gold and the casing colour, read
+        // wherever the gold path or a selection draws — so an edit to either re-renders the selection,
+        // for both kinds alike.
+        add(AppConfig.trackSelectionGold)
+        add(AppConfig.trackCasingColour)
         if (!trackColours) {
             // Colours off means the default colours are the fill, so their keys join here — the pinned
             // route's own pair with them, now that a pinned route draws the pinned path.
@@ -150,22 +155,9 @@ internal fun MapTrackOverlayHistoryDiff(
     LaunchedEffect(*rebuildKeys.toTypedArray()) {
         val mv = mapView ?: return@LaunchedEffect
 
-        // Direction-arrow spacing provider: uniform (px) or speed-linear (dp → px).
+        // Direction-arrow spacing provider, from the one home the live route reads too.
         val densityScale = mv.paintDensity
-        val minSpacingPx = appSettings.trackDirectionMinSpacingDp * densityScale
-        val maxSpacingPx = appSettings.trackDirectionMaxSpacingDp * densityScale
-        val directionSpacingProvider: (Float) -> Float = { speedKn ->
-            when (appSettings.trackDirectionDensity) {
-                TrackDirectionDensity.UNIFORM -> DIRECTION_ARROW_SPACING_DP * densityScale
-                TrackDirectionDensity.SPEED -> spacingPxForSpeed(
-                    speedKn,
-                    appSettings.trackDirectionSpeedFloorKn,
-                    appSettings.trackDirectionSpeedCeilingKn,
-                    minSpacingPx,
-                    maxSpacingPx
-                )
-            }
-        }
+        val directionSpacingProvider = directionSpacingProvider(densityScale, appSettings)
 
         // Selection is a pure projection: the shared policy owns eligibility + ranking + cap. The focus
         // only ranks — highlighted and session-boosted first — and never overrides the filter, so the
@@ -224,11 +216,12 @@ internal fun MapTrackOverlayHistoryDiff(
                 newest = summary.id == newestId
             )
             // One dispatcher, three paths: the track's strokes and chevron inputs come from
-            // storedTrackRendering, so the history and pinned loops cannot drift apart.
+            // storedTrackRendering, so the history and pinned loops cannot drift apart. The seam's
+            // adapter resolves each point's speed once, here at the edge.
             val rendering = storedTrackRendering(
-                points = track.trackPoints,
+                points = track.trackPoints.toRenderPoints(),
                 title = "track_hist_${summary.id}",
-                plan = trackRenderPlan(trackArrows, trackColours, selected, eyeOverride),
+                plan = lineRenderPlan(trackArrows, trackColours, selected, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
                 density = densityScale,
@@ -254,7 +247,7 @@ internal fun MapTrackOverlayHistoryDiff(
             if (rendering.drawArrows) {
                 trackOverlays.add(
                     rendering.directionOverlay(
-                        track.trackPoints,
+                        track.trackPoints.toRenderPoints(),
                         directionSpacingProvider,
                         "track_arrow_${summary.id}",
                         densityScale
@@ -283,9 +276,9 @@ internal fun MapTrackOverlayHistoryDiff(
             val selected = summary.id == highlightedTrackId
             val width = storedTrackWidth(selected = selected, route = true, pinned = false, newest = false)
             val rendering = storedTrackRendering(
-                points = track.trackPoints,
+                points = track.trackPoints.toRenderPoints(),
                 title = "track_hist_${summary.id}",
-                plan = routeTrackRenderPlan(
+                plan = routeLineRenderPlan(
                     trackArrows = trackArrows,
                     trackColours = trackColours,
                     selected = selected,
@@ -318,7 +311,7 @@ internal fun MapTrackOverlayHistoryDiff(
             if (rendering.drawArrows) {
                 trackOverlays.add(
                     rendering.directionOverlay(
-                        track.trackPoints,
+                        track.trackPoints.toRenderPoints(),
                         directionSpacingProvider,
                         "track_arrow_${summary.id}",
                         densityScale
@@ -372,9 +365,9 @@ internal fun MapTrackOverlayHistoryDiff(
                 else appSettings.trackingColorPinnedTo
             val width = storedTrackWidth(selected = selected, route = false, pinned = true, newest = false)
             val rendering = storedTrackRendering(
-                points = track.trackPoints,
+                points = track.trackPoints.toRenderPoints(),
                 title = "track_pin_${summary.id}",
-                plan = pinnedTrackRenderPlan(
+                plan = pinnedLineRenderPlan(
                     summary = summary,
                     trackArrows = trackArrows,
                     trackColours = trackColours,
@@ -410,7 +403,7 @@ internal fun MapTrackOverlayHistoryDiff(
             if (rendering.drawArrows) {
                 trackOverlays.add(
                     rendering.directionOverlay(
-                        track.trackPoints,
+                        track.trackPoints.toRenderPoints(),
                         directionSpacingProvider,
                         "track_arrow_${summary.id}",
                         densityScale
@@ -572,14 +565,14 @@ internal fun storedTrackSelection(
  * it (R34, R37, R38). One home, so the counted pass and the test that pins the role read the same
  * arguments.
  */
-internal fun routeTrackRenderPlan(
+internal fun routeLineRenderPlan(
     trackArrows: Boolean,
     trackColours: Boolean,
     selected: Boolean,
     eyeOverride: Boolean?,
     routeSpeedColour: Boolean,
     routeSpeedArrows: Boolean
-): TrackRenderPlan = trackRenderPlan(
+): LineRenderPlan = lineRenderPlan(
     trackArrows = trackArrows,
     trackColours = trackColours,
     selected = selected,
@@ -603,7 +596,7 @@ internal fun routeTrackRenderPlan(
  * turn a pinned route's own chevrons off, so a pinned route obeys the switch like every other route. A
  * pinned track is untouched by the route gate, and a route's colours keep the pinned pair.
  */
-internal fun pinnedTrackRenderPlan(
+internal fun pinnedLineRenderPlan(
     summary: TrackSummary,
     trackArrows: Boolean,
     trackColours: Boolean,
@@ -611,7 +604,7 @@ internal fun pinnedTrackRenderPlan(
     eyeOverride: Boolean?,
     routeSpeedColour: Boolean,
     routeSpeedArrows: Boolean
-): TrackRenderPlan = trackRenderPlan(
+): LineRenderPlan = lineRenderPlan(
     trackArrows = trackArrows,
     trackColours = trackColours,
     selected = selected,
@@ -639,6 +632,33 @@ internal fun widestStoredTrackWidth(): Float = maxOf(
 )
 
 /**
+ * The chevron spacing provider both the stored effect and the live route read: uniform (a fixed dp) or
+ * speed-linear (dp → px), from the user's own two dials. One home, so a route's chevrons are spaced
+ * exactly as a stored track's — the same window and the same law.
+ *
+ * [density] is the map's paint density; the spacings are dp in the file and px here.
+ */
+internal fun directionSpacingProvider(
+    density: Float,
+    appSettings: AppSettings
+): (Float) -> Float {
+    val minSpacingPx = appSettings.trackDirectionMinSpacingDp * density
+    val maxSpacingPx = appSettings.trackDirectionMaxSpacingDp * density
+    return { speedKn ->
+        when (appSettings.trackDirectionDensity) {
+            TrackDirectionDensity.UNIFORM -> DIRECTION_ARROW_SPACING_DP * density
+            TrackDirectionDensity.SPEED -> spacingPxForSpeed(
+                speedKn,
+                appSettings.trackDirectionSpeedFloorKn,
+                appSettings.trackDirectionSpeedCeilingKn,
+                minSpacingPx,
+                maxSpacingPx
+            )
+        }
+    }
+}
+
+/**
  * The alpha a stored track is drawn at: the selection takes full alpha whatever its own class
  * transparency is set to, and every other track keeps the fade it earned (D8). This is the one place
  * the selection's opacity rule lands — the gold path is opaque already and the plain path never
@@ -657,10 +677,7 @@ internal fun storedTrackFade(selected: Boolean, fade: Float): Float = if (select
  * casing rides on.
  */
 internal fun selectedTrackCasing(): TrackPolylineAppearance =
-    TrackPolylineAppearance(SELECTED_TRACK_CASING_ARGB, AppConfig.trackWidthSelectedCasingDp)
-
-/** The casing's colour and alpha: not a file key in this pass, the restored legacy token. */
-private val SELECTED_TRACK_CASING_ARGB = 0xCC000000.toInt()
+    TrackPolylineAppearance(AppConfig.trackCasingColour, AppConfig.trackWidthSelectedCasingDp)
 
 /**
  * The newest track of a set, by the recency the list sorts on: the greatest `startTimeMs`, with
@@ -679,7 +696,7 @@ internal fun newestTrackId(summaries: List<ykws.android.maro.data.track.TrackSum
  * rendering — one appearance, iterated by the chevrons — but it is decided by the route's own gate
  * together with the Colours chip (R37), so it is named for the role that takes it.
  */
-internal enum class TrackRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
+internal enum class LineRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
 
 /**
  * A stored track's path, whether it draws arrows, whether it is the selected track, and whether its
@@ -689,8 +706,8 @@ internal enum class TrackRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
  * (D12): a saved route draws dashed pinned or not, while the pinned path passes `route = false` for
  * its role. The dispatcher reads this one field on every path, so the dash keeps one home.
  */
-internal data class TrackRenderPlan(
-    val path: TrackRenderPath,
+internal data class LineRenderPlan(
+    val path: LineRenderPath,
     val drawArrows: Boolean,
     val selected: Boolean,
     val dashed: Boolean = false
@@ -715,7 +732,7 @@ internal data class TrackRenderPlan(
  * gate bands it only while the master chip is on too, and its arrow gate can only veto, never raise,
  * the master arrows — and the eye never reaches it (R34, R37, R38).
  */
-internal fun trackRenderPlan(
+internal fun lineRenderPlan(
     trackArrows: Boolean,
     trackColours: Boolean,
     selected: Boolean,
@@ -723,17 +740,17 @@ internal fun trackRenderPlan(
     route: Boolean = false,
     routeSpeedColour: Boolean = false,
     routeSpeedArrows: Boolean = true
-): TrackRenderPlan {
+): LineRenderPlan {
     // The **unpinned** route role, decided **before** the recorded one: it paints from its own pair, and
     // its two gates are **subordinate to the map's master switches** (R37, R38) — the master *Speed
     // Colors* and *Arrows* chips govern every kind, and these route gates can only turn a route's own
     // off: the colour gate bands it only while [trackColours] (the master chip) is on too, and the arrow
     // gate can only veto [trackArrows], never raise it. The drawer eye never reaches it. A **pinned**
-    // route never lands here: it takes the shared pinned path through [pinnedTrackRenderPlan] with
+    // route never lands here: it takes the shared pinned path through [pinnedLineRenderPlan] with
     // `route = false` (D5), so the pin changes both its stroke and its face.
     if (route) {
-        return TrackRenderPlan(
-            path = if (trackColours && routeSpeedColour) TrackRenderPath.BANDED else TrackRenderPath.ROUTE,
+        return LineRenderPlan(
+            path = if (trackColours && routeSpeedColour) LineRenderPath.BANDED else LineRenderPath.ROUTE,
             drawArrows = trackArrows && routeSpeedArrows,
             selected = selected,
             dashed = true
@@ -743,11 +760,11 @@ internal fun trackRenderPlan(
         eyeOverride ?: trackColours
     } else trackColours
     val path = when {
-        banded -> TrackRenderPath.BANDED
-        selected -> TrackRenderPath.GOLD_HIGHLIGHT
-        else -> TrackRenderPath.PLAIN
+        banded -> LineRenderPath.BANDED
+        selected -> LineRenderPath.GOLD_HIGHLIGHT
+        else -> LineRenderPath.PLAIN
     }
-    return TrackRenderPlan(
+    return LineRenderPlan(
         path = path,
         drawArrows = trackArrows,
         selected = selected,
@@ -771,7 +788,7 @@ internal fun selectionBandedAfterTap(current: Boolean?, trackColours: Boolean): 
  * painted strokes first, then the open track's own fill.
  *
  * [storedOnMap] is the stroke half, and it leads the answer: the ids the effect actually painted,
- * history, route and pinned alike, asked of the same planner the map renders by ([trackRenderPlan]), so
+ * history, route and pinned alike, asked of the same planner the map renders by ([lineRenderPlan]), so
  * the tracks layer being off, a painted set that is empty — count 0, or every summary's detail failed
  * to load — or a set whose only banded candidate is the selection itself all hide the scale whatever
  * the flags say.
@@ -814,7 +831,7 @@ private fun selectionBandedFor(
  * predicate could not catch.
  *
  * [routeIds] is which painted summaries are routes: without it every painted id is asked of
- * [trackRenderPlan] as a recorded track, so a route the route role bands differently from a recorded
+ * [lineRenderPlan] as a recorded track, so a route the route role bands differently from a recorded
  * one would be misread and the scale could hide from the very fill it keys (R37).
  */
 internal fun legendVisibleForState(
@@ -856,7 +873,7 @@ internal fun legendVisibleForState(
  * home so the composition that asks it and the test that pins it cannot drift apart. The id's own
  * kind's layer must be on — [tracksVisible] for a recorded track, [routesVisible] for a route — and
  * one of the ids the effect actually painted drawn from the ramp by the same planner the map renders
- * by ([trackRenderPlan]): the layer off, an empty painted set — count 0, or every summary's detail
+ * by ([lineRenderPlan]): the layer off, an empty painted set — count 0, or every summary's detail
  * failed to load — or a set whose only banded candidate is a selection the eye has flipped gold all
  * answer false, whatever the flags say.
  *
@@ -877,7 +894,7 @@ internal fun bandedStrokeOnMap(
     routeSpeedArrows: Boolean = true
 ): Boolean = paintedIds.any { id ->
     (if (id in routeIds) routesVisible else tracksVisible) &&
-    trackRenderPlan(
+    lineRenderPlan(
         trackArrows = trackArrows,
         trackColours = trackColours,
         selected = id == highlightedTrackId,
@@ -885,7 +902,7 @@ internal fun bandedStrokeOnMap(
         route = id in routeIds,
         routeSpeedColour = routeSpeedColour,
         routeSpeedArrows = routeSpeedArrows
-    ).path == TrackRenderPath.BANDED
+    ).path == LineRenderPath.BANDED
 }
 
 /**
@@ -926,9 +943,9 @@ internal data class StoredTrackRendering(
  * whichever path it took.
  */
 internal fun storedTrackRendering(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     title: String,
-    plan: TrackRenderPlan,
+    plan: LineRenderPlan,
     ramp: HeatmapRamp,
     strokeWidth: Float,
     density: Float,
@@ -936,7 +953,7 @@ internal fun storedTrackRendering(
     plainAppearance: () -> TrackPolylineAppearance
 ): StoredTrackRendering {
     val rendering = when (plan.path) {
-        TrackRenderPath.BANDED -> bandedPath(
+        LineRenderPath.BANDED -> bandedPath(
             points = points,
             title = title,
             ramp = ramp,
@@ -945,12 +962,12 @@ internal fun storedTrackRendering(
             fade = storedTrackFade(plan.selected, fade),
             dashed = plan.dashed
         )
-        TrackRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth, density)
+        LineRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth, density)
         // The route role's own pair arrives through the same lazily-built appearance the plain path
         // takes — the caller owns which pair a route paints from — and the dash follows the summary's
         // identity on every path (D12), so a saved route reads apart from a recorded track.
-        TrackRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
-        TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
+        LineRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
+        LineRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
     }
     if (!plan.selected) return rendering.copy(drawArrows = plan.drawArrows)
     // The casing returns beneath the selected track on every path — under the gold core and under
@@ -962,10 +979,41 @@ internal fun storedTrackRendering(
     val casing = selectedTrackCasing()
     return rendering.copy(
         overlays = buildSegmentOverlays(points, casing, title, density) + rendering.overlays,
-        chevronCasing = casing.takeIf { plan.path != TrackRenderPath.PLAIN },
+        chevronCasing = casing.takeIf { plan.path != LineRenderPath.PLAIN },
         drawArrows = plan.drawArrows
     )
 }
+
+/**
+ * **The painter's one kind-agnostic door (D2).** A [LineRenderSpec] and the [LineRenderPlan] that
+ * chose its path in, the line's overlays and its chevron inputs out. The stored-track loops read it
+ * through [storedTrackRendering]; `RouteHost` calls it directly with a spec built from a
+ * `RoutePlan`, so a route's stroke, its chevrons and its speed bands are painted by the very
+ * function that paints a stored track's.
+ *
+ * The spec's own [LineRenderSpec.dashed] and [LineRenderSpec.drawArrows] are the line's, folded into
+ * the plan here so the painter reads one shape: a route dashes its whole stroke, and shows chevrons
+ * only while its gates allow.
+ */
+internal fun lineRendering(
+    spec: LineRenderSpec,
+    title: String,
+    plan: LineRenderPlan,
+    ramp: HeatmapRamp,
+    strokeWidth: Float,
+    density: Float,
+    fade: Float,
+    plainAppearance: () -> TrackPolylineAppearance
+): StoredTrackRendering = storedTrackRendering(
+    points = spec.points,
+    title = title,
+    plan = plan.copy(dashed = spec.dashed, drawArrows = spec.drawArrows),
+    ramp = ramp,
+    strokeWidth = strokeWidth,
+    density = density,
+    fade = fade,
+    plainAppearance = plainAppearance
+)
 
 /**
  * Plain path — today's unselected rendering, unchanged: the stored colours with this track's own
@@ -973,7 +1021,7 @@ internal fun storedTrackRendering(
  * dashed whole ([dashed]), reusing the GAP rhythm, so a saved route reads apart from a recorded track.
  */
 private fun plainPath(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     title: String,
     appearance: TrackPolylineAppearance,
     density: Float,
@@ -992,12 +1040,12 @@ private fun plainPath(
  * `track.width.selected` like every other path's.
  */
 private fun goldHighlightPath(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     title: String,
     strokeWidth: Float,
     density: Float
 ): StoredTrackRendering {
-    val gold = TrackPolylineAppearance(0xFFFFD700.toInt(), strokeWidth)
+    val gold = TrackPolylineAppearance(AppConfig.trackSelectionGold, strokeWidth)
     return StoredTrackRendering(
         overlays = buildSegmentOverlays(points, gold, title, density),
         arrowAppearances = listOf(gold),
@@ -1012,7 +1060,7 @@ private fun goldHighlightPath(
  * would drop the selected track below the others at the end of the effect (A6).
  */
 private fun bandedPath(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     title: String,
     ramp: HeatmapRamp,
     strokeWidth: Float,
@@ -1020,8 +1068,7 @@ private fun bandedPath(
     fade: Float,
     dashed: Boolean = false
 ): StoredTrackRendering {
-    val speeds = resolveSpeeds(points)
-    val bands = bandedAppearances(points, speeds, ramp, strokeWidth, fade)
+    val bands = bandedAppearances(points, ramp, strokeWidth, fade)
     // The band table is the pure mapping [bandTable] owns; its shared-boundary rule is unit-tested.
     val bandByIndex = bandTable(points.size, bands)
     val metrics = bands.firstOrNull()?.appearance
@@ -1041,8 +1088,8 @@ private fun bandedPath(
  * track that is not selected, and the plain path no selection ever takes — and the resolver seam for
  * the banded and gold paths, which is where the selection's casing rides.
  */
-private fun StoredTrackRendering.directionOverlay(
-    points: List<TrackPoint>,
+internal fun StoredTrackRendering.directionOverlay(
+    points: List<RenderPoint>,
     spacingPx: (Float) -> Float,
     title: String,
     density: Float

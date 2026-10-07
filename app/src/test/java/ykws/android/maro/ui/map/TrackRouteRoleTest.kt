@@ -36,17 +36,17 @@ class TrackRouteRoleTest {
     fun aRouteWithItsGateOffTakesItsOwnPairWhateverTheChipsSay() {
         // The gate defaults off, so with it off the chips never band a route (R37): both combinations
         // land on the route pair. With the gate on the Colours chip decides — see the test below.
-        val bothChipsOn = trackRenderPlan(
+        val bothChipsOn = lineRenderPlan(
             trackArrows = true, trackColours = true, selected = false,
             eyeOverride = null, route = true
         )
-        val bothChipsOff = trackRenderPlan(
+        val bothChipsOff = lineRenderPlan(
             trackArrows = false, trackColours = false, selected = false,
             eyeOverride = null, route = true
         )
 
-        assertEquals(TrackRenderPath.ROUTE, bothChipsOn.path)
-        assertEquals(TrackRenderPath.ROUTE, bothChipsOff.path)
+        assertEquals(LineRenderPath.ROUTE, bothChipsOn.path)
+        assertEquals(LineRenderPath.ROUTE, bothChipsOff.path)
     }
 
     @Test
@@ -57,17 +57,17 @@ class TrackRouteRoleTest {
         // effect, not here. D12: the dash follows the summary's own identity, so a pinned route stays
         // dashed while a pinned recorded track is solid, on that same shared pinned path.
         val route = summary("route-pinned", route = true, pinned = true)
-        val pinnedRoute = pinnedTrackRenderPlan(
+        val pinnedRoute = pinnedLineRenderPlan(
             summary = route,
             trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
             routeSpeedColour = false, routeSpeedArrows = true
         )
-        val pinnedRecorded = pinnedTrackRenderPlan(
+        val pinnedRecorded = pinnedLineRenderPlan(
             summary = summary("recording-pinned", pinned = true),
             trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
             routeSpeedColour = true, routeSpeedArrows = true
         )
-        val routeRole = routeTrackRenderPlan(
+        val routeRole = routeLineRenderPlan(
             trackArrows = false, trackColours = false, selected = false, eyeOverride = null,
             routeSpeedColour = false, routeSpeedArrows = true
         )
@@ -99,43 +99,43 @@ class TrackRouteRoleTest {
 
     @Test
     fun theSpeedColourGateJoinsTheChipsToBandARoute() {
-        fun path(trackColours: Boolean, gate: Boolean) = trackRenderPlan(
+        fun path(trackColours: Boolean, gate: Boolean) = lineRenderPlan(
             trackArrows = true, trackColours = trackColours, selected = false,
             eyeOverride = null, route = true, routeSpeedColour = gate
         ).path
 
         // Both must be on: the gate is a condition on the Colours chip, not a replacement for it (R37).
-        assertEquals(TrackRenderPath.BANDED, path(trackColours = true, gate = true))
+        assertEquals(LineRenderPath.BANDED, path(trackColours = true, gate = true))
         assertEquals(
             "the gate alone cannot band a route",
-            TrackRenderPath.ROUTE,
+            LineRenderPath.ROUTE,
             path(trackColours = false, gate = true)
         )
         assertEquals(
             "the chip alone cannot band a route",
-            TrackRenderPath.ROUTE,
+            LineRenderPath.ROUTE,
             path(trackColours = true, gate = false)
         )
-        assertEquals(TrackRenderPath.ROUTE, path(trackColours = false, gate = false))
+        assertEquals(LineRenderPath.ROUTE, path(trackColours = false, gate = false))
     }
 
     @Test
     fun theArrowGateCanOnlyVetoTheChips() {
         assertTrue(
-            trackRenderPlan(
+            lineRenderPlan(
                 trackArrows = true, trackColours = false, selected = false,
                 eyeOverride = null, route = true, routeSpeedArrows = true
             ).drawArrows
         )
         assertFalse(
-            trackRenderPlan(
+            lineRenderPlan(
                 trackArrows = true, trackColours = false, selected = false,
                 eyeOverride = null, route = true, routeSpeedArrows = false
             ).drawArrows
         )
         assertFalse(
             "the gate vetoes, it never draws what the chip withholds",
-            trackRenderPlan(
+            lineRenderPlan(
                 trackArrows = false, trackColours = false, selected = false,
                 eyeOverride = null, route = true, routeSpeedArrows = true
             ).drawArrows
@@ -280,19 +280,19 @@ class TrackRouteRoleTest {
     fun aBandedRouteAndABandedTrackDifferOnlyByTheDashedFlag() {
         // The dashed stroke is keyed on the summary's route identity, never on the path: a route and a
         // recorded track can both take BANDED, so the flag is what tells the dispatcher which to dash.
-        val route = trackRenderPlan(
+        val route = lineRenderPlan(
             trackArrows = true, trackColours = true, selected = false,
             eyeOverride = null, route = true, routeSpeedColour = true
         )
-        val recorded = trackRenderPlan(
+        val recorded = lineRenderPlan(
             trackArrows = true, trackColours = true, selected = false,
             eyeOverride = null, route = false
         )
 
         assertTrue(route.dashed)
         assertFalse(recorded.dashed)
-        assertEquals(TrackRenderPath.BANDED, route.path)
-        assertEquals(TrackRenderPath.BANDED, recorded.path)
+        assertEquals(LineRenderPath.BANDED, route.path)
+        assertEquals(LineRenderPath.BANDED, recorded.path)
     }
 
     @Test

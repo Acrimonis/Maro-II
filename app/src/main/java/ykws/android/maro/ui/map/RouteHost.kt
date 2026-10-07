@@ -14,7 +14,10 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.PathClass
+import ykws.android.maro.config.PathKind
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.ui.color.reinforcedColor
 import android.graphics.Color as AndroidColor
 
@@ -66,18 +69,19 @@ private const val ROUTE_PIN_SIZE_DP = 18f
  * This is **the one file that touches osmdroid for the Route feature**, so ordering, the pin's slot
  * and the provisional line all have a single home.
  *
- * **The objects are attached once and mutated in place** (R65 keeps that pool). The polyline pool and
- * the pin are created at this file's own composition and added to the map a single time; an answer then
- * sets their points, their colour and their transparency rather than rebuilding the set — which is what
- * a **page** draws into. The pool has one slot per line the acquisition can draw: the main, then one
- * per candidate pass `maro.properties` declares. Slot 0 is the main and the candidates follow it, and
- * the **selected** one is drawn at the plan's own transparency while every other wears the one shared
- * [`AppConfig.routeDimmedTransparencyPct`] (R54, R64).
+ * **The pin is attached once and mutated in place; the lines are rebuilt** (D10). A marker is cheap to
+ * keep, so the destination pin is created at this file's composition and moved by each answer; the
+ * lines are not, because speed banding yields a stroke count a fixed pool cannot hold, so each pass
+ * tears the `route_*` line overlays down and re-adds the painter's own output — the same one painter
+ * that draws a stored track ([lineRendering]). The `OverlayZOrder` prefix titles ride on the rebuilt
+ * overlays, so the route tier's ordering is unchanged. Slot 0 is the main — the followed line or the
+ * selected page — and the candidates follow it, the **selected** one drawn at the plan's own
+ * transparency while every other wears the one shared [`AppConfig.routeDimmedTransparencyPct`]
+ * (R54, R64).
  *
  * **The main paints at high opacity as its callbacks arrive** — the provisional line is the main
- * lookup's partial line, drawn in its own overlay at [`AppConfig.routeLineTransparencyPct`] while the
- * search runs, and hidden the moment the main lands, so a partial line never outlives the search that
- * drew it.
+ * lookup's partial line, drawn at [`AppConfig.routeLineTransparencyPct`] while the search runs and
+ * hidden the moment the main lands, so a partial line never outlives the search that drew it.
  *
  * **The chosen line is reinforced by shape as well as opacity** (R93): a derived under-stroke — the
  * line's own colour pushed the reinforcement lever's distance — mirrors the selected line in both
@@ -104,7 +108,7 @@ private const val ROUTE_PIN_SIZE_DP = 18f
  * @param positionRestricted true when the current position sits in a regulated zone or the band, so
  *                   the reading measures the limit rather than the boat and is dropped by [RoutePace].
  * @param routeLineColor the followed line's own colour, read from Settings and seeded by
- *                   `route.line.color` — the same value the toggle's acquiring face wears (R51).
+ *                   `path.line.color.live` — the same value the toggle's acquiring face wears (R51).
  * @param boatPosition the boat's own fix — the shell's `routeStart`, the value the trip cell already
  *                   reads — at which the followed line is split for the paint.
  * @param onEndRoute runs when the mode ends — the toggle's off and the back key.
@@ -124,6 +128,12 @@ internal fun RouteHost(
     setPaceKn: Float,
     routeLineColor: Int,
     boatPosition: RoutePoint,
+    /**
+     * The rendering dials the live route reads: the two master chips, the two route gates and the
+     * chevron window, so a route bands and chevrons by the very rules a stored track does (S10). One
+     * object, so the host does not grow a parameter per dial.
+     */
+    appSettings: AppSettings,
     viewModel: RouteViewModel,
     onEndRoute: () -> Unit
 ) {
@@ -152,45 +162,12 @@ internal fun RouteHost(
         )
     }
 
-    // ── The map objects: one file owns the lines, the pool and the pin ─────────
-    // One polyline per ladder rung — the retired candidate passes no longer size the pool.
-    val poolSlots = ROUTE_LADDER_RUNG_COUNT
-
+    // ── The map objects: the pin alone is attached once and mutated in place (D10) ─────────
     DisposableEffect(mapView) {
         val mv = mapView ?: return@DisposableEffect onDispose { }
-        // The derived edge and the travelled run are attached **before** the pool, so `reorder`'s
-        // stable sort keeps them under the rungs while still inside the route tier (R93).
-        val casing = Polyline().apply {
-            title = ROUTE_CASING_TITLE
-            setPoints(emptyList())
-            outlinePaint.isAntiAlias = true
-        }
-        mv.overlays.add(casing)
-        val travelledLine = Polyline().apply {
-            title = ROUTE_TRAVELLED_TITLE
-            setPoints(emptyList())
-            outlinePaint.isAntiAlias = true
-        }
-        mv.overlays.add(travelledLine)
-
-        val pool = (0 until poolSlots).map { index ->
-            Polyline().apply {
-                title = if (index == 0) ROUTE_LINE_TITLE else "${ROUTE_LINE_TITLE}_$index"
-                setPoints(emptyList())
-                outlinePaint.isAntiAlias = true
-            }
-        }
-        pool.forEach { mv.overlays.add(it) }
-
-        // The provisional line — the main lookup's partial line — added after the pool and before the
-        // pin, so it paints over the standing lines and stays under every marker.
-        val progressLine = Polyline().apply {
-            title = ROUTE_PROGRESS_TITLE
-            setPoints(emptyList())
-            outlinePaint.isAntiAlias = true
-        }
-        mv.overlays.add(progressLine)
-
+        // The destination pin is the one object kept across paints — a marker, mutated in place. The
+        // lines are rebuilt from the painter each pass (D10): speed banding yields a stroke count a
+        // fixed pool cannot hold, so the pool gave way to a rebuild while the pin stayed.
         val pin = Marker(mv).apply {
             title = ROUTE_PIN_TITLE
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -198,17 +175,12 @@ internal fun RouteHost(
         }
         mv.overlays.add(pin)
 
-        Log.d(
-            TAG,
-            "map objects attached — pool=${pool.size} lines, pin=$ROUTE_PIN_TITLE, " +
-                "overlays=${mv.overlays.size}"
-        )
+        Log.d(TAG, "map objects attached — pin=$ROUTE_PIN_TITLE, overlays=${mv.overlays.size}")
 
         onDispose {
-            mv.overlays.remove(casing)
-            mv.overlays.remove(travelledLine)
-            mv.overlays.removeAll(pool)
-            mv.overlays.remove(progressLine)
+            mv.overlays.removeAll { overlay ->
+                (overlay as? Polyline)?.title?.startsWith("route_") == true
+            }
             mv.overlays.remove(pin)
             OverlayZOrder.reorder(mv)
             mv.invalidate()
@@ -245,40 +217,30 @@ internal fun RouteHost(
             "${(at.longitude / SPLIT_IDENTITY_STEP_DEG).roundToInt()}"
     } ?: ""
 
-    // The colour rides in the keys (R51's drift): `Following` never re-emits while the boat moves, so
-    // a Settings edit recomposes this host without re-running the paint unless the colour is a key of
-    // its own — and [splitKey] is the split's own key, so a stationary boat is not repainted.
-    LaunchedEffect(mapView, state, routeLineColor, pages, selectedIndex, discardPending, splitKey) {
+    // The colour and the rendering dials ride in the keys (R51's drift): `Following` never re-emits
+    // while the boat moves, so a Settings edit recomposes this host without re-running the paint
+    // unless they are keys of their own — and [splitKey] is the split's own key, so a stationary boat
+    // is not repainted.
+    LaunchedEffect(
+        mapView, state, routeLineColor, pages, selectedIndex, discardPending, splitKey,
+        provisionalLine, appSettings
+    ) {
         val mv = mapView ?: return@LaunchedEffect
-        val pool = mv.overlays.filterIsInstance<Polyline>()
-            .filter { it.title?.startsWith(ROUTE_LINE_TITLE) == true }
-            .sortedBy { it.title }
+        val density = mv.paintDensity
+
+        // Every pass starts from a clean route tier: the previous pass's lines go, the pin stays (D10).
+        mv.overlays.removeAll { overlay ->
+            (overlay as? Polyline)?.title?.startsWith("route_") == true
+        }
         val pin = mv.overlays.filterIsInstance<Marker>().firstOrNull { it.title == ROUTE_PIN_TITLE }
-        val casing = mv.overlays.filterIsInstance<Polyline>()
-            .firstOrNull { it.title == ROUTE_CASING_TITLE }
-        val travelledLine = mv.overlays.filterIsInstance<Polyline>()
-            .firstOrNull { it.title == ROUTE_TRAVELLED_TITLE }
         if (pin == null) {
-            Log.d(
-                TAG,
-                "no pin on the map — the lines draw without the destination dot: " +
-                    "overlays=${mv.overlays.size}, pool=${pool.size}"
-            )
+            Log.d(TAG, "no pin on the map — the lines draw without the destination dot")
         }
 
         // **Phase 1 of the deferred discard**: the display reads a completed discard — the lines and
         // the pin leave — while the session stays untouched, so Undo repaints with nothing recomputed.
         if (discardPending) {
-            pool.forEach { it.setPoints(emptyList()) }
             pin?.isEnabled = false
-            mv.overlays.filterIsInstance<Polyline>()
-                .firstOrNull { it.title == ROUTE_PROGRESS_TITLE }
-                ?.setPoints(emptyList())
-            // The derived edge and the travelled run leave with the lines (R93, R92 phase 1).
-            casing?.isEnabled = false
-            casing?.setPoints(emptyList())
-            travelledLine?.isEnabled = false
-            travelledLine?.setPoints(emptyList())
             OverlayZOrder.reorder(mv)
             mv.invalidate()
             return@LaunchedEffect
@@ -291,66 +253,170 @@ internal fun RouteHost(
         // **While following, slot 0 carries the split's remaining run alone** while [remainingStands],
         // so the covered run is painted by `route_travelled` and never twice beneath it; where the
         // remaining run falls under two points — the arrival rule — slot 0 keeps the **whole** line at
-        // full strength and the travelled overlay stays off. The casing mirrors slot 0's own points, and
-        // the two-point test is the same [remainingStands] the paint key carries.
-        val remainingRun = if (followed != null && remainingStands) {
-            split.remainingPoints
-        } else {
-            null
-        }
-        val followedPoints = when {
+        // full strength and the travelled overlay stays off. The two-point test is the same
+        // [remainingStands] the paint key carries.
+        val remainingRun = if (followed != null && remainingStands) split.remainingPoints else null
+        val followedRenderPoints = when {
             followed == null -> null
-            remainingRun != null -> remainingRun
-            else -> followed.points
+            remainingRun != null -> remainingRenderPoints(followed, split!!)
+            else -> toRenderPoints(followed.points, followed.legTimesSec)
         }
 
         val colour = routeLineColor
-        val stroke = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
-        val casingStroke = dpToPx(AppConfig.routeLineCasingWidthDp, mv.paintDensity)
-        val casingColour = reinforcedColor(colour, AppConfig.uiReinforceDarkenPct)
+        val ramp = AppConfig.trackHeatmapRamp
+        val spacing = directionSpacingProvider(density, appSettings)
         val selectedAlpha = transparencyPctToAlpha(AppConfig.routeLineTransparencyPct)
         val dimmedAlpha = transparencyPctToAlpha(AppConfig.routeDimmedTransparencyPct)
+        // The painter takes a fade fraction, the paint an alpha byte: one conversion, both readers.
+        val selectedFade = selectedAlpha / 255f
+        val dimmedFade = dimmedAlpha / 255f
+        val casingColour = reinforcedColor(colour, AppConfig.uiReinforceDarkenPct)
 
-        pool.forEachIndexed { index, line ->
-            val points = if (followed != null) {
-                if (index == 0) followedPoints else emptyList()
-            } else {
-                pages.getOrNull(index)?.plan?.points
-            }
-            if (points == null || points.size < 2) {
-                line.setPoints(emptyList())
-                line.isEnabled = false
-            } else {
-                val alpha = if (followed != null || index == selectedIndex) selectedAlpha else dimmedAlpha
-                line.setPoints(points.map { GeoPoint(it.latitude, it.longitude) })
-                line.outlinePaint.apply {
-                    color = AndroidColor.argb(
-                        alpha,
-                        AndroidColor.red(colour),
-                        AndroidColor.green(colour),
-                        AndroidColor.blue(colour)
-                    )
-                    strokeWidth = stroke
+        fun argb(alpha: Int, c: Int): Int =
+            AndroidColor.argb(alpha, AndroidColor.red(c), AndroidColor.green(c), AndroidColor.blue(c))
+
+        // The route tier, bottom to top: the derived edge, the travelled run, the pool, the
+        // provisional line — the very order the attach-once objects were added in (R93).
+        val built = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+
+        // **The edge** (R93): the selected line's derived under-stroke, dashed with it, mirroring
+        // exactly what the selected core draws. Painted through the one painter, as a plain ROUTE line.
+        val selectedPlan = followed ?: pages.getOrNull(selectedIndex)?.plan
+        val casingPoints = if (followed != null) remainingRun ?: followed.points else selectedPlan?.points
+        if (casingPoints != null && casingPoints.size >= 2) {
+            built += lineRendering(
+                spec = LineRenderSpec(
+                    PathKind.ROUTE, PathClass.CASING, casingPoints.toRenderPoints(), dashed = true
+                ),
+                title = ROUTE_CASING_TITLE,
+                plan = LineRenderPlan(LineRenderPath.ROUTE, drawArrows = false, selected = false, dashed = true),
+                ramp = ramp,
+                strokeWidth = AppConfig.routeLineCasingWidthDp,
+                density = density,
+                fade = selectedFade,
+                plainAppearance = {
+                    TrackPolylineAppearance(argb(selectedAlpha, casingColour), AppConfig.routeLineCasingWidthDp)
                 }
-                line.isEnabled = true
+            ).overlays
+        }
+
+        // **The travelled run** (R93): the covered run behind the boat wears the shared dimming, solid,
+        // and draws only when slot 0 carries the remaining run, so it never doubles the core. A run
+        // whose endpoints coincide is degenerate and stays off.
+        val travelledPoints = split?.travelledPoints.orEmpty()
+        val travelledDraws = travelledPoints.size >= 2 && (
+            travelledPoints.first().latitude != travelledPoints.last().latitude ||
+                travelledPoints.first().longitude != travelledPoints.last().longitude
+            )
+        if (remainingRun != null && travelledDraws) {
+            built += lineRendering(
+                spec = LineRenderSpec(
+                    PathKind.ROUTE, PathClass.DIMMED, travelledPoints.toRenderPoints(), dashed = false
+                ),
+                title = ROUTE_TRAVELLED_TITLE,
+                plan = LineRenderPlan(LineRenderPath.ROUTE, drawArrows = false, selected = false, dashed = false),
+                ramp = ramp,
+                strokeWidth = AppConfig.routeLineWidthDp,
+                density = density,
+                fade = dimmedFade,
+                plainAppearance = {
+                    TrackPolylineAppearance(argb(dimmedAlpha, colour), AppConfig.routeLineWidthDp)
+                }
+            ).overlays
+        }
+
+        // **The pool**: slot 0 the main — the followed line or the selected page — and the candidates
+        // behind it, dimmed. The followed/selected line is the live route, so it bands and chevrons by
+        // the route's own gates joined to the master chips (S10); a candidate is a plain dimmed line.
+        for (index in 0 until ROUTE_LADDER_RUNG_COUNT) {
+            val plan = if (followed != null) {
+                if (index == 0) followed else null
+            } else {
+                pages.getOrNull(index)?.plan
+            }
+            if (plan == null || plan.points.size < 2) continue
+            val lives = followed != null || index == selectedIndex
+            val alpha = if (lives) selectedAlpha else dimmedAlpha
+            val title = if (index == 0) ROUTE_LINE_TITLE else "${ROUTE_LINE_TITLE}_$index"
+            val specPoints = if (lives && followedRenderPoints != null) {
+                followedRenderPoints
+            } else {
+                toRenderPoints(plan.points, plan.legTimesSec)
+            }
+            val rendering = lineRendering(
+                spec = LineRenderSpec(
+                    kind = PathKind.ROUTE,
+                    pathClass = if (lives) PathClass.LIVE else PathClass.DIMMED,
+                    points = specPoints,
+                    dashed = true,
+                    drawArrows = lives && appSettings.trackArrows && appSettings.routeSpeedArrows
+                ),
+                title = title,
+                plan = if (lives) {
+                    routeLineRenderPlan(
+                        trackArrows = appSettings.trackArrows,
+                        trackColours = appSettings.trackColours,
+                        selected = false,
+                        eyeOverride = null,
+                        routeSpeedColour = appSettings.routeSpeedColor,
+                        routeSpeedArrows = appSettings.routeSpeedArrows
+                    )
+                } else {
+                    LineRenderPlan(LineRenderPath.ROUTE, drawArrows = false, selected = false, dashed = true)
+                },
+                ramp = ramp,
+                strokeWidth = AppConfig.routeLineWidthDp,
+                density = density,
+                fade = alpha / 255f,
+                plainAppearance = {
+                    TrackPolylineAppearance(argb(alpha, colour), AppConfig.routeLineWidthDp)
+                }
+            )
+            built += rendering.overlays
+            if (rendering.drawArrows) {
+                built += rendering.directionOverlay(
+                    specPoints,
+                    spacing,
+                    "${ROUTE_LINE_TITLE}_arrow",
+                    density
+                )
             }
         }
 
+        // **The provisional line**: the main lookup's partial line, drawn at the main's opacity and
+        // hidden the moment the main lands — a partial never outlives the search that drew it.
+        if (provisionalLine.size >= 2) {
+            built += lineRendering(
+                spec = LineRenderSpec(
+                    PathKind.ROUTE, PathClass.LIVE, provisionalLine.toRenderPoints(), dashed = true
+                ),
+                title = ROUTE_PROGRESS_TITLE,
+                plan = LineRenderPlan(LineRenderPath.ROUTE, drawArrows = false, selected = false, dashed = true),
+                ramp = ramp,
+                strokeWidth = AppConfig.routeLineWidthDp,
+                density = density,
+                fade = selectedFade,
+                plainAppearance = {
+                    TrackPolylineAppearance(argb(selectedAlpha, colour), AppConfig.routeLineWidthDp)
+                }
+            ).overlays
+        }
+
+        mv.overlays.addAll(built)
+
         // The pin marks the selected line's resolved destination — the followed route's while
         // navigating, the selected page's during the acquisition.
-        val selected = followed ?: pages.getOrNull(selectedIndex)?.plan
-        if (selected != null && selected.points.size >= 2) {
-            val density = mv.paintDensity
+        if (selectedPlan != null && selectedPlan.points.size >= 2) {
             val pinPx = (ROUTE_PIN_SIZE_DP * density).toInt().coerceAtLeast(1)
             val ringPx = (AppConfig.routePinRingWidthDp * density).toInt().coerceAtLeast(1)
             val icon = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(AppConfig.routePinColor)
-                setStroke(ringPx, AndroidColor.WHITE)
+                setStroke(ringPx, AppConfig.routePinRingColour)
             }
             icon.setBounds(0, 0, pinPx, pinPx)
             pin?.let {
-                it.position = GeoPoint(selected.destination.latitude, selected.destination.longitude)
+                it.position = GeoPoint(selectedPlan.destination.latitude, selectedPlan.destination.longitude)
                 it.icon = icon
                 it.isEnabled = true
             }
@@ -358,99 +424,45 @@ internal fun RouteHost(
             pin?.isEnabled = false
         }
 
-        // **The edge** — the selected line's derived under-stroke, drawn in both phases (R93). It takes
-        // the line's own transparency and the derived colour, and mirrors **exactly what the selected
-        // core draws** — the split's remaining run while following, the selected page's own line
-        // otherwise — so the rim reads 1 dp each side of the core and never outruns it.
-        val casingPoints = if (followed != null) followedPoints else selected?.points
-        if (casingPoints != null && casingPoints.size >= 2) {
-            casing?.apply {
-                setPoints(casingPoints.map { GeoPoint(it.latitude, it.longitude) })
-                outlinePaint.apply {
-                    color = AndroidColor.argb(
-                        selectedAlpha,
-                        AndroidColor.red(casingColour),
-                        AndroidColor.green(casingColour),
-                        AndroidColor.blue(casingColour)
-                    )
-                    strokeWidth = casingStroke
-                }
-                isEnabled = true
-            }
-        } else {
-            casing?.isEnabled = false
-            casing?.setPoints(emptyList())
-        }
-
-        // **The travelled run** — the covered run behind the boat wears the shared dimming key (R93),
-        // and it draws **only when slot 0 actually carries the remaining run**: where the whole line
-        // stays at full strength (the arrival rule), the overlay stays off so it never doubles the core.
-        // A run whose endpoints coincide — the start of a followed route, the projection still on the
-        // first point — is degenerate, so it too stays off and draws nothing.
-        val travelledPoints = split?.travelledPoints.orEmpty()
-        val travelledDraws = travelledPoints.size >= 2 && (
-            travelledPoints.first().latitude != travelledPoints.last().latitude ||
-                travelledPoints.first().longitude != travelledPoints.last().longitude
-            )
-        if (remainingRun != null && travelledDraws) {
-            travelledLine?.apply {
-                setPoints(travelledPoints.map { GeoPoint(it.latitude, it.longitude) })
-                outlinePaint.apply {
-                    color = AndroidColor.argb(
-                        dimmedAlpha,
-                        AndroidColor.red(colour),
-                        AndroidColor.green(colour),
-                        AndroidColor.blue(colour)
-                    )
-                    strokeWidth = stroke
-                }
-                isEnabled = true
-            }
-        } else {
-            travelledLine?.isEnabled = false
-            travelledLine?.setPoints(emptyList())
-        }
-
-        val firstLine = pool.firstOrNull()
         Log.d(
             TAG,
-            "line repaint — phase=${state.phase}, points=${selected?.points?.size ?: 0}, " +
-                "pool=${pool.size} attached=${pool.count { line -> mv.overlays.contains(line) }} " +
-                "firstLineAlpha=${firstLine?.outlinePaint?.alpha ?: -1}, " +
-                "lines=${pages.size}, selected=$selectedIndex, stroke=${stroke}px, " +
-                "colour=${Integer.toHexString(colour)}, selectedAlpha=$selectedAlpha, " +
-                "dimmedAlpha=$dimmedAlpha, pinEnabled=${pin?.isEnabled == true}"
+            "line repaint — phase=${state.phase}, points=${selectedPlan?.points?.size ?: 0}, " +
+                "lines=${built.size}, selected=$selectedIndex, " +
+                "colour=${Integer.toHexString(colour)}, " +
+                "selectedAlpha=$selectedAlpha, dimmedAlpha=$dimmedAlpha, " +
+                "pinEnabled=${pin?.isEnabled == true}"
         )
 
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
+}
 
-    // ── The provisional line: the main lookup's partial line, drawn as it is built ──
-    // A line the pipeline has not finished is not a page: it draws into its own overlay at the line's
-    // own colour and width at the **main's** opacity, and it is hidden the moment the main lands — on
-    // the answer and on a refusal alike — so a partial line never outlives the search that drew it.
-    LaunchedEffect(mapView, provisionalLine, routeLineColor, discardPending) {
-        val mv = mapView ?: return@LaunchedEffect
-        val line = mv.overlays.filterIsInstance<Polyline>()
-            .firstOrNull { it.title == ROUTE_PROGRESS_TITLE } ?: return@LaunchedEffect
-        if (discardPending || provisionalLine.size < 2) {
-            line.isEnabled = false
-            line.setPoints(emptyList())
-        } else {
-            line.setPoints(provisionalLine.map { GeoPoint(it.latitude, it.longitude) })
-            line.outlinePaint.apply {
-                color = AndroidColor.argb(
-                    transparencyPctToAlpha(AppConfig.routeLineTransparencyPct),
-                    AndroidColor.red(routeLineColor),
-                    AndroidColor.green(routeLineColor),
-                    AndroidColor.blue(routeLineColor)
-                )
-                strokeWidth = dpToPx(AppConfig.routeLineWidthDp, mv.paintDensity)
-            }
-            line.isEnabled = true
-        }
-        mv.invalidate()
+/**
+ * A followed plan's **remaining run as the seam's points**, its per-point speed derived from the
+ * plan's own leg times (S10): the projected split point carries the leg it sits on, and every vertex
+ * behind it keeps its own leg's speed, so a chevron and a speed band on the live route read the
+ * plan's pace rather than the ramp's neutral tint. A plan under two points, or one whose split landed
+ * on a vertex, falls out of the same walk.
+ */
+private fun remainingRenderPoints(plan: RoutePlan, split: RouteSplit): List<RenderPoint> {
+    val planPoints = toRenderPoints(plan.points, plan.legTimesSec)
+    val best = split.bestLegIndex
+    if (best < 0) return planPoints
+    val remaining = split.remainingPoints
+    if (remaining.isEmpty()) return emptyList()
+    // The split point coincides with the leg's own end once the boat is at or past it; the remaining
+    // run then starts at that vertex and the vertex's own speed is the plan's, not the leg's.
+    val nextVertex = plan.points.getOrNull(best + 1)
+    val firstIsVertex = nextVertex != null &&
+        remaining.first().latitude == nextVertex.latitude &&
+        remaining.first().longitude == nextVertex.longitude
+    val suffix = planPoints.drop(best + 1)
+    return if (firstIsVertex) {
+        suffix
+    } else {
+        val splitSpeed = planPoints.getOrNull(best)?.speedKn
+        listOf(RenderPoint(remaining.first().latitude, remaining.first().longitude, speedKn = splitSpeed)) + suffix
     }
 }
 

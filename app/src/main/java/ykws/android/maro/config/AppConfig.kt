@@ -91,7 +91,7 @@ object AppConfig {
         private set
 
     /**
-     * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
+     * The route line's colour — `path.line.color.live`, default a green that reads as "the way to go"
      * against both the blue water and the amber tracks.
      *
      * This colour is now the **seed** alone: the *Active route* Settings row holds the value the line
@@ -101,25 +101,25 @@ object AppConfig {
     var routeLineColor: Int = 0xFF2ECC71.toInt()
         private set
 
-    /** The route line's transparency (0 = opaque, 100 = invisible) — `route.line.transparencyPct`. */
+    /** The route line's transparency (0 = opaque, 100 = invisible) — `path.line.fade.live`. */
     var routeLineTransparencyPct: Int = 15
         private set
 
-    /** The route line's stroke width (dp) — `route.line.widthDp`. */
+    /** The route line's stroke width (dp) — `path.route.line.width.live`. */
     var routeLineWidthDp: Float = 6f
         private set
 
-    /** The selected line's under-stroke width (dp) — `route.line.casing.widthDp`. */
+    /** The selected line's under-stroke width (dp) — `path.route.line.casing.width`. */
     var routeLineCasingWidthDp: Float = 8f
         private set
 
     /**
      * **Every line drawn beside the plan** wears this transparency (0 = opaque, 100 = invisible) —
-     * `route.dimmed.transparencyPct`, renamed from `route.progress.transparencyPct`.
+     * `path.line.fade.dimmed`, renamed from `route.progress.transparencyPct`.
      *
      * One key for both readers (R64): the line a search is still building, and the candidate lines the
      * engine offered that were not picked, so the two are told apart by motion and replacement rather
-     * than by how pale they are. The plan itself keeps `route.line.transparencyPct`.
+     * than by how pale they are. The plan itself keeps `path.line.fade.dimmed`.
      */
     var routeDimmedTransparencyPct: Int = 55
         private set
@@ -649,11 +649,11 @@ object AppConfig {
         private set
     /** Chevron tempering knee (dp): at or below this core a chevron is drawn at the core itself.
      *  Default 3.3333333 — the 10 px the table stated on the 3× device it was tuned on.
-     *  Set via `map.track.arrow.scaleKnee`. */
+     *  Set via `path.arrow.scaleKnee`. */
     var trackArrowScaleKneeDp: Float = 10f / 3f
         private set
     /** Chevron tempering factor above the knee: the core becomes `knee + (core − knee) × temper`.
-     *  Default 0.5. Set via `map.track.arrow.temper`. */
+     *  Default 0.5. Set via `path.arrow.temper`. */
     var trackArrowTemper: Float = 0.5f
         private set
 
@@ -663,39 +663,39 @@ object AppConfig {
     // were chosen on, and the caller multiplies by the density at the paint site — and every default
     // mirrors the shipped file key for key.
     /** Stroke width (dp) of the live recording line, its GAP bridges and its trailing segment.
-     *  Default 4 (the 12 px of the 3× reference). Set via `map.track.width.live`. */
+     *  Default 4 (the 12 px of the 3× reference). Set via `path.line.width.live`. */
     var trackWidthLiveDp: Float = 4f
         private set
     /** Stroke width (dp) of the selected stored track's core. Default 3.3333333 (the 10 px of the 3×
-     *  reference). Set via `map.track.width.selected`. */
+     *  reference). Set via `path.line.width.selected`. */
     var trackWidthSelectedDp: Float = 10f / 3f
         private set
     /** Stroke width (dp) of the newest history track. Default 3.6666667 (the 11 px of the 3×
-     *  reference). Set via `map.track.width.newest`. */
+     *  reference). Set via `path.line.width.newest`. */
     var trackWidthNewestDp: Float = 11f / 3f
         private set
     /** Stroke width (dp) of every pinned track. Default 3 (the 9 px of the 3× reference).
-     *  Set via `map.track.width.pinned`. */
+     *  Set via `path.line.width.pinned`. */
     var trackWidthPinnedDp: Float = 3f
         private set
     /** Stroke width (dp) of every other history track. Default 2.6666667 (the 8 px of the 3×
-     *  reference). Set via `map.track.width.history`. */
+     *  reference). Set via `path.line.width.history`. */
     var trackWidthHistoryDp: Float = 8f / 3f
         private set
     /** Stroke width (dp) of a route's line on its own unpinned path: the route role takes this stroke
      *  rather than the history width, while a pinned route takes the pinned width instead, through
      *  the shared pinned path (D5). Default 3.0 (the 9 px of the 3× reference).
-     *  Set via `map.track.width.route`. */
+     *  Set via `path.route.line.width`. */
     var trackWidthRouteDp: Float = 3f
         private set
     /** The saved-route dash's on length, in dp — the rhythm a route's whole stroke is broken into,
      *  plain and speed-coloured alike. Default 9.33333 (the 28 px of the 3× reference, divided by
-     *  three). Set via `map.track.width.route.dashOn`. */
-    var trackRouteDashOnDp: Float = 9.33333f
+     *  three). Set via `path.line.dash.on`. */
+    var trackRouteDashOnDp: Float = 8f
         private set
     /** The saved-route dash's off length, in dp. Default 0.666667 (the 2 px of the 3× reference,
-     *  divided by three). Set via `map.track.width.route.dashOff`. */
-    var trackRouteDashOffDp: Float = 0.666667f
+     *  divided by three). Set via `path.line.dash.off`. */
+    var trackRouteDashOffDp: Float = 2f
         private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
      *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than
@@ -704,7 +704,7 @@ object AppConfig {
      *  while a selection's chevrons take half its excess over the line's own width as the outward
      *  offset of their dark V from the coloured one — 1 dp at the shipped pair, which clears the
      *  coloured centreline by 0.167 dp. Default 5.3333335 (the 16 px of the 3× reference).
-     *  Set via `map.track.width.selected.casing`. */
+     *  Set via `path.line.casing.width`. */
     var trackWidthSelectedCasingDp: Float = 16f / 3f
         private set
 
@@ -715,7 +715,7 @@ object AppConfig {
      *  Default: the seven families the shipped file holds, mirrored key for key — flat green inside
      *  the 5 kn limit, the two 30 % tolerance changeovers at 0.25 and 0.5, then 13 / 22 / 32 / 70 kn.
      *  The file is the source of truth and this default follows it, not the reverse.
-     *  Set via `map.track.heatmap.familyN.*` / `.unknown.color`. */
+     *  Set via `path.heatmap.familyN.*` / `.unknown.color`. */
     var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
         families = listOf(
             HeatmapFamily(5f, 0xFF1A6B1A.toInt(), 0xFF2AAB2A.toInt(), 1.0f),    // flat green inside the 5 kn limit
@@ -734,7 +734,7 @@ object AppConfig {
      *  specification — every row prints, with no rule dropping or merging one — so the text may
      *  deliberately differ from the position, and the first two rows carry a compliance limit off its
      *  own boundary by design. Default: the five rows the shipped file holds, mirrored key for key.
-     *  Set via `map.track.heatmap.scaleTicks`; the table's last position is the bar's own top. */
+     *  Set via `path.heatmap.scaleTicks`; the table's last position is the bar's own top. */
     var trackHeatmapScaleTicks: List<HeatmapScaleTick> = listOf(
         HeatmapScaleTick(7f, "5"),
         HeatmapScaleTick(13f, "10"),
@@ -744,10 +744,102 @@ object AppConfig {
     )
         private set
     /** Foot of the legend's scale (kn): the bar runs from here to the tick table's last position.
-     *  Default 2, mirroring the shipped file. Set via `map.track.heatmap.scaleMinKn`; an absent key
+     *  Default 2, mirroring the shipped file. Set via `path.heatmap.scaleMinKn`; an absent key
      *  leaves this default standing. */
     var trackHeatmapScaleMinKn: Float = 2f
         private set
+
+    // ── The path.* family's drawing values and seeds (from maro.properties) ──
+    // The family is read at runtime through the cascade (see the PATH banner in maro.properties and
+    // `pathKeyCandidates`). These fields hold the resolved values: the drawing values the engine reads
+    // (the casing, the selection gold, the pin's ring colour, the two master switches) and the **seeds**
+    // the user-editable Settings values fall back to when no preference has been written yet.
+
+    /** Whether chevrons are drawn at all, either kind — `path.arrow.enabled`, the master over the two
+     *  drawer chips. Default true. */
+    var pathArrowEnabled: Boolean = true
+        private set
+    /** Whether the speed ramp bands a stroke at all, either kind — `path.heatmap.enabled`, the master
+     *  over the Colours chip. Default true. */
+    var pathHeatmapEnabled: Boolean = true
+        private set
+    /** How many items of one kind are drawn (0-20) — `path.count`. Seeds both Settings counts. */
+    var pathCount: Int = 5
+        private set
+
+    /** The active recording line's colour seed — no file key; the Settings row's own default. */
+    var trackColourActive: Int = 0xFF1565C0.toInt()
+        private set
+    /** The past pair's `from` — `path.line.color.from`. Seeds `trackingColorPastFrom`. */
+    var trackColourFrom: Int = 0xFF1565C0.toInt()
+        private set
+    /** The past pair's `to` — `path.line.color.to`. Seeds `trackingColorPastTo`. */
+    var trackColourTo: Int = 0xFF0000FF.toInt()
+        private set
+    /** The pinned pair's `from` — `path.line.color.pinned.from`. Seeds `trackingColorPinnedFrom`. */
+    var trackColourPinnedFrom: Int = 0xFFFF6F00.toInt()
+        private set
+    /** The pinned pair's `to` — `path.line.color.pinned.to`. Seeds `trackingColorPinnedTo`. */
+    var trackColourPinnedTo: Int = 0xFFFF8F00.toInt()
+        private set
+    /** The selection gold — `path.line.color.selected`. */
+    var trackSelectionGold: Int = 0xFFFFD700.toInt()
+        private set
+    /** The selected line's casing colour — `path.line.casing.color`. */
+    var trackCasingColour: Int = 0xCC000000.toInt()
+        private set
+    /** How far a derived casing edge is darkened (per cent) — `path.line.casing.darkenPct`. */
+    var trackCasingDarkenPct: Int = 55
+        private set
+
+    /** The past fade's newest end (0-100) — `path.line.fade.from`. Seeds `trackingTransparencyNewest`. */
+    var trackFadeFrom: Int = 20
+        private set
+    /** The past fade's oldest end — `path.line.fade.to`. Seeds `trackingTransparencyOldest`. */
+    var trackFadeTo: Int = 80
+        private set
+    /** The pinned fade's newest end — `path.line.fade.pinned.from`. Seeds `trackingTransparencyPinnedNewest`. */
+    var trackFadePinnedFrom: Int = 0
+        private set
+    /** The pinned fade's oldest end — `path.line.fade.pinned.to`. Seeds `trackingTransparencyPinnedOldest`. */
+    var trackFadePinnedTo: Int = 20
+        private set
+
+    /** The stored route pair's `from` — `path.route.line.color.from`. Seeds `trackingColorRouteFrom`. */
+    var routeStoredColourFrom: Int = 0xFF1565C0.toInt()
+        private set
+    /** The stored route pair's `to` — `path.route.line.color.to`. Seeds `trackingColorRouteTo`. */
+    var routeStoredColourTo: Int = 0xFF0000FF.toInt()
+        private set
+    /** The stored route fade's newest end — `path.route.line.fade.from`. Seeds `trackingTransparencyRouteNewest`. */
+    var routeStoredFadeFrom: Int = 20
+        private set
+    /** The stored route fade's oldest end — `path.route.line.fade.to`. Seeds `trackingTransparencyRouteOldest`. */
+    var routeStoredFadeTo: Int = 80
+        private set
+    /** The pinned route pair's `from` — `path.route.line.color.pinned.from`. Seeds `trackingColorPinnedRouteFrom`. */
+    var routePinnedColourFrom: Int = 0xFF00C853.toInt()
+        private set
+    /** The pinned route pair's `to` — `path.route.line.color.pinned.to`. Seeds `trackingColorPinnedRouteTo`. */
+    var routePinnedColourTo: Int = 0xFF00897B.toInt()
+        private set
+    /** The pinned route fade's newest end — `path.route.line.fade.pinned.from`. */
+    var routePinnedFadeFrom: Int = 0
+        private set
+    /** The pinned route fade's oldest end — `path.route.line.fade.pinned.to`. */
+    var routePinnedFadeTo: Int = 20
+        private set
+
+    /** The route colour gate's seed — `path.gate.speedColor`. Seeds `routeSpeedColor`. */
+    var routeSpeedColourGate: Boolean = false
+        private set
+    /** The route arrow gate's seed — `path.gate.speedArrows`. Seeds `routeSpeedArrows`. */
+    var routeSpeedArrowsGate: Boolean = true
+        private set
+    /** The destination pin's ring colour — `path.pin.ring.color`. */
+    var routePinRingColour: Int = 0xFFFFFFFF.toInt()
+        private set
+
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zoneMultiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
         private set
@@ -1405,6 +1497,11 @@ object AppConfig {
                 }
             }
 
+            // The `path.*` family is read through the cascade below, so the bag is retained for the
+            // resolver — its one reader — and the unreadable-key channel is reset for this load.
+            pathProps = props
+            unreadableColourKeysSeen.clear()
+
             props.getProperty("zoneAutoRevealDistanceM")?.toFloatOrNull()?.let {
                 zoneAutoRevealDistanceM = it.coerceIn(50f, 500f)
             }
@@ -1493,54 +1590,63 @@ object AppConfig {
             powerScreenGraceDefaultMinutes = powerScreenGraceDefaultMinutes
                 .coerceIn(powerScreenGraceMinMinutes, powerScreenGraceMaxMinutes)
 
-            // ── Track direction arrows (speed-based density) ────────────────
-            props.getProperty("map.track.direction.speedFloorKn")?.toFloatOrNull()?.let {
-                trackDirectionSpeedFloorKn = it.coerceIn(2f, 64f)
-            }
-            props.getProperty("map.track.direction.speedCeilingKn")?.toFloatOrNull()?.let {
-                trackDirectionSpeedCeilingKn = it.coerceIn(2f, 64f)
-            }
-            props.getProperty("map.track.direction.minSpacingDp")?.toIntOrNull()?.let {
-                trackDirectionMinSpacingDp = it.coerceIn(4, 640)
-            }
-            props.getProperty("map.track.direction.maxSpacingDp")?.toIntOrNull()?.let {
-                trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
-            }
+            // ── Direction chevrons: the spacing window and the tempering (path.arrow.*) ──
+            pathArrowEnabled = pathBool(PathKind.TRACK, "arrow", "enabled", default = pathArrowEnabled)
+            trackDirectionSpeedFloorKn =
+                pathFloat(PathKind.TRACK, "arrow", "speedFloorKn", default = trackDirectionSpeedFloorKn).coerceIn(2f, 64f)
+            trackDirectionSpeedCeilingKn =
+                pathFloat(PathKind.TRACK, "arrow", "speedCeilingKn", default = trackDirectionSpeedCeilingKn).coerceIn(2f, 64f)
+            trackDirectionMinSpacingDp =
+                pathInt(PathKind.TRACK, "arrow", "minSpacingDp", default = trackDirectionMinSpacingDp).coerceIn(4, 640)
+            trackDirectionMaxSpacingDp =
+                pathInt(PathKind.TRACK, "arrow", "maxSpacingDp", default = trackDirectionMaxSpacingDp).coerceIn(4, 640)
             // Chevron tempering: the knee is a core width in dp, the temper a fraction of the excess
             // above it. Read against the widths it compares with, so the boundary moves with them.
-            props.getProperty("map.track.arrow.scaleKnee")?.toFloatOrNull()?.let {
-                trackArrowScaleKneeDp = it.coerceAtLeast(0f)
-            }
-            props.getProperty("map.track.arrow.temper")?.toFloatOrNull()?.let {
-                trackArrowTemper = it.coerceIn(0f, 1f)
-            }
+            trackArrowScaleKneeDp =
+                pathFloat(PathKind.TRACK, "arrow", "scaleKnee", default = trackArrowScaleKneeDp).coerceAtLeast(0f)
+            trackArrowTemper =
+                pathFloat(PathKind.TRACK, "arrow", "temper", default = trackArrowTemper).coerceIn(0f, 1f)
 
-            // ── Track outlines: per-type widths ─────────────────────────────
+            // ── The stroke table and the casing (path.line.*) ───────────────
             // Clamped where a value could break the draw — a width at or below the 1 px floor of the
             // old unit, expressed here in dp, is not drawable, and a width past this bound would
             // swallow the map. An unreadable value leaves the default.
-            props.getProperty("map.track.width.live")?.toFloatOrNull()?.let { trackWidthLiveDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("map.track.width.selected")?.toFloatOrNull()?.let { trackWidthSelectedDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("map.track.width.newest")?.toFloatOrNull()?.let { trackWidthNewestDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("map.track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("map.track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("map.track.width.route")?.toFloatOrNull()?.let { trackWidthRouteDp = it.coerceAtLeast(1f / 3f) }
-            props.getProperty("map.track.width.route.dashOn")?.toFloatOrNull()?.let {
-                trackRouteDashOnDp = it.coerceAtLeast(1f / 3f)
-            }
-            props.getProperty("map.track.width.route.dashOff")?.toFloatOrNull()?.let {
-                trackRouteDashOffDp = it.coerceAtLeast(1f / 3f)
-            }
-            props.getProperty("map.track.width.selected.casing")?.toFloatOrNull()?.let {
-                trackWidthSelectedCasingDp = it.coerceAtLeast(1f / 3f)
-            }
+            trackWidthLiveDp =
+                pathFloat(PathKind.TRACK, "line", "width", pathClass = PathClass.LIVE, default = trackWidthLiveDp).coerceAtLeast(1f / 3f)
+            trackWidthSelectedDp =
+                pathFloat(PathKind.TRACK, "line", "width", pathClass = PathClass.SELECTED, default = trackWidthSelectedDp).coerceAtLeast(1f / 3f)
+            trackWidthNewestDp =
+                pathFloat(PathKind.TRACK, "line", "width", pathClass = PathClass.NEWEST, default = trackWidthNewestDp).coerceAtLeast(1f / 3f)
+            trackWidthPinnedDp =
+                pathFloat(PathKind.TRACK, "line", "width", pathClass = PathClass.PINNED, default = trackWidthPinnedDp).coerceAtLeast(1f / 3f)
+            trackWidthHistoryDp =
+                pathFloat(PathKind.TRACK, "line", "width", pathClass = PathClass.HISTORY, default = trackWidthHistoryDp).coerceAtLeast(1f / 3f)
+            // The route's own stroke on its stored path — a kind read, no class.
+            trackWidthRouteDp =
+                pathFloat(PathKind.ROUTE, "line", "width", default = trackWidthRouteDp).coerceAtLeast(1f / 3f)
+            // The saved-route dash, the selected line's casing and the two new casing leaves. The
+            // casing colour and its darkening percentage are the selection's literal and the derived
+            // edge's own knob; `path.route.line.casing.width` is the route's casing over its core.
+            trackRouteDashOnDp =
+                pathFloat(PathKind.TRACK, "line", "dash", "on", default = trackRouteDashOnDp).coerceAtLeast(1f / 3f)
+            trackRouteDashOffDp =
+                pathFloat(PathKind.TRACK, "line", "dash", "off", default = trackRouteDashOffDp).coerceAtLeast(1f / 3f)
+            trackWidthSelectedCasingDp =
+                pathFloat(PathKind.TRACK, "line", "casing", "width", default = trackWidthSelectedCasingDp).coerceAtLeast(1f / 3f)
+            trackCasingColour = pathColor(PathKind.TRACK, "line", "casing", "color", default = trackCasingColour)
+            trackCasingDarkenPct =
+                pathInt(PathKind.TRACK, "line", "casing", "darkenPct", default = trackCasingDarkenPct).coerceIn(0, 100)
+            trackSelectionGold =
+                pathColor(PathKind.TRACK, "line", "color", pathClass = PathClass.SELECTED, default = trackSelectionGold)
 
-            // ── Speed heatmap ramp ──────────────────────────────────────────
+            // ── The speed ramp (path.heatmap.*, common to both kinds) ───────
             // The rendering mode is no longer a file key (D3): it is one persisted field in
             // `AppSettings`, so the ramp below is all this block still owns. Read as written: no
             // validation and no warning channel. A family that does not fully parse ends the ramp and
             // the families parsed so far stand; if none parses, the shipped default ramp is kept, so a
-            // missing key never leaves the render without a ramp.
+            // missing key never leaves the render without a ramp. The heatmap group is common (D7): no
+            // kind-qualified candidate is ever built for it.
+            pathHeatmapEnabled = pathBool(PathKind.TRACK, "heatmap", "enabled", default = pathHeatmapEnabled)
             run {
                 val families = parseHeatmapFamilies(
                     lookup = { props.getProperty(it) },
@@ -1565,7 +1671,7 @@ object AppConfig {
                     trackHeatmapScaleTicks = ticks
                 }
             }
-            props.getProperty("map.track.heatmap.unknown.color")?.let { parseColorOrNull(it) }?.let {
+            props.getProperty("path.heatmap.unknown.color")?.let { parseColorOrNull(it) }?.let {
                 trackHeatmapRamp = trackHeatmapRamp.copy(unknownArgb = it)
             }
 
@@ -1750,23 +1856,61 @@ object AppConfig {
             props.getProperty("ui.text.muted")?.let { parseColorOrNull(it) }?.let { uiTextMuted = it }
             props.getProperty("ui.text.secondary")?.let { parseColorOrNull(it) }?.let { uiTextSecondary = it }
             props.getProperty("ui.accent")?.let { parseColorOrNull(it) }?.let { uiAccent = it }
-            // ── The route line and pin (maro.properties, not the palette) ───────
-            props.getProperty("route.line.color")?.let { parseColorOrNull(it) }
-                ?.let { routeLineColor = it }
-            props.getProperty("route.line.transparencyPct")?.toIntOrNull()
-                ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
-            props.getProperty("route.line.widthDp")?.toFloatOrNull()
-                ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
-            props.getProperty("route.line.casing.widthDp")?.toFloatOrNull()
-                ?.let { routeLineCasingWidthDp = it.coerceIn(1f / 3f, 24f) }
-            props.getProperty("route.dimmed.transparencyPct")?.toIntOrNull()
-                ?.let { routeDimmedTransparencyPct = it.coerceIn(0, 100) }
+            // ── The route line and pin, and the whole family's seeds (path.*) ───
+            // The followed line's colour and transparency, its width and casing, the dimming beside
+            // the plan, the pin, the two stored pairs and their fades, the count and the two route
+            // gates — every one read through the cascade. The Active-route Settings row is seeded
+            // from `path.line.color.live`; the pairs seed their Settings rows likewise.
+            routeLineColor =
+                pathColor(PathKind.ROUTE, "line", "color", pathClass = PathClass.LIVE, default = routeLineColor)
+            routeLineTransparencyPct =
+                pathInt(PathKind.ROUTE, "line", "fade", pathClass = PathClass.LIVE, default = routeLineTransparencyPct).coerceIn(0, 100)
+            routeLineWidthDp =
+                pathFloat(PathKind.ROUTE, "line", "width", pathClass = PathClass.LIVE, default = routeLineWidthDp).coerceIn(1f / 3f, 24f)
+            routeLineCasingWidthDp =
+                pathFloat(PathKind.ROUTE, "line", "casing", "width", default = routeLineCasingWidthDp).coerceIn(1f / 3f, 24f)
+            routeDimmedTransparencyPct =
+                pathInt(PathKind.ROUTE, "line", "fade", pathClass = PathClass.DIMMED, default = routeDimmedTransparencyPct).coerceIn(0, 100)
+            routePinColor = pathColor(PathKind.ROUTE, "pin", "color", default = routePinColor)
+            routePinRingWidthDp =
+                pathFloat(PathKind.ROUTE, "pin", "ringWidthDp", default = routePinRingWidthDp).coerceIn(0f, 12f)
+            routePinRingColour =
+                pathColor(PathKind.ROUTE, "pin", "ring", "color", default = routePinRingColour)
+            // The stored pairs and their fades — each kind's own, with the pinned pair reading its
+            // kind-qualified class first (a pinned route keeps its green → teal).
+            trackColourFrom = pathColor(PathKind.TRACK, "line", "color", "from", default = trackColourFrom)
+            trackColourTo = pathColor(PathKind.TRACK, "line", "color", "to", default = trackColourTo)
+            trackColourPinnedFrom =
+                pathColor(PathKind.TRACK, "line", "color", "from", PathClass.PINNED, trackColourPinnedFrom)
+            trackColourPinnedTo =
+                pathColor(PathKind.TRACK, "line", "color", "to", PathClass.PINNED, trackColourPinnedTo)
+            trackFadeFrom = pathInt(PathKind.TRACK, "line", "fade", "from", default = trackFadeFrom).coerceIn(0, 100)
+            trackFadeTo = pathInt(PathKind.TRACK, "line", "fade", "to", default = trackFadeTo).coerceIn(0, 100)
+            trackFadePinnedFrom =
+                pathInt(PathKind.TRACK, "line", "fade", "from", PathClass.PINNED, trackFadePinnedFrom).coerceIn(0, 100)
+            trackFadePinnedTo =
+                pathInt(PathKind.TRACK, "line", "fade", "to", PathClass.PINNED, trackFadePinnedTo).coerceIn(0, 100)
+            routeStoredColourFrom = pathColor(PathKind.ROUTE, "line", "color", "from", default = routeStoredColourFrom)
+            routeStoredColourTo = pathColor(PathKind.ROUTE, "line", "color", "to", default = routeStoredColourTo)
+            routeStoredFadeFrom =
+                pathInt(PathKind.ROUTE, "line", "fade", "from", default = routeStoredFadeFrom).coerceIn(0, 100)
+            routeStoredFadeTo =
+                pathInt(PathKind.ROUTE, "line", "fade", "to", default = routeStoredFadeTo).coerceIn(0, 100)
+            routePinnedColourFrom =
+                pathColor(PathKind.ROUTE, "line", "color", "from", PathClass.PINNED, routePinnedColourFrom)
+            routePinnedColourTo =
+                pathColor(PathKind.ROUTE, "line", "color", "to", PathClass.PINNED, routePinnedColourTo)
+            routePinnedFadeFrom =
+                pathInt(PathKind.ROUTE, "line", "fade", "from", PathClass.PINNED, routePinnedFadeFrom).coerceIn(0, 100)
+            routePinnedFadeTo =
+                pathInt(PathKind.ROUTE, "line", "fade", "to", PathClass.PINNED, routePinnedFadeTo).coerceIn(0, 100)
+            pathCount = pathInt(PathKind.TRACK, "", "count", default = pathCount).coerceIn(0, 20)
+            routeSpeedColourGate =
+                pathBool(PathKind.ROUTE, "gate", "speedColor", default = routeSpeedColourGate)
+            routeSpeedArrowsGate =
+                pathBool(PathKind.ROUTE, "gate", "speedArrows", default = routeSpeedArrowsGate)
             props.getProperty("route.navigate.color")?.let { parseColorOrNull(it) }
                 ?.let { routeNavigateColor = it }
-            props.getProperty("route.pin.color")?.let { parseColorOrNull(it) }
-                ?.let { routePinColor = it }
-            props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
-                ?.let { routePinRingWidthDp = it.coerceIn(0f, 12f) }
             // ── The route's anchor and the repair's one knob ───────
             // Read here rather than beside the pace above: each is an interaction or drawing value
             // rather than a behaviour the spatial side reads.
@@ -1985,6 +2129,10 @@ object AppConfig {
             uiDividerHeight = dp("ui.divider.height", uiDividerHeight)
             uiDividerGap = dp("ui.divider.gap", uiDividerGap)
 
+            // R42's runtime channel, published once the whole family has been walked: the colour keys
+            // the cascade met but could not read, in order. The app reports them at start.
+            unreadableColourKeys = unreadableColourKeysSeen.toList()
+
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.
         }
@@ -1995,6 +2143,74 @@ object AppConfig {
 
     /** Extra isobath stroke width (px) for a data source (0 if unset). */
     fun isobarWidthBonus(source: DepthSource): Float = isobarWidthBonuses[source] ?: 0f
+
+    // ── The path.* cascade (D4, D5) ──────────────────────────────────────
+    // The family is read at **runtime**, most specific first: kind+class, class, kind, common, then the
+    // code default. The pre-init values alone stay in `BuildConfig`; nothing in this family is baked.
+
+    /** The loaded bag, retained so the `path.*` family can be read at runtime. */
+    private var pathProps: Properties? = null
+
+    /**
+     * **R42's runtime channel**: the colour keys the cascade met but could not read, in the order it met
+     * them and empty when it read them all. Published once `init` has walked the family; the app reports
+     * them at start. The key's one reader is the resolver below — the app reads the published *names*
+     * rather than parsing `maro.properties` again.
+     */
+    var unreadableColourKeys: List<String> = emptyList()
+        private set
+    private val unreadableColourKeysSeen = linkedSetOf<String>()
+
+    /** The first value among [candidates] the retained bag holds, or null when it holds none. */
+    private fun firstPathValue(candidates: List<String>): String? {
+        val bag = pathProps ?: return null
+        for (key in candidates) bag.getProperty(key)?.let { return it }
+        return null
+    }
+
+    /** The `path.*` cascade for a string leaf, falling through to [default]. */
+    fun pathString(
+        kind: PathKind, group: String, field: String, sub: String? = null,
+        pathClass: PathClass? = null, default: String
+    ): String = firstPathValue(pathKeyCandidates(kind, group, field, sub, pathClass)) ?: default
+
+    /** The `path.*` cascade for a float leaf, falling through to [default]. */
+    fun pathFloat(
+        kind: PathKind, group: String, field: String, sub: String? = null,
+        pathClass: PathClass? = null, default: Float
+    ): Float = firstPathValue(pathKeyCandidates(kind, group, field, sub, pathClass))?.toFloatOrNull() ?: default
+
+    /** The `path.*` cascade for an int leaf, falling through to [default]. */
+    fun pathInt(
+        kind: PathKind, group: String, field: String, sub: String? = null,
+        pathClass: PathClass? = null, default: Int
+    ): Int = firstPathValue(pathKeyCandidates(kind, group, field, sub, pathClass))?.toIntOrNull() ?: default
+
+    /** The `path.*` cascade for a boolean leaf, falling through to [default]. */
+    fun pathBool(
+        kind: PathKind, group: String, field: String, sub: String? = null,
+        pathClass: PathClass? = null, default: Boolean
+    ): Boolean =
+        firstPathValue(pathKeyCandidates(kind, group, field, sub, pathClass))?.toBooleanStrictOrNull() ?: default
+
+    /**
+     * The `path.*` cascade for a colour leaf, falling through to [default]. A value the parser cannot
+     * read leaves the default **and** reports its key through [unreadableColourKeysSeen] — a silent
+     * fallback is the trap this channel closes (R42).
+     */
+    fun pathColor(
+        kind: PathKind, group: String, field: String, sub: String? = null,
+        pathClass: PathClass? = null, default: Int
+    ): Int {
+        val bag = pathProps ?: return default
+        for (key in pathKeyCandidates(kind, group, field, sub, pathClass)) {
+            val raw = bag.getProperty(key) ?: continue
+            val parsed = parseColorOrNull(raw)
+            if (parsed == null) unreadableColourKeysSeen += key
+            return parsed ?: default
+        }
+        return default
+    }
 
     private fun parseColorOrNull(s: String): Int? =
         try { Color.parseColor(s.trim()) } catch (_: Exception) { null }

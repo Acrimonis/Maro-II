@@ -1,45 +1,29 @@
-# Context Hydration — Route — 2026-10-06
+# Context Hydration — Route — 2026-10-07
 
-**Last Bake:** 2026-10-06 13:18 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-07 10:53 UTC — written by `#bake`
+**Branch:** feature/tracks-rotes-norm — the Tracks-owned path render engine's branch, on which the route's map half was migrated; the plan was then extended with the settled speed/arrow normalisation, in design only
 
-**Directive trace:** Since the last bake (2026-10-06 07:33 UTC) every change ran on an order — the fine-walk
-plan and its Phase 1, the stored-route removal on the user's own words re-asked and confirmed, the EMODnet
-filter on *Yes same filter*, five device passes the user took themselves, three rounds of instrumentation on
-*instrumentalize*, and the removal of every instrument on *remove all instrumentation and dead code*. No
-dependency was added, no machine-shaped data file was opened, no work was started without an order, the device
-was touched only by the user, and every claim about the code follows a file read.
+**Directive trace:** no covered action stopped. No dependency was added, no machine-shaped data file was opened, and the device was the user's throughout — the route's map half changed but was never deployed or logged, that pass left owed. Every claim about the code came from a file read or a build's own output; the run's figures — the 653-test scoped suite and the green `apk-build.bat` — are the commands' own output. This session's plan extension touched no route code, so it carries no figures of its own, and no git write ran before the commit that closes the session.
 
 ## State
 
-**One fix kept, one defect accepted, and a session of diagnosis closed by decision.** The routing's depth read
-now passes the chart's own **EMODnet shallow filter** at `emodnetShallowCutoffM`, so a coarse EMODnet cell below
-the cutoff no longer walls a chord while a shallow fine-source cell still does. The **stored-route pull-back is
-gone** — R83 to R87 struck, one acquiring case in its place, every arming running a fresh acquisition — and the
-**off-axis first leg is accepted as a known defect**: at λ = 0 on open water every monotone staircase is
-equally optimal, so the search's tie-break picks the lattice's axes and the pull then tautens that staircase
-into one long leg at its own bearing before turning.
+**The live route now draws through the one path render engine Tracks owns.** The plan [`../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md`](../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md) settled **D10** — the live route's lines are **rebuilt** each pass through the painter's `lineRendering(spec, …)` door, while the destination pin stays **attach-once** (a marker, mutated in place) — because speed banding yields a stroke count a fixed pool cannot hold. `RouteHost`'s hand-built polylines — the pool, the derived casing, the travelled run and the provisional line — are gone, replaced by painter output under the same `route_*` titles, so `OverlayZOrder`'s route tier is unchanged.
 
-**The diagnosis's conclusions, kept for the record** — the step walls were real water (Litto3D, confidence 90,
-2.2 to 2.9 m), the coast walls one real **mainland** OSM segment at 41 to 49 m against the 50 m margin, and the
-long leg needed no wall at all: its cells were free, its chords all clear, and the straight alternative priced
-at zero. **Every instrument that found this was removed on the same word**, so those figures live in
-`route-phase9` to `route-phase13` at the repo root and in the two plans, never in the code.
+**Parity landed with it.** The route spec is built from a `RoutePlan`, and **D11** derives each point's speed from the leg it leaves (its haversine length over the leg's seconds), so the chevrons and the speed banding run on the live line exactly as on a stored route — the plan's partial or draft legs yield a neutral speed rather than a wrong one. The dash reads `path.line.dash.*`; the pin's ring colour is now `path.pin.ring.color`; and the two route gates (`path.gate.speedColor` / `speedArrows`) join the master Arrows/Colours chips through `routeLineRenderPlan`, read from `appSettings` passed into the host.
 
-**Gates green, with the three known reds and no fourth** — the suite stands at **937 / 3 / 11** (the parked
-`route.avoid.fine.cellRatio` test and the two `TrackOutlineTest` dash reds) and `apk-build.bat` is green.
+**Designed, not built — the route's gate pair would retire.** The same plan's `## Speed and arrow display` section records the next normalisation, and **no code for it exists**: the route gates `path.gate.speedColor` / `path.gate.speedArrows` give way to `path.route.heatmap.enabled` / `path.route.arrow.enabled`, the meaning narrows so each kind's persisted pair governs its own kind, and the Routing tab's rows are then owned by Route with no shared control. It stays in design until ordered.
+
+**Open and recorded.** The **device pass is owed** — a followed route's chevrons and bands, the pool's rebuild not flickering, and the pin still landing on the resolved end. One behaviour change to confirm on the water: the live (unpinned) route now dashes like every route. The parked `route.avoid.fine.cellRatio` red is the scoped suite's single red, untouched by this pass. Named rather than lost: this feature's Feature-Summaries row in `GLOBAL_CONTEXT.md` could not be re-dated because its one line exceeds the editor's match limit — its front-matter's `modified` alone carries this bake.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt`, `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `app/src/test/java/ykws/android/maro/spatial/multipass/RouteEmodnetShallowGateTest.kt` — the kept fix and its guard
-- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `RouteViewModel.kt`, `MapScreen.kt`, `app/src/test/java/ykws/android/maro/ui/map/RouteAcquisitionTest.kt` — the removal, and the case that pins it
-- `xTrack/Route/261006_FEAT_PLN_Route_stored-pullback-removal.md` — **landed**, its Outcome written
-- `xTrack/Route/261006_FEAT_PLN_Route_open-water-bends.md` — **closed by decision**, the accepted defect and what would re-open it
-- `xTrack/Route/FEAT_DSC_Route.md`, `xTrack/GLOBAL_CONTEXT.md` — this bake's record
+- `app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt` — migrated onto the painter; `appSettings` threaded in; the remaining-run speed derivation
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — the `lineRendering` door and the shared `directionSpacingProvider` the route reads
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the one `RouteHost(...)` call now passes `appSettings`
+- `app/src/main/java/ykws/android/maro/ui/map/LineRenderSeam.kt` — the route adapter (`toRenderPoints(points, legTimesSec)`) the host reads
+- `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — the plan, its in-design speed/arrow section naming the route gate retirement
+- `docs/maro-code.md`, `docs/ui-drawer-guidelines.md` — the route's map half noted as the shared engine's
 
 ## Next Step
 
-**Nothing on this line waits.** The fix is in, the defect is accepted by decision, and both plans carry the
-reasoning, so the next session opens from the record rather than from this code. The one gap the bake could not
-close is stated rather than hidden: the Route row in `GLOBAL_CONTEXT.md`'s summary table is a single
-4 000-character line, so its one-liner and its Modified date were left as they stand while the feature's own
-front matter and the Focus History carry this session's chapter.
+Take the owed device pass over the migrated route — chevrons, bands, the pool's rebuild and the pin — and confirm the live route's new dash against the user's eye; the route's gate retirement waits in the plan, in design, until it is ordered.

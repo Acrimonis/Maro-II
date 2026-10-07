@@ -320,13 +320,13 @@ data class AppSettings(
      * a route bands only while this is true **and** [trackColours] is on, so at the shipped default
      * `false` (and whenever Colours is off) a route is drawn in its own colour pair.
      */
-    val routeSpeedColor: Boolean = BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_COLOR,
+    val routeSpeedColor: Boolean = ykws.android.maro.config.AppConfig.routeSpeedColourGate,
     /**
      * The route-scoped arrow gate (R38): it can only veto — true leaves the drawer's own Arrows chip
      * to decide, false means a route never shows chevrons, its direction being its origin to its
      * destination rather than a bearing stored on a planned vertex.
      */
-    val routeSpeedArrows: Boolean = BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_ARROWS,
+    val routeSpeedArrows: Boolean = ykws.android.maro.config.AppConfig.routeSpeedArrowsGate,
     /**
      * The drawer eye's own value, held on the *selection* rather than on any track id, so it applies to
      * whichever track the drawer has open. Null means the key has never been written — the selection
@@ -344,38 +344,38 @@ data class AppSettings(
     val trackDirectionMinSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp,
     /** Maximum on-screen spacing (dp) between direction arrows. */
     val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
-    /** Number of historical tracks to render on the map (0-20). */
-    val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
+    /** Number of historical tracks to render on the map (0-20) — seeded from `path.count`. */
+    val trackingRenderNb: Int = ykws.android.maro.config.AppConfig.pathCount,
     /**
      * Number of routes to render, non-pinned ones alone (0-20): a pinned route is drawn
      * whatever this says, the pin being what marks a route already saved. Its own count rather than
      * [trackingRenderNb]'s, which goes on counting recorded tracks alone.
      */
-    val routeRenderNb: Int = BuildConfig.TRACKING_ROUTE_RENDER_NB,
+    val routeRenderNb: Int = ykws.android.maro.config.AppConfig.pathCount,
     /** ARGB color for the active recording track. */
-    val trackingColorActive: Int = BuildConfig.TRACKING_COLOR_ACTIVE,
+    val trackingColorActive: Int = ykws.android.maro.config.AppConfig.trackColourActive,
     /**
      * ARGB start color for past track gradient (newest track).
      * Interpolates toward [trackingColorPastTo] for older tracks.
      */
-    val trackingColorPastFrom: Int = BuildConfig.TRACKING_COLOR_PAST_FROM,
+    val trackingColorPastFrom: Int = ykws.android.maro.config.AppConfig.trackColourFrom,
     /**
      * ARGB end color for past track gradient (oldest track).
      * Interpolated from [trackingColorPastFrom] for newer tracks.
      */
-    val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
+    val trackingColorPastTo: Int = ykws.android.maro.config.AppConfig.trackColourTo,
     /**
      * ARGB start colour of the route gradient — the newest route, taken on a route's own unpinned
      * path; a pinned route draws from the pinned-route pair instead, through the shared pinned path
      * (D5). `from` is the newest and `to` the oldest, interpolated across the route set exactly as
      * the past pair is across the historical one.
      */
-    val trackingColorRouteFrom: Int = BuildConfig.TRACKING_COLOR_ROUTE_FROM,
+    val trackingColorRouteFrom: Int = ykws.android.maro.config.AppConfig.routeStoredColourFrom,
     /** ARGB end colour of the route gradient — the oldest route. */
-    val trackingColorRouteTo: Int = BuildConfig.TRACKING_COLOR_ROUTE_TO,
+    val trackingColorRouteTo: Int = ykws.android.maro.config.AppConfig.routeStoredColourTo,
     /**
      * ARGB colour of the line the app is following — the route's own line, seeded from
-     * `route.line.color` in `maro.properties`, which stays the one home for that fact. Settings'
+     * `path.line.color.live` in `maro.properties`, which stays the one home for that fact. Settings'
      * **Active route** row is what writes it.
      */
     val routeLineColor: Int = ykws.android.maro.config.AppConfig.routeLineColor,
@@ -384,47 +384,47 @@ data class AppSettings(
      * 0 = fully opaque, 100 = fully invisible.
      * Lower value = newest track more visible.
      */
-    val trackingTransparencyNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_FROM,
+    val trackingTransparencyNewest: Int = ykws.android.maro.config.AppConfig.trackFadeFrom,
     /**
      * Transparency % (0-100) for the OLDEST past (history) track.
      * 0 = fully opaque, 100 = fully invisible.
      * Higher value = oldest track more faded.
      */
-    val trackingTransparencyOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_TO,
+    val trackingTransparencyOldest: Int = ykws.android.maro.config.AppConfig.trackFadeTo,
     /**
      * Transparency % (0-100) for the NEWEST pinned track.
      * 0 = fully opaque, 100 = fully invisible.
      */
-    val trackingTransparencyPinnedNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM,
+    val trackingTransparencyPinnedNewest: Int = ykws.android.maro.config.AppConfig.trackFadePinnedFrom,
     /**
      * Transparency % (0-100) for the OLDEST pinned track.
      * 0 = fully opaque, 100 = fully invisible.
      */
-    val trackingTransparencyPinnedOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO,
+    val trackingTransparencyPinnedOldest: Int = ykws.android.maro.config.AppConfig.trackFadePinnedTo,
     /** Transparency % (0-100) for the NEWEST route drawn — the route ladder's own range. */
-    val trackingTransparencyRouteNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_ROUTE_FROM,
+    val trackingTransparencyRouteNewest: Int = ykws.android.maro.config.AppConfig.routeStoredFadeFrom,
     /** Transparency % (0-100) for the OLDEST route drawn. */
-    val trackingTransparencyRouteOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_ROUTE_TO,
+    val trackingTransparencyRouteOldest: Int = ykws.android.maro.config.AppConfig.routeStoredFadeTo,
     /**
      * ARGB start color for pinned track gradient.
      */
-    val trackingColorPinnedFrom: Int = BuildConfig.TRACKING_COLOR_PINNED_FROM,
+    val trackingColorPinnedFrom: Int = ykws.android.maro.config.AppConfig.trackColourPinnedFrom,
     /**
      * ARGB end color for pinned track gradient.
      */
-    val trackingColorPinnedTo: Int = BuildConfig.TRACKING_COLOR_PINNED_TO,
+    val trackingColorPinnedTo: Int = ykws.android.maro.config.AppConfig.trackColourPinnedTo,
     /**
      * Transparency % (0-100) for the NEWEST **pinned route** (D5, D8): a pinned route runs the one
      * pinned path, so it takes a pinned ladder of its own rather than the route ladder an unpinned
      * route reads.
      */
-    val trackingTransparencyPinnedRouteNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_FROM,
+    val trackingTransparencyPinnedRouteNewest: Int = ykws.android.maro.config.AppConfig.routePinnedFadeFrom,
     /** Transparency % (0-100) for the OLDEST pinned route. */
-    val trackingTransparencyPinnedRouteOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_TO,
+    val trackingTransparencyPinnedRouteOldest: Int = ykws.android.maro.config.AppConfig.routePinnedFadeTo,
     /** ARGB start colour of the pinned-route gradient — the newest. */
-    val trackingColorPinnedRouteFrom: Int = BuildConfig.TRACKING_COLOR_PINNED_ROUTE_FROM,
+    val trackingColorPinnedRouteFrom: Int = ykws.android.maro.config.AppConfig.routePinnedColourFrom,
     /** ARGB end colour of the pinned-route gradient — the oldest. */
-    val trackingColorPinnedRouteTo: Int = BuildConfig.TRACKING_COLOR_PINNED_ROUTE_TO,
+    val trackingColorPinnedRouteTo: Int = ykws.android.maro.config.AppConfig.routePinnedColourTo,
     /** Enable track point simplification at finalize (Douglas-Peucker + speed-aware). */
     val trackSimplifyEnabled: Boolean = true,
     /** Douglas-Peucker spatial tolerance (metres). */
@@ -728,8 +728,8 @@ class SettingsManager(
         // then reads the flag that migration wrote, so the pair can never be read half-migrated.
         trackArrows = prefs.getBoolean(KEY_TRACK_ARROWS, migrateRenderAxes()?.let { it != "SIMPLE" } ?: false),
         trackColours = prefs.getBoolean(KEY_TRACK_COLOURS, true),
-        routeSpeedColor = prefs.getBoolean(KEY_ROUTE_SPEED_COLOR, BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_COLOR),
-        routeSpeedArrows = prefs.getBoolean(KEY_ROUTE_SPEED_ARROWS, BuildConfig.TRACKING_ROUTE_ALLOW_SPEED_ARROWS),
+        routeSpeedColor = prefs.getBoolean(KEY_ROUTE_SPEED_COLOR, ykws.android.maro.config.AppConfig.routeSpeedColourGate),
+        routeSpeedArrows = prefs.getBoolean(KEY_ROUTE_SPEED_ARROWS, ykws.android.maro.config.AppConfig.routeSpeedArrowsGate),
         // Absent until the eye is first tapped, and `contains` is what tells that apart from a written
         // false: the default below can never stand in for "mirror the mode".
         trackSelectionBanded = if (prefs.contains(KEY_TRACK_SELECTION_BANDED)) {
@@ -743,43 +743,43 @@ class SettingsManager(
         trackDirectionSpeedCeilingKn = prefs.getFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, ykws.android.maro.config.AppConfig.trackDirectionSpeedCeilingKn),
         trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
         trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
-        trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
-        routeRenderNb = prefs.getInt(KEY_TRACKING_ROUTE_RENDER_NB, BuildConfig.TRACKING_ROUTE_RENDER_NB).coerceIn(0, 20),
-        trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
-        trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, BuildConfig.TRACKING_COLOR_PAST_FROM),
-        trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
-        trackingColorRouteFrom = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_FROM, BuildConfig.TRACKING_COLOR_ROUTE_FROM),
-        trackingColorRouteTo = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_TO, BuildConfig.TRACKING_COLOR_ROUTE_TO),
+        trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, ykws.android.maro.config.AppConfig.pathCount).coerceIn(0, 20),
+        routeRenderNb = prefs.getInt(KEY_TRACKING_ROUTE_RENDER_NB, ykws.android.maro.config.AppConfig.pathCount).coerceIn(0, 20),
+        trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, ykws.android.maro.config.AppConfig.trackColourActive),
+        trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, ykws.android.maro.config.AppConfig.trackColourFrom),
+        trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, ykws.android.maro.config.AppConfig.trackColourTo),
+        trackingColorRouteFrom = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_FROM, ykws.android.maro.config.AppConfig.routeStoredColourFrom),
+        trackingColorRouteTo = prefs.getInt(KEY_TRACKING_COLOR_ROUTE_TO, ykws.android.maro.config.AppConfig.routeStoredColourTo),
         // The followed line's colour: seeded by the same `maro.properties` key its readers once read
         // directly, so an install that never touched the row keeps painting exactly what it did.
         routeLineColor = prefs.getInt(
             KEY_ROUTE_LINE_COLOR, ykws.android.maro.config.AppConfig.routeLineColor
         ),
-        trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
-        trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
-        trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM),
-        trackingTransparencyPinnedOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO),
-        trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, BuildConfig.TRACKING_COLOR_PINNED_FROM),
-        trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO),
+        trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, ykws.android.maro.config.AppConfig.trackFadeFrom),
+        trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, ykws.android.maro.config.AppConfig.trackFadeTo),
+        trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, ykws.android.maro.config.AppConfig.trackFadePinnedFrom),
+        trackingTransparencyPinnedOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, ykws.android.maro.config.AppConfig.trackFadePinnedTo),
+        trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, ykws.android.maro.config.AppConfig.trackColourPinnedFrom),
+        trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, ykws.android.maro.config.AppConfig.trackColourPinnedTo),
         // The route ladder is clamped on read like every other bounded pair: a stored value is never
         // a promise about what the slider's span allows.
         trackingTransparencyRouteNewest = prefs.getInt(
-            KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_ROUTE_FROM
+            KEY_TRACKING_TRANSPARENCY_ROUTE_NEWEST, ykws.android.maro.config.AppConfig.routeStoredFadeFrom
         ).coerceIn(0, 100),
         trackingTransparencyRouteOldest = prefs.getInt(
-            KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_ROUTE_TO
+            KEY_TRACKING_TRANSPARENCY_ROUTE_OLDEST, ykws.android.maro.config.AppConfig.routeStoredFadeTo
         ).coerceIn(0, 100),
         trackingTransparencyPinnedRouteNewest = prefs.getInt(
-            KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_FROM
+            KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_NEWEST, ykws.android.maro.config.AppConfig.routePinnedFadeFrom
         ).coerceIn(0, 100),
         trackingTransparencyPinnedRouteOldest = prefs.getInt(
-            KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_ROUTE_TO
+            KEY_TRACKING_TRANSPARENCY_PINNED_ROUTE_OLDEST, ykws.android.maro.config.AppConfig.routePinnedFadeTo
         ).coerceIn(0, 100),
         trackingColorPinnedRouteFrom = prefs.getInt(
-            KEY_TRACKING_COLOR_PINNED_ROUTE_FROM, BuildConfig.TRACKING_COLOR_PINNED_ROUTE_FROM
+            KEY_TRACKING_COLOR_PINNED_ROUTE_FROM, ykws.android.maro.config.AppConfig.routePinnedColourFrom
         ),
         trackingColorPinnedRouteTo = prefs.getInt(
-            KEY_TRACKING_COLOR_PINNED_ROUTE_TO, BuildConfig.TRACKING_COLOR_PINNED_ROUTE_TO
+            KEY_TRACKING_COLOR_PINNED_ROUTE_TO, ykws.android.maro.config.AppConfig.routePinnedColourTo
         ),
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
         trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
@@ -1136,7 +1136,7 @@ class SettingsManager(
         /** The route colour pair's own keys, and the ladder's, beside their siblings'. */
         private const val KEY_TRACKING_COLOR_ROUTE_FROM = "tracking_color_route_from"
         private const val KEY_TRACKING_COLOR_ROUTE_TO = "tracking_color_route_to"
-        /** The followed route line's own colour, seeded from `maro.properties`' `route.line.color`. */
+        /** The followed route line's own colour, seeded from `maro.properties`' `path.line.color.live`. */
         private const val KEY_ROUTE_LINE_COLOR = "route_line_color"
         private const val KEY_TRACKING_TRANSPARENCY_NEWEST = "tracking_transparency_newest"
         private const val KEY_TRACKING_TRANSPARENCY_OLDEST = "tracking_transparency_oldest"

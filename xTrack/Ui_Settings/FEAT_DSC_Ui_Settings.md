@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-10-05 20:01
+modified: 2026-10-07 10:53
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-10-05 20:01
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **path-render-engine — the Tracks/Routes settings seed from `path.*` (2026-10-07, `feature/tracks-rotes-norm`)** — the `path.*` family in `maro.properties` is now the one home for a track's and a route's line rendering; the Tracks/Routes appearance settings read their seeds from it (`path.line.*`, `path.route.line.*`, `path.gate.*`, `path.pin.*`), the cascade resolved by `AppConfig` through `pathKeyCandidates`, and no Settings UI changed → [`../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md`](../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md)
 
 - **route-algorithm-to-routing (2026-10-06, `feature/ui-small`)** — the System tab's **Route algorithm** section moved into the **Routing tab**, where it now stands **above Tuning** (the user's word: pick the engine, then its pace and preference). The block — its comment, `SectionHeader(settings_section_route_algorithm)`, its header spacer, the `CardArea` holding `settings_route_algorithm_desc` and the engine `DropdownRow`, and its trailing section gap — left [`SystemSettings`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1594) for the head of [`RoutingSettings`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1523), so the System tab now runs Language → GPS tuning → … and the Routing tab Route algorithm → Tuning. No string, key or `RouteEngineChoice` wiring changed — only the call site and its gap — and `apk-build.bat` is SUCCESSFUL; nothing is device-validated → [`261002_FEAT_PLN_Ui_Settings_tab-order-routing.md`](261002_FEAT_PLN_Ui_Settings_tab-order-routing.md) (its D1 alternative, now taken)
 
@@ -80,6 +82,7 @@ modified: 2026-10-05 20:01
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the overlay ladder: the drawer scrim and every drawer surface
 
 ## Docs
+- [`../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md`](../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md) — **the path render engine** (Tracks owns it): the `path.*` family in `maro.properties` is now the one home for a track's and a route's line rendering, so the Tracks/Routes appearance settings seed from `path.*` keys (implementation landed; device pass owed); the plan's speed/arrow display normalisation — the per-kind Settings split, with every appearance and speed-and-direction row owned by its own kind and no shared control — is **in design, nothing implemented**
 - `xTrack/Ui_Settings/261005_FEAT_PLN_Ui_Settings_appearance-collapsible-twins.md` — the Tracks/Routes appearance collapsibles normalised to read as twins: the reworded expanders, the tracks description, the mirrored row captions, the one-shape ladders and the split colours description (implemented; device pass owed)
 - `xTrack/Ui_Settings/261002_FEAT_PLN_Ui_Settings_routing-appearance-block.md` — the two route rendering gates moved from the Layers tab into a new Appearance block in the Routing tab, their names in the comment font through a new `ToggleLabelStyle` on `ToggleRow`, with §2.1 / §2.3 / §2.9 written to match (implemented; device pass owed, one latent should-fix on a comment row that also passes a description)
 - `xTrack/Ui_Settings/261002_FEAT_PLN_Ui_Settings_tab-order-routing.md` — the tab order's one home, the Position→Routing rename with the Route block moved into it, and the group-header key sweep: `SettingsTab`, the six index sites removed, the 21 locales keys renamed or retired, and the one should-fix the review left (the file's tab banners no longer following the strip order)

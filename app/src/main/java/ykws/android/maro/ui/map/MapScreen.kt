@@ -2958,6 +2958,9 @@ fun MapScreen(
                             // The boat's own fix — the same point the trip cell reads — so the
                             // followed line is split at one source for both (R93).
                             boatPosition = routeBoatPosition,
+                            // The rendering dials — the two master chips, the route gates and the
+                            // chevron window — so the live route bands and chevrons as a stored track.
+                            appSettings = appSettings,
                             viewModel = routeViewModel,
                             // The window is transparent to back: a second press confirms the disposal,
                             // which is the back key's own job; otherwise the mode's one exit rule runs.

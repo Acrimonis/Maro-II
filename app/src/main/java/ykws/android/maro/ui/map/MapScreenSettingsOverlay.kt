@@ -578,7 +578,7 @@ private fun LayersSettings(
                         color = ComposeColor(AppConfig.uiTextMuted),
                         fontSize = 12.sp
                     )
-                    // The followed route's own line colour: **one key**, `route.line.color`.
+                    // The followed route's own line colour: **one key**, `path.line.color.live`.
                     ColorRow(
                         label = stringResource(R.string.settings_color_active_route),
                         color = settings.routeLineColor,

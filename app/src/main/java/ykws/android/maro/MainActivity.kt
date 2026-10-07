@@ -222,15 +222,17 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Reports the colour keys the build could not read, at start (R42). Empty — the ordinary case —
-     * shows nothing at all, so a correct `maro.properties` stays silent and a broken one does not.
+     * Reports the colour keys the runtime parser could not read, at start (R42). Empty — the ordinary
+     * case — shows nothing at all, so a correct `maro.properties` stays silent and a broken one does
+     * not. The keys come from the runtime parser's own channel ([AppConfig.unreadableColourKeys]), the
+     * build no longer publishing them.
      */
     private fun reportUnreadableColourKeys() {
-        val keys = BuildConfig.UNREADABLE_COLOUR_KEYS
-        if (keys.isBlank()) return
+        val keys = ykws.android.maro.config.AppConfig.unreadableColourKeys
+        if (keys.isEmpty()) return
         Toast.makeText(
             this,
-            getString(R.string.startup_colour_value_unreadable, keys),
+            getString(R.string.startup_colour_value_unreadable, keys.joinToString(",")),
             Toast.LENGTH_LONG
         ).show()
     }

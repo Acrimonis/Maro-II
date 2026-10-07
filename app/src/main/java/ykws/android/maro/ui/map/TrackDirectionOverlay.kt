@@ -6,10 +6,6 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.track.PointType
-import ykws.android.maro.data.track.TrackPoint
-import ykws.android.maro.data.track.deriveSpeedMps
-import ykws.android.maro.spatial.Units
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -73,8 +69,8 @@ internal fun initialBearingDeg(lat1: Double, lon1: Double, lat2: Double, lon2: D
  * spaced [spacingPx] apart (which may vary with speed). GAP segments are skipped.
  */
 internal fun sampleArrowAnchors(
-    points: List<TrackPoint>,
-    project: (TrackPoint) -> ScreenPt,
+    points: List<RenderPoint>,
+    project: (RenderPoint) -> ScreenPt,
     spacingPx: (speedKn: Float) -> Float,
     maxArrows: Int
 ): List<ArrowAnchor> {
@@ -84,7 +80,7 @@ internal fun sampleArrowAnchors(
     for (i in 0 until points.size - 1) {
         val a = points[i]
         val b = points[i + 1]
-        if (a.type == PointType.GAP || b.type == PointType.GAP) {
+        if (a.isBreak || b.isBreak) {
             distanceToNext = spacingPx(speedKn(b))
             continue
         }
@@ -108,13 +104,12 @@ internal fun sampleArrowAnchors(
     return anchors
 }
 
-private fun speedKn(p: TrackPoint): Float =
-    Units.mpsToKnots((p.speedMps ?: 0f).toDouble()).toFloat()
+private fun speedKn(p: RenderPoint): Float = p.speedKn ?: 0f
 
-private fun interpolatedSpeedKn(a: TrackPoint, b: TrackPoint, t: Float): Float {
-    val sa = (a.speedMps ?: 0f).toDouble()
-    val sb = (b.speedMps ?: 0f).toDouble()
-    return Units.mpsToKnots(sa + (sb - sa) * t).toFloat()
+private fun interpolatedSpeedKn(a: RenderPoint, b: RenderPoint, t: Float): Float {
+    val sa = a.speedKn ?: 0f
+    val sb = b.speedKn ?: 0f
+    return sa + (sb - sa) * t
 }
 
 /**
@@ -248,7 +243,7 @@ internal fun chevronV(
  * in a single pass. Re-samples anchors when the integer zoom level changes.
  */
 internal class TrackDirectionOverlay(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     private val appearances: List<TrackPolylineAppearance>,
     private val spacingPx: (speedKn: Float) -> Float,
     private val maxArrows: Int = 2000,
@@ -298,13 +293,10 @@ internal class TrackDirectionOverlay(
     /** Identifier used by the track overlay effect for cleanup and z-order. */
     var title: String = ""
 
-    // Spacing keeps its historic behaviour: an underivable speed reads as zero *here*, while the
-    // heatmap's colour answers the ramp's neutral tint for the very same point.
-    private val points: List<TrackPoint> = if (points.any { it.speedMps == null }) {
-        points.mapIndexed { i, p ->
-            p.speedMps?.let { p } ?: p.copy(speedMps = deriveSpeedMps(points, i) ?: 0f)
-        }
-    } else points
+    // The speed is already resolved at the seam: a point whose speed is still absent reads as zero
+    // *here* for the spacing alone, while the heatmap's colour answers the ramp's neutral tint for the
+    // very same point — the two policies the seam deliberately leaves to their two readers.
+    private val points: List<RenderPoint> = points
 
     init {
         if (this.points.isNotEmpty()) {

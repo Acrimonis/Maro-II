@@ -173,7 +173,7 @@ internal fun TrackHistoryOverlay(
      * The route role's own count, which its accent strip previews: it bounds the non-pinned routes
      * alone, a pinned route being drawn whatever it says (R35). Its shipped default is the key's own.
      */
-    routeRenderNb: Int = BuildConfig.TRACKING_ROUTE_RENDER_NB,
+    routeRenderNb: Int = ykws.android.maro.config.AppConfig.pathCount,
     trackingTransparencyNewest: Int = 20,
     trackingTransparencyOldest: Int = 80,
     trackingColorPastFrom: Int = 0xFF1565C0.toInt(),
