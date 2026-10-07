@@ -105,7 +105,7 @@
 
 | Key (`maro.properties`) | Meaning | Default |
 |---|---|---|
-| `ui.map.inspect.dwell.ms` | Post-lift quiet time — how long the map must stand still, with no user activity and no panel open, after a genuine finger lift before the highlighted item is picked | `666` |
+| `map.inspect.dwellMs` | Post-lift quiet time — how long the map must stand still, with no user activity and no panel open, after a genuine finger lift before the highlighted item is picked | `666` |
 
 The dwell key gets its own `AppConfig` accessor with its own clamp in the parse block beside the key's comment. The 🕵🏽 glyph is not a key: it follows the row's hard-coded glyphs. The radius trio, the movement gate and the hysteresis margin are gone with the ring, the gate and the stickiness (§2, §3, §5).
 

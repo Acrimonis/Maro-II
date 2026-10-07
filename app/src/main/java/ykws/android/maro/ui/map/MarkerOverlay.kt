@@ -12,8 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import ykws.android.maro.config.AppConfig
@@ -94,10 +92,6 @@ private const val MARKER_DASH_OFF_DP = 8f / 3f
  * **Proximity preview:** thinner [Polyline] for unconfirmed markers only,
  * drawn in cyan at lower alpha.
  *
- * **Marker tap (P10):** Registers a [MapEventsOverlay] with
- * [onSingleTapConfirmedHelper]; on tap, finds the nearest confirmed Pin marker
- * within [TAP_THRESHOLD_M] and calls [onMarkerTap] with its ID.
- *
  * **Match result highlighting (P6):** When [matchResult] is non-null, matched
  * markers render brighter/thicker; non-matched markers render dimmed (lower alpha).
  *
@@ -108,7 +102,6 @@ private const val MARKER_DASH_OFF_DP = 8f / 3f
  * @param mapView                The OSMdroid [MapView]; null → nothing drawn.
  * @param proximityZoneMultiplier Multiplier for proximity range preview.
  * @param unconfirmedMarker      Optional unconfirmed marker being created/edited.
- * @param onMarkerTap            Called with the list of tapped marker IDs (one or more for overlapping markers).
  * @param matchResult            Optional tiered match result for marker highlighting.
  * @param markerZonesVisible     Whether marker zone shapes render (selected markers force theirs).
  * @param selectedMarkerId       The currently selected/viewed marker id (single driver for gold + force-zones).
@@ -125,7 +118,6 @@ fun MarkerOverlay(
     mapView: MapView?,
     proximityZoneMultiplier: Double = 3.0,
     unconfirmedMarker: UserMarker? = null,
-    onMarkerTap: (List<String>) -> Unit = {},
     matchResult: WhereAmIResult? = null,
     markerZonesVisible: Boolean = true,
     selectedMarkerId: String? = null,
@@ -240,7 +232,7 @@ fun MarkerOverlay(
                 is MarkerGeometry.Pin -> {
                     if (!skipDots) {
                         addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap,
-                            confirmed = confirmed, onMarkerTap = onMarkerTap,
+                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -278,7 +270,7 @@ fun MarkerOverlay(
                         addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier,
                             strokePx = markerStrokePx,
                             underStrokeAddPx = highlightUnderStrokeAddPx,
-                            confirmed = confirmed, onMarkerTap = onMarkerTap, skipDots = skipDots,
+                            confirmed = confirmed, skipDots = skipDots,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -286,7 +278,7 @@ fun MarkerOverlay(
                     } else if (!skipDots) {
                         // Center dot only
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap,
-                            confirmed = confirmed, onMarkerTap = onMarkerTap,
+                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -337,13 +329,13 @@ fun MarkerOverlay(
                     // Endpoint dots (or icons) with halo rings.
                     if (!skipDots) {
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.p1), "${marker.id}_p1", baseColor, dotBitmap,
-                            confirmed = confirmed, onMarkerTap = onMarkerTap,
+                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
                             markerPointIconZoom = markerPointIconZoom)
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.p2), "${marker.id}_p2", baseColor, dotBitmap,
-                            confirmed = confirmed, onMarkerTap = onMarkerTap,
+                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -459,39 +451,11 @@ fun MarkerOverlay(
             }
         }
 
-        // ── MapEventsOverlay for area-based tap detection ──────────────────
-        val confirmedMarkers = markers.filter { it.confirmed }
-        val tapOverlay = MapEventsOverlay(object : MapEventsReceiver {
-            override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                if (p == null || confirmedMarkers.isEmpty()) return false
-                val tapPoint = LatLng(p.latitude, p.longitude)
-                val tappedIds = mutableListOf<String>()
-
-                for (marker in confirmedMarkers) {
-                    val range = proximityRangeForTap(marker, AppConfig.markerProximityPinM, proximityZoneMultiplier)
-                    val dist = closestPointOnGeometry(tapPoint, marker.geometry)
-                    if (dist <= range) {
-                        tappedIds.add(marker.id)
-                    }
-                }
-
-                if (tappedIds.isNotEmpty()) {
-                    onMarkerTap(tappedIds)
-                    return true
-                }
-                return false
-            }
-
-            override fun longPressHelper(p: GeoPoint?): Boolean = false
-        })
-        mv.overlays.add(tapOverlay)
-
         OverlayZOrder.reorder(mv)
         mv.invalidate()
 
         onDispose {
             removeAllMarkerOverlays()
-            mv.overlays.remove(tapOverlay)
             mv.invalidate()
         }
     }
@@ -521,8 +485,8 @@ private fun addHaloOverlay(
     })
 }
 
-/** Add a pin [Marker] at [geom.position]. When [confirmed] and [onMarkerTap] is
- *  provided, a click listener is set that returns true (suppressing default popup). */
+/** Add a pin [Marker] at [geom.position]. When [confirmed] a bare click listener is set that returns
+ *  true, so osmdroid's default info window never opens over the map. */
 private fun addPinOverlay(
     mv: MapView,
     geom: MarkerGeometry.Pin,
@@ -530,7 +494,6 @@ private fun addPinOverlay(
     color: Int,
     dotBitmap: Bitmap,
     confirmed: Boolean = true,
-    onMarkerTap: (List<String>) -> Unit = {},
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
     haloSizePct: Int = 50,
@@ -564,10 +527,9 @@ private fun addPinOverlay(
         icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color, mv.paintDensity, radiusMultiplier = markerZoom))
         title = "${OVERLAY_PREFIX}pin_$markerId"
         if (confirmed) {
-            setOnMarkerClickListener { _, _ ->
-                onMarkerTap(listOf(markerId))
-                true
-            }
+            // The overlay no longer hands a tap to anything (plan §1): the listener stays as a bare
+            // suppressor, so osmdroid's default info window never opens over the map on a tap.
+            setOnMarkerClickListener { _, _ -> true }
         }
     }
     mv.overlays.add(marker)
@@ -585,7 +547,6 @@ private fun addCircleOverlay(
     strokePx: Float,
     underStrokeAddPx: Float,
     confirmed: Boolean = true,
-    onMarkerTap: (List<String>) -> Unit = {},
     skipDots: Boolean = false,
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
@@ -620,7 +581,7 @@ private fun addCircleOverlay(
     // Center dot (suppressed when skipDots — icon replaces it)
     if (!skipDots) {
         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), markerId, color, dotBitmap,
-            confirmed = confirmed, onMarkerTap = onMarkerTap,
+            confirmed = confirmed,
             isSelected = isSelected, haloSpec = haloSpec,
             haloSizePct = haloSizePct,
             haloDimFraction = haloDimFraction,
@@ -963,60 +924,4 @@ private fun createDotBitmap(color: Int, density: Float, radiusMultiplier: Float 
 private fun dimColor(color: Int, alphaFraction: Float): Int {
     val newAlpha = ((color ushr 24) * alphaFraction).toInt().coerceIn(0, 255)
     return (newAlpha shl 24) or (color and 0x00FFFFFF)
-}
-
-// ── Tap hit-test helpers ───────────────────────────────────────────────────
-
-/** Compute the proximity range for tap detection on [marker].
- *  Uses [proximityOverrideM] if set, otherwise the config-based formula. */
-private fun proximityRangeForTap(
-    marker: UserMarker,
-    pinDefaultM: Double,
-    zoneMultiplier: Double
-): Double {
-    marker.proximityOverrideM?.let { return it }
-    return when (val g = marker.geometry) {
-        is MarkerGeometry.Pin -> pinDefaultM
-        is MarkerGeometry.Circle -> g.radiusM * zoneMultiplier
-        is MarkerGeometry.Corridor -> g.widthM * zoneMultiplier
-    }
-}
-
-/** Closest distance (metres) from [tap] to any part of [geom].
- *  Returns 0.0 if the point lies inside the geometry. */
-private fun closestPointOnGeometry(tap: LatLng, geom: MarkerGeometry): Double {
-    return when (geom) {
-        is MarkerGeometry.Pin -> SpatialOperations.haversine(tap, geom.position)
-        is MarkerGeometry.Circle -> {
-            val distToCenter = SpatialOperations.haversine(tap, geom.center)
-            max(0.0, distToCenter - geom.radiusM)
-        }
-        is MarkerGeometry.Corridor -> {
-            val bearing = SpatialOperations.initialBearing(geom.p1, geom.p2)
-            val distP1P2 = SpatialOperations.haversine(geom.p1, geom.p2)
-            // Project tap onto the p1→p2 segment
-            val distP1Tap = SpatialOperations.haversine(geom.p1, tap)
-            val bearingP1Tap = SpatialOperations.initialBearing(geom.p1, tap)
-            val angleDiff = Math.toRadians(((bearingP1Tap - bearing + 540.0) % 360.0) - 180.0)
-            val alongDist = distP1Tap * cos(angleDiff)   // signed distance along segment from p1
-            val lateralDist = abs(distP1Tap * sin(angleDiff))  // perpendicular distance
-
-            val halfW = geom.widthM / 2.0
-            val clampedAlong = alongDist.coerceIn(0.0, distP1P2)
-            // Recompute lateral at the clamped projection point
-            val distToSegmentEnd = if (alongDist < 0.0) {
-                distP1Tap  // closer to p1
-            } else if (alongDist > distP1P2) {
-                SpatialOperations.haversine(tap, geom.p2)  // closer to p2
-            } else {
-                lateralDist  // between the endpoints
-            }
-
-            when {
-                alongDist < 0.0 -> max(0.0, distP1Tap - halfW)       // near p1 cap
-                alongDist > distP1P2 -> max(0.0, SpatialOperations.haversine(tap, geom.p2) - halfW)  // near p2 cap
-                else -> max(0.0, lateralDist - halfW)                 // along the side
-            }
-        }
-    }
 }

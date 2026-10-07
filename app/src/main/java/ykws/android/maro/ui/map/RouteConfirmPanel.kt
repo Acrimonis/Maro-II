@@ -108,6 +108,11 @@ internal fun RouteConfirmationPanel(
     runningBestLookupId: RouteId? = null,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null,
+    /**
+     * The height the outgoing card in this slot reported, so the route panel is pre-sized at the size
+     * the screen already shows rather than snapping through the floor (2026-10-07).
+     */
+    initialHeight: Dp? = null,
     onSelectPage: (Int) -> Unit,
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
@@ -139,17 +144,21 @@ internal fun RouteConfirmationPanel(
     // the winner's row wears it until the last rung lands.
     val soFarLookupId = if (acquiring.searching) runningBestLookupId else null
 
-    // Square top corners in portrait; landscape keeps its own right-edge shape untouched.
-    val shape = if (isLandscape) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
-        else RoundedCornerShape(0.dp)
+    // The dashboard's one shape, both orientations (2026-10-07): no rounded corner on a map dash panel,
+    // this panel's own landscape right-edge rounding included — it is squared with the marker and track
+    // cards.
+    val shape = RoundedCornerShape(0.dp)
 
     DrawerScaffold(
         title = stringResource(R.string.route_acq_title),
         onClose = onDiscard,
         showBack = false,
         modifier = modifier,
-        headerHorizontalPadding = 16.dp,
-        headerVerticalPadding = 8.dp,
+        // The map card family's one header padding, the marker viewer's own (2026-10-07): 12 dp with the
+        // shared `ui.padding.header.vertical`, in place of this panel's own 16 dp / 8 dp pair — which is
+        // what made the route panel's header taller and wider than its siblings'.
+        headerHorizontalPadding = 12.dp,
+        fadeInOnEnter = true,
         headerActions = {
             status?.let {
                 Text(
@@ -191,6 +200,7 @@ internal fun RouteConfirmationPanel(
         bottomAnchoredContent = true,
         wrapContent = !isLandscape,
         wrapContentMinHeight = if (isLandscape) 0.dp else dashboardBaseHeight,
+        initialHeight = initialHeight,
         statusBarsInset = isLandscape,
         onMeasuredHeight = onMeasuredHeight,
         wrapContentMaxHeight = panelMaxHeight,

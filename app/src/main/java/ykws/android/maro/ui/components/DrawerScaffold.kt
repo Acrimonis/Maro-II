@@ -1,5 +1,7 @@
 package ykws.android.maro.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
@@ -176,7 +180,21 @@ fun DrawerScaffold(
     suppressOverscrollWhenFits: Boolean = false,
     bottomAnchoredContent: Boolean = false,
     wrapContent: Boolean = false,
+    /**
+     * Fade this panel's **body** in on its first composition (default false). The map's selected-item
+     * cards opt in, so a cross-type swap paints the incoming content in rather than cutting to it — over
+     * the panel's own opaque background, never over the map (2026-10-07).
+     */
+    fadeInOnEnter: Boolean = false,
     wrapContentMinHeight: Dp = 0.dp,
+    /**
+     * The height the wrap frame occupies *before* its parts have reported (default: the floor). A host
+     * that swaps one panel for another in the same slot passes the outgoing panel's measured height, so
+     * the incoming card is laid out at the size the screen already shows and settles once — instead of
+     * snapping through the floor in the one frame where a wrap frame knows no header, no body and no
+     * footer (2026-10-07). A host that never swaps (a drawer) leaves it null.
+     */
+    initialHeight: Dp? = null,
     statusBarsInset: Boolean = false,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     backgroundColor: ComposeColor = ComposeColor(AppConfig.uiBackground),
@@ -210,6 +228,17 @@ fun DrawerScaffold(
         .fillMaxSize()
         .background(backgroundColor, shape)
 
+    // The dissolve (2026-10-07), opted into by the map's selected-item cards. It is the **body** that
+    // fades, never the frame: the panel keeps its background and its header opaque, so the incoming
+    // content paints itself in over the dashboard's own colour instead of letting the map show through
+    // the panel. A card is a different composable from its neighbour, so a cross-type swap replaces this
+    // whole call site and the fade runs again from zero — the incoming half of the dissolve, the half
+    // that reads as smoothness while a drag keeps changing the nearest. (The non-wrap landscape frame has
+    // no body of its own to fade, so a landscape card changes exactly as it did before.)
+    val fade = remember { Animatable(if (fadeInOnEnter) 0f else 1f) }
+    LaunchedEffect(Unit) { if (fadeInOnEnter) fade.animateTo(1f, tween(120)) }
+    val bodyFade = if (fadeInOnEnter) Modifier.graphicsLayer { alpha = fade.value } else Modifier
+
     Box(
         modifier = modifier
             // Wrap mode: the root Box stays fillMaxSize() ONLY as the invisible bounded
@@ -242,16 +271,40 @@ fun DrawerScaffold(
                 // the map strip below it. No cap keeps the full screen, exactly as before.
                 val frameCeiling = minOf(maxHeight, wrapContentMaxHeight ?: maxHeight)
                     .coerceAtLeast(wrapContentMinHeight)
-                val availableBodyHeight =
+                // The parts report their own heights on their own first layout, and a content swap
+                // replaces this very call site (two selected-item cards are different composables), so
+                // the remembers above restart at zero and "not yet measured" would read as "zero tall"
+                // for a frame: the body would be free to measure against the entire frame — the panel
+                // ballooning to almost the middle of the screen before collapsing. Until a part reports,
+                // the panel is therefore pinned at [preSize] and the body gets only what that height
+                // leaves under the header, so a swap paints the size the outgoing card already had and
+                // settles once — rather than jumping through the floor on its way to its own height.
+                val partsMeasured = headerHeight > 0.dp || bodyHeight > 0.dp || footerHeight > 0.dp
+                val preSize = (initialHeight ?: wrapContentMinHeight)
+                    .coerceIn(wrapContentMinHeight, frameCeiling)
+                val availableBodyHeight = if (partsMeasured) {
                     (frameCeiling - headerHeight - footerHeight).coerceAtLeast(0.dp)
-                // Whatever the card falls short of the floor by, and only that.
-                val bottomSlack = (wrapContentMinHeight - headerHeight - bodyHeight - footerHeight)
-                    .coerceAtLeast(0.dp)
+                } else {
+                    (preSize - headerHeight).coerceAtLeast(0.dp)
+                }
+                // Whatever the card falls short of the floor by, and only that — nothing until a part
+                // has reported, or the slack would itself open at the floor.
+                val bottomSlack = if (partsMeasured) {
+                    (wrapContentMinHeight - headerHeight - bodyHeight - footerHeight)
+                        .coerceAtLeast(0.dp)
+                } else {
+                    0.dp
+                }
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = wrapContentMinHeight, max = frameCeiling)
+                        // Until the parts report, the frame is exactly [preSize]; from then on it is the
+                        // floor-to-ceiling range the measured layout has always used.
+                        .heightIn(
+                            min = if (partsMeasured) wrapContentMinHeight else preSize,
+                            max = if (partsMeasured) frameCeiling else preSize
+                        )
                         .onSizeChanged {
                             onMeasuredHeight?.invoke(with(density) { it.height.toDp() })
                         }
@@ -267,8 +320,18 @@ fun DrawerScaffold(
                             hc()
                         }
                     }
-                    if (bottomAnchoredContent && bottomSlack > 0.dp) {
-                        Spacer(Modifier.height(bottomSlack))
+                    if (bottomAnchoredContent) {
+                        // Measured: the fixed slack that fills the floor. Unmeasured: that slack is not
+                        // known yet, so the spacer just absorbs whatever the pre-sized frame leaves. This
+                        // is what holds the body and the footer on the frame's bottom edge in the frame
+                        // between a swap and the parts' report — the very place the measured layout puts
+                        // them a frame later, and what the frame before this fix got wrong, floating the
+                        // walk row up by the whole slack and dropping it again.
+                        if (partsMeasured) {
+                            if (bottomSlack > 0.dp) Spacer(Modifier.height(bottomSlack))
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
                     if (scrollable) {
                         val scrollState = rememberScrollState()
@@ -281,6 +344,7 @@ fun DrawerScaffold(
                                 .fillMaxWidth()
                                 .onSizeChanged { bodyHeight = with(density) { it.height.toDp() } }
                                 .heightIn(max = availableBodyHeight)
+                                .then(bodyFade)
                                 .then(
                                     if (suppressOverscroll) {
                                         Modifier.verticalScroll(state = scrollState, overscrollEffect = null)
@@ -297,6 +361,7 @@ fun DrawerScaffold(
                                 .fillMaxWidth()
                                 .onSizeChanged { bodyHeight = with(density) { it.height.toDp() } }
                                 .heightIn(max = availableBodyHeight)
+                                .then(bodyFade)
                                 .padding(contentPadding),
                             content = content
                         )

@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-30 19:49
+modified: 2026-10-07 21:15
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -177,7 +177,11 @@ explicit values/ViewModels + inline callbacks).
 
 - **mapscreen-health remedy (2026-10-01, `feature/mapscreen-health`)** — the remaining monolith decomposed in four self-validated migration phases with zero behavior change: Bodies hoisted the two eligible `OverlayLayer` callback bodies, Builders moved five data constructions to `MapOverlayData.kt`, Chrome folded the eight written chrome values into an `@Stable MapScreenChrome` with a `Saver` serialising `selectedTab` alone, and Close re-measured every anchor. `fun MapScreen` 3,000 → 2,967 (505–3471); `apk-build.bat` and the scoped `ui.map` + `config` unit run green each phase → `xTrack/UI_Map/260930_FEAT_PLN_UI_Map_mapscreen-health-monolith.md`
 
+- **inspect mode — live acquire (2026-10-07)** — the mode's trigger was replaced: while armed the nearest inspectable item is re-ranked on every sweep and its dashboard opens at once, with no lift and no dwell, a change of nearest swapping the panel and the anchor losing its target closing it while the mode stays armed. The quiet is now the pause: its expiry recentres the camera on the acquired item through the one framer and freezes the ladder the walk steps, and a drag after that recentre resets the card, the ladder and the captured frame. The card's own close is the mode's exit, the armed map-marker tap went with `MarkerOverlay`'s proximity receiver, and the centre hold is the armed flag alone. New pure rules `inspectAcquireAction` / `inspectUserMoveAction` / `inspectActivityAfterMotion` → `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md`
+- **the map dash family on one frame (2026-10-07)** — the selected-item slot's churn was taken out: the marker card, the track card and the route panel now share one header padding (12 dp horizontal, one vertical value), a scrollable body, the body-only dissolve, square corners in both orientations, and one walk-row frame at 8/8/8 in the row's own `padding(horizontal = 12.dp, vertical = 8.dp)`; the hand-rolled pills went for the route footer's own tier-1 `ConfirmActionButton` pair (Previous `SECONDARY`, Next `PRIMARY`), which is also what stops a cross-type swap lifting the row. The panel trade is damped by `map.inspect.switchMarginPct`, a selected path wears a gold casing on its own `path.line.casing.selected` colour and `.width`, and the slot's incoming card is pre-sized at the outgoing one's height so a route↔marker swap settles once instead of stepping through the floor — findings of the plan's §8 → `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md`
+
 ## Todos
+- [ ] Inspect live-acquire device pass — a drag whose panel swaps as the nearest changes, the pause's recentre, a post-recentre drag resetting everything, the toggle / Back / boat-icon exits, the anchor staying off while armed, a marker↔route swap settling without a jump, and the walk row holding one height across the three panels → `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md`
 - [ ] Device pass against the plan's two tables — the sprite at levels 19 and 20 offshore and inshore, and the 15 % raise on the base pair at each level → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
 - [ ] Second-density check for the dp pass — an emulator at 1× or 2× showing the strokes scale, since on the 3× tuning phone this change is invisible by design → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
 - [ ] Open Medium from the dp review — the width rows' half-dp grid cannot reach the coastline's shipped 3.333 dp default, so a dragged row loses the 10 px look → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
@@ -197,15 +201,5 @@ explicit values/ViewModels + inline callbacks).
 - `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md` — Marker sizing curve and its tunable keys
 - `xTrack/UI_Map/260904_FEAT_PLN_UI_Map_marker-filter-map-and-dashboard-close.md` — the marker filter's map consequence and the panel's close, superseded in part 2026-09-28 by the map-opened exception
 - `xTrack/UI_Map/260930_FEAT_PLN_UI_Map_mapscreen-health-monolith.md` — MapScreen remaining-monolith remedy (implemented): four migration phases — Bodies, Builders, Chrome, Close — with the ladder staying in MapScreen
+- `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md` — Inspect mode: live acquire and pause-to-recentre (implemented)
 
-## Walk
-**Level 1 — Date:** 2026-09-17 · **Source:** `260917_FEAT_PLN_UI_Map_inspect-mode.md` · **Active:** closed
-- [x] 1 · Shape markers — child walk closed: a marker measures to its point (a circle to its centre), a corridor to its segment, a track to its polyline; no shape, no band width, no inside-ness bonus
-- [x] 2 · Tap versus lift precedence — child walk closed: one trigger, purely the clock; a lift only stops the movement that resets it, and the centre marker's whereAmI tap is suppressed while armed so it cannot race the trigger for the same slot
-- [x] 3 · Captured delay-return — child walk closed: the wait starts again on exit, a full `recenterDelaySeconds`, never a deadline left running underneath the mode
-- [x] 4 · What signals a rebuild for the patch re-application — child walk closed: option 5, a rebuild generation counter plus a mode-owned candidate overlay, which drops the paint patch and the mutate-or-add fork; markers stay on their existing short rebuild
-- [x] 5 · Rotation and the state the mode carries — child walk closed: no action, the manifest's `configChanges` means rotation does not recreate the activity, so the mode, its card and its ladder survive and only the slot geometry re-lays out
-- [x] 6 · Empty candidate set — child walk closed: the ring draws with nothing highlighted and nothing opening, and the ⊕ square is disabled while disarmed and nothing is inspectable, staying tappable while armed so the mode is never trapped
-- [x] 7 · The first touch closes a card and sweeps — child walk closed: navigation never closes the card; it closes on Back or a referential change, and a later gesture's pick replaces it, with one pick allowed per gesture so the fling cannot swap it
-- [x] 8 · Stale two-set wording in the plan's §3 — child walk closed: §3 now reads one source for the sweep and the ladder, gated by the layer rather than by the render cap
-- Level closed 2026-09-17 — all eight points resolved into the plan; dropped: none

@@ -6,12 +6,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,29 +23,28 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
 import ykws.android.maro.R
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionButton
+import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.icons.Speed
 
@@ -96,6 +93,12 @@ internal fun OverlayLayer(
      * is reported while nothing is open, so the band returns to the floor.
      */
     onDashboardMeasuredHeight: ((Dp) -> Unit)? = null,
+    /**
+     * The height the outgoing card in the selected-item slot reported — the seed the incoming card's
+     * wrap frame is pre-sized at, so a route↔marker swap in that slot starts at the size already on
+     * screen (2026-10-07). Landscape ignores it, its frame being the full height already.
+     */
+    initialDashboardHeight: Dp? = null,
 
     // ── Callbacks ────────────────────────────────────────────────────────
     onDismissSettings: () -> Unit,
@@ -570,10 +573,16 @@ internal fun OverlayLayer(
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
+                        // The map card family's one header padding, the marker viewer's own (2026-10-07),
+                        // and the same dissolve on a swap.
+                        headerHorizontalPadding = 12.dp,
+                        fadeInOnEnter = true,
                         statusBarsInset = true,
                         bottomAnchoredContent = true,
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
+                        // The dashboard's one shape (2026-10-07): no rounded corner on a map dash panel,
+                        // in either orientation — the marker card and the route panel are squared with it.
+                        shape = RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
                                 bandedOn = eyeOverride ?: trackInfoColours,
@@ -581,27 +590,36 @@ internal fun OverlayLayer(
                                 onDelete = { onDeleteTrack(track.id) }
                             )
                         },
+                        // The walk row's one spacing, the route panel's own (2026-10-07): the row's own
+                        // 8 dp vertical padding sets both the frame-to-row and the row-to-edge gap, and
+                        // Previous/Next sit 8 dp apart — the route footer's frame and its very buttons.
                         footer = {
                             if (trackListIds.size > 1) {
-                                Spacer(Modifier.height(10.dp))
-                                val accentBg = ComposeColor(AppConfig.uiAccent)
-                                val accentFg = ComposeColor(AppConfig.uiTextPrimary)
-                                val disabledAlpha = 0.35f
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                        .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
-                                        .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
-                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text(stringResource(R.string.action_previous), color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                        .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
-                                        .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
-                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text(stringResource(R.string.action_next), color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    ConfirmActionButton(
+                                        action = ConfirmAction(
+                                            label = stringResource(R.string.action_previous),
+                                            role = ConfirmActionRole.SECONDARY,
+                                            enabled = !isAtTrackFirst,
+                                            onClick = onTrackPrev
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ConfirmActionButton(
+                                        action = ConfirmAction(
+                                            label = stringResource(R.string.action_next),
+                                            role = ConfirmActionRole.PRIMARY,
+                                            enabled = !isAtTrackLast,
+                                            onClick = onTrackNext
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
-                                Spacer(Modifier.height(10.dp))
                             }
                         }
                     ) {
@@ -681,12 +699,19 @@ internal fun OverlayLayer(
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
+                        // The map card family's one header padding and Scrollable body, the marker
+                        // viewer's own (2026-10-07): a long card scrolls rather than clipping, and the
+                        // card dissolves in on a swap.
+                        headerHorizontalPadding = 12.dp,
+                        fadeInOnEnter = true,
+                        scrollable = true,
                         // The portrait track card wears the same wrap-content frame as its siblings
                         // (R1, R2): it floors at the base, caps at the band ceiling (R5, F5) and
                         // reports its own measured height to the map, so the frame — not a probe —
                         // holds the card's height (G3).
                         wrapContent = true,
                         wrapContentMinHeight = dashboardBaseHeight,
+                        initialHeight = initialDashboardHeight,
                         onMeasuredHeight = onDashboardMeasuredHeight,
                         wrapContentMaxHeight = panelMaxHeight,
                         bottomAnchoredContent = true,
@@ -701,27 +726,36 @@ internal fun OverlayLayer(
                                 onDelete = { onDeleteTrack(track.id) }
                             )
                         },
+                        // The walk row's one spacing, the route panel's own (2026-10-07): the row's own
+                        // 8 dp vertical padding sets both the frame-to-row and the row-to-edge gap, and
+                        // Previous/Next sit 8 dp apart — the route footer's frame and its very buttons.
                         footer = {
                             if (trackListIds.size > 1) {
-                                Spacer(Modifier.height(10.dp))
-                                val accentBg = ComposeColor(AppConfig.uiAccent)
-                                val accentFg = ComposeColor(AppConfig.uiTextPrimary)
-                                val disabledAlpha = 0.35f
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                        .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
-                                        .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
-                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text(stringResource(R.string.action_previous), color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                        .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
-                                        .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
-                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text(stringResource(R.string.action_next), color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    ConfirmActionButton(
+                                        action = ConfirmAction(
+                                            label = stringResource(R.string.action_previous),
+                                            role = ConfirmActionRole.SECONDARY,
+                                            enabled = !isAtTrackFirst,
+                                            onClick = onTrackPrev
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ConfirmActionButton(
+                                        action = ConfirmAction(
+                                            label = stringResource(R.string.action_next),
+                                            role = ConfirmActionRole.PRIMARY,
+                                            enabled = !isAtTrackLast,
+                                            onClick = onTrackNext
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
-                                Spacer(Modifier.height(10.dp))
                             }
                         }
                     ) {
@@ -759,7 +793,8 @@ internal fun OverlayLayer(
                         minPanelHeight = dashboardBaseHeight,
                         onMeasuredHeight = onDashboardMeasuredHeight,
                         panelMaxHeight = panelMaxHeight,
-                        walk = markerInspectWalk
+                        walk = markerInspectWalk,
+                        initialHeight = initialDashboardHeight
                     )
                 }
             }

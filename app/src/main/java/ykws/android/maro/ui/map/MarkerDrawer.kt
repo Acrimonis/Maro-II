@@ -63,6 +63,9 @@ import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionButton
+import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,14 +135,20 @@ internal fun MarkerDrawer(
      * The inspect cursor's own Prev/Next, non-null exactly while this card was opened by an inspect
      * pick: the merged ladder's walk then replaces the marker walk, ends and taps alike.
      */
-    walk: InspectWalk? = null
+    walk: InspectWalk? = null,
+    /**
+     * The height the outgoing panel in this slot reported, so a swap is pre-sized at the size the
+     * screen already shows rather than snapping through the floor (2026-10-07).
+     */
+    initialHeight: Dp? = null
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
 
-    // Every portrait bottom panel is square at the top; landscape keeps its own right-edge shape.
-    val panelShape = if (isLandscape) RoundedCornerShape(bottomStart = 16.dp)
-        else RoundedCornerShape(0.dp)
+    // The dashboard's one shape, both orientations (2026-10-07): the map's dash panels wear **no** rounded
+    // corner, the bottom ones especially — this card's own landscape `bottomStart` rounding was the corner
+    // the complaint named, and the track card and the route panel are squared with it.
+    val panelShape = RoundedCornerShape(0.dp)
 
     // Back handler when drawer is open — registered before content so the card's
     // edit-revert BackHandler (composed later) wins while editing.
@@ -148,7 +157,7 @@ internal fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight, onMeasuredHeight, panelMaxHeight, walk)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight, onMeasuredHeight, panelMaxHeight, walk, initialHeight)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape, minPanelHeight, onMeasuredHeight, panelMaxHeight)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -172,7 +181,8 @@ private fun ViewingContent(
     minPanelHeight: Dp,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null,
-    walk: InspectWalk? = null
+    walk: InspectWalk? = null,
+    initialHeight: Dp? = null
 ) {
     val markers by viewModel.markers.collectAsState()
     val mapMarkers by viewModel.mapMarkers.collectAsState()
@@ -216,9 +226,9 @@ private fun ViewingContent(
         }
     }
 
-    // The pills' own ends, and whether they are drawn at all, are [cardStepEnds]'s one home (plan §2),
+    // The walk row's own ends, and whether it is drawn at all, are [cardStepEnds]'s one home (plan §2),
     // so a menu-opened card greys its ends exactly as the panel's does and a one-item walk draws no
-    // bars.
+    // row.
     val stepEnds = cardStepEnds(
         source = viewModel.drawerSource,
         selectedCount = selectedIds.size,
@@ -234,9 +244,12 @@ private fun ViewingContent(
     }
 
     DrawerScaffold(
+        // The map card family's reference frame (2026-10-07): this header padding, this scrollable body
+        // and the dissolve are what the track card and the route panel are normalised to.
         title = marker?.name ?: stringResource(R.string.marker_title_fallback),
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
+        fadeInOnEnter = true,
         scrollable = true,
         suppressOverscrollWhenFits = true,
         // Wrap-content only in portrait (bottom panel floors at minPanelHeight so it never
@@ -244,6 +257,9 @@ private fun ViewingContent(
         // drawer covers the entire left dashboard column (top-to-bottom).
         wrapContent = !isLandscape,
         wrapContentMinHeight = if (isLandscape) 0.dp else minPanelHeight,
+        // The card this one replaced in the slot, if any: pre-size at its height so the swap lands
+        // where the screen already is (2026-10-07).
+        initialHeight = initialHeight,
         onMeasuredHeight = onMeasuredHeight,
         wrapContentMaxHeight = panelMaxHeight,
         // Landscape (non-wrap): bottom-align the card above the prev/next footer, mirroring the
@@ -359,6 +375,7 @@ private fun MatchResultContent(
         title = stringResource(R.string.where_am_i_title),
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
+        fadeInOnEnter = true,
         scrollable = true,
         // Portrait wraps and floors at the base, on the same path its sibling detail cards use, so
         // the caller's slot carries no height of its own (R1, R2). Landscape keeps its own face.
@@ -414,60 +431,41 @@ private fun MarkerPrevNext(
     walk: InspectWalk? = null,
     ends: CardStepEnds
 ) {
-    Spacer(Modifier.height(10.dp))
-    val accentBg = ComposeColor(AppConfig.uiAccent)
-    val accentFg = ComposeColor(AppConfig.uiTextPrimary)
-    val disabledAlpha = 0.35f
+    // The walk row's one frame, **the route panel's own** (2026-10-07): the row carries the footer's
+    // whole spacing in its own 8 dp vertical padding — the frame-to-row and the row-to-edge gap alike —
+    // and Previous/Next sit 8 dp apart. The route footer's frame is the one the marker card, the track
+    // card and the route panel all take, so no external spacer rides the row.
     val isAtFirst = ends.atFirst
     val isAtLast = ends.atLast
     val onPrev: () -> Unit = walk?.onPrev ?: viewModel::viewPreviousMarker
     val onNext: () -> Unit = walk?.onNext ?: viewModel::viewNextMarker
 
+    // **The dash footer's one button** (2026-10-07): the walk row wears the route panel's own tier-1
+    // `ConfirmActionButton` rather than a hand-rolled pill, so the row is the same height — and the card
+    // the same size — on every dash panel, and a cross-type swap no longer lifts the row by a few dp.
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(accentBg.copy(alpha = if (isAtFirst) disabledAlpha else 1f))
-                .then(
-                    if (!isAtFirst) Modifier.clickable { onPrev() }
-                    else Modifier
-                )
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stringResource(R.string.action_previous),
-                color = accentFg.copy(alpha = if (isAtFirst) disabledAlpha else 1f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(accentBg.copy(alpha = if (isAtLast) disabledAlpha else 1f))
-                .then(
-                    if (!isAtLast) Modifier.clickable { onNext() }
-                    else Modifier
-                )
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stringResource(R.string.action_next),
-                color = accentFg.copy(alpha = if (isAtLast) disabledAlpha else 1f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        ConfirmActionButton(
+            action = ConfirmAction(
+                label = stringResource(R.string.action_previous),
+                role = ConfirmActionRole.SECONDARY,
+                enabled = !isAtFirst,
+                onClick = onPrev
+            ),
+            modifier = Modifier.weight(1f)
+        )
+        ConfirmActionButton(
+            action = ConfirmAction(
+                label = stringResource(R.string.action_next),
+                role = ConfirmActionRole.PRIMARY,
+                enabled = !isAtLast,
+                onClick = onNext
+            ),
+            modifier = Modifier.weight(1f)
+        )
     }
-    Spacer(Modifier.height(10.dp))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

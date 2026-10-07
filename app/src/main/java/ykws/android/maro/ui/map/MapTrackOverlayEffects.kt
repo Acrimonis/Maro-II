@@ -670,6 +670,22 @@ internal fun selectedTrackCasing(): TrackPolylineAppearance =
     TrackPolylineAppearance(AppConfig.trackCasingColour, AppConfig.trackWidthSelectedCasingDp)
 
 /**
+ * **The selection's own gold rim** (2026-10-07) — [`AppConfig.trackSelectionCasingColour`] at its own
+ * width, [`AppConfig.trackSelectionCasingWidthDp`], so the rim is tuned on the device rather than derived
+ * from the dark casing it sits outside.
+ *
+ * It exists because a selection can take the banded path, whose core carries the speed ramp: no gold is
+ * left to meet the ramp there, so a selected route or track would otherwise be drawn exactly like every
+ * other line. Laid down beneath the dark casing on every selected path, it gives the selection a gold
+ * edge whatever its core is.
+ */
+internal fun selectionGoldCasing(): TrackPolylineAppearance =
+    TrackPolylineAppearance(
+        AppConfig.trackSelectionCasingColour,
+        AppConfig.trackSelectionCasingWidthDp
+    )
+
+/**
  * The newest track of a set, by the recency the list sorts on: the greatest `startTimeMs`, with
  * `lastPointTimeMs` breaking a tie, which is the order the selection policy's own ranking reads them
  * in. The policy ranks the focused track first, so a loop over its result opens on the user's
@@ -959,8 +975,14 @@ internal fun storedTrackRendering(
     // can take now does — the banded one resolves a band per anchor, the gold one the gold; the plain
     // path iterates an appearance list and carries no casing input at all.
     val casing = selectedTrackCasing()
+    // The gold rim is laid down **first**, so it is the outermost stroke — the dark casing then reads
+    // between it and the core. Only the rim is gold: the chevrons keep the dark casing, which is what
+    // lifts them off the water wherever they cross the resolver seam.
+    val goldRim = selectionGoldCasing()
     return rendering.copy(
-        overlays = buildSegmentOverlays(points, casing, title, density) + rendering.overlays,
+        overlays = buildSegmentOverlays(points, goldRim, title, density) +
+            buildSegmentOverlays(points, casing, title, density) +
+            rendering.overlays,
         chevronCasing = casing.takeIf { plan.path != LineRenderPath.PLAIN },
         drawArrows = plan.drawArrows
     )

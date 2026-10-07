@@ -10,7 +10,8 @@ import org.junit.Test
  * on its own.
  *
  * The two exceptions are pinned here as well: a close with nothing to return to resumes nothing, and
- * the centre the inspect mode holds outranks the pan.
+ * the inspect mode's own hold outranks the pan. The hold is the **armed flag alone** (plan §4): the
+ * landing no longer stands the armed half down, so no card half stands beside it.
  */
 class PanResumeTimerTest {
 
@@ -25,8 +26,7 @@ class PanResumeTimerTest {
                 open = true,
                 autoFollowSuppressed = true,
                 inspectLoaned = false,
-                inspectArmed = false,
-                inspectCardOpen = false
+                inspectArmed = false
             )
         )
     }
@@ -41,8 +41,7 @@ class PanResumeTimerTest {
                 open = false,
                 autoFollowSuppressed = true,
                 inspectLoaned = false,
-                inspectArmed = false,
-                inspectCardOpen = false
+                inspectArmed = false
             )
         )
     }
@@ -56,8 +55,7 @@ class PanResumeTimerTest {
                 open = true,
                 autoFollowSuppressed = false,
                 inspectLoaned = false,
-                inspectArmed = false,
-                inspectCardOpen = false
+                inspectArmed = false
             )
         )
         assertEquals(
@@ -66,8 +64,7 @@ class PanResumeTimerTest {
                 open = false,
                 autoFollowSuppressed = false,
                 inspectLoaned = false,
-                inspectArmed = false,
-                inspectCardOpen = false
+                inspectArmed = false
             )
         )
     }
@@ -83,49 +80,36 @@ class PanResumeTimerTest {
                 open = false,
                 autoFollowSuppressed = false,
                 inspectLoaned = true,
-                inspectArmed = false,
-                inspectCardOpen = false
+                inspectArmed = false
             )
         )
     }
 
     @Test
-    fun `a card still standing keeps the hold`() {
-        // Loaned, but the mode's card is up: this close is not the loan's hand-back.
+    fun `the armed flag is the whole hold, so a close inside it resumes nothing`() {
+        // The landing no longer stands the armed half down, so a card standing is still an armed mode:
+        // the centre is held for the whole armed time and this close must not hand it back.
         assertEquals(
             PanResumeAction.NONE,
+            panResumeOnDrawerChange(
+                open = false,
+                autoFollowSuppressed = true,
+                inspectLoaned = false,
+                inspectArmed = true
+            )
+        )
+    }
+
+    @Test
+    fun `the loan outranks the armed hold on a close`() {
+        // The mode's own loaned frame is handed back on the delay even while the armed flag stands.
+        assertEquals(
+            PanResumeAction.RESTART,
             panResumeOnDrawerChange(
                 open = false,
                 autoFollowSuppressed = false,
                 inspectLoaned = true,
-                inspectArmed = false,
-                inspectCardOpen = true
-            )
-        )
-    }
-
-    @Test
-    fun `the inspect hold outranks the pan on a close`() {
-        // Either half of the mode's hold beats the pan: an in-frame recentre would yank the anchor the
-        // sweep reads or the frame the pick's own camera just set.
-        assertEquals(
-            PanResumeAction.NONE,
-            panResumeOnDrawerChange(
-                open = false,
-                autoFollowSuppressed = true,
-                inspectLoaned = false,
-                inspectArmed = true,
-                inspectCardOpen = false
-            )
-        )
-        assertEquals(
-            PanResumeAction.NONE,
-            panResumeOnDrawerChange(
-                open = false,
-                autoFollowSuppressed = true,
-                inspectLoaned = false,
-                inspectArmed = false,
-                inspectCardOpen = true
+                inspectArmed = true
             )
         )
     }

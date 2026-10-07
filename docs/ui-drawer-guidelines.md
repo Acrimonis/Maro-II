@@ -232,10 +232,40 @@ All drawer headers share these tokens, canonically implemented in [`DrawerHeader
 | Back icon tint | `uiTextPrimary` |
 | Title font | 17sp, Bold, `uiTextPrimary` |
 | Back→title spacer | `16dp` |
-| Header horizontal padding | 24dp (menu, track history); 12dp (wizard, marker viewer) |
-| Header vertical padding | `ui.padding.header.vertical` (6dp canonical default); 12dp (wizard); 12dp (marker viewer — 6dp per side) |
+| Header horizontal padding | **`12dp` for the whole map card family** — the marker viewer is the reference and the track card and the route panel are normalised to it (2026-10-07); `24dp` (menu, track history list); `12dp` (wizard) |
+| Header vertical padding | `ui.padding.header.vertical` (6dp) — **one value for every header**, the map card family included: the route panel's own 8dp is gone, and the marker viewer's 12dp this table used to claim was never what the code did (2026-10-07); `12dp` (wizard) |
 
 > Use the [`DrawerHeader`](#12-drawerscaffold--fixed-header-scrollable-body) composable — do not hand-roll this `Row`.
+>
+> **Dash-panel corners (uniform, the map dashboards):** a map dash panel wears
+> **`RoundedCornerShape(0.dp)` in both orientations** (2026-10-07) — no rounded corner, the bottom ones
+> especially. The marker card, the track card, the route panel and the base dashboard all pass it
+> explicitly; `DrawerScaffold`'s own default (`topStart`/`bottomStart` rounded) belongs to the drawers
+> alone, and the wizard keeps its own right-edge shape as it is not a dash panel.
+>
+> **Walk-row spacing (uniform, the map dashboards):** the Previous/Next row is one spacing on every
+> selected-item surface (2026-10-07) — **8dp** from the item frame down to the row, **8dp** between the two
+> buttons, and **8dp** from the row down to the frame's bottom edge — with the row's own `12dp` horizontal
+> matching the cards' `contentPadding`. The **route panel's footer is the reference** the other two were
+> normalised to; the marker card's `MarkerPrevNext` and the track card's footer (portrait and landscape) are
+> the token's other homes. All three carry the two vertical gaps in the row's own
+> `padding(horizontal = 12.dp, vertical = 8.dp)`, so none of them adds a spacer of its own.
+>
+> **Dash swap pre-size (settled 2026-10-07):** a host that swaps one panel for another in the same slot
+> passes the outgoing panel's measured height as `DrawerScaffold.initialHeight`, and the incoming card's
+> first frame is the size already on screen — the row and the frame then settle once, instead of stepping
+> through the floor. This is because a wrap frame's pre-measure frame knows no header, no body and no
+> footer: pinned at the floor it floated the walk row above the frame's bottom edge and could overshoot a
+> taller card before settling. The map's selected-item slot seeds it from the band holder's `lastShown`,
+> which whichever card comes through the slot writes; a host that never swaps passes nothing and keeps
+> the floor.
+>
+> **Dash-footer buttons (settled 2026-10-07):** every dash panel's footer wears the **route panel's own
+> tier-1 [`ConfirmActionButton`](../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt)** —
+> the marker card's walk row, the track card's footer and the route panel's three actions are one button
+> style, one rim and one height. That is what keeps the row's own height identical across the three, so a
+> cross-type swap cannot lift the row or the card by the few dp a taller button costs. Hand-rolled pills
+> are not to be used in a dash footer.
 >
 > **Post-header gap (uniform):** the header→first-content gap is the header's own bottom `verticalPadding`
 > (`ui.padding.header.vertical`, 6dp). Drawers add **no extra** spacer/padding after the header — Menu, Marker,
@@ -504,6 +534,7 @@ Parameter | Default | Purpose |
 `onMeasuredHeight` | `null` | Optional report of the panel's measured height, from **both** branches — what the map's band reads in portrait |
 `backgroundColor` | `AppConfig.uiBackground` | The visible panel's background; the dashboard passes its own `ui.dashboard.background` |
 `wrapContentMaxHeight` | `null` | Optional ceiling for the panel, so a taller one's body scrolls instead of covering the map strip; null keeps the full-screen ceiling |
+`fadeInOnEnter` | `false` | Fade the panel in over ~120 ms on its first composition — the map's selected-item cards opt in, so a cross-type swap dissolves rather than cutting (2026-10-07) |
 `shape` | `RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)` | Clip shape for the root `Box` |
 `footer` | `{}` | Composable slot rendered below the scrollable body |
 
@@ -520,12 +551,15 @@ Box(fillMaxSize, clip(shape), background(uiBackground), modifier, +statusBarsIns
 
 ### Consumers
 
-Consumer | File | scrollable | headerActions | hPad | statusBarsInset |
-|----------|------|:---:|---|---|:---:|
-MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | edit + delete + icon buttons | 12.dp | false |
-MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | none | 12.dp | false |
-MenuDrawerOverlay | `MenuDrawerOverlay.kt` | true | Settings gear button | 24.dp | true |
-SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body) | none | 24.dp | true |
+Consumer | File | scrollable | fadeInOnEnter | headerActions | hPad | statusBarsInset |
+|----------|------|:---:|:---:|---|---|:---:|
+MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | true | edit + delete + icon buttons | 12.dp | false |
+MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | true | none | 12.dp | false |
+OverlayLayer track card (portrait) | `OverlayLayer.kt` | true | true | bands + eye + delete | 12.dp | false |
+OverlayLayer track card (landscape) | `OverlayLayer.kt` | false | true | bands + eye + delete | 12.dp | true |
+RouteConfirmPanel | `RouteConfirmPanel.kt` | true | true | status + readings + page dots | 12.dp | false |
+MenuDrawerOverlay | `MenuDrawerOverlay.kt` | true | false | Settings gear button | 24.dp | true |
+SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body) | false | none | 24.dp | true |
 
 > **Note:** the Settings row consumes only the standalone `DrawerHeader`, not the full `DrawerScaffold` shell
 > (the other rows are genuine `DrawerScaffold` consumers). Its `statusBarsInset` is applied manually via
