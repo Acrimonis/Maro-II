@@ -239,27 +239,11 @@ object AppConfig {
     var routeEvolutiveGridFineCellM: Double = 20.0
         private set
 
-    /**
-     * The corridor chain's guaranteed perpendicular half-width (m) —
-     * `route.evolutive.fine.corridorHalfWidthM`, default 150, clamped
-     * [ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN]..[ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX]. The box
-     * side is derived (`2 × w`), so no second key states it; the corridor chain that reads it is the grid
-     * plan's Phase 3.
-     */
-    var routeEvolutiveFineCorridorHalfWidthM: Double = 150.0
-        private set
-
     /** Lowest fine cell (m) the evolutive load accepts — the precision's own floor. */
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MIN = 10.0
 
     /** Highest fine cell (m) the evolutive load accepts — the 20 m contract is this ceiling. */
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
-
-    /** Lowest corridor half-width (m) the evolutive load accepts — the 100 m price collar's own floor. */
-    const val ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN = 100.0
-
-    /** Highest corridor half-width (m) the evolutive load accepts. */
-    const val ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX = 400.0
 
     /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
@@ -689,13 +673,13 @@ object AppConfig {
     var trackWidthRouteDp: Float = 3f
         private set
     /** The saved-route dash's on length, in dp — the rhythm a route's whole stroke is broken into,
-     *  plain and speed-coloured alike. Default 9.33333 (the 28 px of the 3× reference, divided by
-     *  three). Set via `map.track.width.route.dashOn`. */
-    var trackRouteDashOnDp: Float = 9.33333f
+     *  plain and speed-coloured alike. Default 8 (the 24 px of the 3× reference, divided by three).
+     *  Set via `map.track.width.route.dashOn`. */
+    var trackRouteDashOnDp: Float = 8f
         private set
-    /** The saved-route dash's off length, in dp. Default 0.666667 (the 2 px of the 3× reference,
-     *  divided by three). Set via `map.track.width.route.dashOff`. */
-    var trackRouteDashOffDp: Float = 0.666667f
+    /** The saved-route dash's off length, in dp. Default 2 (the 6 px of the 3× reference, divided by
+     *  three). Set via `map.track.width.route.dashOff`. */
+    var trackRouteDashOffDp: Float = 2f
         private set
     /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
      *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than
@@ -1803,8 +1787,8 @@ object AppConfig {
                     ROUTE_AVOID_FINE_CELL_RATIO_MAX
                 )
             }
-            // ── The evolutive engine's grid: its coarse cell, its fine cell (metres, the precision
-            //    fact) and the corridor chain's half-width. `avoid`'s own keys are untouched ──
+            // ── The evolutive engine's grid: its coarse cell and its fine cell (metres, the precision
+            //    fact). `avoid`'s own keys are untouched ──
             props.getProperty("route.evolutive.grid.cellM")?.toDoubleOrNull()?.let {
                 routeEvolutiveGridCellM = it.coerceIn(10.0, 500.0)
             }
@@ -1813,12 +1797,6 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
                 ).coerceAtMost(routeEvolutiveGridCellM)
-            }
-            props.getProperty("route.evolutive.fine.corridorHalfWidthM")?.toDoubleOrNull()?.let {
-                routeEvolutiveFineCorridorHalfWidthM = it.coerceIn(
-                    ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MIN,
-                    ROUTE_EVOLUTIVE_CORRIDOR_HALF_WIDTH_M_MAX
-                )
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)

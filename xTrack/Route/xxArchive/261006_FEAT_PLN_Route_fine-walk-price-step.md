@@ -105,3 +105,19 @@ whose instrument is what named this address.
 - **The aligned shared grid** — the price-walk plan's Phase 5, which needs the user's word for its error; this
   change may take enough off the fine walks that the error is no longer worth accepting.
 - Any change to the sampling step, the lattice or the marks: this plan moves the grouping alone.
+
+## Outcome
+
+**Superseded, and its landed half removed — archived 2026-10-07.**
+
+- **What was planned:** the fine-only walk's price step — `GridWalk` stating the step it groups on with
+  `priceStepFor` answering it, the fine walk's setup built at the engine's interior cell rather than the fine
+  one, the pull's trace naming which pass it belongs to, and a third phase reading the saving on the device.
+- **What shipped: Phase 1 only**, on 2026-10-06 — the named step, the accessor and the fine pass's setup at the
+  interior cell, with the two fixtures. It landed on a walk **no shipped engine reaches**: both plans answer no
+  second-pass region, so the address it fixed returned before the setup it changed was built. Phases 2 and 3
+  never ran.
+- **Then the subject itself was dropped.** On the user's word of 2026-10-06 the step was not taken, and
+  [`261006_FEAT_PLN_Route_fine-pass-retirement.md`](261006_FEAT_PLN_Route_fine-pass-retirement.md:1) landed on
+  2026-10-07: `GridWalk.priceStepM`, `priceStepFor()` and the re-search walk they served all left the tree, so
+  **no part of this plan stands** — the fine pass prices at its own fine cell, as it always did.

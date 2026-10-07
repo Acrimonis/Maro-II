@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -8,6 +9,7 @@ import org.junit.Test
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.SpatialOperations
@@ -38,6 +40,12 @@ class AvoidPriceWalkTest {
     /** The fine step the `avoid` plan walks at: `clearanceStep(25.0)` = 12.5 m. */
     private val fineStepM = MultipassPull.clearanceStep(marginM)
 
+    /** The two-layer walk's **interior** cell (m) — the step it clears at and the step it prices at. */
+    private val interiorCellM = 100.0
+
+    /** The two-layer walk's **band** cell (m) — the step the local band window clears and samples at. */
+    private val bandCellM = 20.0
+
     private val paceKn = 28.0
     private val lambda = 2.0
     private val collarM = 100.0
@@ -61,6 +69,77 @@ class AvoidPriceWalkTest {
         LatLng(CHORD_LAT, east(0.0)), LatLng(CHORD_LAT, east(0.0)),
         timing = timing, memo = memo
     )
+
+    /**
+     * **The seam test the reviews owed: `runPass` itself is driven.** Every other fixture in this file
+     * threads its own price step, so a reverted call site inside the runner would leave them all green.
+     * This one hands [`RoutePassRunner.runPass`] a **two-layer** walk — the interior at 100 m, the band
+     * at 20 m — and reads the runner's own `FINAL` trace: the clearance step is the band's local cell,
+     * while the **price** step is the walk's own interior cell, which is the reading Phase 4b exists to
+     * keep.
+     */
+    @Test
+    fun runPassPricesAtTheWalksOwnInteriorCell() = runBlocking {
+        val walk = twoLayerWalk()
+        val trace = mutableListOf<String>()
+        RoutePassRunner().runPass(
+            twoLayerContext(walk), walk, lambda, publishStage = false, trace = { trace += it() }
+        )
+
+        val finalLine = trace.firstOrNull { it.startsWith("FINAL ") }
+        assertTrue("the pass reaches its final pull", finalLine != null)
+        assertTrue(
+            "the clearance step is the band's own 20 m cell",
+            finalLine!!.contains(" stepM=${fmt(bandCellM)}")
+        )
+        assertTrue(
+            "and the price step is the walk's interior 100 m, never the band's",
+            finalLine.contains("priceStepM=${fmt(interiorCellM)}") &&
+                !finalLine.contains("priceStepM=${fmt(bandCellM)}")
+        )
+    }
+
+    /** The two-layer walk: the interior at [interiorCellM] and the band at [bandCellM], one window each. */
+    private fun twoLayerWalk(): GridWalk {
+        val family = LatticeFamily.of(
+            BBox(43.45, 43.55, 6.95, 7.05), coarseCellM = interiorCellM, fineCellM = bandCellM
+        )
+        val coarseGrid = MultipassGrid(
+            family.coarse.latSouth, family.coarse.lonWest,
+            family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon,
+            2, 2, family.coarse.cellM, baseCostSec(family.coarse.cellM, paceKn)
+        )
+        val fineGrid = MultipassGrid(
+            family.fine.latSouth, family.fine.lonWest,
+            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+            10, 10, family.fine.cellM, baseCostSec(family.fine.cellM, paceKn)
+        )
+        val windows = WalkWindows.onLattice(
+            family.layers,
+            listOf(WalkWindow(coarseGrid, 0, 0, layer = 0), WalkWindow(fineGrid, 0, 0, layer = 1))
+        )
+        return GridWalk(coarseGrid, CellIndex(0, 0), CellIndex(1, 1), family.coarse.cellM, windows)
+    }
+
+    /** The water the two-layer walk is handed: one `GridContext` over the walk's own interior grid. */
+    private fun twoLayerContext(walk: GridWalk): GridContext {
+        val start = LatLng(43.45, 6.95)
+        val aim = LatLng(43.55, 7.05)
+        return GridContext(
+            world = BandWorld(bandM = bandWidthM, coastLat = CHORD_LAT, zones = emptyList()),
+            from = RoutePoint(start.latitude, start.longitude),
+            to = RoutePoint(aim.latitude, aim.longitude),
+            box = BBox(43.45, 43.55, 6.95, 7.05),
+            edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.55,
+            cellM = walk.cellM, fineCellM = bandCellM, marginM = marginM,
+            zoneOutsideMarginM = 0.0, pace = paceKn, grid = walk.grid,
+            startCell = walk.startCell, aimCell = walk.aimCell, start = start, aim = aim,
+            sets = emptyList(), limitAt = { null }, zones = emptyList(), priced = emptyList(),
+            approaches = EndApproaches.NONE, refusals = PullRefusals(),
+            depthGateActive = false, minDepthM = 0.0, regionSaturated = false,
+            windows = walk.windows
+        )
+    }
 
     /**
      * **The equivalence, exactly.** A constant price whose source declares its boundary far away: the
