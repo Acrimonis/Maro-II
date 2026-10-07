@@ -1,8 +1,16 @@
 <!-- scope: feature -->
 # Route — the fine-only walk's price step
 
-**Date:** 2026-10-06 · **Status:** in design · **Order:** the user's word of 2026-10-06, after the mark
-count's Phase 3 reading was reviewed from [`route-phase9.txt`](../../route-phase9.txt:1).
+**Date:** 2026-10-06 · **Status:** **parked** (2026-10-06) — Phase 1 landed and its subject walk then proved
+**unreachable**: the address it fixes returns the incumbent line before the setup Phase 1 changed is built,
+because the second pass is retired for both engines ([`UniformGridPlan.secondPassRegions()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:90) and
+[`EvolutiveGridPlan.secondPassRegions()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:141) each answer `emptyList()`, so [`fineReSearch()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:233) never reaches
+line 244).
+**Resume:** the fine walk that does run is [`finePass()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:71), which still prices at its own fine cell under
+a comment asserting the opposite rule — so this change belongs there, or nowhere, and `finePass`'s two pulls
+owe a `PullTiming` before any reading can name it.
+**Order:** the user's word of 2026-10-06, after the mark count's Phase 3 reading was reviewed from
+[`route-phase9.txt`](../../route-phase9.txt:1).
 
 **Origin:** the Phase 3 section of [`261005_FEAT_PLN_Route_mark-count.md`](261005_FEAT_PLN_Route_mark-count.md:144),
 whose instrument is what named this address.

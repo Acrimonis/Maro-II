@@ -350,17 +350,27 @@ class RouteAvoidEngine(
         }
         val waypoints = passReading.line
         if (publishStage) publish(lookupId, publishStage, RouteStage.PULL)
+        // The fine stage keeps its total `fineMs` and gains its two parts beside it: the refinement along
+        // the settled line — the crossings and the re-tension — and the fine re-search, so a shipped
+        // trace names which half spends the time rather than folding both into one figure.
         val fineStartNs = System.nanoTime()
+        val refineStartNs = System.nanoTime()
         val refined = finePass.finePass(ctx, waypoints, lambda, traceSink)
+        val refineMs = msSince(refineStartNs)
+        val reSearchStartNs = System.nanoTime()
         val reSearched = finePass.fineReSearch(ctx, refined, lambda, traceSink)
+        val reSearchMs = msSince(reSearchStartNs)
         val fineMs = msSince(fineStartNs)
 
         // **Phase 2's device reading** — behind the tag's own level, never on a shipped path: the coarse
-        // walk's own A* cost and duration, the second pass's duration beside it, and how far the coarse
-        // line sits from a fine reference walked over its own span box rather than the plan's corridor.
-        // The reference is built on **every** rung, so the three branches are measured alike.
+        // walk's own A* cost and duration, the second pass's duration and its two parts beside it, and how
+        // far the coarse line sits from a fine reference walked over its own span box rather than the
+        // plan's corridor. The reference is built on **every** rung, so the three branches are measured
+        // alike.
         if (logEnabled) {
-            instrumentCoarseWalk(ctx, lambda, waypoints, reSearched, passReading, coarseMs, fineMs)
+            instrumentCoarseWalk(
+                ctx, lambda, waypoints, reSearched, passReading, coarseMs, fineMs, refineMs, reSearchMs
+            )
         }
         // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
         // an outward-bulging curve — clear by construction, slowed where the bulge would foul — then the
@@ -604,7 +614,8 @@ class RouteAvoidEngine(
      * cruise speeds apart. `DEVICE PASS` is the coarse walk's own cost — the cells it was rasterized
      * over, how many were passable, how many the A\* expanded, how many cells its answer holds and how
      * long it took, the pull's own refusals — how many chords the land margin refused and how many the
-     * price guard — with the second pass's own duration beside it. `DEVICE DEV` is how far the coarse
+     * price guard — with the second pass's own duration and its two parts beside it — `refineMs` and
+     * `reSearchMs`. `DEVICE DEV` is how far the coarse
      * line sits from a fine line: `devChain*` reads the plan's own region, whose deviation saturates
      * where the corridor's wall stands, and `devRef*` reads the same walk over `avoid`'s second-pass
      * region, which has no such cap — so `devRef*` is the coarse walk's real error, the figure the
@@ -622,7 +633,9 @@ class RouteAvoidEngine(
         chainFine: List<LatLng>,
         pass: PassReading,
         coarseMs: Double,
-        fineMs: Double
+        fineMs: Double,
+        refineMs: Double,
+        reSearchMs: Double
     ) {
         val search = pass.search
         // (e) A coarse cell is twenty-five fine ones, so the walk's own counts name their layer: the interior's
@@ -636,7 +649,8 @@ class RouteAvoidEngine(
                 "pulled=${pass.pulledCount} snapped=${pass.snappedCount} " +
                 "landRefusals=${ctx.refusals.land} priceRefusals=${ctx.refusals.price} " +
                 "coarseM=${fmt(lineLengthM(coarse))}m " +
-                "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)}"
+                "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)} " +
+                "refineMs=${fmt(refineMs)} reSearchMs=${fmt(reSearchMs)}"
         }
         val refStartNs = System.nanoTime()
         val reference = finePass.referenceWalk(ctx, coarse, lambda, traceSink)

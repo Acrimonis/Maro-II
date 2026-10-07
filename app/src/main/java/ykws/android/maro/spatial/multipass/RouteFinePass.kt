@@ -42,7 +42,8 @@ internal class RouteFinePass(
 
     /**
      * **The fine pass (§5)** — the refinement along the settled answer, run once and **after** the λ
-     * loop, so the loop never pays for it.
+     * loop, so the loop never pays for it. Both of its pulls report their own tallies, so a trace taken
+     * the way the device takes it says whether this walk's price read grouped at all on its fine grid.
      */
     internal suspend fun finePass(
         ctx: GridContext,
@@ -84,16 +85,32 @@ internal class RouteFinePass(
         val fineGuard =
             costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
         val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
-        val pulled = MultipassPull.pull(setup, out, refusals)
+        // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
+        // the way the device takes it says whether the price walk grouped at all on this fine grid.
+        val pullTiming = PullTiming()
+        val pulled = MultipassPull.pull(setup, out, refusals, pullTiming)
+        trace {
+            "FINE PULL points=${pulled.size} priceReads=${pullTiming.priceReads} marks=${pullTiming.marks} " +
+                "memoPriceHits=${pullTiming.memoPriceHits} " +
+                "stepM=${fmt(pullTiming.stepM)} priceStepM=${fmt(pullTiming.priceStepM)}"
+        }
         val snapped = snapToCorners(setup, sets, pulled)
-        val settled = MultipassPull.pull(setup, snapped, refusals)
-        trace { "FINE settled points=${settled.size} fineCell=${fmt(fineCellM)}m" }
+        val finalTiming = PullTiming()
+        val settled = MultipassPull.pull(setup, snapped, refusals, finalTiming)
+        trace {
+            "FINE settled points=${settled.size} fineCell=${fmt(fineCellM)}m " +
+                "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +
+                "memoPriceHits=${finalTiming.memoPriceHits} " +
+                "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
+        }
         return settled
     }
 
     /**
      * The crossing's own **local A\***: the stretch of [line] standing inside [zone]'s box, cut out and
-     * re-solved at [fineCellM], with the two vertices flanking the cut as the splice's own ends.
+     * re-solved at [fineCellM], with the two vertices flanking the cut as the splice's own ends. Each
+     * re-solve prints its own ms and box — and its local pull its tallies — so a route entering two
+     * zones separates them by their own figures.
      */
     internal suspend fun solveCrossing(
         world: MultipassWorld,
@@ -118,13 +135,15 @@ internal class RouteFinePass(
         refusals: PullRefusals?,
         trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
+        val zoneStartNs = System.nanoTime()
         val inflated = inflateBox(zone.bbox(), outsideMarginM + cellM)
         val box = clampTo(inflated, corridor)
         val clamped = box != null && box != inflated
         if (box == null) {
             trace {
                 "FINE zone=${zone.name} box=empty clamped=true fineCell=${fmt(fineCellM)}m " +
-                    "first=n/a last=n/a local=no spliced=no reason=box-empty"
+                    "first=n/a last=n/a local=no spliced=no reason=box-empty " +
+                    "ms=${fmt(msSince(zoneStartNs))}"
             }
             return null
         }
@@ -133,7 +152,8 @@ internal class RouteFinePass(
         val head = "FINE zone=${zone.name} box=${boxText(box)} clamped=$clamped fineCell=${fmt(fineCellM)}m"
         if (first < 0 || last < 0) {
             trace {
-                "$head first=$first last=$last local=no spliced=no reason=no-stretch"
+                "$head first=$first last=$last local=no spliced=no reason=no-stretch " +
+                    "ms=${fmt(msSince(zoneStartNs))}"
             }
             return null
         }
@@ -172,20 +192,30 @@ internal class RouteFinePass(
             trace {
                 "$head first=$first last=$last local=no spliced=no reason=local-no-path " +
                     "expansions=${search.expansions} passable=${search.passableCells} " +
-                    "aimClosed=${search.aimClosed}"
+                    "aimClosed=${search.aimClosed} ms=${fmt(msSince(zoneStartNs))}"
             }
             return null
         }
         val localPath = listOf(from) + path.map { grid.center(it.row, it.col) } + listOf(to)
-        val pulled = MultipassPull.pull(setup, localPath, refusals)
+        // The crossing's own local pull reports the same tallies the runner's PULL line carries, so a
+        // route entering two zones separates their re-solves by their own price reads.
+        val pullTiming = PullTiming()
+        val pulled = MultipassPull.pull(setup, localPath, refusals, pullTiming)
+        trace {
+            "FINE LOCAL PULL zone=${zone.name} box=${boxText(box)} points=${pulled.size} " +
+                "priceReads=${pullTiming.priceReads} marks=${pullTiming.marks} " +
+                "memoPriceHits=${pullTiming.memoPriceHits} " +
+                "stepM=${fmt(pullTiming.stepM)} priceStepM=${fmt(pullTiming.priceStepM)}"
+        }
         val snapped = snapToCorners(setup, sets, pulled)
         val local = MultipassPull.pull(setup, snapped, refusals)
         val localCost = pricedLineCost(setup, local)
         val coarseCost = pricedLineCost(setup, line.subList(first, last + 1))
         if (localCost > coarseCost) {
             trace {
-                "FINE zone=${zone.name} spliced=no reason=worse " +
-                    "local=${fmt(localCost)} coarse=${fmt(coarseCost)}"
+                "FINE zone=${zone.name} box=${boxText(box)} spliced=no reason=worse " +
+                    "local=${fmt(localCost)} coarse=${fmt(coarseCost)} " +
+                    "ms=${fmt(msSince(zoneStartNs))}"
             }
             return line
         }
@@ -193,10 +223,15 @@ internal class RouteFinePass(
         if (first > 0) out.addAll(line.subList(0, first))
         out.addAll(if (first > 0) local.subList(1, local.size) else local)
         if (last < line.size - 1) out.addAll(line.subList(last + 2, line.size))
-        trace { "$head first=$first last=$last local=yes spliced=yes points=${out.size}" }
         trace {
-            "FINE splice zoneM=${fmt(zoneMetres(listOf(zone), local))} " +
-                "coarse zoneM=${fmt(zoneMetres(listOf(zone), line.subList(first, last + 1)))}"
+            "$head first=$first last=$last local=yes spliced=yes points=${out.size} " +
+                "ms=${fmt(msSince(zoneStartNs))}"
+        }
+        trace {
+            "FINE splice zone=${zone.name} box=${boxText(box)} " +
+                "zoneM=${fmt(zoneMetres(listOf(zone), local))} " +
+                "coarse zoneM=${fmt(zoneMetres(listOf(zone), line.subList(first, last + 1)))} " +
+                "ms=${fmt(msSince(zoneStartNs))}"
         }
         return out
     }
