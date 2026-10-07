@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-07 20:55
+modified: 2026-10-07 21:01
 ---
 
 # Feature: Route
@@ -153,6 +153,7 @@ The live numbered requirements — added after the master book was retired; the 
 - [ ] **The multi-route save, withdrawn 2026-09-24** — the exit dialog no longer offers to write the session's routes; resolve later whether it comes back and, if it does, what names its files.
 - [ ] **The provisional figure is shown unmarked (R96)** — a waiting row's early distance and ETA wear the settled weight while the figure will move by up to a percent; decide whether a mark is owed.
 - [ ] **`slowMetres == distance` on a coastal line** — the device trace's own metres say **every** leg of a coastal route is slower than the cruise pace, so the smoothed profile rides a hair under it across the whole line; that is the profile's shape rather than band membership, and it is the reason any contiguity fold on this data is unsafe.
+- [ ] **Parked — the acquisition is slow: three full passes over an oversized corridor** — one arming runs three complete passes (the ladder's Fast · Best · Fun), each re-running the A\*, pull, fine pass and clock with only the grid shared; the box is grown `route.avoid.corridor.reachM` (3704 m) on every side and doubles on a failed first pass, and the pull's coast-distance reads are the priciest single step. **Not measured** — the engine's timings print only on-device under the `MaroRoute` tag, so the leading stage is read with `adb logcat -s MaroRoute` before any lever (the halo, the rung count, a coarse-first pass, the retry, a cached coast-distance field, less concurrency) is chosen. Parked on the user's word of 2026-10-07.
 - [ ] **Parked — Phase 5's marker weights** — avoid-only, the weight scaling the per-metre price inside a circle's radius or a corridor's band and never replacing the base, merged with the shipped marker scale's wall into one scale at that time, and the review over Phase 6's folded fixes.
 - [ ] **Parked — the fine band's Change 4** — the code already re-solves at the ratio the second engine's plans settle, so the item is a decision about the record.
 - [ ] **Parked — swap the drawer's route ends** — a tier-2 `swap_vert` button on the ends row that exchanges the two stored end tokens; the `RouteEndSelection.resolve` fallback keeps each selector honest.
