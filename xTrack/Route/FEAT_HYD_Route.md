@@ -1,29 +1,66 @@
 # Context Hydration — Route — 2026-10-07
 
-**Last Bake:** 2026-10-07 10:53 UTC — written by `#bake`
-**Branch:** feature/tracks-rotes-norm — the Tracks-owned path render engine's branch, on which the route's map half was migrated; the plan was then extended with the settled speed/arrow normalisation, in design only
+**Last Bake:** 2026-10-07 13:40 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** no covered action stopped. No dependency was added, no machine-shaped data file was opened, and the device was the user's throughout — the route's map half changed but was never deployed or logged, that pass left owed. Every claim about the code came from a file read or a build's own output; the run's figures — the 653-test scoped suite and the green `apk-build.bat` — are the commands' own output. This session's plan extension touched no route code, so it carries no figures of its own, and no git write ran before the commit that closes the session.
+**Directive trace:** Since the last bake (2026-10-07 10:17 UTC) the work ran on the user's own words — one
+`#implement` on the rung-ranking plan, then six follow-ups on the acquisition panel and the followed tile:
+the winner's disc moved behind the name, its first column's padding restored and the disc pinned to the
+cell's top-right, the disc then **dropped** as distracting, the followed tile re-led with the ETA over
+`distance · preference @ pace`, the cell made flip-able on a tap, and its border made to pulse in the
+toggle's blue — plus the feature file's own cleanup to present-tense state, the `#bake`, `#commit` and
+`#push` invocations. No dependency was added, no machine-shaped data file was opened, no work was started
+without an order, the device was not touched, and every claim about the code follows a file read.
 
 ## State
 
-**The live route now draws through the one path render engine Tracks owns.** The plan [`../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md`](../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md) settled **D10** — the live route's lines are **rebuilt** each pass through the painter's `lineRendering(spec, …)` door, while the destination pin stays **attach-once** (a marker, mutated in place) — because speed banding yields a stroke count a fixed pool cannot hold. `RouteHost`'s hand-built polylines — the pool, the derived casing, the travelled run and the provisional line — are gone, replaced by painter output under the same `route_*` titles, so `OverlayZOrder`'s route tier is unchanged.
+**The rung ranking shipped whole, and the mode was reshaped around it.** [`RoutePreference.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt)
+is the ladder's one home for its three λ values, indices and words; [`RoutePassRanking.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt)
+ranks the rungs that have landed — Fast the total time, Best the total time under the
+`route.avoid.speedZone.timeBudgetPct` gate, Fun the absolute zone seconds with the clock last, one shared
+tail on a lead tie and a total tie to the rung nearest the preference — and [`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt)
+folds a **running best** at every rung's terminal under one `Mutex`, riding the update as [`RouteRunningBest`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:150).
+The seat follows that winner on every improvement and **freezes on a hand touch**; the fan's `Route auto`
+child takes the **final best** ([`selectBestRoute()`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt)); the middle stop is renamed **Best**/**Optimal**;
+and the budget gained a Routing-settings row, its code default brought onto the shipped **25**.
+[`RoutePassRules`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt) became
+`RoutePassRanking` with `fineSpliceBetter` and its test retired, and the register gained **R98**.
 
-**Parity landed with it.** The route spec is built from a `RoutePlan`, and **D11** derives each point's speed from the leg it leaves (its haversine length over the leg's seconds), so the chevrons and the speed banding run on the live line exactly as on a stored route — the plan's partial or draft legs yield a neutral speed rather than a wrong one. The dash reads `path.line.dash.*`; the pin's ring colour is now `path.pin.ring.color`; and the two route gates (`path.gate.speedColor` / `speedArrows`) join the master Arrows/Colours chips through `routeLineRenderPlan`, read from `appSettings` passed into the host.
+**The acquisition table was settled by three passes.** The winner's disc moved from a leading slot to
+behind the rung name, then to the top-right of the first cell with the column's inset restored — and was
+finally **dropped** on the user's word as distracting, so the selection alone marks the chosen line while
+the *so far* mark still rides the running best's row. The figures column prints **time first, distance
+second** for landed and pending rows alike.
 
-**Designed, not built — the route's gate pair would retire.** The same plan's `## Speed and arrow display` section records the next normalisation, and **no code for it exists**: the route gates `path.gate.speedColor` / `path.gate.speedArrows` give way to `path.route.heatmap.enabled` / `path.route.arrow.enabled`, the meaning narrows so each kind's persisted pair governs its own kind, and the Routing tab's rows are then owned by Route with no shared control. It stays in design until ordered.
+**The followed tile is the route's own, and flips.** Its main figure is the remaining time through
+[`routeEtaText`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt), over one line built
+from `route_trip_line_fmt`: the distance left, the Driving preference's word and the cruising pace. A tap
+flips it to the shore reading and back, a freshly armed route opening on the trip face, and the trip face
+wears a **border pulsing in the route toggle's own blue** on the app's single pulse beat.
 
-**Open and recorded.** The **device pass is owed** — a followed route's chevrons and bands, the pool's rebuild not flickering, and the pin still landing on the resolved end. One behaviour change to confirm on the water: the live (unpinned) route now dashes like every route. The parked `route.avoid.fine.cellRatio` red is the scoped suite's single red, untouched by this pass. Named rather than lost: this feature's Feature-Summaries row in `GLOBAL_CONTEXT.md` could not be re-dated because its one line exceeds the editor's match limit — its front-matter's `modified` alone carries this bake.
+**The feature file was cleaned on the user's word.** [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) dropped its
+`## Implemented` log, both closed walk levels, the `## Delta` narrative and the struck R83–R87 rows, from
+355 lines to about 145, and now states the current code, its live requirements at the same numbers, its
+rules, key files, docs, open todos and owed passes.
+
+Suite **940 / 1 / 11** — the parked `route.avoid.fine.cellRatio` red alone — and `assembleDebug` green.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt` — migrated onto the painter; `appSettings` threaded in; the remaining-run speed derivation
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — the `lineRendering` door and the shared `directionSpacingProvider` the route reads
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the one `RouteHost(...)` call now passes `appSettings`
-- `app/src/main/java/ykws/android/maro/ui/map/LineRenderSeam.kt` — the route adapter (`toRenderPoints(points, legTimesSec)`) the host reads
-- `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — the plan, its in-design speed/arrow section naming the route gate retirement
-- `docs/maro-code.md`, `docs/ui-drawer-guidelines.md` — the route's map half noted as the shared engine's
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt`, `RoutePassRanking.kt` — **new**, the ladder's home and the preference-aware ranking; `RoutePassRules.kt` deleted
+- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt`, `RouteAvoidEngine.kt` — `RouteRunningBest` on the seam, the `runningBest` field on the update, the fold at every terminal
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the running best exposed, the seat following it and freezing, `selectBestRoute()`
+- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `RouteConfirmPanel.kt`, `MapScreen.kt` — the row's figure order and *so far* mark, the cleaned first column, the panel's new parameters
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — the trip face's ETA-first reading, the two-face flip, the pulsing border
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/maro.properties` — the budget default 25
+- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `route_winner_so_far`, the Best/Optimal rename, `route_trip_line_fmt`; `route_trip_ago` and `route_trip_forced` retired
+- `app/src/test/java/ykws/android/maro/spatial/multipass/RoutePassRankingTest.kt` — **new**, six fixtures; `RouteAvoidEngineTest`, `RouteAcquisitionTest`, `RouteAutoPickTest`, `RoutePlanTest` retargeted
+- `xTrack/Route/FEAT_DSC_Route.md`, `FEAT_DOC_Route_engines.md`, `261007_FEAT_PLN_Route_rung-ranking-preselection.md` — the record
+- `xTrack/GLOBAL_CONTEXT.md` — this bake's routing row and focus entry
 
 ## Next Step
 
-Take the owed device pass over the migrated route — chevrons, bands, the pool's rebuild and the pin — and confirm the live route's new dash against the user's eye; the route's gate retirement waits in the plan, in design, until it is ordered.
+The ranking's device acceptance and the followed tile's new reading are the user's own, unmeasured. The
+parked `route.avoid.fine.cellRatio` red stays by the user's word, and four findings stand open: the
+`RoutePreference.ofIndex` silent default, "three rungs" living in three places, two stale lines in
+[`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md), and the removed `## Implemented` section against
+`AGENTS.md` §7a's bake target.

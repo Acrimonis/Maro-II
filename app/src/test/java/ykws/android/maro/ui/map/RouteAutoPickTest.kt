@@ -8,12 +8,11 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.spatial.SpatialOperations
 
 /**
- * **The fan's *Route (auto)* child** (R80) — arming with the intent to take the first answer, read the
- * way the machine sees it: the one-shot keys on the **main line existing** (`Choosing.plan != null`)
- * and never on "a non-empty page set". Index 0 of the page set *is* the main, which the arming puts
- * first; the seat may have followed the first landing onto a candidate (R94), so the child names
- * **index 0** through `selectMainRoute()` rather than riding the seat — no candidate landing is ever
- * needed, or allowed, to move the line it takes.
+ * **The fan's *Route (auto)* child** (R80) — arming with the intent to take the **final best** of the
+ * settled set, read the way the machine sees it: the one-shot keys on the set being **settled** — nothing
+ * still searching, at least one line landed — so it waits for the ladder's last rung rather than for the
+ * main's line alone. The selection then seats the running best, so no candidate that landed first may
+ * move the line it takes.
  */
 class RouteAutoPickTest {
 
@@ -42,26 +41,42 @@ class RouteAutoPickTest {
         asked = plan == null
     )
 
-    /** The instant that arms the one-shot: the main line landing. */
+    /** The instant that arms the one-shot: the set settling with at least one line landed. */
     @Test
-    fun theAutoPickFiresTheInstantTheMainLineExists() {
-        assertFalse("with nothing landed yet, the intent waits", routeAutoPickReady(true, choosing()))
-        assertTrue("the main line is the trigger", routeAutoPickReady(true, choosing(settled())))
+    fun theAutoPickFiresOnceTheSetSettlesWithALine() {
+        assertFalse(
+            "with nothing landed yet, the intent waits",
+            routeAutoPickReady(true, choosing(), anyLanded = false)
+        )
+        assertTrue(
+            "a settled set carrying a line is the trigger",
+            routeAutoPickReady(true, choosing(settled()), anyLanded = true)
+        )
+        assertFalse(
+            "a set still searching is not settled",
+            routeAutoPickReady(true, choosing(), anyLanded = true)
+        )
     }
 
     /** The intent is the fan's own child: without it, the ordinary Route arming takes nothing. */
     @Test
     fun theIntentAloneOpensNothing() {
-        assertFalse("Route arms without the flag and keeps the panel", routeAutoPickReady(false, choosing(settled())))
+        assertFalse(
+            "Route arms without the flag and keeps the panel",
+            routeAutoPickReady(false, choosing(settled()), anyLanded = true)
+        )
     }
 
     /** A mode that has ended, or one already following, is no acquisition for the flag to fire in. */
     @Test
     fun anEndedOrFollowingModeFiresNothing() {
-        assertFalse("an ended acquisition takes nothing", routeAutoPickReady(true, RouteState.Idle))
+        assertFalse(
+            "an ended acquisition takes nothing",
+            routeAutoPickReady(true, RouteState.Idle, anyLanded = true)
+        )
         assertFalse(
             "and neither does a route already followed",
-            routeAutoPickReady(true, RouteState.Following(settled()))
+            routeAutoPickReady(true, RouteState.Following(settled()), anyLanded = true)
         )
     }
 }

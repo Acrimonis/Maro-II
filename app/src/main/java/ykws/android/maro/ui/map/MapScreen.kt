@@ -804,6 +804,9 @@ fun MapScreen(
     val routeStage by routeViewModel.stage.collectAsState()
     val routeStepReadings by routeViewModel.stepReadings.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
+    // **The ladder's running best, by the lookup that owns its row** — the winner the seat follows and
+    // the panel marks, reported at each rung's terminal.
+    val routeRunningBest by routeViewModel.runningBest.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
     // first (index 0) — and the one the selection stands on, both in computation order, so the map's
     // pool and the provisional line stay tied to the main (R54, R64).
@@ -2148,15 +2151,16 @@ fun MapScreen(
              * route-specific stands once this returns, the toggle's blue face and the one exit dialog
              * being the mode's whole presence from here on.
              *
-             * [selectMain] names **index 0** instead of the seat, for the auto-pick alone (R80): the
-             * one-shot promises the main, and no candidate that landed first may move it.
+             * [selectBest] takes the ladder's **final best** instead of the seat, for the auto-pick
+             * alone (R80): the one-shot promises the ranking's winner of the settled set, so it takes
+             * the running best's page rather than index 0.
              *
              * R18's camera return is the screen's, released on this same frame: the current fix in GPS
              * mode, the anchor coordinate in demo mode.
              */
-            fun followRoute(selectMain: Boolean = false) {
+            fun followRoute(selectBest: Boolean = false) {
                 val origin = (routeState as? RouteState.Choosing)?.start
-                if (selectMain) routeViewModel.selectMainRoute() else routeViewModel.selectRoute()
+                if (selectBest) routeViewModel.selectBestRoute() else routeViewModel.selectRoute()
                 chrome.showTrackDrawer = false
                 if (appSettings.gpsMode) {
                     viewModel.recenterNow()
@@ -2734,16 +2738,14 @@ fun MapScreen(
                     armRouteMode()
                 }
             )
-            // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **settled
-            // line has landed** — `plan != null`, which is the **main's** (index 0) — and never on "a
-            // non-empty page set", which is the same moment one emission later. `selectMain` names
-            // index 0 so the selection takes exactly that line even where the seat followed onto a
-            // candidate that landed first; the shell's follow hand-over follows. The flag is cleared
-            // before the selection, so no second pass can take it.
-            LaunchedEffect(routeState, routeAutoPick) {
-                if (routeAutoPickReady(routeAutoPick, routeState)) {
+            // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **set is
+            // settled** — nothing searching and at least one line landed — so it takes the ranking's
+            // **final best** rather than index 0, which is why `routePages` is a key: the readiness
+            // turns exactly when the last rung's terminal lands. `selectBest` seats the running best.
+            LaunchedEffect(routeState, routeAutoPick, routePages) {
+                if (routeAutoPickReady(routeAutoPick, routeState, routePages.any { it.plan != null })) {
                     routeAutoPick = false
-                    followRoute(selectMain = true)
+                    followRoute(selectBest = true)
                 }
             }
             // The early save's growth: each main iteration re-saves the same draft id with the line
@@ -2990,6 +2992,12 @@ fun MapScreen(
                 routeTripFigure(
                     plan = following.plan,
                     from = routeBoatPosition,
+                    // The **configured** preference and the **set** pace — what the user chose, read
+                    // as the id and the figure the card prints rather than the literal.
+                    preferenceLabelResId = routeRungLabelRes(
+                        routeRungIndex(appSettings.routeSlowWaterAversion.toDouble())
+                    ),
+                    paceKn = appSettings.routeFreeWaterPaceKn.toDouble(),
                     nowMs = System.currentTimeMillis()
                 )
             }
@@ -3007,6 +3015,7 @@ fun MapScreen(
                         isLandscape = true,
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
+                        runningBestLookupId = routeRunningBest,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
@@ -3050,6 +3059,7 @@ fun MapScreen(
                         isLandscape = false,
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
+                        runningBestLookupId = routeRunningBest,
                         onMeasuredHeight = { dashboardBand.measuredRoute = it },
                         panelMaxHeight = bandCeiling,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },

@@ -5,19 +5,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
- * The corridor chain and the walk it feeds: the region the second pass read before it was retired for
- * `evolutive` on 2026-10-04, the windows it is rasterized into, and the seam between two of them.
+ * The corridor chain and the walk it feeds: the ribbon the second pass read before it was retired, the
+ * windows it is rasterized into, and the seam between two of them.
  *
- * The chain is **machinery kept for the two-layer first walk**, which is its next user — so it is still
- * tested here while the plan's own answer to it is the empty one [`theEvolutivePlanAnswersNoRegionNow`]
- * pins.
+ * The chain is **machinery kept for the two-layer first walk**, which is its next user, so it is still
+ * tested here.
  */
 class RouteCorridorChainTest {
 
@@ -97,29 +95,6 @@ class RouteCorridorChainTest {
                 SpatialOperations.haversine(a, b) <= 150.0 + 1.0
             )
         }
-    }
-
-    /**
-     * The plan is the region's one decision, and **both shipped plans answer none** — the re-walk is retired
-     * for `evolutive` on the corridor reading of 2026-10-04 and for `avoid` on that day's own capture, where
-     * it cost 2.7×–4.0× the coarse pass and decided three keeps against three refusals by slivers.
-     *
-     * The interface's *nothing to re-search* is how each is retired, and the chain helper itself keeps its
-     * own tests above, because the two-layer first walk is what it now waits for.
-     */
-    @Test
-    fun bothPlansAnswerNoRegionNow() {
-        val line = listOf(LatLng(43.5000, 7.0000), LatLng(43.5000, 7.0300))
-
-        assertTrue(
-            "evolutive's second pass is retired: the plan answers the nothing-to-re-search case",
-            EvolutiveGridPlan.secondPassRegions(line, corridor, 50.0, AppConfig.routeEvolutiveGridCellM)
-                .isEmpty()
-        )
-        assertTrue(
-            "and avoid's is retired too, so the settled line's own box is no longer re-walked",
-            UniformGridPlan.secondPassRegions(line, corridor, 50.0, 100.0).isEmpty()
-        )
     }
 
     /**

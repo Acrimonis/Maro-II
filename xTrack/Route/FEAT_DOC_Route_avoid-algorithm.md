@@ -5,6 +5,10 @@
 work shipped. Facts and rationale only — the values live in `maro.properties`, this file names the
 roles and the decisions.
 
+> **Superseded for current state** by [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md), the central
+> reference for the engines as they stand. This file is kept as the algorithm's design record; its
+> `searchOnce`, λ-correction, fairing and re-search sections no longer describe the shipped code.
+
 ## The pipeline
 
 One solve in [`RouteAvoidEngine.searchOnce`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) runs:

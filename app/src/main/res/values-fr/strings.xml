@@ -689,6 +689,9 @@
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <!-- La ligne unique sous le chiffre du trajet suivi : la distance restante, le mot de la
+         préférence de conduite et le pas de croisière en vigueur, joints par un seul format. -->
+    <string name="route_trip_line_fmt">%1$s · %2$s @ %3$s</string>
     <string name="route_summary_distance_value_fmt">%1$.1f</string>
     <string name="route_summary_distance_unit">NM</string>
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
@@ -703,19 +706,21 @@
     <string name="route_stat_eta_route">ETA route</string>
     <!-- La marque d\'attente : ce qu\'affiche un chiffre qu\'un mode ne détient pas encore. -->
     <string name="route_value_pending">--</string>
-    <string name="route_trip_ago">il y a %1$s</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
-    <string name="route_trip_forced">forcé : %1$s</string>
-    <!-- The budget's own verdict, apart from the forced crossing above: a way around exists and the
-         price could not reach it. Reported, never a refusal — nothing is hidden while it stands. -->
+    <!-- Le verdict du budget : un contournement existe et le prix n\'a pas pu l\'atteindre. Rapporté,
+         jamais un refus — rien n\'est caché tant qu\'il tient. -->
     <string name="route_budget_unmet">Budget d\'eau lente non respecté</string>
     <string name="route_budget_unmet_desc">Le trajet passe plus de temps que le budget ne l\'autorise au ralenti dans les zones de vitesse.</string>
     <string name="settings_route_pace_label">Vitesse de croisière</string>
     <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
     <string name="settings_route_preference_label">Préférence de conduite</string>
-    <string name="settings_route_preference_desc">Quelle route le curseur choisit en premier : contourner les zones lentes, une ligne équilibrée, ou tout droit à travers.</string>
+    <string name="settings_route_preference_desc">Quelle route le curseur choisit en premier : contourner les zones lentes, la ligne la plus rapide qui reste sous le budget d\'eau lente, ou tout droit à travers.</string>
+    <!-- La porte de Optimal : la part du temps de trajet qu\'une zone de vitesse peut ralentir avant que la route la plus propre ne l\'emporte. -->
+    <string name="settings_section_route_budget">Budget d\'eau lente</string>
+    <string name="settings_route_budget_label">Budget</string>
+    <string name="settings_route_budget_desc">La part du trajet que Optimal laisse aux zones de vitesse avant que la route la plus propre ne l\'emporte. 0 ne garde que les lignes sans zone ; 100 laisse l\'horloge décider.</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
@@ -731,7 +736,7 @@
     <!-- Les libellés hâte-versus-plaisir des réglages pour les trois barreaux — les trois mêmes
          aversions que la première colonne de l\'acquisition nomme dans son propre vocabulaire. -->
     <string name="route_computation_through">Rapide</string>
-    <string name="route_computation_balanced">Équilibré</string>
+    <string name="route_computation_balanced">Optimal</string>
     <string name="route_computation_around">Plaisir</string>
     <!-- Les libellés des barreaux de la première colonne de l\'acquisition — les trois aversions fixes
          nommées court, gardées distinctes des mots hâte-versus-plaisir des réglages ci-dessus. -->
@@ -740,6 +745,8 @@
     <string name="route_rung_around">Autour</string>
     <!-- Le séparateur entre les noms de barreaux d\'une page fusionnée, lu de gauche à droite. -->
     <string name="route_rung_names_sep">" | "</string>
+    <!-- La marque qu\'une ligne porte tant que l\'échelle calcule encore : le meilleur provisoire, jamais un verdict. -->
+    <string name="route_winner_so_far">pour l\'instant</string>
     <!-- Le delta du panneau dès qu\'une seconde page terminée existe — la durée d\'une page contre celle
          de la sélection, lue comme « de moins » ou « de plus ». -->
     <string name="route_comparison_less">de moins</string>

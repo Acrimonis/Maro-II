@@ -27,6 +27,7 @@ import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
+import ykws.android.maro.spatial.RouteRunningBest
 import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -366,6 +367,28 @@ class RouteAcquisitionTest {
         )
     }
 
+    /** **A row's two figures, in the panel's own order** (2026-10-07): the time leads, the distance follows. */
+    @Test
+    fun routeRowLinesPrintTheTimeFirstForALandedRowAndAPendingOneAlike() {
+        val landed = routeRowLines(RouteRowFigures(distanceNm = 3.5, durationSec = 726.0))
+        assertEquals(
+            "the time leads a landed row",
+            listOf(RouteRowKind.DURATION, RouteRowKind.DISTANCE),
+            landed.map { it.kind }
+        )
+        assertEquals("and carries the settled seconds", 726.0, landed.first().value!!, 1e-9)
+        assertEquals("with the distance second", 3.5, landed.last().value!!, 1e-9)
+
+        val pending = routeRowLines(null)
+        assertEquals(
+            "a waiting row reverses with it",
+            listOf(RouteRowKind.DURATION, RouteRowKind.DISTANCE),
+            pending.map { it.kind }
+        )
+        assertNull("and its time line prints nothing yet", pending.first().value)
+        assertNull("and neither does its distance line", pending.last().value)
+    }
+
     /** The ETA view orders landed pages fastest-first, keeps the ladder's order on a tie, and parks pending last. */
     @Test
     fun routePagesByEtaOrdersFastestFirstAndKeepsTheLadderOnTies() {
@@ -403,9 +426,13 @@ class RouteAcquisitionTest {
         )
     }
 
-    /** The preference names the seat, re-applied on every landing: a pending preference steps aside, a landed one seats itself. */
+    /**
+     * **The preference seats an untouched acquisition; a hand touch freezes it for good** (2026-10-07):
+     * while the reader has not taken over, the seat re-reads on every landing; from the first row tap or
+     * swipe, no landing may move it any more.
+     */
     @Test
-    fun aLandingSeatsTheSelectionOffAPendingRow() = runTest {
+    fun aLandingSeatsTheSelectionOffAPendingRowUntilTheUserTakesOver() = runTest {
         val engine = CountingEngine(computations = 3)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
@@ -418,7 +445,11 @@ class RouteAcquisitionTest {
         assertEquals("the absolute set stands on the still-pending row", 1, viewModel.selectedIndex.value)
 
         engine.publish(ids[2], line(start, shortcut))
-        assertEquals("the landed preference re-seats itself", 2, viewModel.selectedIndex.value)
+        assertEquals(
+            "and a landing after the reader's touch no longer moves the seat",
+            1,
+            viewModel.selectedIndex.value
+        )
     }
 
     /** The preference names the initial seat, and every landing re-applies it (D12 rework). */
@@ -471,25 +502,28 @@ class RouteAcquisitionTest {
     }
 
     /**
-     * **The auto-pick takes the main whatever the seat holds** (R80): with a candidate landed first the
-     * seat stands on it, so the one-shot's own selection names index 0 rather than the seat's page.
+     * **The auto-pick takes the ranking's final best** (R80): with a candidate landed first the seat
+     * stands on it, and the one-shot's own selection takes the winner the engine reports — here the main
+     * — rather than the seat's page. The seat follows each improvement on the way.
      */
     @Test
-    fun theAutoPickTakesTheMainWhateverTheSeatHolds() = runTest {
+    fun theAutoPickTakesTheFinalBestNotTheSeat() = runTest {
         val engine = CountingEngine(computations = 3)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
         val ids = viewModel.pages.value.map { it.lookupId!! }
 
-        engine.publish(ids[2], line(start, shortcut))
-        engine.publish(ids[0], line(start, aim))
-        assertEquals("the seat stands on the candidate", 2, viewModel.selectedIndex.value)
+        engine.publish(ids[2], line(start, shortcut), runningBest = ids[2])
+        assertEquals("the seat follows the running best", 2, viewModel.selectedIndex.value)
 
-        viewModel.selectMainRoute()
+        engine.publish(ids[0], line(start, aim), runningBest = ids[0])
+        assertEquals("and moves again on the next improvement", 0, viewModel.selectedIndex.value)
+
+        viewModel.selectBestRoute()
 
         val following = viewModel.state.value as RouteState.Following
         assertEquals(
-            "the one-shot followed the main, never the seat's candidate",
+            "the one-shot followed the ranked winner, never the seat's earlier candidate",
             listOf(start, aim),
             following.plan.points
         )
@@ -596,7 +630,7 @@ private class CountingEngine(private val computations: Int = 1) : RouteEngine {
         cancelled += id
     }
 
-    fun publish(id: RouteId, result: RouteResult.Success?) {
+    fun publish(id: RouteId, result: RouteResult.Success?, runningBest: RouteId? = null) {
         _updates.tryEmit(
             RouteUpdate(
                 routeId = id,
@@ -604,7 +638,8 @@ private class CountingEngine(private val computations: Int = 1) : RouteEngine {
                 nextStage = null,
                 line = result?.points ?: emptyList(),
                 result = result,
-                reason = if (result == null) RouteReason.NO_PATH else null
+                reason = if (result == null) RouteReason.NO_PATH else null,
+                runningBest = runningBest?.let { RouteRunningBest(it, compared = 1) }
             )
         )
     }

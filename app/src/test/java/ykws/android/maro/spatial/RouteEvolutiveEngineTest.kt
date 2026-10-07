@@ -14,8 +14,8 @@ import ykws.android.maro.spatial.multipass.clockSampleM
 
 /**
  * `evolutive`'s own semantics: the two sizes its plan answers and the precision the shipped file holds.
- * The adaptive grid itself is the grid plan's to build; this pins the **metres** the walk, the second pass
- * and the clock read today, so the device pass measures the grid rather than a sizing mistake.
+ * The adaptive grid itself is the grid plan's to build; this pins the **metres** the walk and the clock
+ * read today, so the device pass measures the grid rather than a sizing mistake.
  */
 class RouteEvolutiveEngineTest {
 
@@ -44,10 +44,6 @@ class RouteEvolutiveEngineTest {
         assertEquals("the 20 m contract is the clamp's own ceiling", 20.0, fineM, 1e-9)
         assertTrue("a fine cell is never coarser than the walk it refines", fineM <= coarseM)
         assertEquals("and the coarse cell divides it exactly", 0.0, coarseM % fineM, 1e-9)
-        assertTrue(
-            "the corridor's floor is the 100 m price collar the A* reads",
-            shipped.getProperty("route.evolutive.fine.corridorHalfWidthM")!!.trim().toDouble() >= 100.0
-        )
     }
 
     /**
@@ -67,7 +63,7 @@ class RouteEvolutiveEngineTest {
             1e-9
         )
         assertEquals(
-            "and the second pass's is its metres twin",
+            "and the plan's fine cell is its metres twin",
             AppConfig.routeEvolutiveGridFineCellM,
             fineM,
             1e-9
