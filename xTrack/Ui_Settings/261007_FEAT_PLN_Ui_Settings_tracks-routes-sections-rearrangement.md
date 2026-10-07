@@ -1,6 +1,6 @@
 # Ui_Settings — the Tracks and Routes sections rearranged
 
-**Status:** in design, all six decisions settled, nothing implemented
+**Status:** shipped 2026-10-07 (the rearrangement and its follow-up pass F0–F7, below)
 **Created:** 2026-10-07
 **Owner:** Ui_Settings owns the Layers tab's surface; the values the rows write stay owned by Tracks and Route
 
@@ -102,3 +102,53 @@ five blocks in this order, all in `MapScreenSettingsOverlay.kt`:
 - No change to the "Tracks and Routes" section header, its description, the counts, the transparency pairs or
   the colour pairs.
 - The export/import behaviour is untouched; only its neighbours move.
+
+## Follow-up pass (shipped, 2026-10-07)
+
+Source: the Ask hop's findings plus the user's card-structure correction of the same day. **Shipped 2026-10-07** — the target file is [`MapScreenSettingsOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1).
+
+### F0 — the card's boundary rhythm (the user's spec)
+
+Target order inside the card: Tracks Appearance · Routes Appearance · `SectionDivider` · Speed Arrows Settings · `SectionDivider` · export/import.
+
+- Now: a `SectionDivider()` at [`415`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:415) stands between the twins, a `Spacer(8.dp)` at [`571`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:571) before the tuning block, and a `SectionDivider()` at [`645`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:645) before export/import.
+- Change: the boundary before the tuning block becomes a `SectionDivider()` (replacing the `Spacer(8.dp)`), and the divider now between the twins moves to that boundary — so the two appearance expanders read adjacent and the three visual groups are the twins, the arrows tuning, and export/import.
+- **The one open point, resolved when ordered:** whether the twins keep a divider between them. The diagram shows them adjacent; the code comment at [`412`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:412) claims that divider is historical. The diagram's reading was taken and shipped — no divider between the twins.
+
+### F1 — retire `settings_tracks_direction_desc` (should-fix)
+
+- Delete the key from [`values/strings.xml:381`](../../app/src/main/res/values/strings.xml:381) and [`values-fr/strings.xml:380`](../../app/src/main/res/values-fr/strings.xml:380).
+- A whole-tree grep finds no Kotlin reader — only the test at F2 — and `Expander` has no description slot, so the string is dead, and its text still claims a tracks-only scope against D1.
+
+### F2 — fix `TrackRenderStringsTest` (should-fix)
+
+- [`theArrowsControlsKeepTheirOwnStrings`](../../app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt:75) asserts the now-deleted `settings_tracks_direction_desc` on a false premise ("the expander ships untouched"); retarget it to `settings_tracks_direction_density_label` (still rendered at [`585`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:585)) and correct its rationale.
+
+### F3 — make the tuning-key test bite (should-fix)
+
+- [`theMovedBlockStillWiresTheSharedArrowTuningKeys`](../../app/src/test/java/ykws/android/maro/ui/map/SpeedDisplayChipsTest.kt:62) is a whole-file `contains`; narrow it to the block's own slice — the text between the `settings_tracks_direction_settings_label` usage and the `settings_tracks_transfer_desc` line — and assert the five tuning keys lie inside it.
+
+### F4 — key names that do not lie (low)
+
+- Rename `settings_tracks_speed_display_label` → `settings_speed_display_label`, since both kinds' sub-sections read it ([`275`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:275), [`428`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:428)).
+- Rename `settings_routes_speed_direction_desc` → `settings_routes_speed_display_desc`, since it now captions the routes Speed Display sub-section ([`429`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:429)).
+- Both locales follow, plus [`TrackRenderStringsTest.kt:38`](../../app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt:38) and [`101`](../../app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt:101).
+- Same class of drift, named not planned: `settings_tracks_direction_settings_label` still says "tracks" while labelling the kind-agnostic arrows block — it can ride this rename if the user wants it.
+
+### F5 — one chip row, not two (low)
+
+- Extract a private `SpeedDisplaySubSection(on: (SpeedDisplayAxis) -> Boolean, onToggle: (SpeedDisplayAxis) -> Unit, descriptionRes: Int? = null)` drawing the `SubSectionHeader` + `Spacer` + `MultiSelectRow` with its shared options list, replacing the duplicate scaffolds at [`274`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:274) and [`427`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:427).
+
+### F6 — the tuning block's opening spacer (low)
+
+- [`Spacer(4.dp)`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:582) → `AppConfig.uiSpacingExpanderToContent.dp`, the token the twins' expanders use.
+
+### F7 — the two test hygiene items (low)
+
+- Extend [`eachChipFlipsItsKindAndLeavesTheOtherUntouched`](../../app/src/test/java/ykws/android/maro/ui/map/SpeedDisplayChipsTest.kt:42) to all four axes — tracks and routes, arrows and colours — each flip asserting the other three untouched.
+- Extract the duplicated source reader into one shared test helper, and have both [`SpeedDisplayChipsTest.fileText`](../../app/src/test/java/ykws/android/maro/ui/map/SpeedDisplayChipsTest.kt:99) and [`TrackRenderStringsTest.stringsText`](../../app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt:25) delegate to it.
+
+### Verification
+
+- `apk-build.bat` plus the scoped `ui.map` + `config` suite; the device look over the new boundary rhythm stays the user's.
+- The Ask hop of the next `#implement` run re-reads the three should-fix findings and confirms each closed.

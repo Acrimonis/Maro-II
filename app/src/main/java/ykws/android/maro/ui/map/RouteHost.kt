@@ -283,6 +283,10 @@ internal fun RouteHost(
         // exactly what the selected core draws. Painted through the one painter, as a plain ROUTE line.
         val selectedPlan = followed ?: pages.getOrNull(selectedIndex)?.plan
         val casingPoints = if (followed != null) remainingRun ?: followed.points else selectedPlan?.points
+        // The live line's own casing over the shared one (2026-10-07): the followed line takes the
+        // live class leaf, the acquisition rung keeps the shared width.
+        val casingWidth =
+            if (followed != null) AppConfig.routeLineCasingLiveWidthDp else AppConfig.routeLineCasingWidthDp
         if (casingPoints != null && casingPoints.size >= 2) {
             built += lineRendering(
                 spec = LineRenderSpec(
@@ -291,11 +295,11 @@ internal fun RouteHost(
                 title = ROUTE_CASING_TITLE,
                 plan = LineRenderPlan(LineRenderPath.ROUTE, drawArrows = false, selected = false, dashed = true),
                 ramp = ramp,
-                strokeWidth = AppConfig.routeLineCasingWidthDp,
+                strokeWidth = casingWidth,
                 density = density,
                 fade = selectedFade,
                 plainAppearance = {
-                    TrackPolylineAppearance(argb(selectedAlpha, casingColour), AppConfig.routeLineCasingWidthDp)
+                    TrackPolylineAppearance(argb(selectedAlpha, casingColour), casingWidth)
                 }
             ).overlays
         }

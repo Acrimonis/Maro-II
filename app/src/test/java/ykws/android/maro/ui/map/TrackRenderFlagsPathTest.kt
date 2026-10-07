@@ -175,8 +175,8 @@ class TrackRenderFlagsPathTest {
             tracksVisible: Boolean = true
         ): Boolean = legendVisibleForState(
             paintedIds = paintedIds.toSet(),
-            trackArrows = arrows,
-            trackColours = colours,
+            arrowAxis = arrows,
+            coloursAxis = colours,
             highlightedTrackId = selectedId,
             eyeOverride = eye,
             tracksVisible = tracksVisible
@@ -243,8 +243,8 @@ class TrackRenderFlagsPathTest {
             selectedId: String? = null
         ): Boolean = legendVisibleForState(
             paintedIds = setOf("route"),
-            trackArrows = false,
-            trackColours = false,
+            arrowAxis = false,
+            coloursAxis = false,
             highlightedTrackId = selectedId,
             eyeOverride = null,
             tracksVisible = true,
@@ -337,8 +337,8 @@ class TrackRenderFlagsPathTest {
             routesVisible: Boolean
         ): Boolean = legendVisibleForState(
             paintedIds = paintedIds,
-            trackArrows = false,
-            trackColours = true,
+            arrowAxis = false,
+            coloursAxis = true,
             highlightedTrackId = null,
             eyeOverride = null,
             tracksVisible = tracksVisible,

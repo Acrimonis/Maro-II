@@ -3095,13 +3095,15 @@ fun MapScreen(
             // overlay, so no polyline can ever paint over it.
             // The gate's input, derived rather than read in this scope: the painted set moves without the
             // boolean moving, so only a change of the boolean re-reads this body. Keyed on the settings
-            // object, whose fields are plain values no recomposition alone can invalidate.
-            val legendVisible by remember(appSettings) {
+            // object, whose fields are plain values no recomposition alone can invalidate, and on the eye
+            // as well — its state is recreated with the open card, so a key the settings object alone
+            // would miss and the retained derivation would close over the discarded state (R6).
+            val legendVisible by remember(appSettings, eyeOverride) {
                 derivedStateOf {
                     legendVisibleForState(
                         paintedIds = paintedTrackIds.value,
-                        trackArrows = appSettings.trackArrows,
-                        trackColours = appSettings.trackColours,
+                        arrowAxis = appSettings.trackArrows,
+                        coloursAxis = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
                         eyeOverride = eyeOverride,
                         tracksVisible = appSettings.tracksVisible,

@@ -100,8 +100,8 @@ class TrackRouteRoleTest {
         fun banded(routeIds: Set<String>, trackColours: Boolean, routeColours: Boolean): Boolean =
             bandedStrokeOnMap(
                 paintedIds = setOf("t", "r"),
-                trackArrows = false,
-                trackColours = trackColours,
+                arrowAxis = false,
+                coloursAxis = trackColours,
                 highlightedTrackId = null,
                 eyeOverride = null,
                 tracksVisible = true,

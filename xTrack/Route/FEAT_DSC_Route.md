@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-07 10:53
+modified: 2026-10-07 14:57
 ---
 
 # Feature: Route
@@ -254,6 +254,8 @@ The live numbered requirements — added after the master book was retired on 20
 - Closed 2026-10-03 by decision, which unblocks the archive: items 3, 4, 5, 6, 7 and 10 shipped; **items 1, 2, 8, 9 and 11–17 are parked rather than dropped**, each keeping its text here and its resume condition in the archived plan's `## Outcome`.
 
 ## Implemented
+
+- **live-casing-class-override — the followed route's casing can be widened alone (2026-10-07, `feature/tracks-rotes-norm`)** — the `path.*` family's class tier reached the route's casing: [`AppConfig.routeLineCasingLiveWidthDp`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:116) resolves **`path.route.line.casing.live.width`** with `PathClass.LIVE`, seeded from the shared `path.route.line.casing.width` so an absent key is unchanged, and [`RouteHost.kt:288`](../../app/src/main/java/ykws/android/maro/ui/map/RouteHost.kt:288) takes it when `followed != null` while the acquisition rung keeps the shared 8; the key was added at **12** ([`maro.properties:483`](../../app/src/main/assets/maro.properties:483)). The PATH banner was corrected with it — its grammar block was transposed (the class sits after the field and before the `<sub>`, which it dropped) and now carries a five-segment description plus a "Tiers in practice" note naming the leaves whose real tiers differ ([`maro.properties:411`](../../app/src/main/assets/maro.properties:411)). The same session closed the heatmap axis's own drift, which it had uncovered: **`path.heatmap.enabled.live` was a slip for `path.heatmap.enabled.acquisition`** ([`maro.properties:585`](../../app/src/main/assets/maro.properties:585)) — read only as the acquisition class, it had switched the wrong line's colouring off — with the shared-casing note and the banner's class list reworded and a sweep of all 21 class-bearing keys finding no other orphan. `apk-build.bat` SUCCESSFUL and the scoped `ui.map` + `config` suite at **411 / 411** → [`261007_FEAT_PLN_Route_live-casing-class-override.md`](261007_FEAT_PLN_Route_live-casing-class-override.md)
 
 - **path-render-engine — the live route joins the one painter (2026-10-07, `feature/tracks-rotes-norm`)** — `RouteHost`'s hand-built polylines migrated onto the shared painter (`lineRendering`): its pool, derived casing, travelled run and provisional line are rebuilt through the one door each pass, the destination pin kept attach-once and the `OverlayZOrder` `route_*` titles unchanged. Parity landed with it — the route spec is built from a `RoutePlan`, so per-point speed is the leg's haversine over its seconds, the chevrons and the speed banding run on the live line, and the dash reads `path.line.dash.*`; the pin's ring colour is now `path.pin.ring.color` → [`../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md`](../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md)
 

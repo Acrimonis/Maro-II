@@ -135,8 +135,9 @@ internal fun MapTrackOverlayHistoryDiff(
             add(appSettings.trackingColorPinnedRouteTo)
         }
         // The ramp is read wherever a banded stroke can draw: a recorded track through Colours or an
-        // eye-band, a route through its own colours axis.
-        if (trackColours || appSettings.routeSpeedColor || eyeOverride == true) {
+        // eye-band, a route through its own colours axis. The eye joins the keys above unconditionally,
+        // so it needs no arm of its own here (R9).
+        if (trackColours || appSettings.routeSpeedColor) {
             add(AppConfig.trackHeatmapRamp)
         }
         if (trackArrows || appSettings.routeSpeedArrows) {
@@ -818,8 +819,8 @@ private fun selectionBandedFor(
  */
 internal fun legendVisibleForState(
     paintedIds: Set<String>,
-    trackArrows: Boolean,
-    trackColours: Boolean,
+    arrowAxis: Boolean,
+    coloursAxis: Boolean,
     highlightedTrackId: String?,
     eyeOverride: Boolean?,
     tracksVisible: Boolean,
@@ -830,8 +831,8 @@ internal fun legendVisibleForState(
 ): Boolean = legendVisibleFor(
     storedOnMap = bandedStrokeOnMap(
         paintedIds = paintedIds,
-        trackArrows = trackArrows,
-        trackColours = trackColours,
+        arrowAxis = arrowAxis,
+        coloursAxis = coloursAxis,
         highlightedTrackId = highlightedTrackId,
         eyeOverride = eyeOverride,
         tracksVisible = tracksVisible,
@@ -844,7 +845,7 @@ internal fun legendVisibleForState(
     selectionBanded = selectionBandedFor(
         highlightedTrackId = highlightedTrackId,
         eyeOverride = eyeOverride,
-        trackColours = trackColours,
+        trackColours = coloursAxis,
         routeIds = routeIds,
         routeSpeedColour = routeSpeedColour
     )
@@ -865,8 +866,8 @@ internal fun legendVisibleForState(
  */
 internal fun bandedStrokeOnMap(
     paintedIds: Set<String>,
-    trackArrows: Boolean,
-    trackColours: Boolean,
+    arrowAxis: Boolean,
+    coloursAxis: Boolean,
     highlightedTrackId: String?,
     eyeOverride: Boolean?,
     tracksVisible: Boolean,
@@ -878,8 +879,8 @@ internal fun bandedStrokeOnMap(
     val isRoute = id in routeIds
     (if (isRoute) routesVisible else tracksVisible) &&
     lineRenderPlan(
-        arrowAxis = if (isRoute) routeSpeedArrows else trackArrows,
-        coloursAxis = if (isRoute) routeSpeedColour else trackColours,
+        arrowAxis = if (isRoute) routeSpeedArrows else arrowAxis,
+        coloursAxis = if (isRoute) routeSpeedColour else coloursAxis,
         selected = id == highlightedTrackId,
         eyeOverride = eyeOverride,
         route = isRoute

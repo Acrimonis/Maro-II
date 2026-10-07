@@ -114,6 +114,17 @@ object AppConfig {
         private set
 
     /**
+     * The **followed** route line's casing width (dp) — `path.route.line.casing.live.width`, the
+     * live class over the route kind.
+     *
+     * [routeLineCasingWidthDp] (`path.route.line.casing.width`) is the shared leaf an absent live
+     * key falls back to, so the widening is additive: the acquisition rung keeps the shared value,
+     * and only the followed line takes this one.
+     */
+    var routeLineCasingLiveWidthDp: Float = 8f
+        private set
+
+    /**
      * **Every line drawn beside the plan** wears this transparency (0 = opaque, 100 = invisible) —
      * `path.line.fade.dimmed`, renamed from `route.progress.transparencyPct`.
      *
@@ -1879,6 +1890,11 @@ object AppConfig {
                 pathFloat(PathKind.ROUTE, "line", "width", pathClass = PathClass.LIVE, default = routeLineWidthDp).coerceIn(1f / 3f, 24f)
             routeLineCasingWidthDp =
                 pathFloat(PathKind.ROUTE, "line", "casing", "width", default = routeLineCasingWidthDp).coerceIn(1f / 3f, 24f)
+            routeLineCasingLiveWidthDp =
+                pathFloat(
+                    PathKind.ROUTE, "line", "casing", "width",
+                    pathClass = PathClass.LIVE, default = routeLineCasingWidthDp
+                ).coerceIn(1f / 3f, 24f)
             routeDimmedTransparencyPct =
                 pathInt(PathKind.ROUTE, "line", "fade", pathClass = PathClass.DIMMED, default = routeDimmedTransparencyPct).coerceIn(0, 100)
             routePinColor = pathColor(PathKind.ROUTE, "pin", "color", default = routePinColor)

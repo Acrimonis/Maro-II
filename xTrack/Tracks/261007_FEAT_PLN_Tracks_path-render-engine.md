@@ -229,7 +229,7 @@ A reading of this plan against the shipped tree, recorded rather than quietly ti
 - **R9 — a redundant key read (low).** The rebuild list tests `eyeOverride == true` for the ramp group a
   few lines after `eyeOverride` has already joined the list unconditionally.
 
-### Fix pass — the four findings assessed (2026-10-07, planned, not built)
+### Fix pass — the four findings assessed (2026-10-07, built)
 
 - **R6 — take it.** One line: key the legend derivation on the eye as well
   (`remember(appSettings, eyeOverride)`), so the retained state is rebuilt whenever the eye moves and the
@@ -244,3 +244,11 @@ A reading of this plan against the shipped tree, recorded rather than quietly ti
   `AppConfig.init` fills; pinning it means either an init-backed test or a seam that takes the bag. The
   key shapes and the shipped file are already pinned, so the uncovered half is the three-line `?: setting`
   application — recorded rather than bought.
+
+**Built 2026-10-07** through the `#implement` pipeline (Code → Ask → Architect), on `feature/tracks-rotes-norm`, uncommitted; R6, R9 and R8 ship and R7 stays parked.
+
+- **R6 shipped** — [`MapScreen.kt:3101`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3101)'s `legendVisible` now keys on `remember(appSettings, eyeOverride)`: the eye was the gate's one input the snapshot did not track, while the open id needs no key because it is read inside the derived block. No other retained derivation captures the eye — `paintedTrackIds` is a plain `MutableState` whose object never changes.
+- **R9 shipped** — the ramp key at [`MapTrackOverlayEffects.kt:140`](../../app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt:140) now reads `if (trackColours || appSettings.routeSpeedColor)`, with `eyeOverride` still joining the key list unconditionally. The arm was inert as judged: no state's arity or restart changes, and `trackHeatmapRamp` is a runtime-immutable `var` mutated only in `AppConfig.init`, so no stale stroke is reachable.
+- **R8 shipped** — the pair is `arrowAxis` / `coloursAxis` on `legendVisibleForState` and `bandedStrokeOnMap`, with three internal call sites, the MapScreen gate call and four named test arguments moved. `selectionBandedFor`'s own `trackColours` stays: the value it receives genuinely is that axis, so it is a cross-seam label rather than a half-rename.
+- **R7 stays parked**, its reason unchanged.
+- **Gate** — `apk-build.bat` SUCCESSFUL; the scoped `ui.map` + `config` + `spatial` suite at **659 tests, 1 failed, 2 skipped**, the single red the parked `route.avoid.fine.cellRatio` and both skips pre-existing. The device pass remains owed.
