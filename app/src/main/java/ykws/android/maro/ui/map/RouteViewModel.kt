@@ -316,8 +316,23 @@ class RouteViewModel(
     private val _selectedIndex = MutableStateFlow(0)
     val selectedIndex: StateFlow<Int> = _selectedIndex.asStateFlow()
 
-    /** The preferred rung's ladder index, stored at arming — the seat's target, re-applied on every landing. */
+    /** The preferred rung's ladder index, stored at arming — the seat's target before a winner exists. */
     private var preferredRungIndex: Int = MAIN_INDEX
+
+    /**
+     * **The ladder's running best, by the lookup that owns it** — the engine's own fold, reported at
+     * every rung's terminal so the seat can follow each improvement. `null` until the first rung lands,
+     * and cleared with the arm.
+     */
+    private val _runningBest = MutableStateFlow<RouteId?>(null)
+    val runningBest: StateFlow<RouteId?> = _runningBest.asStateFlow()
+
+    /**
+     * **Whether the user has taken the seat over** — a hand selection (a row tap, a swipe) freezes it
+     * for good, so no later landing can move a highlight the reader has placed. Reset by [arm] and
+     * [end] alone.
+     */
+    private var seatFrozen = false
 
     /** The main lookup's current stage — the panel's `Acquiring (stage)…` word. */
     private val _stage = MutableStateFlow<RouteStage?>(null)
@@ -398,6 +413,8 @@ class RouteViewModel(
         _provisionalLine.value = emptyList()
         lookupPages.clear()
         cancelledLookups.clear()
+        _runningBest.value = null
+        seatFrozen = false
         armedStartMarkerId = ends.startMarkerId
         armedDestinationMarkerId = ends.destinationMarkerId
         val start = ends.start
@@ -448,6 +465,9 @@ class RouteViewModel(
             // arrived with the same update ride beside it, and the terminal update clears them.
             _stepReadings.value = if (update.nextStage == null) emptyList() else update.readings
         }
+        // Only a terminal carries the engine's running best; taking it here keeps every branch below
+        // reading one value, so a landed page and a refusal alike seat the same winner.
+        if (update.nextStage == null) _runningBest.value = update.runningBest?.lookupId
         val current = _pages.value
         if (index !in current.indices) return
         val nowMs = System.currentTimeMillis()
@@ -491,7 +511,9 @@ class RouteViewModel(
                     preferredRungIndex == index -> survivorIndex
                     else -> preferredRungIndex
                 }.coerceIn(0, (newPages.size - 1).coerceAtLeast(0))
-                _selectedIndex.value = routeEtaSeatedIndex(newPages, preferredRungIndex)
+                // The winner the collapsed rung carried may name the page that just went: seatTo reads
+                // the survivor through the re-mapped lookup table, so the seat never lands on a fold.
+                if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
                 syncChoosing(newPages)
                 return
             }
@@ -511,9 +533,9 @@ class RouteViewModel(
                     _provisionalLine.value = update.line
                 }
             }
-            // The seat re-reads on every landing: the preference's rung when it has landed, else the
-            // nearest landed row in the ETA view — the selection settles as the pages land.
-            _selectedIndex.value = routeEtaSeatedIndex(newPages, preferredRungIndex)
+            // The seat re-reads on every landing: the running best while the ranking has one, else the
+            // preference's rung — and never after a hand touch, which freezes it for good.
+            if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
             syncChoosing(newPages)
             // Early select: once the committed main line lands, the mode follows it. A refusal
             // instead un-commits, leaving the acquisition standing on the reason.
@@ -553,8 +575,8 @@ class RouteViewModel(
         // for a landing to step off it. Re-seat before `syncChoosing`, so R94's "never parks on an
         // empty row while a line stands beside it" still holds when the row the seat stepped onto
         // refuses last.
-        if (update.reason != null) {
-            _selectedIndex.value = routeEtaSeatedIndex(newPages, preferredRungIndex)
+        if (update.reason != null && !seatFrozen) {
+            _selectedIndex.value = seatTo(newPages)
         }
         syncChoosing(newPages)
         // A committed main answered with a refusal un-commits instead of following (same rule as a landing).
@@ -587,6 +609,18 @@ class RouteViewModel(
      * cannot move the answer. The refusal stays the **selected** page's, which is the one the panel
      * is describing.
      */
+    /**
+     * **Where the seat belongs right now** — the running best's page when the engine has named one,
+     * otherwise the preference's rung through the ETA view. Read through `lookupPages`, so a winner
+     * whose page was folded away falls back to the preference's resolution and never parks on a
+     * missing page.
+     */
+    private fun seatTo(pages: List<RoutePage>): Int {
+        val bestIndex = _runningBest.value?.let { lookupPages[it] }
+        if (bestIndex != null && bestIndex in pages.indices) return bestIndex
+        return routeEtaSeatedIndex(pages, preferredRungIndex)
+    }
+
     private fun syncChoosing(pages: List<RoutePage>) {
         val choosing = _state.value as? RouteState.Choosing ?: return
         val selected = pages.getOrNull(_selectedIndex.value)
@@ -607,6 +641,8 @@ class RouteViewModel(
         if (pages.isEmpty()) return
         val order = routeEtaOrder(pages)
         _selectedIndex.value = order[etaViewIndex.coerceIn(0, order.lastIndex)]
+        // A hand selection is the one thing that freezes the seat: from here no landing moves it.
+        seatFrozen = true
         syncChoosing(pages)
     }
 
@@ -623,11 +659,13 @@ class RouteViewModel(
     }
 
     /**
-     * **The fan's *Route auto* child** (R80) — **the main, named**: the one-shot promises the settled
-     * answer whatever page the seat followed onto, so it takes index 0 and never the seat's candidate.
+     * **The fan's *Route auto* child** (R80) — **the final best**: the running best's live page, or the
+     * preference's seat where the winner's page was folded away. The one-shot waits for the settled
+     * set, so the winner it takes is the ranking's own rather than index 0 by construction.
      */
-    fun selectMainRoute() {
-        followPage(MAIN_INDEX)
+    fun selectBestRoute() {
+        val bestIndex = _runningBest.value?.let { lookupPages[it] }
+        followPage(bestIndex ?: seatTo(_pages.value))
     }
 
     /**
@@ -647,6 +685,7 @@ class RouteViewModel(
             _selectedIndex.value = 0
             _stage.value = null
             _provisionalLine.value = emptyList()
+            _runningBest.value = null
             _state.value = RouteState.Following(selected)
             return
         }
@@ -706,6 +745,8 @@ class RouteViewModel(
         armedStartMarkerId = null
         armedDestinationMarkerId = null
         preferredRungIndex = MAIN_INDEX
+        _runningBest.value = null
+        seatFrozen = false
     }
 
     /** **The one disposal function** — the only thing that calls `cancelLookup`, for every in-flight id. */

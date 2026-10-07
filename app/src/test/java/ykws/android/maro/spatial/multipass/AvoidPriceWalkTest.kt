@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -8,6 +9,7 @@ import org.junit.Test
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.SpatialOperations
@@ -38,6 +40,12 @@ class AvoidPriceWalkTest {
     /** The fine step the `avoid` plan walks at: `clearanceStep(25.0)` = 12.5 m. */
     private val fineStepM = MultipassPull.clearanceStep(marginM)
 
+    /** The two-layer walk's **interior** cell (m) — the step it clears at and the step it prices at. */
+    private val interiorCellM = 100.0
+
+    /** The two-layer walk's **band** cell (m) — the step the local band window clears and samples at. */
+    private val bandCellM = 20.0
+
     private val paceKn = 28.0
     private val lambda = 2.0
     private val collarM = 100.0
@@ -61,6 +69,77 @@ class AvoidPriceWalkTest {
         LatLng(CHORD_LAT, east(0.0)), LatLng(CHORD_LAT, east(0.0)),
         timing = timing, memo = memo
     )
+
+    /**
+     * **The seam test the reviews owed: `runPass` itself is driven.** Every other fixture in this file
+     * threads its own price step, so a reverted call site inside the runner would leave them all green.
+     * This one hands [`RoutePassRunner.runPass`] a **two-layer** walk — the interior at 100 m, the band
+     * at 20 m — and reads the runner's own `FINAL` trace: the clearance step is the band's local cell,
+     * while the **price** step is the walk's own interior cell, which is the reading Phase 4b exists to
+     * keep.
+     */
+    @Test
+    fun runPassPricesAtTheWalksOwnInteriorCell() = runBlocking {
+        val walk = twoLayerWalk()
+        val trace = mutableListOf<String>()
+        RoutePassRunner().runPass(
+            twoLayerContext(walk), walk, lambda, publishStage = false, trace = { trace += it() }
+        )
+
+        val finalLine = trace.firstOrNull { it.startsWith("FINAL ") }
+        assertTrue("the pass reaches its final pull", finalLine != null)
+        assertTrue(
+            "the clearance step is the band's own 20 m cell",
+            finalLine!!.contains(" stepM=${fmt(bandCellM)}")
+        )
+        assertTrue(
+            "and the price step is the walk's interior 100 m, never the band's",
+            finalLine.contains("priceStepM=${fmt(interiorCellM)}") &&
+                !finalLine.contains("priceStepM=${fmt(bandCellM)}")
+        )
+    }
+
+    /** The two-layer walk: the interior at [interiorCellM] and the band at [bandCellM], one window each. */
+    private fun twoLayerWalk(): GridWalk {
+        val family = LatticeFamily.of(
+            BBox(43.45, 43.55, 6.95, 7.05), coarseCellM = interiorCellM, fineCellM = bandCellM
+        )
+        val coarseGrid = MultipassGrid(
+            family.coarse.latSouth, family.coarse.lonWest,
+            family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon,
+            2, 2, family.coarse.cellM, baseCostSec(family.coarse.cellM, paceKn)
+        )
+        val fineGrid = MultipassGrid(
+            family.fine.latSouth, family.fine.lonWest,
+            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+            10, 10, family.fine.cellM, baseCostSec(family.fine.cellM, paceKn)
+        )
+        val windows = WalkWindows.onLattice(
+            family.layers,
+            listOf(WalkWindow(coarseGrid, 0, 0, layer = 0), WalkWindow(fineGrid, 0, 0, layer = 1))
+        )
+        return GridWalk(coarseGrid, CellIndex(0, 0), CellIndex(1, 1), family.coarse.cellM, windows)
+    }
+
+    /** The water the two-layer walk is handed: one `GridContext` over the walk's own interior grid. */
+    private fun twoLayerContext(walk: GridWalk): GridContext {
+        val start = LatLng(43.45, 6.95)
+        val aim = LatLng(43.55, 7.05)
+        return GridContext(
+            world = BandWorld(bandM = bandWidthM, coastLat = CHORD_LAT, zones = emptyList()),
+            from = RoutePoint(start.latitude, start.longitude),
+            to = RoutePoint(aim.latitude, aim.longitude),
+            box = BBox(43.45, 43.55, 6.95, 7.05),
+            edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.55,
+            cellM = walk.cellM, fineCellM = bandCellM, marginM = marginM,
+            zoneOutsideMarginM = 0.0, pace = paceKn, grid = walk.grid,
+            startCell = walk.startCell, aimCell = walk.aimCell, start = start, aim = aim,
+            sets = emptyList(), limitAt = { null }, zones = emptyList(), priced = emptyList(),
+            approaches = EndApproaches.NONE, refusals = PullRefusals(),
+            depthGateActive = false, minDepthM = 0.0, regionSaturated = false,
+            windows = walk.windows
+        )
+    }
 
     /**
      * **The equivalence, exactly.** A constant price whose source declares its boundary far away: the
@@ -362,100 +441,6 @@ class AvoidPriceWalkTest {
             "the whole chord was not priced from one read: its two halves were, each proof and price",
             5, reads
         )
-    }
-
-    /**
-     * **The seam the Phase 4 collapse hid.** The phase's whole suite was green while the engine handed
-     * the pull the *fine* cell, because every fixture threaded its own step and the runner's own choice
-     * was never read. The step is now a named pure function of the walk, so this pins what the runner
-     * hands the pull on the `evolutive` pair: the walk's **interior** cell, never the band's fine one.
-     */
-    @Test
-    fun theRunnerHandsThePriceWalkTheInteriorCellNeverTheFineOne() {
-        val walk = twoLayerWalk()
-        val runner = RoutePassRunner()
-
-        assertEquals(
-            "the price step is the walk's interior cell — 100 m, the interior's own",
-            100.0, runner.priceStepFor(walk), 0.0
-        )
-        val fine = walk.windows!!.cellSizeM(1)
-        assertEquals("while the band's local cell is the fine 20 m", 20.0, fine, 0.0)
-        assertTrue("so a collapse to the fine cell would be visible", runner.priceStepFor(walk) != fine)
-
-        val single = GridWalk(walk.grid, CellIndex(0, 0), CellIndex(1, 1), 100.0)
-        assertEquals("a single-grid walk answers its own cell", 100.0, runner.priceStepFor(single), 0.0)
-    }
-
-    /**
-     * **The two-layer fixture the collapse cannot return through.** On the same `evolutive` pair the
-     * interior step groups and spares reads, while the band's local step collapses the quotient to one
-     * interval a group and reads every midpoint — the defect, and its fix, on one fixture.
-     */
-    @Test
-    fun aTwoLayerWalkGroupsItsPriceWhereTheFineStepCouldNot() {
-        val walk = twoLayerWalk()
-        val interiorStep = RoutePassRunner().priceStepFor(walk)
-        val localStep = walk.windows!!.cellSizeM(1)
-
-        val start = LatLng(CHORD_LAT, 7.00)
-        val aim = LatLng(CHORD_LAT + 1595.0 / M_PER_DEG_LAT, 7.00)
-        var interiorReads = 0
-        var localReads = 0
-
-        val interiorSum = MultipassPull.softPriceSec(start, aim, walkCtx(priceStepM = interiorStep, field = flatField { interiorReads++ }))
-        val localSum = MultipassPull.softPriceSec(start, aim, walkCtx(priceStepM = localStep, field = flatField { localReads++ }))
-
-        assertEquals("the two steps price the same water identically", interiorSum, localSum, 0.0)
-        assertTrue("the interior step groups and spares reads", interiorReads < localReads)
-        assertTrue("while the fine local step reads every midpoint, exactly as before", localReads > 0)
-    }
-
-    /**
-     * **The fine-only walk prices at the interior cell.** Its own cell is the fine one it clears and
-     * samples at, while its price step is the interior cell the setup and the walk are built with —
-     * the reading that refuted the old comment *this pass walks one fine grid, so its price step is
-     * that grid's own cell*.
-     */
-    @Test
-    fun aFineOnlyWalkPricesAtItsInteriorCellNotItsOwnFineOne() {
-        val walk = fineOnlyWalk()
-
-        assertEquals(
-            "the fine-only walk prices at the interior cell, not its own fine one",
-            coarseStepM, RoutePassRunner().priceStepFor(walk), 0.0
-        )
-        assertEquals("its own cell is the fine one it clears at", fineStepM, walk.cellM, 0.0)
-        assertTrue(
-            "so the price step is never the cell the walk itself clears at",
-            RoutePassRunner().priceStepFor(walk) != walk.cellM
-        )
-    }
-
-    /**
-     * **The group forms at the interior step.** The fine-only walk's own cell is under one sampling
-     * interval, so priced there its quotient is one interval a group and every mark is read; priced at
-     * the interior step it names, the groups form and the reads fall while the returned double stays
-     * **identically** today's — the identity that makes the wider step safe.
-     */
-    @Test
-    fun theFineOnlyWalkGroupsAtItsInteriorStepWithTodaysSumFromFewerReads() {
-        val walk = fineOnlyWalk()
-        val interiorStep = RoutePassRunner().priceStepFor(walk)
-        val innerStep = walk.cellM
-        val start = LatLng(CHORD_LAT, 7.00)
-        val aim = LatLng(CHORD_LAT + 1595.0 / M_PER_DEG_LAT, 7.00)
-        var innerReads = 0
-        var interiorReads = 0
-
-        val innerSum =
-            MultipassPull.softPriceSec(start, aim, walkCtx(priceStepM = innerStep, field = flatField { innerReads++ }))
-        val interiorSum =
-            MultipassPull.softPriceSec(start, aim, walkCtx(priceStepM = interiorStep, field = flatField { interiorReads++ }))
-
-        assertEquals("the interior step returns the inner step's own double, to the bit", innerSum, interiorSum, 0.0)
-        assertTrue("the interior step groups, so the reads fall", interiorReads < innerReads)
-        assertTrue("while the inner step reads every mark, not vacuously", innerReads > 0)
     }
 
     /**
@@ -872,33 +857,6 @@ class AvoidPriceWalkTest {
             )
         )
     )
-
-    /** The `evolutive` pair: an interior grid at 100 m and a band window at 20 m, one two-layer walk. */
-    private fun twoLayerWalk(): GridWalk {
-        val family = LatticeFamily.of(BBox(43.45, 43.55, 6.95, 7.05), coarseCellM = 100.0, fineCellM = 20.0)
-        val coarseGrid = MultipassGrid(
-            family.coarse.latSouth, family.coarse.lonWest,
-            family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon,
-            2, 2, family.coarse.cellM, baseCostSec(family.coarse.cellM, paceKn)
-        )
-        val fineGrid = MultipassGrid(
-            family.fine.latSouth, family.fine.lonWest,
-            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
-            10, 10, family.fine.cellM, baseCostSec(family.fine.cellM, paceKn)
-        )
-        val windows = WalkWindows.onLattice(
-            family.layers,
-            listOf(WalkWindow(coarseGrid, 0, 0, layer = 0), WalkWindow(fineGrid, 0, 0, layer = 1))
-        )
-        return GridWalk(coarseGrid, CellIndex(0, 0), CellIndex(1, 1), family.coarse.cellM, windows)
-    }
-
-    /**
-     * `avoid`'s fine-only walk: the fine cell for its own clearance and sampling, the interior cell it
-     * names for its price step — the shape the fine pass builds its walk with.
-     */
-    private fun fineOnlyWalk(): GridWalk =
-        GridWalk(twoLayerWalk().grid, CellIndex(0, 0), CellIndex(1, 1), fineStepM, priceStepM = coarseStepM)
 
     /**
      * The band's own law off a synthetic straight coast 340 m from the chord: the collar arm where the

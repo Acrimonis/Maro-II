@@ -295,6 +295,10 @@ class RoutePlanTest {
         val figure = routeTripFigure(
             plan = slow,
             from = p1,
+            // The two readings the card prints beside the time: the preference's own word and the
+            // set pace. They are carried through here, never resolved.
+            preferenceLabelResId = routeRungLabelRes(routeRungIndex(0.0)),
+            paceKn = 25.0,
             nowMs = computedAt + 5_000L
         )
 

@@ -135,6 +135,26 @@ data class RouteProvisional(
 )
 
 /**
+ * **The rung a running ranking currently names, and how many it has compared** — the ladder's own
+ * running best, folded at every rung's terminal so a surface can read *so far, the winner is…* rather
+ * than waiting for the last rung to settle.
+ *
+ * It is a **running best, never a verdict**: the engine folds each settled rung through the
+ * preference's own rule ([ykws.android.maro.spatial.multipass.RoutePassRanking]) and reports the best
+ * of those landed. A rung that found no path is no candidate, and its terminal carries the running
+ * best unchanged. Only a terminal carries a finished line, so no mid-pass update can produce one.
+ *
+ * It names the winning rung by the **lookup that owns its line**, so the flow seats it by the page
+ * that lookup owns and never by a page index the engine does not hold.
+ */
+data class RouteRunningBest(
+    /** The lookup that owns the winning rung's line — the page the flow seats. */
+    val lookupId: RouteId,
+    /** How many landed rungs the running best has compared so far. */
+    val compared: Int
+)
+
+/**
  * **One update the flow learns about a lookup** — the id, the stage pair, the line so far, the
  * finished result and the reason a lookup cannot be answered.
  *
@@ -168,7 +188,14 @@ data class RouteUpdate(
      * settling, replaced by the settled answer when the rung's terminal update lands. An engine that
      * takes no such reading leaves it null everywhere.
      */
-    val provisional: RouteProvisional? = null
+    val provisional: RouteProvisional? = null,
+    /**
+     * **The ladder's running best at this terminal**, or `null` where the engine ranks nothing — the
+     * dummy, or a ladder whose rungs have all failed. It rides **every** terminal (a settled rung, a
+     * no-path one alike) and is folded afresh each time, so the last terminal carries the final winner
+     * and a surface can tell a running best from a settled one by whether anything is still searching.
+     */
+    val runningBest: RouteRunningBest? = null
 )
 
 /**

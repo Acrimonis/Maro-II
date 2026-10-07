@@ -34,7 +34,7 @@ import ykws.android.maro.spatial.multipass.EndApproaches
 import ykws.android.maro.spatial.multipass.GridTile
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridPlan
-import ykws.android.maro.spatial.multipass.RoutePassRules
+import ykws.android.maro.spatial.multipass.RoutePassRanking
 import ykws.android.maro.spatial.multipass.UniformGridPlan
 import ykws.android.maro.spatial.multipass.insideBandWidthM
 import ykws.android.maro.spatial.multipass.speedZonesInBox
@@ -712,22 +712,11 @@ class RouteAvoidEngineTest {
     /** A plan that behaves exactly like the shipped one and counts how often the engine consults it. */
     private class CountingPlan(private val inner: RouteGridPlan = UniformGridPlan) : RouteGridPlan {
         var cellReads = 0
-        var regionReads = 0
         var fineReads = 0
 
         override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
             cellReads++
             return inner.firstWalkGrid(corridor, baseCellM)
-        }
-
-        override fun secondPassRegions(
-            line: List<LatLng>,
-            corridor: BBox,
-            outsideMarginM: Double,
-            cellM: Double
-        ): List<BBox> {
-            regionReads++
-            return inner.secondPassRegions(line, corridor, outsideMarginM, cellM)
         }
 
         override fun fineCellM(baseCellM: Double): Double {
@@ -738,11 +727,10 @@ class RouteAvoidEngineTest {
 
     /**
      * The plan is the engine's **whole** difference from a second algorithm: a lookup asks it for the
-     * walk's cell, for the finest cell its clock steps at and for the second pass's region, and nothing
-     * else about the pipeline moves.
+     * walk's cell and for the finest cell its clock steps at, and nothing else about the pipeline moves.
      */
     @Test
-    fun aLookupTakesItsCellAndItsSecondPassRegionFromThePlan() = runBlocking {
+    fun aLookupTakesItsCellAndItsFineCellFromThePlan() = runBlocking {
         val plan = CountingPlan()
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
@@ -755,8 +743,7 @@ class RouteAvoidEngineTest {
         success(solve(engine, origin, aim))
 
         assertTrue("the first walk asks the plan for its cell", plan.cellReads > 0)
-        assertTrue("the clock asks it for the finest cell", plan.fineReads > 0)
-        assertTrue("and the second pass asks it for its region", plan.regionReads > 0)
+        assertTrue("and the clock asks it for the finest cell", plan.fineReads > 0)
     }
 
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────
@@ -770,67 +757,24 @@ class RouteAvoidEngineTest {
     fun theLoopKeepsTheBetterPassAndNeverTheLastOne() {
         assertTrue(
             "a corrective pass with a smaller zone share wins although it is slower on the clock",
-            RoutePassRules.betterPass(
-                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
-                RoutePassRules.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
+            RoutePassRanking.betterPass(
+                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
+                RoutePassRanking.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
             )
         )
         assertFalse(
             "a corrective pass that is faster but spends more time in a zone loses to the incumbent",
-            RoutePassRules.betterPass(
-                RoutePassRules.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
-                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
+            RoutePassRanking.betterPass(
+                RoutePassRanking.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
+                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
             )
         )
         assertTrue(
             "at an equal share the fewer in-zone metres win, before the clock",
-            RoutePassRules.betterPass(
-                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
-                RoutePassRules.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
+            RoutePassRanking.betterPass(
+                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
+                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
             )
-        )
-    }
-
-    // ── The fine re-search's priced splice (Phase 4) ────────────────────────────
-
-    /**
-     * The re-search's guard: a fine line **faster on the clock but slower-water** is refused — the clock
-     * alone is λ-blind, and splicing that line would undo the λ loop — while the same shorter line run
-     * at the pace is spliced. The two timed lines are built here, not timed through the world, so the
-     * share is the test's own arithmetic.
-     */
-    @Test
-    fun theFineReSearchRefusesAFasterLineThatIsSlowerWater() {
-        val paceMps = Units.knotsToMps(paceKn)
-        val fineA = LatLng(43.5000, 7.0000)
-        val fineB = LatLng(43.5000, 7.0050)
-        val fineLeg = SpatialOperations.haversine(fineA, fineB)
-        val incumbentA = LatLng(43.5000, 7.0000)
-        val incumbentB = LatLng(43.5000, 7.0135)
-        val incumbent = TimedLine(
-            listOf(incumbentA, incumbentB),
-            listOf(SpatialOperations.haversine(incumbentA, incumbentB) / paceMps)
-        )
-        // The fine line runs its own leg at half the pace: strictly faster than the incumbent, and slow.
-        val slowFine = TimedLine(listOf(fineA, fineB), listOf(fineLeg / (paceMps * 0.5)))
-
-        assertTrue(
-            "the fine line is strictly faster on the clock",
-            slowFine.durationSec < incumbent.durationSec
-        )
-        assertTrue(
-            "and it spends a share of its own time slowed",
-            zoneSlowShare(slowFine, paceKn) > 0.0
-        )
-        assertFalse(
-            "so the guard refuses the faster line that is slower-water",
-            RoutePassRules.fineSpliceBetter(slowFine, incumbent, paceKn)
-        )
-
-        val cleanFine = TimedLine(listOf(fineA, fineB), listOf(fineLeg / paceMps))
-        assertTrue(
-            "the same shorter line run at the pace is spliced",
-            RoutePassRules.fineSpliceBetter(cleanFine, incumbent, paceKn)
         )
     }
 

@@ -1,8 +1,16 @@
 <!-- scope: feature -->
 # Route — the fine-only walk's price step
 
-**Date:** 2026-10-06 · **Status:** in design · **Order:** the user's word of 2026-10-06, after the mark
-count's Phase 3 reading was reviewed from [`route-phase9.txt`](../../route-phase9.txt:1).
+**Date:** 2026-10-06 · **Status:** **parked** (2026-10-06) — Phase 1 landed and its subject walk then proved
+**unreachable**: the address it fixes returns the incumbent line before the setup Phase 1 changed is built,
+because the second pass is retired for both engines ([`UniformGridPlan.secondPassRegions()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:90) and
+[`EvolutiveGridPlan.secondPassRegions()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:141) each answer `emptyList()`, so [`fineReSearch()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:233) never reaches
+line 244).
+**Resume:** the fine walk that does run is [`finePass()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:71), which still prices at its own fine cell under
+a comment asserting the opposite rule — so this change belongs there, or nowhere, and `finePass`'s two pulls
+owe a `PullTiming` before any reading can name it.
+**Order:** the user's word of 2026-10-06, after the mark count's Phase 3 reading was reviewed from
+[`route-phase9.txt`](../../route-phase9.txt:1).
 
 **Origin:** the Phase 3 section of [`261005_FEAT_PLN_Route_mark-count.md`](261005_FEAT_PLN_Route_mark-count.md:144),
 whose instrument is what named this address.
@@ -97,3 +105,19 @@ whose instrument is what named this address.
 - **The aligned shared grid** — the price-walk plan's Phase 5, which needs the user's word for its error; this
   change may take enough off the fine walks that the error is no longer worth accepting.
 - Any change to the sampling step, the lattice or the marks: this plan moves the grouping alone.
+
+## Outcome
+
+**Superseded, and its landed half removed — archived 2026-10-07.**
+
+- **What was planned:** the fine-only walk's price step — `GridWalk` stating the step it groups on with
+  `priceStepFor` answering it, the fine walk's setup built at the engine's interior cell rather than the fine
+  one, the pull's trace naming which pass it belongs to, and a third phase reading the saving on the device.
+- **What shipped: Phase 1 only**, on 2026-10-06 — the named step, the accessor and the fine pass's setup at the
+  interior cell, with the two fixtures. It landed on a walk **no shipped engine reaches**: both plans answer no
+  second-pass region, so the address it fixed returned before the setup it changed was built. Phases 2 and 3
+  never ran.
+- **Then the subject itself was dropped.** On the user's word of 2026-10-06 the step was not taken, and
+  [`261006_FEAT_PLN_Route_fine-pass-retirement.md`](261006_FEAT_PLN_Route_fine-pass-retirement.md:1) landed on
+  2026-10-07: `GridWalk.priceStepM`, `priceStepFor()` and the re-search walk they served all left the tree, so
+  **no part of this plan stands** — the fine pass prices at its own fine cell, as it always did.

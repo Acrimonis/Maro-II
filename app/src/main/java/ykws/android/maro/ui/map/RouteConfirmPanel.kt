@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteStepReading
 import ykws.android.maro.ui.components.ConfirmAction
@@ -99,6 +100,12 @@ internal fun RouteConfirmationPanel(
     isLandscape: Boolean,
     dashboardBaseHeight: Dp,
     paceKn: Double,
+    /**
+     * **The ladder's running best, by the lookup that owns its row** — the winner the seat follows. Its
+     * row wears a *so far* mark beside its name while the set still searches, the mark clearing with
+     * the last rung. `null` where the engine ranks nothing.
+     */
+    runningBestLookupId: RouteId? = null,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null,
     onSelectPage: (Int) -> Unit,
@@ -128,6 +135,9 @@ internal fun RouteConfirmationPanel(
     val refusal = acquiring.refusal ?: selected?.reason
     val canSelect = selectedPlan != null || (partialDrawn && !committed)
     val canSave = (selectedPlan != null || partialDrawn) && !frontSaved
+    // The *so far* mark stands only while the ladder still computes (the user's word of 2026-10-07):
+    // the winner's row wears it until the last rung lands.
+    val soFarLookupId = if (acquiring.searching) runningBestLookupId else null
 
     // Square top corners in portrait; landscape keeps its own right-edge shape untouched.
     val shape = if (isLandscape) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
@@ -229,7 +239,8 @@ internal fun RouteConfirmationPanel(
                 RouteTablePager(
                     pages = pages,
                     selectedIndex = clampedIndex,
-                    onSelectPage = onSelectPage
+                    onSelectPage = onSelectPage,
+                    soFarLookupId = soFarLookupId
                 )
             }
             selectedPlan?.let { PlanNotes(it) }
@@ -258,7 +269,8 @@ private fun PanelSentence(text: String) {
 private fun RouteTablePager(
     pages: List<RoutePage>,
     selectedIndex: Int,
-    onSelectPage: (Int) -> Unit
+    onSelectPage: (Int) -> Unit,
+    soFarLookupId: RouteId?
 ) {
     SwipePager(
         pageCount = pages.size,
@@ -268,7 +280,8 @@ private fun RouteTablePager(
         RouteSummaryTable(
             pages = pages,
             selectedIndex = index,
-            onSelectPage = onSelectPage
+            onSelectPage = onSelectPage,
+            soFarLookupId = soFarLookupId
         )
     }
 }
@@ -285,7 +298,8 @@ private fun RouteTablePager(
 private fun RouteSummaryTable(
     pages: List<RoutePage>,
     selectedIndex: Int,
-    onSelectPage: (Int) -> Unit
+    onSelectPage: (Int) -> Unit,
+    soFarLookupId: RouteId?
 ) {
     val selectedDurationSec = pages.getOrNull(selectedIndex)?.plan?.durationSec
     val radius = AppConfig.uiRadiusCard.dp
@@ -324,7 +338,9 @@ private fun RouteSummaryTable(
                     .clickable { onSelectPage(index) },
                 verticalAlignment = Alignment.Top
             ) {
-                Column(
+                // A plain weighted Box on purpose: no `fillMaxWidth`, which under the row's
+                // `IntrinsicSize.Min` would claim the whole row and distort the columns.
+                Box(
                     modifier = Modifier
                         .weight(0.75f)
                         .padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
@@ -337,12 +353,21 @@ private fun RouteSummaryTable(
                     } else {
                         page.descriptionResId?.let { stringResource(it) } ?: ""
                     }
-                    Text(
-                        text = label,
-                        color = textColor,
-                        fontSize = 13.sp,
-                        fontWeight = weight
-                    )
+                    Column {
+                        Text(
+                            text = label,
+                            color = textColor,
+                            fontSize = 13.sp,
+                            fontWeight = weight
+                        )
+                        if (page.lookupId != null && page.lookupId == soFarLookupId) {
+                            Text(
+                                text = stringResource(R.string.route_winner_so_far),
+                                color = textColor,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
                 ColumnDivider()
                 Column(
@@ -351,39 +376,31 @@ private fun RouteSummaryTable(
                 ) {
                     // The settled pair on a landed page, the provisional pair the boundary update carried
                     // while it waits, or the `--` placeholder where neither stands — one home for the
-                    // reading, so the row prints the same way whichever it holds.
-                    val figures = routeRowFigures(page)
-                    if (figures != null) {
-                        RouteValueLine(
-                            value = stringResource(R.string.route_summary_distance_value_fmt, figures.distanceNm),
-                            unit = stringResource(R.string.route_summary_distance_unit),
-                            color = textColor,
-                            fontWeight = weight
-                        )
-                        RouteValueLine(
-                            value = stringResource(
-                                R.string.route_summary_eta_value_fmt,
-                                figures.durationSec.toInt() / 60,
-                                figures.durationSec.toInt() % 60
-                            ),
-                            unit = stringResource(R.string.route_summary_eta_unit),
-                            color = textColor,
-                            fontWeight = weight
-                        )
-                    } else {
-                        // The pending mark — one word for the whole app, `R.string.route_value_pending`.
-                        RouteValueLine(
-                            value = stringResource(R.string.route_value_pending),
-                            unit = stringResource(R.string.route_summary_distance_unit),
-                            color = textColor,
-                            fontWeight = weight
-                        )
-                        RouteValueLine(
-                            value = stringResource(R.string.route_value_pending),
-                            unit = stringResource(R.string.route_summary_eta_unit),
-                            color = textColor,
-                            fontWeight = weight
-                        )
+                    // reading, so the row prints the same way whichever it holds. The two lines come in
+                    // one order for both (routeRowLines): the time first, the distance second.
+                    for (line in routeRowLines(routeRowFigures(page))) {
+                        when (line.kind) {
+                            RouteRowKind.DURATION -> RouteValueLine(
+                                value = line.value?.let {
+                                    stringResource(
+                                        R.string.route_summary_eta_value_fmt,
+                                        it.toInt() / 60,
+                                        it.toInt() % 60
+                                    )
+                                } ?: stringResource(R.string.route_value_pending),
+                                unit = stringResource(R.string.route_summary_eta_unit),
+                                color = textColor,
+                                fontWeight = weight
+                            )
+                            RouteRowKind.DISTANCE -> RouteValueLine(
+                                value = line.value?.let {
+                                    stringResource(R.string.route_summary_distance_value_fmt, it)
+                                } ?: stringResource(R.string.route_value_pending),
+                                unit = stringResource(R.string.route_summary_distance_unit),
+                                color = textColor,
+                                fontWeight = weight
+                            )
+                        }
                     }
                 }
                 ColumnDivider()
