@@ -195,6 +195,7 @@ The live numbered requirements — added after the master book was retired on 20
 - `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — the index pass that projects the flag and the two end ids into every summary
 
 ## Docs
+- [`261007_FEAT_PLN_Route_candidate-dot-and-speed-control.md`](261007_FEAT_PLN_Route_candidate-dot-and-speed-control.md) — **the best-candidate mark**: a pulse dot on the ETA-best row of the acquisition's summary table, reusing the shared `MapPulseDot` rather than spending a second home (in design, nothing implemented; the settings-control half it first carried moved to Ui_Settings)
 - [`../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md`](../Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md) — **the path render engine** (Tracks owns it): the live route migrated onto the one painter, the route parity — chevrons and speed banding derived from the plan's leg times, the dash from `path.line.dash.*` — and the pin kept attach-once (implementation landed; device pass owed); the plan's speed/arrow display normalisation — which retires `path.gate.speedColor` / `path.gate.speedArrows` for the per-kind axis leaves and gives the route its own switch pair — is **in design, nothing implemented**
 
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — **the implementation spec** for the engine interface and the flow's conversion onto it: the types, the repair, the reason set, the computations, the disposals and the build order, facts only

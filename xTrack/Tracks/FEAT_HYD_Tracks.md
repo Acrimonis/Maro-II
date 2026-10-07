@@ -1,6 +1,6 @@
 # Context Hydration — Tracks — 2026-10-07
 
-**Last Bake:** 2026-10-07 11:53 UTC — written by `#bake`
+**Last Bake:** 2026-10-07 12:37 UTC — written by `#bake`
 **Branch:** feature/tracks-rotes-norm — the path render engine's branch, cut from `origin/develop` with `--no-track`; the engine landed on it earlier, and this session shipped the speed/arrow display normalisation the same plan had left in design
 
 **Directive trace:** no covered action stopped, and nothing was bent. No dependency was added, no machine-shaped data file was opened, and the device was the user's throughout — no deploy, no logcat, the device pass left owed. Every claim about the code came from a file read or a command's own output. Two test failures were read before the next edit rather than guessed at: the first exposed a real key-shape defect in the class-override reader (the qualifier landed before `enabled`, so the override would have silently missed its key), the second pinned the retired master/gate legend rule and was reconciled to the per-kind model. Work ran directly in Code on the user's `#impl` order; no `new_task` was spawned, and the git write the user has since ordered belongs to `#commit`, not to this bake.
@@ -27,4 +27,4 @@
 
 ## Next Step
 
-Take the owed device pass over the engine and the normalisation — a route's chevrons and bands, the pool's rebuild, the pin, and now the eye with the per-kind axes — and the branch's fate (its merge) is the user's call. The user then ordered three items assessed and planned in this session: the R6 fix, a **pulse red dot on the row that is the best candidate**, and the Routes Speed and Direction block re-shaped to the tracks block's two-choice multi-select control.
+Take the owed device pass over the engine and the normalisation — a route's chevrons and bands, the pool's rebuild, the pin, and now the eye with the per-kind axes — and the branch's fate (its merge) is the user's call. The three items the user then ordered are all assessed and planned: the R6 fix is scoped in this plan's `### Fix pass`; the **pulse red dot on the acquisition's best-candidate row** is planned in [`../Route/261007_FEAT_PLN_Route_candidate-dot-and-speed-control.md`](../Route/261007_FEAT_PLN_Route_candidate-dot-and-speed-control.md); and the Tracks/Routes settings sections, rearranged with every decision settled, are planned in [`../Ui_Settings/261007_FEAT_PLN_Ui_Settings_tracks-routes-sections-rearrangement.md`](../Ui_Settings/261007_FEAT_PLN_Ui_Settings_tracks-routes-sections-rearrangement.md).
