@@ -35,6 +35,21 @@ interface MultipassWorld {
     /** The region this world can answer for, or `null` before it is loaded; the corridor is clamped to it. */
     val regionBounds: BBox?
 
+    /**
+     * The coastline's **generation stamp** — a reload changes it, so a mask cache keyed on it
+     * invalidates when the coast moves. 0 where the world names none.
+     */
+    val coastlineGenerationStamp: Long get() = 0L
+
+    /**
+     * The depth grid's **generation stamp** (`fetchTimestampMs`), the value the raster cache already
+     * keys on — a reload changes it. 0 where no grid is loaded or the world names none.
+     */
+    val depthGenerationStamp: Long get() = 0L
+
+    /** The chart's EMODnet shallow cutoff (m) — the same setting [depthAt] is gated by. 0 disables it. */
+    val emodnetCutoffM: Float get() = 0f
+
     /** Every ring/basin land edge whose bounding box overlaps [box], each carrying its ring orientation. */
     fun segmentsIn(box: BBox): List<MultipassEdge>
 
@@ -85,6 +100,14 @@ interface MultipassWorld {
  * in the feature that imports them, translating the first's index into [MultipassEdge]s and the three
  * layers' readiness into this world's. It holds no data of its own: every query reads the layers'
  * current state, so a load completed after construction is picked up on the next call.
+ *
+ * **The mutation window, stated once and only here.** The depth grid and the coastline index move at a
+ * **reload** alone, and a reload lands **between solves**, never inside one: the grid is swapped whole
+ * ([DepthRepository]'s single `var`) and the index rebuilt whole ([CoastlineRepository.spatialIndex]),
+ * each read fresh per call but stable for the life of a solve. A consumer that caches a read for a walk
+ * — [MarkMemo] — therefore needs no invalidation within a solve; the two stamps ([depthGenerationStamp],
+ * [coastlineGenerationStamp]) are what tell two solves apart. A reload that ever landed mid-solve would
+ * be this contract broken, and is not silently tolerated.
  */
 class LiveMultipassWorld(
     private val coastline: CoastlineRepository,
@@ -112,6 +135,18 @@ class LiveMultipassWorld(
         get() = coastline.regionBounds?.let {
             BBox(it.latSouth, it.latNorth, it.lonWest, it.lonEast)
         }
+
+    /** The index's own identity, so a rebuilt coastline changes the stamp and a mask cache invalidates. */
+    override val coastlineGenerationStamp: Long
+        get() = coastline.spatialIndex?.hashCode()?.toLong() ?: 0L
+
+    /** The loaded grid's `fetchTimestampMs`, the value the raster cache already keys on. */
+    override val depthGenerationStamp: Long
+        get() = depth.getGrid()?.metadata?.fetchTimestampMs ?: 0L
+
+    /** The chart's own cutoff, read fresh so a slider move reaches the next key. */
+    override val emodnetCutoffM: Float
+        get() = emodnetShallowCutoffM()
 
     override fun segmentsIn(box: BBox): List<MultipassEdge> {
         val index = coastline.spatialIndex ?: return emptyList()

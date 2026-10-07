@@ -42,6 +42,10 @@ class RouteEngineChoiceTest {
             "the evolutive row builds the evolutive engine",
             RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteEvolutiveEngine
         )
+        assertTrue(
+            "the selective row builds the selective engine",
+            RouteEngineChoice.resolve("selective").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }) is RouteSelectiveEngine
+        )
     }
 
     @Test

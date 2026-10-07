@@ -188,5 +188,11 @@ tally-free context is a local `val` of real values, so no placeholder and no sec
   test that drives `runPass`; a memo shared across a pass's two pulls would pass every existing test.
 - **Doc:** the §Findings bullet on the snap's nine parameters described the pre-step signature and now says both.
 
+**Closed 2026-10-07** — the two should-fixes are cleared: the tally-free fold is now one factory,
+`PullSetup.context()`, called by `pricedLineCost`, `snapToCorners` and `pull` alike; and the memo's one-per-walk
+rule is **pinned by a fixture**, `eachPullGetsItsOwnMemoSoTwoWalksReadAlike` in `AvoidPriceWalkTest`. The
+field-stability condition that bullet 93 left as this plan's precondition is held by `LiveMultipassWorld`'s own
+**stated mutation window**, the first of the two exits.
+
 **Unverified by that hop, and resting on the build's own report:** the suite's triple, `apk-build.bat` and the
 drawn-line identity — the review had no shell.

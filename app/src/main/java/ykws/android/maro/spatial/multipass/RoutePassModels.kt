@@ -72,6 +72,11 @@ internal data class GridContext(
     val minDepthM: Double,
     val regionSaturated: Boolean,
     /**
+     * Whether the plan prices the shallow wall — `selective` alone. The pass prices the depth band on the
+     * search and the pull's guard only where it holds, so `avoid` and `evolutive` never price it.
+     */
+    val depthBandActive: Boolean = false,
+    /**
      * The two-layer first walk's windows, or `null` where the plan answered one tile — the uniform pass's
      * case, whose single grid is its own walk.
      */

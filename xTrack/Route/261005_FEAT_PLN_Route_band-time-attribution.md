@@ -147,6 +147,11 @@ recorded rung, consistent with `bandMetres`); the zone key's `?: bandLimitKn` fa
 non-own-water keying**, so it is dropped or its unreachability stated; the deleted fold left one unused
 `kotlin.math.abs` import; and the panel's sub-minute drop still hides a band figure under ≈ 154 m at 5 kn.
 
+**Closed 2026-10-07** — the first three are cleared: `slowTimeByLimit` now charges a leg only the part that lies
+inside, so the band no longer absorbs a straddling leg's whole crossing; the dead `?: bandLimitKn` fallback is
+dropped; and the unused `kotlin.math.abs` import is deleted. The panel's sub-minute drop is left standing, and
+**intended**: it is the display rule that never prints a zero-minute row.
+
 **One observation left standing, and it is not this plan's** — `slowMetres == distance` says the smoothed profile
 rides a hair under the cruise pace across a whole coastal line. That is the profile's shape, and it is also why
 *any* contiguity fold is unsafe here.

@@ -724,12 +724,13 @@
     <string name="settings_section_route_budget">Slow-water budget</string>
     <string name="settings_route_budget_label">Budget</string>
     <string name="settings_route_budget_desc">The share of the trip Best lets speed zones slow before the cleaner route wins. 0 keeps only zone-free lines; 100 lets the clock decide.</string>
-    <!-- The algorithm harness: the System-tab section, its description and the two shipped rows. -->
+    <!-- The algorithm harness: the System-tab section, its description and the three shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
     <string name="route_engine_evolutive">Adaptive</string>
+    <string name="route_engine_selective">Selective</string>
     <!-- The step readings a stage reports while a lookup runs — one label per figure and one unit per kind. -->
     <string name="route_reading_expansions">Expansions</string>
     <string name="route_reading_passable_cells">Passable</string>

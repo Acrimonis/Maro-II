@@ -223,10 +223,13 @@ class AvoidStage1Test {
         var checks = 0
 
         val outcome = runCatching {
-            MultipassSearch.search(grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps) {
-                checks++
-                throw CancellationException("abandoned drag")
-            }
+            MultipassSearch.search(
+                grid, CellIndex(0, 0), CellIndex(grid.rows - 1, grid.cols - 1), paceMps,
+                checkCancelled = {
+                    checks++
+                    throw CancellationException("abandoned drag")
+                }
+            )
         }
 
         assertTrue("the cadence hook ran inside the search", checks > 0)

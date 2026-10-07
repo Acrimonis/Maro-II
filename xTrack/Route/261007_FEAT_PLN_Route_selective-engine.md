@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the `selective` engine: selective fine water and a conservative depth price
 
-**Date:** 2026-10-07 · **Status:** in design, revised 2026-10-07 — the open points settled on the user's word:
+**Date:** 2026-10-07 · **Status:** landed 2026-10-07 — Phases 1–6 implemented in one `#implement` run with `apk-build.bat` green and no new red, the device pass outstanding; the design was revised the same day and the open points settled on the user's word:
 collar widths one key each at 100 m, the depth law a per-metre gradient with an extra 25 m band riding the fine
 layer, the nudge scoped to `selective` alone, its own `route.selective.*` keys, and the French label `Sélective`
 · **Order:** the user's word of 2026-10-07, from points 1 and 4 of the algorithm review — *"the approach will be
@@ -28,14 +28,17 @@ carried.
   does; the walk it runs differs by its plan alone. The pipeline, the runner, the fine pass, the corner pass,
   the clock, the seam and the flow are untouched.
 - **`avoid` and `evolutive` are kept exactly as they are**, as the backup and the reference: neither takes the
-  depth nudge nor changes a key, a cell or a drawn line.
+  depth nudge nor changes a key, a cell or a drawn line. **Superseded in part on 2026-10-07** — `evolutive`'s
+  line and clock now move with the two-layer walk's reading rule, recorded in this file's Outcome.
 - **The plan seam gains the one decision that is the whole difference — but that decision does not live there
   today.** [`RouteGridPlan`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:29)
   has exactly two methods, `firstWalkGrid` and `fineCellM`; the fine layer's *water* is currently the builder's
   own cut — [`buildLayeredGrid`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:198)
   answers an empty window list when `bandSpec == null`, else [`fineWindowBoxes`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:382)
   over the coast. Phase 1 therefore **moves** that cut onto the seam as a new `fineWater(...)` decision, and the
-  fixture proves `evolutive`'s windows are byte-identical, so `evolutive` does not move by a cell.
+  fixture proves `evolutive`'s windows are byte-identical. **The trailing claim that `evolutive` does not move by
+  a cell is superseded on 2026-10-07** — its walk's line and clock move with the reading rule; the windows pin
+  itself stands.
 - **The dropdown gains one row.** [`RouteEngineChoice`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt:23)
   (an id, a label and a factory per engine) gets a `selective` entry and one label per locale; the factory wires
   the new plan into `RouteSelectiveEngine`. [`RouteAvoidEngine.planName()`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:701)
@@ -166,3 +169,88 @@ None outstanding — the four points closed on the user's word of 2026-10-07:
 - **The label and the default** — French `Sélective` (English `Selective` proposed to match
   [`Adaptive`](../../app/src/main/res/values/strings.xml:732)), and `selective` is not the default:
   [`route.engine.id`](../../app/src/main/assets/maro.properties:169) stays `avoid`.
+
+## Outcome
+
+Landed 2026-10-07 in one `#implement` run — Phases 1–6 plus the record half of Phase 7. `apk-build.bat` is
+green, the multipass suites read 262 / 0 / 2, and the full unit suite reads 952 / 2 / 11, the two reds the
+pre-existing `TrackOutlineTest` asset-and-default disagreement that the run's review confirmed is unrelated.
+
+- **Phase 1** — `RouteGridPlan` gained `name`, `fineWater(...)` and `pricesDepthBand`; `EvolutiveGridPlan`
+  answers the old coastal ribbon and the builder snaps-and-merges that answer, so its windows are reproduced
+  byte for byte — its **line** moves later the same day, with the reading rule below.
+- **Phases 2–3** — the four collars on their own `route.selective.*` width keys, three marking passes over one
+  tile grid and one `mergedRuns`, and the band-mask replaced by a collar-membership fine mask.
+- **Phase 4** — the λ-free coefficient, the read-time λ scaling and the `withDepthBand` guard, all three reading
+  the one law in [`RouteFineWater.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFineWater.kt).
+- **Phase 5** — `SelectiveMaskCache`. **Phase 6** — `RouteSelectiveEngine`, the generalized `planName()` and the
+  `selective` row with both locale labels.
+
+**Three deviations from the design, judged on the code by the run's review:**
+1. The depth guard declares a clearance of **zero** — the honest floor the design's point 6 allows — rather than
+   the single raster cell per point the design's phrasing named.
+2. The Phase 5 cache holds the plan's `FineWater` law rather than a precomputed box set. This is the material
+   deviation: the zone-rim and depth-dilation marking reruns per arm, and five of the cache key's nine fields
+   cannot move the cached value.
+3. The band-outer collar reads `world.bandWidthM` rather than the band's priced reach, faithful to the design's
+   own phrasing of the collar.
+
+**The cache key was made honest on 2026-10-07.** Deviation 2 above recorded a key of nine fields, five of which
+cannot move the cached value; the key now names **only what `union` reads** — the band's width and the four
+`route.selective.*` collar widths — and the two generation stamps, the EMODnet cutoff and the two switch states
+are dropped. The cached value is the **law**, the pre-snap geographic union itself; the snap-and-merge the
+deviation called out reruns per arm because a fine lattice is corridor-derived, and it is the design's own
+"cheap half", never cacheable without a region-scoped geometry the seam does not carry.
+
+The review returned no blocker and eleven should-fixes, recorded in [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md)'s
+todos. What remains is the device pass — a coastal reading of the line near the shore and the reported clock
+beside an `avoid` / `evolutive` run on the same pair — which is the user's own (R97) and the only thing that can
+price the gradient's group proof.
+
+### The two-layer walk's reading rule — landed 2026-10-07
+
+**The defect the depth price was inert against.** The walk kept both layers addressable over the same water,
+keyed `(layer, row, col)`, while the coarse interior covered the collars too. Its coarse copy was passable and
+unpriced and the per-metre cost layer-independent, so the search always took the free coarse copy and the price
+never changed a line.
+
+**The rule, on the user's word of 2026-10-07.** Where a **passable fine cell** holds the same water as a coarse
+cell, that fine cell is the cell the walk reads and the coarse cell is **not read**; where the fine grid is
+**land** at that coordinate, the coarse cell keeps its ordinary role — the half that stops a fine window's box,
+land wherever its collars do not reach, from walling off open water.
+
+**Where it lives.** The walk's own resolution, not the rasterizer.
+[`WalkWindows`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt) reads the fine copy
+by the coarse cell's own centre (`supersedingSlot`/`slotOf(row, col)` — the coordinate's own point read: the middle
+fine cell of the block for an odd ratio and, for an **even** one whose centre falls on a shared fine-lattice vertex,
+the fine cell whose low corner that vertex is, by the `floor` convention every point read uses), and the
+expansion's same-layer neighbour step in
+[`MultipassSearch`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt) relaxes the
+fine copy — priced centre-to-centre exactly as a seam crossing is — in place of a superseded coarse neighbour;
+the seam's superseded coarse targets are **redirected to their fine copies**, never read as coarse. **No grid's content moves**: the fine windows' byte-identity
+for `evolutive` survives, and `avoid`, whose plan answers one tile, has no fine layer and does not move.
+
+**`evolutive` moves with it.** Its coastal ribbon's water becomes fine-only, so its line and its timings change;
+the Phase 1 pin above that `evolutive` moves by no cell is **superseded on the user's word**, while its windows
+fixture stays valid. An end standing inside a collar resolves to a fine cell, so the berth carve follows the
+end's own window. The gate: `apk-build.bat` green, the suite at **956 / 2 / 11**, the two reds the pre-existing
+`TrackOutlineTest` asset-and-default disagreement, and the new fixtures in
+[`FinePriorityWalkTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FinePriorityWalkTest.kt).
+
+**The reading-rule review's should-fixes were closed the same day** — the four the feature's todo names: the raw
+lookup's KDoc now states the rule's condition, the seam redirects a superseded coarse target to its fine copy
+instead of dropping it (the lost path reproduced first), [`LatticeFamily.of`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:136)
+settles any layer ratio rather than refusing an even one, and [`FinePriorityWalkTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FinePriorityWalkTest.kt:111)
+rests on its single-walk λ comparison; build green, the suite at 957 / 2 / 11.
+
+**That pass's own review then found one blocker and two should-fixes, closed the same day.** The blocker was the
+even-ratio refusal itself: [`LatticeFamily.of`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:136)
+required an odd ratio, a `require` the shipped clamps reach (a 100 m coarse cell against a 10 m fine cell is a ratio
+of 10) — a crash in the route acquisition, not a guard. The `require` is gone; an even ratio's centre falls on a
+fine-lattice **vertex** and the tie resolves the way every point read does, `floor`, the fine cell whose low corner
+is that vertex — stated in [`fineCopyOf`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:296)'s
+KDoc and pinned at ratios 2 and 10. The raw [`slotOf(layer, row, col)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:327)
+is renamed **`rawSlotOf`** so no reader mistakes it for the coordinate's read, and
+[`FinePriorityWalkTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FinePriorityWalkTest.kt:111)
+tells the depth price on **one** walk — an unpriced detour beside the priced band, solved at cursor 0 and at the
+pass's λ. Build green, the suite at 958 / 2 / 11.

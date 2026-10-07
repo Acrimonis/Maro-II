@@ -225,7 +225,22 @@ internal class PullSetup(
     val start: LatLng,
     val aim: LatLng,
     val approaches: EndApproaches = EndApproaches.NONE
-)
+) {
+
+    /**
+     * **The walk's context, folded from this setup in one place** — the seven water values plus whichever
+     * of the walk's three tallies the caller names. `pricedLineCost` and `snapToCorners` pass none — they
+     * count and cache nothing of their own — and [MultipassPull.pull] passes the walk's own refusals,
+     * timing and memo, so no site re-lists the seven values by hand.
+     */
+    internal fun context(
+        refusals: PullRefusals? = null,
+        timing: PullTiming? = null,
+        memo: MarkMemo? = null
+    ): PullContext = PullContext(
+        marginM, coarseStepM, priceStepM, field, start, aim, approaches, refusals, timing, memo
+    )
+}
 
 /**
  * **One walk's own values, made once at its start and threaded instead of re-declared.** The context
@@ -277,11 +292,7 @@ object MultipassPull {
         timing: PullTiming? = null,
         memo: MarkMemo? = MarkMemo()
     ): List<LatLng> {
-        val ctx = PullContext(
-            marginM = setup.marginM, coarseStepM = setup.coarseStepM, priceStepM = setup.priceStepM,
-            field = setup.field, start = setup.start, aim = setup.aim, approaches = setup.approaches,
-            refusals = refusals, timing = timing, memo = memo
-        )
+        val ctx = setup.context(refusals, timing, memo)
         if (path.size <= 2) {
             ctx.timing?.recordWalk(setup, memo)
             return path

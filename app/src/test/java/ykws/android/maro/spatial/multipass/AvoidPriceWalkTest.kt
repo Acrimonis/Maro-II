@@ -788,6 +788,37 @@ class AvoidPriceWalkTest {
         assertEquals("with the first field's own counter risen again", 2, firstReads)
     }
 
+    /**
+     * **A memo is made per walk, never shared across two.** Two identical pulls of the same chord under
+     * the same field each get their own memo (the `pull` default), so the second walk's tally is the
+     * **same** as the first's — a memo shared across the two (a static, or a caller-held default) would
+     * answer the second from the first's table and show strictly fewer price reads. This is the rule the
+     * plan held by a default argument, now visible to a fixture.
+     */
+    @Test
+    fun eachPullGetsItsOwnMemoSoTwoWalksReadAlike() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val mid = LatLng(CHORD_LAT, east(800.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val path = listOf(start, mid, aim)
+        val field = pricedCornerField {}
+
+        val first = PullTiming()
+        MultipassPull.pull(PullSetup(marginM, fineStepM, fineStepM, field, start, aim), path, timing = first)
+        val second = PullTiming()
+        MultipassPull.pull(PullSetup(marginM, fineStepM, fineStepM, field, start, aim), path, timing = second)
+
+        assertTrue("the fixture's walk actually reads a price", first.priceReads > 0)
+        assertEquals(
+            "a fresh memo per walk: the second reads the price exactly as the first did",
+            first.priceReads, second.priceReads
+        )
+        assertEquals(
+            "and its hit count is the first's own, not a table shared across the two",
+            first.memoPriceHits, second.memoPriceHits
+        )
+    }
+
     /** The metres east of the chord's origin that [p] stands — the step-arm fixture's own abscissa. */
     private fun eastMetres(p: LatLng): Double = (p.longitude - 7.00) * M_PER_DEG_LON
 

@@ -5,7 +5,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
-import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -237,14 +236,22 @@ fun slowShares(
  * **The time a route spends in slow water, summed per speed limit** — the companion of [slowShares],
  * keyed by the limit rather than by the water's kind.
  *
- * A slow leg is charged to the water standing at its **midpoint** and to nothing else: a leg inside a
- * priced ring answers the strictest limit in force there ([limitKnAt], the clock's own read), a leg
- * inside the 300 m band answers [bandLimitKn] as its own entry, and a slow leg on open water — a bend's
- * floor, an acceleration, a ramp between two limits — is charged to **no** entry at all. There is no
- * fold and no nearest-neighbour search: a limit's figure is the full seconds **its own legs** take,
- * never a neighbour's, so the band's entry can never grow into the route's own duration. The zone wins
- * over the band where both hold, so the entries never double-count. Entries come band-first, then by
- * ascending limit. Empty when nothing slowed the route.
+ * A slow leg's **midpoint** names the entry it belongs to: a leg inside a priced ring answers the
+ * strictest limit in force there ([limitKnAt], the clock's own read), a leg inside the 300 m band
+ * answers [bandLimitKn] as its own entry, and a slow leg on open water — a bend's floor, an
+ * acceleration, a ramp between two limits — is charged to **no** entry at all. There is no fold and no
+ * nearest-neighbour search: a limit's figure is **its own legs'** seconds, never a neighbour's, so the
+ * band's entry can never grow into the route's own duration. The zone wins over the band where both
+ * hold, so the entries never double-count. Entries come band-first, then by ascending limit. Empty when
+ * nothing slowed the route.
+ *
+ * **A leg is charged what lies inside, never the whole crossing.** The midpoint names the entry, but
+ * the seconds it pays are the fraction of its own time that lies on that water — so a leg straddling
+ * 300 m's edge no longer charges the whole leg to the band. A leg wholly inside (or outside) pays its
+ * whole time (or none) exactly as before; a straddling leg is measured by sampling and bisecting each
+ * crossing. The clock's own read inside a ring is never null — `inZone` **is** that read's predicate —
+ * so the old `?: bandLimitKn` fallback was dead and is dropped: a ring's leg is keyed to the ring's own
+ * limit and never to the band's.
  */
 fun slowTimeByLimit(
     timed: TimedLine,
@@ -259,24 +266,85 @@ fun slowTimeByLimit(
     val paceMps = Units.knotsToMps(paceKn)
     val totals = LinkedHashMap<Pair<Double, Boolean>, Double>()
     for (i in 0 until legs) {
-        val dist = SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+        val a = timed.points[i]
+        val b = timed.points[i + 1]
+        val dist = SpatialOperations.haversine(a, b)
         if (timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
-        val mid = midpoint(timed.points[i], timed.points[i + 1])
-        val key = if (inZone(mid)) {
-            roundHalfKn(limitKnAt(mid) ?: bandLimitKn) to false
+        val mid = midpoint(a, b)
+        val key: Pair<Double, Boolean>
+        val inside: (LatLng) -> Boolean
+        if (inZone(mid)) {
+            val zoneKn = limitKnAt(mid) ?: continue // unreachable: inZone is this read's own predicate
+            key = roundHalfKn(zoneKn) to false
+            inside = inZone
         } else if (inBand(mid)) {
-            roundHalfKn(bandLimitKn) to true
+            key = roundHalfKn(bandLimitKn) to true
+            inside = inBand
         } else {
             continue // slow on open water: a bend's floor or a ramp is no limit's time.
         }
         // **Spent, not lost**: the entry is the leg's own seconds — the time the boat spends on that
         // limit's water — because the panel's label reads *spent in* that limit, not the excess over
-        // the cruise pace, which is the slow test above and nothing more.
-        totals[key] = (totals[key] ?: 0.0) + timed.legTimesSec[i]
+        // the cruise pace, which is the slow test above and nothing more. The fraction inside is the
+        // leg's own metres on that water over its length, and a leg at a constant speed spends its time
+        // in the same proportion.
+        totals[key] = (totals[key] ?: 0.0) + insideSeconds(a, b, dist, timed.legTimesSec[i], inside)
     }
     return totals.entries
         .map { RouteSlowLimit(it.key.first, it.value, it.key.second) }
         .sortedWith(compareBy({ if (it.isBand) 0 else 1 }, { it.limitKn }))
+}
+
+/**
+ * The seconds of a leg `[a, b]` that lie inside [inside] — the leg's own [legSeconds] scaled by the
+ * fraction of its [lengthM] the predicate holds over. The leg is walked in eight intervals; an interval
+ * whose ends agree pays in full or not at all, and a crossing interval is bisected to the boundary so a
+ * straddling leg charges only the part on the water.
+ */
+private fun insideSeconds(
+    a: LatLng,
+    b: LatLng,
+    lengthM: Double,
+    legSeconds: Double,
+    inside: (LatLng) -> Boolean
+): Double {
+    if (lengthM <= 0.0) return 0.0
+    val intervals = 8
+    var insideM = 0.0
+    var t0 = 0.0
+    var inside0 = inside(a)
+    for (s in 1..intervals) {
+        val t1 = s.toDouble() / intervals
+        val p1 = if (s == intervals) b else interpolate(a, b, t1)
+        val inside1 = inside(p1)
+        if (inside0 && inside1) {
+            insideM += (t1 - t0) * lengthM
+        } else if (inside0 != inside1) {
+            val boundary = bisectMembership(a, b, t0, t1, inside0, inside)
+            insideM += (if (inside0) boundary - t0 else t1 - boundary) * lengthM
+        }
+        t0 = t1
+        inside0 = inside1
+    }
+    return legSeconds * (insideM / lengthM)
+}
+
+/** The fraction of `[a, b]` at which [inside] first differs from [loInside], by bisection. */
+private fun bisectMembership(
+    a: LatLng,
+    b: LatLng,
+    lo: Double,
+    hi: Double,
+    loInside: Boolean,
+    inside: (LatLng) -> Boolean
+): Double {
+    var l = lo
+    var h = hi
+    repeat(40) {
+        val mid = (l + h) / 2.0
+        if (inside(interpolate(a, b, mid)) == loInside) l = mid else h = mid
+    }
+    return (l + h) / 2.0
 }
 
 /** The limit key rounded to the nearest half knot, so float noise never splits one bucket in two. */

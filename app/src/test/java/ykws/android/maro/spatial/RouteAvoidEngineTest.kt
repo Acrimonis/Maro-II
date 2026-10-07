@@ -31,6 +31,8 @@ import ykws.android.maro.spatial.multipass.MultipassEdge
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.EndApproaches
+import ykws.android.maro.spatial.multipass.FineWater
+import ykws.android.maro.spatial.multipass.FineWaterQuery
 import ykws.android.maro.spatial.multipass.GridTile
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridPlan
@@ -719,6 +721,8 @@ class RouteAvoidEngineTest {
         var cellReads = 0
         var fineReads = 0
 
+        override val name: String get() = inner.name
+
         override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
             cellReads++
             return inner.firstWalkGrid(corridor, baseCellM)
@@ -728,6 +732,8 @@ class RouteAvoidEngineTest {
             fineReads++
             return inner.fineCellM(baseCellM)
         }
+
+        override fun fineWater(query: FineWaterQuery): FineWater = inner.fineWater(query)
     }
 
     /**

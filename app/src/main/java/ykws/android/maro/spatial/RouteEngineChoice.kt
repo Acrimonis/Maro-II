@@ -52,6 +52,13 @@ data class RouteEngineChoice(
                 factory = { paceKn, aversionKn, budgetPct, world ->
                     RouteEvolutiveEngine(paceKn, aversionKn, budgetPct, world)
                 }
+            ),
+            RouteEngineChoice(
+                id = "selective",
+                labelResId = R.string.route_engine_selective,
+                factory = { paceKn, aversionKn, budgetPct, world ->
+                    RouteSelectiveEngine(paceKn, aversionKn, budgetPct, world)
+                }
             )
         )
 

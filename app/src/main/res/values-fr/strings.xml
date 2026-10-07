@@ -725,12 +725,13 @@
     <string name="settings_section_route_budget">Budget d\'eau lente</string>
     <string name="settings_route_budget_label">Budget</string>
     <string name="settings_route_budget_desc">La part du trajet que Optimal laisse aux zones de vitesse avant que la route la plus propre ne l\'emporte. 0 ne garde que les lignes sans zone ; 100 laisse l\'horloge décider.</string>
-    <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les deux lignes livrées. -->
+    <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les trois lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
     <string name="route_engine_evolutive">Adaptative</string>
+    <string name="route_engine_selective">Sélective</string>
     <!-- Les mesures d'étape qu'un moteur rapporte pendant une recherche — un libellé par chiffre, une unité par sorte. -->
     <string name="route_reading_expansions">Extensions</string>
     <string name="route_reading_passable_cells">Navigables</string>

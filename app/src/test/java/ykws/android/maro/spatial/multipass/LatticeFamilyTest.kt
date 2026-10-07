@@ -90,8 +90,8 @@ class LatticeFamilyTest {
             fineRows * fineCols + coarseRows * coarseCols,
             walk.size
         )
-        val coarseSlot = walk.slotOf(0, 0, 0)
-        val fineSlot = walk.slotOf(1, 0, 0)
+        val coarseSlot = walk.rawSlotOf(0, 0, 0)
+        val fineSlot = walk.rawSlotOf(1, 0, 0)
         assertTrue("the coarse layer holds its own (0, 0)", coarseSlot >= 0)
         assertTrue("the fine layer holds its own (0, 0)", fineSlot >= 0)
         assertTrue("and the two layers' (0, 0) are different slots", coarseSlot != fineSlot)

@@ -242,6 +242,65 @@ object AppConfig {
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
 
     /**
+     * The `selective` engine's own coarse cell (m) — `route.selective.grid.cellM`, default 100, clamped
+     * 10.0..500.0 like the other two. The plan's own answer, so neither `avoid`'s nor `evolutive`'s cell
+     * is touched.
+     */
+    var routeSelectiveGridCellM: Double = 100.0
+        private set
+
+    /**
+     * The `selective` engine's fine cell (m) — `route.selective.grid.fineCellM`, default 20, clamped
+     * 10.0..20.0 on the same 20 m contract as `evolutive` and never coarser than its coarse cell.
+     */
+    var routeSelectiveGridFineCellM: Double = 20.0
+        private set
+
+    /**
+     * The **shoreline collar's** width (m) — `route.selective.shore.collarM`, default 100: the fine water
+     * 0–100 m off the coast, where a berth and an inshore passage are decided.
+     */
+    var routeSelectiveShoreCollarM: Double = 100.0
+        private set
+
+    /**
+     * The **band-outer collar's** width (m) — `route.selective.band.collarM`, default 100: a strip
+     * straddling the 300 m band's own outer boundary, where a route leaves or enters the band.
+     */
+    var routeSelectiveBandCollarM: Double = 100.0
+        private set
+
+    /**
+     * The **zone-rim collar's** width (m) — `route.selective.zone.rimM`, default 100: the water within
+     * 100 m of a priced zone's boundary, where a crossing is decided.
+     */
+    var routeSelectiveZoneRimM: Double = 100.0
+        private set
+
+    /**
+     * The **depth-dilation collar's** width (m) — `route.selective.depth.collarM`, default 100: the water
+     * within 100 m of a cell the depth gate blocks.
+     */
+    var routeSelectiveDepthCollarM: Double = 100.0
+        private set
+
+    /**
+     * The depth price band's **extra width** (m) beyond the gate's own margin —
+     * `route.selective.depth.bandExtraM`, default 25. The band the per-metre gradient prices is the
+     * gate's standoff plus this extra, so the price starts where the standoff ends.
+     */
+    var routeSelectiveDepthBandExtraM: Double = 25.0
+        private set
+
+    /**
+     * The depth price's **per-metre gradient** — `route.selective.depth.priceSecPerM`, default 0.05. A
+     * cell of size `cellM` standing on the shallow wall pays this times `cellM` at the pass's own λ; it
+     * falls linearly to zero at the band's outer edge.
+     */
+    var routeSelectiveDepthPriceSecPerM: Double = 0.05
+        private set
+
+    /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
      * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
      * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
@@ -1793,6 +1852,34 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
                 ).coerceAtMost(routeEvolutiveGridCellM)
+            }
+            // ── The selective engine's grid and the four collar widths, on its own namespace ──
+            props.getProperty("route.selective.grid.cellM")?.toDoubleOrNull()?.let {
+                routeSelectiveGridCellM = it.coerceIn(10.0, 500.0)
+            }
+            props.getProperty("route.selective.grid.fineCellM")?.toDoubleOrNull()?.let {
+                routeSelectiveGridFineCellM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
+                ).coerceAtMost(routeSelectiveGridCellM)
+            }
+            props.getProperty("route.selective.shore.collarM")?.toDoubleOrNull()?.let {
+                routeSelectiveShoreCollarM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.band.collarM")?.toDoubleOrNull()?.let {
+                routeSelectiveBandCollarM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.zone.rimM")?.toDoubleOrNull()?.let {
+                routeSelectiveZoneRimM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.depth.collarM")?.toDoubleOrNull()?.let {
+                routeSelectiveDepthCollarM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.depth.bandExtraM")?.toDoubleOrNull()?.let {
+                routeSelectiveDepthBandExtraM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.depth.priceSecPerM")?.toDoubleOrNull()?.let {
+                routeSelectiveDepthPriceSecPerM = it.coerceIn(0.0, 10.0)
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)

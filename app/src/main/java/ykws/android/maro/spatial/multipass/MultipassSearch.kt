@@ -77,9 +77,10 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _, _ -> 0.0 },
-        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
+        depthK: Double = 0.0
     ): SearchOutcome =
-        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled)
+        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled, depthK)
 
     /**
      * The same search over **[walk]**, one window or several on one lattice: the cell indices the path
@@ -90,6 +91,11 @@ object MultipassSearch {
      * walk for the cells **across the seam** — the fixed many-to-one relation the exact `1 : ratio` nesting
      * makes arithmetic instead of a search — and prices that edge **from the two cell centres at the pace**,
      * never from the destination cell's own size. Every other rule of [search] holds verbatim.
+     *
+     * **The walk reads the fine cell over the coarse copy.** A coarse neighbour a passable fine cell
+     * supersedes is no same-layer step: the fine cell over the same water is relaxed instead, priced from
+     * the two cell centres exactly as a seam crossing is, so the price the fine grid carries can never be
+     * bypassed by a free coarse copy of the same water.
      */
     internal suspend fun searchWalk(
         walk: WalkWindows,
@@ -98,7 +104,8 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _, _ -> 0.0 },
-        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
+        depthK: Double = 0.0
     ): SearchOutcome {
         val n = walk.size
         val startIdx = walk.slotOf(start.row, start.col)
@@ -135,12 +142,26 @@ object MultipassSearch {
             val layer = walk.layerOf(idx)
             val here = walk.centerOf(idx)
             for (step in STEPS) {
-                // The same layer's own neighbour: one cell of that layer's water, at that layer's cell size.
-                val nIdx = walk.slotOf(layer, row + step.dr, col + step.dc)
-                if (nIdx >= 0 && !closed[nIdx]) {
+                val tr = row + step.dr
+                val tc = col + step.dc
+                // The same layer's own neighbour: one cell of that layer's water, at that layer's cell
+                // size — **unless a passable fine cell supersedes it.** On the coarse layer the fine copy
+                // owns that water, so the coarse cell is not read and the superseding fine cell below
+                // carries the crossing; where the fine grid is land the coarse neighbour keeps its role.
+                val nIdx = walk.rawSlotOf(layer, tr, tc)
+                val over = walk.supersedingSlot(layer, tr, tc)
+                if (nIdx >= 0 && over < 0 && !closed[nIdx]) {
                     relax(
                         walk, idx, nIdx, step.multiplier * walk.cellSizeM(layer),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
+                    )
+                }
+                // The superseding fine cell over the same water — the crossing the coarse copy may not
+                // make, priced from the two cell centres exactly as a seam crossing is.
+                if (over >= 0 && !closed[over]) {
+                    relax(
+                        walk, idx, over, SpatialOperations.haversine(here, walk.centerOf(over)),
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
                     )
                 }
                 // The seam: the other resolution's cells meeting this cell's face or corner, priced from
@@ -151,7 +172,7 @@ object MultipassSearch {
                     if (closed[cIdx]) continue
                     relax(
                         walk, idx, cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
                     )
                 }
             }
@@ -191,7 +212,8 @@ object MultipassSearch {
         open: PriorityQueue<Node>,
         aimCenter: LatLng,
         paceMps: Double,
-        zonePriceSec: (Double, Double, Double, Double) -> Double
+        zonePriceSec: (Double, Double, Double, Double) -> Double,
+        depthK: Double
     ) {
         val cell = walk.cell(toIdx)
         if (!cell.passable) return
@@ -200,12 +222,16 @@ object MultipassSearch {
         val interiorLimitKn = walk.limitKn(toIdx)
         val collarLimitKn = walk.collarLimitKn(toIdx)
         val bandCollarLimitKn = walk.bandCollarLimitKn(toIdx)
-        val cellSec =
-            if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
-                cell.sourceCostSec + zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
-            } else {
-                cell.sourceCostSec
-            }
+        var cellSec = cell.sourceCostSec
+        if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
+            cellSec += zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
+        }
+        // The depth band's λ-scaled read: the grid stores the λ-free coefficient, and the pass's own
+        // cursor turns it into seconds — the same law the pull's guard prices at its own λ.
+        if (depthK > 0.0) {
+            val depthCoef = walk.depthCoef(toIdx)
+            if (depthCoef > 0.0) cellSec += DepthBandLaw.priceSec(destCellM, depthCoef, depthK)
+        }
         val newG = g[fromIdx] + (cellSec / destCellM) * edgeM
         if (newG < g[toIdx]) {
             g[toIdx] = newG
