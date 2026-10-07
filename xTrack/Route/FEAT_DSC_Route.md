@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-07 17:55
+modified: 2026-10-07 18:34
 ---
 
 # Feature: Route
@@ -135,13 +135,14 @@ The live numbered requirements — added after the master book was retired; the 
 - [`261005_FEAT_PLN_Route_walk-context-seam.md`](261005_FEAT_PLN_Route_walk-context-seam.md) — the pull's walk context and the `PullSetup` seam
 - [`261007_FEAT_PLN_Route_rung-ranking-preselection.md`](261007_FEAT_PLN_Route_rung-ranking-preselection.md) — the ranking, the running best, the seat's freeze and the budget's settings row (R98)
 - [`261007_FEAT_PLN_Route_avoid-settings-taxonomy.md`](261007_FEAT_PLN_Route_avoid-settings-taxonomy.md) — the avoid/evolutive key audit that landed 2026-10-07: the dead key's deletion, the fine layer's one metres idiom and the aligned code defaults (landed)
+- [`261007_FEAT_PLN_Route_selective-engine.md`](261007_FEAT_PLN_Route_selective-engine.md) — **the third engine in design**: `selective`, a plan over the shared pipeline that spends fine detail only on the collars where the decisions are (the shoreline, the band's outer boundary, the zone rims, the shallow wall) and prices a per-metre depth gradient over a 25 m band beside the wall; corrected against the code and decision-complete (in design)
 - Retired plans and docs live in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Todos
 
-- [ ] **Algorithm review, point 1 — a priced band beyond the depth gate's margin** (discuss, then settle) — the gate is a wall today and the margin a standoff; the ask is a soft depth preference so a line sits wider where the water allows. Feasibility turns on the priced walk's group proof, which needs a declared clearance a depth-valued price cannot give → [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md)
+- [ ] **Algorithm review, point 1 — a priced band beyond the depth gate's margin** (discuss, then settle) — the gate is a wall today and the margin a standoff; the ask is a soft depth preference so a line sits wider where the water allows. Feasibility turns on the priced walk's group proof, which needs a declared clearance a depth-valued price cannot give. **Scope narrowed**: the preference rides `selective` alone, settled as a per-metre gradient beside the wall → [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md)
 - [ ] **Algorithm review, point 3 — the turns' reach and symmetry** (discuss, then settle) — the per-corner fit is capped by the shorter half-segment and `reachFraction` already stands at 1.0, so a lower lateral acceleration has nowhere to go; the artifact must be reproduced and told apart from the profile's own asymmetry → [`261007_FEAT_PLN_Route_turn-impact-and-symmetry.md`](261007_FEAT_PLN_Route_turn-impact-and-symmetry.md)
-- [ ] **Algorithm review, point 4 — the coastal leg's optimistic clock, and a third engine** (discuss, then settle) — two readings must be separated by one device reading before any design; the mechanism the user proposes already exists as `evolutive`'s fine-window mask, so widening that mask comes before a third engine → [`261007_FEAT_PLN_Route_coastal-fine-grid-engine.md`](261007_FEAT_PLN_Route_coastal-fine-grid-engine.md)
+- [ ] **Algorithm review, point 4 — the coastal leg's optimistic clock, and a third engine** (discuss, then settle) — the third engine is designed as `selective` with its open points settled, so the design is ready to implement; the coastal clock's own reading still owes one device pass before that leg is settled → [`261007_FEAT_PLN_Route_selective-engine.md`](261007_FEAT_PLN_Route_selective-engine.md)
 
 - [ ] **The multi-route save, withdrawn 2026-09-24** — the exit dialog no longer offers to write the session's routes; resolve later whether it comes back and, if it does, what names its files.
 - [ ] **The provisional figure is shown unmarked (R96)** — a waiting row's early distance and ETA wear the settled weight while the figure will move by up to a percent; decide whether a mark is owed.
