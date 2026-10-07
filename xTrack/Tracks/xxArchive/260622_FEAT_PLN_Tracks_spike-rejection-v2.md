@@ -253,3 +253,11 @@ private const val SEA_RECOVERY_CONSECUTIVE = 10
 |------|--------|
 | [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) | Replace lines 283-299 (spike rejection) with v2 algorithm; add 7 new fields; add `angularDistance()` helper |
 | No other files | Self-contained |
+
+## Outcome
+
+**Shipped 2026-06-22** — the one-number cap became the four-gate algorithm in `TrackRecorder`: Gate 0 skips the fix on a receiver-lock recovery (`false→true`), Gate 1 caps speed by context (sea or land), Gate 2 applies the sea-only direction check, and Gate 3 rejects an acceleration beyond the context's limit; land mode is entered after five consecutive rejections and left after ten consecutive accepted sea-speed fixes.
+
+- **Built:** the seven new fields (`lastValidCourseDeg`, `courseHistory`, `lastValidSpeedKn`, `consecutiveRejections`, `seaConfidenceCounter`, `isOnLand`, `lastHadLock`), `angularDistance()`, and the demo-mode bypass that skips every gate, all reset in `beginRecording()`.
+- **Evolved since:** the caps and both acceleration limits now read `BuildConfig` keys rather than literals, and later passes added a still-spike contradiction gate, a sea-only GPS-speed cap and a stale-fix timeout — the four gates remain the algorithm's shape.
+- **Rule in force (promoted into the feature's `## Rules`).**

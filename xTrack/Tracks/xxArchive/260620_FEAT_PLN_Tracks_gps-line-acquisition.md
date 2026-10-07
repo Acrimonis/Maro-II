@@ -74,3 +74,11 @@ Changes:
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt`
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+
+## Outcome
+
+**Shipped 2026-06-20** — both artifacts were closed: the zigzag ended with the passive listener's removal, and the spikes with the implied-speed gate.
+
+- **Built:** `GpsLocationSource` lost `passiveListener`, `lastGpsProviderPos` / `lastGpsProviderMs` and `haversineApprox()`, leaving a single `GPS_PROVIDER` listener in strict FIFO order; `TrackRecorder.addPoint()` gained the implied-speed gate and its `lastValidPoint*` trackers, reset in `beginRecording()`.
+- **Superseded the same day** by [`260622_FEAT_PLN_Tracks_spike-rejection-v2.md`](260622_FEAT_PLN_Tracks_spike-rejection-v2.md): the single `MAX_REALISTIC_SPEED_KN = 50.0` cap was replaced by the four-gate algorithm, whose caps now read `TRACKING_BOAT_MAX_SPEED_KN` / `TRACKING_LAND_MAX_SPEED_KN` — so the 50 kn rule was **not** retained as current behaviour.
+- **Rules that survive in the code:** rejection compares on `fix.timestampEpochMs` (GPS epoch); the `AdaptiveGpsPolicy` still sees every fix with only point *recording* gated; and `lastValidPoint*` is separate from the Haversine accumulators.

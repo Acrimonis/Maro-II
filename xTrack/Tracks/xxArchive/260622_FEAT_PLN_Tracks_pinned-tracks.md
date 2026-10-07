@@ -180,3 +180,11 @@ LaunchedEffect(
 | `trackingRenderNb` fate? | Renamed, applied to history only. Pinned always display. |
 | Z-order? | active > pinned > past |
 | Reuse `visibleOnMap`? | No — replace with `pinned: Boolean` in protobuf |
+
+## Outcome
+
+**Shipped 2026-06-22** — the per-track eye toggle became a pin: `pinned` joined the `Track` protobuf and pinned tracks render unconditionally with their own colour pair and transparency range, while the render count governs the unpinned history alone.
+
+- **Built:** `TrackRepository.setPinned()`, the pinned transparency pair (`trackingTransparencyPinnedNewest` / `Oldest`, defaults 0 / 20) through `BuildConfig` and prefs, the pinned RangeSlider in Settings, and the pin replacing the eye in `TrackHistoryOverlay`.
+- **Z-order:** active > pinned > past, refined by [`260717_FEAT_PLN_Tracks_tracks-paint-order.md`](260717_FEAT_PLN_Tracks_tracks-paint-order.md) to newest-on-top within each group.
+- **Superseded in part:** the persisted `visibleOnMap` this plan retired was itself later deleted by the TracksImport visibility refactor (`FEAT_DOC_Tracks_decisions.md` §1.4), leaving `pinned` the only per-item map-presence control.

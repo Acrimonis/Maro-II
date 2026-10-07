@@ -178,3 +178,11 @@ SectionHeader: "Stop detection"                       ← new string
 - `app/src/main/assets/maro.properties`
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-fr/strings.xml`
+
+## Outcome
+
+**Shipped 2026-06-18** — `AdaptiveGpsPolicy` became a pure position-only policy: `onFix` lost the `wakeSpeedMps` parameter and the last-position jump detection, answering ACTIVE while the boat stays within `adaptiveDistance` of its anchor for `adaptiveTime`, and IDLE once that window elapses.
+
+- **Built:** the three old settings (`adaptiveWindowSec`, `adaptiveDistanceM`, `adaptiveIdleIntervalSec`) were removed with no migration, replaced by `stopDetectionEnabled`, `stopDetectionTimeSec`, `stopDetectionDistanceM` and `stopDetectionDelayGps`; the GPS dormant interval became `stopDetectionTimeSec × stopDetection.gpsDormantPct / 100`; the Advanced-tab "Idle saving" section was replaced in place by "Stop detection", and the retired strings left both locales.
+- **Settled since:** the shipped thresholds are `stopDetectionTimeSec = 45` and `stopDetectionDistanceM = 15` (`FEAT_DOC_Tracks_decisions.md` §3.5), against the 30 s / 20 m this plan proposed.
+- **Rule in force:** the recording state persists through stationary periods; only point capture suspends via `isStill()`.
