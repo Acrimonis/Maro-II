@@ -110,7 +110,7 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * cell at its own aversion without a second rasterise. The forced-crossing growth and the fine pass (§5)
  * still run — the wider corridor kept only when it forces fewer crossings, and the fine pass on the
  * settled line where a restrictive zone the coarse grid could not see around gets a local A* at
- * `route.avoid.fine.cellRatio`. There is no budget loop: the slow-water budget is demoted, so a rung is
+ * `route.avoid.grid.fineCellM`. There is no budget loop: the slow-water budget is demoted, so a rung is
  * computed at its own λ and never corrected.
  *
  * **The ranking.** The engine folds its own rungs: at every rung's terminal the settled costs of the

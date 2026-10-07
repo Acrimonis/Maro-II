@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-07 13:40
+modified: 2026-10-07 17:55
 ---
 
 # Feature: Route
@@ -39,7 +39,7 @@ an ordinary track.
 - **The feature's pure rules have one home** — the page set and the ETA view the selection walks, the seat's nearest-landed-row predicate, the collapse dispersion, the auto-pick's one-shot, the row's two figure lines, the trip figure and the point's printed form ([`RouteOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:54)); the rung mapping (index, λ and word) moved to [`RoutePreference.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt:1), which these helpers read.
 - **Every value lives in the properties file** — the line's colour, transparency and width, the shared dimming key, the navigate colour, the pin and the avoid family's margins, gates and prices, all read through [`AppConfig`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:126); the app's own rows are the engine dropdown, the free-water pace, the Driving preference, the slow-water budget, the **Active route** colour and the route rendering rows.
 - **Still in the code and on the removal list** — the refused-end crosshair with its `route.target.*` keys (replaced by the sea-side move above), the route opacity-ladder keys `tracking.transparency.routeFrom` / `routeTo` (the dimming key covers the need), and the seam members the current flow does not lean on, which the user will re-evaluate.
-- **Known limits** — the dummy promises nothing about water and no setting moves it; and the parked `route.avoid.fine.cellRatio` unit test is red by the user's own word, its key and its parse agreeing on the fine cell the refinement and the clock read.
+- **Known limits** — the dummy promises nothing about water and no setting moves it, and the fine cell the refinement and the clock read is the one metres key `route.avoid.grid.fineCellM`.
 
 ### Placement and the three seams
 
@@ -134,9 +134,14 @@ The live numbered requirements — added after the master book was retired; the 
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — the avoidance algorithm's design of record: the pipeline, the cost field, the λ loop, the fairing and the evidence
 - [`261005_FEAT_PLN_Route_walk-context-seam.md`](261005_FEAT_PLN_Route_walk-context-seam.md) — the pull's walk context and the `PullSetup` seam
 - [`261007_FEAT_PLN_Route_rung-ranking-preselection.md`](261007_FEAT_PLN_Route_rung-ranking-preselection.md) — the ranking, the running best, the seat's freeze and the budget's settings row (R98)
+- [`261007_FEAT_PLN_Route_avoid-settings-taxonomy.md`](261007_FEAT_PLN_Route_avoid-settings-taxonomy.md) — the avoid/evolutive key audit that landed 2026-10-07: the dead key's deletion, the fine layer's one metres idiom and the aligned code defaults (landed)
 - Retired plans and docs live in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Todos
+
+- [ ] **Algorithm review, point 1 — a priced band beyond the depth gate's margin** (discuss, then settle) — the gate is a wall today and the margin a standoff; the ask is a soft depth preference so a line sits wider where the water allows. Feasibility turns on the priced walk's group proof, which needs a declared clearance a depth-valued price cannot give → [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md)
+- [ ] **Algorithm review, point 3 — the turns' reach and symmetry** (discuss, then settle) — the per-corner fit is capped by the shorter half-segment and `reachFraction` already stands at 1.0, so a lower lateral acceleration has nowhere to go; the artifact must be reproduced and told apart from the profile's own asymmetry → [`261007_FEAT_PLN_Route_turn-impact-and-symmetry.md`](261007_FEAT_PLN_Route_turn-impact-and-symmetry.md)
+- [ ] **Algorithm review, point 4 — the coastal leg's optimistic clock, and a third engine** (discuss, then settle) — two readings must be separated by one device reading before any design; the mechanism the user proposes already exists as `evolutive`'s fine-window mask, so widening that mask comes before a third engine → [`261007_FEAT_PLN_Route_coastal-fine-grid-engine.md`](261007_FEAT_PLN_Route_coastal-fine-grid-engine.md)
 
 - [ ] **The multi-route save, withdrawn 2026-09-24** — the exit dialog no longer offers to write the session's routes; resolve later whether it comes back and, if it does, what names its files.
 - [ ] **The provisional figure is shown unmarked (R96)** — a waiting row's early distance and ETA wear the settled weight while the figure will move by up to a percent; decide whether a mark is owed.

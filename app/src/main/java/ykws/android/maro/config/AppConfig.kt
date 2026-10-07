@@ -189,36 +189,32 @@ object AppConfig {
     const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
 
 
-    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
-    var routeAvoidObstacleMarginM: Double = 25.0
+    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 50. */
+    var routeAvoidObstacleMarginM: Double = 50.0
         private set
 
-    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 50. */
-    var routeAvoidGridCellM: Double = 50.0
+    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 100. */
+    var routeAvoidGridCellM: Double = 100.0
         private set
 
     /**
-     * The fine pass's cell as a ratio of the coarse cell — `route.avoid.fine.cellRatio`, default 0.40,
-     * clamped [ROUTE_AVOID_FINE_CELL_RATIO_MIN]..[ROUTE_AVOID_FINE_CELL_RATIO_MAX].
+     * The avoid engine's fine cell (m) — `route.avoid.grid.fineCellM`, default 33.3333, clamped
+     * [ROUTE_AVOID_FINE_CELL_M_MIN]..[ROUTE_AVOID_FINE_CELL_M_MAX] and never coarser than
+     * [routeAvoidGridCellM].
      *
-     * The ratio is the home for the relationship the user set — 40 % of the coarse cell — so the size is
-     * written once, in `route.avoid.grid.cellM`: at today's 50 m the fine cell is 20 m, and no metres key
-     * is kept beside it for the two to drift apart.
-     *
-     * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
-     * unused, as `route.avoid.zone300.outsideMarginM` did before the band.
+     * **The metres value is the fact**, on the same idiom as [routeEvolutiveGridFineCellM], so a coarser
+     * walk cannot coarsen the precision a drawn line resolves at. The fine pass reads it: a restrictive
+     * zone the coarse line enters is re-solved locally at this cell, and the settled line is then pulled
+     * and snapped against the field this size prices.
      */
-    var routeAvoidFineCellRatio: Double = 0.40
+    var routeAvoidGridFineCellM: Double = 33.3333
         private set
 
-    /** Lowest fine-cell ratio the load accepts — the one home for that end of the span. */
-    const val ROUTE_AVOID_FINE_CELL_RATIO_MIN = 0.05
+    /** Lowest fine cell (m) the avoid load accepts — the precision's own floor. */
+    const val ROUTE_AVOID_FINE_CELL_M_MIN = 5.0
 
-    /**
-     * Highest fine-cell ratio the load accepts — 1.0 makes the fine cell the coarse one, so the pass
-     * subdivides nothing and stays inert.
-     */
-    const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
+    /** Highest fine cell (m) the avoid load accepts — the coarse cell's own ceiling, and never coarser than it. */
+    const val ROUTE_AVOID_FINE_CELL_M_MAX = 500.0
 
     /**
      * The `evolutive` engine's own coarse cell (m) — `route.evolutive.grid.cellM`, default 100, clamped
@@ -366,24 +362,24 @@ object AppConfig {
     /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
      * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
-     * the pace after leaving it. 0.1–2.0, default 0.5: a comfortable easing down, 2.0 the briskest a
-     * planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's clock
-     * alone** — it moves the reported time and never the drawn line, which the search has already
+     * the pace after leaving it. 0.1–2.0, default 1.0: a purposeful ease, light bracing, 2.0 the
+     * briskest a planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's
+     * clock alone** — it moves the reported time and never the drawn line, which the search has already
      * chosen. One home for the rate: this value, and the key it is read from.
      */
-    var routeSpeedAccelMps2: Double = 0.5
+    var routeSpeedAccelMps2: Double = 1.0
         private set
 
     /**
      * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`,
-     * default 1.0 (~0.1 g), clamped 0.1..2.94.
+     * default 0.33 (~0.03 g), clamped 0.1..2.94.
      *
      * A corner is drawn as a curve whose radius is `r = v² / a_lat`, so a high value gives a tight,
      * hard turn and a low value a wide, gentle one; the fitter caps a bend's radius at the pace's own
      * `v_pace² / a_lat` and never draws it tighter than the speed's own minimum, `v² / a_lat`. One
      * home for the ceiling: this value and the key it is read from.
      */
-    var routeTurnLateralAccelMps2: Double = 1.0
+    var routeTurnLateralAccelMps2: Double = 0.33
         private set
 
     /**
@@ -1763,7 +1759,7 @@ object AppConfig {
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
-            //    and the fine ratio Change 4 will read) ──
+            //    and the fine cell Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
             }
@@ -1781,11 +1777,11 @@ object AppConfig {
             }
             // The fine pass reads it: a restrictive zone the coarse line enters is re-solved locally at
             // this cell, and the settled line is pulled and snapped against the field this size prices.
-            props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
-                routeAvoidFineCellRatio = it.coerceIn(
-                    ROUTE_AVOID_FINE_CELL_RATIO_MIN,
-                    ROUTE_AVOID_FINE_CELL_RATIO_MAX
-                )
+            props.getProperty("route.avoid.grid.fineCellM")?.toDoubleOrNull()?.let {
+                routeAvoidGridFineCellM = it.coerceIn(
+                    ROUTE_AVOID_FINE_CELL_M_MIN,
+                    ROUTE_AVOID_FINE_CELL_M_MAX
+                ).coerceAtMost(routeAvoidGridCellM)
             }
             // ── The evolutive engine's grid: its coarse cell and its fine cell (metres, the precision
             //    fact). `avoid`'s own keys are untouched ──

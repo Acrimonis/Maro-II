@@ -97,8 +97,8 @@ injection point — the one thing that separates one algorithm from another:
 - `firstWalkGrid(corridor, baseCellM): List<GridTile>` — the rectangles the first walk may use, each at its own cell size.
 - `fineCellM(baseCellM)` — the fine cell, in **metres**, the clock steps at.
 
-Two plans ship: **`UniformGridPlan`** (one tile over the whole corridor, the fine cell its coarse cell times
-`route.avoid.fine.cellRatio`) and **`EvolutiveGridPlan`** (two tiles — the interior at
+Two plans ship: **`UniformGridPlan`** (one tile over the whole corridor, the fine cell its own metres key
+`route.avoid.grid.fineCellM`) and **`EvolutiveGridPlan`** (two tiles — the interior at
 `route.evolutive.grid.cellM` and the band at `route.evolutive.grid.fineCellM`, coarse first so a
 layer-agnostic lookup resolves the interior). A plan decides **where and at what size** work happens: it never
 prices, never times and never reads a switch.
@@ -143,7 +143,7 @@ starts under the family that owns it:
 |---|---|
 | `route.engine.id` | The shipped engine row |
 | `route.avoid.corridor.reachM` | The corridor's reach, and its doubling on growth |
-| `route.avoid.grid.cellM`, `route.avoid.fine.cellRatio` | `avoid`'s walk cell and its fine cell |
+| `route.avoid.grid.cellM`, `route.avoid.grid.fineCellM` | `avoid`'s walk cell and its fine cell |
 | `route.avoid.obstacle.marginM` | The clearance margin around every edge |
 | `route.avoid.depthGate.*` | The gate's switch and its minimum depth |
 | `route.avoid.zone300.*` | The band's width, limit, outside margin, price fraction and switch |
@@ -159,4 +159,4 @@ Current state, not history — these are the open facts a reader should not be s
 - The engine's `aversionKn` and `slowWaterBudgetPct` providers are **live**: the first names the ranking's stop, the second is Best's gate. Those are their only readers, and the ranking's tail (`betterPass`) has its one caller.
 - `LineDeviation.kt` and the `route.evolutive.fine.corridorHalfWidthM` key are **unread** by any shipped path.
 - No test **drives `runPass` itself**, so a reverted call site that hands the pull the wrong step would not be caught.
-- Three unit tests are **red on purpose-known grounds**: the parked `route.avoid.fine.cellRatio` check and two `TrackOutlineTest` dash drifts.
+- No unit test is **red on purpose-known grounds**.

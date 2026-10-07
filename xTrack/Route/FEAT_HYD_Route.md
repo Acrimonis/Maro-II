@@ -1,66 +1,50 @@
 # Context Hydration — Route — 2026-10-07
 
-**Last Bake:** 2026-10-07 13:40 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-07 17:55 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-07 10:17 UTC) the work ran on the user's own words — one
-`#implement` on the rung-ranking plan, then six follow-ups on the acquisition panel and the followed tile:
-the winner's disc moved behind the name, its first column's padding restored and the disc pinned to the
-cell's top-right, the disc then **dropped** as distracting, the followed tile re-led with the ETA over
-`distance · preference @ pace`, the cell made flip-able on a tap, and its border made to pulse in the
-toggle's blue — plus the feature file's own cleanup to present-tense state, the `#bake`, `#commit` and
-`#push` invocations. No dependency was added, no machine-shaped data file was opened, no work was started
-without an order, the device was not touched, and every claim about the code follows a file read.
+**Directive trace:** Since the last bake (2026-10-07 13:40 UTC) the work ran on the user's own words — a plan
+review that folded four corrections into [`261007_FEAT_PLN_Route_avoid-settings-taxonomy.md`](261007_FEAT_PLN_Route_avoid-settings-taxonomy.md),
+then the steer **fold · 1 delete · 2 normalize · update docs to match current**, which landed the avoid/evolutive
+key taxonomy. No dependency was added, no machine-shaped data file was opened, no work was started without an
+order, the device was not touched, and every claim about the code follows a file read.
 
 ## State
 
-**The rung ranking shipped whole, and the mode was reshaped around it.** [`RoutePreference.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt)
-is the ladder's one home for its three λ values, indices and words; [`RoutePassRanking.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt)
-ranks the rungs that have landed — Fast the total time, Best the total time under the
-`route.avoid.speedZone.timeBudgetPct` gate, Fun the absolute zone seconds with the clock last, one shared
-tail on a lead tie and a total tie to the rung nearest the preference — and [`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt)
-folds a **running best** at every rung's terminal under one `Mutex`, riding the update as [`RouteRunningBest`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:150).
-The seat follows that winner on every improvement and **freezes on a hand touch**; the fan's `Route auto`
-child takes the **final best** ([`selectBestRoute()`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt)); the middle stop is renamed **Best**/**Optimal**;
-and the budget gained a Routing-settings row, its code default brought onto the shipped **25**.
-[`RoutePassRules`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt) became
-`RoutePassRanking` with `fineSpliceBetter` and its test retired, and the register gained **R98**.
+**The avoid/evolutive key taxonomy landed.** The dead key `route.avoid.grid.fineRatio` (no accessor, no parse)
+was deleted with its comment; the fine layer was normalized to one idiom, **metres** — `route.avoid.fine.cellRatio`
+became [`route.avoid.grid.fineCellM=33.3333`](../../app/src/main/assets/maro.properties:304),
+[`UniformGridPlan.fineCellM`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt:59)
+reads it, and `routeAvoidFineCellRatio` with its ratio bounds became `routeAvoidGridFineCellM` with metres bounds
+in [`AppConfig`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:200). The four asset-vs-code drifts
+were aligned onto the shipped asset — `grid.cellM` 50→100, the fine cell 0.40→33.3333, `lateralAccelMps2` 1.0→0.33,
+`speedAccelMps2` 0.5→1.0, `obstacle.marginM` 25→50 — and the shipped line is preserved byte-for-byte.
 
-**The acquisition table was settled by three passes.** The winner's disc moved from a leading slot to
-behind the rung name, then to the top-right of the first cell with the column's inset restored — and was
-finally **dropped** on the user's word as distracting, so the selection alone marks the chosen line while
-the *so far* mark still rides the running best's row. The figures column prints **time first, distance
-second** for landed and pending rows alike.
+**The docs match.** The two acceleration comment blocks in
+[`maro.properties`](../../app/src/main/assets/maro.properties:131) now state their shipped values, the
+[`RouteAvoidEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:113) KDoc names the new
+key, and [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md),
+[`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) and
+[`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) are current.
 
-**The followed tile is the route's own, and flips.** Its main figure is the remaining time through
-[`routeEtaText`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt), over one line built
-from `route_trip_line_fmt`: the distance left, the Driving preference's word and the cruising pace. A tap
-flips it to the shore reading and back, a freshly armed route opening on the trip face, and the trip face
-wears a **border pulsing in the route toggle's own blue** on the app's single pulse beat.
+**The parked red is resolved.** `theFineCellRatioShipsAtFortyPercentOfTheCoarseCell` was rewritten to
+`theAvoidFineCellShipsInMetres`, and the evolutive plan's ratio test to `theUniformPlanReadsItsOwnMetresFineCell`.
 
-**The feature file was cleaned on the user's word.** [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) dropped its
-`## Implemented` log, both closed walk levels, the `## Delta` narrative and the struck R83–R87 rows, from
-355 lines to about 145, and now states the current code, its live requirements at the same numbers, its
-rules, key files, docs, open todos and owed passes.
-
-Suite **940 / 1 / 11** — the parked `route.avoid.fine.cellRatio` red alone — and `assembleDebug` green.
+Suite green — no unit test red on purpose-known grounds — and `assembleDebug` green.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt`, `RoutePassRanking.kt` — **new**, the ladder's home and the preference-aware ranking; `RoutePassRules.kt` deleted
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt`, `RouteAvoidEngine.kt` — `RouteRunningBest` on the seam, the `runningBest` field on the update, the fold at every terminal
-- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the running best exposed, the seat following it and freezing, `selectBestRoute()`
-- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt`, `RouteConfirmPanel.kt`, `MapScreen.kt` — the row's figure order and *so far* mark, the cleaned first column, the panel's new parameters
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — the trip face's ETA-first reading, the two-face flip, the pulsing border
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/maro.properties` — the budget default 25
-- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `route_winner_so_far`, the Best/Optimal rename, `route_trip_line_fmt`; `route_trip_ago` and `route_trip_forced` retired
-- `app/src/test/java/ykws/android/maro/spatial/multipass/RoutePassRankingTest.kt` — **new**, six fixtures; `RouteAvoidEngineTest`, `RouteAcquisitionTest`, `RouteAutoPickTest`, `RoutePlanTest` retargeted
-- `xTrack/Route/FEAT_DSC_Route.md`, `FEAT_DOC_Route_engines.md`, `261007_FEAT_PLN_Route_rung-ranking-preselection.md` — the record
-- `xTrack/GLOBAL_CONTEXT.md` — this bake's routing row and focus entry
+- `app/src/main/assets/maro.properties` — the dead key deleted, the ratio key renamed to `route.avoid.grid.fineCellM`, the two acceleration comments corrected
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `routeAvoidGridFineCellM` and its metres bounds replacing the ratio pair; `grid.cellM` 100, `obstacle.marginM` 50, `lateralAccelMps2` 0.33, `speedAccelMps2` 1.0
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridPlan.kt` — `UniformGridPlan.fineCellM` reads the metres key; the interface KDoc
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the KDoc's key name
+- `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt`, `RouteEvolutiveEngineTest.kt` — the parked red rewritten, the margin reset and the evolutive ratio test retargeted
+- `xTrack/Route/FEAT_DOC_Route_engines.md`, `FEAT_DOC_Route_avoid-algorithm.md`, `FEAT_DSC_Route.md`, `261007_FEAT_PLN_Route_avoid-settings-taxonomy.md` — the record
+- `xTrack/GLOBAL_CONTEXT.md` — this bake's summary row and focus entry
 
 ## Next Step
 
-The ranking's device acceptance and the followed tile's new reading are the user's own, unmeasured. The
-parked `route.avoid.fine.cellRatio` red stays by the user's word, and four findings stand open: the
-`RoutePreference.ofIndex` silent default, "three rungs" living in three places, two stale lines in
-[`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md), and the removed `## Implemented` section against
-`AGENTS.md` §7a's bake target.
+The algorithm review's points 1, 3 and 4 stay in design, each carrying a plan to be discussed in turn. Two
+points park under the taxonomy work: whether `avoid`'s fine cell stays 33.3333 m or moves to a clean 20/25 m,
+and whether `route.avoid.*` should be renamed to a family name that says *shared*. The rung ranking's device
+acceptance and the followed tile's reading remain the user's own, unmeasured, and the removed `## Implemented`
+section still stands against `AGENTS.md` §7a's bake target.

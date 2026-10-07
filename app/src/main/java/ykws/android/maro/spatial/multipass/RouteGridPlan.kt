@@ -38,8 +38,7 @@ interface RouteGridPlan {
     /**
      * The **fine cell this algorithm's clock reads**, in metres, given the configured [baseCellM]. A
      * metres value rather than a ratio, because the precision a drawn line resolves at is the fact and a
-     * ratio drifts with the coarse cell it multiplies: `evolutive` answers its own key, while
-     * [UniformGridPlan] reproduces `avoid`'s ratio and therefore today's behaviour exactly.
+     * ratio drifts with the coarse cell it multiplies: each engine answers its own metres key.
      */
     fun fineCellM(baseCellM: Double): Double
 }
@@ -55,8 +54,8 @@ object UniformGridPlan : RouteGridPlan {
     override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> =
         listOf(GridTile(corridor, baseCellM))
 
-    /** The ratio's own arithmetic, so `avoid`'s metres are its coarse cell times its ratio and nothing else. */
-    override fun fineCellM(baseCellM: Double): Double = baseCellM * AppConfig.routeAvoidFineCellRatio
+    /** `avoid`'s own metres key, the same idiom as `evolutive`'s: the base cell does not move the precision. */
+    override fun fineCellM(baseCellM: Double): Double = AppConfig.routeAvoidGridFineCellM
 }
 
 /**
