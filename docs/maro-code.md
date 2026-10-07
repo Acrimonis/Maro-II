@@ -129,6 +129,16 @@ Precedence, most specific first: `path.<kind>.<group>.<class>.<leaf>` → `path.
 → `path.<kind>.<group>.<leaf>` → `path.<group>.<leaf>` → the code default; a class **outranks** the
 kind. The one statement of the rule lives in the `maro.properties` PATH banner.
 
+**The two display axes** — speed colours and direction arrows — are per-kind **persisted settings**: the
+tracks kind's pair (`trackArrows` / `trackColours`) and the route kind's (`routeSpeedArrows` /
+`routeSpeedColor`), each governing its own lines alone, with **no kind master over the other** (2026-10-07).
+Each axis rides one `enabled` leaf with **three tiers** — `path.arrow.enabled` / `path.heatmap.enabled`
+(global), the kind leaf over it, and `path.arrow.enabled.<class>` / `path.heatmap.enabled.<class>` — where
+the global and kind leaves **seed** the persisted setting and only the class leaf **overrides** it at read
+time ([`AppConfig.pathArrowEnabled`](../app/src/main/java/ykws/android/maro/config/AppConfig.kt) /
+`pathHeatmapEnabled`). The **`acquisition`** class is the first such override: the route search's rung under
+the selection is silent on both axes until the route is followed.
+
 ## Dependency Flow
 
 ```

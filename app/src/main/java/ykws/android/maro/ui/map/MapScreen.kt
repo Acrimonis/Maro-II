@@ -662,13 +662,14 @@ fun MapScreen(
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
 
     // ── Selected-track rendering override ──────────────────────────────
-    // Both axes are stored state (`appSettings.trackArrows`, `appSettings.trackColours`), written by
-    // the menu's twin box, so the map only reads them. The drawer eye's own value (D10) is stored
-    // beside them in `appSettings.trackSelectionBanded`, on the selection rather than on any track id:
-    // null means the eye has never been tapped and the selection mirrors the colours flag, true bands
-    // that one track, false paints it gold. The first tap writes it and from then on it is the user's
-    // own value, so it outlives the session; it moves that track's fill alone, since the chevrons
-    // follow the arrows flag.
+    // Each kind's two axes are stored state (`appSettings.trackArrows` / `trackColours` for tracks,
+    // `routeSpeedArrows` / `routeSpeedColor` for routes), written by their own surfaces, so the map only
+    // reads them — no kind is master over another (2026-10-07). The drawer eye's own value (D10) is
+    // **local to the open card since 2026-10-07**: keyed on the open id, null while it has never been
+    // tapped so the selection mirrors its kind's colours axis, true bands that one track, false paints it
+    // gold, and the card's close clears it. Nothing is written to disk, so it outlives neither the card
+    // nor the session; it moves that track's fill alone, since the chevrons follow the arrows axis.
+    var eyeOverride by remember(highlightedTrackId) { mutableStateOf<Boolean?>(null) }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -1520,7 +1521,7 @@ fun MapScreen(
         highlightedTrackId = highlightedTrackId,
         trackArrows = appSettings.trackArrows,
         trackColours = appSettings.trackColours,
-        eyeOverride = appSettings.trackSelectionBanded,
+        eyeOverride = eyeOverride,
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
@@ -2581,7 +2582,7 @@ fun MapScreen(
                 // sweep shows is gold only where a selection would be gold (plan §4).
                 trackArrows = appSettings.trackArrows,
                 trackColours = appSettings.trackColours,
-                eyeOverride = appSettings.trackSelectionBanded,
+                eyeOverride = eyeOverride,
                 onSweep = { rank -> inspectCandidate = rank },
                 onPick = { picked, ladder ->
                     // The pick opens the card through the canonical opener — the one the mode spends its
@@ -3102,7 +3103,7 @@ fun MapScreen(
                         trackArrows = appSettings.trackArrows,
                         trackColours = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
-                        eyeOverride = appSettings.trackSelectionBanded,
+                        eyeOverride = eyeOverride,
                         tracksVisible = appSettings.tracksVisible,
                         routesVisible = appSettings.routesVisible,
                         // The painted routes, so the planner reads each of them as the role it is; read
@@ -3618,7 +3619,12 @@ fun MapScreen(
                 trackListIds = trackListIds,
                 inspectHandoff = inspectHandoff,
                 appSettings = appSettings,
-                onToggleEyeOverride = { toggleSelectedTrackEye(viewModel, appSettings, mapView) },
+                eyeOverride = eyeOverride,
+                // The eye lives only while this card is open (2026-10-07): the tap flips the local value,
+                // which is cleared with the card, and nothing is written to disk.
+                onToggleEyeOverride = {
+                    eyeOverride = selectionBandedAfterTap(eyeOverride, appSettings.trackColours)
+                },
             ),
             onTrackDrawerClose = { closeTrackDrawer() },
             onNavigateToTrack = { id -> openSelectedTrack(listOf(id)) },
@@ -3979,28 +3985,6 @@ private fun toggleTrackFilterLink(viewModel: NavigationViewModel) {
 private fun toggleMarkerFilterLink(viewModel: NavigationViewModel) {
     // Pure flip: no filter carry-over. Next linked edit writes both.
     viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
-}
-
-/** The track drawer's eye override (D10). */
-private fun toggleSelectedTrackEye(
-    viewModel: NavigationViewModel,
-    appSettings: AppSettings,
-    mapView: MapView?
-) {
-    // D10: the eye moves the selected track's fill alone, never the colours flag every
-    // other track renders by. With Colours off it turns the ramp on for this one track,
-    // with Colours on it turns this track off it, and from the first tap the value is
-    // the user's own: the flag stops reaching it. The tap's algebra lives in
-    // `selectionBandedAfterTap`, where it is unit-tested.
-    viewModel.updateSettings {
-        it.copy(
-            trackSelectionBanded = selectionBandedAfterTap(
-                appSettings.trackSelectionBanded,
-                appSettings.trackColours
-            )
-        )
-    }
-    mapView?.invalidate()
 }
 
 /** R2 + the track list sort. */

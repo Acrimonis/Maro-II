@@ -181,9 +181,15 @@ Shipped on `feature/tracks-rotes-norm`, uncommitted; S0–S16 all ran.
 - **Validation** — `apk-build.bat` green; the scoped `ui.map` + `config` + `spatial` suite at 653 tests, one parked red (`route.avoid.fine.cellRatio`) and two skipped. The device pass is the user's and is owed.
 - **Guards repaired** — the rename and the point move had left twelve reds across `TrackSpeedHeatmapTest`, `HeatmapRampPropertiesTest`, `TrackOutlineTest`, `MapTrackSegmentsTest` and `TrackDirectionOverlayTest`; all are green, and the route dash's code default was aligned to the file's 8 / 2.
 
-## Speed and arrow display — the next normalisation (in design)
+## Speed and arrow display — the next normalisation (shipped 2026-10-07)
 
 The user's requirement: one global property per axis, a distinct setting per kind, per-line-type overrides, and the master gone.
+
+**Shipped on `feature/tracks-rotes-norm`, uncommitted (2026-10-07).** The settled bullets below are the
+built shape: both axes walk the three tiers on one `enabled` leaf, the per-kind pair is the persisted
+setting, the `acquisition` class is silent on both axes, `path.gate.*` is retired to the route kind's own
+leaves, the Settings surface names each kind, and the drawer eye is a card-local, non-persisted override.
+The review findings R1–R5 below stand as written.
 
 - The two axes are **arrows** and **speed colours**; the tiers are global, kind and class, resolved through the same cascade the family already walks.
 - Keys: `path.arrow.enabled` / `path.heatmap.enabled` (global), `path.track.*` / `path.route.*` (kind, seeding each kind's setting) and `path.arrow.enabled.<class>` / `path.heatmap.enabled.<class>` (the line-type override).
@@ -207,3 +213,34 @@ A reading of this plan against the shipped tree, recorded rather than quietly ti
 - **R3 — two dead masters.** `path.arrow.enabled` and `path.heatmap.enabled` are declared and loaded but read by nothing, so the file's claimed mastery over the chips is inert — the normalisation above removes it by giving both axes a real cascade.
 - **R4 — the step letters collided.** This plan's steps and the executed pass used the same letters for different work; the Outcome above is the executed set.
 - **R5 — the baseline was mis-stated.** S1 named three reds; the rename left twelve, now repaired.
+
+### Second pass — the normalisation's Ask hop (2026-10-07)
+
+- **R6 — the legend gate holds a stale eye (medium).** `MapScreen`'s legend gate derives inside
+  `remember(appSettings)`, while the eye's state is recreated by `remember(highlightedTrackId)`; the
+  retained derivation therefore closes over the discarded state, so flipping the eye on an open card moves
+  the stroke and not the scale — the contradiction the eye bullet above was written to avoid. The fix is
+  to key the derivation on the eye as well (`remember(appSettings, eyeOverride)`) or to drop it.
+- **R7 — the class-override application is untested (low).** `AppConfig.pathArrowEnabled` /
+  `pathHeatmapEnabled` and `pathClassBool` are pinned by key shape (`PathKeyCandidatesTest`) and by the
+  shipped file, not by a resolution test: the class leaf beating the persisted setting is asserted nowhere.
+- **R8 — two parameters kept the old name (low).** `bandedStrokeOnMap` and `legendVisibleForState` still
+  name their pair `trackArrows` / `trackColours` though the caller now hands them each id's own kind's pair.
+- **R9 — a redundant key read (low).** The rebuild list tests `eyeOverride == true` for the ramp group a
+  few lines after `eyeOverride` has already joined the list unconditionally.
+
+### Fix pass — the four findings assessed (2026-10-07, planned, not built)
+
+- **R6 — take it.** One line: key the legend derivation on the eye as well
+  (`remember(appSettings, eyeOverride)`), so the retained state is rebuilt whenever the eye moves and the
+  scale can no longer disagree with the stroke. It is a regression this pass introduced, so it is the one
+  finding that must ship.
+- **R9 — take it while in the same pass.** Drop the redundant `|| eyeOverride == true` arm: `eyeOverride`
+  already joins the rebuild list unconditionally three lines above, so the arm changes nothing.
+- **R8 — take it or park it.** Renaming `bandedStrokeOnMap`'s and `legendVisibleForState`'s pair to
+  `arrowAxis` / `coloursAxis` makes the file honest about the values now arriving per id; it touches the
+  two functions and the tests that name those arguments, so it rides the same pass or waits.
+- **R7 — park it with the reason.** A resolution test needs the retained `Properties` bag, which only
+  `AppConfig.init` fills; pinning it means either an init-backed test or a seam that takes the bag. The
+  key shapes and the shipped file are already pinned, so the uncovered half is the three-line `?: setting`
+  application — recorded rather than bought.

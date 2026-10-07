@@ -105,11 +105,12 @@ data class TrackInfoOverlayData(
      */
     val trackColours: Boolean = true,
     /**
-     * The drawer header's eye (D10): the selected track's own override, null meaning "follow
-     * [trackColours]" — which is what an install whose eye was never tapped holds, the key being
-     * written from the first tap on. It lives on the selection, so it applies to whichever track the
-     * drawer has open, and it moves that track's fill alone: the chevrons follow the arrows flag
-     * whatever the eye says. It never moves either flag — the menu's twin box stays their only writer.
+     * The drawer header's eye (D10): the open track's own override, **local to the card since
+     * 2026-10-07** — null means "follow [trackColours]", which is where a freshly opened card starts,
+     * and the value is cleared when the card closes, nothing being written to disk. It rides the
+     * selection, so it applies to whichever track the drawer has open, and it moves that track's fill
+     * alone: the chevrons follow the arrows axis whatever the eye says. It never moves any axis — the
+     * tracks kind's own switches stay their only writers.
      */
     val eyeOverride: Boolean? = null,
     /** Drawer-header eye toggle: flips [eyeOverride] for the selected track alone. */

@@ -16,9 +16,11 @@ enum class PathKind(val prefix: String) {
  * The **class qualifier** a `path.<group>.<field>.<class>[.<sub>]` key carries (D4): the role one
  * drawn line plays, whatever its kind.
  *
- * The two stroke qualifiers sit here beside the five roles because the class axis is one axis: a
- * `casing` belongs to the selected line and a `dimmed` to the candidate lines, and both are read
- * through the same cascade as `live` or `pinned`.
+ * The two stroke qualifiers sit here beside the roles because the class axis is one axis: a `casing`
+ * belongs to the selected line and a `dimmed` to the candidate lines, and both are read through the
+ * same cascade as `live` or `pinned`. **`acquisition`** (2026-10-07) is the route search's own line-type:
+ * the rung under the selection wears it while the mode is choosing, so the class leaf can silence that
+ * one line's chevrons and bands through the ordinary cascade rather than a bespoke key.
  */
 enum class PathClass(val qualifier: String) {
     LIVE("live"),
@@ -27,7 +29,9 @@ enum class PathClass(val qualifier: String) {
     HISTORY("history"),
     PINNED("pinned"),
     CASING("casing"),
-    DIMMED("dimmed")
+    DIMMED("dimmed"),
+    /** The route search's rung under the selection, while the mode is choosing — never the live line. */
+    ACQUISITION("acquisition")
 }
 
 /**
@@ -50,12 +54,33 @@ internal fun pathKeyCandidates(
     sub: String? = null,
     pathClass: PathClass? = null
 ): List<String> = buildList {
+    if (pathClass != null) addAll(pathClassKeyCandidates(kind, group, field, sub, pathClass))
     val g = if (group.isEmpty()) "" else "$group."
     val tail = if (sub.isNullOrEmpty()) "" else ".$sub"
-    if (pathClass != null) {
-        add("path.${kind.prefix}.$g$field.${pathClass.qualifier}$tail")
-        add("path.$g$field.${pathClass.qualifier}$tail")
-    }
     add("path.${kind.prefix}.$g$field$tail")
     add("path.$g$field$tail")
+}
+
+/**
+ * **The class-bearing candidates alone, most specific first** (D5):
+ * `path.<kind>.<group>.<field>.<class>[.<sub>]` then `path.<group>.<field>.<class>[.<sub>]`.
+ *
+ * The runtime **override** reader walks these and only these (2026-10-07): a class overrides the kind
+ * and common leaves, which are the **seeds** the persisted setting starts from at load rather than
+ * values to fall back to while drawing. One home for the class key's shape, shared with
+ * [pathKeyCandidates].
+ */
+internal fun pathClassKeyCandidates(
+    kind: PathKind,
+    group: String,
+    field: String,
+    sub: String? = null,
+    pathClass: PathClass
+): List<String> {
+    val g = if (group.isEmpty()) "" else "$group."
+    val tail = if (sub.isNullOrEmpty()) "" else ".$sub"
+    return listOf(
+        "path.${kind.prefix}.$g$field.${pathClass.qualifier}$tail",
+        "path.$g$field.${pathClass.qualifier}$tail"
+    )
 }

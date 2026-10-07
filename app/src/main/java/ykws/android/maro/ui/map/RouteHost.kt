@@ -343,23 +343,28 @@ internal fun RouteHost(
             } else {
                 toRenderPoints(plan.points, plan.legTimesSec)
             }
+            // The rung under the selection wears the **acquisition** class while the mode is still
+            // choosing and **live** once the route is followed (2026-10-07): the class leaf
+            // (`path.arrow.enabled.acquisition` / `path.heatmap.enabled.acquisition`) silences the
+            // search's chevrons and bands through the ordinary cascade, while the followed line stays on
+            // the route kind's own axes. A candidate behind the selection stays dimmed and arrowless.
+            val lineClass = if (followed != null) PathClass.LIVE else PathClass.ACQUISITION
+            val routeArrows = AppConfig.pathArrowEnabled(PathKind.ROUTE, lineClass, appSettings.routeSpeedArrows)
+            val routeColours = AppConfig.pathHeatmapEnabled(PathKind.ROUTE, lineClass, appSettings.routeSpeedColor)
             val rendering = lineRendering(
                 spec = LineRenderSpec(
                     kind = PathKind.ROUTE,
-                    pathClass = if (lives) PathClass.LIVE else PathClass.DIMMED,
+                    pathClass = if (lives) lineClass else PathClass.DIMMED,
                     points = specPoints,
                     dashed = true,
-                    drawArrows = lives && appSettings.trackArrows && appSettings.routeSpeedArrows
+                    drawArrows = lives && routeArrows
                 ),
                 title = title,
                 plan = if (lives) {
                     routeLineRenderPlan(
-                        trackArrows = appSettings.trackArrows,
-                        trackColours = appSettings.trackColours,
-                        selected = false,
-                        eyeOverride = null,
-                        routeSpeedColour = appSettings.routeSpeedColor,
-                        routeSpeedArrows = appSettings.routeSpeedArrows
+                        routeArrows = routeArrows,
+                        routeColours = routeColours,
+                        selected = false
                     )
                 } else {
                     LineRenderPlan(LineRenderPath.ROUTE, drawArrows = false, selected = false, dashed = true)

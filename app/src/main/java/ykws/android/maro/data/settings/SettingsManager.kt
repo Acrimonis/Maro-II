@@ -295,45 +295,36 @@ data class AppSettings(
      * Which face the map's speed-scale control wears: true is the expanded card, false the collapsed
      * toggle square. An unwritten key means expanded, i.e. exactly the behaviour before the toggle
      * existed, so nothing migrates and the field is deliberately non-null — the save chain already
-     * writes every non-null field unconditionally. `trackSelectionBanded` needed `contains()` only
-     * because its null meant "mirror the mode", and there is no third state here.
+     * writes every non-null field unconditionally.
      */
     val trackLegendExpanded: Boolean = true,
     /**
-     * Whether stored tracks wear direction chevrons — one of the two render axes the menu's twin box
-     * owns, and the arrows' only owner: the eye never moves it, so a gold selection keeps its chevrons
-     * and a banded one does not, whatever the eye says. Default off, so a device that wrote neither
-     * axis and holds no retired value opens on the ramp without chevrons.
+     * **The tracks kind's arrows axis** (2026-10-07): whether recorded tracks wear direction chevrons.
+     * One half of the pair the menu's twin box owns — no kind is master over another now — and the
+     * arrows' only owner: the eye never moves it, so a gold selection keeps its chevrons and a banded
+     * one does not. Seeded from `path.track.arrow.enabled`; default off.
      */
-    val trackArrows: Boolean = false,
+    val trackArrows: Boolean = ykws.android.maro.config.AppConfig.trackArrowEnabledSeed,
     /**
-     * Whether stored **recorded** tracks are painted from the speed ramp rather than from the default
-     * colours — the other render axis, and the one a fresh install opens on. It is the *fill* alone:
-     * while it is on, the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a
-     * recorded track is drawn, and the chevrons stay [trackArrows]' business. A **route** follows this
-     * chip too: the route role bands only while this is on **and** the route's own colour gate is on
-     * ([routeSpeedColor]), so with Colours off a route keeps its own pair (R34, R37).
+     * **The tracks kind's speed-colours axis** (2026-10-07): whether recorded tracks paint from the
+     * speed ramp rather than the default colours. It is the *fill* alone — the chevrons stay
+     * [trackArrows]' business — and it governs the **recorded kind only**: a route reads its own
+     * [routeSpeedColor], so with this off a route is untouched. Seeded from `path.track.heatmap.enabled`;
+     * default on.
      */
-    val trackColours: Boolean = true,
+    val trackColours: Boolean = ykws.android.maro.config.AppConfig.trackHeatmapEnabledSeed,
     /**
-     * The route-scoped speed-colour gate (R37): it **gates** the Colours chip rather than replacing it —
-     * a route bands only while this is true **and** [trackColours] is on, so at the shipped default
-     * `false` (and whenever Colours is off) a route is drawn in its own colour pair.
+     * **The route kind's speed-colours axis** (2026-10-07): the route's own counterpart to [trackColours],
+     * with no master chip above it — a route bands exactly while this is on. Seeded from
+     * `path.route.heatmap.enabled`; default off, so a route opens on its own colour pair.
      */
-    val routeSpeedColor: Boolean = ykws.android.maro.config.AppConfig.routeSpeedColourGate,
+    val routeSpeedColor: Boolean = ykws.android.maro.config.AppConfig.routeHeatmapEnabledSeed,
     /**
-     * The route-scoped arrow gate (R38): it can only veto — true leaves the drawer's own Arrows chip
-     * to decide, false means a route never shows chevrons, its direction being its origin to its
-     * destination rather than a bearing stored on a planned vertex.
+     * **The route kind's arrows axis** (2026-10-07): the route's own counterpart to [trackArrows]. Seeded
+     * from `path.route.arrow.enabled`; default on. The `acquisition` class leaf silences the search's own
+     * rung on both axes independently of this value.
      */
-    val routeSpeedArrows: Boolean = ykws.android.maro.config.AppConfig.routeSpeedArrowsGate,
-    /**
-     * The drawer eye's own value, held on the *selection* rather than on any track id, so it applies to
-     * whichever track the drawer has open. Null means the key has never been written — the selection
-     * mirrors [trackColours] — while true bands the selection and false paints it gold. The first tap
-     * writes it, after which the value is the user's own and the flag no longer reaches it.
-     */
-    val trackSelectionBanded: Boolean? = null,
+    val routeSpeedArrows: Boolean = ykws.android.maro.config.AppConfig.routeArrowEnabledSeed,
     /** Direction-arrow density mode: uniform on-screen spacing or speed-based. */
     val trackDirectionDensity: ykws.android.maro.ui.map.TrackDirectionDensity = ykws.android.maro.ui.map.TrackDirectionDensity.UNIFORM,
     /** Speed (kn) below which direction arrows use minimum spacing. */
@@ -725,16 +716,16 @@ class SettingsManager(
         // Absent means expanded: today's behaviour is the fallback, so no install has anything to migrate.
         trackLegendExpanded = prefs.getBoolean(KEY_TRACK_LEGEND_EXPANDED, true),
         // The two render axes: the arrows' argument runs the retired-value migration and the colours'
-        // then reads the flag that migration wrote, so the pair can never be read half-migrated.
-        trackArrows = prefs.getBoolean(KEY_TRACK_ARROWS, migrateRenderAxes()?.let { it != "SIMPLE" } ?: false),
-        trackColours = prefs.getBoolean(KEY_TRACK_COLOURS, true),
-        routeSpeedColor = prefs.getBoolean(KEY_ROUTE_SPEED_COLOR, ykws.android.maro.config.AppConfig.routeSpeedColourGate),
-        routeSpeedArrows = prefs.getBoolean(KEY_ROUTE_SPEED_ARROWS, ykws.android.maro.config.AppConfig.routeSpeedArrowsGate),
-        // Absent until the eye is first tapped, and `contains` is what tells that apart from a written
-        // false: the default below can never stand in for "mirror the mode".
-        trackSelectionBanded = if (prefs.contains(KEY_TRACK_SELECTION_BANDED)) {
-            prefs.getBoolean(KEY_TRACK_SELECTION_BANDED, false)
-        } else null,
+        // then reads the flag that migration wrote, so the pair can never be read half-migrated. Each
+        // axis's fallback is its own kind's `path.*` seed (2026-10-07), so a fresh install opens on what
+        // `maro.properties` declares without any of the four having to migrate.
+        trackArrows = prefs.getBoolean(
+            KEY_TRACK_ARROWS,
+            migrateRenderAxes()?.let { it != "SIMPLE" } ?: ykws.android.maro.config.AppConfig.trackArrowEnabledSeed
+        ),
+        trackColours = prefs.getBoolean(KEY_TRACK_COLOURS, ykws.android.maro.config.AppConfig.trackHeatmapEnabledSeed),
+        routeSpeedColor = prefs.getBoolean(KEY_ROUTE_SPEED_COLOR, ykws.android.maro.config.AppConfig.routeHeatmapEnabledSeed),
+        routeSpeedArrows = prefs.getBoolean(KEY_ROUTE_SPEED_ARROWS, ykws.android.maro.config.AppConfig.routeArrowEnabledSeed),
         trackDirectionDensity = try {
             ykws.android.maro.ui.map.TrackDirectionDensity.valueOf(
                 prefs.getString(KEY_TRACK_DIRECTION_DENSITY, "UNIFORM") ?: "UNIFORM")
@@ -973,11 +964,6 @@ class SettingsManager(
             .putBoolean(KEY_MAP_OFFSET_DEMO, updated.mapOffsetDemo)
             .putInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, updated.mapOffsetBoatFromBottomPct)
             .putFloat(KEY_MAX_RECORDING_ACCURACY_M, updated.maxRecordingAccuracyM)
-            .also { editor ->
-                // Written from the first tap on and never before it: a null value is the untouched eye,
-                // and an install that never tapped it must hold no key rather than a defaulted one.
-                updated.trackSelectionBanded?.let { editor.putBoolean(KEY_TRACK_SELECTION_BANDED, it) }
-            }
             .apply()
     }
 
@@ -1110,8 +1096,6 @@ class SettingsManager(
         private const val KEY_TRACK_COLOURS = "track_colours"
         /** The retired triple: read once by the migration, which erases it in the same edit. */
         private const val KEY_TRACK_RENDER_MODE = "track_render_mode"
-        /** The drawer eye's two-state value on the selection; absent until its first tap. */
-        private const val KEY_TRACK_SELECTION_BANDED = "track_selection_banded"
         private const val KEY_TRACK_DIRECTION_DENSITY = "track_direction_density"
         private const val KEY_TRACK_DIRECTION_SPEED_FLOOR_KN = "track_direction_speed_floor_kn"
         private const val KEY_TRACK_DIRECTION_SPEED_CEILING_KN = "track_direction_speed_ceiling_kn"

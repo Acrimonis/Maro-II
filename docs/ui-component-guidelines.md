@@ -340,6 +340,12 @@ precedence is stated once in that file's PATH banner, and [`maro-code.md`](maro-
 engine's files. The route's derived edge keeps the reinforcement lever above, its width keyed by
 `path.route.line.casing.width`.
 
+**The two display axes are per-kind, and no kind is master** (2026-10-07): speed colours and direction
+arrows each have their own persisted setting per kind — a tracks pair and a route pair — so a row names its
+own kind, and the two no longer gate one another. Each axis's `enabled` leaf carries three tiers (global →
+kind → class), the class leaf overriding the seeded setting; the `acquisition` class silences the route
+search's own rung on both axes.
+
 ### 2.9 Header Hierarchy
 
 - `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant. It is always followed by `Spacer(uiSpacingHeaderBottom)` (`ui.spacing.header.bottom`, 6dp) before its card — one header-to-card gap for every section in every tab (2026-10-06).

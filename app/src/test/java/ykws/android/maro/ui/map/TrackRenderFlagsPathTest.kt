@@ -232,19 +232,19 @@ class TrackRenderFlagsPathTest {
     }
 
     @Test
-    fun theLegendSeesARouteOnlyWhenBothItsGateAndTheChipsAreOn() {
-        // R37: a route bands on its own colour gate **joined to** the Colours chip, so the ramp is on the
-        // map only while both are on. Read through the same entry point the composition calls, with the
-        // painted id named as the route it is — without that the gate asks the planner about it as a
-        // recorded track and misreads the role.
+    fun theLegendSeesARouteOnItsOwnAxisAlone() {
+        // 2026-10-07: a route bands on its own colours axis alone — no chip is master above it — so the
+        // ramp is on the map while that axis is on, whatever the tracks kind's chip says. Read through the
+        // same entry point the composition calls, with the painted id named as the route it is — without
+        // that the gate asks the planner about it as a recorded track and misreads the role. The track
+        // chip is held off throughout, which is what shows it no longer reaches a route.
         fun gate(
-            trackColours: Boolean,
             routeSpeedColour: Boolean,
             selectedId: String? = null
         ): Boolean = legendVisibleForState(
             paintedIds = setOf("route"),
             trackArrows = false,
-            trackColours = trackColours,
+            trackColours = false,
             highlightedTrackId = selectedId,
             eyeOverride = null,
             tracksVisible = true,
@@ -253,20 +253,16 @@ class TrackRenderFlagsPathTest {
         )
 
         assertTrue(
-            "the gate and the Colours chip both on — the ramp is on the map",
-            gate(trackColours = true, routeSpeedColour = true)
+            "the route's own axis on — the ramp is on the map",
+            gate(routeSpeedColour = true)
         )
         assertFalse(
-            "the gate alone, Colours off — the route paints from its pair",
-            gate(trackColours = false, routeSpeedColour = true)
+            "the route's own axis off — the route paints from its pair",
+            gate(routeSpeedColour = false)
         )
-        assertFalse(
-            "the chip alone, gate off — the route paints from its pair",
-            gate(trackColours = true, routeSpeedColour = false)
-        )
-        // The open track's fill decides the same way when it is a route.
-        assertTrue(gate(trackColours = true, routeSpeedColour = true, selectedId = "route"))
-        assertFalse(gate(trackColours = false, routeSpeedColour = true, selectedId = "route"))
+        // The open route's fill decides the same way, the track chip still not reaching it.
+        assertTrue(gate(routeSpeedColour = true, selectedId = "route"))
+        assertFalse(gate(routeSpeedColour = false, selectedId = "route"))
     }
 
     // ── The eye's persisted value: what a tap writes ─────────────────────

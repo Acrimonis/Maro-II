@@ -378,8 +378,8 @@
     <string name="settings_section_tracks_and_routes">Tracks and Routes</string>
     <string name="settings_tracks_and_routes_desc">Recorded tracks and routes on the map</string>
     <string name="settings_tracks_transfer_desc">Export and import recorded tracks and routes</string>
-    <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks and routes</string>
-    <string name="settings_tracks_direction_settings_label">Tracks and Routes Speed and Direction</string>
+    <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
+    <string name="settings_tracks_direction_settings_label">Tracks Speed and Direction</string>
     <string name="settings_tracks_speed_display_label">Speed Display</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>
     <string name="settings_tracks_direction_density_uniform">Uniform</string>
@@ -581,7 +581,7 @@
     <string name="settings_routes_appearance_label">Routes Appearance</string>
     <string name="settings_routes_appearance_desc">How saved routes are drawn on the map</string>
     <string name="settings_routes_speed_direction_label">Routes Speed and Direction</string>
-    <string name="settings_routes_speed_direction_desc">Speed colours and direction arrows on routes. The map\'s Speed Colors and Arrows switches are the master for every kind; these switches can only turn a route\'s own off.</string>
+    <string name="settings_routes_speed_direction_desc">Speed colours and direction arrows on routes, each switch governing the route kind alone.</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_section_routing_tuning">Tuning</string>
     <!-- R42: a colour key the build could not read fell back to its sibling, and the app says so at start. -->

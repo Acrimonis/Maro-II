@@ -830,11 +830,21 @@ object AppConfig {
     var routePinnedFadeTo: Int = 20
         private set
 
-    /** The route colour gate's seed — `path.gate.speedColor`. Seeds `routeSpeedColor`. */
-    var routeSpeedColourGate: Boolean = false
+    /**
+     * **The arrows axis — the tracks kind's seed** (2026-10-07): `path.track.arrow.enabled`, falling
+     * back to the global `path.arrow.enabled`. It seeds `AppSettings.trackArrows`, and a class leaf
+     * overrides that setting at read time ([pathArrowEnabled]); no kind is master over another.
+     */
+    var trackArrowEnabledSeed: Boolean = false
         private set
-    /** The route arrow gate's seed — `path.gate.speedArrows`. Seeds `routeSpeedArrows`. */
-    var routeSpeedArrowsGate: Boolean = true
+    /** **The arrows axis — the route kind's seed**: `path.route.arrow.enabled`, over the global. */
+    var routeArrowEnabledSeed: Boolean = true
+        private set
+    /** **The speed-colours axis — the tracks kind's seed**: `path.track.heatmap.enabled`, over the global. */
+    var trackHeatmapEnabledSeed: Boolean = true
+        private set
+    /** **The speed-colours axis — the route kind's seed**: `path.route.heatmap.enabled`, over the global. */
+    var routeHeatmapEnabledSeed: Boolean = false
         private set
     /** The destination pin's ring colour — `path.pin.ring.color`. */
     var routePinRingColour: Int = 0xFFFFFFFF.toInt()
@@ -1905,10 +1915,15 @@ object AppConfig {
             routePinnedFadeTo =
                 pathInt(PathKind.ROUTE, "line", "fade", "to", PathClass.PINNED, routePinnedFadeTo).coerceIn(0, 100)
             pathCount = pathInt(PathKind.TRACK, "", "count", default = pathCount).coerceIn(0, 20)
-            routeSpeedColourGate =
-                pathBool(PathKind.ROUTE, "gate", "speedColor", default = routeSpeedColourGate)
-            routeSpeedArrowsGate =
-                pathBool(PathKind.ROUTE, "gate", "speedArrows", default = routeSpeedArrowsGate)
+            // The two axes' seeds (2026-10-07): one global leaf per axis, each kind's own leaf over it.
+            // These feed the persisted settings; the class leaf is read at runtime instead — see
+            // [pathArrowEnabled] / [pathHeatmapEnabled] — so it is never resolved here.
+            val arrowGlobal = pathCommonBool("arrow", "enabled", default = true)
+            val heatmapGlobal = pathCommonBool("heatmap", "enabled", default = true)
+            trackArrowEnabledSeed = pathBool(PathKind.TRACK, "arrow", "enabled", default = arrowGlobal)
+            routeArrowEnabledSeed = pathBool(PathKind.ROUTE, "arrow", "enabled", default = arrowGlobal)
+            trackHeatmapEnabledSeed = pathBool(PathKind.TRACK, "heatmap", "enabled", default = heatmapGlobal)
+            routeHeatmapEnabledSeed = pathBool(PathKind.ROUTE, "heatmap", "enabled", default = heatmapGlobal)
             props.getProperty("route.navigate.color")?.let { parseColorOrNull(it) }
                 ?.let { routeNavigateColor = it }
             // ── The route's anchor and the repair's one knob ───────
@@ -2192,6 +2207,40 @@ object AppConfig {
         pathClass: PathClass? = null, default: Boolean
     ): Boolean =
         firstPathValue(pathKeyCandidates(kind, group, field, sub, pathClass))?.toBooleanStrictOrNull() ?: default
+
+    /** The **common** (kind-less) leaf of the family — `path.<field>[.<sub>]` — or [default]. */
+    private fun pathCommonBool(field: String, sub: String? = null, default: Boolean): Boolean {
+        val key = if (sub.isNullOrEmpty()) "path.$field" else "path.$field.$sub"
+        return pathProps?.getProperty(key)?.toBooleanStrictOrNull() ?: default
+    }
+
+    /**
+     * The **class-tier override** on an `enabled` leaf, or null when the class declares none:
+     * `path.<kind>.<axis>.enabled.<class>` then `path.<axis>.enabled.<class>` (D5). The axis is the
+     * group and `enabled` its leaf, so the class qualifier lands after the leaf exactly as the file
+     * writes it. Only the class-bearing candidates are read — the kind and global leaves are the
+     * **seeds** the persisted setting starts from, read once at load, never a runtime override
+     * (2026-10-07).
+     */
+    private fun pathClassBool(kind: PathKind, axis: String, pathClass: PathClass): Boolean? {
+        val bag = pathProps ?: return null
+        for (key in pathClassKeyCandidates(kind, axis, "enabled", null, pathClass)) {
+            bag.getProperty(key)?.toBooleanStrictOrNull()?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * **The arrows axis for one line, resolved**: the class leaf over the kind's persisted [setting]
+     * (2026-10-07). The `acquisition` class is the first user — `path.arrow.enabled.acquisition=false`
+     * silences the search's chevrons through the ordinary cascade, outranking the switch.
+     */
+    fun pathArrowEnabled(kind: PathKind, pathClass: PathClass, setting: Boolean): Boolean =
+        pathClassBool(kind, "arrow", pathClass) ?: setting
+
+    /** **The speed-colours axis for one line, resolved** — the class leaf over the kind's [setting]. */
+    fun pathHeatmapEnabled(kind: PathKind, pathClass: PathClass, setting: Boolean): Boolean =
+        pathClassBool(kind, "heatmap", pathClass) ?: setting
 
     /**
      * The `path.*` cascade for a colour leaf, falling through to [default]. A value the parser cannot
