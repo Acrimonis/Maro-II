@@ -262,3 +262,25 @@ against the code as it stands on 2026-09-22, with nothing left open in it.
   plan renames.
 - **Not a corpus entry yet:** the epic's `## Docs` pointer and the walk items land with the build, so this file
   stays the plan in design until its pointer appears in the feature's `## Implemented`.
+
+## Outcome
+
+**Shipped 2026-09-22 on `feature/route-dummy`** — a route saved from the Route feature became a **trace**,
+filtered, drawn and read as one, with the flag already on the wire (`Track.trace` at proto 19) and no new
+field spent.
+
+- **Built:** the flag renamed and projected into `TrackSummary` at proto 19 with the index rebuilt once
+  through a bumped version stamp; the **All · Tracks · Traces** filter axis on the shipped `FilterAxisSpec`
+  shape with the live track exempt; the trace joining the existing colour, transparency, stroke and count
+  families with its own two gates; the map deciding the trace role before the pinned one; the card showing
+  **Dist · Total · Avg** with the two estimates labelled, its header carrying the route's creation instant,
+  and Resume and merge refused; and the four dead `tracking.color.*` keys removed with their unread fields
+  and stored preferences.
+- **Requirements:** R29–R42 lived in the Route feature's master book at
+  `xTrack/Route/xxArchive/260922_FEAT_PLN_Route_ask-policy-and-target-validity.md`, retired to that archive
+  on 2026-09-30.
+- **Superseded in part, 2026-09-23:** the `trace` name became `route` (`Track.route` / `TrackSummary.route`,
+  proto 19 kept), and the kind axis it added was **retired** — the two kind-locked lists replaced it
+  (`ListFilterKindRetirementTest`) — so **All · Tracks · Routes** is no longer current behaviour.
+- **Left out by decision:** "Follow again" where Resume sits, recorded as a suggestion; the device pass
+  stays the user's.

@@ -4,22 +4,23 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import ykws.android.maro.data.track.PointType
-import ykws.android.maro.data.track.TrackPoint
 
 /**
- * Regression guard for the GAP/dash split after the selection refactor: a track containing
- * [PointType.GAP] must still yield solid runs plus a dashed bridge per gap. The pure segmentation
- * is asserted here; the actual osmdroid drawing stays in the Compose shell (device-verified).
+ * Regression guard for the GAP/dash split after the selection refactor: a line containing a break
+ * must still yield solid runs plus a dashed bridge per gap. The pure segmentation is asserted here;
+ * the actual osmdroid drawing stays in the Compose shell (device-verified).
+ *
+ * The points are the seam's own [RenderPoint]s, so the same contract holds for a recorded track and a
+ * route alike — the split reads `isBreak`, whichever kind produced the line.
  */
 class MapTrackSegmentsTest {
 
-    private fun p(lat: Double, type: PointType = PointType.NORMAL) =
-        TrackPoint(lat = lat, lon = 7.0, timeOffsetMs = (lat * 1000).toLong(), type = type)
+    private fun p(lat: Double, isBreak: Boolean = false) =
+        RenderPoint(lat = lat, lon = 7.0, isBreak = isBreak)
 
     @Test
     fun gap_splitsIntoSolidRunsPlusDashedBridge() {
-        val points = listOf(p(1.0), p(2.0), p(3.0), p(4.0, PointType.GAP), p(5.0), p(6.0))
+        val points = listOf(p(1.0), p(2.0), p(3.0), p(4.0, isBreak = true), p(5.0), p(6.0))
         val segments = splitTrackSegments(points)
 
         assertEquals(3, segments.size)
@@ -33,7 +34,7 @@ class MapTrackSegmentsTest {
 
     @Test
     fun gapAsLastPoint_emitsDashedBridgeToItself() {
-        val segments = splitTrackSegments(listOf(p(1.0), p(2.0), p(3.0, PointType.GAP)))
+        val segments = splitTrackSegments(listOf(p(1.0), p(2.0), p(3.0, isBreak = true)))
 
         assertEquals(2, segments.size)
         assertEquals(listOf(0, 1), segments[0].pointIndices)

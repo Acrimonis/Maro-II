@@ -68,7 +68,7 @@ class TrackSpeedHeatmapTest {
         points: List<TrackPoint>,
         strokeWidth: Float = fixtureStrokeWidth,
         fade: Float = 1f
-    ) = bandedAppearances(points, resolveSpeeds(points), ramp, strokeWidth, fade)
+    ) = bandedAppearances(points.toRenderPoints(), ramp, strokeWidth, fade)
 
     /** The expected gradient output, written independently of the production interpolation. */
     private fun blend(fromArgb: Int, toArgb: Int, t: Float): Int {
@@ -115,7 +115,8 @@ class TrackSpeedHeatmapTest {
 
     @Test
     fun resolveSpeedsConvertsStoredMetresPerSecondToKnots() {
-        val speeds = resolveSpeeds(listOf(p(speedMps = 5f, timeMs = 0L)))
+        // The conversion moved into the seam's adapter, so the guard rides with it.
+        val speeds = listOf(p(speedMps = 5f, timeMs = 0L)).toRenderPoints().map { it.speedKn }
         assertEquals(5f * 1.94384f, speeds[0]!!, 0.001f)
     }
 
@@ -283,9 +284,9 @@ class TrackSpeedHeatmapTest {
     fun aMissingFamilyIndexEndsTheRamp() {
         val lookup: (String) -> String? = { key ->
             when {
-                key.startsWith("map.track.heatmap.family1") -> familyKey(key, maxKn = "5")
-                key.startsWith("map.track.heatmap.family2") -> familyKey(key, maxKn = "6")
-                key.startsWith("map.track.heatmap.family") -> null   // family3 is absent
+                key.startsWith("path.heatmap.family1") -> familyKey(key, maxKn = "5")
+                key.startsWith("path.heatmap.family2") -> familyKey(key, maxKn = "6")
+                key.startsWith("path.heatmap.family") -> null   // family3 is absent
                 else -> null
             }
         }
@@ -299,8 +300,8 @@ class TrackSpeedHeatmapTest {
     fun aMissingFamilyStepEndsTheRampRatherThanGuessingOne() {
         val lookup: (String) -> String? = { key ->
             when {
-                key.startsWith("map.track.heatmap.family2") && key.endsWith(".stepKn") -> null
-                key.startsWith("map.track.heatmap.family") -> familyKey(key, maxKn = "5")
+                key.startsWith("path.heatmap.family2") && key.endsWith(".stepKn") -> null
+                key.startsWith("path.heatmap.family") -> familyKey(key, maxKn = "5")
                 else -> null
             }
         }
@@ -342,7 +343,7 @@ class TrackSpeedHeatmapTest {
     fun aTrackWithoutDerivableSpeedIsNeutralEndToEnd() {
         // No stored speed and no positive time delta: nothing is derivable, so nothing is invented.
         val points = (0..4).map { p(timeMs = 0L, lat = it * 0.0001) }
-        val speeds = resolveSpeeds(points)
+        val speeds = points.toRenderPoints().map { it.speedKn }
         assertTrue(speeds.all { it == null })
 
         val bands = bandedBands(points)
@@ -358,7 +359,7 @@ class TrackSpeedHeatmapTest {
             p(timeMs = 1000L, type = PointType.GAP),
             p(timeMs = 1000L)
         )
-        val speeds = resolveSpeeds(points)
+        val speeds = points.toRenderPoints().map { it.speedKn }
 
         assertEquals(5f * 1.94384f, speeds[0]!!, 0.001f)
         assertNull(speeds[1])
@@ -386,7 +387,8 @@ class TrackSpeedHeatmapTest {
         // the zero-length bridge the band ending on the GAP point would otherwise contribute. The
         // indices are band-local, as the banded overflow builder reads them against its own points.
         val drawableSeams = bands.flatMap { band ->
-            drawableBandSegments(band.pointIndices.map { points[it] }).filter { it.dashed }
+            drawableBandSegments(band.pointIndices.map { points[it] }.toRenderPoints())
+                .filter { it.dashed }
         }
         assertEquals(1, drawableSeams.size)
         assertEquals(listOf(0, 1), drawableSeams.single().pointIndices)
@@ -486,7 +488,7 @@ class TrackSpeedHeatmapTest {
     @Test
     fun theWrittenTableCarriesItsPositionsAndItsTexts() {
         val written: (String) -> String? = { key ->
-            if (key == "map.track.heatmap.scaleTicks") "7:5,12:10,35:35" else null
+            if (key == "path.heatmap.scaleTicks") "7:5,12:10,35:35" else null
         }
 
         val ticks = parseHeatmapScaleTicks(written)
@@ -507,10 +509,10 @@ class TrackSpeedHeatmapTest {
     @Test
     fun anUnreadableRowEndsTheTable() {
         val noPosition: (String) -> String? = { key ->
-            if (key == "map.track.heatmap.scaleTicks") "seven:5,12:10" else null
+            if (key == "path.heatmap.scaleTicks") "seven:5,12:10" else null
         }
         val noText: (String) -> String? = { key ->
-            if (key == "map.track.heatmap.scaleTicks") "7:,12:10" else null
+            if (key == "path.heatmap.scaleTicks") "7:,12:10" else null
         }
 
         assertTrue(parseHeatmapScaleTicks(noPosition).isEmpty())

@@ -1,8 +1,6 @@
 package ykws.android.maro.ui.map
 
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.track.PointType
-import ykws.android.maro.data.track.TrackPoint
 
 /**
  * One drawable polyline segment: the source-point indices to plot and whether it is a GAP bridge.
@@ -17,12 +15,15 @@ internal data class TrackSegment(val pointIndices: List<Int>, val dashed: Boolea
  * Split [points] at GAP markers into drawable segments: solid runs between gaps plus a dashed
  * two-point bridge for each gap. Pure (no Android dependencies) so the solid/dashed contract is
  * unit-testable; the osmdroid drawing itself stays in the Compose shell.
+ *
+ * The points are the seam's own [RenderPoint]s, so this serves a recorded track and a route alike —
+ * a break is a break whichever kind produced it.
  */
-internal fun splitTrackSegments(points: List<TrackPoint>): List<TrackSegment> {
+internal fun splitTrackSegments(points: List<RenderPoint>): List<TrackSegment> {
     val segments = mutableListOf<TrackSegment>()
     var segmentStart = 0
     for (i in points.indices) {
-        if (points[i].type != PointType.GAP) continue
+        if (!points[i].isBreak) continue
         if (i > segmentStart && i - segmentStart >= 2) {
             segments += TrackSegment((segmentStart until i).toList(), dashed = false)
         }
@@ -45,14 +46,14 @@ internal const val TRACK_GAP_DASH_ON_DP = 20f / 3f
 internal const val TRACK_GAP_DASH_OFF_DP = 10f / 3f
 
 /**
- * Build the osmdroid polylines for one track appearance from its solid/dashed segment plan — solid
+ * Build the osmdroid polylines for one line appearance from its solid/dashed segment plan — solid
  * for runs of real points, dashed for GAP bridges. The shell only decides *which* ids to draw.
  *
  * [appearance] carries its width in dp, as the stored table does, so [density] is what turns it — and
  * the dash above — into the px osmdroid's paint takes.
  */
 internal fun buildSegmentOverlays(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     appearance: TrackPolylineAppearance,
     title: String,
     density: Float,
@@ -67,10 +68,10 @@ internal fun buildSegmentOverlays(
  *
  * GAP points inside the band still split into a dashed bridge, so a seam is drawn once, by the band
  * that owns it. The [band]'s own indices are all this reads: a band is a set of runs, and the caller
- * keeps one title per track across every band.
+ * keeps one title per line across every band.
  */
 internal fun buildBandSegmentOverlays(
-    points: List<TrackPoint>,
+    points: List<RenderPoint>,
     band: SpeedBand,
     title: String,
     density: Float,
@@ -89,13 +90,13 @@ internal fun buildBandSegmentOverlays(
  * the point it would bridge to belongs to the next band — so the band with the real continuation
  * draws the visible seam and this one skips the slot instead of adding an invisible polyline.
  */
-internal fun drawableBandSegments(points: List<TrackPoint>): List<TrackSegment> =
+internal fun drawableBandSegments(points: List<RenderPoint>): List<TrackSegment> =
     splitTrackSegments(points)
         .filterNot { it.dashed && it.pointIndices.first() == it.pointIndices.last() }
 
 /** Shared polyline construction: one polyline per segment, over [source], at [density]'s px. */
 private fun segmentOverlays(
-    source: List<TrackPoint>,
+    source: List<RenderPoint>,
     segments: List<TrackSegment>,
     appearance: TrackPolylineAppearance,
     title: String,

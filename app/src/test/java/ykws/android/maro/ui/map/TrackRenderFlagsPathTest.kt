@@ -24,7 +24,7 @@ class TrackRenderFlagsPathTest {
         colours: Boolean,
         selected: Boolean = false,
         eye: Boolean? = null
-    ) = trackRenderPlan(arrows, colours, selected, eye)
+    ) = lineRenderPlan(arrows, colours, selected, eye)
 
     /** The four combinations, as `arrows to colours` pairs, for the loops below. */
     private val combinations = listOf(
@@ -40,7 +40,7 @@ class TrackRenderFlagsPathTest {
     fun neitherAxisDrawsTheDefaultColoursAndNoChevrons() {
         val plan = plan(arrows = false, colours = false)
 
-        assertEquals(TrackRenderPath.PLAIN, plan.path)
+        assertEquals(LineRenderPath.PLAIN, plan.path)
         assertFalse(plan.drawArrows)
         assertFalse(plan.selected)
     }
@@ -49,7 +49,7 @@ class TrackRenderFlagsPathTest {
     fun theArrowsAloneKeepThoseColoursAndAddTheChevrons() {
         val plan = plan(arrows = true, colours = false)
 
-        assertEquals(TrackRenderPath.PLAIN, plan.path)
+        assertEquals(LineRenderPath.PLAIN, plan.path)
         assertTrue(plan.drawArrows)
     }
 
@@ -57,7 +57,7 @@ class TrackRenderFlagsPathTest {
     fun coloursAloneBandEveryStoredTrackWithoutChevrons() {
         val plan = plan(arrows = false, colours = true)
 
-        assertEquals(TrackRenderPath.BANDED, plan.path)
+        assertEquals(LineRenderPath.BANDED, plan.path)
         assertFalse("independence: the ramp no longer implies chevrons", plan.drawArrows)
     }
 
@@ -65,7 +65,7 @@ class TrackRenderFlagsPathTest {
     fun bothAxesBandEveryStoredTrackAndDrawTheirChevrons() {
         val plan = plan(arrows = true, colours = true)
 
-        assertEquals(TrackRenderPath.BANDED, plan.path)
+        assertEquals(LineRenderPath.BANDED, plan.path)
         assertTrue(plan.drawArrows)
     }
 
@@ -74,15 +74,15 @@ class TrackRenderFlagsPathTest {
     @Test
     fun selectionKeepsTheGoldCoreWhereverTheTrackIsNotBanded() {
         val neither = plan(arrows = false, colours = false, selected = true)
-        assertEquals(TrackRenderPath.GOLD_HIGHLIGHT, neither.path)
+        assertEquals(LineRenderPath.GOLD_HIGHLIGHT, neither.path)
         assertFalse("no chevrons on the selected track while the arrows flag is off", neither.drawArrows)
 
         val arrowsOnly = plan(arrows = true, colours = false, selected = true)
-        assertEquals(TrackRenderPath.GOLD_HIGHLIGHT, arrowsOnly.path)
+        assertEquals(LineRenderPath.GOLD_HIGHLIGHT, arrowsOnly.path)
         assertTrue("the chevrons reach the selected track too", arrowsOnly.drawArrows)
 
         val colours = plan(arrows = true, colours = true, selected = true)
-        assertEquals(TrackRenderPath.BANDED, colours.path)
+        assertEquals(LineRenderPath.BANDED, colours.path)
         assertTrue(colours.selected)
         assertTrue(colours.drawArrows)
     }
@@ -96,7 +96,7 @@ class TrackRenderFlagsPathTest {
 
             assertEquals(
                 "arrows=$arrows colours=$colours with the ramp forced on",
-                TrackRenderPath.BANDED,
+                LineRenderPath.BANDED,
                 plan.path
             )
         }
@@ -106,7 +106,7 @@ class TrackRenderFlagsPathTest {
     fun theEyeTurnsTheRampOffForTheSelectedTrackAlone() {
         val fromColours = plan(arrows = true, colours = true, selected = true, eye = false)
 
-        assertEquals(TrackRenderPath.GOLD_HIGHLIGHT, fromColours.path)
+        assertEquals(LineRenderPath.GOLD_HIGHLIGHT, fromColours.path)
     }
 
     @Test
@@ -151,11 +151,11 @@ class TrackRenderFlagsPathTest {
         // ramp without direction, and a gold selection with them on keeps its chevrons because the
         // arrows flag draws them.
         val bandedWithoutArrows = plan(arrows = false, colours = true, selected = true, eye = true)
-        assertEquals(TrackRenderPath.BANDED, bandedWithoutArrows.path)
+        assertEquals(LineRenderPath.BANDED, bandedWithoutArrows.path)
         assertFalse(bandedWithoutArrows.drawArrows)
 
         val goldWithArrows = plan(arrows = true, colours = true, selected = true, eye = false)
-        assertEquals(TrackRenderPath.GOLD_HIGHLIGHT, goldWithArrows.path)
+        assertEquals(LineRenderPath.GOLD_HIGHLIGHT, goldWithArrows.path)
         assertTrue(goldWithArrows.drawArrows)
     }
 
@@ -175,8 +175,8 @@ class TrackRenderFlagsPathTest {
             tracksVisible: Boolean = true
         ): Boolean = legendVisibleForState(
             paintedIds = paintedIds.toSet(),
-            trackArrows = arrows,
-            trackColours = colours,
+            arrowAxis = arrows,
+            coloursAxis = colours,
             highlightedTrackId = selectedId,
             eyeOverride = eye,
             tracksVisible = tracksVisible
@@ -232,19 +232,19 @@ class TrackRenderFlagsPathTest {
     }
 
     @Test
-    fun theLegendSeesARouteOnlyWhenBothItsGateAndTheChipsAreOn() {
-        // R37: a route bands on its own colour gate **joined to** the Colours chip, so the ramp is on the
-        // map only while both are on. Read through the same entry point the composition calls, with the
-        // painted id named as the route it is — without that the gate asks the planner about it as a
-        // recorded track and misreads the role.
+    fun theLegendSeesARouteOnItsOwnAxisAlone() {
+        // 2026-10-07: a route bands on its own colours axis alone — no chip is master above it — so the
+        // ramp is on the map while that axis is on, whatever the tracks kind's chip says. Read through the
+        // same entry point the composition calls, with the painted id named as the route it is — without
+        // that the gate asks the planner about it as a recorded track and misreads the role. The track
+        // chip is held off throughout, which is what shows it no longer reaches a route.
         fun gate(
-            trackColours: Boolean,
             routeSpeedColour: Boolean,
             selectedId: String? = null
         ): Boolean = legendVisibleForState(
             paintedIds = setOf("route"),
-            trackArrows = false,
-            trackColours = trackColours,
+            arrowAxis = false,
+            coloursAxis = false,
             highlightedTrackId = selectedId,
             eyeOverride = null,
             tracksVisible = true,
@@ -253,20 +253,16 @@ class TrackRenderFlagsPathTest {
         )
 
         assertTrue(
-            "the gate and the Colours chip both on — the ramp is on the map",
-            gate(trackColours = true, routeSpeedColour = true)
+            "the route's own axis on — the ramp is on the map",
+            gate(routeSpeedColour = true)
         )
         assertFalse(
-            "the gate alone, Colours off — the route paints from its pair",
-            gate(trackColours = false, routeSpeedColour = true)
+            "the route's own axis off — the route paints from its pair",
+            gate(routeSpeedColour = false)
         )
-        assertFalse(
-            "the chip alone, gate off — the route paints from its pair",
-            gate(trackColours = true, routeSpeedColour = false)
-        )
-        // The open track's fill decides the same way when it is a route.
-        assertTrue(gate(trackColours = true, routeSpeedColour = true, selectedId = "route"))
-        assertFalse(gate(trackColours = false, routeSpeedColour = true, selectedId = "route"))
+        // The open route's fill decides the same way, the track chip still not reaching it.
+        assertTrue(gate(routeSpeedColour = true, selectedId = "route"))
+        assertFalse(gate(routeSpeedColour = false, selectedId = "route"))
     }
 
     // ── The eye's persisted value: what a tap writes ─────────────────────
@@ -341,8 +337,8 @@ class TrackRenderFlagsPathTest {
             routesVisible: Boolean
         ): Boolean = legendVisibleForState(
             paintedIds = paintedIds,
-            trackArrows = false,
-            trackColours = true,
+            arrowAxis = false,
+            coloursAxis = true,
             highlightedTrackId = null,
             eyeOverride = null,
             tracksVisible = tracksVisible,

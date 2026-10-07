@@ -5,7 +5,7 @@ package ykws.android.maro.config
  */
 const val HEATMAP_MAX_FAMILIES = 9
 
-/** Bound on `map.track.heatmap.scaleTicks`: at most this many rows are read, as the families are bounded. */
+/** Bound on `path.heatmap.scaleTicks`: at most this many rows are read, as the families are bounded. */
 const val HEATMAP_MAX_SCALE_TICKS = 12
 
 /**
@@ -36,7 +36,7 @@ data class HeatmapRamp(
 }
 
 /**
- * Assemble the ramp's family list from the flat `map.track.heatmap.familyN.*` keys, read as written:
+ * Assemble the ramp's family list from the flat `path.heatmap.familyN.*` keys, read as written:
  * there is no count key — families run from 1 upward, the loop is bounded by [HEATMAP_MAX_FAMILIES],
  * and a missing or unparseable index, of any of its four keys, ends the ramp with the families already
  * read, so the ramp's length is whatever the file holds and a truncated one cannot pass as complete.
@@ -53,10 +53,10 @@ fun parseHeatmapFamilies(
 ): List<HeatmapFamily> {
     val families = mutableListOf<HeatmapFamily>()
     for (index in 1..HEATMAP_MAX_FAMILIES) {
-        val maxKn = lookup("map.track.heatmap.family$index.maxKn")?.toFloatOrNull() ?: break
-        val from = lookup("map.track.heatmap.family$index.from")?.let(parseColorHex) ?: break
-        val to = lookup("map.track.heatmap.family$index.to")?.let(parseColorHex) ?: break
-        val stepKn = lookup("map.track.heatmap.family$index.stepKn")?.toFloatOrNull() ?: break
+        val maxKn = lookup("path.heatmap.family$index.maxKn")?.toFloatOrNull() ?: break
+        val from = lookup("path.heatmap.family$index.from")?.let(parseColorHex) ?: break
+        val to = lookup("path.heatmap.family$index.to")?.let(parseColorHex) ?: break
+        val stepKn = lookup("path.heatmap.family$index.stepKn")?.toFloatOrNull() ?: break
         families += HeatmapFamily(maxKn = maxKn, fromArgb = from, toArgb = to, stepKn = stepKn)
     }
     return families
@@ -72,7 +72,7 @@ fun parseHeatmapFamilies(
 data class HeatmapScaleTick(val positionKn: Float, val label: String)
 
 /**
- * Assemble the legend's tick table from `map.track.heatmap.scaleTicks` — comma-separated `position:label`
+ * Assemble the legend's tick table from `path.heatmap.scaleTicks` — comma-separated `position:label`
  * rows in knots — read as written: the position before the first colon is taken as its float and the
  * text after it as the label, with no validation and no fallback. Rows are assumed *ascending* by
  * position, which is what the drawn ladder relies on: §18 removed the label-drop rule, so a descending
@@ -90,7 +90,7 @@ data class HeatmapScaleTick(val positionKn: Float, val label: String)
  *         so the caller's shipped default table stands.
  */
 fun parseHeatmapScaleTicks(lookup: (String) -> String?): List<HeatmapScaleTick> {
-    val rows = lookup("map.track.heatmap.scaleTicks")?.split(',') ?: return emptyList()
+    val rows = lookup("path.heatmap.scaleTicks")?.split(',') ?: return emptyList()
     val ticks = mutableListOf<HeatmapScaleTick>()
     for (row in rows) {
         if (ticks.size >= HEATMAP_MAX_SCALE_TICKS) break
@@ -109,7 +109,7 @@ private fun parseScaleTick(row: String): HeatmapScaleTick? {
 }
 
 /**
- * Foot of the legend's scale (kn): the value `map.track.heatmap.scaleMinKn` writes, or [fallbackKn] when
+ * Foot of the legend's scale (kn): the value `path.heatmap.scaleMinKn` writes, or [fallbackKn] when
  * the key is absent or unreadable, so the caller's shipped default stands. The top needs no twin — the
  * tick table's last row is the top — but the foot has no row to ride on, which is why it is a key of
  * its own.
@@ -118,4 +118,4 @@ private fun parseScaleTick(row: String): HeatmapScaleTick? {
  * the rule is unit-testable on the JVM beside it.
  */
 fun parseHeatmapScaleMinKn(lookup: (String) -> String?, fallbackKn: Float): Float =
-    lookup("map.track.heatmap.scaleMinKn")?.toFloatOrNull() ?: fallbackKn
+    lookup("path.heatmap.scaleMinKn")?.toFloatOrNull() ?: fallbackKn

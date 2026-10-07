@@ -5,28 +5,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.PointType
-import ykws.android.maro.data.track.TrackPoint
+import ykws.android.maro.spatial.Units
 import kotlin.math.hypot
 
 class TrackDirectionOverlayTest {
 
+    // The fixture builds the seam's own points, so the sampler is exercised on what the painter reads:
+    // the m/s the call sites speak stays the fixture's convenience, converted here once.
     private fun pt(
         lon: Double,
         lat: Double = 0.0,
         type: PointType = PointType.NORMAL,
         speedMps: Float? = null,
         bearingDeg: Float? = null
-    ) = TrackPoint(
+    ) = RenderPoint(
         lat = lat,
         lon = lon,
-        speedMps = speedMps,
+        speedKn = speedMps?.let { Units.mpsToKnots(it.toDouble()).toFloat() },
         bearingDeg = bearingDeg,
-        timeOffsetSec = 0,
-        timeOffsetMs = 0L,
-        type = type
+        isBreak = type == PointType.GAP
     )
 
-    private val identityProject: (TrackPoint) -> ScreenPt = { p -> ScreenPt(p.lon.toFloat(), p.lat.toFloat()) }
+    private val identityProject: (RenderPoint) -> ScreenPt = { p -> ScreenPt(p.lon.toFloat(), p.lat.toFloat()) }
 
     @Test
     fun uniformSpacingOnStraightLine() {

@@ -608,9 +608,9 @@ internal fun MapInspectEffects(
         // sweeping — no TrackDirectionOverlay work mid-gesture — which is why the preview line is
         // built from the plan's strokes and never from its arrow overlay.
         val rendering = storedTrackRendering(
-            points = points,
+            points = points.toRenderPoints(),
             title = "$INSPECT_TRACK_TITLE_PREFIX${candidate.id}",
-            plan = trackRenderPlan(trackArrows, trackColours, selected = true, eyeOverride = eyeOverride),
+            plan = lineRenderPlan(trackArrows, trackColours, selected = true, eyeOverride = eyeOverride),
             ramp = AppConfig.trackHeatmapRamp,
             strokeWidth = AppConfig.trackWidthSelectedDp,
             density = mv.paintDensity,

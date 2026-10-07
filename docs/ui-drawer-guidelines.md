@@ -330,6 +330,11 @@ disagree, and the pace shown is the **set** pace rather than the boat's own fitt
 **and** while a route is followed — the routing-phase-alone gate of 2026-09-28 was widened on 2026-10-04 — and
 it rides a `NestedCard` sub-card of its own, at the card's foot.
 
+The mode's **map half** — the followed line, the derived edge, the travelled run and the provisional
+line — is painted by the shared path render engine ([`maro-code.md`](maro-code.md), "Path Render
+Engine"), so a route's stroke, chevrons and speed bands follow the same `path.*` keys as a stored
+track's. The drawer keeps the mode's own state; it never paints the line.
+
 ## 9. List Item Card Pattern (Track + Marker)
 
 Both `TrackHistoryOverlay` and `MarkerManagementOverlay` share an identical item shell. This is the canonical pattern for any list item with a colored accent bar.

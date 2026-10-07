@@ -90,6 +90,8 @@ internal fun buildTrackInfoOverlayData(
     trackListIds: List<String>,
     inspectHandoff: InspectHandoff?,
     appSettings: AppSettings,
+    /** The card-local eye value (2026-10-07); the caller owns its state, this bundle only carries it. */
+    eyeOverride: Boolean?,
     onToggleEyeOverride: () -> Unit,
 ): TrackInfoOverlayData = TrackInfoOverlayData(
     showTrackInfoDrawer = trackDrawerState.isOpen,
@@ -100,6 +102,6 @@ internal fun buildTrackInfoOverlayData(
     // out for that window rather than letting a second step cancel the pending landing (§5).
     walkHeld = inspectHandoff != null,
     trackColours = appSettings.trackColours,
-    eyeOverride = appSettings.trackSelectionBanded,
+    eyeOverride = eyeOverride,
     onToggleEyeOverride = onToggleEyeOverride,
 )

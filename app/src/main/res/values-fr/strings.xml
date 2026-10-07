@@ -377,9 +377,8 @@
     <string name="settings_section_tracks_and_routes">Traces et itinéraires</string>
     <string name="settings_tracks_and_routes_desc">Traces et itinéraires enregistrés sur la carte</string>
     <string name="settings_tracks_transfer_desc">Exporter les traces enregistrées, ou importer des traces depuis un fichier</string>
-    <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces et des itinéraires</string>
-    <string name="settings_tracks_direction_settings_label">Vitesse et direction des traces et itinéraires</string>
-    <string name="settings_tracks_speed_display_label">Affichage de la vitesse</string>
+    <string name="settings_tracks_direction_settings_label">Réglages des flèches de vitesse</string>
+    <string name="settings_speed_display_label">Affichage de la vitesse</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
     <string name="settings_tracks_direction_density_uniform">Uniforme</string>
     <string name="settings_tracks_direction_density_speed">Selon la vitesse</string>
@@ -575,12 +574,9 @@
     <string name="settings_color_active_route">Route active</string>
     <string name="settings_color_routes">Itinéraires</string>
     <string name="settings_color_pinned_routes">Itinéraires épinglés</string>
-    <string name="settings_routes_speed_color_label">Couleurs de vitesse sur les itinéraires</string>
-    <string name="settings_routes_arrows_label">Flèches sur les itinéraires</string>
     <string name="settings_routes_appearance_label">Rendu des itinéraires</string>
     <string name="settings_routes_appearance_desc">Comment les itinéraires enregistrés sont dessinés sur la carte</string>
-    <string name="settings_routes_speed_direction_label">Vitesse et direction des itinéraires</string>
-    <string name="settings_routes_speed_direction_desc">Couleurs de vitesse et flèches de direction sur les itinéraires. Les interrupteurs Speed Colors et Arrows de la carte sont maîtres pour tous les types ; ceux-ci ne peuvent que désactiver ceux des itinéraires.</string>
+    <string name="settings_routes_speed_display_desc">Couleurs de vitesse et flèches de direction sur les itinéraires, chaque case ne régissant que les itinéraires.</string>
     <string name="settings_section_appearance">Apparence</string>
     <string name="settings_section_routing_tuning">Réglages</string>
     <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->

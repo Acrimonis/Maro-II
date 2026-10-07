@@ -178,3 +178,11 @@ bug class and a candidate for a separate audit — flagged, not fixed here.
   file-local builder so stroke/colour/title cannot drift.
 - [`MapScreen.kt:785-841`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:785) holds a fifth copy of the same live-polyline rebuild — fold it into the same builder.
 - Audit the frozen-parameter `snapshotFlow` shape at [`MapServiceEffects.kt:51`](app/src/main/java/ykws/android/maro/ui/map/MapServiceEffects.kt:51) (same bug class as this regression).
+
+## Outcome
+
+**Shipped 2026-09-11** — the live polyline was never created after the C3/C4 seam extraction, because the creation effect read recorder state through a frozen parameter inside `snapshotFlow`; both defects were closed.
+
+- **Built:** the creation effect re-keyed on `trackRecorderState.state` with its `snapshotFlow` wrapper removed (Fix 1a); append and trailing made self-healing, creating the `track_recording` line on demand instead of silently dropping the point (Fix 1b); and `isLive` excluded from the map-resolve path (Fix 2).
+- **Evidence:** `gradlew assembleDebug` SUCCESSFUL, no warnings attributable to the edited file; the Ask review returned SOUND, no blockers.
+- **Left open:** the on-device confirmation and the three flagged follow-ups — the live-polyline builder, the fifth rebuild copy in `MapScreen.kt`, and the same frozen-parameter shape at `MapServiceEffects.kt:51`.

@@ -332,6 +332,20 @@ The two-thumb row: optional label/description, a **mandatory** value line, and t
 
 **Reinforcement convention (app-wide):** when a colour needs reinforcing — a selected line's edge, an under-stroke — **derive it from the base** with `reinforcedColor` and the one lever `ui.reinforce.darkenPct`; never add a per-feature colour key for a reinforcement. The rule is scoped to **a derived variant of a colour the user can pick** (the *Active route* colour's own edge today): a designed token pair stays a token pair, and the palette's deliberately hand-picked near-duplicates (e.g. `ui.dashboard.zone.caution` against `semantic.caution`) are not read against by it. The lever counts the **strength of the effect** — 55 means pushed 55 % toward black — and the helper is pure with the **caller** reading the lever (`reinforcedColor` in [`ColorReinforcement.kt`](../app/src/main/java/ykws/android/maro/ui/color/ColorReinforcement.kt)).
 
+**Path lines (tracks and routes) ride this convention:** both kinds are drawn by one painter whose colours
+come from the `path.*` family in [`maro.properties`](../app/src/main/assets/maro.properties) — the
+selection gold (`path.line.color.selected`), the casing (`path.line.casing.color`), each kind's own pair
+and the speed ramp. A class **outranks** the kind, so a pinned line reads its pinned key first; the
+precedence is stated once in that file's PATH banner, and [`maro-code.md`](maro-code.md) maps the
+engine's files. The route's derived edge keeps the reinforcement lever above, its width keyed by
+`path.route.line.casing.width`.
+
+**The two display axes are per-kind, and no kind is master** (2026-10-07): speed colours and direction
+arrows each have their own persisted setting per kind — a tracks pair and a route pair — so a row names its
+own kind, and the two no longer gate one another. Each axis's `enabled` leaf carries three tiers (global →
+kind → class), the class leaf overriding the seeded setting; the `acquisition` class silences the route
+search's own rung on both axes.
+
 ### 2.9 Header Hierarchy
 
 - `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant. It is always followed by `Spacer(uiSpacingHeaderBottom)` (`ui.spacing.header.bottom`, 6dp) before its card — one header-to-card gap for every section in every tab (2026-10-06).
@@ -693,7 +707,7 @@ Source: [`DashboardPanel.kt`](../app/src/main/java/ykws/android/maro/ui/map/Dash
 
 ### 5.4 Map Overlay Highlight — Dual-Outline Pattern
 
-When a map element (track polyline, marker geometry) enters a highlighted state (click-n-move), it renders a **dark under-stroke before the gold geometry** — a drop-shadow technique that guarantees contrast against any map background.
+When a map element (track polyline, marker geometry) enters a highlighted state (click-n-move), it renders a **dark under-stroke before the gold geometry** — a drop-shadow technique that guarantees contrast against any map background. For a track or a route line both strokes are built by the one path render engine ([`maro-code.md`](maro-code.md), "Path Render Engine"), the casing from `path.line.casing.color` and the gold from `path.line.color.selected`.
 
 **Constants** (in [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt)):
 
