@@ -35,7 +35,6 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteStage
-import ykws.android.maro.spatial.RouteStepReading
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
@@ -91,7 +90,6 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
 internal fun RouteConfirmationPanel(
     state: RouteState,
     stage: RouteStage?,
-    stepReadings: List<RouteStepReading> = emptyList(),
     pages: List<RoutePage>,
     selectedIndex: Int,
     frontSaved: Boolean,
@@ -123,13 +121,17 @@ internal fun RouteConfirmationPanel(
     val clampedIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     val selected = pages.getOrNull(clampedIndex)
     val selectedPlan = selected?.plan
-    // The header's short state word: a committed early select reads its own word, the search reads
-    // the acquiring word with the stage inside it — `Acquiring (Search)…` — and a settled page reads
-    // the settled line, the pages standing and the cruising speed they plan at.
+    // The header's short state word: a committed early select reads its own word, the search reads the
+    // stage with the selected route's own number — `Pull #2` — and a settled page reads the settled line,
+    // the pages standing and the cruising speed they plan at.
     val status = when {
         committed -> stringResource(R.string.route_status_selected)
         acquiring.searching -> stage?.let {
-            stringResource(R.string.route_status_acquiring_stage, stringResource(it.labelResId))
+            stringResource(
+                R.string.route_status_stage_number,
+                stringResource(it.labelResId),
+                clampedIndex + 1
+            )
         } ?: stringResource(R.string.route_status_acquiring)
         else -> {
             val speedText = stringResource(R.string.settings_route_pace_value_fmt, paceKn)
@@ -165,26 +167,6 @@ internal fun RouteConfirmationPanel(
                     text = it,
                     color = Color(AppConfig.uiTextPrimary),
                     fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            // The stage's own figures, one flat line beside its word: a label and a number in its own unit,
-            // every one of them a `@StringRes`. The texts are resolved in a plain loop and joined after,
-            // because a lambda is not a composable context and `stringResource` cannot be called in one.
-            if (stepReadings.isNotEmpty()) {
-                val line = StringBuilder()
-                for (reading in stepReadings) {
-                    if (line.isNotEmpty()) line.append(" · ")
-                    line.append(stringResource(reading.labelResId))
-                    line.append(' ').append(reading.value.toLong())
-                    if (reading.unitResId != 0) line.append(' ').append(stringResource(reading.unitResId))
-                }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = line.toString(),
-                    color = Color(AppConfig.uiTextPrimary),
-                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

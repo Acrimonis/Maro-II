@@ -647,12 +647,13 @@
     <string name="route_reason_off_water">Outside the covered water</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
-    <!-- The status with the stage the engine published while a search runs — `Acquiring (Search)…`
-         (R15, rewritten 2026-09-28). The stage's own words are the closed set below. -->
+    <!-- The status with the stage the engine published while a search runs — `Pull #2`, the stage word
+         then the selected route's own number (R15, rewritten 2026-10-08). The stage words themselves are
+         the closed set below. -->
     <string name="route_status_acquiring">Acquiring…</string>
     <!-- The band's own acquisition word: the shared one above carries an ellipsis the band does not use. -->
     <string name="route_status_acquiring_bare">Acquiring</string>
-    <string name="route_status_acquiring_stage">Acquiring (%1$s)…</string>
+    <string name="route_status_stage_number">%1$s #%2$d</string>
     <string name="route_status_active">Routing</string>
     <string name="route_status_selected">Selected — finishing the line…</string>
     <!-- The settled status once the search stops: the pages standing and the cruising speed they plan
@@ -666,6 +667,7 @@
     <string name="route_stage_search">Search</string>
     <string name="route_stage_pull">Pull</string>
     <string name="route_stage_snap">Snap</string>
+    <string name="route_stage_fine">Refine</string>
     <!-- The one exit dialog, reached by the toggle's off and by the back key alike (R59). Its accent
          writes the followed route to a track and is disabled while that route already has one. -->
     <string name="route_exit_title">Leave the Route mode?</string>

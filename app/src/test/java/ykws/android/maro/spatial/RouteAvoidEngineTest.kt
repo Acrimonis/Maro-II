@@ -720,6 +720,44 @@ class RouteAvoidEngineTest {
         )
     }
 
+    /**
+     * The fine pass crosses a boundary of its own. The narrating main closes the coarse pass at `SNAP`,
+     * publishes `FINE` for the refinement along the settled line, and never `PULL` again — so the
+     * panel's word names the work actually running rather than a pull that already finished.
+     */
+    @Test
+    fun theFinePassIsItsOwnBoundaryAndClosesTheMain() = runBlocking {
+        val engine = newEngine()
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture's pair declares its rung", declared)
+
+        val stages = ArrayList<RouteStage?>()
+        val subscribed = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    stages += update.nextStage
+                    if (update.nextStage == null) {
+                        done.complete(Unit)
+                        return@collect
+                    }
+                }
+        }
+        subscribed.await()
+        engine.startLookup(declared!!.computations[0].id)
+        withTimeout(120_000) { done.await() }
+        collector.cancel()
+
+        assertEquals(
+            "the refinement, not the pull, is the boundary the terminal closes",
+            RouteStage.FINE,
+            stages.dropLast(1).lastOrNull()
+        )
+        assertTrue("the snap still precedes it", stages.indexOf(RouteStage.SNAP) < stages.indexOf(RouteStage.FINE))
+    }
+
     // ── The plan seam: the engine's own injection point ────────────────────────
 
     /** A plan that behaves exactly like the shipped one and counts how often the engine consults it. */

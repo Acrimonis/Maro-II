@@ -814,7 +814,6 @@ fun MapScreen(
     // **The session's link table, the main lookup's stage and its provisional line**, read reactively.
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
     val routeStage by routeViewModel.stage.collectAsState()
-    val routeStepReadings by routeViewModel.stepReadings.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
     // **The ladder's running best, by the lookup that owns its row** — the winner the seat follows and
     // the panel marks, reported at each rung's terminal.
@@ -3090,7 +3089,6 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
-                        stepReadings = routeStepReadings,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3134,7 +3132,6 @@ fun MapScreen(
                     RouteConfirmationPanel(
                         state = routeState,
                         stage = routeStage,
-                        stepReadings = routeStepReadings,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3470,9 +3467,13 @@ fun MapScreen(
         }
 
         // ── Track drawer: refresh on metadata change ────────────────────
-        LaunchedEffect(trackSummaries) {
+        // **Both kinds, not the tracks list.** `allTrackSummaries` is the one list holding a route and a
+        // recorded track alike, and this mirror serves the card both of them draw — a route opened from
+        // the map or the drawer takes the same card. `trackSummaries` filters routes out, so a route's id
+        // was never found and its detail never reloaded: the pin icon stayed stale.
+        LaunchedEffect(allTrackSummaries) {
             val current = trackDrawerState.track ?: return@LaunchedEffect
-            val updatedSummary = trackSummaries.find { it.id == current.id } ?: return@LaunchedEffect
+            val updatedSummary = allTrackSummaries.find { it.id == current.id } ?: return@LaunchedEffect
             if (updatedSummary.name != current.name || updatedSummary.comment != current.comment || updatedSummary.pinned != current.pinned) {
                 val updated = trackViewModel.loadTrackDetailCached(current.id)
                 if (updated != null) {
@@ -3721,6 +3722,9 @@ fun MapScreen(
                 },
                 searching = routeSearching,
                 stageRes = routeStage?.labelResId,
+                // The selected page's own number, the figure the panel's status word carries — so the
+                // drawer's band and the panel's header cannot part.
+                routeNumber = routeSortedSelectedIndex + 1,
                 plannedDistanceNm = routeState.plan?.distanceNm,
                 plannedEtaSeconds = routeState.plan?.let { it.remainingFrom(it.start).durationSec },
                 remaining = routeTrip,

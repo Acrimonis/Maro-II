@@ -250,5 +250,9 @@ enum class RouteStage(val labelResId: Int) {
     PULL(R.string.route_stage_pull),
 
     /** Each bend is being moved onto its nearest tangent corner. */
-    SNAP(R.string.route_stage_snap)
+    SNAP(R.string.route_stage_snap),
+
+    /** The refinement along the settled line — its priced crossings re-solved and its line re-tensioned
+     *  on the fine grid, after the coarse pass has closed at [SNAP]. */
+    FINE(R.string.route_stage_fine)
 }

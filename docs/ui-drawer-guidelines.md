@@ -557,7 +557,7 @@ MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | true | edit + delete + 
 MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | true | none | 12.dp | false |
 OverlayLayer track card (portrait) | `OverlayLayer.kt` | true | true | bands + eye + delete | 12.dp | false |
 OverlayLayer track card (landscape) | `OverlayLayer.kt` | false | true | bands + eye + delete | 12.dp | true |
-RouteConfirmPanel | `RouteConfirmPanel.kt` | true | true | status + readings + page dots | 12.dp | false |
+RouteConfirmPanel | `RouteConfirmPanel.kt` | true | true | status + page dots | 12.dp | false |
 MenuDrawerOverlay | `MenuDrawerOverlay.kt` | true | false | Settings gear button | 24.dp | true |
 SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body) | false | none | 24.dp | true |
 

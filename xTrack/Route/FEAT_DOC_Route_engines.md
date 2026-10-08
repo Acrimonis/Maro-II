@@ -28,7 +28,7 @@ The types on the seam, all in the same file:
 - `RouteComputation(id, descriptionResId)` — one declared computation, its label a `@StringRes`.
 - `RouteDeclarations` — `Available(computations)` or `Refused(reason)`, so a refusal is a value, never a throw.
 - `RouteReason` — `CANNOT_REPAIR` and `WORLD_NOT_READY` answer at `routesToCompute`; `NO_PATH` and `OFF_WATER` answer on the flow.
-- `RouteStage` — `CORRIDOR` · `GRID` · `SEARCH` · `PULL` · `SNAP`, the boundary set an engine publishes.
+- `RouteStage` — `CORRIDOR` · `GRID` · `SEARCH` · `PULL` · `SNAP` · `FINE`, the boundary set an engine publishes; `FINE` is the refinement along the settled line, the boundary the coarse pass hands the fine pass.
 - `RouteUpdate(routeId, stageDone, nextStage, line, result, reason, readings, provisional, runningBest)` — the stage pair is **finished-then-next**, `nextStage = null` marks the terminal update, and `line` is a value to paint, never a drawing.
 - `RouteProvisional(distanceM, durationSec)` — the pair a rung's first taut line already supports, replaced by the settled figures.
 - `RouteRunningBest(lookupId, compared)` — the rung a running ranking currently names, and how many rungs it has compared; it rides **every terminal** of a ladder.
@@ -83,7 +83,7 @@ runs the after-the-loop refinement. In order:
 5. **A\*** — `MultipassSearch`, eight neighbours, a metres-equivalent g-cost so the haversine heuristic stays admissible, a cancellation check between expansions, over one window or a chain of windows.
 6. **Taut pull** — the two-pointer string pull at the walk's clearance step, with the price walk beside it.
 7. **Corner snap** — each bend moves onto its nearest tangent corner while both legs stay clear, then the line is pulled again.
-8. **The fine pass** — the refinement along the settled line: a **crossing re-solve** per priced zone the line enters (a local A\* inside the zone's own box, spliced only where it answers and only where it is no dearer), then a **re-tension** pull on the fine field. There is **no re-search and no second pass**: the fine stage is this refinement alone.
+8. **The fine pass** — the refinement along the settled line: a **crossing re-solve** per priced zone the line enters (a local A\* inside the zone's own box, spliced only where it answers and only where it is no dearer), then a **re-tension** pull on the fine field. Both of its pulls take the **coarse** price step — a fine one collapses the price walk's grouping to one interval a group, the collapse the runner's own pass avoids — while the clearance step stays the fine grid's own. There is **no re-search and no second pass**: the fine stage is this refinement alone.
 9. **Corner pass** — `RouteCornerPass.round` rounds each snapped corner into an outward-bulging racing-line curve, slowed where the bulge would foul.
 10. **Clock** — `timeLineWithProfile` times the drawn line with anticipation and bounded acceleration, the enforced limit the hard ceiling.
 

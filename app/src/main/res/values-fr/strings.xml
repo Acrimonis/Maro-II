@@ -652,12 +652,13 @@
     <string name="route_reason_off_water">Hors de la zone d\'eau couverte</string>
     <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
     <string name="route_following_active">Routage actif</string>
-    <!-- Le statut avec l'étape que le moteur publie pendant une recherche — « Acquisition (Recherche)… »
-         (R15, réécrit le 2026-09-28). Les mots de l'étape sont l'ensemble fermé ci-dessous. -->
+    <!-- Le statut avec l'étape que le moteur publie pendant une recherche — « Trait #2 », le mot de
+         l'étape puis le numéro de la route sélectionnée (R15, réécrit le 2026-10-08). Les mots de l'étape
+         sont l'ensemble fermé ci-dessous. -->
     <string name="route_status_acquiring">Acquisition…</string>
     <!-- Le mot d\'acquisition propre à la bande : celui du dessus porte une ellipse que la bande n\'utilise pas. -->
     <string name="route_status_acquiring_bare">Acquisition</string>
-    <string name="route_status_acquiring_stage">Acquisition (%1$s)…</string>
+    <string name="route_status_stage_number">%1$s #%2$d</string>
     <string name="route_status_active">En route</string>
     <string name="route_status_selected">Sélectionné — itinéraire en cours de finalisation…</string>
     <!-- Le statut posé une fois la recherche arrêtée : les pages en place et la vitesse de croisière
@@ -671,6 +672,7 @@
     <string name="route_stage_search">Recherche</string>
     <string name="route_stage_pull">Trait</string>
     <string name="route_stage_snap">Coins</string>
+    <string name="route_stage_fine">Affinage</string>
     <!-- Le dialogue de sortie unique, atteint par l'extinction de la bascule comme par la touche
          retour (R59). Son bouton accentué écrit l'itinéraire suivi dans une trace, et il est désactivé
          tant que cet itinéraire en a déjà une. -->
