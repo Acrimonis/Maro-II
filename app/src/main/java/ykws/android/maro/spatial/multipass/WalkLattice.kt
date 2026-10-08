@@ -291,7 +291,8 @@ internal data class WalkWindow(
  * and its two mirror reads, slot → window tile and slot → packed identity.
  */
 internal class WalkSlotIndex(
-    val slots: HashMap<Long, Int>,
+    /** `(layer, row, col)` → slot; shared across arms, so it must stay read-only. */
+    val slots: Map<Long, Int>,
     val tiles: IntArray,
     val ids: LongArray
 )
@@ -394,7 +395,7 @@ internal object WalkIndexCache {
 internal class WalkWindows private constructor(
     val windows: List<WalkWindow>,
     private val lattices: List<WalkLattice>?,
-    private val slots: HashMap<Long, Int>?,
+    private val slots: Map<Long, Int>?,
     private val tiles: IntArray?,
     private val ids: LongArray?
 ) {
@@ -557,7 +558,8 @@ internal class WalkWindows private constructor(
         val coarseLayer = if (layers[0].cellM >= layers[1].cellM) 0 else 1
         val fineLayer = 1 - coarseLayer
         val ratio = latticeRatioOf(layers[coarseLayer].cellM, layers[fineLayer].cellM)
-        if (ratio <= 1) return NO_SLOTS
+        // `latticeRatioOf` floors at one, so the only ratio that names no crossing is exactly one.
+        if (ratio == 1) return NO_SLOTS
         val targets: List<CellIndex> = if (layer == coarseLayer) {
             SeamNeighbours.acrossFromCoarse(row, col, dr, dc, ratio, fineLayer)
         } else {

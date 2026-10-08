@@ -345,11 +345,10 @@ class RouteAvoidEngine(
      * the success path's own terminal emit, so a sink throwing on a **healthy** path re-entered it and
      * emitted a second, spurious `NO_PATH` terminal before the failure was swallowed. The success terminal
      * now sits outside the handler by construction: the handler wraps the three steps that can fail — the
-     * shared build, the rung's search and the fold — and the terminal is emitted once, after it, whatever a
-     * broken sink does. The corner changes no **reachable** behaviour, and it is deliberately left without a
-     * runtime test: the only way to drive it is a sink that throws on a healthy terminal, and that exception
-     * then leaves the engine's own lane uncaught — which `kotlinx-coroutines-test` records and reports
-     * against an unrelated test, so a test for it would poison its neighbours rather than pin anything new.
+     * shared build, the rung's search and the fold — and the terminal is emitted once, after it. A sink that
+     * throws on the healthy terminal therefore propagates one failure and emits one terminal, which
+     * [`aThrowingSinkOnAHealthyTerminalEmitsOneTerminalAndPropagatesOneFailure`] in `RouteAvoidEngineTest`
+     * pins.
      */
     private suspend fun runComputation(
         lookupId: RouteId,

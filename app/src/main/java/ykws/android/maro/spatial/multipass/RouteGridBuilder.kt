@@ -191,8 +191,9 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // The world's fixed anchor where it has one; otherwise the **whole-degree** fallback (D16), which
         // floors the corridor's south-west to the degree. It is corridor-**free in effect**: any two
         // corridors in the same degree share the origin, so a corridor without a live world lays the same
-        // cells as its neighbours and cannot fragment the fine layer's future tile cache — pinned by
-        // `theWholeDegreeFallbackIsOneOriginPerDegree` in `LatticeFamilyTest`.
+        // cells as its neighbours and cannot fragment the fine layer's future tile cache. No runtime guard
+        // stands on that: `theWholeDegreeFallbackIsOneOriginPerDegree` in `LatticeFamilyTest` **is** the
+        // guard, pinning the shared origin for two corridors in one degree and the other-degree case beside.
         val anchor = world.latticeAnchor ?: LatticeAnchor.wholeDegree(box)
         val family = LatticeFamily.of(anchor, cellM, fineCellM)
         val marginM = AppConfig.routeAvoidObstacleMarginM

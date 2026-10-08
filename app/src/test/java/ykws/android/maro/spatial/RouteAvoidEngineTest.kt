@@ -949,6 +949,85 @@ class RouteAvoidEngineTest {
         }
     }
 
+    // ── The healthy terminal's throwing sink (D39) ─────────────────────────────
+
+    /**
+     * **A sink throwing on the healthy terminal emits one terminal and propagates one failure (D39).**
+     *
+     * The failure catch wraps the build, the search and the fold and nothing else, so the success
+     * terminal — emitted just before the sink is asked for its `DONE` line — sits **outside** it. A sink
+     * that throws there therefore propagates a single uncaught failure instead of re-entering the handler
+     * and emitting a second, spurious `NO_PATH` terminal. The corner is driven directly, not through the
+     * harness's `HARVEST`-only build failure: the sink throws on `DONE`, the one line the success path
+     * emits, and the throw is caught where the engine's own `Dispatchers.Default` lane hands it up — a
+     * `Thread.setDefaultUncaughtExceptionHandler` installed for this test and restored in `finally` — so
+     * no stray failure escapes into another test. Reverting D39 (wrapping the success emit back inside the
+     * catch) reddens this test: the sink's throw re-enters the handler, a second terminal is emitted, and
+     * that second terminal's own `DONE` line throws again.
+     */
+    @Test
+    fun aThrowingSinkOnAHealthyTerminalEmitsOneTerminalAndPropagatesOneFailure() = runBlocking {
+        val captured = Collections.synchronizedList(ArrayList<String>())
+        val terminals = Collections.synchronizedList(ArrayList<RouteUpdate>())
+        val escaped = Collections.synchronizedList(ArrayList<Throwable>())
+        val escapedLatch = CountDownLatch(1)
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, failure ->
+            escaped.add(failure)
+            escapedLatch.countDown()
+        }
+        try {
+            val engine = RouteAvoidEngine(
+                paceKn = { paceKn },
+                aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+                slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+                worldProvider = { FakeWorld() },
+                traceSink = { line ->
+                    captured += line
+                    if (line.startsWith("DONE")) {
+                        throw IllegalStateException("injected healthy-terminal sink failure")
+                    }
+                }
+            )
+            val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+            assertNotNull("the fixture pair declares its three rungs", declared)
+
+            val subscribed = CompletableDeferred<Unit>()
+            val firstTerminal = CompletableDeferred<RouteUpdate>()
+            val collector = launch(Dispatchers.Default) {
+                engine.updates
+                    .onStart { subscribed.complete(Unit) }
+                    .collect { update ->
+                        if (update.nextStage == null) {
+                            terminals.add(update)
+                            firstTerminal.complete(update)
+                        }
+                    }
+            }
+            subscribed.await()
+            engine.startLookup(declared!!.computations[0].id)
+
+            val terminal = withTimeout(120_000) { firstTerminal.await() }
+            // The throw follows the emit on the same lane, so the handler fires as the lookup unwinds.
+            assertTrue(
+                "the sink's throw reaches the engine lane's uncaught handler",
+                escapedLatch.await(120_000, TimeUnit.MILLISECONDS)
+            )
+            collector.cancel()
+
+            assertNotNull("the healthy terminal still answers its line", terminal.result)
+            assertEquals("the lookup emits one terminal, never a second NO_PATH", 1, terminals.size)
+            assertEquals(
+                "the sink was asked for exactly one DONE line",
+                1,
+                captured.count { it.startsWith("DONE") }
+            )
+            assertEquals("and exactly one failure propagates out of the lookup", 1, escaped.size)
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(previousHandler)
+        }
+    }
+
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────
 
     /**
