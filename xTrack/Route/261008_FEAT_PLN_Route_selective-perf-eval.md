@@ -1,11 +1,11 @@
 <!-- scope: feature -->
 # Route — the selective engine's acquisition cost: assessment and evaluation plan
 
-**Date:** 2026-10-08 · **Status:** in design — P0–P4.1 landed (the harness, the single-flight build, the cheapened depth reads, the flat cell, the anchored lattice), P4.2–P5 open, the device passes owed · **Order:** the user's word of 2026-10-08, `#focus route` beside `#new route-algo-selective-eval`, opened to evaluate why the selective acquisition costs more than the adaptive one · **Branch:** `feature/route-algo-selective-eval` cut from `d41b4569`.
+**Date:** 2026-10-08 · **Status:** in design — P0–P4.1 landed (the harness, the single-flight build, the cheapened depth reads, the flat cell, the anchored lattice), D16 · D18 · D19 · D38 · D39 cleared on 2026-10-08 with **D17 the one debt left** (§10), P4.2–P5 open, the device passes owed · **Order:** the user's word of 2026-10-08, `#focus route` beside `#new route-algo-selective-eval`, opened to evaluate why the selective acquisition costs more than the adaptive one · **Branch:** `feature/route-algo-selective-eval` cut from `d41b4569`.
 
 ## 1. The claim, and what is missing
 
-The observation is the user's: one arming on `selective` costs materially more than the same arming on **Adaptive** (`evolutive`). No measurement is on record — the acquisition's slowness is a **parked, unmeasured** todo in [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md), and the engine's timings print only on the device under the `MaroRoute` tag.
+The observation is the user's: one arming on `selective` costs materially more than the same arming on **Adaptive** (`evolutive`). **Answered below:** no measurement was on record when this was written — the slowness was a **parked, unmeasured** todo in [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md), the engine's timings printing only on the device under the `MaroRoute` tag — and the device pass of 2026-10-08 measured it (§3a), the harness then reproducing it (§9, P0).
 
 The two engines are compositions, not reimplementations: each holds a private [`RouteAvoidEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) and forwards the seam, so the pipeline, the fine pass, the corner pass, the clock and the flow are **shared**, and the walk differs **by the plan alone**. Everything below is therefore about the plan, the water the plan prices, and the field the plan hands the pull.
 
@@ -84,9 +84,11 @@ One device pass under the `MaroRoute` tag: one pair, four arms, every arm grown 
 - **C1 stands, second.** The coarse pull's grouping collapses: 0.94–0.99 against 0.50–0.58, roughly twice the reads.
 - **C2 does not stand.** The reads are twice as many but priced identically per read, so the wall-distance ring scan is not multiplying each read.
 - **C4 falls** — windows 16 against 11 with fewer cells is no fragmentation story — and **C5 is minor**, the coarse search only ~1.5× dearer.
-- **Still open:** why `selective` builds the base-corridor grid three times where Adaptive builds it once ([`sharedGrid`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:315)'s check-build-assign is unguarded while the rungs run on `Dispatchers.Default`); and one pair cannot split the 8× between the depth dilation and the zone rim.
+- **Both closed since.** The triple build was the rungs' race on [`sharedGrid`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:315)'s unguarded check-build-assign, and **P1** landed the per-arm holder so an arm builds **once**; the 8× was split by **P2.1**'s `PERF-SPLIT` — the depth-collar membership **25.4 ms** of the 29.3, the band write **6.6 ms**, the zone rim **3.1 ms**.
 
 ## 4. The evaluation plan — device first
+
+**Run status, 2026-10-08:** steps **1–3 ran** (the device pass of §3a), **4–5 were carried** by the harness (§9, P0) and P2.1's split, and **6 is P5's closing record**; the numbered recipe below stands as originally written.
 
 1. **Run the device trace** — one coastal pair, both engines, the same ends, pace and Driving preference; capture both `MaroRoute` logs (`adb shell setprop log.tag.MaroRoute INFO`, then `adb logcat -s MaroRoute` per run).
 2. **Read both logs side by side** and extract, per engine: `CORRIDOR`, `HARVEST`, `GRID layer=coarse ms`, `GRID layer=fine windows/cells/collars ms`, `PULL`/`SNAP`/`FINAL ms`, `FINE points/priceReads/marks/ms`, and `DEVICE PASS` per rung (`plan`, `cellM`, `fineCellM`, cells, `expansions`, path cells, refusals, coarse duration, fine duration), plus `LINE`.
@@ -107,9 +109,11 @@ One device pass under the `MaroRoute` tag: one pair, four arms, every arm grown 
 
 **The shape each candidate would leave.** C1/C2 → the pull and fine ms scale with `marks` while `GRID layer=fine ms` stays flat. C3 → `GRID layer=fine ms` dominates and the pull stays flat. C4/C5 → the `windows=` and `expansions=` counts part from `evolutive`'s.
 
-**Named weakness of the plan itself.** It defers the harness until the trace indicts a stage, so an inconclusive trace leaves the session with no second instrument beyond then building one.
+**Named weakness of the plan itself — answered 2026-10-08.** It defers the harness until the trace indicts a stage, so an inconclusive trace leaves the session with no second instrument beyond then building one; the trace indicted the fine build outright (§3a), so the deferral cost nothing and the harness followed (§9, P0).
 
 ## 6. Levers, named and not implemented
+
+**As landed:** the scan-bound lever was taken in part (P2.2/P2.3 — the gate's blocked cells, not a coarse raster, since none exists); the wall-distance field was declined (P2.4); the uncoupling, the shallow-cell surcharge and the collar/zone-rim/window merge stand as named.
 
 - **Uncouple the depth clearance from the field's minimum** — give the depth source its own honest per-point clearance (the raster cell), or exclude it from `priceClearanceM`'s minimum so it cannot collapse the band's and the zones' grouping. The coupling is the part that looks like a defect: one source's declaration silently widening every other source's read count is not declared in the field's KDoc.
 - **Precompute or memoise the wall distance** as a field beside the coefficient, so a pull read does not re-scan.
@@ -126,25 +130,25 @@ One device pass under the `MaroRoute` tag: one pair, four arms, every arm grown 
 
 ## 8. Proposed solution — a region-anchored, tile-keyed fine layer
 
-The proposal: anchor the fine lattice to a fixed point rather than to the corridor's own box, cache the fine layer region-wide as a keyed tile map that grows lazily as the boat explores, and let one acquisition take only the tiles it needs.
+**Superseded as forward text, kept as the proposal's own record.** P4.1 landed the anchor on the depth raster's own origin, so what §9's P4.2–P4.6 carry is the tile map alone — and D17 still decides whether **that** section or the separate tile doc is the design's one home. The proposal: anchor the fine lattice to a fixed point rather than to the corridor's own box, cache the fine layer region-wide as a keyed tile map that grows lazily as the boat explores, and let one acquisition take only the tiles it needs.
 
 **Verdict — the shape is right, and it is the house pattern one level down.** The depth raster already ships region-wide in `data/app-assets/depth/*.bin` behind a timestamp-keyed cache, so region-scale stamped data sliced on demand is an idiom this codebase already practises.
 
 **Three properties of `MultipassGrid` block it — this is a change, not a cache insert:**
 
-1. **The origin is the corridor's.** [`LatticeFamily.of(corridor, …)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:136) derives the lattice origin from the box, so the same water carries different indices per arm. A fixed anchor removes it, and a named constant would serve — but **anchoring on the depth raster's own origin is strictly better**: a fine cell's depth sample becomes an array read rather than the ring scan's bearings, which is the very cost §3a indicts.
+1. **The origin was the corridor's — P4.1 landed the fix.** [`LatticeFamily.of(corridor, …)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:104) derived the lattice origin from the box, so the same water carried different indices per arm; a named constant would have served, and the anchored [`LatticeFamily.of(anchor, …)`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:175) was drawn instead — **anchoring on the depth raster's own origin is strictly better**: a fine cell's depth sample becomes an array read rather than the ring scan's bearings, which is the very cost §3a indicts.
 2. **The grid is mutable per arm.** The berth carve force-frees the end discs and the rasterizer paints land inside a window — both per-acquisition writes. A cached tile must be immutable, with the carve carried as a copy-on-write overlay on the tiles it touches.
-3. **The layout is a boxed `Array<MultipassCell>` beside five `DoubleArray`s**, ≈70–75 B a cell, so a naive 256×256 tile is 4.7 MB. Flattening the cell to a byte tag plus the parallel arrays, and storing a tile **sparsely — only the collar members, not the whole box — is the extraction the proposal names**, and the piece that turns the cache from heavy to cheap.
+3. **The layout *was* a boxed `Array<MultipassCell>` beside five `DoubleArray`s**, ≈70–75 B a cell, so a naive 256×256 tile is 4.7 MB — **P3 landed the flatten at ≈49 B a cell** (a `ByteArray` tag and a `DoubleArray` cost beside the five limit arrays), so every byte figure in this section shrinks by roughly a quarter. Storing a tile **sparsely — only the collar members, not the whole box — is the extraction the proposal names**, and the piece that turns the cache from heavy to cheap.
 
 **Sizes, from the measured cells:** one arming's fine layer is ≈5.5 MB at the 3704 m corridor and ≈10.5 MB at 7408 m; the same collars across a whole region are tens of megabytes, so a tile budget with an LRU is what keeps the map bounded while the coverage keeps growing.
 
 **The win is the marking, not the allocation.** A cached tile skips the ring scans and the zone-rim pass entirely — the ~6 s — so the bytes are the obstacle to clear rather than the goal.
 
-**Staged path, cheapest first:**
+**Staged path, cheapest first — stages 1–3 landed on 2026-10-08 (P1 · P2 · P3), so stage 4 is §9's P4:**
 
-1. **Fix the repeated build** — three builds against one is pure waste and needs no architecture: make [`sharedGrid`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:315)'s check-and-build single-flight.
-2. **Make the build cheap** — a coarse depth-cell early-out bounding the ring scan, the wall distance precomputed as a field beside the coefficient, and the flat shallow-cell surcharge the design already names.
-3. **Flatten the cell** — a `ByteArray` state beside the parallel arrays, roughly halving the per-cell cost before anything is cached.
+1. **Fix the repeated build — landed, P1.** Three builds against one was pure waste and needed no architecture: [`sharedGrid`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:407)'s check-and-build is single-flight behind the arm's holder.
+2. **Make the build cheap — landed, P2.** The Chebyshev bound skips the bearing scan where a cell is provably beyond the collar, and one shared scan now serves both depth passes; the **wall-distance field was not taken**, the value-preserving levers having already put the fine build below the pull.
+3. **Flatten the cell — landed, P3.** A `ByteArray` state and a `DoubleArray` cost beside the five limit arrays took the cell from ≈68 B to ≈49 B — a quarter, not the halving predicted here.
 4. **Then the tile cache** — the fixed anchor, a stamp-keyed tile map, single-flight lazy builds, a byte ceiling with LRU, and the carve as copy-on-write.
 
 **Risks, named.** A fixed anchor touches `LatticeFamily`, the berth carve and the walk's layer indexing; an unbounded map is a leak, so the ceiling and the eviction are part of the design rather than a later add; and the key must carry the depth stamp, the coastline stamp and the EMODnet cutoff, or a re-baked asset leaves stale coefficients cached and the line silently wrong.
@@ -208,7 +212,7 @@ Ordered so that every phase is judged on a measurement the one before it made po
 
 ## 10. Debts carried out of P0–P4.1
 
-Every non-blocking finding the phase reviews recorded, each with the fix it needs, ordered so the evidence debts clear first, the correctness nits next, the wording after that, and the two P4.2 prerequisites last.
+Every non-blocking finding the phase reviews recorded, each with the fix it needs, ordered so the evidence debts clear first, the correctness nits next, the wording after that, and the four P4.2 prerequisites last. **Citations are as the corpus stood when each entry was written** — it moved under them (`LatticeFamily.of(anchor, …)` reads `:166` here against its `:175`, and `WalkWindows.latticeCell` is cited at both `:357` and `:412`), so a forward entry's site is re-read before it is trusted.
 
 **D1–D15 — cleared 2026-10-08.** The corridor-anchor re-run reproduced **byte-identical on two runs** at `7916 / 7925 / 2650`, so the harness KDoc now reads `7916 → 3135 / 7925 → 3141 / 2650 → 2820` with the 301-read gap named **unattributed**; the pins were kept exact at that point, and **D23 has since made them a ±1 % band** (see below) — the code follows D23, so this sentence records history, not the current pin. `showStandardStreams` was enabled, the two new guards and the two new tests landed, and the wording was corrected throughout — `apk-build.bat` and the full suite green, the only behaviour change D9's cancel disposal. Six residuals the review then raised are carried as D20–D25 below.
 
@@ -236,12 +240,12 @@ Every non-blocking finding the phase reviews recorded, each with the fix it need
 - **D14 · "never to the corridor" reads loosely** since `wholeDegree()` takes the box. Fix: say what the fallback actually does.
 - **D15 · "the two depth passes pay the scan once between them" holds only for depth-collar members** — the coast-band and zone-rim members are re-scanned. Fix: qualify it.
 
-**P4.2 prerequisites.**
+**P4.2 prerequisites — D16 · D18 · D19 cleared 2026-10-08 (`#impl`); D17 open, on the user's word.**
 
-- **D16 · The anchor is degree-quantised, not region-fixed** — the corridor's corner floored to a whole degree. Fix: make it one origin for the region, the depth raster's own, before any tile map is built.
+- **D16 · cleared 2026-10-08.** The anchor's substance already shipped ([`LiveMultipassWorld.latticeAnchor`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt:148) is the depth raster's own origin); the fallback is now documented at [`RouteGridBuilder.kt:191`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:191) as corridor-free in effect and pinned by [`theWholeDegreeFallbackIsOneOriginPerDegree`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:240), including the other-degree case, so a corridor without a live world cannot fragment a tile cache.
 - **D17 · The tile design sits in two homes** — the unasked [`261008_FEAT_PLN_Route_anchored-tiles.md`](261008_FEAT_PLN_Route_anchored-tiles.md:1) and this plan's P4. Fix: collapse this plan's P4.2–P4.5 to a pointer, or retire the doc to `xxArchive` on the user's word — not both.
-- **D18 · `WalkWindows.onLattice` rebuilds its full per-cell index every arm.** Fix: reuse it across arms — the tile cache saves the rasterise, not this.
-- **D19 · The `ratio` is derived in three homes** ([`WalkLattice.kt:175`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:175), `:321`, `:451`). Fix: one home.
+- **D18 · cleared 2026-10-08.** [`WalkIndexCache`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:309) keys one entry on the windows' **shape**, so an arm whose windows carry the same shape takes the previous index instead of re-walking every cell; pinned by [`theWindowIndexIsReusedAcrossArmsOfTheSameShape`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:295), whose rebuild revert moves the build count to two.
+- **D19 · cleared 2026-10-08.** [`latticeRatioOf`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:58) is the convention's one home — `LatticeFamily.of`'s `ratio`, `WalkWindows.layerRatio` and `crossLayerSlots` all read it — pinned by [`theRatioConventionHasOneHome`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:275).
 
 **Residuals from the debt run's review, 2026-10-08 — D20–D25 cleared.** The band's dead fallback is deleted, the impossible default dropped, the arm cleared on a refusal, the pins turned into a ±1 % band, the stdout flag gated on `maro.testStdout`, and the cancel disposal proved by a revert — `apk-build.bat` and the full suite green with and without the flag. Five findings the review then raised are carried as D26–D30.
 
@@ -276,13 +280,25 @@ Every non-blocking finding the phase reviews recorded, each with the fix it need
 
 **D36–D37 — cleared 2026-10-08.** The failed build now answers its awaiting rungs rather than leaving the mode to time out, and the window-cell rejection is pinned; the fix, its mutation gate and the two carried findings sit in the `## Implemented` entry below. The review then raised two more.
 
-**Findings from the D36–D37 review, 2026-10-08.**
+**Findings from the D36–D37 review, 2026-10-08 — D38–D39 cleared 2026-10-08 (`#impl`).**
 
 - **D38 · `NO_PATH`'s meaning is now narrower than its KDoc.** [`RouteReason.NO_PATH`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:114) still reads "the search found no route between the repaired ends", which a build failure now also produces; the engine states the conflation, the enum does not. Fix: widen the enum's line, or the reference to it.
 - **D39 · The catch encloses the success-path terminal.** The general `catch (failure: Exception)` also wraps the happy path's [`emitTerminal`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:371), so a throwing sink on a healthy path would double-emit before re-throwing — unreachable with the production `null` sink and with the harness's `HARVEST`-only throw, but a corner a narrower `try` around build, search and fold would retire by construction. Fix: narrow the `try`, or state the corner.
 - **Accepted**: the failure cause is deliberately untraced — a second sink call in the catch risks the very swallow the shape avoids — and the sweep's health notes (the arm's invariants across five sites, the depth bound across four KDocs, `WalkWindows`' repeated window-offset translations) stand as a tidy-up rather than a defect.
 
+**Findings from the `#impl` review, 2026-10-08 — no blocker.** The Ask hop read the change set in file and found all five debts landed as stated, with no gap, regression or code creep; its one caveat is that it ran without a shell, so it reviewed the target files rather than a diff. Three health findings stand. **D40 · A widened rationale** — the D39 reason appears in three places, the D18 reuse in two, and the D19 KDoc carries a caller list, so each fact needs trimming back to one home. **D41 · The index cache locks a hot path** — [`WalkIndexCache.getOrBuild`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:320) is `@Synchronized` and builds inside the lock, and its single entry pays only across consecutive same-shape arms. **D42 · Test-only doors in production code** — [`buildCount`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:315) and [`clear()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:334) exist for the D18 test alone.
+
 ## Implemented
+
+**Shipped 2026-10-08, the `#implement` pipeline — the five owed debts D16 · D18 · D19 · D38 · D39, no working path moved, no new dependency:**
+
+- **D39 — the failure catch no longer wraps the healthy terminal.** [`runComputation`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:377) nests its `try` around the build, the search and the fold alone, so the success [`emitTerminal`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:406) sits **outside** the handler — the reason stated at [:404](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:404) — and a throwing sink propagates out of the lookup rather than re-entering the failure handler and emitting a second terminal. D36's answer at [:401](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:401) is intact, and the retired corner is untested by construction because its only driver escapes the engine's lane.
+- **D38 — `NO_PATH` names both causes.** [`RouteReason.NO_PATH`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:114) now reads as the **absence of a line**, naming the failed build beside the fruitless search, with no separate variant and no new user-visible text.
+- **D16 — the whole-degree fallback is documented and pinned.** [`RouteGridBuilder.kt:191`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:191) states that the fallback is corridor-free in effect — any two corridors in one degree share the origin — and [`theWholeDegreeFallbackIsOneOriginPerDegree`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:240) pins it.
+- **D19 — the ratio has one home.** [`latticeRatioOf`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:58) carries the convention and is read by `LatticeFamily.of`, `WalkWindows.layerRatio` and `crossLayerSlots`; [`theRatioConventionHasOneHome`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:275) pins the arithmetic and the family's own read of it.
+- **D18 — the window index is reused across arms.** [`WalkIndexCache`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:309) holds one entry, newest wins, so a same-shape arm takes the previous index; the reuse was proved by a temporary bypass that reddened [`theWindowIndexIsReusedAcrossArmsOfTheSameShape`](../../app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt:295) before being restored.
+
+Green: `apk-build.bat`; full `testDebugUnitTest` — **1010 tests, 0 failures, 11 skipped**. The harness readings are unmoved (`priceReads 3135`, `marks 3141`, `expansions 2820`, one build per arm), so no line, clock or count moved; no new dependency. Three health findings stand as D40–D42 above, and D17 alone remains open in the ledger.
 
 **Shipped 2026-10-08, the `#implement` pipeline — the D1–D35 sweep's two new debts D36–D37, no working path moved, no new dependency:**
 

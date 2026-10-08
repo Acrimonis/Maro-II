@@ -227,4 +227,105 @@ class LatticeFamilyTest {
             refused!!.message.orEmpty().contains("window")
         )
     }
+
+    /**
+     * **The whole-degree fallback is one origin per degree, so a world-less corridor cannot fragment the
+     * cache (D16).** Production hands the family the world's fixed anchor; where the world names no depth
+     * raster the builder falls back to [`LatticeAnchor.wholeDegree`], which floors the corridor's south-west
+     * to the **degree**. Two corridors in the same degree therefore draw the *same* family — the property a
+     * fine-layer tile cache needs, since a corridor-derived origin would give each arm its own lattice and so
+     * its own tiles.
+     */
+    @Test
+    fun theWholeDegreeFallbackIsOneOriginPerDegree() {
+        val inOneDegree = LatticeAnchor.wholeDegree(BBox(43.20, 43.60, 6.10, 6.90))
+        val sameDegree = LatticeAnchor.wholeDegree(BBox(43.95, 43.99, 6.95, 6.99))
+        val otherDegree = LatticeAnchor.wholeDegree(BBox(44.10, 44.40, 7.10, 7.40))
+
+        assertEquals(
+            "two corridors in one degree share the fallback origin (latitude)",
+            inOneDegree.latSouth, sameDegree.latSouth, 0.0
+        )
+        assertEquals(
+            "two corridors in one degree share the fallback origin (longitude)",
+            inOneDegree.lonWest, sameDegree.lonWest, 0.0
+        )
+        assertEquals("the reference latitude is that whole degree's centre", 43.5, inOneDegree.referenceLat, 0.0)
+        assertTrue(
+            "a corridor in another degree draws another origin",
+            inOneDegree.latSouth != otherDegree.latSouth
+        )
+
+        // The families the builder would draw on those two origins are identical, so their cells coincide.
+        val a = LatticeFamily.of(inOneDegree, coarseCellM = 100.0, fineCellM = 20.0)
+        val b = LatticeFamily.of(sameDegree, coarseCellM = 100.0, fineCellM = 20.0)
+        assertEquals("the two families share the fine origin (latitude)", a.fine.latSouth, b.fine.latSouth, 0.0)
+        assertEquals("the two families share the fine origin (longitude)", a.fine.lonWest, b.fine.lonWest, 0.0)
+        assertEquals("and the same water takes the same fine row", a.fine.rowOf(43.50), b.fine.rowOf(43.50))
+    }
+
+    /**
+     * **The ratio has one home (D19).** [`LatticeFamily.of`]'s own `ratio`, [`WalkWindows.layerRatio`] and
+     * the seam's neighbour arithmetic in [`WalkWindows.crossLayerSlots`] all read [`latticeRatioOf`], so this
+     * pins the one convention they share: the coarse cell over the fine, rounded to the nearest integer and
+     * floored at one. An even ratio is included because a shipped clamp permits one, and a pair below the
+     * rounding threshold is included because the floor at one is what makes it a read rather than a zero.
+     */
+    @Test
+    fun theRatioConventionHasOneHome() {
+        assertEquals("an exact five-fold pair", 5, latticeRatioOf(100.0, 20.0))
+        assertEquals("an even ratio, permitted by the shipped clamp", 4, latticeRatioOf(80.0, 20.0))
+        assertEquals("a one-to-one pair", 1, latticeRatioOf(20.0, 20.0))
+        assertEquals("a pair below the rounding threshold floors at one", 1, latticeRatioOf(5.0, 20.0))
+        assertEquals(
+            "and the family reads the same derivation",
+            4,
+            LatticeFamily.of(corridor, coarseCellM = 80.0, fineCellM = 20.0).ratio
+        )
+    }
+
+    /**
+     * **The window index is reused across arms of the same shape (D18).** The index `(layer, row, col)` →
+     * slot is a pure function of the windows' shape, not their contents, so a second arm whose windows carry
+     * the same shape reuses the first's index instead of re-walking every cell. Pinned by the cache's own
+     * build count: two equal-shape walks build once. Reverted to a per-arm rebuild the count moves to two —
+     * the regression this guards.
+     */
+    @Test
+    fun theWindowIndexIsReusedAcrossArmsOfTheSameShape() {
+        WalkIndexCache.clear()
+        val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
+
+        fun walk(): WalkWindows {
+            val coarseGrid = MultipassGrid(
+                family.coarse.latSouth, family.coarse.lonWest,
+                family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon,
+                2, 2, family.coarse.cellM, baseCostSec(family.coarse.cellM, 28.0)
+            )
+            val fineGrid = MultipassGrid(
+                family.fine.latSouth, family.fine.lonWest,
+                family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+                10, 10, family.fine.cellM, baseCostSec(family.fine.cellM, 28.0)
+            )
+            return WalkWindows.onLattice(
+                family.layers,
+                listOf(
+                    WalkWindow(coarseGrid, 0, 0, layer = 0),
+                    WalkWindow(fineGrid, 0, 0, layer = 1)
+                )
+            )
+        }
+
+        val first = walk()
+        val builtAfterFirst = WalkIndexCache.buildCount
+        val second = walk()
+
+        assertEquals("the first arm builds the index", 1, builtAfterFirst)
+        assertEquals(
+            "an equal-shape arm reuses it rather than rebuilding",
+            builtAfterFirst,
+            WalkIndexCache.buildCount
+        )
+        assertEquals("the reused index answers the same slot count", first.size, second.size)
+    }
 }

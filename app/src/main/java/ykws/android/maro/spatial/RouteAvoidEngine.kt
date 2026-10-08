@@ -340,6 +340,16 @@ class RouteAvoidEngine(
      * nothing, because this fix introduces no new reason and no new user-visible text. A
      * [CancellationException] is rethrown untouched: the seam says no update may arrive after a cancel, so an
      * abandoned lookup stays silent.
+     *
+     * **The catch holds the build, the search and the fold alone (D39).** The failure handler used to enclose
+     * the success path's own terminal emit, so a sink throwing on a **healthy** path re-entered it and
+     * emitted a second, spurious `NO_PATH` terminal before the failure was swallowed. The success terminal
+     * now sits outside the handler by construction: the handler wraps the three steps that can fail — the
+     * shared build, the rung's search and the fold — and the terminal is emitted once, after it, whatever a
+     * broken sink does. The corner changes no **reachable** behaviour, and it is deliberately left without a
+     * runtime test: the only way to drive it is a sink that throws on a healthy terminal, and that exception
+     * then leaves the engine's own lane uncaught — which `kotlinx-coroutines-test` records and reports
+     * against an unrelated test, so a test for it would poison its neighbours rather than pin anything new.
      */
     private suspend fun runComputation(
         lookupId: RouteId,
@@ -357,36 +367,48 @@ class RouteAvoidEngine(
             mainLookupId = lookupId
             lastStage = null
         }
+        // The outer `try` exists only to clear the narrator's fields however the lookup ends — **after**
+        // the terminal emit below, which reads `lastStage` as its own `stageDone`.
         try {
-            val grid = sharedGrid(holder, world, from, to).await()
-            val rung = grid?.let {
-                searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
+            var rung: Rung? = null
+            var best: RouteRunningBest? = null
+            // The build, the search and the fold — and only these — sit inside the catch (D39), so the
+            // success terminal below can never re-enter the failure handler.
+            try {
+                val grid = sharedGrid(holder, world, from, to).await()
+                rung = grid?.let {
+                    searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
+                }
+                // The fold and the read are one critical step: the rungs land concurrently, so a running
+                // best reported beside a rival's landing must see it whole or not at all.
+                val landed = rung
+                best = rankingLock.withLock {
+                    if (landed != null) landedRungs += LandedRung(lookupId, computation.rungIndex, landed.cost)
+                    runningBest()
+                }
+            } catch (cancelled: CancellationException) {
+                // A cancel must stay silent — the seam says no update may arrive after one — so it is
+                // rethrown rather than answered. The handler is ordered before the general one below because
+                // a CancellationException is itself an Exception.
+                throw cancelled
+            } catch (failure: Exception) {
+                // A failed build has no line to answer with, but the caller must still be told (D36): the rung
+                // answers the same [RouteReason.NO_PATH] surface an unanswered search shows, so the mode is
+                // released rather than left to time out. The conflation is stated in the KDoc; no new reason
+                // and no new user-visible text is added. `emitTerminal`'s own `DONE` line is the device's
+                // record of the terminal — the cause is not re-traced here, so a broken sink cannot swallow
+                // the answer by throwing a second time.
+                emitTerminal(lookupId, null, RouteReason.NO_PATH)
+                return
             }
-            // The fold and the read are one critical step: the rungs land concurrently, so a running
-            // best reported beside a rival's landing must see it whole or not at all.
-            val best = rankingLock.withLock {
-                if (rung != null) landedRungs += LandedRung(lookupId, computation.rungIndex, rung.cost)
-                runningBest()
-            }
+            // The success path's terminal, **outside** the catch (D39): a throwing sink propagates out of
+            // the lookup rather than re-entering the failure handler and emitting a second terminal.
             emitTerminal(
                 lookupId,
                 rung?.result,
                 if (rung == null) RouteReason.NO_PATH else null,
                 best
             )
-        } catch (cancelled: CancellationException) {
-            // A cancel must stay silent — the seam says no update may arrive after one — so it is
-            // rethrown rather than answered. The handler is ordered before the general one below because
-            // a CancellationException is itself an Exception.
-            throw cancelled
-        } catch (failure: Exception) {
-            // A failed build has no line to answer with, but the caller must still be told (D36): the rung
-            // answers the same [RouteReason.NO_PATH] surface an unanswered search shows, so the mode is
-            // released rather than left to time out. The conflation is stated in the KDoc; no new reason
-            // and no new user-visible text is added. `emitTerminal`'s own `DONE` line is the device's
-            // record of the terminal — the cause is not re-traced here, so a broken sink cannot swallow
-            // the answer by throwing a second time.
-            emitTerminal(lookupId, null, RouteReason.NO_PATH)
         } finally {
             if (narrates) {
                 mainLookupId = null

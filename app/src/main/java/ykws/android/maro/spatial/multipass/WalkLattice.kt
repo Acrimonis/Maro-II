@@ -48,6 +48,17 @@ private fun signExtend(value: Int): Int =
     if (value and FIELD_SIGN != 0) value - FIELD_SIGN_EXTEND else value
 
 /**
+ * **The one derivation of a lattice pair's integer ratio (D19)** — the coarse cell over the fine one,
+ * rounded to the nearest integer and floored at one. It is the single home of the convention:
+ * [`LatticeFamily.of`]'s own `ratio`, [`WalkWindows.layerRatio`] and the seam's neighbour arithmetic in
+ * [`WalkWindows.crossLayerSlots`] all read this expression, so the exact `1 : ratio` nesting they share
+ * cannot drift apart. The floor at one is what makes a permitted pair a read rather than a crash; the seam
+ * guards a ratio of one separately, since it names no crossing.
+ */
+internal fun latticeRatioOf(coarseCellM: Double, fineCellM: Double): Int =
+    (coarseCellM / fineCellM).roundToInt().coerceAtLeast(1)
+
+/**
  * **One layer of a lattice family: an origin and one cell-size pair.** A window is built with these, so
  * two rectangles on the same layer line up by arithmetic and a neighbour across the seam between them is an
  * index relation rather than a search. The pair is derived **once** — at [LatticeAnchor]'s fixed reference
@@ -175,7 +186,7 @@ internal class LatticeFamily(
         fun of(anchor: LatticeAnchor, coarseCellM: Double, fineCellM: Double): LatticeFamily {
             require(coarseCellM > 0.0 && fineCellM > 0.0) { "a lattice cell is a positive size" }
             require(coarseCellM >= fineCellM) { "the coarse cell is never finer than the fine one" }
-            val ratio = (coarseCellM / fineCellM).roundToInt().coerceAtLeast(1)
+            val ratio = latticeRatioOf(coarseCellM, fineCellM)
             val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
             val mPerDegLon = mPerDegLat * cos(Math.toRadians(anchor.referenceLat))
             val fine = WalkLattice(
@@ -276,6 +287,94 @@ internal data class WalkWindow(
 }
 
 /**
+ * **A walk's slot index — the three pieces `onLattice` derives**: the packed `(layer, row, col)` → slot map
+ * and its two mirror reads, slot → window tile and slot → packed identity.
+ */
+internal class WalkSlotIndex(
+    val slots: HashMap<Long, Int>,
+    val tiles: IntArray,
+    val ids: LongArray
+)
+
+/**
+ * **The walk's slot index, one entry keyed on the windows' shape (D18).**
+ *
+ * The index — `(layer, row, col)` → slot and its two mirror arrays — is a pure function of the windows'
+ * **shape** (each window's layer, its lattice offset and its extent), never of their contents, so an arm
+ * whose windows carry the same shape reuses the previous arm's index instead of walking every cell again.
+ * The contents differ per arm (the berth carve writes each arm's own cells), so the [`WalkWindows`] itself
+ * is rebuilt over the caller's own windows; only the index is shared, and it is read-only once built. One
+ * entry, newest wins, the [`SelectiveMaskCache`] shape; [`clear`] is the test's own door.
+ */
+internal object WalkIndexCache {
+
+    private var shape: IntArray? = null
+    private var index: WalkSlotIndex? = null
+
+    /** How many times the index has actually been built — the reading a reuse is pinned by. */
+    @Volatile
+    var buildCount: Int = 0
+        private set
+
+    /** The index for [windows], reused where the shape is unchanged and rebuilt otherwise. */
+    @Synchronized
+    fun getOrBuild(windows: List<WalkWindow>): WalkSlotIndex {
+        val requested = shapeOf(windows)
+        val cached = index
+        if (cached != null && requested.contentEquals(shape)) return cached
+        val built = build(windows)
+        shape = requested
+        index = built
+        buildCount++
+        return built
+    }
+
+    /** Drops the one entry — the test's own door. */
+    @Synchronized
+    fun clear() {
+        shape = null
+        index = null
+        buildCount = 0
+    }
+
+    /** The windows' **shape**, flattened: each window's layer, offset and extent, in order. */
+    private fun shapeOf(windows: List<WalkWindow>): IntArray {
+        val shape = IntArray(windows.size * 5)
+        for ((i, window) in windows.withIndex()) {
+            shape[i * 5] = window.layer
+            shape[i * 5 + 1] = window.rowOffset
+            shape[i * 5 + 2] = window.colOffset
+            shape[i * 5 + 3] = window.grid.rows
+            shape[i * 5 + 4] = window.grid.cols
+        }
+        return shape
+    }
+
+    /**
+     * The index itself: slots allocated row-major per window, so a coordinate two windows share takes the
+     * first one's slot — one slot per **lattice** cell, never per window's copy of it — with the layer in
+     * the key so a coarse and a fine cell over the same water each keep their own.
+     */
+    private fun build(windows: List<WalkWindow>): WalkSlotIndex {
+        val slots = HashMap<Long, Int>()
+        val tiles = ArrayList<Int>()
+        val ids = ArrayList<Long>()
+        for ((index, window) in windows.withIndex()) {
+            for (row in 0 until window.grid.rows) {
+                for (col in 0 until window.grid.cols) {
+                    val id = packCell(window.layer, row + window.rowOffset, col + window.colOffset)
+                    if (slots.containsKey(id)) continue
+                    slots[id] = tiles.size
+                    tiles.add(index)
+                    ids.add(id)
+                }
+            }
+        }
+        return WalkSlotIndex(slots, tiles.toIntArray(), ids.toLongArray())
+    }
+}
+
+/**
  * **The water one walk may use, as windows on one lattice family** — the uniform pass's is one grid, a
  * chain's several on one layer, and the adaptive grid's two on two layers; the A\* sees none of that: it
  * asks this for a slot, a cell and a centre.
@@ -321,7 +420,7 @@ internal class WalkWindows private constructor(
         get() {
             val coarse = coarseLayerIndex
             if (coarse < 0) return 1
-            return (lattices!![coarse].cellM / lattices!![fineLayerIndex].cellM).roundToInt().coerceAtLeast(1)
+            return latticeRatioOf(lattices!![coarse].cellM, lattices!![fineLayerIndex].cellM)
         }
 
     /**
@@ -457,7 +556,7 @@ internal class WalkWindows private constructor(
         if (layers.size != 2) return NO_SLOTS
         val coarseLayer = if (layers[0].cellM >= layers[1].cellM) 0 else 1
         val fineLayer = 1 - coarseLayer
-        val ratio = (layers[coarseLayer].cellM / layers[fineLayer].cellM).roundToInt()
+        val ratio = latticeRatioOf(layers[coarseLayer].cellM, layers[fineLayer].cellM)
         if (ratio <= 1) return NO_SLOTS
         val targets: List<CellIndex> = if (layer == coarseLayer) {
             SeamNeighbours.acrossFromCoarse(row, col, dr, dc, ratio, fineLayer)
@@ -567,23 +666,14 @@ internal class WalkWindows private constructor(
         /**
          * Windows on the layers of a **lattice family**, their slots keyed by `(layer, row, col)` so two
          * layers over the same water each keep their own cells — the identity a coordinate-only key collapses.
+         *
+         * The index is a pure function of the windows' shape, so it is reused across arms whose windows carry
+         * the same shape ([`WalkIndexCache`], D18); the walk still holds **this** arm's own windows, so its
+         * read cells are the ones the caller has just built and carved.
          */
         fun onLattice(lattices: List<WalkLattice>, windows: List<WalkWindow>): WalkWindows {
-            val slots = HashMap<Long, Int>()
-            val tiles = ArrayList<Int>()
-            val ids = ArrayList<Long>()
-            for ((index, window) in windows.withIndex()) {
-                for (row in 0 until window.grid.rows) {
-                    for (col in 0 until window.grid.cols) {
-                        val id = packCell(window.layer, row + window.rowOffset, col + window.colOffset)
-                        if (slots.containsKey(id)) continue
-                        slots[id] = tiles.size
-                        tiles.add(index)
-                        ids.add(id)
-                    }
-                }
-            }
-            return WalkWindows(windows, lattices, slots, tiles.toIntArray(), ids.toLongArray())
+            val index = WalkIndexCache.getOrBuild(windows)
+            return WalkWindows(windows, lattices, index.slots, index.tiles, index.ids)
         }
     }
 }

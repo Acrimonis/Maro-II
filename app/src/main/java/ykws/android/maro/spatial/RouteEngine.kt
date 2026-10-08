@@ -101,7 +101,7 @@ sealed interface RouteDeclarations {
  * Each entry carries the id of the line a user reads ([labelResId]), the `CustomSortField` shape, so
  * no engine holds user-facing text and both locales carry the key. [CANNOT_REPAIR] and
  * [WORLD_NOT_READY] answer at [RouteEngine.routesToCompute] — the repair's two — and [NO_PATH] and
- * [OFF_WATER] answer on the update flow — the search's two.
+ * [OFF_WATER] answer on the update flow — the lookup's two.
  */
 enum class RouteReason(val labelResId: Int) {
 
@@ -111,7 +111,12 @@ enum class RouteReason(val labelResId: Int) {
     /** The coastline or the depth the repair judges by has not loaded. */
     WORLD_NOT_READY(R.string.route_reason_world_not_ready),
 
-    /** The search found no route between the repaired ends. */
+    /**
+     * **No line could be drawn for the pair (D38).** The search found no route between the repaired ends —
+     * and a lookup whose build failed is answered with this same surface, because a failed build has no line
+     * to report either. One label covers both: the reason names the **absence of a line**, never the
+     * mechanism behind it, and no separate variant exists for the build failure.
+     */
     NO_PATH(R.string.route_reason_no_path),
 
     /** The pair or the region the engine covers leaves no water to search. */
