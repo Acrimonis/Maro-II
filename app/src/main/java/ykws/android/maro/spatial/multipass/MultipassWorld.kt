@@ -50,6 +50,14 @@ interface MultipassWorld {
     /** The chart's EMODnet shallow cutoff (m) — the same setting [depthAt] is gated by. 0 disables it. */
     val emodnetCutoffM: Float get() = 0f
 
+    /**
+     * **The fixed anchor the walk lattices are drawn from** — the depth raster's own south-west origin and
+     * region latitude, so every arm lays its cells on the same lines and the fine layer can be cached tile
+     * by tile. `null` where no depth grid is loaded or the world names none: the caller then falls back to a
+     * whole-degree origin, and never to the corridor, which is the corridor-dependent origin P4.1 removes.
+     */
+    val latticeAnchor: LatticeAnchor? get() = null
+
     /** Every ring/basin land edge whose bounding box overlaps [box], each carrying its ring orientation. */
     fun segmentsIn(box: BBox): List<MultipassEdge>
 
@@ -134,6 +142,12 @@ class LiveMultipassWorld(
     override val regionBounds: BBox?
         get() = coastline.regionBounds?.let {
             BBox(it.latSouth, it.latNorth, it.lonWest, it.lonEast)
+        }
+
+    /** The loaded grid's own south-west origin and centre latitude — the fixed lattice family anchor. */
+    override val latticeAnchor: LatticeAnchor?
+        get() = depth.getGrid()?.let {
+            LatticeAnchor(it.boundingBox.latSouth, it.boundingBox.lonWest, it.boundingBox.centerLat)
         }
 
     /** The index's own identity, so a rebuilt coastline changes the stamp and a mask cache invalidates. */

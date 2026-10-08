@@ -66,23 +66,22 @@ class AvoidBandCostTest {
         )
 
         val inBand = grid.cellOf(43.510 - 200.0 / mPerDegLat(), 7.010)
-        val cell = grid.cell(inBand.row, inBand.col)
         assertEquals("a cell inside the width carries the band's limit", bandLimitKn, grid.limitKn(inBand.row, inBand.col), 1e-9)
-        assertEquals("the price is the A*'s read, never the grid's base", grid.baseCostSec, cell.sourceCostSec, 1e-9)
-        assertEquals("and the band's law water wears the band tag", MultipassCellState.BAND, cell.state)
+        assertEquals("the price is the A*'s read, never the grid's base", grid.baseCostSec, grid.sourceCostSec(inBand.row, inBand.col), 1e-9)
+        assertEquals("and the band's law water wears the band tag", MultipassCellState.BAND, grid.state(inBand.row, inBand.col))
 
         val outside = grid.cellOf(43.510 - 600.0 / mPerDegLat(), 7.010)
         assertEquals(
             "a cell beyond the band's reach carries no limit",
             0.0, grid.limitKn(outside.row, outside.col), 1e-9
         )
-        assertEquals(MultipassCellState.FREE, grid.cell(outside.row, outside.col).state)
+        assertEquals(MultipassCellState.FREE, grid.state(outside.row, outside.col))
 
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {
                 assertTrue(
                     "no cell is ever cheaper than the base, band or not",
-                    grid.cell(row, col).sourceCostSec >= grid.baseCostSec - 1e-9
+                    grid.sourceCostSec(row, col) >= grid.baseCostSec - 1e-9
                 )
             }
         }
@@ -97,7 +96,7 @@ class AvoidBandCostTest {
         var collarCell: CellIndex? = null
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {
-                if (!grid.cell(row, col).passable) continue
+                if (!grid.passable(row, col)) continue
                 val d = distanceToCoastM(grid.center(row, col))
                 when {
                     d <= bandM && widthCell == null -> widthCell = CellIndex(row, col)
@@ -121,7 +120,7 @@ class AvoidBandCostTest {
         )
         assertEquals(
             "and the collar wears no law tag, since the limit in force is the width's",
-            MultipassCellState.FREE, grid.cell(collar.row, collar.col).state
+            MultipassCellState.FREE, grid.state(collar.row, collar.col)
         )
         assertEquals(
             "the width is not also a collar, so the two prices never double up on one cell",
@@ -136,7 +135,7 @@ class AvoidBandCostTest {
         )
 
         val land = grid.cellOf(43.510 + 35.0 / mPerDegLat(), 7.010)
-        assertFalse("the land side of the coast is sealed", grid.cell(land.row, land.col).passable)
+        assertFalse("the land side of the coast is sealed", grid.passable(land.row, land.col))
         assertEquals(
             "and the band's law never lands on the shore",
             0.0, grid.bandLimitKn(land.row, land.col), 1e-9
@@ -154,7 +153,7 @@ class AvoidBandCostTest {
             "no band law means no limit written at all",
             0.0, unpriced.limitKn(inBand.row, inBand.col), 1e-9
         )
-        assertEquals(MultipassCellState.FREE, unpriced.cell(inBand.row, inBand.col).state)
+        assertEquals(MultipassCellState.FREE, unpriced.state(inBand.row, inBand.col))
     }
 
     /** The limit reaches the A*: a band priced out of proportion is walked around. */

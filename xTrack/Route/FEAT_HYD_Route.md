@@ -1,23 +1,25 @@
-# Context Hydration — Route — 2026-10-07
+# Context Hydration — Route — 2026-10-08
 
-**Last Bake:** 2026-10-07 21:01 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-08 15:44 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-07 20:56 UTC) the session ran on the user's own words — the seventeen-fix batch was committed under an explicit order, and a performance review of the acquisition was carried out and parked. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read.
+**Directive trace:** Since the last bake (2026-10-08 10:31 UTC) the session ran on the user's own words — a `#impl` per phase of the performance plan, a plan review before each, then `#bake` and `#commit`. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched (the device passes remain the user's), and every claim about the code follows a file read; the one git write is the commit the user invoked.
 
 ## State
 
-**`selective` has landed, the seventeen-fix batch is reviewed and committed, and the acquisition's slowness is parked.** The third engine is `RouteSelectiveEngine` over the shared pipeline — four fine collars (the shoreline, the band's outer boundary, the zone rims, the shallow wall) and a per-metre depth price over a 25 m band beside the gate's wall, its own `route.selective.*` keys, `fineWater(...)` on the plan seam, and `SelectiveMaskCache` holding the pre-snap law keyed on the band width and the four collar widths. The two-layer walk reads the fine cell over its coarse copy (any layer ratio, an even one settled by the `floor` convention), so `evolutive`'s ribbon and `selective`'s collars are fine-only water while `avoid` is untouched.
+**The selective acquisition's cost is measured, cheapened and partly restructured — P0 to P4.1 of the plan landed, P4.2–P5 open.** The device pass of 2026-10-08 fixed the cause on the fine-layer build; a JVM harness then measured and gated the work: an arm now builds its shared fine layer **once** (was three times), the fine build's per-cell radial scan is bounded so `selective`'s build fell **29.3 → 13.0 ms**, and the boxed grid cell is gone — a `ByteArray` tag and a `DoubleArray` cost beside the five limit arrays, read through scalar accessors, with `MultipassCell` deleted. P4.1 anchored the lattice on a corridor-free origin shared by both layers and repaired a latent window-cell defect; the suite reads **1002 tests, 0 failed** and `apk-build.bat` builds.
 
-**The batch is committed as `6feac66e`** on `feature/route-algo-ya-more` (38 files; root artefacts excluded; not pushed). The independent review returned **no blocker and four should-fixes** — the band-time KDoc's constant-speed premise is wrong for the profile input; `MarkMemo`'s safety is misattributed to the world's window rather than its field-identity binding; `FEAT_DOC_Route_engines.md` still states the old mask-cache key; and the memo fixture never drives `runPass`. Their plan is [`261007_FEAT_PLN_Route_review-should-fixes.md`](261007_FEAT_PLN_Route_review-should-fixes.md) — **in design, nothing of it implemented**.
+**Three P4.1 items are owed, one carrying a blocker.** The harness's re-baselined pin records `8217 → 3135`, but 8217 is the P2/P3 recorded figure and a fresh corridor-anchor run reads `7916`, so the KDoc's before-figure is not like-for-like and the 301-read gap is unattributed; one corridor-anchor re-run settles drift from run-sensitivity, and the exact `assertEquals` pins are a latent flake if the harness is sensitive. Nothing guards the window-cell translation at a non-zero offset but that pin. And the anchor as implemented is the corridor's corner floored to a whole degree — stable within a degree, **not** the single region origin P4.2's cache needs.
 
-**The acquisition's slowness is parked, unmeasured.** One arming runs three complete passes (the ladder's Fast · Best · Fun), each re-running the A\*, pull, fine pass and clock with only the grid shared; the search box is grown `route.avoid.corridor.reachM` (3704 m) on every side and doubles on a failed first pass, and the pull's coast-distance reads are the priciest single step. The engine's timings print only on-device under the `MaroRoute` tag, so the leading stage must be read with `adb logcat -s MaroRoute` before a lever is chosen. The suite reads **961 / 2 / 11**, the two reds the pre-existing `TrackOutlineTest` asset-and-default disagreement.
+**P4.2–P4.5 rest in two homes.** A design doc written unasked ([`261008_FEAT_PLN_Route_anchored-tiles.md`](261008_FEAT_PLN_Route_anchored-tiles.md:1)) restates §9's P4 while carrying the zone-stamp spec and the tile key's field list; one of the two must be retired before the tile map is built.
 
 ## Target Files
 
-- `xTrack/Route/FEAT_DSC_Route.md` — the state doc, the parked perf todo added
-- `xTrack/GLOBAL_CONTEXT.md` — this bake's focus entry
-- `xTrack/Route/261007_FEAT_PLN_Route_review-should-fixes.md` — the seven should-fixes, in design
+- `xTrack/Route/261008_FEAT_PLN_Route_selective-perf-eval.md` — the assessment, the measured device pass, the five-phase plan and the P0–P4.1 landed notes, in design
+- `xTrack/Route/261008_FEAT_PLN_Route_anchored-tiles.md` — the unasked P4.2–P4.5 design doc; its single home is unresolved
+- `app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt`, `MultipassGrid.kt`, `RouteGridBuilder.kt`, `RouteFineWater.kt` and `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the anchored lattice, the flat grid, the bounded depth scan and the single-flight build
+- `app/src/test/java/ykws/android/maro/spatial/RouteSelectivePerfEvalTest.kt` — the P0 harness, its split reading and its re-baselined pin
+- `xTrack/Route/FEAT_DSC_Route.md` — the feature state doc
 
 ## Next Step
 
-Implement the seven should-fixes from [`261007_FEAT_PLN_Route_review-should-fixes.md`](261007_FEAT_PLN_Route_review-should-fixes.md); the acquisition's performance waits on the on-device `MaroRoute` trace.
+P4.2 — settle the tile design's single home and make the anchor **one region origin** before any tile map is built on it.

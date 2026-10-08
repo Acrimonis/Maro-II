@@ -38,12 +38,11 @@ class AvoidStage1Test {
 
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
-                val cell = grid.cell(r, c)
-                assertTrue(cell.passable)
+                assertTrue(grid.passable(r, c))
                 assertEquals(
                     "a free cell costs one cell of water at the pace, in seconds",
                     baseCostSec(50.0, paceKn),
-                    cell.sourceCostSec,
+                    grid.sourceCostSec(r, c),
                     1e-9
                 )
             }
@@ -56,10 +55,10 @@ class AvoidStage1Test {
         val grid = rasterize(box, 50.0, paceKn, 25.0, ring, emptyList(), box.latNorth)
 
         val centre = grid.cellOf(43.510, 7.010)
-        assertFalse("the ring's interior is land", grid.cell(centre.row, centre.col).passable)
+        assertFalse("the ring's interior is land", grid.passable(centre.row, centre.col))
 
         val outside = grid.cellOf(43.5005, 7.0005)
-        assertTrue("the open water outside the ring stays free", grid.cell(outside.row, outside.col).passable)
+        assertTrue("the open water outside the ring stays free", grid.passable(outside.row, outside.col))
     }
 
     @Test
@@ -68,7 +67,7 @@ class AvoidStage1Test {
         val grid = rasterize(box, 50.0, paceKn, 25.0, basin, emptyList(), box.latNorth)
 
         val centre = grid.cellOf(43.510, 7.010)
-        assertTrue("a CW basin's interior stays water", grid.cell(centre.row, centre.col).passable)
+        assertTrue("a CW basin's interior stays water", grid.passable(centre.row, centre.col))
     }
 
     @Test
@@ -82,11 +81,11 @@ class AvoidStage1Test {
 
         // A cell centred ~35 m north of the coast — the land side, sealed by the cap.
         val land = grid.cellOf(43.51 + 35.0 / mPerDegLat, 7.01)
-        assertFalse("the land side of the open coast is sealed", grid.cell(land.row, land.col).passable)
+        assertFalse("the land side of the open coast is sealed", grid.passable(land.row, land.col))
 
         // A cell centred ~35 m south of the coast — beyond the margin, open water.
         val water = grid.cellOf(43.51 - 35.0 / mPerDegLat, 7.01)
-        assertTrue("the water side of the open coast stays free", grid.cell(water.row, water.col).passable)
+        assertTrue("the water side of the open coast stays free", grid.passable(water.row, water.col))
     }
 
     @Test
@@ -149,7 +148,7 @@ class AvoidStage1Test {
         assertEquals(CellIndex(0, 0), path!!.first())
         assertEquals(CellIndex(grid.rows - 1, grid.cols - 1), path.last())
         for (cell in path) {
-            assertTrue("every cell on the path is passable", grid.cell(cell.row, cell.col).passable)
+            assertTrue("every cell on the path is passable", grid.passable(cell.row, cell.col))
         }
     }
 
@@ -185,7 +184,7 @@ class AvoidStage1Test {
         )
         assertTrue(
             "the aim's own cell is open water — the wall across the corridor is what exhausted the search",
-            grid.cell(aim.row, aim.col).passable
+            grid.passable(aim.row, aim.col)
         )
     }
 
@@ -398,6 +397,6 @@ class AvoidStage1Test {
 
     private fun passable(grid: MultipassGrid, lat: Double, lon: Double): Boolean {
         val c = grid.cellOf(lat, lon)
-        return grid.cell(c.row, c.col).passable
+        return grid.passable(c.row, c.col)
     }
 }

@@ -148,7 +148,17 @@ class RouteAvoidEngine(
      * this engine had before the plan existed, so the default changes nothing; a second algorithm passes
      * its own and inherits the whole pipeline, the clock and the readings unchanged.
      */
-    private val plan: RouteGridPlan = UniformGridPlan
+    private val plan: RouteGridPlan = UniformGridPlan,
+    /**
+     * **The instrument's sink — where a trace line goes.** The default is the device's own channel:
+     * `Log.i` under the `MaroRoute` tag, switched by the tag's level ([logEnabled]) and therefore
+     * **inert off-device**, where a plain JVM's `android.util.Log` throws and the read answers false.
+     * A JVM harness injects its own sink and captures **every** reading the device trace prints — the
+     * grid's ms, the pull's and the fine pass's `priceReads`/`marks`/`priceMs`, the expansions — because
+     * those figures live on this channel alone and are never returned on a value. The default, `null`,
+     * keeps the device behaviour byte-for-byte.
+     */
+    private val traceSink: ((String) -> Unit)? = null
 ) : RouteEngine {
 
     /** One per-engine channel, buffered so a stage emission never waits on the collector. */
@@ -166,7 +176,7 @@ class RouteAvoidEngine(
     private val finePass = RouteFinePass()
 
     /** The engine's own `trace`, handed to the seats so the instrument stays the engine's. */
-    private val traceSink: (() -> String) -> Unit = { message -> trace(message) }
+    private val seatTrace: (() -> String) -> Unit = { message -> trace(message) }
 
     /** The lane every lookup's job runs on — an engine owns its compute. */
     private val computeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -185,8 +195,12 @@ class RouteAvoidEngine(
     private var nextComputationId = 0L
     private var nextLookupId = 0L
 
-    /** The shared grid the ladder's rungs await — built once per arm, by the first rung to reach it. */
-    private var ladderGrid: Deferred<GridContext?>? = null
+    /**
+     * **The current arm's shared-grid holder** — fresh per [routesToCompute] and published with one
+     * write, so a lookup captures the arm it was declared under and a fresh arm cannot be clobbered by
+     * a stale one. The holder carries its own lock and the one build the arm's three rungs share.
+     */
+    private var ladderHolder = LadderGridHolder()
 
     /**
      * **The rungs that have landed this arm, in landing order** — each with the lookup that owns it and
@@ -240,8 +254,9 @@ class RouteAvoidEngine(
         repairedDestination = to
         // A fresh arm builds a fresh grid and a fresh ranking: the ladder's three rungs share the one
         // grid built on the first lookup to reach it, and their settled costs are folded afresh. The
+        // holder is published with one write, so the arm's rungs single-flight on its own lock. The
         // rungs are the three fixed aversions of [RoutePreference] — around, best and fast.
-        ladderGrid = null
+        ladderHolder = LadderGridHolder()
         landedRungs = mutableListOf()
         val computations = listOf(
             Computation(RouteId(++nextComputationId), R.string.route_rung_around, RoutePreference.AROUND),
@@ -256,7 +271,10 @@ class RouteAvoidEngine(
     override fun startLookup(computationId: RouteId): RouteId {
         val lookupId = RouteId(++nextLookupId)
         val computation = declarations[computationId]
-        jobs[lookupId] = computeScope.launch { runComputation(lookupId, computation) }
+        // The arm's holder is captured here, at the moment the lookup is declared, so every rung of the
+        // arm reads the same holder and a later arm's fresh holder cannot be retargeted under it.
+        val holder = ladderHolder
+        jobs[lookupId] = computeScope.launch { runComputation(lookupId, computation, holder) }
         return lookupId
     }
 
@@ -269,7 +287,11 @@ class RouteAvoidEngine(
      * the settled result; a candidate publishes only its terminal update, the panel's stage line
      * narrating the main's build alone.
      */
-    private suspend fun runComputation(lookupId: RouteId, computation: Computation?) {
+    private suspend fun runComputation(
+        lookupId: RouteId,
+        computation: Computation?,
+        holder: LadderGridHolder
+    ) {
         if (computation == null) return
         val from = repairedOrigin ?: return
         val to = repairedDestination ?: return
@@ -283,7 +305,7 @@ class RouteAvoidEngine(
             lastStage = null
         }
         try {
-            val grid = sharedGrid(world, from, to).await()
+            val grid = sharedGrid(holder, world, from, to).await()
             val rung = grid?.let {
                 searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
             }
@@ -309,16 +331,25 @@ class RouteAvoidEngine(
 
     /**
      * **The ladder's shared grid** — built once per arm and awaited by all three rungs. The first rung
-     * to reach it triggers the rasterise; the others await the same `Deferred`, so three rungs cost one
-     * rasterise and three A* passes.
+     * to reach the arm's [holder] computes the `Deferred` **inside** the holder's lock and publishes it;
+     * the other two find that same `Deferred` under the same lock and await it, so no rung starts a
+     * build of its own and the arm costs one rasterise and three A* passes. The build itself is awaited
+     * outside the lock, so the rungs single-flight only the *start* of the one build and then run their
+     * A* passes concurrently over it. The shared grid keeps the first caller's `world` and `pace`, which
+     * the world's own between-solves reload contract makes safe.
      */
-    private fun sharedGrid(world: MultipassWorld, from: RoutePoint, to: RoutePoint): Deferred<GridContext?> {
-        ladderGrid?.let { return it }
+    private suspend fun sharedGrid(
+        holder: LadderGridHolder,
+        world: MultipassWorld,
+        from: RoutePoint,
+        to: RoutePoint
+    ): Deferred<GridContext?> = holder.lock.withLock {
+        holder.deferred?.let { return@withLock it }
         val deferred = computeScope.async {
-            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), traceSink)
+            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), seatTrace)
         }
-        ladderGrid = deferred
-        return deferred
+        holder.deferred = deferred
+        deferred
     }
 
     /**
@@ -355,13 +386,13 @@ class RouteAvoidEngine(
         val first = solveAtLambda(grid, lambda, publishStage, lookupId)
         if (first == null) {
             if (grid.regionSaturated) return null
-            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), traceSink) ?: return null
+            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), seatTrace) ?: return null
             return solveAtLambda(grown, lambda, publishStage, lookupId)
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
         // the "around" rung's whole job. The wider answer is kept only where it forces fewer crossings.
         if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) return first
-        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), traceSink) ?: return first
+        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), seatTrace) ?: return first
         val grownRung = solveAtLambda(grown, lambda, publishStage, lookupId) ?: return first
         return if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
     }
@@ -388,7 +419,7 @@ class RouteAvoidEngine(
             publish = { stage, points, readings, provisional ->
                 publish(lookupId, publishStage, stage, points, readings, provisional)
             },
-            trace = traceSink,
+            trace = seatTrace,
             guardZones = true,
             guardBand = true
         )
@@ -399,7 +430,7 @@ class RouteAvoidEngine(
                 "PASS lambda=${fmt(lambda, 2)} NO PATH " +
                     "expansions=${passReading.search.expansions} passable=${passReading.search.passableCells} " +
                     "aimClosed=${passReading.search.aimClosed} " +
-                    "aimCell=${ctx.grid.cell(ctx.aimCell.row, ctx.aimCell.col).state} " +
+                    "aimCell=${ctx.grid.state(ctx.aimCell.row, ctx.aimCell.col)} " +
                     "aimLimit=${fmt(ctx.grid.zoneLimitKn(ctx.aimCell.row, ctx.aimCell.col))}kn"
             }
             return null
@@ -409,14 +440,14 @@ class RouteAvoidEngine(
         // The fine stage is the refinement along the settled line alone — the crossings and the
         // re-tension — timed as one `fineMs`.
         val fineStartNs = System.nanoTime()
-        val refined = finePass.finePass(ctx, waypoints, lambda, traceSink)
+        val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace)
         val fineMs = msSince(fineStartNs)
 
-        // **The device reading** — behind the tag's own level, never on a shipped path: the coarse
-        // walk's own A* cost and duration, with the fine stage's duration beside them.
-        if (logEnabled) {
-            instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
-        }
+        // **The device reading** — the coarse walk's own A* cost and duration, with the fine stage's
+        // duration beside them. Always offered to `trace()`: a sink takes it where one stands, and the
+        // device's own `Log.i` path is gated inside `trace()` by the tag's level, so the guard is not
+        // repeated here — the sink must see every reading, and the device behaviour is unmoved.
+        instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
         // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
         // an outward-bulging curve — clear by construction, slowed where the bulge would foul — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
@@ -653,9 +684,14 @@ class RouteAvoidEngine(
 
     // ── The instrument ─────────────────────────────────────────────────────────
 
-    /** Emits one line on the route channel when its level is on, building [message] only then. */
+    /**
+     * **Emits one line where the instrument is listening** — the injected sink where one stands, and the
+     * device's own `Log.i` channel under the tag's level otherwise; [message] is built only when a line
+     * is actually emitted.
+     */
     private inline fun trace(message: () -> String) {
-        if (logEnabled) Log.i(TAG, message())
+        val sink = traceSink
+        if (sink != null) sink(message()) else if (logEnabled) Log.i(TAG, message())
     }
 
     /**
@@ -774,6 +810,20 @@ private data class Rung(
     val result: RouteResult.Success,
     val cost: RoutePassRanking.PassCost
 )
+
+/**
+ * **One arm's shared-grid single-flight** — the [Mutex] guarding the build and the [Deferred] the first
+ * rung publishes. The ladder's three rungs share one holder per arm: the first to enter [lock] starts
+ * the rasterise and stores [deferred]; the rest find it under the same lock and await that one build,
+ * so no rung ever starts a build of its own.
+ */
+private class LadderGridHolder {
+    /** Guards the check-build-publish, so exactly one rung starts the arm's rasterise. */
+    val lock = Mutex()
+
+    /** The one build this arm shares — written once, under [lock]. */
+    var deferred: Deferred<GridContext?>? = null
+}
 
 
 /** The repair's ring step (m) — a constant of the algorithm, not a key. */

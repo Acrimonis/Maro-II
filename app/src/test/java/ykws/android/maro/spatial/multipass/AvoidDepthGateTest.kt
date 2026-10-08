@@ -85,6 +85,6 @@ class AvoidDepthGateTest {
 
     private fun passable(grid: MultipassGrid, lat: Double, lon: Double): Boolean {
         val cell = grid.cellOf(lat, lon)
-        return grid.cell(cell.row, cell.col).passable
+        return grid.passable(cell.row, cell.col)
     }
 }

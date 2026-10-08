@@ -17,6 +17,15 @@ private const val FIELD_SIGN = 0x80_0000
 private const val FIELD_SIGN_EXTEND = 0x1_00_0000
 
 /**
+ * The tolerance a point→cell read adds before its `floor`, in **cell units**. A fixed anchor's cell lines
+ * are reached by adding an integer multiple of the cell size to the anchor, and that round trip leaves the
+ * ratio a hair below its integer; the addend recovers the line the point stands on rather than the cell
+ * below it. It is far below any real offset — a ten-thousandth of a millimetre at a 20 m cell — so it
+ * moves no honest read.
+ */
+private const val LATTICE_SNAP_EPS = 1e-9
+
+/**
  * Packs an identity into one key: **the layer, the row and the column**. It carries the layer because a
  * coarse cell and a fine cell of the same `(row, col)` are different squares, and a key that ignored the
  * layer would keep the first and silently drop the second — the quiet cell-eater Phase 4's (b) exists for.
@@ -41,8 +50,9 @@ private fun signExtend(value: Int): Int =
 /**
  * **One layer of a lattice family: an origin and one cell-size pair.** A window is built with these, so
  * two rectangles on the same layer line up by arithmetic and a neighbour across the seam between them is an
- * index relation rather than a search. The pair is derived **once**, from the corridor's own mid-latitude:
- * the degrees a cell spans fall with `cos φ`, so a pair derived per box would stand two boxes on two lattices.
+ * index relation rather than a search. The pair is derived **once** — at [LatticeAnchor]'s fixed reference
+ * latitude for a family, at the corridor's own mid-latitude for the single-grid lattice: the degrees a cell
+ * spans fall with `cos φ`, so a pair derived per box would stand two boxes on two lattices.
  */
 internal class WalkLattice(
     val latSouth: Double,
@@ -54,10 +64,10 @@ internal class WalkLattice(
     private val mPerDegLon: Double
 ) {
     /** The lattice row a latitude stands on — negative south of the origin, which a chain may reach. */
-    fun rowOf(latitude: Double): Int = floor((latitude - latSouth) / cellSizeDegLat).toInt()
+    fun rowOf(latitude: Double): Int = floor((latitude - latSouth) / cellSizeDegLat + LATTICE_SNAP_EPS).toInt()
 
     /** The lattice column a longitude stands on. */
-    fun colOf(longitude: Double): Int = floor((longitude - lonWest) / cellSizeDegLon).toInt()
+    fun colOf(longitude: Double): Int = floor((longitude - lonWest) / cellSizeDegLon + LATTICE_SNAP_EPS).toInt()
 
     /** The centre of one lattice cell — the walk's own point read, whichever window holds it. */
     fun center(row: Int, col: Int): LatLng =
@@ -104,6 +114,30 @@ internal class WalkLattice(
 }
 
 /**
+ * **The fixed anchor the walk lattices are drawn from** — the south-west corner the family's grid lines pass
+ * through, and the latitude its metre→degree pair is derived at. It is read from the world (the depth
+ * raster's own region), **never from the corridor**, so the same water carries the same lattice indices on
+ * every arm and the fine layer can later be cached tile by tile. Both of [`LatticeFamily`]'s lattices share
+ * the one anchor, because the seam's exact `1 : ratio` nesting is arithmetic on that single origin.
+ */
+data class LatticeAnchor(
+    val latSouth: Double,
+    val lonWest: Double,
+    val referenceLat: Double
+) {
+    companion object {
+        /**
+         * **The whole-degree fallback**, for a world that names no depth raster. The origin is the whole
+         * degree at or below [box]'s own south-west — deterministic for any two corridors whose south-west
+         * falls in the same degree cell — and the reference latitude is that whole degree's centre.
+         */
+        fun wholeDegree(box: BBox): LatticeAnchor = LatticeAnchor(
+            floor(box.latSouth), floor(box.lonWest), floor(box.latSouth) + 0.5
+        )
+    }
+}
+
+/**
  * **The lattice family: one origin and one cell-size pair per resolution, in an exact integer ratio.**
  *
  * The one-lattice precondition, strengthened for two resolutions: the coarse pair is derived as **exactly
@@ -123,9 +157,11 @@ internal class LatticeFamily(
 
     companion object {
         /**
-         * The family from a corridor's mid-latitude: the fine pair at [fineCellM] and the coarse pair
-         * derived as exactly `ratio ×` it on the same origin, `ratio` being the two cells' integer ratio.
-         * Both pairs are therefore exact in metres and the fine cells nest exactly inside the coarse ones.
+         * The family on the **fixed [anchor]**, never on the corridor: the fine pair at [fineCellM] and the
+         * coarse pair derived as exactly `ratio ×` it on the **same** anchor origin and reference latitude,
+         * `ratio` being the two cells' integer ratio. Both pairs are therefore exact in metres and the fine
+         * cells nest exactly inside the coarse ones — the nesting the seam's neighbourhood arithmetic and
+         * [`fineCopyOf`] rest on, and the reason one anchor must serve both layers.
          *
          * The ratio is any integer from 1 up, **even ones included**: a shipped clamp settles one (a 100 m
          * coarse cell against a 10 m fine cell is a ratio of 10, and 40 against 20 a ratio of 2), so refusing
@@ -133,14 +169,18 @@ internal class LatticeFamily(
          * coarse cell by the fine cell at its centre, and [`fineCopyOf`] resolves the even ratio's centre tie
          * on a **stated convention** instead of assuming an odd ratio.
          */
-        fun of(corridor: BBox, coarseCellM: Double, fineCellM: Double): LatticeFamily {
+        fun of(anchor: LatticeAnchor, coarseCellM: Double, fineCellM: Double): LatticeFamily {
             require(coarseCellM > 0.0 && fineCellM > 0.0) { "a lattice cell is a positive size" }
             require(coarseCellM >= fineCellM) { "the coarse cell is never finer than the fine one" }
             val ratio = (coarseCellM / fineCellM).roundToInt().coerceAtLeast(1)
-            val fine = WalkLattice.of(corridor, fineCellM)
-            val (mPerDegLat, mPerDegLon) = fine.metresPerDegree()
+            val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+            val mPerDegLon = mPerDegLat * cos(Math.toRadians(anchor.referenceLat))
+            val fine = WalkLattice(
+                anchor.latSouth, anchor.lonWest, fineCellM,
+                fineCellM / mPerDegLat, fineCellM / mPerDegLon, mPerDegLat, mPerDegLon
+            )
             val coarse = WalkLattice(
-                corridor.latSouth, corridor.lonWest, fine.cellM * ratio,
+                anchor.latSouth, anchor.lonWest, fine.cellM * ratio,
                 fine.cellSizeDegLat * ratio, fine.cellSizeDegLon * ratio, mPerDegLat, mPerDegLon
             )
             return LatticeFamily(coarse, fine, ratio)
@@ -298,7 +338,7 @@ internal class WalkWindows private constructor(
         if (fine < 0) return -1
         val half = layerRatio / 2
         val slot = rawSlotOf(fine, coarseRow * layerRatio + half, coarseCol * layerRatio + half)
-        return if (slot >= 0 && cell(slot).passable) slot else -1
+        return if (slot >= 0 && passable(slot)) slot else -1
     }
 
     /**
@@ -354,6 +394,19 @@ internal class WalkWindows private constructor(
         return -1
     }
 
+    /**
+     * **The walk's own lattice coordinate for a cell of [grid] named locally by `(row, col)`** — the
+     * translation a two-layer walk needs because its seeds and its carve arrive in a window's **local**
+     * index space while [`slotOf`] reads the family's lattice coordinates. The window that holds [grid]
+     * supplies its offset; a single-window walk, whose slots are the grid's own indices, answers the
+     * coordinate unchanged. The corridor-anchored family made the two coincide (offset zero); a fixed
+     * anchor does not, which is the P4.1 case this exists for.
+     */
+    fun latticeCell(grid: MultipassGrid, row: Int, col: Int): CellIndex {
+        val window = windows.firstOrNull { it.grid === grid } ?: return CellIndex(row, col)
+        return CellIndex(row + window.rowOffset, col + window.colOffset, window.layer)
+    }
+
     /** The lattice row a slot stands on. */
     fun rowOf(slot: Int): Int = ids?.let { keyRow(it[slot]) } ?: (slot / windows[0].grid.cols)
 
@@ -379,7 +432,7 @@ internal class WalkWindows private constructor(
             val lattice = layers[index]
             if (lattice.cellM >= local.cellM) continue
             val slot = rawSlotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
-            if (slot >= 0 && cell(slot).passable) local = lattice
+            if (slot >= 0 && passable(slot)) local = lattice
         }
         return local.cellM
     }
@@ -434,11 +487,16 @@ internal class WalkWindows private constructor(
         return if (slot >= 0) centerOf(slot) else center(0, row, col)
     }
 
-    /** The cell's own data, read from the window that holds it. */
-    fun cell(slot: Int): MultipassCell {
-        val tile = tiles?.get(slot) ?: 0
-        val window = windows[tile]
-        return window.grid.cell(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+    /** The slot's own cell read as a scalar: whether it is passable, from the window that holds it. */
+    fun passable(slot: Int): Boolean {
+        val window = windowOf(slot)
+        return window.grid.passable(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+    }
+
+    /** The slot's own source cost (s), read from the window that holds it. */
+    fun sourceCostSec(slot: Int): Double {
+        val window = windowOf(slot)
+        return window.grid.sourceCostSec(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
     /** The window a slot stands on — its own grid and its lattice offset. */
@@ -481,7 +539,7 @@ internal class WalkWindows private constructor(
     /** How many of the walk's unique cells are passable — the search's own reading, taken once. */
     fun passableCount(): Int {
         var count = 0
-        for (slot in 0 until size) if (cell(slot).passable) count++
+        for (slot in 0 until size) if (passable(slot)) count++
         return count
     }
 

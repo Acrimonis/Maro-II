@@ -99,8 +99,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         )
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
-        val startStateBefore = grid.cell(startCell.row, startCell.col).state
-        val aimStateBefore = grid.cell(aimCell.row, aimCell.col).state
+        val startStateBefore = grid.state(startCell.row, startCell.col)
+        val aimStateBefore = grid.state(aimCell.row, aimCell.col)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
@@ -166,6 +166,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
      * read at the end's **local** cell, and the corner-set radii are the **local** size each corner stands
      * on (Phase 6) — so the band's 20 m reaches the drawn points while a single grid's own `avoid` answers
      * stay cell for cell.
+     *
+     * The family is drawn on the world's **fixed anchor** ([`MultipassWorld.latticeAnchor`]), never on the
+     * corridor: both layers share that one origin, so the same water carries the same lattice indices on
+     * every arm (P4.1). A world that names no anchor falls back to a whole-degree origin, still corridor-free.
      */
     private suspend fun buildLayeredGrid(
         world: MultipassWorld,
@@ -184,7 +188,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val fineTile = tiles.minByOrNull { it.cellM }!!
         val cellM = coarseTile.cellM
         val fineCellM = fineTile.cellM
-        val family = LatticeFamily.of(box, cellM, fineCellM)
+        val anchor = world.latticeAnchor ?: LatticeAnchor.wholeDegree(box)
+        val family = LatticeFamily.of(anchor, cellM, fineCellM)
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
@@ -268,8 +273,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val walk = WalkWindows.onLattice(family.layers, windows)
         val startCell = interiorGrid.cellOf(from.latitude, from.longitude)
         val aimCell = interiorGrid.cellOf(to.latitude, to.longitude)
-        val startStateBefore = interiorGrid.cell(startCell.row, startCell.col).state
-        val aimStateBefore = interiorGrid.cell(aimCell.row, aimCell.col).state
+        val startStateBefore = interiorGrid.state(startCell.row, startCell.col)
+        val aimStateBefore = interiorGrid.state(aimCell.row, aimCell.col)
         for ((index, window) in windows.withIndex()) {
             val lattice = family.layers[window.layer]
             for (end in listOf(from.toLatLng(), to.toLatLng())) {
@@ -610,7 +615,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         var free = 0
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {
-                when (grid.cell(row, col).state) {
+                when (grid.state(row, col)) {
                     MultipassCellState.LAND -> land++
                     MultipassCellState.BAND -> band++
                     MultipassCellState.ZONE -> zone++
@@ -635,7 +640,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val sample = world.depthAt(at.latitude, at.longitude)
         return "(r=${cell.row},c=${cell.col} isWater=${world.isWater(at.latitude, at.longitude)} " +
             "depth=${if (sample.hasData) "${fmt(sample.depthM.toDouble())}m" else "none"} " +
-            "state=$stateBefore→${grid.cell(cell.row, cell.col).state} " +
+            "state=$stateBefore→${grid.state(cell.row, cell.col)} " +
             "limit=${fmt(grid.zoneLimitKn(cell.row, cell.col))}kn)"
     }
 
@@ -655,7 +660,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         depthGateActive: Boolean,
         interior: MultipassGrid
     ): BerthCarve {
-        val slot = walk.slotOf(coarseCell.row, coarseCell.col)
+        // [coarseCell] is a cell of the interior grid's own local space; the walk reads lattice coordinates,
+        // so translate it first — a no-op at the single grid's zero offset, the P4.1 case otherwise.
+        val lattice = walk.latticeCell(interior, coarseCell.row, coarseCell.col)
+        val slot = walk.slotOf(lattice.row, lattice.col)
         if (slot < 0) return carveEnd(world, interior, coarseCell, end, marginM, reachCells, depthGateActive)
         val window = walk.windowOf(slot)
         return carveEnd(world, window.grid, walk.localCell(slot), end, marginM, reachCells, depthGateActive)

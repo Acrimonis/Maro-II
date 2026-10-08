@@ -1,8 +1,10 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 
 /**
@@ -98,5 +100,57 @@ class LatticeFamilyTest {
         assertEquals("the coarse slot reports layer 0", 0, walk.layerOf(coarseSlot))
         assertEquals("the fine slot reports layer 1", 1, walk.layerOf(fineSlot))
         assertEquals("a two-window two-layer walk reports two layers", 2, walk.layerCount)
+    }
+
+    /**
+     * **The anchor holds across corridors.** P4.1's whole point: the family draws its lines on a **fixed**
+     * anchor and never reads the corridor, so the same water carries the **same** lattice indices on two
+     * different corridors — the property the corridor-derived origin could not give, and the base the fine
+     * layer's future tile cache rests on. The contrast is pinned beside it: a corridor-derived origin (the
+     * single-grid [`WalkLattice.of`], still corridor-anchored) answers two different rows for one point.
+     */
+    @Test
+    fun theSameWaterCarriesTheSameIndicesAcrossTwoCorridors() {
+        val fixed = LatticeAnchor(latSouth = 43.0, lonWest = 6.0, referenceLat = 43.5)
+        val corridorA = BBox(43.45, 43.55, 6.95, 7.05)
+        val corridorB = BBox(43.42, 43.60, 6.90, 7.10)
+
+        // Production hands both corridors the world's one anchor, so both families are built on it.
+        val onA = LatticeFamily.of(fixed, coarseCellM = 100.0, fineCellM = 20.0)
+        val onB = LatticeFamily.of(fixed, coarseCellM = 100.0, fineCellM = 20.0)
+
+        // The origin is the anchor, and never either corridor's own south-west.
+        assertEquals("the fine origin is the anchor latitude", fixed.latSouth, onA.fine.latSouth, 0.0)
+        assertEquals("the fine origin is the anchor longitude", fixed.lonWest, onA.fine.lonWest, 0.0)
+        assertEquals("the coarse shares the one anchor origin", onA.coarse.latSouth, onA.fine.latSouth, 0.0)
+        assertTrue("the anchor is not corridor A's south-west", onA.fine.latSouth != corridorA.latSouth)
+        assertTrue("the anchor is not corridor B's south-west", onB.fine.lonWest != corridorB.lonWest)
+
+        // The old, corridor-derived origin disagrees on the very same water.
+        val legacyA = WalkLattice.of(corridorA, 20.0)
+        val legacyB = WalkLattice.of(corridorB, 20.0)
+
+        for (point in listOf(LatLng(43.50, 7.00), LatLng(43.46, 6.97), LatLng(43.54, 7.04))) {
+            assertEquals(
+                "fine row is corridor-free at (${point.latitude}, ${point.longitude})",
+                onA.fine.rowOf(point.latitude), onB.fine.rowOf(point.latitude)
+            )
+            assertEquals(
+                "fine col is corridor-free at (${point.latitude}, ${point.longitude})",
+                onA.fine.colOf(point.longitude), onB.fine.colOf(point.longitude)
+            )
+            assertEquals(
+                "coarse row is corridor-free at (${point.latitude}, ${point.longitude})",
+                onA.coarse.rowOf(point.latitude), onB.coarse.rowOf(point.latitude)
+            )
+            assertEquals(
+                "coarse col is corridor-free at (${point.latitude}, ${point.longitude})",
+                onA.coarse.colOf(point.longitude), onB.coarse.colOf(point.longitude)
+            )
+            assertNotEquals(
+                "the corridor-derived origin would answer two rows for one point",
+                legacyA.rowOf(point.latitude), legacyB.rowOf(point.latitude)
+            )
+        }
     }
 }
