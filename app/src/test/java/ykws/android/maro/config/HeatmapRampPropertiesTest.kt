@@ -46,7 +46,7 @@ class HeatmapRampPropertiesTest {
         parseHeatmapScaleTicks({ props.getProperty(it) })
 
     private fun table(vararg rows: String): (String) -> String? = { key ->
-        if (key == "map.track.heatmap.scaleTicks") rows.joinToString(",") else null
+        if (key == "path.heatmap.scaleTicks") rows.joinToString(",") else null
     }
 
     @Test
@@ -86,14 +86,14 @@ class HeatmapRampPropertiesTest {
         val props = shippedProperties()
         val parsed = HeatmapRamp(
             families = parseFrom(props),
-            unknownArgb = hexToArgb(props.getProperty("map.track.heatmap.unknown.color")!!)!!
+            unknownArgb = hexToArgb(props.getProperty("path.heatmap.unknown.color")!!)!!
         )
 
         assertEquals(AppConfig.trackHeatmapRamp, parsed)
         assertEquals(AppConfig.trackHeatmapScaleTicks, ticksFrom(props))
         assertEquals(
             AppConfig.trackHeatmapScaleMinKn,
-            props.getProperty("map.track.heatmap.scaleMinKn")!!.toFloat(),
+            props.getProperty("path.heatmap.scaleMinKn")!!.toFloat(),
             0f
         )
     }
@@ -102,8 +102,8 @@ class HeatmapRampPropertiesTest {
     fun aTruncatingKeyTypoCutsTheRampAndThisTestSeesIt() {
         val props = shippedProperties()
         // The typo §11 names: family3's `to` key misspelled, so the ramp stops after two families.
-        props.remove("map.track.heatmap.family3.to")
-        props.setProperty("map.track.heatmap.family3.too", "#1E88E5")
+        props.remove("path.heatmap.family3.to")
+        props.setProperty("path.heatmap.family3.too", "#1E88E5")
 
         assertEquals(2, parseFrom(props).size)
     }

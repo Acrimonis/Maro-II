@@ -455,8 +455,7 @@ class NavigationViewModel(
             open = open,
             autoFollowSuppressed = _autoFollowSuppressed.value,
             inspectLoaned = inspectLoaned,
-            inspectArmed = inspectArmed,
-            inspectCardOpen = inspectCardOpen
+            inspectArmed = inspectArmed
         )) {
             PanResumeAction.HOLD -> resumeJob?.cancel()
             PanResumeAction.RESTART -> startTimer()
@@ -470,18 +469,21 @@ class NavigationViewModel(
         resumeJob?.cancel()
     }
 
-    // ── Inspect mode feed coupling (plan §6) ─────────────────────────────────
-    // The mode owns the centre while it is armed and while a card it opened is on screen — its pick
-    // ends the armed half as the card lands, so the card is the other half of the hold. The capture
-    // taken at arming lasts until the mode's *single* exit: the close of the last inspect card, or a
-    // toggle disarm with none left, whichever runs when neither half stands. Two follow gates would
-    // otherwise silently revert the freeze, which is why both are keyed on [inspectHoldsCentre] above
-    // rather than left to the arming call alone.
+    // ── Inspect mode feed coupling (plan §4) ─────────────────────────────────
+    // The mode owns the centre for the whole time it is armed: the landing no longer stands the armed
+    // half down, so no card half stands beside the flag. The capture taken at arming lasts until the
+    // mode's *single* exit: the last card's close, or a disarm with none left, whichever runs when
+    // the mode is down. Two follow gates would otherwise silently revert the freeze, which is why
+    // both are keyed on [inspectHoldsCentre] above rather than left to the arming call alone.
 
-    /** True while inspect mode is armed. */
+    /** True while inspect mode is armed — the mode's whole hold on the centre. */
     private var inspectArmed = false
 
-    /** True while the card the mode opened is on screen: the mode's hold, after the armed half ends. */
+    /**
+     * True while the card the mode opened is on screen. It is no longer a half of the hold (the armed
+     * flag is the whole hold); it is kept for the exit rule alone, so a disarm with a card standing
+     * leaves that card's close to apply the retained capture.
+     */
     private var inspectCardOpen = false
 
     /**
@@ -490,8 +492,8 @@ class NavigationViewModel(
      */
     private var inspectLoaned = false
 
-    /** Either half of the mode's hold on the centre — the follow gates read this, never `armed`. */
-    private val inspectHoldsCentre: Boolean get() = inspectArmed || inspectCardOpen
+    /** The mode's hold on the centre — the follow gates read this, never the card's own lifetime. */
+    private val inspectHoldsCentre: Boolean get() = inspectArmed
 
     /** The follow state captured at arming: was the map already panned, and was a timer pending? */
     private var inspectCapturedSuppressed = false
@@ -515,11 +517,10 @@ class NavigationViewModel(
     }
 
     /**
-     * The lifetime of the card the mode opened, so the follow gates can be keyed on the card rather
-     * than on the armed flag: the pick ends the armed half at once, and a gate keyed on `armed` alone
-     * would let the card's own close snap the map back.
+     * The lifetime of the card the mode opened. The armed flag is the whole hold on the centre (plan
+     * §4), so this is bookkeeping for the exit rule alone.
      *
-     * The close is the mode's *single* exit (plan §6): the capture retained since arming is applied
+     * The close is the mode's *single* exit (plan §4): the capture retained since arming is applied
      * there, once, and only when the armed half has already stood down. Returns true when this call
      * was that exit, so the screen's own half of the capture lands with it.
      */

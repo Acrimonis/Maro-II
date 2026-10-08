@@ -21,21 +21,12 @@ internal fun MapGpsFollowEffects(
     appSettings: AppSettings,
     autoFollowSuppressed: Boolean,
     /**
-     * Non-consuming touch observation for inspect mode's movement gate: the mode needs each gesture's
-     * own boundaries — its zero is taken at the start of one and its lift is not a scroll event — so
-     * the gesture id is bumped here. This listener already exists and already returns false, so the
-     * hook is added to it rather than a second listener being installed — a second
-     * `setOnTouchListener` would silently replace this one and break `notifyUserInteraction()`.
-     */
-    onMapTouch: (Int) -> Unit = {},
-    /**
      * Fires once per gesture when a one-finger drag carries the map past touch slop — the pan, and only
      * the pan: a second finger latches the gesture as a pinch, a tap never exceeds the slop, and the
      * zoom buttons are controls outside the map that never reach this listener.
      */
     onMapPan: () -> Unit = {}
 ) {
-    val onMapTouchState = androidx.compose.runtime.rememberUpdatedState(onMapTouch)
     val onMapPanState = androidx.compose.runtime.rememberUpdatedState(onMapPan)
     // ── Force marker to match MapView zoom once the view is ready ────────
     // Even though _zoomLevel is seeded from persisted settings, there can be
@@ -52,7 +43,6 @@ internal fun MapGpsFollowEffects(
         // `setOnTouchListener` would silently replace this one and take `notifyUserInteraction()` with it.
         val panDetector = MapPanDetector(ViewConfiguration.get(mv.context).scaledTouchSlop.toFloat())
         mv.setOnTouchListener { _, ev ->
-            onMapTouchState.value(ev.actionMasked)
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     viewModel.notifyUserInteraction()

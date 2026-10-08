@@ -110,8 +110,12 @@ internal data class CardStepEnds(
  * card lands on** — the management list's panel and the menu chevron alike, both walking an ordered
  * set the state layer steps through, so a menu card at either end reads exactly as the panel's does.
  * The inspect ladder hands over its own ends (a step lands only where the frozen pass knows a target),
- * and an inspect card whose cursor was lost with its open in flight reads as at both ends rather than
- * enabled and dead. A click on the map seats a single item, whose pills are not drawn at all ([shows]).
+ * and an inspect card whose ladder is not frozen yet reads as **enabled at both ends**: the live acquire
+ * reopens the card on every change of nearest, and greying that first frame greyed the pills and
+ * repainted them live a frame later — a flash on every swap (2026-10-07). The ends correct themselves
+ * the moment the pause seats the cursor; until then a press finds nothing to step to, which the walk's
+ * own callbacks already swallow. A click on the map seats a single item, whose pills are not drawn at
+ * all ([shows]).
  *
  * [walkAtFirst] and [walkAtLast] are the ladder's own ends, both null when there is no ladder.
  */
@@ -123,11 +127,10 @@ internal fun cardStepEnds(
     walkAtLast: Boolean?
 ): CardStepEnds {
     val isListWalk = source == DrawerSource.LIST || source == DrawerSource.MENU
-    val noInspectWalk = source == DrawerSource.INSPECT && walkAtFirst == null
     return CardStepEnds(
         shows = selectedCount > 1,
-        atFirst = walkAtFirst ?: (noInspectWalk || (isListWalk && selectedIndex == 0)),
-        atLast = walkAtLast ?: (noInspectWalk || (isListWalk && selectedIndex == selectedCount - 1))
+        atFirst = walkAtFirst ?: (isListWalk && selectedIndex == 0),
+        atLast = walkAtLast ?: (isListWalk && selectedIndex == selectedCount - 1)
     )
 }
 

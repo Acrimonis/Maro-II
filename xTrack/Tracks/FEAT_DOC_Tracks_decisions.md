@@ -172,6 +172,11 @@
 - **Rationale:** Human-readable, chronologically sortable, locale-independent.
 - **Filed:** [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:117)
 
+### 4.10 Menu Tracks Rendering: the Twin Box (Arrows + Colours)
+- **Decision:** The menu's Tracks rendering control is a **twin box** — two chips, **Arrows** and **Colours**, each on/off independently under the caption "Display Tracks with:" — replacing the earlier three-way switch. All four combinations are valid; *Simple* survives only as "both chips off".
+- **Rationale:** The two axes are genuinely independent — arrows govern the chevrons, colours the banded speed ramp — so the tri-state wrongly tied them and forbade a heat map without arrows. A fresh install opens on **Colours on, Arrows off**; an install holding the retired `track_render_mode` is migrated losslessly and the legacy key is erased in the same write. The drawer eye flips only the selected track's *fill* (since 2026-10-07 a card-local, non-persisted override), never the arrows.
+- **Filed:** [`SettingsManager.kt`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt), [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt), [`MapScreenSettingsOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt)
+
 ---
 
 ## 5. Render Subsystem Decisions
@@ -220,6 +225,11 @@
 - **Decision:** `tracksVisible` defaults to `true`.
 - **Rationale:** Tracks layer visible out of the box so users immediately see their recordings.
 - **Filed:** [`SettingsManager.kt`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt:240)
+
+### 5.10 Selection Cue in Colours Mode
+- **Decision:** In Colours mode the ramp owns the interior colour, so the selection is carried by **geometry** — the selected track is drawn **opaque** whatever its class transparency says, wears a **casing** beneath it sharing the track's title, and sits above every other overlay. Arrows follow the mode's Arrows chip alone, and the drawer eye flips only the selection's fill.
+- **Rationale:** Gold no longer distinguishes anything once colour reads speed; an opaque, cased, top-most line does. One rim weight serves the selection — the border belongs to the selection and reads the line's own width, never the tempered arrowhead core.
+- **Filed:** [`MapTrackOverlayEffects.kt`](app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt), [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt), [`TrackDirectionOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDirectionOverlay.kt)
 
 ---
 

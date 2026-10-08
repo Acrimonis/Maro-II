@@ -96,3 +96,10 @@ sequenceDiagram
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
 - `app/src/main/java/ykws/android/maro/MainActivity.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+## Outcome
+
+**Shipped 2026-06-20** — `TrackRecordingService` was repurposed from recording-only to always-on, holding a persistent notification for the app's whole life.
+
+- **Built:** `currentSpeedKn` added to `TrackRecorderUiState`; the service's action constants, both notification builders and the throttled `ACTION_UPDATE` path; `MainActivity` starts the foreground service on launch and the double-back handler stops it.
+- **Rule in force (promoted into the feature's `## Rules`):** the service runs `START_STICKY` with a persistent, ongoing, low-importance notification — "Ready", or "Recording • speed • elapsed • distance" with a "(Demo)" suffix outside GPS mode — and update intents are throttled to 5 s.

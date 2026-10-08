@@ -35,10 +35,13 @@ import ykws.android.maro.data.track.TrackViewModel
 // ─────────────────────────────────────────────────────────────────────────────
 // Inspect mode — the sleuth square, the cursor and the sweep
 //
-// The mode lets the user drag the map until the target is the closest thing on screen, watch the
-// highlight follow it, and open the item without leaving the map or moving the camera. This file
-// owns the mode's own chrome and its sweep; the ranking it reads lives in InspectRanking.kt, and the
-// two cards it opens stay owned by their drawers.
+// The mode answers "what is nearest me?": while armed it re-ranks the inspectable items on every
+// sweep and opens the nearest one's dashboard at once, swapping it live as the nearest changes and
+// closing it when nothing is left to acquire. The quiet that follows recentres the camera onto the
+// acquired item and freezes the ladder its walk steps. The acquire point follows the user's own drag and
+// is held across the mode's own recentre, so the recentre moves the view and nothing else. This file owns the
+// mode's own chrome, its sweep, its quiet clock and its recentre; the ranking it reads lives in
+// InspectRanking.kt, and the two cards it opens stay owned by their drawers.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Title prefix of the mode's own candidate overlay. Registered in [OverlayZOrder]'s track band. */
@@ -246,43 +249,145 @@ internal fun inspectExitRePins(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The one key the trigger clock ticks on: the candidate under the gold, the single activity tick,
+ * The one key the quiet clock ticks on: the acquired item under the gold, the single activity tick,
  * and whether a panel owns the screen.
  *
  * Everything that must cancel a running wait folds in here. A candidate arrives or leaves (the
- * viewport emptied, or found another item), the user did something ([activity] — the lift itself, a
- * pan, a zoom, the screen lock, a layer chip, a settings write) or a panel took the screen: each of
- * them is a new key, so the clock needs no counter of its own per input.
+ * viewport emptied, or found another item), the user did something ([activity] — a pan, a zoom, the
+ * screen lock, a layer chip, a settings write) or a panel took the screen: each of them is a new key,
+ * so the clock needs no counter of its own per input. There is no lift in the key any more (plan §1):
+ * the open is live and the quiet only decides when the camera is recentred.
  */
 internal data class InspectDwellKey(
-    /** The highlighted candidate, or null when the viewport holds none. */
+    /** The acquired candidate, or null when the viewport holds none. */
     val candidateId: String?,
     /** The single activity tick: any map motion, and everything else the user did. */
     val activity: Int,
     /** True while a panel owns the screen — the menu, settings, either list or the layer fan. */
-    val panelOpen: Boolean,
-    /**
-     * The lift latch: false until a genuine finger lift arrives in this armed session, true from then
-     * on. It is a key of its own so that a tap that never moved the map still changes the key the
-     * clock debounces — on such a tap the candidate, the activity tick and the panel state are all
-     * still, and with the lift held outside the key no new key would ever reach the clock, so the
-     * release the mode exists to answer could never pick (plan §5).
-     */
-    val lift: Boolean
+    val panelOpen: Boolean
 )
 
 /**
- * The trigger clock as one wait: a debounce over [keys], so it only ever expires after [dwellMs] in
+ * The quiet clock as one wait: a debounce over [keys], so it only ever expires after [dwellMs] in
  * which no new key arrived, and every key restarts it from the full dwell with nothing carried over.
  *
- * A key that completes while a panel is open is dropped and never reaches the pick — the panel owns
- * the screen — which also means the wait the panel interrupted is gone rather than paused: the key
- * emitted when the panel closes starts a full fresh wait instead of resuming the suspended one.
+ * A key that completes while a panel is open is dropped and never reaches the recentre — the panel
+ * owns the screen — which also means the wait the panel interrupted is gone rather than paused: the
+ * key emitted when the panel closes starts a full fresh wait instead of resuming the suspended one.
  * Android-free, so both halves are unit-tested without a device.
  */
 @OptIn(FlowPreview::class)
 internal fun inspectDwell(keys: Flow<InspectDwellKey>, dwellMs: Long): Flow<InspectDwellKey> =
     keys.debounce(dwellMs).filter { !it.panelOpen }
+
+/**
+ * The activity tick after a map motion (plan §3): the user's own motion restarts the quiet, while the
+ * mode's own recentre does not. The mark is the whole of the rule — while it holds, the key the clock
+ * debounces is left exactly as it was, so the quiet the recentre just spent cannot start again.
+ */
+internal fun inspectActivityAfterMotion(activity: Int, recentring: Boolean): Int =
+    if (recentring) activity else activity + 1
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The live acquire and its reset boundary (plan §1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** What the live acquire does with the sweep's answer (plan §1). */
+internal enum class InspectAcquire {
+    /** Open the answer's dashboard: the nearest is identified and no panel of the mode's stands. */
+    OPEN,
+
+    /** Close the panel: the anchor lost its target, while the mode stays armed. */
+    CLOSE,
+
+    /** Nothing to do: the answer is already on screen, or an open of its own is still in flight. */
+    NONE
+}
+
+/**
+ * The live acquire as one rule (plan §1): the panel's presence is the target's presence. An open in
+ * flight owns the slot until it lands, the anchor losing its target closes the panel without disarming,
+ * and an answer already on screen is no change at all — which is what keeps a live swap from reopening
+ * its own panel on every sweep.
+ */
+internal fun inspectAcquireAction(
+    /** The acquired item's id, or null when the viewport holds none. */
+    rankId: String?,
+    /** Whether the mode's card is on screen. */
+    cardOpen: Boolean,
+    /** Whether an open is in flight: its successor owns the slot until it lands. */
+    openInFlight: Boolean,
+    /** The id the standing card shows, or null while none stands. */
+    showingId: String?
+): InspectAcquire = when {
+    openInFlight -> InspectAcquire.NONE
+    rankId == null -> if (cardOpen) InspectAcquire.CLOSE else InspectAcquire.NONE
+    showingId == rankId -> InspectAcquire.NONE
+    else -> InspectAcquire.OPEN
+}
+
+/**
+ * The acquired item, with the margin that damps the panel's churn (plan §1, 2026-10-07): the mode keeps
+ * the item it holds unless a new nearest is closer by more than [marginFraction] of that item's own
+ * distance.
+ *
+ * Without the margin two candidates at nearly the same distance hand the panel back and forth for as
+ * long as their distances stay close, and every handover replays the card swap — the flicker the margin
+ * exists to remove. A fraction of the held distance rather than a fixed number of metres, so it damps a
+ * jitter between two candidates near the boat without making the mode deaf to a genuinely closer item
+ * farther out.
+ *
+ * @param held the item the panel is on, or null before the first acquisition.
+ * @param heldDistanceM that item's distance **as it stands now**, or null once it has left the candidate
+ *   set — in which case the panel hands over rather than sitting on something the world has dropped.
+ * @param nearest the true closest, or null when the viewport holds none (the panel closes).
+ */
+internal fun inspectHoldSelection(
+    held: InspectRank?,
+    heldDistanceM: Double?,
+    nearest: InspectRank?,
+    marginFraction: Double
+): InspectRank? = when {
+    nearest == null -> null
+    held == null || heldDistanceM == null -> nearest
+    nearest.id == held.id -> nearest
+    nearest.distanceM < heldDistanceM * (1.0 - marginFraction) -> nearest
+    else -> held.copy(distanceM = heldDistanceM)
+}
+
+/** What a settled centre change does to the mode (plan §1). */
+internal enum class InspectUserMove {
+    /** Not the user's move, or nothing to make of it: the mode's own recentre, or a busy camera. */
+    NONE,
+
+    /** Before the recentre: the quiet restarts, and the exit leaves the frame where it stands. */
+    REMEMBER,
+
+    /** After the recentre has landed: the drag is the reset — the card, the ladder and the capture. */
+    RESET
+}
+
+/**
+ * The reset boundary (plan §1): once the mode's own recentre has landed, a user drag forgets
+ * everything; **before** it, the drag is an ordinary move and only restarts the quiet. The mode's own
+ * move is excluded — the mark is what tells the two apart — and so is any window in which an open or a
+ * camera of the mode's own is still running.
+ */
+internal fun inspectUserMoveAction(
+    armed: Boolean,
+    /** True while the mode's own recentre is in flight: its scroll events are not the user's. */
+    recentring: Boolean,
+    /** True while an open is in flight: its landing owns the camera and the slot. */
+    handoffInFlight: Boolean,
+    /** True while a navigate target or a zoom-to-fit is pending. */
+    cameraBusy: Boolean,
+    /** True once the mode's own recentre has landed. */
+    recentreLanded: Boolean
+): InspectUserMove = when {
+    !armed || recentring || handoffInFlight || cameraBusy -> InspectUserMove.NONE
+    recentreLanded -> InspectUserMove.RESET
+    else -> InspectUserMove.REMEMBER
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Anchor, warning set and warming
@@ -349,23 +454,26 @@ internal suspend fun warmInspectCandidates(
  * Everything the mode does to the map, in one place:
  *
  * - **warming** the layer-visible filtered geometry once at arming, off the UI thread, so a drag
- *   frame never reads a file and no candidate's bbox is derived twice (plan §3);
+ *   frame never reads a file and no candidate's bbox is derived twice (plan §2);
  * - the **sweep**, an O(N) minimum scan per frame off the UI thread, where the only eligible
  *   candidates are those whose cached bbox overlaps the viewport: stale motion ticks are conflated
  *   and a scan in flight is never cancelled, so every tick publishes and the previous highlight
- *   stands until its successor lands (plan §2, §3);
- * - the **trigger clock**, purely the clock: a dwell [AppConfig.uiMapInspectDwellMs] of an idle map
- *   after a genuine finger lift, with a candidate on screen, no panel open and nothing already
- *   picked — where the idleness is the user's own, folded into one activity tick;
+ *   stands until its successor lands. Each publish is the mode's **live acquire** — the acquired item,
+ *   or null — which the caller turns into the panel's presence (plan §1, §2), and a new nearest takes
+ *   it over only by the margin `AppConfig.uiMapInspectSwitchMarginPct` settles, so two candidates at
+ *   nearly the same distance cannot hand the panel back and forth;
+ * - the **quiet clock**, purely the quiet: a dwell [AppConfig.uiMapInspectDwellMs] of an idle map with
+ *   a target acquired under the gold and no panel open, whose expiry is the **recentre** — the camera
+ *   moved onto the acquired item and the ladder frozen at that instant (plan §1, §2);
  * - the **candidate overlay**, the mode's own single line, built from the *same* plan inputs the
  *   canonical rebuild reads ([trackArrows], [trackColours], [eyeOverride]) so the preview and the
  *   committed selection are one look rather than two.
  *
  * The quiescence is structural rather than measured: the clock is one debounce over one key holding
- * the candidate, the activity tick and the panel state, so a pan, a zoom, a fling, a lift, a lock
- * flip, a chip, a settings write and a changed candidate each restart it, and while a panel owns the
- * screen the wait cannot complete into a pick. Nothing but a genuine lift opens the clock — the
- * arming seed has none, so the gold goes live before any touch and picks nothing (plan §5).
+ * the candidate, the activity tick and the panel state, so a pan, a zoom, a fling, a lock flip, a
+ * chip, a settings write and a changed candidate each restart it, and while a panel owns the screen
+ * the quiet cannot complete into a recentre. The mode's own recentre is excluded from that activity
+ * ([recentring]) so the camera move cannot restart the very quiet that spent it (plan §3).
  */
 @Composable
 internal fun MapInspectEffects(
@@ -379,8 +487,6 @@ internal fun MapInspectEffects(
     markers: List<UserMarker>,
     trackIds: List<String>,
     trackViewModel: TrackViewModel,
-    /** Bumped at every genuine finger lift: the only event that may start the dwell clock. */
-    liftId: Int,
     /**
      * Bumped by every other thing the user did that is neither map motion nor a panel change — the
      * screen-lock square, a layer chip, a settings write. One input rather than a reset of its own
@@ -389,23 +495,26 @@ internal fun MapInspectEffects(
     activityId: Int,
     /** True while a panel owns the screen: the menu, settings, either list or the layer fan. */
     panelOpen: Boolean,
+    /**
+     * True from the moment the pause's recentre is issued until it lands: the mode's own camera move.
+     * Its scroll events must not be read as the user's activity, or the quiet would restart on the
+     * very move that spent it (plan §3).
+     */
+    recentring: Boolean,
     highlightedTrackId: String?,
     rebuildGeneration: Int,
     /** The canonical plan inputs the committed selection is painted from (plan §4). */
     trackArrows: Boolean,
     trackColours: Boolean,
     eyeOverride: Boolean?,
+    /** The acquired item — the true closest each sweep — or null when the viewport holds none. */
     onSweep: (InspectRank?) -> Unit,
-    onPick: (InspectRank, List<InspectRank>) -> Unit,
     /**
-     * A tap's own pick request (plan §4), or null: the id an armed tap landed on. The mode runs it
-     * through the same bounded pass a dwell pick runs, so the tap's card carries the proximity ladder —
-     * and the spy kind's close — rather than the flat map-filtered walk an un-ranked tap used to hand
-     * over.
+     * The pause: the quiet has elapsed with [target] under the gold, so the mode recentres the camera
+     * onto it and freezes [ladder] — the one bounded pass over the warm geometry, ranked from the mode's
+     * own reference rather than from the camera the recentre is about to move (plan §2).
      */
-    tapPickId: String? = null,
-    /** The tap request has been handled — the caller drops it, so a later tap is a new one. */
-    onTapPickConsumed: () -> Unit = {}
+    onRecentre: (target: InspectRank, ladder: List<InspectRank>) -> Unit
 ) {
     // ── Warm geometry: once per armed session and per candidate set ──────────
     var warm by remember { mutableStateOf<List<InspectCandidate>>(emptyList()) }
@@ -423,29 +532,37 @@ internal fun MapInspectEffects(
     val activityTick = remember { mutableIntStateOf(0) }
     LaunchedEffect(activityId) { activityTick.intValue++ }
 
-    // ── Motion: the raw centre, the viewport, and the tick every consumer keys on ──
-    // The anchor is the projection read with the offset, exactly as it stands; the viewport is the
-    // projection's own visible bounds, which is the whole of the sweep's eligibility test (plan §2).
-    val anchor = remember { mutableStateOf<LatLng?>(null) }
-    val viewport = remember { mutableStateOf<InspectBounds?>(null) }
+    // ── Motion: the mode's reference, the live viewport, and the tick consumers key on ──
+    // **The reference follows the user's own motion and nothing else**: a drag re-establishes the acquire
+    // point at the geo point under the centre marker, while the pause's recentre moves the view alone —
+    // the mark is what tells the two apart, so the mode's own camera move never drags the acquire point
+    // with it (plan §1, 2026-10-07). The viewport is the projection's own visible bounds, read fresh on
+    // every scan, and it is the whole of the sweep's eligibility test (plan §2): the map moving changes
+    // *which* items are candidates, and the user's drag that moves it also moves the point they are ranked
+    // from — the acquisition starts again from where they leave the map.
+    val reference = remember { mutableStateOf<LatLng?>(null) }
     val motionTick = remember { mutableIntStateOf(0) }
     val offsetState = rememberUpdatedState(centerOffsetPx)
+    // The mode's own recentre, read inside the listener so the latest value is seen: its scroll events
+    // must not be counted as the user's activity (plan §3).
+    val recentringState = rememberUpdatedState(recentring)
     DisposableEffect(mapView, armed) {
         val mv = mapView
         if (mv == null || !armed) {
+            reference.value = null
             onDispose { }
         } else {
-            // One motion handler for pan and zoom alike: both reset the trigger clock, and both the
-            // anchor and the viewport are re-read from the projection on every one of them.
+            // One motion handler for pan and zoom alike: a user's motion re-establishes the acquire point —
+            // the geo point under the centre marker as they leave it — and restarts the quiet. The mode's
+            // own recentre does neither, so the acquire point stays where the user last put it (plan §1).
             fun refreshMotion() {
-                anchor.value = inspectAnchor(mv, offsetState.value())
-                viewport.value = mv.boundingBox?.let {
-                    InspectBounds(it.latNorth, it.lonEast, it.latSouth, it.lonWest)
-                }
+                if (!recentringState.value) reference.value = inspectAnchor(mv, offsetState.value())
                 motionTick.intValue++
                 // A motion is something the user did, so it restarts the clock's wait as well as
-                // re-ranking the sweep.
-                activityTick.intValue++
+                // re-ranking the sweep. The mode's own recentre is the one exception: its scroll events
+                // arrive while the mark holds, and counting them would restart the very quiet the
+                // recentre just spent (plan §3).
+                activityTick.intValue = inspectActivityAfterMotion(activityTick.intValue, recentringState.value)
             }
             val listener = object : MapListener {
                 override fun onScroll(event: ScrollEvent): Boolean {
@@ -471,6 +588,8 @@ internal fun MapInspectEffects(
     // scan then stands idle until the map moves again — nothing polls the world in between. The
     // conflate-and-never-cancel half lives in `inspectSweep`, unit-tested without a device (plan §3).
     val highlight = remember { mutableStateOf<InspectRank?>(null) }
+    // How much closer a new nearest must be before it takes the panel over (plan §1, 2026-10-07).
+    val switchMargin = AppConfig.uiMapInspectSwitchMarginPct.coerceIn(0, 90) / 100.0
     LaunchedEffect(armed, warm) {
         if (!armed || warm.isEmpty()) {
             highlight.value = null
@@ -478,79 +597,46 @@ internal fun MapInspectEffects(
             return@LaunchedEffect
         }
         inspectSweep(snapshotFlow { motionTick.intValue }) {
-            withContext(Dispatchers.Default) {
-                val a = anchor.value ?: return@withContext null
-                val v = viewport.value ?: return@withContext null
-                InspectRanking.nearest(a, warm, v)
+            // The viewport is read here rather than remembered, so every scan sees the map as it stands —
+            // including the first scan after arming, which no motion has announced yet.
+            val v = mapView?.boundingBox?.let {
+                InspectBounds(it.latNorth, it.lonEast, it.latSouth, it.lonWest)
+            }
+            val ref = reference.value
+            if (v == null || ref == null) null
+            else withContext(Dispatchers.Default) {
+                val nearest = InspectRanking.nearest(ref, warm, v)
+                // The held item's distance as it stands now, so the margin is judged against the truth
+                // rather than against the figure it carried when it was still the closest.
+                val heldDistance = highlight.value?.id?.let { id ->
+                    warm.firstOrNull { it.id == id }?.let { InspectRanking.distance(ref, it) }
+                }
+                nearest to heldDistance
             }
         }.collect { found ->
-            highlight.value = found
-            onSweep(found)
+            val (nearest, heldDistance) = found ?: (null to null)
+            val selection = inspectHoldSelection(highlight.value, heldDistance, nearest, switchMargin)
+            highlight.value = selection
+            onSweep(selection)
         }
     }
 
-    // ── Trigger clock: a lift, then the dwell on a map that has come to rest ──
+    // ── The quiet clock: the pause that recentres onto the acquired item ─────
+    // The clock is one debounced key — a candidate change, any activity the user performed and a panel
+    // taking or giving back the screen are all the same event to it: a new key, which restarts the
+    // wait from the full dwell. When it expires with the acquired item still under the gold, the mode
+    // moves the camera onto that item and freezes its ladder (plan §2): the one bounded pass over the
+    // warm geometry, ranked from the mode's fixed reference, so the sequence is reproducible and never
+    // re-ranks. The mode marks its own recentre — [recentring] — so the camera move cannot restart
+    // this very clock: its scroll events arrive while the mark holds and are not user activity.
     val dwellMs = AppConfig.uiMapInspectDwellMs
-    val lastPickedId = remember { mutableStateOf<String?>(null) }
-
-    // ── An armed tap's own ladder (plan §4) ─────────────────────────────────
-    // A tap that lands on a marker asks for that marker, not for the sweep's nearest, so the request
-    // carries the id. The pass below is the same bounded one the trigger clock runs — over the same warm
-    // candidates and the anchor as it stands — so the card opens carrying the proximity walk and the spy
-    // kind's own close rather than a flat map-filtered one (2026-09-28). The candidates are warmed off the
-    // UI thread and may not be ready the instant the tap lands, so this effect waits for them rather than
-    // spend the request on nothing, [warm] being one of its keys; a mode left with nothing inspectable
-    // never arms, so the wait is the arming gap and nothing longer.
-    LaunchedEffect(tapPickId, warm, armed) {
-        val id = tapPickId ?: return@LaunchedEffect
-        if (!armed) {
-            onTapPickConsumed()
-            return@LaunchedEffect
-        }
-        if (warm.isEmpty()) return@LaunchedEffect
-        onTapPickConsumed()
-        val a = anchor.value ?: return@LaunchedEffect
-        val ladder = withContext(Dispatchers.Default) { InspectRanking.rank(a, warm) }
-        val picked = ladder.firstOrNull { it.id == id } ?: return@LaunchedEffect
-        if (picked.id == lastPickedId.value) return@LaunchedEffect
-        lastPickedId.value = picked.id
-        onPick(picked, ladder)
-    }
-    // The lift is the instruction and the quiet is the confirmation: only a genuine finger lift may
-    // start the clock, so a resting finger never dries it out and the arming seed picks nothing. The
-    // whole flag is reset per armed session, as is the no-re-fire guard: the pick's own camera move
-    // is a pan event and would otherwise reopen the same item, while a fresh session must stay free
-    // to pick it.
-    val liftSeen = remember { mutableStateOf(false) }
-    LaunchedEffect(armed) {
-        lastPickedId.value = null
-        liftSeen.value = false
-    }
-    var seenLiftId by remember { mutableIntStateOf(liftId) }
-    LaunchedEffect(armed, liftId) {
-        if (!armed) {
-            seenLiftId = liftId
-            return@LaunchedEffect
-        }
-        // Arming is not a lift: only a lift that arrives while armed opens the clock.
-        if (liftId == seenLiftId) return@LaunchedEffect
-        seenLiftId = liftId
-        liftSeen.value = true
-    }
-    // The clock itself is one debounced key: a candidate change, any activity the user performed, a
-    // lift and a panel taking or giving back the screen are all the same event to it — a new key,
-    // which restarts the wait from the full dwell. The lift rides in the key as the latch itself,
-    // because a tap that never moved the map moves nothing else: [panelOpen] is a key of the effect
-    // as well as part of the key it emits — opening a panel rebuilds the flow, so the wait it
-    // interrupted is gone, and closing it starts a fresh wait rather than resuming the suspended one.
     LaunchedEffect(armed, warm, panelOpen) {
         if (!armed || warm.isEmpty()) return@LaunchedEffect
         snapshotFlow {
             InspectDwellKey(
                 candidateId = highlight.value?.id,
                 activity = activityTick.intValue,
-                panelOpen = panelOpen,
-                lift = liftSeen.value
+                panelOpen = panelOpen
             )
         }.let { inspectDwell(it, dwellMs) }
             .collect { key ->
@@ -558,18 +644,14 @@ internal fun MapInspectEffects(
                 // The key the wait completed on is the candidate still under the gold: a later one
                 // would have arrived as a new key and restarted the wait.
                 if (candidate.id != key.candidateId) return@collect
-                // The key's own lift, not the latch as it stands now: the wait that completed has to
-                // be the one a lift opened (plan §5).
-                if (!key.lift) return@collect
-                if (candidate.id == lastPickedId.value) return@collect
-                lastPickedId.value = candidate.id
-                // The ladder is a single bounded pass over the same warm geometry, with the anchor
-                // snapshotted at this moment, so the sequence is reproducible and never re-ranks.
+                // The ladder is a single bounded pass over the same warm geometry, ranked from the
+                // mode's fixed reference, so the sequence is reproducible and never re-ranks — and the
+                // recentre that follows it cannot change what the walk steps through.
                 val ladder = withContext(Dispatchers.Default) {
-                    val a = anchor.value ?: return@withContext emptyList()
-                    InspectRanking.rank(a, warm)
+                    val ref = reference.value ?: return@withContext emptyList()
+                    InspectRanking.rank(ref, warm)
                 }
-                onPick(candidate, ladder)
+                onRecentre(candidate, ladder)
             }
     }
 
@@ -608,9 +690,9 @@ internal fun MapInspectEffects(
         // sweeping — no TrackDirectionOverlay work mid-gesture — which is why the preview line is
         // built from the plan's strokes and never from its arrow overlay.
         val rendering = storedTrackRendering(
-            points = points,
+            points = points.toRenderPoints(),
             title = "$INSPECT_TRACK_TITLE_PREFIX${candidate.id}",
-            plan = trackRenderPlan(trackArrows, trackColours, selected = true, eyeOverride = eyeOverride),
+            plan = lineRenderPlan(trackArrows, trackColours, selected = true, eyeOverride = eyeOverride),
             ramp = AppConfig.trackHeatmapRamp,
             strokeWidth = AppConfig.trackWidthSelectedDp,
             density = mv.paintDensity,

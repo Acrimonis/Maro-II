@@ -1,10 +1,6 @@
 package ykws.android.maro.ui.map
 
 import ykws.android.maro.config.HeatmapRamp
-import ykws.android.maro.data.track.PointType
-import ykws.android.maro.data.track.TrackPoint
-import ykws.android.maro.data.track.deriveSpeedMps
-import ykws.android.maro.spatial.Units
 import kotlin.math.roundToInt
 
 /**
@@ -17,20 +13,6 @@ import kotlin.math.roundToInt
  * first, so the drawn polylines meet at the transition instead of leaving a one-segment hole.
  */
 data class SpeedBand(val pointIndices: List<Int>, val appearance: TrackPolylineAppearance)
-
-/**
- * Resolve one speed per point, in knots, applying the null policy: a stored speed wins, an absent
- * one is derived from time delta + haversine distance, and a value that is still absent — or a GAP
- * seam — answers null, which [colorAt] paints as the neutral tint.
- */
-internal fun resolveSpeeds(points: List<TrackPoint>): List<Float?> = points.mapIndexed { i, point ->
-    when {
-        // A GAP marker is a discontinuity, not a short gap: the seam reads neutral.
-        point.type == PointType.GAP -> null
-        else -> point.speedMps?.let { Units.mpsToKnots(it.toDouble()).toFloat() }
-            ?: deriveSpeedMps(points, i)?.let { Units.mpsToKnots(it.toDouble()).toFloat() }
-    }
-}
 
 /**
  * The ramp's colour for one speed (knots): an opaque hue inside [ramp]'s families, and the neutral
@@ -51,38 +33,34 @@ internal fun colorAt(speedKn: Float?, ramp: HeatmapRamp): Int {
 }
 
 /**
- * Quantise the resolved [speeds] into draw bands: one [SpeedBand] per maximal run of equal
+ * Quantise the seam's own per-point speeds into draw bands: one [SpeedBand] per maximal run of equal
  * appearance, each carrying its own geometry, with the band's alpha baked into every band —
  * including the neutral ones, so a GAP seam and a speed band read at the same weight.
  *
- * The alpha is [fade] alone — the track's own recency reading — so a banded stroke is drawn at the
- * transparency the user's sliders ask for and the fade stays the cue the parked selection item
- * relies on. Nothing multiplies it: [ramp] supplies the colour and the span only.
+ * The speed is read straight off each [RenderPoint], because the adapters resolve it at the seam — a
+ * stored speed wins, a derivable one is derived there, and a value still absent stays null, which the
+ * ramp paints neutral. The alpha is [fade] alone — the line's own recency reading — so a banded stroke
+ * is drawn at the transparency the user's sliders ask for.
  *
- * The width is a parameter rather than a constant (D11), so every stored track takes the width its
- * own key earns — `track.width.newest` for history's newest track, `track.width.pinned` for every
- * pinned one and `track.width.history` for the rest — and a mode switch never restyles the map's
- * density, while the shipped file alone decides the numbers.
+ * The width is a parameter rather than a constant (D11), so every line takes the width its own key
+ * earns and a mode switch never restyles the map's density, while the shipped file alone decides the
+ * numbers.
  *
  * Each band's colour comes from the family it sits in, since every family declares its own step; a
  * flat family collapses to one band whatever that step, because its colours are equal and adjacent
  * equal appearances merge. Merging applies to consecutive equal appearances only — never across a
- * GAP, whose seam stays its own neutral band.
- *
- * A gapless track that never crosses a band edge yields one band; the polyline count only grows with
- * real GAP splits and genuine oscillation across a band edge.
+ * break, whose seam stays its own neutral band.
  */
 internal fun bandedAppearances(
-    points: List<TrackPoint>,
-    speeds: List<Float?>,
+    points: List<RenderPoint>,
     ramp: HeatmapRamp,
     strokeWidth: Float,
     fade: Float = 1f
 ): List<SpeedBand> {
     if (points.isEmpty()) return emptyList()
     val alpha = (fade.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
-    val appearances = points.indices.map { i ->
-        val quantised = quantiseKn(if (i < speeds.size) speeds[i] else null, ramp)
+    val appearances = points.map { point ->
+        val quantised = quantiseKn(point.speedKn, ramp)
         TrackPolylineAppearance(withAlpha(colorAt(quantised, ramp), alpha), strokeWidth)
     }
 

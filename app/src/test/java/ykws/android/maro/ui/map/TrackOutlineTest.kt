@@ -156,9 +156,9 @@ class TrackOutlineTest {
         val props = shippedProperties()
 
         assertEquals(0xCC000000.toInt(), casing.argb)
-        val shippedCore = props.getProperty("map.track.width.selected")!!.toFloat()
+        val shippedCore = props.getProperty("path.line.width.selected")!!.toFloat()
         assertEquals(
-            props.getProperty("map.track.width.selected.casing")!!.toFloat(),
+            props.getProperty("path.line.casing.width")!!.toFloat(),
             casing.strokeWidth,
             0f
         )
@@ -194,29 +194,37 @@ class TrackOutlineTest {
 
         assertEquals(
             listOf(
-                "map.track.width.history",
-                "map.track.width.live",
-                "map.track.width.newest",
-                "map.track.width.pinned",
-                "map.track.width.route",
-                "map.track.width.route.dashOff",
-                "map.track.width.route.dashOn",
-                "map.track.width.selected",
-                "map.track.width.selected.casing"
+                "path.line.casing.width",
+                "path.line.dash.off",
+                "path.line.dash.on",
+                "path.line.width.history",
+                "path.line.width.live",
+                "path.line.width.newest",
+                "path.line.width.pinned",
+                "path.line.width.selected",
+                "path.route.line.width",
+                "path.route.line.width.live"
             ),
-            props.stringPropertyNames().filter { it.startsWith("map.track.width.") }.sorted()
+            props.stringPropertyNames()
+                .filter {
+                    it.startsWith("path.line.width.") ||
+                        it.startsWith("path.line.casing.width") ||
+                        it.startsWith("path.line.dash.") ||
+                        it.startsWith("path.route.line.width")
+                }
+                .sorted()
         )
 
         val mismatches = listOf(
-            "map.track.width.live" to AppConfig.trackWidthLiveDp,
-            "map.track.width.selected" to AppConfig.trackWidthSelectedDp,
-            "map.track.width.newest" to AppConfig.trackWidthNewestDp,
-            "map.track.width.pinned" to AppConfig.trackWidthPinnedDp,
-            "map.track.width.history" to AppConfig.trackWidthHistoryDp,
-            "map.track.width.selected.casing" to AppConfig.trackWidthSelectedCasingDp,
-            "map.track.width.route" to AppConfig.trackWidthRouteDp,
-            "map.track.width.route.dashOn" to AppConfig.trackRouteDashOnDp,
-            "map.track.width.route.dashOff" to AppConfig.trackRouteDashOffDp
+            "path.line.width.live" to AppConfig.trackWidthLiveDp,
+            "path.line.width.selected" to AppConfig.trackWidthSelectedDp,
+            "path.line.width.newest" to AppConfig.trackWidthNewestDp,
+            "path.line.width.pinned" to AppConfig.trackWidthPinnedDp,
+            "path.line.width.history" to AppConfig.trackWidthHistoryDp,
+            "path.line.casing.width" to AppConfig.trackWidthSelectedCasingDp,
+            "path.route.line.width" to AppConfig.trackWidthRouteDp,
+            "path.line.dash.on" to AppConfig.trackRouteDashOnDp,
+            "path.line.dash.off" to AppConfig.trackRouteDashOffDp
         ).mapNotNull { (key, default) ->
             val shipped = props.getProperty(key)?.toFloatOrNull()
             if (shipped == default) null else "$key: shipped $shipped, default $default"
@@ -239,7 +247,7 @@ class TrackOutlineTest {
         assertEquals(16f / 3f, AppConfig.trackWidthSelectedCasingDp, 1e-6f)
         assertEquals(
             AppConfig.trackWidthSelectedCasingDp,
-            props.getProperty("map.track.width.selected.casing")!!.toFloat(),
+            props.getProperty("path.line.casing.width")!!.toFloat(),
             1e-6f
         )
     }
@@ -256,12 +264,12 @@ class TrackOutlineTest {
         assertEquals(2f, AppConfig.trackRouteDashOffDp, 1e-6f)
         assertEquals(
             AppConfig.trackRouteDashOnDp,
-            props.getProperty("map.track.width.route.dashOn")!!.toFloat(),
+            props.getProperty("path.line.dash.on")!!.toFloat(),
             1e-6f
         )
         assertEquals(
             AppConfig.trackRouteDashOffDp,
-            props.getProperty("map.track.width.route.dashOff")!!.toFloat(),
+            props.getProperty("path.line.dash.off")!!.toFloat(),
             1e-6f
         )
     }
@@ -277,7 +285,7 @@ class TrackOutlineTest {
         assertEquals(10f / 3f, AppConfig.trackArrowScaleKneeDp, 1e-6f)
         assertEquals(
             AppConfig.trackArrowScaleKneeDp,
-            props.getProperty("map.track.arrow.scaleKnee")!!.toFloat(),
+            props.getProperty("path.arrow.scaleKnee")!!.toFloat(),
             1e-6f
         )
         // Read against the same table: the knee is no longer assumed to sit between the classes, only

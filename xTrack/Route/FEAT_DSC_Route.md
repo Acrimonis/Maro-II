@@ -39,7 +39,7 @@ an ordinary track.
 - **The feature's pure rules have one home** — the page set and the ETA view the selection walks, the seat's nearest-landed-row predicate, the collapse dispersion, the auto-pick's one-shot, the row's two figure lines, the trip figure and the point's printed form ([`RouteOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:54)); the rung mapping (index, λ and word) moved to [`RoutePreference.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt:1), which these helpers read.
 - **Every value lives in the properties file** — the line's colour, transparency and width, the shared dimming key, the navigate colour, the pin and the avoid family's margins, gates and prices, all read through [`AppConfig`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:126); the app's own rows are the engine dropdown, the free-water pace, the Driving preference, the slow-water budget, the **Active route** colour and the route rendering rows.
 - **Still in the code and on the removal list** — the refused-end crosshair with its `route.target.*` keys (replaced by the sea-side move above), the route opacity-ladder keys `tracking.transparency.routeFrom` / `routeTo` (the dimming key covers the need), and the seam members the current flow does not lean on, which the user will re-evaluate.
-- **Known limits** — the dummy promises nothing about water and no setting moves it, and each plan decides its own fine cell in metres: `route.avoid.grid.fineCellM`, `route.evolutive.grid.fineCellM` and `route.selective.grid.fineCellM`.
+- **Known limits** — the dummy promises nothing about water and no setting moves it; each plan decides its own fine cell in metres: `route.avoid.grid.fineCellM`, `route.evolutive.grid.fineCellM` and `route.selective.grid.fineCellM`; and the progressive-draw plan's build order still names `route.progress.transparencyPct`, retired on 2026-09-28 for the shared `path.line.fade.dimmed`, so the plan's text is the stale one and not the tree.
 - **Two deliberate limits stand** — the `selective` depth price's ramp is **quantized to the fine cell** (its tread and the wall-distance sample step are one value, `DepthBandLaw.stepM`, so a per-metre gradient would re-price every band cell), and the Speed-limits line prints **whole minutes** only, dropping a sub-minute entry so it never prints a zero-minute row.
 
 ### Placement and the three seams
@@ -124,11 +124,14 @@ The live numbered requirements — added after the master book was retired; the 
 - `app/src/main/java/ykws/android/maro/ui/map/MapPulseDot.kt` — the one pulsing disc the recording square, the route toggle and the winner's row share
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — `paintRankOf` and `TrackTier`, the rank that orders the whole overlay list
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the engine resolved and handed in as a selection, the running best collected and passed to both panel call sites, the one `RouteHost(...)` call, the auto-pick effect and the exit doors
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/maro.properties` — where every route value lives, the slow-water budget's code default among them
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/maro.properties` (every route value, the new `path.route.line.casing.width` and the slow-water budget's code default among them) + `app/src/main/assets/ui.properties` (the one reinforcement lever `ui.reinforce.darkenPct`) — where every route value lives
 - `app/src/main/java/ykws/android/maro/ui/color/ColorReinforcement.kt` — `reinforcedColor`: the pure, RGB-only darkening a user-picked colour's derived edge takes (R93)
 - `app/src/test/java/ykws/android/maro/spatial/` — `RouteDummyEngineTest`, `RouteAvoidEngineTest`, `RouteEngineChoiceTest`
 - `app/src/test/java/ykws/android/maro/spatial/multipass/` — the multipass suites, `RoutePassRankingTest` among them, plus `AvoidPriceWalkTest`
 - `app/src/test/java/ykws/android/maro/ui/map/` — `RouteAcquisitionTest`, `RouteAutoPickTest`, `RouteEngineSeamTest`, `RoutePlanTest`
+- `app/src/main/java/ykws/android/maro/data/track/Track.kt` — the `route` flag and the two persisted end ids (`routeStartMarkerId`, `routeDestinationMarkerId`) a saved route carries
+- `app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt` — the save that writes the two end ids on the built track
+- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — the index pass that projects the flag and the two end ids into every summary
 
 ## Docs
 

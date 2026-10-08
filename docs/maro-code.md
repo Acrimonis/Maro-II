@@ -34,10 +34,10 @@
 | **DepthMapping** | `data/depth/`, `data/depth/raster/`, `spatial/`, `ui/map/DepthViewModel.kt`, `ui/map/DepthBitmap.kt` |
 | **Coastline** | `data/coastline/`, `spatial/CoastlineSpatialIndex.kt` |
 | **RegulatedZones** | `data/regulation/`, `spatial/SpeedZoneIndex.kt`, `ui/map/RegulatedZoneComponents.kt` |
-| **Tracks** | `data/track/`, `ui/map/TrackHistoryOverlay.kt`, `ui/map/TrackStatusIcon.kt` |
+| **Tracks** | `data/track/`, `ui/map/TrackHistoryOverlay.kt`, `ui/map/TrackStatusIcon.kt`, and the path render engine — `ui/map/LineRenderSeam.kt`, `ui/map/MapTrackSegments.kt`, `ui/map/MapTrackOverlayEffects.kt`, `ui/map/TrackDirectionOverlay.kt`, `ui/map/TrackSpeedHeatmap.kt` |
 | **Markers** | `data/markers/`, `data/model/markers/`, `spatial/MarkerMatcher.kt`, `ui/map/MarkerOverlay.kt`, `ui/map/MarkerDrawer.kt`, `ui/map/MarkersViewModel.kt`, `ui/markers/wizard/` |
 | **Zone300** | `spatial/Zone300Builder.kt`, `spatial/CoastlineSpatialIndex.kt`, `data/model/Zone300Data.kt` |
-| **Route** | `spatial/RouteEngine.kt`, `spatial/RouteAvoidEngine.kt`, `spatial/multipass/`, `ui/map/RouteViewModel.kt`, `ui/map/RouteHost.kt` |
+| **Route** | `spatial/RouteEngine.kt`, `spatial/RouteAvoidEngine.kt`, `spatial/multipass/`, `ui/map/RouteViewModel.kt`, `ui/map/RouteHost.kt` (painted by the shared path render engine — `ui/map/LineRenderSeam.kt`, `ui/map/MapTrackOverlayEffects.kt`) |
 | **GPS** | `data/location/`, `config/AppConfig.kt` (GPS tuning constants) |
 | **Performance** | `data/power/`, `data/location/`, `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **DepthSafety** | `ui/map/DepthViewModel.kt` (danger depth), `ui/map/LowDepthWarningBitmap.kt` |
@@ -103,6 +103,42 @@ refactor + step 3 mapscreen-health migration, zero behavior change):
 | `MapImportConflictHost.kt` | GPX import Duplicate/Override/Cancel conflict path |
 | `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` — 66 params total (6 bundles + explicit values/ViewModels + inline callbacks) |
 
+## Path Render Engine — one painter for tracks and routes
+
+Stored tracks, saved routes and the live route are drawn by **one engine**, so every aspect of a
+track's or a route's line is a key in `maro.properties` under the `path.*` family (see the PATH
+banner in that file). The seam is a **value type, not an interface**: a recorded track's points and a
+route plan's points are adapted at the UI edge to `RenderPoint` (lat/lon, speed, bearing, break) and
+wrapped in a `LineRenderSpec` (kind, class, points, dashed, arrows); the domain models (`TrackPoint`,
+`RoutePoint`) implement nothing. One painter reads a spec and returns the osmdroid overlays and the
+chevron inputs — the door is `lineRendering(spec, …)` in `MapTrackOverlayEffects.kt`, over
+`MapTrackSegments.kt` (segments), `TrackSpeedHeatmap.kt` (the ramp and its bands) and
+`TrackDirectionOverlay.kt` (the chevrons).
+
+| File | Owns |
+|------|------|
+| `ui/map/LineRenderSeam.kt` | `RenderPoint`, `LineRenderSpec`, and the adapters — a track's stored-or-derived speed, a route's leg-derived speed |
+| `ui/map/MapTrackSegments.kt` | `splitTrackSegments` and the polyline builders — solid runs, GAP bridges, the route dash |
+| `ui/map/TrackSpeedHeatmap.kt` | The ramp's colour and the per-speed bands (`bandedAppearances`, `bandTable`) |
+| `ui/map/TrackDirectionOverlay.kt` | The chevron overlay and its pure geometry |
+| `ui/map/MapTrackOverlayEffects.kt` | The stored-track diff loops, the render plan (`lineRenderPlan`), and the one painter door (`lineRendering`) |
+| `ui/map/RouteHost.kt` | The live route — its pool, casing, travelled run and provisional line — painted through the same door; the pin stays attach-once |
+| `config/PathProperties.kt` + `config/AppConfig.kt` | The `path.*` cascade (`pathKeyCandidates`) and the resolver that walks it |
+
+Precedence, most specific first: `path.<kind>.<group>.<class>.<leaf>` → `path.<group>.<class>.<leaf>`
+→ `path.<kind>.<group>.<leaf>` → `path.<group>.<leaf>` → the code default; a class **outranks** the
+kind. The one statement of the rule lives in the `maro.properties` PATH banner.
+
+**The two display axes** — speed colours and direction arrows — are per-kind **persisted settings**: the
+tracks kind's pair (`trackArrows` / `trackColours`) and the route kind's (`routeSpeedArrows` /
+`routeSpeedColor`), each governing its own lines alone, with **no kind master over the other** (2026-10-07).
+Each axis rides one `enabled` leaf with **three tiers** — `path.arrow.enabled` / `path.heatmap.enabled`
+(global), the kind leaf over it, and `path.arrow.enabled.<class>` / `path.heatmap.enabled.<class>` — where
+the global and kind leaves **seed** the persisted setting and only the class leaf **overrides** it at read
+time ([`AppConfig.pathArrowEnabled`](../app/src/main/java/ykws/android/maro/config/AppConfig.kt) /
+`pathHeatmapEnabled`). The **`acquisition`** class is the first such override: the route search's rung under
+the selection is silent on both axes until the route is followed.
+
 ## Dependency Flow
 
 ```
@@ -127,6 +163,7 @@ ui/map/  ──depends on──▶  spatial/  +  data/*/
 | Add a new regulated zone source | `data/regulation/RegulationAggregator.kt` + new client class |
 | Change how depth is rendered | `ui/map/DepthViewModel.kt` + `ui/map/DepthColorRamp.kt` |
 | Add a track recording feature | `data/track/TrackRecorder.kt` → `TrackViewModel.kt` → `ui/map/TrackHistoryOverlay.kt` |
+| Change how a track's or a route's line is drawn | `ui/map/LineRenderSeam.kt` (the seam) → `ui/map/MapTrackOverlayEffects.kt` (`lineRendering`) → the `path.*` keys in `maro.properties` |
 | Add a settings toggle | `data/settings/SettingsManager.kt` + `config/AppConfig.kt` + settings UI composable |
 | Add a new Material icon | `ui/icons/` (see `docs/material-icons-standalone-guide.md`) |
 | Change GPS behavior | `data/location/GpsLocationSource.kt` + `data/location/AdaptiveGpsPolicy.kt` |

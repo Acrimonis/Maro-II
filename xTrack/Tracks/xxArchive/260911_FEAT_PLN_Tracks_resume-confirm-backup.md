@@ -147,3 +147,11 @@ unpinned, and that the duplicated geometry on the map is acceptable. Surrounding
 - If the source track fails to load, the backup is silently skipped and the resume proceeds — surface a
   failure banner if that matters.
 - `updatedAtEpochMs = now` places the backup near the top of the default list sort (expected, but visible).
+
+## Outcome
+
+**Shipped 2026-09-11** — resuming a stored track now asks first, through a `ResumeConfirmSheet` with a default-checked backup checkbox.
+
+- **Built:** `TrackViewModel.duplicateTrack(id, nameSuffix)` and `resumeTrack(id, backupNameSuffix)`; `PendingTrackResume` + `ResumeConfirmSheet` hosted beside `MapImportConflictHost`; the one `onResumeRequest(id, fromList)` trigger wired on the list card (its early dismiss dropped) and both drawer cards, gated by `isRecording`; and the EN/FR strings.
+- **Amended the same day, post-Mergitur:** the `visibleOnMap = false` clause was dropped once the TracksImport refactor deleted the persisted field, so the backup renders as an ordinary stored track; `duplicateTrack` then nudges the copy's `startTimeMs` 1 ms older, making the twin tie at the render cap deterministic (locked by `MapSelectionPolicyTest`).
+- **Left open:** the device confirmation and the four flagged follow-ups.

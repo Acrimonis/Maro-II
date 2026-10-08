@@ -2,31 +2,21 @@ package ykws.android.maro.ui.map
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * The render-control string set, tied to the two files that carry it: the Speed Display heading and the
  * two option labels exist in both locales, the retired triple's label is gone from both, and the
  * Settings heading is renamed in both.
  *
- * The XML is read as text — no Android resource machinery — with the same file-first convention
- * `HeatmapRampPropertiesTest` uses, so the test CWD is the `app` module while `maro.repoDir` is
- * honoured first for a repo-root run.
+ * The XML is read as text — no Android resource machinery — through the shared `sourceText` reader, the
+ * same file-first convention `HeatmapRampPropertiesTest` uses, so the test CWD is the `app` module while
+ * `maro.repoDir` is honoured first for a repo-root run.
  */
 class TrackRenderStringsTest {
 
-    private fun stringsFile(locale: String): File = System.getProperty("maro.repoDir")
-        ?.let { File(it, "app/src/main/res/$locale/strings.xml") }
-        ?.takeIf { it.isFile }
-        ?: File("src/main/res/$locale/strings.xml")
-
-    private fun stringsText(locale: String): String {
-        val file = stringsFile(locale)
-        assumeTrue("strings.xml not found for $locale", file.isFile)
-        return file.readText()
-    }
+    /** Delegates to the shared reader so the path convention lives once (F7). */
+    private fun stringsText(locale: String): String = sourceText("src/main/res/$locale/strings.xml")
 
     /** Both locales are always read together, so a key added to one alone fails here. */
     private fun bothLocales(): List<Pair<String, String>> =
@@ -35,7 +25,7 @@ class TrackRenderStringsTest {
     @Test
     fun bothLocalesCarryTheDisplayHeadingAndTheTwoOptionLabels() {
         val expected = listOf(
-            "settings_tracks_speed_display_label",
+            "settings_speed_display_label",
             "menu_render_arrows",
             "menu_render_colours"
         )
@@ -74,18 +64,23 @@ class TrackRenderStringsTest {
 
     @Test
     fun theArrowsControlsKeepTheirOwnStrings() {
-        // The expander ships untouched, so its label and description must survive the rename.
+        // The block keeps the tuning controls it was left with, so its density heading must survive —
+        // the rearrangement moved the block without touching what it writes (F2).
         bothLocales().forEach { (locale, xml) ->
-            assertTrue("$locale lost the arrow density label", xml.contains("settings_tracks_direction_desc"))
+            assertTrue(
+                "$locale lost the arrow density label",
+                xml.contains("settings_tracks_direction_density_label")
+            )
         }
     }
 
     @Test
     fun bothLocalesCarryEveryRouteAndStartupLineTheWorkAdded() {
         // The shared axis options, the two estimated-cell labels, the route colour row, the opacity row,
-        // the count row, the two gates and the start-time colour report: each is a locale-keyed line this
-        // work added, and each could lose one locale silently without this. The Kind axis and its two
-        // option words have since been retired (S3) and are asserted gone by the retirement test above.
+        // the count row and the start-time colour report: each is a locale-keyed line this work added, and
+        // each could lose one locale silently without this. The Kind axis and its two option words were
+        // retired (S3); the route swap's two gate labels and the removed block's label left on 2026-10-07,
+        // their absence pinned by `SpeedDisplayChipsTest`.
         val expected = listOf(
             "filter_option_all",
             "track_stat_total_estimated",
@@ -95,12 +90,9 @@ class TrackRenderStringsTest {
             "settings_route_transparency_label",
             "settings_pinned_route_transparency_label",
             "settings_routes_count_label",
-            "settings_routes_speed_color_label",
-            "settings_routes_arrows_label",
             "settings_routes_appearance_label",
-            "settings_routes_speed_direction_label",
             "settings_routes_appearance_desc",
-            "settings_routes_speed_direction_desc",
+            "settings_routes_speed_display_desc",
             "settings_track_appearance_desc",
             "settings_routes_colors_desc",
             "settings_tracks_transfer_desc",

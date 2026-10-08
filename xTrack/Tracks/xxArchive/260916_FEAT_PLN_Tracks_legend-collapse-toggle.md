@@ -205,3 +205,21 @@ cannot rebuild the tracks layer.
   touched: `apk-build.bat` came back SUCCESSFUL in 7 s and 2 s, and the scoped run is green at 126
   cases — the first pass's 128 minus exactly the two the deleted predicate owned. F2 stays accepted as
   §7 records it and F5 stays a post-task suggestion.
+
+## Outcome
+
+**Shipped 2026-09-16 on `feature/no-black-casing`** — the speed scale became one control with two faces
+on one anchor: the card is the collapse target, and the collapsed face is a 44 dp toggle square on the
+row's own recipe.
+
+- **Built:** `AppSettings.trackLegendExpanded` (`track_legend_expanded`, default true) with its read and
+  write; the collapsed square in `MapControls.kt`; the card taking the tap in `TrackSpeedLegend.kt`; the
+  two-face branch at the existing anchor in `MapScreen.kt`, sharing one `legendAnchor`; and the two EN/FR
+  content descriptions.
+- **Glyph:** ⏱ (`\u23F1\uFE0F`), swapped from 🕛 on the user's call; the device glance that settles the
+  selector's colour-vs-thin form stays the user's.
+- **Gate untouched:** `legendVisibleForState` and `bandedStrokeOnMap` carry no new parameter and no body
+  change, and the expanded face is pixel-identical to before; the persisted flag only decides which face
+  is worn.
+- **Open:** F2's accepted cost (the card's tap surface and its merged semantics) and F5's shared-square
+  extraction, logged as a post-task suggestion.

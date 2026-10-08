@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-09-29 07:46
+modified: 2026-10-07 18:00
 ---
 
 # Feature: Markers
@@ -29,6 +29,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [x] 12 · Proximity of date points — closed 2026-09-28: a pin's segment is recorded before its range gate answers, so every date point is tested and drawn while the 300 m rule keeps deciding the match; the drawing's own marking for a rejected point went to `## Todos` rather than dropped
 - **Closed 2026-09-28** — the tap zone, the ray clearing and the debugger work shipped 2026-09-18 with their verification; the device pass was ruled out of the level's scope; the three-feature bookkeeping bake closed on 2026-09-28; and the level's last point, the date-point coverage, shipped the same night as one moved line in `MarkerMatcher`, pinned by `MarkerMatcherPinDebugTest`.
 ## Implemented
+
+- **marker-click-remove (2026-10-07, `feature/marker-click-remove`)** — a plain tap on a marker no longer selects it or opens its card: the non-armed branch of `MapScreen`'s `onMarkerTap` lambda is gone, so that callback now acts only while inspect mode is armed. The inspect-armed door, the per-pin `setOnMarkerClickListener` and the proximity `MapEventsOverlay` are untouched, and `DrawerSource.MAP` stays live through the inspect fallback (`CardWalkPolicy.kt:95`) and the snack reopen, so nothing is orphaned. The marker list, the menu chevron and an inspect pick are the remaining doors onto a marker card, and the gold highlight and framing are unchanged. `apk-build.bat` SUCCESSFUL.
 
 - **wizard-swipe-and-shared-page-dots (2026-10-06, `feature/wizards-swipe-like-route-aq-panel`)** — the wizard's header dot progress and the route acquisition panel's page position became one shared [`PageDots`](../../app/src/main/java/ykws/android/maro/ui/components/PageDots.kt), 6 dp circles and a 4 dp gap, its fill rule the caller's: the wizard fills up to and including the current step, the panel only the current page; `WizardStepDots` folded into it. A swipe on the wizard through the shared [`SwipePager`](../../app/src/main/java/ykws/android/maro/ui/components/SwipePager.kt) was **built and withdrawn the same session on the user's own reading** — it did not help, and the footer's Next/Previous/Finish are the step switch — so the wizard keeps its `AnimatedContent` step body and the view model's `wizardForward`, the absolute `wizardGoTo(index)` is gone, and `WizardDrawer` takes `steps` and derives the index. `apk-build.bat` SUCCESSFUL and the suite at 948 with three reds that lie outside this change; the device pass over the panel's single-lit dots and the wizard's step animation is owed → `xTrack/Markers/261006_FEAT_PLN_Markers_wizard-swipe-and-shared-page-dots.md`
 

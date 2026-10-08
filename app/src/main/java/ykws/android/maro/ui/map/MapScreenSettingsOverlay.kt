@@ -83,7 +83,6 @@ import ykws.android.maro.ui.components.SectionHeader
 import ykws.android.maro.ui.components.Expander
 import ykws.android.maro.ui.components.NestedCard
 import ykws.android.maro.ui.components.SliderRow
-import ykws.android.maro.ui.components.ToggleLabelStyle
 import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.ConfirmAction
@@ -206,7 +205,63 @@ internal fun SettingsOverlay(
     }
 }
 
-private enum class DisplayTrackAxis { ARROWS, COLOURS }
+/**
+ * The two speed-display axes each kind's chip row exposes — the shape the tracks block and the routes
+ * block now share, each reading its own kind's persisted pair (2026-10-07). The two readers and the two
+ * flips are internal so a unit test can pin that neither kind reads or moves the other's pair, with no
+ * Compose harness.
+ */
+internal enum class SpeedDisplayAxis { ARROWS, COLOURS }
+
+/** The recorded kind's own on/off pair behind its "Speed Display" chips. */
+internal fun trackSpeedDisplayOn(settings: AppSettings, axis: SpeedDisplayAxis): Boolean = when (axis) {
+    SpeedDisplayAxis.ARROWS -> settings.trackArrows
+    SpeedDisplayAxis.COLOURS -> settings.trackColours
+}
+
+/** The saved route's own on/off pair behind its "Speed Display" chips — never the recorded kind's. */
+internal fun routeSpeedDisplayOn(settings: AppSettings, axis: SpeedDisplayAxis): Boolean = when (axis) {
+    SpeedDisplayAxis.ARROWS -> settings.routeSpeedArrows
+    SpeedDisplayAxis.COLOURS -> settings.routeSpeedColor
+}
+
+/** Flips the recorded kind's axis named by [axis], leaving the route pair untouched. */
+internal fun AppSettings.toggleTrackSpeedDisplay(axis: SpeedDisplayAxis): AppSettings = when (axis) {
+    SpeedDisplayAxis.ARROWS -> copy(trackArrows = !trackArrows)
+    SpeedDisplayAxis.COLOURS -> copy(trackColours = !trackColours)
+}
+
+/** Flips the saved route's axis named by [axis], leaving the recorded pair untouched. */
+internal fun AppSettings.toggleRouteSpeedDisplay(axis: SpeedDisplayAxis): AppSettings = when (axis) {
+    SpeedDisplayAxis.ARROWS -> copy(routeSpeedArrows = !routeSpeedArrows)
+    SpeedDisplayAxis.COLOURS -> copy(routeSpeedColor = !routeSpeedColor)
+}
+
+/**
+ * One kind's "Speed Display" sub-section: the shared heading, the leading gap and the two-chip
+ * arrows/colours row, whose option list both kinds share. The recorded kind passes no [descriptionRes];
+ * the saved route passes the sentence captioning its own pair (D4, F5).
+ */
+@Composable
+private fun SpeedDisplaySubSection(
+    on: (SpeedDisplayAxis) -> Boolean,
+    onToggle: (SpeedDisplayAxis) -> Unit,
+    descriptionRes: Int? = null
+) {
+    SubSectionHeader(
+        title = stringResource(R.string.settings_speed_display_label),
+        description = descriptionRes?.let { stringResource(it) }
+    )
+    Spacer(Modifier.height(8.dp))
+    MultiSelectRow(
+        options = listOf(
+            SpeedDisplayAxis.ARROWS to stringResource(R.string.menu_render_arrows),
+            SpeedDisplayAxis.COLOURS to stringResource(R.string.menu_render_colours)
+        ),
+        isOn = on,
+        onToggle = onToggle
+    )
+}
 
 // ── Layers tab ────────────────────────────────────────────────────────────
 
@@ -238,6 +293,16 @@ private fun LayersSettings(
                 Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
                 NestedCard {
                     CardDescription(stringResource(R.string.settings_track_appearance_desc))
+
+                    // The recorded kind's own arrows/colours pair, the card's first control under its
+                    // description (D3). The tuning both kinds' chevrons read left the block for the one
+                    // that now closes the run, above export/import (D1, D5).
+                    SpeedDisplaySubSection(
+                        on = { axis -> trackSpeedDisplayOn(settings, axis) },
+                        onToggle = { axis -> onUpdateSettings { it.toggleTrackSpeedDisplay(axis) } }
+                    )
+                    SectionDivider()
+
                     // Number of tracks
                     Text(
                         text = stringResource(R.string.settings_tracks_count_label),
@@ -361,109 +426,10 @@ private fun LayersSettings(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            Expander(
-                label = stringResource(R.string.settings_tracks_direction_settings_label),
-                expanded = settingsVm.isExpanded("track_direction"),
-                onToggle = { settingsVm.setExpanded("track_direction", !settingsVm.isExpanded("track_direction")) }
-            ) {
-                Spacer(Modifier.height(4.dp))
-                NestedCard {
-                    SubSectionHeader(
-                        title = stringResource(R.string.settings_tracks_speed_display_label)
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    MultiSelectRow(
-                        options = listOf(
-                            DisplayTrackAxis.ARROWS to stringResource(R.string.menu_render_arrows),
-                            DisplayTrackAxis.COLOURS to stringResource(R.string.menu_render_colours)
-                        ),
-                        isOn = { axis ->
-                            when (axis) {
-                                DisplayTrackAxis.ARROWS -> settings.trackArrows
-                                DisplayTrackAxis.COLOURS -> settings.trackColours
-                            }
-                        },
-                        onToggle = { axis ->
-                            when (axis) {
-                                DisplayTrackAxis.ARROWS -> onUpdateSettings { it.copy(trackArrows = !it.trackArrows) }
-                                DisplayTrackAxis.COLOURS -> onUpdateSettings { it.copy(trackColours = !it.trackColours) }
-                            }
-                        }
-                    )
-
-                    SectionDivider()
-
-                    SubSectionHeader(
-                        title = stringResource(R.string.settings_tracks_direction_density_label)
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    SegmentedRow(
-                        options = listOf(
-                            TrackDirectionDensity.UNIFORM to stringResource(R.string.settings_tracks_direction_density_uniform),
-                            TrackDirectionDensity.SPEED to stringResource(R.string.settings_tracks_direction_density_speed)
-                        ),
-                        selected = settings.trackDirectionDensity,
-                        onSelect = { mode -> onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    SubSectionHeader(
-                        title = stringResource(R.string.settings_tracks_direction_gap_range_label),
-                        description = stringResource(R.string.settings_tracks_direction_gap_range_desc)
-                    )
-                    RangeSliderRow(
-                        valueLabel = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
-                            settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
-                        value = logSliderFromValue(settings.trackDirectionMinSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP)
-                            ..logSliderFromValue(settings.trackDirectionMaxSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP),
-                        valueRange = 0f..1f,
-                        steps = 23,
-                        onValueChange = { range ->
-                            onUpdateSettings {
-                                it.copy(
-                                    trackDirectionMinSpacingDp = logSliderToValue(range.start, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt(),
-                                    trackDirectionMaxSpacingDp = logSliderToValue(range.endInclusive, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt()
-                                )
-                            }
-                        }
-                    )
-                    SectionDivider()
-                    SubSectionHeader(
-                        title = stringResource(R.string.settings_tracks_direction_speed_range_label),
-                        description = stringResource(R.string.settings_tracks_direction_speed_range_desc)
-                    )
-                    RangeSliderRow(
-                        valueLabel = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
-                            settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
-                        value = logSliderFromValue(settings.trackDirectionSpeedFloorKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN)
-                            ..logSliderFromValue(settings.trackDirectionSpeedCeilingKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN),
-                        valueRange = 0f..1f,
-                        steps = 23,
-                        onValueChange = { range ->
-                            onUpdateSettings {
-                                it.copy(
-                                    trackDirectionSpeedFloorKn = (logSliderToValue(range.start, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f,
-                                    trackDirectionSpeedCeilingKn = (logSliderToValue(range.endInclusive, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f
-                                )
-                            }
-                        }
-                    )
-                }
-            }
-
-            // ── The routes' own rendering values (S17/D15) — the card's 2nd section ──
-            // Divided from the track group above (2026-10-05, the user's word) and from the export/import
-            // row that closes the card; the two route collapsibles stand adjacent within this section, with
-            // **no divider between them** (2026-10-05, the user's word — the one that stood between Routes
-            // Appearance and Routes Speed and Direction was removed).
-            SectionDivider()
+            // ── The two appearance twins (D5) ───────────────────────────────
+            // Tracks Appearance and Routes Appearance stand adjacent as one group, no divider between
+            // them. The arrow tuning both kinds' chevrons read follows behind a divider, then the
+            // export/import row closes the card (F0).
             Expander(
                 label = stringResource(R.string.settings_routes_appearance_label),
                 expanded = settingsVm.isExpanded("routes_appearance"),
@@ -472,6 +438,16 @@ private fun LayersSettings(
                 Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
                 NestedCard {
                     CardDescription(stringResource(R.string.settings_routes_appearance_desc))
+
+                    // The saved route's own arrows/colours pair — the same "Speed Display" sub-section
+                    // the tracks block wears (D3, D4), its sentence brought in line with the chips.
+                    SpeedDisplaySubSection(
+                        on = { axis -> routeSpeedDisplayOn(settings, axis) },
+                        onToggle = { axis -> onUpdateSettings { it.toggleRouteSpeedDisplay(axis) } },
+                        descriptionRes = R.string.settings_routes_speed_display_desc
+                    )
+                    SectionDivider()
+
                     // The Routes count, the route ladder, the pinned-route ladder and every route
                     // colour: a route's whole appearance is edited in one place (D5, D6, D8).
                     Text(
@@ -578,7 +554,7 @@ private fun LayersSettings(
                         color = ComposeColor(AppConfig.uiTextMuted),
                         fontSize = 12.sp
                     )
-                    // The followed route's own line colour: **one key**, `route.line.color`.
+                    // The followed route's own line colour: **one key**, `path.line.color.live`.
                     ColorRow(
                         label = stringResource(R.string.settings_color_active_route),
                         color = settings.routeLineColor,
@@ -601,26 +577,76 @@ private fun LayersSettings(
                 }
             }
 
+            SectionDivider()
+
+            // ── Speed Arrows Settings (D1, D2, D5) ──────────────────────────
+            // The old "Tracks Speed and Direction" block, its "Speed Display" sub-section having left for
+            // Tracks Appearance. What stays is the arrow tuning both kinds' chevrons share — the density,
+            // the gap range and the speed range — and it stands just above the export/import row.
             Expander(
-                label = stringResource(R.string.settings_routes_speed_direction_label),
-                expanded = settingsVm.isExpanded("routes_speed_direction"),
-                onToggle = { settingsVm.setExpanded("routes_speed_direction", !settingsVm.isExpanded("routes_speed_direction")) }
+                label = stringResource(R.string.settings_tracks_direction_settings_label),
+                expanded = settingsVm.isExpanded("track_direction"),
+                onToggle = { settingsVm.setExpanded("track_direction", !settingsVm.isExpanded("track_direction")) }
             ) {
                 Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
                 NestedCard {
-                    CardDescription(stringResource(R.string.settings_routes_speed_direction_desc))
-                    ToggleRow(
-                        label = stringResource(R.string.settings_routes_speed_color_label),
-                        labelStyle = ToggleLabelStyle.COMMENT,
-                        checked = settings.routeSpeedColor,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedColor = on) } }
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_tracks_direction_density_label)
                     )
-                    Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-                    ToggleRow(
-                        label = stringResource(R.string.settings_routes_arrows_label),
-                        labelStyle = ToggleLabelStyle.COMMENT,
-                        checked = settings.routeSpeedArrows,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedArrows = on) } }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    SegmentedRow(
+                        options = listOf(
+                            TrackDirectionDensity.UNIFORM to stringResource(R.string.settings_tracks_direction_density_uniform),
+                            TrackDirectionDensity.SPEED to stringResource(R.string.settings_tracks_direction_density_speed)
+                        ),
+                        selected = settings.trackDirectionDensity,
+                        onSelect = { mode -> onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_tracks_direction_gap_range_label),
+                        description = stringResource(R.string.settings_tracks_direction_gap_range_desc)
+                    )
+                    RangeSliderRow(
+                        valueLabel = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
+                            settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
+                        value = logSliderFromValue(settings.trackDirectionMinSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP)
+                            ..logSliderFromValue(settings.trackDirectionMaxSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP),
+                        valueRange = 0f..1f,
+                        steps = 23,
+                        onValueChange = { range ->
+                            onUpdateSettings {
+                                it.copy(
+                                    trackDirectionMinSpacingDp = logSliderToValue(range.start, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt(),
+                                    trackDirectionMaxSpacingDp = logSliderToValue(range.endInclusive, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt()
+                                )
+                            }
+                        }
+                    )
+                    SectionDivider()
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_tracks_direction_speed_range_label),
+                        description = stringResource(R.string.settings_tracks_direction_speed_range_desc)
+                    )
+                    RangeSliderRow(
+                        valueLabel = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
+                            settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
+                        value = logSliderFromValue(settings.trackDirectionSpeedFloorKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN)
+                            ..logSliderFromValue(settings.trackDirectionSpeedCeilingKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN),
+                        valueRange = 0f..1f,
+                        steps = 23,
+                        onValueChange = { range ->
+                            onUpdateSettings {
+                                it.copy(
+                                    trackDirectionSpeedFloorKn = (logSliderToValue(range.start, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f,
+                                    trackDirectionSpeedCeilingKn = (logSliderToValue(range.endInclusive, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f
+                                )
+                            }
+                        }
                     )
                 }
             }

@@ -247,6 +247,26 @@ names are unchanged, and their values and the render widths beside them
 |---|---|
 | `map.zone300.boundary.color` | Seaward boundary line — also the seed of the `zone300Color` setting. The band's water-only fill is that same setting, so this file carries no fill key |
 
+### Track & Route Lines (`path.*`)
+
+Both kinds of line are drawn by one painter and read their colours from the `path.*` family in
+[`maro.properties`](../app/src/main/assets/maro.properties) → `AppConfig`, through the cascade
+`path.<kind>.<group>.<class>.<leaf>`. A **class outranks the kind**, so `path.line.color.pinned.from`
+beats `path.route.line.color.from`; the one statement of precedence is the PATH banner in the file,
+and the values are not restated here.
+
+| Token | Usage |
+|---|---|
+| `path.line.color.selected` | The selection gold — the highlighted line's core |
+| `path.line.casing.color` | The dark under-stroke drawn beneath a selection |
+| `path.line.color.live` | The live line's own colour (the recording, the followed route) |
+| `path.line.color.from` / `.to` | The stored set's gradient, newest → oldest |
+| `path.line.color.pinned.from` / `.to` | The pinned pair |
+| `path.route.line.color.from` / `.to` | The route kind's own stored pair |
+| `path.route.line.color.pinned.from` / `.to` | The pinned route's own pair |
+| `path.heatmap.familyN.from` / `.to`, `path.heatmap.unknown.color` | The speed ramp's bands and its neutral tint |
+| `path.pin.color` / `path.pin.ring.color` | The destination pin's fill and its ring |
+
 ### Depth Overlay
 
 | Token | Value | Swatch | Usage |

@@ -134,3 +134,11 @@ Three changes in `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`:
 3. **Highlight-to-top** — After active track move-to-end, if `highlightedTrackId != null`, filters overlays by `Polyline.title ==` (exact) and `Marker.title.startsWith` (with trailing `_` delimiter), removes + re-adds at end.
 
 Final z-order: `oldest history → newest history → oldest pinned → newest pinned → active → highlighted`
+
+## Outcome
+
+**Shipped 2026-07-17** — the paint order was flipped so newest sits on top, and the highlighted track is lifted above even the active line.
+
+- **Built, all in `MapScreen.kt`:** history overlays accumulated into a list and reversed before `mv.overlays.addAll()`, the same for pinned, and a highlight-to-top pass filtering by exact `Polyline.title` (`track_hist_<id>` / `track_pin_<id>`) and `Marker.title.startsWith` with a trailing `_` delimiter.
+- **Result:** `oldest history → newest history → oldest pinned → newest pinned → active → highlighted`, with `computeTrackPolylineAppearance` index semantics and the active-track rendering untouched.
+- **Verification:** `assembleDebug` passed; the on-device look stays the user's.

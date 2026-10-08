@@ -90,16 +90,20 @@ internal fun buildTrackInfoOverlayData(
     trackListIds: List<String>,
     inspectHandoff: InspectHandoff?,
     appSettings: AppSettings,
+    /** The card-local eye value (2026-10-07); the caller owns its state, this bundle only carries it. */
+    eyeOverride: Boolean?,
     onToggleEyeOverride: () -> Unit,
 ): TrackInfoOverlayData = TrackInfoOverlayData(
     showTrackInfoDrawer = trackDrawerState.isOpen,
     trackInfoDrawerData = trackDrawerState.track,
     trackListIds = trackListIds,
     currentTrackIndex = trackListIds.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
-    // An in-flight inspect open holds this card as its predecessor: both walk buttons grey
-    // out for that window rather than letting a second step cancel the pending landing (§5).
+    // An in-flight **step** holds this card as its predecessor: both walk buttons grey out for that
+    // window rather than letting a second step cancel the pending landing (§5). A live acquire's swap is
+    // not that — one frame, and no gesture asked for it — so the caller hands the hand-off over only for
+    // a step, which is what keeps the pills from flashing grey on every change of nearest (2026-10-07).
     walkHeld = inspectHandoff != null,
     trackColours = appSettings.trackColours,
-    eyeOverride = appSettings.trackSelectionBanded,
+    eyeOverride = eyeOverride,
     onToggleEyeOverride = onToggleEyeOverride,
 )
