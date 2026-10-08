@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
@@ -103,6 +104,38 @@ class LatticeFamilyTest {
     }
 
     /**
+     * **The window-cell translation honours a non-zero offset.** P4.1 repaired a latent defect — a window's
+     * *local* cell read as its lattice coordinate, true only at offset zero — by translating through
+     * [`WalkWindows.latticeCell`]. The corridor anchor made that offset zero, so only the fixed-anchor harness
+     * exercised the non-zero case; this pins it directly: a window standing at `(7, 11)` answers the lattice
+     * coordinate `(row + 7, col + 11)` on its own layer, never the bare local index.
+     */
+    @Test
+    fun theWindowCellTranslationHonoursANonZeroOffset() {
+        val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
+        val fineGrid = MultipassGrid(
+            family.fine.latSouth, family.fine.lonWest,
+            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+            4, 6, family.fine.cellM, baseCostSec(family.fine.cellM, 28.0)
+        )
+        val walk = WalkWindows.onLattice(
+            family.layers,
+            listOf(WalkWindow(fineGrid, rowOffset = 7, colOffset = 11, layer = 1))
+        )
+
+        assertEquals(
+            "a window cell is named on the family's lattice, offset by where the window stands",
+            CellIndex(9, 13, 1),
+            walk.latticeCell(fineGrid, 2, 2)
+        )
+        assertEquals(
+            "the window's own origin cell maps to the window's own offset",
+            CellIndex(7, 11, 1),
+            walk.latticeCell(fineGrid, 0, 0)
+        )
+    }
+
+    /**
      * **The anchor holds across corridors.** P4.1's whole point: the family draws its lines on a **fixed**
      * anchor and never reads the corridor, so the same water carries the **same** lattice indices on two
      * different corridors — the property the corridor-derived origin could not give, and the base the fine
@@ -152,5 +185,46 @@ class LatticeFamilyTest {
                 legacyA.rowOf(point.latitude), legacyB.rowOf(point.latitude)
             )
         }
+    }
+
+    /**
+     * **A grid the walk does not hold as a window is refused, never silently mis-named (D37).**
+     * [`WalkWindows.latticeCell`] turns a window's *local* cell into the family's lattice coordinate using
+     * that window's own offset, and a grid the walk does not hold as a window carries no such offset:
+     * answering the local index unchanged would hand back a wrong coordinate. The read `requireNotNull`s a
+     * window instead, and this pins the refusal.
+     */
+    @Test
+    fun aGridTheWalkDoesNotHoldAsAWindowIsRefused() {
+        val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
+        val heldGrid = MultipassGrid(
+            family.fine.latSouth, family.fine.lonWest,
+            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+            4, 6, family.fine.cellM, baseCostSec(family.fine.cellM, 28.0)
+        )
+        val walk = WalkWindows.onLattice(
+            family.layers,
+            listOf(WalkWindow(heldGrid, rowOffset = 7, colOffset = 11, layer = 1))
+        )
+
+        // A second grid over the same water, but not one the walk holds as a window.
+        val strangerGrid = MultipassGrid(
+            family.fine.latSouth, family.fine.lonWest,
+            family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
+            4, 6, family.fine.cellM, baseCostSec(family.fine.cellM, 28.0)
+        )
+
+        val refused = try {
+            walk.latticeCell(strangerGrid, 2, 2)
+            null
+        } catch (thrown: IllegalArgumentException) {
+            thrown
+        }
+
+        assertNotNull("a non-window grid is refused rather than answered", refused)
+        assertTrue(
+            "and the refusal names what the caller asked for",
+            refused!!.message.orEmpty().contains("window")
+        )
     }
 }

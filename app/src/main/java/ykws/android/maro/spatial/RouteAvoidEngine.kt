@@ -1,7 +1,9 @@
 package ykws.android.maro.spatial
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -13,6 +15,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -181,8 +185,12 @@ class RouteAvoidEngine(
     /** The lane every lookup's job runs on — an engine owns its compute. */
     private val computeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** The in-flight lookup jobs, by lookup id; [cancelLookup] removes and cancels one. */
-    private val jobs = mutableMapOf<RouteId, Job>()
+    /**
+     * The live lookup jobs, by lookup id. [cancelLookup] removes and cancels one, and each lookup's own
+     * completion removes its entry, so a long-lived engine never accumulates one per finished lookup. A
+     * concurrent map because a completion runs on the compute lane while the caller may cancel.
+     */
+    private val jobs = ConcurrentHashMap<RouteId, Job>()
 
     /** The repaired pair the current declaration set runs on — set by [routesToCompute]. */
     private var repairedOrigin: RoutePoint? = null
@@ -197,10 +205,13 @@ class RouteAvoidEngine(
 
     /**
      * **The current arm's shared-grid holder** — fresh per [routesToCompute] and published with one
-     * write, so a lookup captures the arm it was declared under and a fresh arm cannot be clobbered by
-     * a stale one. The holder carries its own lock and the one build the arm's three rungs share.
+     * `@Volatile` write, so a lookup captures the arm it was declared under and a fresh arm cannot be
+     * clobbered by a stale one. `null` until the first arm opens, so no holder is allocated for an arm that
+     * never runs. The holder carries its own lock, the one build the arm's three rungs share, and the
+     * in-flight count that disposes that build once the arm's last lookup has ended.
      */
-    private var ladderHolder = LadderGridHolder()
+    @Volatile
+    private var ladderHolder: LadderGridHolder? = null
 
     /**
      * **The rungs that have landed this arm, in landing order** — each with the lookup that owns it and
@@ -244,12 +255,12 @@ class RouteAvoidEngine(
         val world = worldProvider()
         // The repair judges by the coastline and the depth gate; without either layer a search would
         // draw a line over what it cannot see, so the pair is refused by name rather than drawn blind.
-        if (!world.coastlineReady) return RouteDeclarations.Refused(RouteReason.WORLD_NOT_READY)
+        if (!world.coastlineReady) return refuse(RouteReason.WORLD_NOT_READY)
         if (AppConfig.routeAvoidDepthGateEnabled && !world.depthReady) {
-            return RouteDeclarations.Refused(RouteReason.WORLD_NOT_READY)
+            return refuse(RouteReason.WORLD_NOT_READY)
         }
-        val from = repair(origin, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
-        val to = repair(destination, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
+        val from = repair(origin, world) ?: return refuse(RouteReason.CANNOT_REPAIR)
+        val to = repair(destination, world) ?: return refuse(RouteReason.CANNOT_REPAIR)
         repairedOrigin = from
         repairedDestination = to
         // A fresh arm builds a fresh grid and a fresh ranking: the ladder's three rungs share the one
@@ -268,13 +279,46 @@ class RouteAvoidEngine(
         return RouteDeclarations.Available(computations.map { RouteComputation(it.id, it.descriptionResId) })
     }
 
+    /**
+     * **A refused pair clears the arm (D24).** The world-not-ready and cannot-repair refusals leave no pair
+     * to run, so the holder the last arm published and its declarations are dropped together: a later
+     * [startLookup] then finds no declaration for its id and returns before a stale holder can run a lookup
+     * nobody asked for. A lookup id is still minted, as every declaration path mints one — the caller reads
+     * the absent terminal, never a returned id, as the "started" signal.
+     */
+    private fun refuse(reason: RouteReason): RouteDeclarations.Refused {
+        ladderHolder = null
+        declarations = emptyMap()
+        return RouteDeclarations.Refused(reason)
+    }
+
     override fun startLookup(computationId: RouteId): RouteId {
         val lookupId = RouteId(++nextLookupId)
-        val computation = declarations[computationId]
-        // The arm's holder is captured here, at the moment the lookup is declared, so every rung of the
-        // arm reads the same holder and a later arm's fresh holder cannot be retargeted under it.
-        val holder = ladderHolder
-        jobs[lookupId] = computeScope.launch { runComputation(lookupId, computation, holder) }
+        // An id the current declarations do not hold — a stale arm's, or one from before a refusal cleared
+        // them (D24) — starts nothing: the lookup id is minted, but no job and no stale holder run.
+        val computation = declarations[computationId] ?: return lookupId
+        // The arm's holder and its repaired pair are captured here, at the moment the lookup is declared, so
+        // every rung of the arm runs the arm it was asked for and a later arm's fresh state cannot be
+        // retargeted under it.
+        val holder = ladderHolder ?: return lookupId
+        val from = repairedOrigin ?: return lookupId
+        val to = repairedDestination ?: return lookupId
+        holder.inFlight.incrementAndGet()
+        val job = computeScope.launch { runComputation(lookupId, computation, holder, from, to) }
+        // The job is published before its handler is registered, so a lookup that ends in the instant
+        // between the two is still removed rather than left as a stale entry — the handler fires at once on
+        // an already-completed job.
+        jobs[lookupId] = job
+        // Disposal: the shared build is not a child of the lookup job, so cancelling the job alone would let
+        // it run on unattended. The completion handler removes the job's own entry — a finished lookup must
+        // not be remembered — drops the arm's in-flight count and, once the arm's last lookup — success or
+        // cancel — has ended, cancels the build the rungs shared. The read runs off the suspending lane and
+        // cannot take the holder's lock; the field's `@Volatile` only keeps that read from going stale, and
+        // on the shipped path [inFlight]'s atomic already orders the last completer's read (D34).
+        job.invokeOnCompletion {
+            jobs.remove(lookupId)
+            if (holder.inFlight.decrementAndGet() == 0) holder.deferred?.cancel()
+        }
         return lookupId
     }
 
@@ -285,16 +329,25 @@ class RouteAvoidEngine(
     /**
      * **One lookup, run on the engine's own lane.** The main computation publishes its stage pair and
      * the settled result; a candidate publishes only its terminal update, the panel's stage line
-     * narrating the main's build alone.
+     * narrating the main's build alone. The [holder] and the [from]/[to] pair are the ones captured when the
+     * lookup was declared, so a rung always runs the arm it was asked for.
+     *
+     * **A failed build is answered, a cancel is not (D36).** A non-cancellation exception inside the arm's
+     * one build fails the shared `Deferred`, which every awaiting rung rethrows from `await()`; without a
+     * handler no rung would ever reach its terminal, so the mode would wait out its own timeout rather than
+     * being told. The lookup therefore catches such a failure and answers the same [RouteReason.NO_PATH]
+     * surface an unanswered search shows — the failure is deliberately **conflated** with a search that found
+     * nothing, because this fix introduces no new reason and no new user-visible text. A
+     * [CancellationException] is rethrown untouched: the seam says no update may arrive after a cancel, so an
+     * abandoned lookup stays silent.
      */
     private suspend fun runComputation(
         lookupId: RouteId,
-        computation: Computation?,
-        holder: LadderGridHolder
+        computation: Computation,
+        holder: LadderGridHolder,
+        from: RoutePoint,
+        to: RoutePoint
     ) {
-        if (computation == null) return
-        val from = repairedOrigin ?: return
-        val to = repairedDestination ?: return
         val world = worldProvider()
         passIndex = 0
         // Only the first rung narrates the panel's stage line; the others publish their terminal answer
@@ -321,6 +374,19 @@ class RouteAvoidEngine(
                 if (rung == null) RouteReason.NO_PATH else null,
                 best
             )
+        } catch (cancelled: CancellationException) {
+            // A cancel must stay silent — the seam says no update may arrive after one — so it is
+            // rethrown rather than answered. The handler is ordered before the general one below because
+            // a CancellationException is itself an Exception.
+            throw cancelled
+        } catch (failure: Exception) {
+            // A failed build has no line to answer with, but the caller must still be told (D36): the rung
+            // answers the same [RouteReason.NO_PATH] surface an unanswered search shows, so the mode is
+            // released rather than left to time out. The conflation is stated in the KDoc; no new reason
+            // and no new user-visible text is added. `emitTerminal`'s own `DONE` line is the device's
+            // record of the terminal — the cause is not re-traced here, so a broken sink cannot swallow
+            // the answer by throwing a second time.
+            emitTerminal(lookupId, null, RouteReason.NO_PATH)
         } finally {
             if (narrates) {
                 mainLookupId = null
@@ -345,10 +411,16 @@ class RouteAvoidEngine(
         to: RoutePoint
     ): Deferred<GridContext?> = holder.lock.withLock {
         holder.deferred?.let { return@withLock it }
-        val deferred = computeScope.async {
+        // The deferred is published before the build can run (D33): created `LAZY`, assigned to the holder
+        // under the lock, and only then started, so no reader — the disposal included — can ever see a
+        // build beside a null field. The assignment happens-before `start()`, and `start()` before any
+        // body execution, so a build that exists implies a published deferred; the await stays outside the
+        // lock, so the rungs single-flight only the start and then run over the one build concurrently.
+        val deferred = computeScope.async(start = CoroutineStart.LAZY) {
             gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), seatTrace)
         }
         holder.deferred = deferred
+        deferred.start()
         deferred
     }
 
@@ -815,14 +887,28 @@ private data class Rung(
  * **One arm's shared-grid single-flight** — the [Mutex] guarding the build and the [Deferred] the first
  * rung publishes. The ladder's three rungs share one holder per arm: the first to enter [lock] starts
  * the rasterise and stores [deferred]; the rest find it under the same lock and await that one build,
- * so no rung ever starts a build of its own.
+ * so no rung ever starts a build of its own. [inFlight] counts the arm's live lookups so the shared build
+ * is disposed once the last of them ends rather than outliving its rungs.
  */
 private class LadderGridHolder {
     /** Guards the check-build-publish, so exactly one rung starts the arm's rasterise. */
     val lock = Mutex()
 
-    /** The one build this arm shares — written once, under [lock]. */
+    /**
+     * The one build this arm shares — written once, under [lock]. `@Volatile` only so a reader off the
+     * suspending lane that cannot take [lock] sees the latest write rather than a stale one; it orders
+     * nothing on the shipped path, where [inFlight]'s atomic already orders the last completer's read, so
+     * it removes staleness for a non-last reader and no more (D34).
+     */
+    @Volatile
     var deferred: Deferred<GridContext?>? = null
+
+    /**
+     * The arm's lookups still in flight — incremented as each is launched and decremented by that job's own
+     * completion, so the shared build is cancelled exactly when the arm's last lookup has ended and never
+     * while a sibling still awaits it.
+     */
+    val inFlight = AtomicInteger(0)
 }
 
 

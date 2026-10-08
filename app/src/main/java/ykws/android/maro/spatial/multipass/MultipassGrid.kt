@@ -94,11 +94,11 @@ class MultipassGrid(
      * built without a cost would read as free water and quietly break the shortest-path guarantee the whole
      * field rests on.
      */
-    private val sourceCostSec = DoubleArray(rows * cols) { baseCostSec }
+    private val cellSourceCostSec = DoubleArray(rows * cols) { baseCostSec }
 
     /**
      * The speed zone's **interior limit** (kn) standing on each cell, 0.0 where none does, kept apart
-     * from [sourceCostSec]'s own value so overlapping zones keep the **strictest** limit rather than
+     * from [cellSourceCostSec]'s own value so overlapping zones keep the **strictest** limit rather than
      * summing — and so the A\* can price it, per expansion, however the engine says a slow cell costs.
      */
     private val zoneLimitKn = DoubleArray(rows * cols)
@@ -198,7 +198,7 @@ class MultipassGrid(
     fun passable(row: Int, col: Int): Boolean = cellState[index(row, col)] != LAND_ORDINAL
 
     /** The **source cost** (s) the cell carries — its base plus the field's own added prices. */
-    fun sourceCostSec(row: Int, col: Int): Double = sourceCostSec[index(row, col)]
+    fun sourceCostSec(row: Int, col: Int): Double = cellSourceCostSec[index(row, col)]
 
     fun center(row: Int, col: Int): LatLng =
         LatLng(
@@ -271,7 +271,7 @@ class MultipassGrid(
         val i = index(row, col)
         if (cellState[i] == LAND_ORDINAL) return
         if (tag.ordinal > cellState[i].toInt()) cellState[i] = tag.ordinal.toByte()
-        sourceCostSec[i] += extraSec
+        cellSourceCostSec[i] += extraSec
     }
 
     /** The cell a point falls in, clamped to the grid edge so an end outside the box still anchors. */
@@ -288,7 +288,7 @@ class MultipassGrid(
         val (row, col) = cellOf(latitude, longitude)
         val i = index(row, col)
         cellState[i] = FREE_ORDINAL
-        sourceCostSec[i] = baseCostSec
+        cellSourceCostSec[i] = baseCostSec
         zoneLimitKn[i] = 0.0
         collarLimitKn[i] = 0.0
         bandLimitKn[i] = 0.0
@@ -308,7 +308,7 @@ class MultipassGrid(
     fun openCarve(row: Int, col: Int) {
         val i = index(row, col)
         cellState[i] = FREE_ORDINAL
-        sourceCostSec[i] = baseCostSec
+        cellSourceCostSec[i] = baseCostSec
     }
 
     /**
@@ -323,7 +323,7 @@ class MultipassGrid(
     fun blockedCopy(paceKn: Double): MultipassGrid {
         val copy = MultipassGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
         cellState.copyInto(copy.cellState)
-        sourceCostSec.copyInto(copy.sourceCostSec)
+        cellSourceCostSec.copyInto(copy.cellSourceCostSec)
         zoneLimitKn.copyInto(copy.zoneLimitKn)
         collarLimitKn.copyInto(copy.collarLimitKn)
         bandLimitKn.copyInto(copy.bandLimitKn)
@@ -528,8 +528,10 @@ private fun rasterizeFrame(
     // 7. The layer's own membership, where the plan answered a collar union: a cell outside every collar
     //    is painted land, so the fine raster keeps the collars and nothing else. The coast bands are the
     //    margin's own sweep at each band's upper edge, so the collars and the land agree about the coast.
-    //    The depth collar's scan and the band's below share one seat, so the two depth passes pay the
-    //    radial ring scan once between them rather than twice.
+    //    The depth collar's scan and the band's below share one seat, so a **depth-collar member** — a cell
+    //    the collar itself scanned — pays the radial ring scan once for both passes rather than twice. The
+    //    sharing is the depth-collar members' own: a cell the coast band or the zone rim already kept is
+    //    skipped by the collar, so the band scans such a cell on its own.
     val depthProbe = fineMask?.depthBlockedAt ?: depthBand?.blockedAt
     val depthStepM = fineMask?.depthStepM?.takeIf { it > 0.0 } ?: depthBand?.stepM?.takeIf { it > 0.0 }
     val collarM = if (fineMask != null) fineMask.depthCollarM else 0.0
@@ -548,7 +550,7 @@ private fun rasterizeFrame(
     // 8. The depth price band, where the plan prices the shallow wall: a λ-free coefficient per cell,
     //    written from the very law the pull's guard reads, so the search and the guard price one point
     //    identically.
-    if (depthBand != null && depthBand.bandM > 0.0) {
+    if (depthBand != null && depthBand.bandM > 0.0 && wallScan != null) {
         writeDepthBand(grid, depthBand, wallScan)
     }
 
@@ -577,7 +579,7 @@ private fun applyFineMask(
     mask: FineMask,
     mPerDegLat: Double,
     mPerDegLon: Double,
-    wallScan: DepthWallScan? = null
+    wallScan: DepthWallScan?
 ) {
     val member = BooleanArray(grid.rows * grid.cols)
     // The coast bands: the nearest distance to any harvested segment, then the band test on that read.
@@ -621,7 +623,10 @@ private fun applyFineMask(
     // blocked cells are collected once and a cell the bound puts provably beyond the collar skips the scan.
     val probe = mask.depthBlockedAt
     if (mask.depthCollarM > 0.0 && probe != null && mask.depthStepM > 0.0) {
-        val wall = wallScan ?: DepthWallScan(grid, probe, mask.depthStepM, mask.depthCollarM)
+        // The shared scan is the caller's own: a depth collar is applied only by the build that stood the
+        // scan up for it, so a fallback scan built here at the narrower radius would be dead code. The
+        // `requireNotNull` states that contract rather than hiding a missing scan behind a second one.
+        val wall = requireNotNull(wallScan) { "a depth collar is applied only with its shared wall scan" }
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 val i = grid.index(r, c)
@@ -651,19 +656,21 @@ private fun applyFineMask(
  * answer whenever the collar's radius covers the band's. A cell the bound puts provably beyond the band
  * answers `0.0` with no scan at all — [DepthBandLaw.coefFor] writing the very value [DepthBandLaw.coefAt]
  * would.
+ *
+ * The scan is reused **directly**: `fineMask.depthStepM` and `depthBand.stepM` are both
+ * [DepthBandLaw.stepM] of the fine cell, so the shared scan's step is always the band's own and there is
+ * no fallback of the band's to reach. The reuse also trusts the shared scan's **probe** — it was built
+ * from the gate's wall test, the very predicate [DepthBand.blockedAt] carries, so a matching step implies
+ * matching answers and the band's reads stay bit-identical. A future caller whose band probe were a
+ * **different** wall must stand up its own scan rather than reuse one taken against another.
  */
-private fun writeDepthBand(grid: MultipassGrid, band: DepthBand, wallScan: DepthWallScan?) {
-    val shared = wallScan?.takeIf { it.stepM == band.stepM }
+private fun writeDepthBand(grid: MultipassGrid, band: DepthBand, wallScan: DepthWallScan) {
     for (r in 0 until grid.rows) {
         for (c in 0 until grid.cols) {
             if (!grid.passable(r, c)) continue
-            val distance = if (shared == null) {
-                DepthBandLaw.wallDistanceM(grid.center(r, c), band.blockedAt, band.stepM, band.bandM)
-            } else {
-                val i = grid.index(r, c)
-                if (!shared.nearBlocked(i, band.bandM)) continue
-                shared.wallDistanceM(i, grid.center(r, c), band.bandM)
-            }
+            val i = grid.index(r, c)
+            if (!wallScan.nearBlocked(i, band.bandM)) continue
+            val distance = wallScan.wallDistanceM(i, grid.center(r, c), band.bandM)
             val coef = DepthBandLaw.coefFor(distance, band.bandM)
             if (coef > 0.0) grid.applyDepthPriceCoef(r, c, coef)
         }
@@ -724,6 +731,12 @@ private class DepthWallScan(
      * beyond it — the very value a fresh scan at [radiusM] would answer.
      */
     fun wallDistanceM(index: Int, centre: LatLng, radiusM: Double): Double {
+        // The scan runs once at the one widest radius, so a reader asking wider would get an answer that is
+        // not the fresh-scan one it expects; the value-identity this seat rests on is stated rather than left
+        // to the caller's `maxOf`.
+        require(radiusM <= maxRadiusM + 1e-9) {
+            "a reader asks the shared wall scan no wider than the radius it was built at"
+        }
         if (distanceM[index].isNaN()) {
             distanceM[index] = DepthBandLaw.wallDistanceM(centre, probe, stepM, maxRadiusM)
         }

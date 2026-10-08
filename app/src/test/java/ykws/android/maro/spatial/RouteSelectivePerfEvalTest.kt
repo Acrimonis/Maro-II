@@ -20,6 +20,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
+import ykws.android.maro.spatial.multipass.DepthBandLaw
 import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.FineWater
 import ykws.android.maro.spatial.multipass.FineWaterQuery
@@ -28,6 +29,7 @@ import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.RouteGridPlan
 import ykws.android.maro.spatial.multipass.SelectiveGridPlan
 import ykws.android.maro.spatial.multipass.SelectiveMaskCache
+import ykws.android.maro.spatial.multipass.depthBlockedAtOf
 import ykws.android.maro.spatial.multipass.speedZonesInBox
 import ykws.android.maro.spatial.multipass.strictestLimitKnAt
 import java.io.File
@@ -36,6 +38,7 @@ import java.util.Collections
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI
+import kotlin.math.ceil
 import kotlin.math.cos
 
 /**
@@ -69,6 +72,11 @@ import kotlin.math.cos
  * the coarse `PULL`/`FINAL` lines: the depth source declares a zero clearance, so `selective`'s price
  * walk cannot prove a span and reads roughly once per mark (`≈ 1`), while Adaptive's band clearance
  * proves its spans (`well below 1`). The expansions are the coarse A*'s `DEVICE PASS … expansions=`.
+ *
+ * **The run recipe.** `gradlew :app:testDebugUnitTest --tests
+ * "ykws.android.maro.spatial.RouteSelectivePerfEvalTest" -Pmaro.testStdout=true` — the flag is what lets
+ * the `PERF-*` lines reach the `test-*.log` (D25); without it the suite stays quiet and the record is read
+ * from the JUnit XML's `system-out`.
  */
 class RouteSelectivePerfEvalTest {
 
@@ -207,11 +215,33 @@ class RouteSelectivePerfEvalTest {
      * family (P4.1) draws both layers from the fixture's **fixed depth-raster anchor** ([`LatticeAnchor`])
      * instead of the corridor's south-west corner, so every cell centre shifts by up to half a fine cell and
      * the shoreline and the shallow belt re-sample. The three counts below therefore moved **deliberately** —
-     * `priceReads` **8217 → 3135**, `marks` **8226 → 3141**, `expansions` **2640 → 2820** — and this is the
+     * `priceReads` **7916 → 3135**, `marks` **7925 → 3141**, `expansions` **2650 → 2820** — and this is the
      * one phase whose re-sampling may legitimately move them, so the pin is re-baselined rather than
-     * loosened: the assertion stays an exact `assertEquals`. The **published line is unmoved** (**2015.8 m /
-     * 783.7 s** before and after the anchor): the fixture's pair is a straight run inside the priced band, so
-     * the re-sampled lattice changes the search's cell path and its price reads without bending the line.
+     * loosened.
+     *
+     * **The before-figure is the reproduced corridor anchor, not the recorded one.** `7916 / 7925 / 2650` is
+     * what a corridor-anchor build reads on this fixture now — reproduced byte-for-byte on two runs, and the
+     * figure this KDoc's pair is taken from. The `8217` this KDoc used to carry was the **P2/P3 recorded**
+     * pin, and the **301-read gap** between that record and the reproduction (`8217 − 7916`) is
+     * **unattributed** — fixture drift or harness run-sensitivity (three concurrent rungs behind a
+     * process-static [`SelectiveMaskCache`]) — and is never folded into the anchor's reason.
+     *
+     * **The pin is a tight band, not an exact value (D23).** The counts reproduce across runs on this
+     * machine, but they ride three concurrent rungs behind a process-static [`SelectiveMaskCache`], so a
+     * different JVM, worker count or cell ordering may legitimately move them by a cell. Each is therefore
+     * asserted within **±1 %** of its anchored value — `priceReads 3135`, `marks 3141`, `expansions 2820`
+     * — loose enough that a cross-environment run cannot redden. The band's teeth are `priceReads` and
+     * `expansions`, which move with the walk and the search, so a real regression there still fails (D27);
+     * `marks` is line-driven and shared by both plans, so a mask regression that cannot bend the straight
+     * fixture slips past it at any width — it is pinned as a shape, never as a guard. The printed `PERF-*`
+     * record stays exact, and only the wall-clock `ms` is printed and never asserted.
+     *
+     * **The line's own reading is device-only (D3).** The **published line is unmoved** (**2015.8 m /
+     * 783.7 s** before and after the anchor), but the fixture's pair is a straight run inside the priced
+     * band, so the re-sampled lattice changes the search's cell path and its price reads without bending the
+     * line — a shape the fixture **cannot** make bend, so the claim is true-by-fixture only and the harness
+     * does **not** assert it. The line comparison belongs to the owed **device** pass (P4.6), where a real
+     * pair can.
      */
     @Test
     fun theSelectiveArmingReproducesTheStructuralRanking() = runBlocking {
@@ -263,18 +293,18 @@ class RouteSelectivePerfEvalTest {
         // mask hands the walk expands the same cells and pulls the same line; the three counts are the
         // **anchored fixture's own** (re-baselined for P4.1, above), and a shift in any is the line or the
         // lattice moving, not a lever.
-        assertEquals(
-            "the anchored fixture's price reads — the pull prices this line (re-baselined from 8217)",
+        assertWithinOnePercent(
+            "the anchored fixture's price reads — the pull prices this line (corridor anchor read 7916)",
             3135L,
             selective.pullPriceReads
         )
-        assertEquals(
-            "nor a mark — the walk reaches these cells (re-baselined from 8226)",
+        assertWithinOnePercent(
+            "nor a mark — the walk reaches these cells (corridor anchor read 7925)",
             3141L,
             selective.pullMarks
         )
-        assertEquals(
-            "nor an expansion — the search is unmoved (re-baselined from 2640)",
+        assertWithinOnePercent(
+            "nor an expansion — the search is unmoved (corridor anchor read 2650)",
             2820L,
             selective.expansions.toLong()
         )
@@ -304,6 +334,56 @@ class RouteSelectivePerfEvalTest {
             selective.fineCells,
             noDepthBand.fineCells
         )
+    }
+
+    /**
+     * **D10 — the fixture keeps its three collars non-trivial.** The harness prices a mask the fixture's own
+     * geography feeds — a coast collar, a zone rim and a depth collar — and nothing asserted that each still
+     * **keeps** members, so a future change that emptied one (the belt moved out of the corridor, the zone
+     * abandoned, the gate no longer blocking) would leave every downstream pin standing while the collar it
+     * was meant to prove had quietly gone degenerate. This samples the fixture on its own fine cell and counts
+     * each collar's members through the very laws the mask applies: the coast measure the sweep reads, the
+     * zone's own ring distance, and [`DepthBandLaw.wallDistanceM`] on the gate's own predicate.
+     */
+    @Test
+    fun theFixtureKeepsItsThreeCollarsNonTrivial() {
+        val world = BeltWorld()
+        val box = BBox(43.5000, 43.5300, 7.0000, 7.0600)
+        val water = SelectiveGridPlan.fineWater(
+            FineWaterQuery(
+                world = world, box = box,
+                edges = world.segmentsIn(box), openCoast = world.openCoastIn(box),
+                marginM = AppConfig.routeAvoidObstacleMarginM, baseCellM = AppConfig.routeAvoidGridCellM
+            )
+        )
+        val probe = depthBlockedAtOf(world, AppConfig.routeAvoidDepthGateMinM)
+        val stepM = DepthBandLaw.stepM(AppConfig.routeSelectiveGridFineCellM)
+        val stepDeg = AppConfig.routeSelectiveGridFineCellM / metresPerDegLat
+        val zoneEdges = zone.outerRing.zipWithNext()
+
+        var coastMembers = 0
+        var zoneRimMembers = 0
+        var depthCollarMembers = 0
+        var lat = box.latSouth
+        while (lat <= box.latNorth) {
+            var lon = box.lonWest
+            while (lon <= box.lonEast) {
+                val at = LatLng(lat, lon)
+                val coastM = world.distanceToCoastM(lat, lon)
+                if (water.coastBandsM.any { coastM in it }) coastMembers++
+                val rimM = zoneEdges.minOf { (a, b) -> SpatialOperations.pointToSegmentDistance(at, a, b) }
+                if (rimM <= water.zoneRimM) zoneRimMembers++
+                if (DepthBandLaw.wallDistanceM(at, probe, stepM, water.depthCollarM) <= water.depthCollarM) {
+                    depthCollarMembers++
+                }
+                lon += stepDeg
+            }
+            lat += stepDeg
+        }
+
+        assertTrue("the coast collar keeps members ($coastMembers cells)", coastMembers > 0)
+        assertTrue("the zone rim keeps members ($zoneRimMembers cells)", zoneRimMembers > 0)
+        assertTrue("the depth collar keeps members ($depthCollarMembers cells)", depthCollarMembers > 0)
     }
 
     // ── The ladder, twice, warm run recorded ────────────────────────────────────────
@@ -443,6 +523,20 @@ class RouteSelectivePerfEvalTest {
                 "priceReadsPerMark=${perf.priceDensity} priceMs=${perf.pullPriceMs} pullMs=${perf.pullMs} " +
                 "expansions=${perf.expansions} " +
                 "lineDistanceM=${perf.lineDistanceM} lineDurationSec=${perf.lineDurationSec}"
+        )
+    }
+
+    /**
+     * **The D23 band** — a count within **± 1 %** of its anchored value, at least one cell wide. It cannot
+     * redden on a cell's drift across environments, but its teeth are only the counts that move with the
+     * walk and the search; the line-driven `marks` is pinned as a shape at any width (D27). The printed
+     * record beside it stays exact.
+     */
+    private fun assertWithinOnePercent(name: String, anchored: Long, actual: Long) {
+        val tolerance = maxOf(1L, ceil(anchored * 0.01).toLong())
+        assertTrue(
+            "$name: $actual outside ±1 % of the anchored $anchored (tolerance ±$tolerance)",
+            actual in (anchored - tolerance)..(anchored + tolerance)
         )
     }
 

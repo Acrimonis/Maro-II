@@ -20,8 +20,8 @@ private const val FIELD_SIGN_EXTEND = 0x1_00_0000
  * The tolerance a point→cell read adds before its `floor`, in **cell units**. A fixed anchor's cell lines
  * are reached by adding an integer multiple of the cell size to the anchor, and that round trip leaves the
  * ratio a hair below its integer; the addend recovers the line the point stands on rather than the cell
- * below it. It is far below any real offset — a ten-thousandth of a millimetre at a 20 m cell — so it
- * moves no honest read.
+ * below it. It is far below any real offset — one billionth of a cell, about `2×10⁻⁸ m` (a few tens of
+ * nanometres) at a 20 m cell — so it moves no honest read.
  */
 private const val LATTICE_SNAP_EPS = 1e-9
 
@@ -115,10 +115,13 @@ internal class WalkLattice(
 
 /**
  * **The fixed anchor the walk lattices are drawn from** — the south-west corner the family's grid lines pass
- * through, and the latitude its metre→degree pair is derived at. It is read from the world (the depth
- * raster's own region), **never from the corridor**, so the same water carries the same lattice indices on
- * every arm and the fine layer can later be cached tile by tile. Both of [`LatticeFamily`]'s lattices share
- * the one anchor, because the seam's exact `1 : ratio` nesting is arithmetic on that single origin.
+ * through, and the latitude its metre→degree pair is derived at. Where the world names a depth raster it is
+ * read from that raster's own region, so the same water carries the same lattice indices on every arm and
+ * the fine layer can later be cached tile by tile. A world naming no raster falls back to [wholeDegree]: the
+ * **whole degree** at or below the corridor's south-west — still one origin per degree cell rather than per
+ * arm, since any two corridors in the same degree share it, but snapping the corridor's own corner is what
+ * the fallback does. Both of [`LatticeFamily`]'s lattices share the one anchor, because the seam's exact
+ * `1 : ratio` nesting is arithmetic on that single origin.
  */
 data class LatticeAnchor(
     val latSouth: Double,
@@ -398,12 +401,18 @@ internal class WalkWindows private constructor(
      * **The walk's own lattice coordinate for a cell of [grid] named locally by `(row, col)`** — the
      * translation a two-layer walk needs because its seeds and its carve arrive in a window's **local**
      * index space while [`slotOf`] reads the family's lattice coordinates. The window that holds [grid]
-     * supplies its offset; a single-window walk, whose slots are the grid's own indices, answers the
-     * coordinate unchanged. The corridor-anchored family made the two coincide (offset zero); a fixed
-     * anchor does not, which is the P4.1 case this exists for.
+     * supplies its offset; a single-window walk holds its grid as window zero, so that offset is zero there
+     * and the coordinate is the grid's own. The corridor-anchored family made the two coincide everywhere; a
+     * fixed anchor does not, which is the P4.1 case this exists for.
+     *
+     * [grid] **must be one of this walk's own windows**: a grid that is not is a caller asking for a
+     * coordinate this walk cannot name, and answering the local index unchanged would hand back a wrong
+     * coordinate silently, so a non-window grid is rejected rather than answered.
      */
     fun latticeCell(grid: MultipassGrid, row: Int, col: Int): CellIndex {
-        val window = windows.firstOrNull { it.grid === grid } ?: return CellIndex(row, col)
+        val window = requireNotNull(windows.firstOrNull { it.grid === grid }) {
+            "latticeCell wants a cell of a grid this walk holds as a window"
+        }
         return CellIndex(row + window.rowOffset, col + window.colOffset, window.layer)
     }
 
