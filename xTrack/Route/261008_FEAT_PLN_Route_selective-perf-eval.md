@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the selective engine's acquisition cost: assessment and evaluation plan
 
-**Date:** 2026-10-08 · **Status:** in design — P0–P4.2 landed (the harness, the single-flight build, the cheapened depth reads, the flat cell, the anchored lattice, the anchored tile-keyed fine layer), D16 · D18 · D19 · D38 · D39 cleared on 2026-10-08 and their four review loose ends closed the same day, **D17 cleared with P4.2** (its design in the tile doc), P4.3–P5 open, the device passes owed · **Order:** the user's word of 2026-10-08, `#focus route` beside `#new route-algo-selective-eval`, opened to evaluate why the selective acquisition costs more than the adaptive one · **Branch:** `feature/route-algo-selective-eval` cut from `d41b4569`.
+**Date:** 2026-10-08 · **Status:** implemented — P0–P4.5 landed (the harness, the single-flight build, the cheapened depth reads, the flat cell, the anchored lattice, the anchored tile-keyed fine layer, the carve's note) with **D17 settled and D1–D62 cleared or accepted** and the reviews' **D63–D71** logged; **P4.5's carve closed as the tile doc's §4 note and P5's record folded 2026-10-08**, only the tile-layer device pass owed · **Order:** the user's word of 2026-10-08, `#focus route` beside `#new route-algo-selective-eval`, opened to evaluate why the selective acquisition costs more than the adaptive one · **Branch:** `feature/route-algo-selective-eval` cut from `d41b4569`.
 
 ## 1. The claim, and what is missing
 
@@ -207,6 +207,8 @@ Ordered so that every phase is judged on a measurement the one before it made po
 
 **P5 — The record.** Fold the outcome into [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md), the feature state and the parked perf todo, and close this plan's pointer.
 
+**P5 — landed 2026-10-08.** The tile layer is folded into [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) (a fine-tiles bullet, the carve's own line on the Ends step, and the `TILE built` reading), the feature state carries its tile bullet and the two Docs markers, and this plan's status and pointer are closed; the parked perf todo was refreshed by the same day's bake. The plan's own pointer now reads (implemented), with only the tile-layer device pass owed.
+
 ## 10. Debts carried out of P0–P4.2
 
 Every non-blocking finding the phase reviews recorded, each with the fix it needs, ordered so the evidence debts clear first, the correctness nits next, the wording after that, and the four P4.2 prerequisites last. **Citations are as the corpus stood when each entry was written** — it moved under them (`LatticeFamily.of(anchor, …)` reads `:166` here against its `:175`, and `WalkWindows.latticeCell` is cited at both `:357` and `:412`), so a forward entry's site is re-read before it is trusted.
@@ -326,7 +328,29 @@ Every non-blocking finding the phase reviews recorded, each with the fix it need
 - **D70 · The harness repeats one fact in three places (low).** "ms printed and never asserted" appears at [`RouteSelectivePerfEvalTest.kt:209`](app/src/test/java/ykws/android/maro/spatial/RouteSelectivePerfEvalTest.kt:209), again at [:243](app/src/test/java/ykws/android/maro/spatial/RouteSelectivePerfEvalTest.kt:243) and once more at the assertion site [:303](app/src/test/java/ykws/android/maro/spatial/RouteSelectivePerfEvalTest.kt:303). Fix: state it once.
 - **D71 · D57's ledger wording differs from the test (low).** §10 asked for a test "at both tile offsets"; [`FineTileExtractTest`](app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt:34) drives two **raster** sizes, which is adequate because the block read never reads `tileRow`/`tileCol`. Fix: align the wording.
 
+**Findings from the P4.5–P5 review (Ask hop), 2026-10-08 — no blocker, twelve findings.** The hop walked every carve site and confirmed the boundary is true in code — neither the single-grid nor the two-layer carve writes to a `FineTile`, no grid aliases a tile's arrays, and the fold is faithful where it matters. Seven are closed or informational; three stand as health:
+
+- **F1 · The reuse count cannot catch a leak — closed.** A carve that mutated a cached tile in place would still leave it cached, so the warm arm's `tileBuilds=0` would never redden; the pin is the guard, and its KDoc now says exactly that.
+- **F2 · The pin covered one array of seven — closed.** [`writeIntoCopiesMembersWithoutTouchingTheTile`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt:80) now snapshots member 0 across all seven arrays (the state byte, the cost, the four limits and the coefficient) and asserts them unchanged after a deliberately unlike write on the arm's grid.
+- **F3 · The pin has teeth and aims correctly — confirmed.** A full alias would carry the arm's write into the tile's array and redden; member 0 is provably the south-west inner cell.
+- **F4 · The parked perf todo contradicted the plan — closed.** [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md:162)'s Owed list now names the tile-layer device pass alone.
+- **F5 · The tile-doc marker misstated the carve — closed.** It now reads "the carve (P4.5) closed as §4's own note".
+- **F6 · The tile doc split on the carve — closed.** Its intro and §6 lines now agree with its header that the carve is closed.
+- **F7 · The readings section propagated D64 — closed.** [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) now names `TILE built` a build **attempt** traced at the miss, so a throwing build is still logged as built.
+- **F8 · The hit-rate story has no reader (low, standing).** `hitRate`/`size`/`heldBytes` have no production reader — no trace line surfaces them — and neither the engines doc nor the feature state carries the reading; the tile doc's "tuned on a number rather than a guess" is therefore unfulfilled. Fix: surface it (D65's fold would do it), or narrow the claim.
+- **F9 · The carve rationale has many homes (low, standing).** The "the carve lands on the assembled grid, never a tile" fact now stands in the tile doc's §4/§5/§6, [`FineTile`](../../app/src/main/java/ykws/android/maro/spatial/multipass/FineTile.kt:20)'s two KDocs, the engines doc twice, the plan and the feature state — D40's one-home rule bent wider than before. Fix: trim to one home and point.
+- **F10 · Marking (implemented) with a device pass owed is honest — confirmed.** Under R97 a device pass is evidence, not a landing precondition; the residual is that P4.6's "same line across arms" stays device-only by D3.
+- **F11 · "every value rasterisation reads" is asserted, not proven (low, standing).** The engines doc and [`TileKey`](../../app/src/main/java/ykws/android/maro/spatial/multipass/TileKey.kt:4)'s KDoc state completeness absolutely, while the tile doc's own risk admits the `rasterizeFrame` audit is unfinished. Fix: make the two claims agree.
+- **F12 · No new test-only door — confirmed.** P4.5 is a doc note and P5 is docs, so the batch adds no production code.
+
 ## Implemented
+
+**Shipped 2026-10-08, the `#implement` pipeline — P4.5's carve note and P5's record; no working path moved, no new dependency:**
+
+- **P4.5 — the carve, closed as a note.** The carve already lands on the per-arm assembled window grid — [`writeInto`](../../app/src/main/java/ykws/android/maro/spatial/multipass/FineTile.kt:78) fills it by **copying** each tile's members, never aliasing them — so the arm's `forceFree`, `openEndDisc` and `openCarve` writes touch its own copy and no tile. The plan's alternative, a per-arm freed-set the search and the pull consult at read time, is therefore **not owed**; the boundary is stated in [`261008_FEAT_PLN_Route_anchored-tiles.md`](261008_FEAT_PLN_Route_anchored-tiles.md) §4 and pinned by [`writeIntoCopiesMembersWithoutTouchingTheTile`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt:71).
+- **P5 — the record.** The fine layer's tiles are folded into [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) — a tiles bullet beside the lattice and the search, the carve's own line on the Ends step, and the `TILE built` reading — and into the feature state's tile bullet; this plan's status and the two Docs markers now read (implemented), with only the tile-layer device pass owed.
+
+Green: `apk-build.bat`; full `testDebugUnitTest`.
 
 **Shipped 2026-10-08, the ten-fix batch — D53–D62 cleared, no working path moved, no harness count changed, no new dependency:**
 

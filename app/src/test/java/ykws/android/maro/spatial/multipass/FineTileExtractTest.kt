@@ -68,4 +68,43 @@ class FineTileExtractTest {
             refused != null && refused.message.orEmpty().contains("tileCells")
         )
     }
+
+    /**
+     * **The boundary the carve rests on (P4.5) — and the only guard for it.** A shared tile is immutable,
+     * so the arm's berth carve — `forceFree`, `openEndDisc`, `openCarve` — may only write to the
+     * **assembled window grid**, which [`FineTile.writeInto`] fills by **copying** each member. This pins
+     * copy-not-alias **across all seven arrays**: a distinct write on the arm's own grid must leave every
+     * one of the tile's primitives at member 0 untouched. (The carried cross-arm reuse count cannot catch a
+     * leak — a mutated tile stays cached, so the warm arm still logs no miss — which is why the pin is the
+     * guard and its claim is exactly this: no write reaches the tile.)
+     */
+    @Test
+    fun writeIntoCopiesMembersWithoutTouchingTheTile() {
+        val grid = raster(tileCells)
+        val tile = FineTile.extract(grid, tileRow = 0, tileCol = 0, tileCells = tileCells, haloCells = halo)
+        val armGrid = MultipassGrid(
+            latSouth = grid.latSouth, lonWest = grid.lonWest,
+            cellSizeDegLat = grid.cellSizeDegLat, cellSizeDegLon = grid.cellSizeDegLon,
+            rows = tileCells, cols = tileCells, cellM = grid.cellM, baseCostSec = grid.baseCostSec
+        )
+        val before = memberZero(tile)
+
+        tile.writeInto(armGrid, windowRowOffset = 0, windowColOffset = 0)
+        // The carve's own write, aimed at member 0 — which `writeInto` places at the arm grid's (0, 0) —
+        // and deliberately unlike the tile's own values, so an alias on **any** array would show.
+        armGrid.writeMember(0, 0, 1, 99.0, 5.0, 6.0, 7.0, 8.0, 0.5)
+
+        assertEquals("every member was copied into the arm's grid", tileCells * tileCells, tile.memberCount)
+        assertEquals(
+            "and no write on the arm's grid reaches the tile, across all seven arrays",
+            before,
+            memberZero(tile)
+        )
+    }
+
+    /** Member 0's seven stored values, as one comparable snapshot. */
+    private fun memberZero(tile: FineTile): List<Double> = listOf(
+        tile.state[0].toDouble(), tile.sourceCostSec[0], tile.zoneLimitKn[0], tile.collarLimitKn[0],
+        tile.bandLimitKn[0], tile.bandCollarLimitKn[0], tile.depthPriceCoef[0]
+    )
 }

@@ -1,9 +1,9 @@
 <!-- scope: feature -->
 # Route — the anchored, tile-keyed fine layer (P4.2 design + the zone stamp)
 
-**Date:** 2026-10-08 · **Status:** implemented 2026-10-08 — the anchor (P4.1) and this doc's §2–§4 (the zone stamp, the hybrid sparse tile, the tile key, the `FineTileMap`, the routed fine layer and its byte-ceiling/LRU/pin budget) are built; the carve (P4.5) stays deferred; **Order:** split off the sibling plan's P4 block — [`261008_FEAT_PLN_Route_selective-perf-eval.md`](261008_FEAT_PLN_Route_selective-perf-eval.md) §9 — with the tile map as the delivery; **Branch:** `feature/route-algo-selective-eval` cut from `d41b4569`.
+**Date:** 2026-10-08 · **Status:** implemented 2026-10-08 — the anchor (P4.1) and this doc's §2–§4 (the zone stamp, the hybrid sparse tile, the tile key, the `FineTileMap`, the routed fine layer and its byte-ceiling/LRU/pin budget) are built, and the carve (P4.5) is **closed as §4's note** — it lands on the per-arm assembled grid, never a tile; only the device acceptance stays owed; **Order:** split off the sibling plan's P4 block — [`261008_FEAT_PLN_Route_selective-perf-eval.md`](261008_FEAT_PLN_Route_selective-perf-eval.md) §9 — with the tile map as the delivery; **Branch:** `feature/route-algo-selective-eval` cut from `d41b4569`.
 
-This file carries P4.2 forward, and is the tile design's **one home** (D17). The sibling plan keeps the measured evaluation; the anchor's own P4.1 text and every phase that must not move with the tile map stay there. §2–§4 are the shape that shipped on 2026-10-08; only the carve (§5) and the device acceptance (todo 8) remain open.
+This file carries P4.2 forward, and is the tile design's **one home** (D17). The sibling plan keeps the measured evaluation; the anchor's own P4.1 text and every phase that must not move with the tile map stay there. §2–§4 are the shape that shipped on 2026-10-08; the carve (§5) is closed as its own note, and only the device acceptance (todo 8) remains open.
 
 ## 1. The anchor, carried over from P4.1
 
@@ -50,12 +50,12 @@ A tile may be reused across arms, so its key carries everything `rasterizeWindow
 
 - **Lazy and single-flight.** A tile is built on its first request, and concurrent requests for the same key share one build — the [`LadderGridHolder`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) idiom (its own `Mutex` plus the `Deferred`) lifted to a `FineTileMap`: one `TileKey → Deferred<FineTile>` map, the first caller computing inside the lock and publishing, the rest awaiting the same `Deferred`.
 - **Budget.** A byte ceiling with **LRU** eviction sized on the tile's primitive bytes (`tileCells²`-bounded, sparse in practice), and a **pin** so an eviction never drops a tile an in-flight lookup holds. A hit-rate reading rides beside it, so the ceiling and the tile edge are tuned on a number rather than a guess.
-- **The carve is out of the tile.** A shared tile is immutable; the per-arm berth carve and the end discs are per-acquisition writes that a tile must not carry. That boundary is stated here only as a constraint on the tile — the carve's own re-shaping is P4.5 and is a separate run.
+- **The carve is out of the tile — P4.5, closed as a note.** A shared tile is immutable, and the carve lands on the **assembled per-arm window grid** instead: [`writeInto`](../../app/src/main/java/ykws/android/maro/spatial/multipass/FineTile.kt:78) fills that grid by **copying** each tile's members, never by aliasing them, so the arm's `forceFree`, `openEndDisc` and `openCarve` writes touch its own copy and no tile. The plan's alternative — a per-arm freed-set the search and the pull consult at read time — is therefore **not owed**: the assembled grid is already the arm's own writable surface, and the copy costs nothing the assembly was not already paying. The copy-not-alias boundary is pinned by [`writeIntoCopiesMembersWithoutTouchingTheTile`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt:71).
 - **The two caches must not fight.** [`SelectiveMaskCache`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFineWater.kt) sits under this one, holding the plan's pre-snap [`FineWater`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFineWater.kt) law; the tile map holds the post-snap raster. The tile build reads the mask cache's answer rather than re-deriving the collars, so the same water is not built twice.
 
 ## 5. What this does not touch
 
-- **The carve** — P4.5's own note, deferred whole.
+- **The carve** — it lands on the per-arm assembled grid, never a tile (§4's own note, P4.5 closed); the freed-set option is not owed.
 - **The coarse layer** — it stays the per-arm corridor raster; only the fine layer is tiled.
 - **The evaluation** — the sibling plan's §3a measurement and P1–P3's landed levers are untouched; P4.1's harness re-baseline is the first todo below.
 
@@ -66,7 +66,7 @@ A tile may be reused across arms, so its key carries everything `rasterizeWindow
 - **Kotlin idioms, coroutines and `Flow` only** — no raw threads or executors, per `AGENTS.md` §1.
 - **KDocs updated** on every touched declaration, including the new world member and the tile type.
 - **No hardcoded user-facing strings** — none arise here, but the rule stands.
-- **This run's scope** was §2–§4 (the zone stamp, the hybrid tile, the key, the `FineTileMap` and the routed fine layer with its budget) — **all built on 2026-10-08**; §5's carve stays deferred whole, and the device acceptance (todo 8) is the user's.
+- **This run's scope** was §2–§4 (the zone stamp, the hybrid tile, the key, the `FineTileMap` and the routed fine layer with its budget) — **all built on 2026-10-08**; §5's carve is closed as its own note, and the device acceptance (todo 8) is the user's.
 
 ## 7. Todos
 
