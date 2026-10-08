@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -287,16 +288,15 @@ class LatticeFamilyTest {
     /**
      * **The window index is reused across arms of the same shape (D18).** The index `(layer, row, col)` →
      * slot is a pure function of the windows' shape, not their contents, so a second arm whose windows carry
-     * the same shape reuses the first's index instead of re-walking every cell. Pinned by the cache's own
-     * build count: two equal-shape walks build once. Reverted to a per-arm rebuild the count moves to two —
-     * the regression this guards.
+     * the same shape reuses the first's index instead of re-walking every cell. The reuse is pinned by
+     * **instance identity** — two same-shape walks share one index — while a different shape builds its own,
+     * the regression that would give each arm a fresh index showing up as a broken identity.
      */
     @Test
     fun theWindowIndexIsReusedAcrossArmsOfTheSameShape() {
-        WalkIndexCache.clear()
         val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
 
-        fun walk(): WalkWindows {
+        fun walk(fineRows: Int): WalkWindows {
             val coarseGrid = MultipassGrid(
                 family.coarse.latSouth, family.coarse.lonWest,
                 family.coarse.cellSizeDegLat, family.coarse.cellSizeDegLon,
@@ -305,7 +305,7 @@ class LatticeFamilyTest {
             val fineGrid = MultipassGrid(
                 family.fine.latSouth, family.fine.lonWest,
                 family.fine.cellSizeDegLat, family.fine.cellSizeDegLon,
-                10, 10, family.fine.cellM, baseCostSec(family.fine.cellM, 28.0)
+                fineRows, 10, family.fine.cellM, baseCostSec(family.fine.cellM, 28.0)
             )
             return WalkWindows.onLattice(
                 family.layers,
@@ -316,16 +316,12 @@ class LatticeFamilyTest {
             )
         }
 
-        val first = walk()
-        val builtAfterFirst = WalkIndexCache.buildCount
-        val second = walk()
+        val first = walk(10)
+        val second = walk(10)
+        val different = walk(12)
 
-        assertEquals("the first arm builds the index", 1, builtAfterFirst)
-        assertEquals(
-            "an equal-shape arm reuses it rather than rebuilding",
-            builtAfterFirst,
-            WalkIndexCache.buildCount
-        )
-        assertEquals("the reused index answers the same slot count", first.size, second.size)
+        assertTrue("an equal-shape arm reuses the one index instance", first.sharesIndexWith(second))
+        assertFalse("a different shape builds its own and does not share", first.sharesIndexWith(different))
+        assertEquals("and the two same-shape walks answer the same slot count", first.size, second.size)
     }
 }

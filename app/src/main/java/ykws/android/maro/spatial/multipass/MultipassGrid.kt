@@ -200,6 +200,39 @@ class MultipassGrid(
     /** The **source cost** (s) the cell carries — its base plus the field's own added prices. */
     fun sourceCostSec(row: Int, col: Int): Double = cellSourceCostSec[index(row, col)]
 
+    /**
+     * The **stored** tag ordinal of a cell — never raised by a limit, the raw value a sparse tile keeps
+     * verbatim and restores through [writeMember]. [state] answers the *effective* tag derived from the
+     * limits; this answers the byte the rasterizer wrote.
+     */
+    internal fun stateOrdinal(row: Int, col: Int): Byte = cellState[index(row, col)]
+
+    /**
+     * **Writes one sparse member's stored values verbatim** — the tile assembler's own door, deliberately
+     * beside the typed writers rather than among them: a tile holds exactly what the rasterizer wrote, so
+     * its per-arm materialisation *restores* the arrays rather than re-deriving a tag, a limit or a price.
+     */
+    internal fun writeMember(
+        row: Int,
+        col: Int,
+        stateOrdinal: Byte,
+        sourceCostSec: Double,
+        zoneLimitKn: Double,
+        collarLimitKn: Double,
+        bandLimitKn: Double,
+        bandCollarLimitKn: Double,
+        depthPriceCoef: Double
+    ) {
+        val i = index(row, col)
+        cellState[i] = stateOrdinal
+        cellSourceCostSec[i] = sourceCostSec
+        this.zoneLimitKn[i] = zoneLimitKn
+        this.collarLimitKn[i] = collarLimitKn
+        this.bandLimitKn[i] = bandLimitKn
+        this.bandCollarLimitKn[i] = bandCollarLimitKn
+        this.depthPriceCoef[i] = depthPriceCoef
+    }
+
     fun center(row: Int, col: Int): LatLng =
         LatLng(
             latSouth + (row + 0.5) * cellSizeDegLat,
@@ -539,7 +572,7 @@ private fun rasterizeFrame(
     val wallScan = if (depthProbe != null && depthStepM != null && (collarM > 0.0 || bandM > 0.0)) {
         // The scan runs once per cell at the **widest** radius any pass asks — the collar here outranks
         // the band — and each reader clamps that one distance to its own narrower width.
-        DepthWallScan(grid, depthProbe, depthStepM, maxOf(collarM, bandM))
+        DepthWallScan(grid, depthProbe, depthStepM, widestDepthRadiusM(collarM, bandM))
     } else {
         null
     }
@@ -678,6 +711,21 @@ private fun writeDepthBand(grid: MultipassGrid, band: DepthBand, wallScan: Depth
 }
 
 /**
+ * **The depth scan's own bound margin, in fine cells** — the conservative payment [DepthWallScan.nearBlocked]
+ * adds to a reader's width before it may skip the scan. It is stated here, shared, because a tile's raster
+ * halo must **dominate** it: that halo is derived from this constant in `RouteGridBuilder`, so the two can
+ * never drift apart and silently under-size a tile's neighbourhood.
+ */
+internal const val DEPTH_WALL_SCAN_MARGIN_CELLS = 2
+
+/**
+ * **The widest depth radius any pass asks** — the mask's collar or the price band's width, whichever is
+ * wider — the one home for the `max` the shared [DepthWallScan] is built at and a tile's halo is sized on,
+ * so the two cannot compute a different width.
+ */
+internal fun widestDepthRadiusM(collarM: Double, bandM: Double): Double = max(collarM, bandM)
+
+/**
  * **One window's gate-blocked cells, collected once — the two depth passes' shared wall index.**
  *
  * Both depth passes pay [DepthBandLaw]'s radial ring scan, cell by cell: the mask's collar out to the
@@ -693,7 +741,7 @@ private fun writeDepthBand(grid: MultipassGrid, band: DepthBand, wallScan: Depth
  *   band's reads ride the collar's scan rather than repeating it. One `DoubleArray` holds it, `NaN` marking
  *   a cell not yet scanned, where P2 needed a radius array beside it.
  * - [nearBlocked] bounds the scan: a cell whose nearest blocked cell stands farther than the width plus
- *   [MARGIN_CELLS] fine cells holds no blocked **sample** the scan's steps could reach, so the scan is
+ *   [DEPTH_WALL_SCAN_MARGIN_CELLS] fine cells holds no blocked **sample** the scan's steps could reach, so the scan is
  *   skipped and the cell answers the law's "beyond the width" outright. The margin is the conservative
  *   payment for the blocked set being sampled at cell centres while the law samples points on 8 bearings:
  *   it covers a wall at least one fine cell across, which is the finest a wall the gate can resolve on a
@@ -723,7 +771,7 @@ private class DepthWallScan(
 
     /** True where the cell may hold a blocked sample within [widthM] — the bound, never the scan. */
     fun nearBlocked(index: Int, widthM: Double): Boolean =
-        toBlockedM[index] <= widthM + MARGIN_CELLS * grid.cellM
+        toBlockedM[index] <= widthM + DEPTH_WALL_SCAN_MARGIN_CELLS * grid.cellM
 
     /**
      * The law's own [DepthBandLaw.wallDistanceM] at a cell centre, scanned **once** at [maxRadiusM] and
@@ -742,18 +790,6 @@ private class DepthWallScan(
         }
         val distance = distanceM[index]
         return if (distance <= radiusM + 1e-9) distance else Double.MAX_VALUE
-    }
-
-    private companion object {
-        /**
-         * The bound's own margin, in fine cells. It is the conservative payment for sampling the blocked
-         * set at cell centres while the law samples the gate on 8 bearings: a wall edge crossing a cell
-         * leaves a blocked point whose own centre is clear, and its nearest blocked neighbour centre then
-         * stands within one cell plus half a cell across — inside two. A wall thinner than a fine cell is
-         * the one shape it does not cover; the gate's wall is the depth raster's own boundary, never finer
-         * than its raster, so the margin is stated here in the open rather than left to a silent default.
-         */
-        const val MARGIN_CELLS = 2.0
     }
 }
 

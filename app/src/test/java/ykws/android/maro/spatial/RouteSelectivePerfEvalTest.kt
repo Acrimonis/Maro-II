@@ -203,13 +203,19 @@ class RouteSelectivePerfEvalTest {
      * clearance, so its price walk proves no span and reads ≈ once per mark; Adaptive's band clearance
      * proves its spans, so its `priceReads / marks` sits at ≈ 0.5.
      *
-     * **The fine build's cost is now split, and the split is what is pinned.** Each selective-only pass —
-     * the depth collar, the depth-band write, the zone rim — is disabled in turn, so the pass that
-     * carries the build's cost is measured rather than guessed. P2's levers bound exactly that pass, so
-     * the fine build's own ms is the one figure they are meant to move: it is printed and never asserted,
-     * because JVM noise must not fail a correct fixture. What is asserted instead is the **attribution**
-     * (the depth pass carries more than the zone rim) and the **value the bound must leave unmoved** —
-     * the price reads, the marks and the expansions, the line and the search by their own terms.
+     * **The fine build's cost is now split, and the split is reported, not asserted.** Each selective-only
+     * pass — the depth collar, the depth-band write, the zone rim — is disabled in turn, so the pass that
+     * carries the build's cost is measured rather than guessed. P2's levers bound exactly that pass, so the
+     * fine build's own ms is the one figure they are meant to move: it is printed and never asserted, and
+     * neither is the split's **relative** ms (D53) — JVM noise must not fail a correct fixture. What is
+     * asserted instead is the **value the bound must leave unmoved** — the price reads, the marks and the
+     * expansions, the walk's cells under each toggle, and the tile reuse (D54) — never a timing.
+     *
+     * **The fine layer is tiled since P4.2, so the ms readings are split cold/warm.** The first arm of a
+     * fresh engine rasterises the fine tiles — the **cold** reading — and the second serves them from the
+     * [`ykws.android.maro.spatial.multipass.FineTileMap`] and only assembles the windows. The counts and
+     * the line are read from the **warm** run (the tile is the same water, so they are unmoved), while the
+     * attribution uses the **cold** run, where the marking the split is about runs.
      *
      * **The P4.1 re-baseline — why the pinned counts moved, and that they moved on purpose.** The anchored
      * family (P4.1) draws both layers from the fixture's **fixed depth-raster anchor** ([`LatticeAnchor`])
@@ -269,6 +275,18 @@ class RouteSelectivePerfEvalTest {
             evolutive.fineBuilds
         )
 
+        // D54: a second arming reuses the first's cached tiles and marks none anew — the signal the dropped
+        // warm-vs-cold check used to carry, now a **count** of `TILE built` lines rather than a timing.
+        assertEquals(
+            "the warm arm reuses the cold arm's tiles and builds none anew (D54)",
+            0,
+            selective.tileBuilds
+        )
+        assertTrue(
+            "and the cold arm built them in the first place (${selective.coldTileBuilds} tiles)",
+            selective.coldTileBuilds > 0
+        )
+
         assertTrue(
             "selective's price reads are ungrouped, ≈ 1 per mark (measured ${selective.priceDensity})",
             selective.priceDensity >= 0.90
@@ -281,11 +299,10 @@ class RouteSelectivePerfEvalTest {
             "selective's price density exceeds Adaptive's",
             selective.priceDensity > evolutive.priceDensity
         )
-        assertTrue(
-            "selective's fine build still dwarfs Adaptive's " +
-                "(${selective.fineBuildMs} ms against ${evolutive.fineBuildMs} ms)",
-            selective.fineBuildMs > evolutive.fineBuildMs
-        )
+
+        // The ms readings are printed and never asserted (D46) — JVM noise must not fail a correct
+        // fixture — so the cold/warm split is reported by printSplit alone, below. The plan-dependent
+        // structural ranking the harness pins is the price density above and the counts below.
 
         // The bound is conservative under a wall at least a fine cell thick, so the depth collar and the
         // band write leave no cell's membership and no coefficient changed **on the measured fixture** — a
@@ -309,16 +326,11 @@ class RouteSelectivePerfEvalTest {
             selective.expansions.toLong()
         )
 
-        // The split pins the attribution the P2 levers rest on: the depth pass — the collar membership and
-        // the band write — carries the fine build's selective-only cost, and the zone rim carries the rest.
-        val depthPassMs = (selective.fineBuildMs - noDepthCollar.fineBuildMs) +
-            (selective.fineBuildMs - noDepthBand.fineBuildMs)
-        val zoneRimMs = selective.fineBuildMs - noZoneRim.fineBuildMs
-        assertTrue(
-            "the depth pass carries the fine build's selective-only cost: depth ${depthPassMs} ms " +
-                "against the zone rim's ${zoneRimMs} ms",
-            depthPassMs > zoneRimMs
-        )
+        // D53: the split's ms — absolute **or relative** — is printed and never asserted, so JVM noise
+        // cannot fail a correct fixture. The attribution the P2 levers rest on (the depth collar's marking
+        // carrying the selective-only cost, well above the zone rim's) is read from `printSplit`'s own
+        // PERF-SPLIT lines; what is asserted of the split is **structural** — each toggle changes the mask,
+        // never the cut — and the counts above pin the value the bound must leave unmoved.
         assertEquals(
             "the depth-collar toggle changes the mask, never the cut — no fine window cell moves",
             selective.fineCells,
@@ -403,13 +415,24 @@ class RouteSelectivePerfEvalTest {
             plan = plan,
             traceSink = { line -> captured += line }
         )
+        var cold = emptyList<String>()
         var warm = emptyList<String>()
         repeat(2) { run ->
             captured.clear()
             driveLadder(engine)
+            if (run == 0) cold = captured.toList()
             if (run == 1) warm = captured.toList()
         }
+        // Paying the tile map: the first arm builds the tiles, the second serves them, so the cold arm
+        // is the marking work and the warm arm is the assembly. Both are summarised and the counts (the
+        // line's own reads) are read from the warm run, where they are unmoved.
+        val coldPerf = summarize(plan.name, cold)
         return summarize(plan.name, warm)
+            .copy(
+                coldFineBuildMs = coldPerf.fineBuildMs,
+                coldFineCells = coldPerf.fineCells,
+                coldTileBuilds = coldPerf.tileBuilds
+            )
     }
 
     /**
@@ -457,7 +480,20 @@ class RouteSelectivePerfEvalTest {
         val lineDistanceM: Double,
         /** That same line's clocked duration (s). */
         val lineDurationSec: Double,
-        val record: List<String>
+        val record: List<String>,
+        /**
+         * The **first** arm's fine build (ms) — a fresh engine, so the tile map holds nothing and the
+         * reading is the marking work itself, the pre-P4 figure the split is measured on. The warm run
+         * above serves cached tiles, so its fine build is the assembly alone and is not comparable with
+         * the pre-P4 split's own.
+         */
+        val coldFineBuildMs: Double = 0.0,
+        /** That first arm's fine window cells. */
+        val coldFineCells: Int = 0,
+        /** How many fine tiles the warm run built — 0 when the arm reused the cold run's tiles (D54). */
+        val tileBuilds: Int = 0,
+        /** How many fine tiles the cold (first) arm built. */
+        val coldTileBuilds: Int = 0
     ) {
         /** `priceReads / marks` over the coarse pull — the density the memo leaves behind. */
         val priceDensity: Double
@@ -466,6 +502,7 @@ class RouteSelectivePerfEvalTest {
 
     private fun summarize(plan: String, lines: List<String>): PlanPerf {
         val fineLines = lines.filter { it.startsWith("GRID layer=fine") }
+        val tileLines = lines.filter { it.startsWith("TILE built") }
         val pullLines = lines.filter { it.startsWith("PULL ") || it.startsWith("FINAL ") }
         val deviceLines = lines.filter { it.startsWith("DEVICE PASS") }
         // Each rung emits its own settled `LINE`; the published answer is the rung the preference keeps,
@@ -488,6 +525,7 @@ class RouteSelectivePerfEvalTest {
             expansions = deviceLines.sumOf { kv(it)["expansions"]?.toIntOrNull() ?: 0 },
             lineDistanceM = published?.let { metric(it)["distance"] } ?: 0.0,
             lineDurationSec = published?.let { metric(it)["duration"] } ?: 0.0,
+            tileBuilds = tileLines.size,
             record = record
         )
     }
@@ -521,7 +559,7 @@ class RouteSelectivePerfEvalTest {
                 "fineBuildMs=${perf.fineBuildMs} fineCells=${perf.fineCells} " +
                 "priceReads=${perf.pullPriceReads} marks=${perf.pullMarks} " +
                 "priceReadsPerMark=${perf.priceDensity} priceMs=${perf.pullPriceMs} pullMs=${perf.pullMs} " +
-                "expansions=${perf.expansions} " +
+                "expansions=${perf.expansions} tileBuilds=${perf.tileBuilds} " +
                 "lineDistanceM=${perf.lineDistanceM} lineDurationSec=${perf.lineDurationSec}"
         )
     }
@@ -576,15 +614,21 @@ class RouteSelectivePerfEvalTest {
      */
     private suspend fun fineSplit(plan: RouteGridPlan, pass: String): FineSplit {
         val perf = measure(plan)
-        return FineSplit(pass, perf.fineBuildMs, perf.fineCells)
+        // The split is the marking the pass costs, so it is read from the cold arm where those passes run.
+        return FineSplit(pass, perf.coldFineBuildMs, perf.fineCells)
     }
 
-    /** The split, one line per disabled pass: its fine build, its cells, and the marginal cost against the full arm. */
+    /**
+     * The split, one line per disabled pass: its fine build, its cells, and the marginal cost against the
+     * full arm. Both sides are the **cold** arm — `fineSplit` reads the cold fine build, where the
+     * selective-only passes actually run — so `costMs` is like for like and never mixes the warm assembly
+     * with a cold marking (D47).
+     */
     private fun printSplit(baseline: PlanPerf, vararg splits: FineSplit) {
         for (split in splits) {
             println(
                 "PERF-SPLIT plan=selective pass=${split.pass} fineBuildMs=${split.fineBuildMs} " +
-                    "fineCells=${split.fineCells} costMs=${baseline.fineBuildMs - split.fineBuildMs}"
+                    "fineCells=${split.fineCells} costMs=${baseline.coldFineBuildMs - split.fineBuildMs}"
             )
         }
     }

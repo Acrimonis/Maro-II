@@ -2,6 +2,7 @@ package ykws.android.maro.spatial
 
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -182,8 +183,18 @@ class RouteAvoidEngine(
     /** The engine's own `trace`, handed to the seats so the instrument stays the engine's. */
     private val seatTrace: (() -> String) -> Unit = { message -> trace(message) }
 
-    /** The lane every lookup's job runs on — an engine owns its compute. */
-    private val computeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /**
+     * The lane every lookup's job runs on — an engine owns its compute.
+     *
+     * It carries its own [CoroutineExceptionHandler] so a lookup that fails **outside** the [runComputation]
+     * catch is narrated as one `FAILED` trace line rather than escaping to the JVM's default handler.
+     * [runComputation]'s own KDoc is the home of the one corner this covers and why it is left uncaught.
+     */
+    private val computeScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, failure ->
+            runCatching { trace { "FAILED ${failure.javaClass.simpleName}: ${failure.message}" } }
+        }
+    )
 
     /**
      * The live lookup jobs, by lookup id. [cancelLookup] removes and cancels one, and each lookup's own
@@ -371,8 +382,7 @@ class RouteAvoidEngine(
         try {
             var rung: Rung? = null
             var best: RouteRunningBest? = null
-            // The build, the search and the fold — and only these — sit inside the catch (D39), so the
-            // success terminal below can never re-enter the failure handler.
+            // The build, the search and the fold — and only these — sit inside the catch.
             try {
                 val grid = sharedGrid(holder, world, from, to).await()
                 rung = grid?.let {
@@ -391,17 +401,13 @@ class RouteAvoidEngine(
                 // a CancellationException is itself an Exception.
                 throw cancelled
             } catch (failure: Exception) {
-                // A failed build has no line to answer with, but the caller must still be told (D36): the rung
-                // answers the same [RouteReason.NO_PATH] surface an unanswered search shows, so the mode is
-                // released rather than left to time out. The conflation is stated in the KDoc; no new reason
-                // and no new user-visible text is added. `emitTerminal`'s own `DONE` line is the device's
-                // record of the terminal — the cause is not re-traced here, so a broken sink cannot swallow
-                // the answer by throwing a second time.
+                // D36's answer, and only that — the reason and the conflation are stated once, in this
+                // method's KDoc above. No second trace: `emitTerminal`'s own `DONE` line is the record, so a
+                // broken sink cannot swallow the answer by throwing here a second time.
                 emitTerminal(lookupId, null, RouteReason.NO_PATH)
                 return
             }
-            // The success path's terminal, **outside** the catch (D39): a throwing sink propagates out of
-            // the lookup rather than re-entering the failure handler and emitting a second terminal.
+            // The success path's terminal, emitted **outside** the catch.
             emitTerminal(
                 lookupId,
                 rung?.result,

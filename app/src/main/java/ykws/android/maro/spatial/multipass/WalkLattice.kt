@@ -49,11 +49,8 @@ private fun signExtend(value: Int): Int =
 
 /**
  * **The one derivation of a lattice pair's integer ratio (D19)** — the coarse cell over the fine one,
- * rounded to the nearest integer and floored at one. It is the single home of the convention:
- * [`LatticeFamily.of`]'s own `ratio`, [`WalkWindows.layerRatio`] and the seam's neighbour arithmetic in
- * [`WalkWindows.crossLayerSlots`] all read this expression, so the exact `1 : ratio` nesting they share
- * cannot drift apart. The floor at one is what makes a permitted pair a read rather than a crash; the seam
- * guards a ratio of one separately, since it names no crossing.
+ * rounded to the nearest integer and floored at one. The floor at one is what makes a permitted pair a
+ * read rather than a crash; the seam guards a ratio of one separately, since it names no crossing.
  */
 internal fun latticeRatioOf(coarseCellM: Double, fineCellM: Double): Int =
     (coarseCellM / fineCellM).roundToInt().coerceAtLeast(1)
@@ -305,37 +302,44 @@ internal class WalkSlotIndex(
  * whose windows carry the same shape reuses the previous arm's index instead of walking every cell again.
  * The contents differ per arm (the berth carve writes each arm's own cells), so the [`WalkWindows`] itself
  * is rebuilt over the caller's own windows; only the index is shared, and it is read-only once built. One
- * entry, newest wins, the [`SelectiveMaskCache`] shape; [`clear`] is the test's own door.
+ * entry, newest wins, the [`SelectiveMaskCache`] shape.
+ *
+ * **The build runs outside the lock.** Both `shapeOf` and `build` are pure and touch no shared state, so a
+ * miss walks its cells without holding anything and takes the lock only to publish the finished index; the
+ * first same-shape finisher wins and a raced duplicate is dropped. The lock therefore never covers the
+ * cell-walking build, so a concurrent arm is not parked behind it.
+ *
+ * **What that costs, recorded and accepted (D60).** Because the build is outside the lock, N concurrent
+ * **first** same-shape arms can each walk the cells and all but the first finisher's work is dropped. That
+ * is wasted work, never a wrong answer — every return path yields an index whose shape matches the
+ * caller's — and the arming path serialises the rungs behind one holder, so the race is not reached in
+ * production today. It is recorded rather than single-flighted, since single-flight would reintroduce the
+ * lock the phase removed.
  */
 internal object WalkIndexCache {
 
-    private var shape: IntArray? = null
-    private var index: WalkSlotIndex? = null
+    /** The cached entry — the shape and the index it names, published as one immutable pair. */
+    private class Entry(val shape: IntArray, val index: WalkSlotIndex)
 
-    /** How many times the index has actually been built — the reading a reuse is pinned by. */
+    /** Guards only the publish; the build itself never holds it. */
+    private val publishLock = Any()
+
+    /** The one cached entry, read without the lock — the pair is immutable and the reference is volatile. */
     @Volatile
-    var buildCount: Int = 0
-        private set
+    private var entry: Entry? = null
 
     /** The index for [windows], reused where the shape is unchanged and rebuilt otherwise. */
-    @Synchronized
     fun getOrBuild(windows: List<WalkWindow>): WalkSlotIndex {
         val requested = shapeOf(windows)
-        val cached = index
-        if (cached != null && requested.contentEquals(shape)) return cached
+        entry?.let { cached -> if (requested.contentEquals(cached.shape)) return cached.index }
         val built = build(windows)
-        shape = requested
-        index = built
-        buildCount++
-        return built
-    }
-
-    /** Drops the one entry — the test's own door. */
-    @Synchronized
-    fun clear() {
-        shape = null
-        index = null
-        buildCount = 0
+        synchronized(publishLock) {
+            val current = entry
+            if (current == null || !requested.contentEquals(current.shape)) {
+                entry = Entry(requested, built)
+            }
+            return entry!!.index
+        }
     }
 
     /** The windows' **shape**, flattened: each window's layer, offset and extent, in order. */
@@ -653,6 +657,14 @@ internal class WalkWindows private constructor(
         return count
     }
 
+    /**
+     * Whether this walk and [other] were built on the **same** index instance — the one reading
+     * [`WalkIndexCache`]'s reuse contract, which is otherwise indistinguishable behaviourally. A
+     * test-visible seam with no production read site; the D18 gate needs it, so it is accepted (D59)
+     * rather than removed, the seam being read-only and side-effect-free.
+     */
+    internal fun sharesIndexWith(other: WalkWindows): Boolean = slots != null && slots === other.slots
+
     companion object {
         /** One window over [grid], its slots the grid's own indices and its centres the grid's own. */
         fun of(grid: MultipassGrid): WalkWindows =
@@ -669,9 +681,8 @@ internal class WalkWindows private constructor(
          * Windows on the layers of a **lattice family**, their slots keyed by `(layer, row, col)` so two
          * layers over the same water each keep their own cells — the identity a coordinate-only key collapses.
          *
-         * The index is a pure function of the windows' shape, so it is reused across arms whose windows carry
-         * the same shape ([`WalkIndexCache`], D18); the walk still holds **this** arm's own windows, so its
-         * read cells are the ones the caller has just built and carved.
+         * The index itself comes from [`WalkIndexCache`]; the walk still holds **this** arm's own windows,
+         * so its read cells are the ones the caller has just built and carved.
          */
         fun onLattice(lattices: List<WalkLattice>, windows: List<WalkWindow>): WalkWindows {
             val index = WalkIndexCache.getOrBuild(windows)

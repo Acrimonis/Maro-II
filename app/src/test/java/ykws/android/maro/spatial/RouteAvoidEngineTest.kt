@@ -3,6 +3,7 @@ package ykws.android.maro.spatial
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -959,73 +960,69 @@ class RouteAvoidEngineTest {
      * that throws there therefore propagates a single uncaught failure instead of re-entering the handler
      * and emitting a second, spurious `NO_PATH` terminal. The corner is driven directly, not through the
      * harness's `HARVEST`-only build failure: the sink throws on `DONE`, the one line the success path
-     * emits, and the throw is caught where the engine's own `Dispatchers.Default` lane hands it up — a
-     * `Thread.setDefaultUncaughtExceptionHandler` installed for this test and restored in `finally` — so
-     * no stray failure escapes into another test. Reverting D39 (wrapping the success emit back inside the
-     * catch) reddens this test: the sink's throw re-enters the handler, a second terminal is emitted, and
-     * that second terminal's own `DONE` line throws again.
+     * emits, and the throw is caught where the engine's own lane hands it up. There is no stray failure:
+     * the compute scope carries its own `CoroutineExceptionHandler`, so the throwing sink's failure is
+     * narrated as one `FAILED` trace line rather than escaping to the JVM's default handler and leaking
+     * into a later test. Reverting D39 (wrapping the success emit back inside the catch) reddens this
+     * test: the sink's throw re-enters the handler, a second terminal is emitted, and that second
+     * terminal's own `DONE` line throws again.
      */
     @Test
     fun aThrowingSinkOnAHealthyTerminalEmitsOneTerminalAndPropagatesOneFailure() = runBlocking {
         val captured = Collections.synchronizedList(ArrayList<String>())
         val terminals = Collections.synchronizedList(ArrayList<RouteUpdate>())
-        val escaped = Collections.synchronizedList(ArrayList<Throwable>())
-        val escapedLatch = CountDownLatch(1)
-        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { _, failure ->
-            escaped.add(failure)
-            escapedLatch.countDown()
-        }
-        try {
-            val engine = RouteAvoidEngine(
-                paceKn = { paceKn },
-                aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-                slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
-                worldProvider = { FakeWorld() },
-                traceSink = { line ->
-                    captured += line
-                    if (line.startsWith("DONE")) {
-                        throw IllegalStateException("injected healthy-terminal sink failure")
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            worldProvider = { FakeWorld() },
+            traceSink = { line ->
+                captured += line
+                if (line.startsWith("DONE")) {
+                    throw IllegalStateException(SINK_FAILURE_MESSAGE)
+                }
+            }
+        )
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture pair declares its three rungs", declared)
+
+        val subscribed = CompletableDeferred<Unit>()
+        val firstTerminal = CompletableDeferred<RouteUpdate>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) {
+                        terminals.add(update)
+                        firstTerminal.complete(update)
                     }
                 }
-            )
-            val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
-            assertNotNull("the fixture pair declares its three rungs", declared)
-
-            val subscribed = CompletableDeferred<Unit>()
-            val firstTerminal = CompletableDeferred<RouteUpdate>()
-            val collector = launch(Dispatchers.Default) {
-                engine.updates
-                    .onStart { subscribed.complete(Unit) }
-                    .collect { update ->
-                        if (update.nextStage == null) {
-                            terminals.add(update)
-                            firstTerminal.complete(update)
-                        }
-                    }
-            }
-            subscribed.await()
-            engine.startLookup(declared!!.computations[0].id)
-
-            val terminal = withTimeout(120_000) { firstTerminal.await() }
-            // The throw follows the emit on the same lane, so the handler fires as the lookup unwinds.
-            assertTrue(
-                "the sink's throw reaches the engine lane's uncaught handler",
-                escapedLatch.await(120_000, TimeUnit.MILLISECONDS)
-            )
-            collector.cancel()
-
-            assertNotNull("the healthy terminal still answers its line", terminal.result)
-            assertEquals("the lookup emits one terminal, never a second NO_PATH", 1, terminals.size)
-            assertEquals(
-                "the sink was asked for exactly one DONE line",
-                1,
-                captured.count { it.startsWith("DONE") }
-            )
-            assertEquals("and exactly one failure propagates out of the lookup", 1, escaped.size)
-        } finally {
-            Thread.setDefaultUncaughtExceptionHandler(previousHandler)
         }
+        subscribed.await()
+        engine.startLookup(declared!!.computations[0].id)
+
+        val terminal = withTimeout(120_000) { firstTerminal.await() }
+        // The throw follows the emit on the same lane; the scope's handler narrates it as one `FAILED` line.
+        withTimeout(120_000) { while (captured.none { it.startsWith("FAILED") }) delay(10) }
+        collector.cancel()
+
+        assertNotNull("the healthy terminal still answers its line", terminal.result)
+        assertEquals("the lookup emits one terminal, never a second NO_PATH", 1, terminals.size)
+        assertEquals(
+            "the sink was asked for exactly one DONE line",
+            1,
+            captured.count { it.startsWith("DONE") }
+        )
+        assertEquals(
+            "and exactly one failure propagates out of the lookup",
+            1,
+            captured.count { it.startsWith("FAILED") }
+        )
+    }
+
+    private companion object {
+        /** The one line the throwing sink refuses to answer — the D39 claim's own marker. */
+        private const val SINK_FAILURE_MESSAGE = "injected healthy-terminal sink failure"
     }
 
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────

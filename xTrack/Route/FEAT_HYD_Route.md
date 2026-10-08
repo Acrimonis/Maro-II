@@ -1,31 +1,32 @@
 # Context Hydration — Route — 2026-10-08
 
-**Last Bake:** 2026-10-08 19:05 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-08 20:37 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-08 18:22 UTC) the session ran on the user's own words: a diff-grounded re-review of the committed five-debt batch (review mode, which carries no shell — the diff was captured by a Code hop into a gitignored log), one Code hop closing the four loose ends that review raised, and the plan's own record updated by Architect. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: one commit (`aee15320`, the five debts), one read-only `git show` capture, and the loose-end changes plus the plan's record left uncommitted on `feature/route-algo-selective-eval`.
+**Directive trace:** Since the last bake (2026-10-08 19:05 UTC) the session ran on the user's own words: `#impl` on the active plan shipped **P4.2** (the anchored, tile-keyed fine layer) through the Code→Ask→Architect pipeline and settled D17, then the debt sweep **D40–D52**, then the ten-fix batch **D53–D62** as a direct Code session — each followed by an independent Ask review, with Architect writing the records. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: the prior commit `aee15320`; the P4.2 batch, the debt sweeps and this record are uncommitted on `feature/route-algo-selective-eval` (`#commit` invoked).
 
 ## State
 
-**The selective plan's five owed debts are cleared, and the plan now matches its code.** D39's failure catch wraps only the build, the search and the fold, so the success terminal sits outside it and a throwing sink cannot double-emit; D38's `NO_PATH` names a failed build beside a fruitless search; D16's whole-degree fallback is documented as one origin per degree with the pin named as its guard; D19's ratio has one home and the seam's guard reads `== 1` against its floor; D18's window index is reused across same-shape arms behind a read-only map. A diff-grounded re-review of the committed batch raised four loose ends, all closed the same day — the last by disproving the KDoc's argument that a throwing sink on a healthy terminal could only be met by poisoning a neighbouring test, which a new test now drives. Suite **1011 tests, 0 failures, 11 skipped**; `apk-build.bat` green; the harness readings unmoved (`priceReads 3135`, `marks 3141`, `expansions 2820`, one build per arm).
+**P4.2 landed and the ledger is clear down to the carve.** The fine layer is now a lazy, single-flight tile map on the fixed anchor — sparse hybrid tiles, a key carrying every value the rasterisation reads (the zone stamp among them), a byte ceiling with LRU and an in-flight guard — so a second arming marks only the tiles a farther route newly needs, and the drawn water is byte-identical (`priceReads 3135`, `marks 3141`, `expansions 2820`, one fine build per arm, line `2015.8 m / 783.7 s`). D17 settled — [`261008_FEAT_PLN_Route_anchored-tiles.md`](261008_FEAT_PLN_Route_anchored-tiles.md:1) is the design's one home; **D40–D52** and **D53–D62** cleared; D59 and D62's kept-by-documentation choices recorded. Suite green, `apk-build.bat` green.
 
-**The day's arc, for the reader arriving cold.** The device pass of 2026-10-08 fixed the cost on the fine-layer build; a JVM harness then reproduced the ranking and gated the work; P0–P4.1 landed (one build per arm, the bounded depth scan, the flat cell, the anchored lattice) and D1–D39 were closed or accepted across five batches, a whole-corpus sweep and the re-review.
+**The day's arc, for the reader arriving cold.** The device pass of 2026-10-08 fixed the cost on the fine-layer build; the JVM harness then reproduced the ranking and gated the work; P0–P4.1 landed (one build per arm, the bounded depth scan, the flat cell, the anchored lattice); then P4.2 (the tile map) and three debt batches (D1–D39, D40–D52, D53–D62), with the reviews' D63–D71 logged.
 
-**What is owed.** **D17 alone** — the tile design still sits in two homes ([`261008_FEAT_PLN_Route_anchored-tiles.md`](261008_FEAT_PLN_Route_anchored-tiles.md:1) and this plan's P4), and which one wins is the user's word. Then the four logged health debts: D40 (a rationale widened across three places), D41 ([`WalkIndexCache.getOrBuild`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:320) `@Synchronized`, building inside the lock), D42 (test-only doors [`buildCount`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:315) and [`clear()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt:334)) and D43 (the D39 test installs a process-wide uncaught-exception handler). Then P4.2–P4.6 and P5.
+**What is owed.** P4.3–P4.6's carve (deferred whole), P5's record (fold the outcome into [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md), the feature state and the parked perf todo), and the tile-layer device pass (R97). The review's **D63–D71** stand as health — D63 (the eviction gate is half-pinned) and D64 (`TILE built` prints before the build) the two worth taking next.
 
 **No open walk.** The feature file holds no `## Walk` section, so nothing bars a fold.
 
 ## Target Files
 
-- `xTrack/Route/261008_FEAT_PLN_Route_selective-perf-eval.md` — the assessment, the measured device pass, the five-phase plan, the P0–P4.1 landed notes, §10's debt ledger and the loose-end entry, in design
-- `xTrack/Route/261008_FEAT_PLN_Route_anchored-tiles.md` — the unasked P4.2–P4.5 design doc; its single home is unresolved (D17)
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the ladder's per-arm holder, the lazy single-flight build, the narrowed failure catch and the success terminal outside it
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` — `NO_PATH`'s widened meaning
-- `app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt` — `latticeRatioOf` as the ratio's one home, the `== 1` seam guard, `WalkIndexCache` and the read-only `WalkSlotIndex`
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt` — the anchor and its documented whole-degree fallback
-- `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt` — the D36 failure-answer test, the D21 cancel gate and the new D39 throwing-sink test
-- `app/src/test/java/ykws/android/maro/spatial/multipass/LatticeFamilyTest.kt` — the fallback, ratio and index-reuse pins
+- `xTrack/Route/261008_FEAT_PLN_Route_selective-perf-eval.md` — the assessment, the measured device pass, the plan, the landed notes, §10's debt ledger and the `## Implemented` entries
+- `xTrack/Route/261008_FEAT_PLN_Route_anchored-tiles.md` — the tile design's one home (D17), built 2026-10-08
+- `app/src/main/java/ykws/android/maro/spatial/multipass/FineTile.kt` — the sparse hybrid tile and its extractor
+- `app/src/main/java/ykws/android/maro/spatial/multipass/TileKey.kt` — the tile key over every value the rasterisation reads
+- `app/src/main/java/ykws/android/maro/spatial/multipass/FineTileMap.kt` — the lazy single-flight map, the byte ceiling and its in-flight guard
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt` — the tile assembly, the halo and its reason
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt` — the zone stamp and the excluded-zone set
+- `app/src/test/java/ykws/android/maro/spatial/RouteSelectivePerfEvalTest.kt` — the harness, the count-based reuse signal and the split record
+- `app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt` — the extract boundary at both raster offsets
 - `xTrack/Route/FEAT_DSC_Route.md` — the feature state doc, its acquisition-cost todo refreshed
 
 ## Next Step
 
-P4.2 — settle the tile design's single home (D17, the user's word) and keep the anchor one region origin before any tile map is built on it; the D40–D43 health debts ride later.
+P4.3–P4.6's carve, or P5's record — both the user's to order; the tile-layer device pass is theirs too.
