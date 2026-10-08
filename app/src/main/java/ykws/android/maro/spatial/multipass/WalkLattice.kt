@@ -17,6 +17,15 @@ private const val FIELD_SIGN = 0x80_0000
 private const val FIELD_SIGN_EXTEND = 0x1_00_0000
 
 /**
+ * The tolerance a point→cell read adds before its `floor`, in **cell units**. A fixed anchor's cell lines
+ * are reached by adding an integer multiple of the cell size to the anchor, and that round trip leaves the
+ * ratio a hair below its integer; the addend recovers the line the point stands on rather than the cell
+ * below it. It is far below any real offset — one billionth of a cell, about `2×10⁻⁸ m` (a few tens of
+ * nanometres) at a 20 m cell — so it moves no honest read.
+ */
+private const val LATTICE_SNAP_EPS = 1e-9
+
+/**
  * Packs an identity into one key: **the layer, the row and the column**. It carries the layer because a
  * coarse cell and a fine cell of the same `(row, col)` are different squares, and a key that ignored the
  * layer would keep the first and silently drop the second — the quiet cell-eater Phase 4's (b) exists for.
@@ -39,10 +48,19 @@ private fun signExtend(value: Int): Int =
     if (value and FIELD_SIGN != 0) value - FIELD_SIGN_EXTEND else value
 
 /**
+ * **The one derivation of a lattice pair's integer ratio (D19)** — the coarse cell over the fine one,
+ * rounded to the nearest integer and floored at one. The floor at one is what makes a permitted pair a
+ * read rather than a crash; the seam guards a ratio of one separately, since it names no crossing.
+ */
+internal fun latticeRatioOf(coarseCellM: Double, fineCellM: Double): Int =
+    (coarseCellM / fineCellM).roundToInt().coerceAtLeast(1)
+
+/**
  * **One layer of a lattice family: an origin and one cell-size pair.** A window is built with these, so
  * two rectangles on the same layer line up by arithmetic and a neighbour across the seam between them is an
- * index relation rather than a search. The pair is derived **once**, from the corridor's own mid-latitude:
- * the degrees a cell spans fall with `cos φ`, so a pair derived per box would stand two boxes on two lattices.
+ * index relation rather than a search. The pair is derived **once** — at [LatticeAnchor]'s fixed reference
+ * latitude for a family, at the corridor's own mid-latitude for the single-grid lattice: the degrees a cell
+ * spans fall with `cos φ`, so a pair derived per box would stand two boxes on two lattices.
  */
 internal class WalkLattice(
     val latSouth: Double,
@@ -54,10 +72,10 @@ internal class WalkLattice(
     private val mPerDegLon: Double
 ) {
     /** The lattice row a latitude stands on — negative south of the origin, which a chain may reach. */
-    fun rowOf(latitude: Double): Int = floor((latitude - latSouth) / cellSizeDegLat).toInt()
+    fun rowOf(latitude: Double): Int = floor((latitude - latSouth) / cellSizeDegLat + LATTICE_SNAP_EPS).toInt()
 
     /** The lattice column a longitude stands on. */
-    fun colOf(longitude: Double): Int = floor((longitude - lonWest) / cellSizeDegLon).toInt()
+    fun colOf(longitude: Double): Int = floor((longitude - lonWest) / cellSizeDegLon + LATTICE_SNAP_EPS).toInt()
 
     /** The centre of one lattice cell — the walk's own point read, whichever window holds it. */
     fun center(row: Int, col: Int): LatLng =
@@ -104,6 +122,33 @@ internal class WalkLattice(
 }
 
 /**
+ * **The fixed anchor the walk lattices are drawn from** — the south-west corner the family's grid lines pass
+ * through, and the latitude its metre→degree pair is derived at. Where the world names a depth raster it is
+ * read from that raster's own region, so the same water carries the same lattice indices on every arm and
+ * the fine layer can later be cached tile by tile. A world naming no raster falls back to [wholeDegree]: the
+ * **whole degree** at or below the corridor's south-west — still one origin per degree cell rather than per
+ * arm, since any two corridors in the same degree share it, but snapping the corridor's own corner is what
+ * the fallback does. Both of [`LatticeFamily`]'s lattices share the one anchor, because the seam's exact
+ * `1 : ratio` nesting is arithmetic on that single origin.
+ */
+data class LatticeAnchor(
+    val latSouth: Double,
+    val lonWest: Double,
+    val referenceLat: Double
+) {
+    companion object {
+        /**
+         * **The whole-degree fallback**, for a world that names no depth raster. The origin is the whole
+         * degree at or below [box]'s own south-west — deterministic for any two corridors whose south-west
+         * falls in the same degree cell — and the reference latitude is that whole degree's centre.
+         */
+        fun wholeDegree(box: BBox): LatticeAnchor = LatticeAnchor(
+            floor(box.latSouth), floor(box.lonWest), floor(box.latSouth) + 0.5
+        )
+    }
+}
+
+/**
  * **The lattice family: one origin and one cell-size pair per resolution, in an exact integer ratio.**
  *
  * The one-lattice precondition, strengthened for two resolutions: the coarse pair is derived as **exactly
@@ -123,9 +168,11 @@ internal class LatticeFamily(
 
     companion object {
         /**
-         * The family from a corridor's mid-latitude: the fine pair at [fineCellM] and the coarse pair
-         * derived as exactly `ratio ×` it on the same origin, `ratio` being the two cells' integer ratio.
-         * Both pairs are therefore exact in metres and the fine cells nest exactly inside the coarse ones.
+         * The family on the **fixed [anchor]**, never on the corridor: the fine pair at [fineCellM] and the
+         * coarse pair derived as exactly `ratio ×` it on the **same** anchor origin and reference latitude,
+         * `ratio` being the two cells' integer ratio. Both pairs are therefore exact in metres and the fine
+         * cells nest exactly inside the coarse ones — the nesting the seam's neighbourhood arithmetic and
+         * [`fineCopyOf`] rest on, and the reason one anchor must serve both layers.
          *
          * The ratio is any integer from 1 up, **even ones included**: a shipped clamp settles one (a 100 m
          * coarse cell against a 10 m fine cell is a ratio of 10, and 40 against 20 a ratio of 2), so refusing
@@ -133,14 +180,18 @@ internal class LatticeFamily(
          * coarse cell by the fine cell at its centre, and [`fineCopyOf`] resolves the even ratio's centre tie
          * on a **stated convention** instead of assuming an odd ratio.
          */
-        fun of(corridor: BBox, coarseCellM: Double, fineCellM: Double): LatticeFamily {
+        fun of(anchor: LatticeAnchor, coarseCellM: Double, fineCellM: Double): LatticeFamily {
             require(coarseCellM > 0.0 && fineCellM > 0.0) { "a lattice cell is a positive size" }
             require(coarseCellM >= fineCellM) { "the coarse cell is never finer than the fine one" }
-            val ratio = (coarseCellM / fineCellM).roundToInt().coerceAtLeast(1)
-            val fine = WalkLattice.of(corridor, fineCellM)
-            val (mPerDegLat, mPerDegLon) = fine.metresPerDegree()
+            val ratio = latticeRatioOf(coarseCellM, fineCellM)
+            val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+            val mPerDegLon = mPerDegLat * cos(Math.toRadians(anchor.referenceLat))
+            val fine = WalkLattice(
+                anchor.latSouth, anchor.lonWest, fineCellM,
+                fineCellM / mPerDegLat, fineCellM / mPerDegLon, mPerDegLat, mPerDegLon
+            )
             val coarse = WalkLattice(
-                corridor.latSouth, corridor.lonWest, fine.cellM * ratio,
+                anchor.latSouth, anchor.lonWest, fine.cellM * ratio,
                 fine.cellSizeDegLat * ratio, fine.cellSizeDegLon * ratio, mPerDegLat, mPerDegLon
             )
             return LatticeFamily(coarse, fine, ratio)
@@ -233,6 +284,102 @@ internal data class WalkWindow(
 }
 
 /**
+ * **A walk's slot index — the three pieces `onLattice` derives**: the packed `(layer, row, col)` → slot map
+ * and its two mirror reads, slot → window tile and slot → packed identity.
+ */
+internal class WalkSlotIndex(
+    /** `(layer, row, col)` → slot; shared across arms, so it must stay read-only. */
+    val slots: Map<Long, Int>,
+    val tiles: IntArray,
+    val ids: LongArray
+)
+
+/**
+ * **The walk's slot index, one entry keyed on the windows' shape (D18).**
+ *
+ * The index — `(layer, row, col)` → slot and its two mirror arrays — is a pure function of the windows'
+ * **shape** (each window's layer, its lattice offset and its extent), never of their contents, so an arm
+ * whose windows carry the same shape reuses the previous arm's index instead of walking every cell again.
+ * The contents differ per arm (the berth carve writes each arm's own cells), so the [`WalkWindows`] itself
+ * is rebuilt over the caller's own windows; only the index is shared, and it is read-only once built. One
+ * entry, newest wins, the [`SelectiveMaskCache`] shape.
+ *
+ * **The build runs outside the lock.** Both `shapeOf` and `build` are pure and touch no shared state, so a
+ * miss walks its cells without holding anything and takes the lock only to publish the finished index; the
+ * first same-shape finisher wins and a raced duplicate is dropped. The lock therefore never covers the
+ * cell-walking build, so a concurrent arm is not parked behind it.
+ *
+ * **What that costs, recorded and accepted (D60).** Because the build is outside the lock, N concurrent
+ * **first** same-shape arms can each walk the cells and all but the first finisher's work is dropped. That
+ * is wasted work, never a wrong answer — every return path yields an index whose shape matches the
+ * caller's — and the arming path serialises the rungs behind one holder, so the race is not reached in
+ * production today. It is recorded rather than single-flighted, since single-flight would reintroduce the
+ * lock the phase removed.
+ */
+internal object WalkIndexCache {
+
+    /** The cached entry — the shape and the index it names, published as one immutable pair. */
+    private class Entry(val shape: IntArray, val index: WalkSlotIndex)
+
+    /** Guards only the publish; the build itself never holds it. */
+    private val publishLock = Any()
+
+    /** The one cached entry, read without the lock — the pair is immutable and the reference is volatile. */
+    @Volatile
+    private var entry: Entry? = null
+
+    /** The index for [windows], reused where the shape is unchanged and rebuilt otherwise. */
+    fun getOrBuild(windows: List<WalkWindow>): WalkSlotIndex {
+        val requested = shapeOf(windows)
+        entry?.let { cached -> if (requested.contentEquals(cached.shape)) return cached.index }
+        val built = build(windows)
+        synchronized(publishLock) {
+            val current = entry
+            if (current == null || !requested.contentEquals(current.shape)) {
+                entry = Entry(requested, built)
+            }
+            return entry!!.index
+        }
+    }
+
+    /** The windows' **shape**, flattened: each window's layer, offset and extent, in order. */
+    private fun shapeOf(windows: List<WalkWindow>): IntArray {
+        val shape = IntArray(windows.size * 5)
+        for ((i, window) in windows.withIndex()) {
+            shape[i * 5] = window.layer
+            shape[i * 5 + 1] = window.rowOffset
+            shape[i * 5 + 2] = window.colOffset
+            shape[i * 5 + 3] = window.grid.rows
+            shape[i * 5 + 4] = window.grid.cols
+        }
+        return shape
+    }
+
+    /**
+     * The index itself: slots allocated row-major per window, so a coordinate two windows share takes the
+     * first one's slot — one slot per **lattice** cell, never per window's copy of it — with the layer in
+     * the key so a coarse and a fine cell over the same water each keep their own.
+     */
+    private fun build(windows: List<WalkWindow>): WalkSlotIndex {
+        val slots = HashMap<Long, Int>()
+        val tiles = ArrayList<Int>()
+        val ids = ArrayList<Long>()
+        for ((index, window) in windows.withIndex()) {
+            for (row in 0 until window.grid.rows) {
+                for (col in 0 until window.grid.cols) {
+                    val id = packCell(window.layer, row + window.rowOffset, col + window.colOffset)
+                    if (slots.containsKey(id)) continue
+                    slots[id] = tiles.size
+                    tiles.add(index)
+                    ids.add(id)
+                }
+            }
+        }
+        return WalkSlotIndex(slots, tiles.toIntArray(), ids.toLongArray())
+    }
+}
+
+/**
  * **The water one walk may use, as windows on one lattice family** — the uniform pass's is one grid, a
  * chain's several on one layer, and the adaptive grid's two on two layers; the A\* sees none of that: it
  * asks this for a slot, a cell and a centre.
@@ -252,7 +399,7 @@ internal data class WalkWindow(
 internal class WalkWindows private constructor(
     val windows: List<WalkWindow>,
     private val lattices: List<WalkLattice>?,
-    private val slots: HashMap<Long, Int>?,
+    private val slots: Map<Long, Int>?,
     private val tiles: IntArray?,
     private val ids: LongArray?
 ) {
@@ -278,7 +425,7 @@ internal class WalkWindows private constructor(
         get() {
             val coarse = coarseLayerIndex
             if (coarse < 0) return 1
-            return (lattices!![coarse].cellM / lattices!![fineLayerIndex].cellM).roundToInt().coerceAtLeast(1)
+            return latticeRatioOf(lattices!![coarse].cellM, lattices!![fineLayerIndex].cellM)
         }
 
     /**
@@ -298,7 +445,7 @@ internal class WalkWindows private constructor(
         if (fine < 0) return -1
         val half = layerRatio / 2
         val slot = rawSlotOf(fine, coarseRow * layerRatio + half, coarseCol * layerRatio + half)
-        return if (slot >= 0 && cell(slot).passable) slot else -1
+        return if (slot >= 0 && passable(slot)) slot else -1
     }
 
     /**
@@ -354,6 +501,25 @@ internal class WalkWindows private constructor(
         return -1
     }
 
+    /**
+     * **The walk's own lattice coordinate for a cell of [grid] named locally by `(row, col)`** — the
+     * translation a two-layer walk needs because its seeds and its carve arrive in a window's **local**
+     * index space while [`slotOf`] reads the family's lattice coordinates. The window that holds [grid]
+     * supplies its offset; a single-window walk holds its grid as window zero, so that offset is zero there
+     * and the coordinate is the grid's own. The corridor-anchored family made the two coincide everywhere; a
+     * fixed anchor does not, which is the P4.1 case this exists for.
+     *
+     * [grid] **must be one of this walk's own windows**: a grid that is not is a caller asking for a
+     * coordinate this walk cannot name, and answering the local index unchanged would hand back a wrong
+     * coordinate silently, so a non-window grid is rejected rather than answered.
+     */
+    fun latticeCell(grid: MultipassGrid, row: Int, col: Int): CellIndex {
+        val window = requireNotNull(windows.firstOrNull { it.grid === grid }) {
+            "latticeCell wants a cell of a grid this walk holds as a window"
+        }
+        return CellIndex(row + window.rowOffset, col + window.colOffset, window.layer)
+    }
+
     /** The lattice row a slot stands on. */
     fun rowOf(slot: Int): Int = ids?.let { keyRow(it[slot]) } ?: (slot / windows[0].grid.cols)
 
@@ -379,7 +545,7 @@ internal class WalkWindows private constructor(
             val lattice = layers[index]
             if (lattice.cellM >= local.cellM) continue
             val slot = rawSlotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
-            if (slot >= 0 && cell(slot).passable) local = lattice
+            if (slot >= 0 && passable(slot)) local = lattice
         }
         return local.cellM
     }
@@ -395,8 +561,9 @@ internal class WalkWindows private constructor(
         if (layers.size != 2) return NO_SLOTS
         val coarseLayer = if (layers[0].cellM >= layers[1].cellM) 0 else 1
         val fineLayer = 1 - coarseLayer
-        val ratio = (layers[coarseLayer].cellM / layers[fineLayer].cellM).roundToInt()
-        if (ratio <= 1) return NO_SLOTS
+        val ratio = latticeRatioOf(layers[coarseLayer].cellM, layers[fineLayer].cellM)
+        // `latticeRatioOf` floors at one, so the only ratio that names no crossing is exactly one.
+        if (ratio == 1) return NO_SLOTS
         val targets: List<CellIndex> = if (layer == coarseLayer) {
             SeamNeighbours.acrossFromCoarse(row, col, dr, dc, ratio, fineLayer)
         } else {
@@ -434,11 +601,16 @@ internal class WalkWindows private constructor(
         return if (slot >= 0) centerOf(slot) else center(0, row, col)
     }
 
-    /** The cell's own data, read from the window that holds it. */
-    fun cell(slot: Int): MultipassCell {
-        val tile = tiles?.get(slot) ?: 0
-        val window = windows[tile]
-        return window.grid.cell(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+    /** The slot's own cell read as a scalar: whether it is passable, from the window that holds it. */
+    fun passable(slot: Int): Boolean {
+        val window = windowOf(slot)
+        return window.grid.passable(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+    }
+
+    /** The slot's own source cost (s), read from the window that holds it. */
+    fun sourceCostSec(slot: Int): Double {
+        val window = windowOf(slot)
+        return window.grid.sourceCostSec(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
     /** The window a slot stands on — its own grid and its lattice offset. */
@@ -481,9 +653,17 @@ internal class WalkWindows private constructor(
     /** How many of the walk's unique cells are passable — the search's own reading, taken once. */
     fun passableCount(): Int {
         var count = 0
-        for (slot in 0 until size) if (cell(slot).passable) count++
+        for (slot in 0 until size) if (passable(slot)) count++
         return count
     }
+
+    /**
+     * Whether this walk and [other] were built on the **same** index instance — the one reading
+     * [`WalkIndexCache`]'s reuse contract, which is otherwise indistinguishable behaviourally. A
+     * test-visible seam with no production read site; the D18 gate needs it, so it is accepted (D59)
+     * rather than removed, the seam being read-only and side-effect-free.
+     */
+    internal fun sharesIndexWith(other: WalkWindows): Boolean = slots != null && slots === other.slots
 
     companion object {
         /** One window over [grid], its slots the grid's own indices and its centres the grid's own. */
@@ -500,23 +680,13 @@ internal class WalkWindows private constructor(
         /**
          * Windows on the layers of a **lattice family**, their slots keyed by `(layer, row, col)` so two
          * layers over the same water each keep their own cells — the identity a coordinate-only key collapses.
+         *
+         * The index itself comes from [`WalkIndexCache`]; the walk still holds **this** arm's own windows,
+         * so its read cells are the ones the caller has just built and carved.
          */
         fun onLattice(lattices: List<WalkLattice>, windows: List<WalkWindow>): WalkWindows {
-            val slots = HashMap<Long, Int>()
-            val tiles = ArrayList<Int>()
-            val ids = ArrayList<Long>()
-            for ((index, window) in windows.withIndex()) {
-                for (row in 0 until window.grid.rows) {
-                    for (col in 0 until window.grid.cols) {
-                        val id = packCell(window.layer, row + window.rowOffset, col + window.colOffset)
-                        if (slots.containsKey(id)) continue
-                        slots[id] = tiles.size
-                        tiles.add(index)
-                        ids.add(id)
-                    }
-                }
-            }
-            return WalkWindows(windows, lattices, slots, tiles.toIntArray(), ids.toLongArray())
+            val index = WalkIndexCache.getOrBuild(windows)
+            return WalkWindows(windows, lattices, index.slots, index.tiles, index.ids)
         }
     }
 }

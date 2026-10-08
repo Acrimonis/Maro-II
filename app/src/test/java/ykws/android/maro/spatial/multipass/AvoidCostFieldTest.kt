@@ -34,7 +34,7 @@ class AvoidCostFieldTest {
             for (c in 0 until grid.cols) {
                 assertEquals(
                     "every cell carries the base cost in seconds, never a defaulted zero",
-                    grid.baseCostSec, grid.cell(r, c).sourceCostSec, 1e-9
+                    grid.baseCostSec, grid.sourceCostSec(r, c), 1e-9
                 )
             }
         }
@@ -59,25 +59,25 @@ class AvoidCostFieldTest {
         val inside = grid.cellOf(43.510, 7.010)
         assertEquals(
             "the price is added to the base, in the same seconds",
-            grid.baseCostSec + 300.0, grid.cell(inside.row, inside.col).sourceCostSec, 1e-9
+            grid.baseCostSec + 300.0, grid.sourceCostSec(inside.row, inside.col), 1e-9
         )
         assertEquals(
             "the price's own tag is written",
-            MultipassCellState.BAND, grid.cell(inside.row, inside.col).state
+            MultipassCellState.BAND, grid.state(inside.row, inside.col)
         )
 
         val outside = grid.cellOf(43.5005, 7.0005)
         assertEquals(
             "unpriced water keeps the base alone",
-            grid.baseCostSec, grid.cell(outside.row, outside.col).sourceCostSec, 1e-9
+            grid.baseCostSec, grid.sourceCostSec(outside.row, outside.col), 1e-9
         )
-        assertEquals(MultipassCellState.FREE, grid.cell(outside.row, outside.col).state)
+        assertEquals(MultipassCellState.FREE, grid.state(outside.row, outside.col))
 
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 assertTrue(
                     "no passable cell is ever cheaper than the base",
-                    grid.cell(r, c).sourceCostSec >= grid.baseCostSec - 1e-9
+                    grid.sourceCostSec(r, c) >= grid.baseCostSec - 1e-9
                 )
             }
         }
@@ -93,8 +93,8 @@ class AvoidCostFieldTest {
 
         grid.addSourceCost(3, 4, 500.0, MultipassCellState.ZONE)
 
-        assertFalse("a priced land cell stays land", grid.cell(3, 4).passable)
-        assertEquals("and keeps the cost it had", grid.baseCostSec, grid.cell(3, 4).sourceCostSec, 1e-9)
+        assertFalse("a priced land cell stays land", grid.passable(3, 4))
+        assertEquals("and keeps the cost it had", grid.baseCostSec, grid.sourceCostSec(3, 4), 1e-9)
     }
 
     @Test
@@ -108,10 +108,10 @@ class AvoidCostFieldTest {
         )
 
         val inside = grid.cellOf(43.510, 7.010)
-        assertFalse("a rastered wall paints its cells land", grid.cell(inside.row, inside.col).passable)
+        assertFalse("a rastered wall paints its cells land", grid.passable(inside.row, inside.col))
 
         val outside = grid.cellOf(43.5005, 7.0005)
-        assertTrue("and leaves the rest of the water alone", grid.cell(outside.row, outside.col).passable)
+        assertTrue("and leaves the rest of the water alone", grid.passable(outside.row, outside.col))
     }
 
     /** The price reaches the A*: a wall priced out of all proportion is walked around. */

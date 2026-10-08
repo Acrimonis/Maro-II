@@ -215,14 +215,13 @@ object MultipassSearch {
         zonePriceSec: (Double, Double, Double, Double) -> Double,
         depthK: Double
     ) {
-        val cell = walk.cell(toIdx)
-        if (!cell.passable) return
+        if (!walk.passable(toIdx)) return
         val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
         if (destCellM <= 0.0) return
         val interiorLimitKn = walk.limitKn(toIdx)
         val collarLimitKn = walk.collarLimitKn(toIdx)
         val bandCollarLimitKn = walk.bandCollarLimitKn(toIdx)
-        var cellSec = cell.sourceCostSec
+        var cellSec = walk.sourceCostSec(toIdx)
         if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
             cellSec += zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
         }

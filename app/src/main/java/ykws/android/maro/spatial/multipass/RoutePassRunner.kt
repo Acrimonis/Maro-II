@@ -84,8 +84,14 @@ internal class RoutePassRunner {
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
         val setup = PullSetup(marginM, coarseStepM, priceStepM, guardField, start, aim, approaches)
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
+        // The search reads the family's **lattice** coordinates; the seeds arrive as cells of the interior
+        // grid's own local space, so they are translated onto the walk first — a no-op for the single grid,
+        // whose offset is zero, and the P4.1 fix for a fixed anchor, whose offset is not.
         val search = MultipassSearch.searchWalk(
-            windows, startCell, aimCell, Units.knotsToMps(pace),
+            windows,
+            windows.latticeCell(grid, startCell.row, startCell.col),
+            windows.latticeCell(grid, aimCell.row, aimCell.col),
+            Units.knotsToMps(pace),
             zonePriceSec = { cellSizeM, interiorKn, collarKn, bandCollarKn ->
                 slowWaterPriceAt(
                     cellSizeM, pace, lambda, interiorKn, collarKn, bandCollarKn,

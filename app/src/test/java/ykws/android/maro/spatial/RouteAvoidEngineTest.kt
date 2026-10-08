@@ -3,6 +3,7 @@ package ykws.android.maro.spatial
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -17,7 +18,11 @@ import org.junit.Assume.assumeTrue
 import org.junit.After
 import org.junit.Test
 import java.io.File
+import java.util.Collections
 import java.util.Properties
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
@@ -31,6 +36,7 @@ import ykws.android.maro.spatial.multipass.MultipassEdge
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.EndApproaches
+import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.FineWater
 import ykws.android.maro.spatial.multipass.FineWaterQuery
 import ykws.android.maro.spatial.multipass.GridTile
@@ -755,6 +761,268 @@ class RouteAvoidEngineTest {
 
         assertTrue("the first walk asks the plan for its cell", plan.cellReads > 0)
         assertTrue("and the clock asks it for the finest cell", plan.fineReads > 0)
+    }
+
+    // ── The cancel disposal (D21) ──────────────────────────────────────────────
+
+    /**
+     * **A mid-arm candidate cancel leaves the arm's one build and its main intact (D21).**
+     *
+     * The arm's three rungs share one fine build (the engine's per-arm holder): the first to reach it
+     * rasterises and the rest await the same `Deferred`. Cancelling **one candidate** while that build is
+     * under way must not take the build down with it — the engine disposes the shared build only when the
+     * arm's **last** lookup ends, so the main and the surviving candidate still read the one build and the
+     * main still reaches its terminal with a line. `GRID layer=fine` is emitted once per build, so the
+     * injected sink counts builds: a second build would show as two. A **second arm** on the same pair then
+     * rebuilds rather than awaiting the first arm's disposed `Deferred` — the per-arm holder's freshness.
+     *
+     * **The plan is `EvolutiveGridPlan`, not the shipped `UniformGridPlan` (D29).** The shipped `avoid`
+     * plan answers one tile and emits no `GRID layer=fine`, so the build count this test reads would be
+     * zero; the adaptive plan's two layers give the fine build a line to count.
+     *
+     * **The gate.** The disposal's counter is what makes this hold: a completion disposes the shared build
+     * only when the arm's in-flight count reaches zero. Reverted to cancel on **any** completion, the
+     * cancelled candidate takes the build down while the main awaits it, so the main never reaches its
+     * terminal — which is the failure this test exists to catch. The gate is deterministic (D28): the
+     * build's own `CORRIDOR` trace hook parks the build thread until the test has delivered the cancel, so
+     * the cancel always lands while the rasterise is unfinished rather than racing the build's completion.
+     * The park is **bounded** (D31) — the hook waits on the latch with a timeout, as this test's other
+     * awaits are, so a test-logic failure before the countdown can never park a `Dispatchers.Default`
+     * worker for good; the bound elapsing fails the build loudly (D35) rather than resuming it silently.
+     */
+    @Test
+    fun aCancelledCandidateLeavesTheArmsOneBuildAndItsMainIntact() = runBlocking {
+        val coast = listOf(LatLng(43.52, 6.98), LatLng(43.52, 7.08))
+        val world = FakeWorld(band = 300.0, openCoast = mutableListOf(coast))
+        val captured = Collections.synchronizedList(ArrayList<String>())
+        // The build thread signals it has reached the corridor and then parks until the test has delivered
+        // the cancel: the rasterise is provably unfinished when `cancelLookup` runs, however the machine
+        // schedules the two, so the disposal gate turns on construction rather than on a timing margin
+        // (D28). The park is bounded (D31), so a misfire before the countdown cannot strand the worker.
+        val buildStarted = CompletableDeferred<Unit>()
+        val cancelDelivered = CountDownLatch(1)
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            worldProvider = { world },
+            plan = EvolutiveGridPlan,
+            traceSink = { line ->
+                captured += line
+                if (line.startsWith("CORRIDOR")) {
+                    buildStarted.complete(Unit)
+                    // Honour the bound (D35): a silent resume would let the build run on and the gate pass
+                    // without the cancel ever having been delivered, which is the one thing this hook exists
+                    // to prevent — so a timeout fails the build loudly instead of dropping the boolean.
+                    if (!cancelDelivered.await(120_000, TimeUnit.MILLISECONDS)) {
+                        throw IllegalStateException("the D21 gate's cancel was not delivered within 120 s")
+                    }
+                }
+            }
+        )
+
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture pair declares its three rungs", declared)
+        val computations = declared!!.computations
+
+        val subscribed = CompletableDeferred<Unit>()
+        val armDone = CompletableDeferred<Unit>()
+        val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) {
+                        terminals[update.routeId] = update
+                        // The main and the surviving candidate land; a cancelled one never emits.
+                        if (terminals.size == 2) armDone.complete(Unit)
+                    }
+                }
+        }
+        subscribed.await()
+        val mainId = engine.startLookup(computations[0].id)
+        val cancelledId = engine.startLookup(computations[1].id)
+        engine.startLookup(computations[2].id)
+
+        // Cancel one candidate with the build provably parked mid-flight: the hook blocks the build thread
+        // at `CORRIDOR` until this line has delivered the cancel, so the `Deferred` the disposal would
+        // cancel exists and the rasterise is unfinished when `cancelLookup` runs (D28).
+        withTimeout(120_000) { buildStarted.await() }
+        engine.cancelLookup(cancelledId)
+        cancelDelivered.countDown()
+        withTimeout(120_000) { armDone.await() }
+        collector.cancel()
+
+        assertNotNull("the main still reaches its terminal with a line", terminals[mainId]?.result)
+        assertEquals(
+            "the arm's one build served the surviving rungs",
+            1,
+            captured.count { it.startsWith("GRID layer=fine") }
+        )
+
+        // The second arm on the same pair rebuilds: a fresh holder, so it never awaits the first arm's
+        // disposed `Deferred`. The fine layer is counted over this arm's own sink lines.
+        captured.clear()
+        val secondDeclared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the second arm declares its rungs", secondDeclared)
+
+        val secondSubscribed = CompletableDeferred<Unit>()
+        val secondMainDone = CompletableDeferred<RouteUpdate>()
+        var secondMainId: RouteId? = null
+        val secondCollector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { secondSubscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null && update.routeId == secondMainId) {
+                        secondMainDone.complete(update)
+                    }
+                }
+        }
+        secondSubscribed.await()
+        secondMainId = engine.startLookup(secondDeclared!!.computations[0].id)
+        val secondMain = withTimeout(120_000) { secondMainDone.await() }
+        secondCollector.cancel()
+
+        assertNotNull("the second arm's main reaches its terminal", secondMain.result)
+        assertEquals(
+            "the second arm rebuilds rather than awaiting the first arm's disposed Deferred",
+            1,
+            captured.count { it.startsWith("GRID layer=fine") }
+        )
+    }
+
+    // ── The failed build's terminal (D36) ──────────────────────────────────────
+
+    /**
+     * **A failed build answers the caller instead of leaving the mode to time out (D36).**
+     *
+     * A non-cancellation exception inside the arm's one build fails the shared `Deferred`, which every
+     * awaiting rung rethrows from `await()`. Before the fix no rung reached its terminal, so the mode
+     * waited out its own timeout rather than being told; the lookup now answers the same
+     * [RouteReason.NO_PATH] surface an unanswered search shows. The sink is the build's own trace hook —
+     * throwing on `HARVEST`, emitted only inside `buildGrid`, fails the build deterministically with no
+     * fixture change — and the arm's three rungs share that one failed build, so all three are answered.
+     * A `CancellationException` is deliberately untouched by the handler, so cancellation stays silent.
+     */
+    @Test
+    fun aFailedBuildAnswersEveryAwaitingRungWithNoPath() = runBlocking {
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            worldProvider = { FakeWorld() },
+            traceSink = { line ->
+                if (line.startsWith("HARVEST")) throw IllegalStateException("injected build failure")
+            }
+        )
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture pair declares its three rungs", declared)
+
+        val subscribed = CompletableDeferred<Unit>()
+        val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
+        val allDone = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) {
+                        terminals[update.routeId] = update
+                        if (terminals.size == 3) allDone.complete(Unit)
+                    }
+                }
+        }
+        subscribed.await()
+        for (computation in declared!!.computations) engine.startLookup(computation.id)
+
+        // The terminals arrive without the mode's own timeout: the build failed and every rung answered.
+        withTimeout(30_000) { allDone.await() }
+        collector.cancel()
+
+        assertEquals("the arm's three rungs are all answered", 3, terminals.size)
+        for (terminal in terminals.values) {
+            assertNull("a failed build answers no line", terminal.result)
+            assertTrue("and no line rides the terminal", terminal.line.isEmpty())
+            assertEquals(
+                "the failure is answered with the existing no-path reason, the surface a failed search shows",
+                RouteReason.NO_PATH,
+                terminal.reason
+            )
+        }
+    }
+
+    // ── The healthy terminal's throwing sink (D39) ─────────────────────────────
+
+    /**
+     * **A sink throwing on the healthy terminal emits one terminal and propagates one failure (D39).**
+     *
+     * The failure catch wraps the build, the search and the fold and nothing else, so the success
+     * terminal — emitted just before the sink is asked for its `DONE` line — sits **outside** it. A sink
+     * that throws there therefore propagates a single uncaught failure instead of re-entering the handler
+     * and emitting a second, spurious `NO_PATH` terminal. The corner is driven directly, not through the
+     * harness's `HARVEST`-only build failure: the sink throws on `DONE`, the one line the success path
+     * emits, and the throw is caught where the engine's own lane hands it up. There is no stray failure:
+     * the compute scope carries its own `CoroutineExceptionHandler`, so the throwing sink's failure is
+     * narrated as one `FAILED` trace line rather than escaping to the JVM's default handler and leaking
+     * into a later test. Reverting D39 (wrapping the success emit back inside the catch) reddens this
+     * test: the sink's throw re-enters the handler, a second terminal is emitted, and that second
+     * terminal's own `DONE` line throws again.
+     */
+    @Test
+    fun aThrowingSinkOnAHealthyTerminalEmitsOneTerminalAndPropagatesOneFailure() = runBlocking {
+        val captured = Collections.synchronizedList(ArrayList<String>())
+        val terminals = Collections.synchronizedList(ArrayList<RouteUpdate>())
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
+            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            worldProvider = { FakeWorld() },
+            traceSink = { line ->
+                captured += line
+                if (line.startsWith("DONE")) {
+                    throw IllegalStateException(SINK_FAILURE_MESSAGE)
+                }
+            }
+        )
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture pair declares its three rungs", declared)
+
+        val subscribed = CompletableDeferred<Unit>()
+        val firstTerminal = CompletableDeferred<RouteUpdate>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) {
+                        terminals.add(update)
+                        firstTerminal.complete(update)
+                    }
+                }
+        }
+        subscribed.await()
+        engine.startLookup(declared!!.computations[0].id)
+
+        val terminal = withTimeout(120_000) { firstTerminal.await() }
+        // The throw follows the emit on the same lane; the scope's handler narrates it as one `FAILED` line.
+        withTimeout(120_000) { while (captured.none { it.startsWith("FAILED") }) delay(10) }
+        collector.cancel()
+
+        assertNotNull("the healthy terminal still answers its line", terminal.result)
+        assertEquals("the lookup emits one terminal, never a second NO_PATH", 1, terminals.size)
+        assertEquals(
+            "the sink was asked for exactly one DONE line",
+            1,
+            captured.count { it.startsWith("DONE") }
+        )
+        assertEquals(
+            "and exactly one failure propagates out of the lookup",
+            1,
+            captured.count { it.startsWith("FAILED") }
+        )
+    }
+
+    private companion object {
+        /** The one line the throwing sink refuses to answer — the D39 claim's own marker. */
+        private const val SINK_FAILURE_MESSAGE = "injected healthy-terminal sink failure"
     }
 
     // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────

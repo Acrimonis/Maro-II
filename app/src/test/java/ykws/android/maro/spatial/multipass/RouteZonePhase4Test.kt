@@ -51,8 +51,8 @@ class RouteZonePhase4Test {
 
         val inHole = grid.cellOf(43.5, 7.03)
         val inZone = grid.cellOf(43.5, 7.02)
-        assertEquals("a cell inside the hole reads as water", MultipassCellState.FREE, grid.cell(inHole.row, inHole.col).state)
-        assertEquals("a cell between the outer ring and the hole is tagged zone", MultipassCellState.ZONE, grid.cell(inZone.row, inZone.col).state)
+        assertEquals("a cell inside the hole reads as water", MultipassCellState.FREE, grid.state(inHole.row, inHole.col))
+        assertEquals("a cell between the outer ring and the hole is tagged zone", MultipassCellState.ZONE, grid.state(inZone.row, inZone.col))
     }
 
     @Test
@@ -74,13 +74,12 @@ class RouteZonePhase4Test {
         )
 
         val (row, col) = grid.cellOf(43.5, 7.03)
-        val cell = grid.cell(row, col)
-        assertEquals(MultipassCellState.ZONE, cell.state)
+        assertEquals(MultipassCellState.ZONE, grid.state(row, col))
         assertEquals(
             "the strictest limit is the one in force, never a sum",
             5.0, grid.zoneLimitKn(row, col), 1e-9
         )
-        assertEquals("and the cell carries no price of its own — the A* prices the limit", grid.baseCostSec, cell.sourceCostSec, 1e-9)
+        assertEquals("and the cell carries no price of its own — the A* prices the limit", grid.baseCostSec, grid.sourceCostSec(row, col), 1e-9)
     }
 
     @Test
@@ -92,7 +91,7 @@ class RouteZonePhase4Test {
         )
         grid.markLand(5, 5)
         grid.applyZoneLimit(5, 5, 5.0)
-        assertEquals("a wall is never priced", MultipassCellState.LAND, grid.cell(5, 5).state)
+        assertEquals("a wall is never priced", MultipassCellState.LAND, grid.state(5, 5))
     }
 
     @Test
@@ -114,7 +113,7 @@ class RouteZonePhase4Test {
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 val centre = grid.center(r, c)
-                val filled = grid.cell(r, c).state == MultipassCellState.ZONE
+                val filled = grid.state(r, c) == MultipassCellState.ZONE
                 val inside = zone.contains(centre.latitude, centre.longitude)
                 assertEquals(
                     "cell ($r,$c) at ${centre.latitude}, ${centre.longitude}: fill and point read must agree",
@@ -634,15 +633,15 @@ class RouteZonePhase4Test {
 
         assertFalse(
             "the zone below the pace is blocked",
-            blocked.cell(inSlow.row, inSlow.col).passable
+            blocked.passable(inSlow.row, inSlow.col)
         )
         assertTrue(
             "the zone at or above it is left open",
-            blocked.cell(inFast.row, inFast.col).passable
+            blocked.passable(inFast.row, inFast.col)
         )
         assertTrue(
             "and the grid the search built is untouched",
-            grid.cell(inSlow.row, inSlow.col).passable
+            grid.passable(inSlow.row, inSlow.col)
         )
     }
 

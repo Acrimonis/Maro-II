@@ -150,7 +150,17 @@ internal object DepthBandLaw {
         bandM: Double
     ): Double {
         if (bandM <= 0.0) return 0.0
-        val distance = wallDistanceM(at, blockedAt, stepM, bandM)
+        return coefFor(wallDistanceM(at, blockedAt, stepM, bandM), bandM)
+    }
+
+    /**
+     * The coefficient a **distance to the wall** answers, in `0.0..1.0` — [coefAt]'s own ramp, one home,
+     * so a caller that already holds the distance (the rasterizer's shared scan) writes the very value
+     * [coefAt] would, never a re-spelt one. This is the whole of the law's answer at the band's edge: a
+     * distance at or beyond [bandM] prices nothing, and inside it the ramp rises to 1.0 at the wall.
+     */
+    fun coefFor(distance: Double, bandM: Double): Double {
+        if (bandM <= 0.0) return 0.0
         if (distance >= bandM) return 0.0
         return ((bandM - distance) / bandM).coerceIn(0.0, 1.0)
     }

@@ -1,7 +1,10 @@
 package ykws.android.maro.spatial
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -13,6 +16,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -148,7 +153,17 @@ class RouteAvoidEngine(
      * this engine had before the plan existed, so the default changes nothing; a second algorithm passes
      * its own and inherits the whole pipeline, the clock and the readings unchanged.
      */
-    private val plan: RouteGridPlan = UniformGridPlan
+    private val plan: RouteGridPlan = UniformGridPlan,
+    /**
+     * **The instrument's sink — where a trace line goes.** The default is the device's own channel:
+     * `Log.i` under the `MaroRoute` tag, switched by the tag's level ([logEnabled]) and therefore
+     * **inert off-device**, where a plain JVM's `android.util.Log` throws and the read answers false.
+     * A JVM harness injects its own sink and captures **every** reading the device trace prints — the
+     * grid's ms, the pull's and the fine pass's `priceReads`/`marks`/`priceMs`, the expansions — because
+     * those figures live on this channel alone and are never returned on a value. The default, `null`,
+     * keeps the device behaviour byte-for-byte.
+     */
+    private val traceSink: ((String) -> Unit)? = null
 ) : RouteEngine {
 
     /** One per-engine channel, buffered so a stage emission never waits on the collector. */
@@ -166,13 +181,27 @@ class RouteAvoidEngine(
     private val finePass = RouteFinePass()
 
     /** The engine's own `trace`, handed to the seats so the instrument stays the engine's. */
-    private val traceSink: (() -> String) -> Unit = { message -> trace(message) }
+    private val seatTrace: (() -> String) -> Unit = { message -> trace(message) }
 
-    /** The lane every lookup's job runs on — an engine owns its compute. */
-    private val computeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /**
+     * The lane every lookup's job runs on — an engine owns its compute.
+     *
+     * It carries its own [CoroutineExceptionHandler] so a lookup that fails **outside** the [runComputation]
+     * catch is narrated as one `FAILED` trace line rather than escaping to the JVM's default handler.
+     * [runComputation]'s own KDoc is the home of the one corner this covers and why it is left uncaught.
+     */
+    private val computeScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, failure ->
+            runCatching { trace { "FAILED ${failure.javaClass.simpleName}: ${failure.message}" } }
+        }
+    )
 
-    /** The in-flight lookup jobs, by lookup id; [cancelLookup] removes and cancels one. */
-    private val jobs = mutableMapOf<RouteId, Job>()
+    /**
+     * The live lookup jobs, by lookup id. [cancelLookup] removes and cancels one, and each lookup's own
+     * completion removes its entry, so a long-lived engine never accumulates one per finished lookup. A
+     * concurrent map because a completion runs on the compute lane while the caller may cancel.
+     */
+    private val jobs = ConcurrentHashMap<RouteId, Job>()
 
     /** The repaired pair the current declaration set runs on — set by [routesToCompute]. */
     private var repairedOrigin: RoutePoint? = null
@@ -185,8 +214,15 @@ class RouteAvoidEngine(
     private var nextComputationId = 0L
     private var nextLookupId = 0L
 
-    /** The shared grid the ladder's rungs await — built once per arm, by the first rung to reach it. */
-    private var ladderGrid: Deferred<GridContext?>? = null
+    /**
+     * **The current arm's shared-grid holder** — fresh per [routesToCompute] and published with one
+     * `@Volatile` write, so a lookup captures the arm it was declared under and a fresh arm cannot be
+     * clobbered by a stale one. `null` until the first arm opens, so no holder is allocated for an arm that
+     * never runs. The holder carries its own lock, the one build the arm's three rungs share, and the
+     * in-flight count that disposes that build once the arm's last lookup has ended.
+     */
+    @Volatile
+    private var ladderHolder: LadderGridHolder? = null
 
     /**
      * **The rungs that have landed this arm, in landing order** — each with the lookup that owns it and
@@ -230,18 +266,19 @@ class RouteAvoidEngine(
         val world = worldProvider()
         // The repair judges by the coastline and the depth gate; without either layer a search would
         // draw a line over what it cannot see, so the pair is refused by name rather than drawn blind.
-        if (!world.coastlineReady) return RouteDeclarations.Refused(RouteReason.WORLD_NOT_READY)
+        if (!world.coastlineReady) return refuse(RouteReason.WORLD_NOT_READY)
         if (AppConfig.routeAvoidDepthGateEnabled && !world.depthReady) {
-            return RouteDeclarations.Refused(RouteReason.WORLD_NOT_READY)
+            return refuse(RouteReason.WORLD_NOT_READY)
         }
-        val from = repair(origin, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
-        val to = repair(destination, world) ?: return RouteDeclarations.Refused(RouteReason.CANNOT_REPAIR)
+        val from = repair(origin, world) ?: return refuse(RouteReason.CANNOT_REPAIR)
+        val to = repair(destination, world) ?: return refuse(RouteReason.CANNOT_REPAIR)
         repairedOrigin = from
         repairedDestination = to
         // A fresh arm builds a fresh grid and a fresh ranking: the ladder's three rungs share the one
         // grid built on the first lookup to reach it, and their settled costs are folded afresh. The
+        // holder is published with one write, so the arm's rungs single-flight on its own lock. The
         // rungs are the three fixed aversions of [RoutePreference] — around, best and fast.
-        ladderGrid = null
+        ladderHolder = LadderGridHolder()
         landedRungs = mutableListOf()
         val computations = listOf(
             Computation(RouteId(++nextComputationId), R.string.route_rung_around, RoutePreference.AROUND),
@@ -253,10 +290,46 @@ class RouteAvoidEngine(
         return RouteDeclarations.Available(computations.map { RouteComputation(it.id, it.descriptionResId) })
     }
 
+    /**
+     * **A refused pair clears the arm (D24).** The world-not-ready and cannot-repair refusals leave no pair
+     * to run, so the holder the last arm published and its declarations are dropped together: a later
+     * [startLookup] then finds no declaration for its id and returns before a stale holder can run a lookup
+     * nobody asked for. A lookup id is still minted, as every declaration path mints one — the caller reads
+     * the absent terminal, never a returned id, as the "started" signal.
+     */
+    private fun refuse(reason: RouteReason): RouteDeclarations.Refused {
+        ladderHolder = null
+        declarations = emptyMap()
+        return RouteDeclarations.Refused(reason)
+    }
+
     override fun startLookup(computationId: RouteId): RouteId {
         val lookupId = RouteId(++nextLookupId)
-        val computation = declarations[computationId]
-        jobs[lookupId] = computeScope.launch { runComputation(lookupId, computation) }
+        // An id the current declarations do not hold — a stale arm's, or one from before a refusal cleared
+        // them (D24) — starts nothing: the lookup id is minted, but no job and no stale holder run.
+        val computation = declarations[computationId] ?: return lookupId
+        // The arm's holder and its repaired pair are captured here, at the moment the lookup is declared, so
+        // every rung of the arm runs the arm it was asked for and a later arm's fresh state cannot be
+        // retargeted under it.
+        val holder = ladderHolder ?: return lookupId
+        val from = repairedOrigin ?: return lookupId
+        val to = repairedDestination ?: return lookupId
+        holder.inFlight.incrementAndGet()
+        val job = computeScope.launch { runComputation(lookupId, computation, holder, from, to) }
+        // The job is published before its handler is registered, so a lookup that ends in the instant
+        // between the two is still removed rather than left as a stale entry — the handler fires at once on
+        // an already-completed job.
+        jobs[lookupId] = job
+        // Disposal: the shared build is not a child of the lookup job, so cancelling the job alone would let
+        // it run on unattended. The completion handler removes the job's own entry — a finished lookup must
+        // not be remembered — drops the arm's in-flight count and, once the arm's last lookup — success or
+        // cancel — has ended, cancels the build the rungs shared. The read runs off the suspending lane and
+        // cannot take the holder's lock; the field's `@Volatile` only keeps that read from going stale, and
+        // on the shipped path [inFlight]'s atomic already orders the last completer's read (D34).
+        job.invokeOnCompletion {
+            jobs.remove(lookupId)
+            if (holder.inFlight.decrementAndGet() == 0) holder.deferred?.cancel()
+        }
         return lookupId
     }
 
@@ -267,12 +340,34 @@ class RouteAvoidEngine(
     /**
      * **One lookup, run on the engine's own lane.** The main computation publishes its stage pair and
      * the settled result; a candidate publishes only its terminal update, the panel's stage line
-     * narrating the main's build alone.
+     * narrating the main's build alone. The [holder] and the [from]/[to] pair are the ones captured when the
+     * lookup was declared, so a rung always runs the arm it was asked for.
+     *
+     * **A failed build is answered, a cancel is not (D36).** A non-cancellation exception inside the arm's
+     * one build fails the shared `Deferred`, which every awaiting rung rethrows from `await()`; without a
+     * handler no rung would ever reach its terminal, so the mode would wait out its own timeout rather than
+     * being told. The lookup therefore catches such a failure and answers the same [RouteReason.NO_PATH]
+     * surface an unanswered search shows — the failure is deliberately **conflated** with a search that found
+     * nothing, because this fix introduces no new reason and no new user-visible text. A
+     * [CancellationException] is rethrown untouched: the seam says no update may arrive after a cancel, so an
+     * abandoned lookup stays silent.
+     *
+     * **The catch holds the build, the search and the fold alone (D39).** The failure handler used to enclose
+     * the success path's own terminal emit, so a sink throwing on a **healthy** path re-entered it and
+     * emitted a second, spurious `NO_PATH` terminal before the failure was swallowed. The success terminal
+     * now sits outside the handler by construction: the handler wraps the three steps that can fail — the
+     * shared build, the rung's search and the fold — and the terminal is emitted once, after it. A sink that
+     * throws on the healthy terminal therefore propagates one failure and emits one terminal, which
+     * [`aThrowingSinkOnAHealthyTerminalEmitsOneTerminalAndPropagatesOneFailure`] in `RouteAvoidEngineTest`
+     * pins.
      */
-    private suspend fun runComputation(lookupId: RouteId, computation: Computation?) {
-        if (computation == null) return
-        val from = repairedOrigin ?: return
-        val to = repairedDestination ?: return
+    private suspend fun runComputation(
+        lookupId: RouteId,
+        computation: Computation,
+        holder: LadderGridHolder,
+        from: RoutePoint,
+        to: RoutePoint
+    ) {
         val world = worldProvider()
         passIndex = 0
         // Only the first rung narrates the panel's stage line; the others publish their terminal answer
@@ -282,17 +377,37 @@ class RouteAvoidEngine(
             mainLookupId = lookupId
             lastStage = null
         }
+        // The outer `try` exists only to clear the narrator's fields however the lookup ends — **after**
+        // the terminal emit below, which reads `lastStage` as its own `stageDone`.
         try {
-            val grid = sharedGrid(world, from, to).await()
-            val rung = grid?.let {
-                searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
+            var rung: Rung? = null
+            var best: RouteRunningBest? = null
+            // The build, the search and the fold — and only these — sit inside the catch.
+            try {
+                val grid = sharedGrid(holder, world, from, to).await()
+                rung = grid?.let {
+                    searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
+                }
+                // The fold and the read are one critical step: the rungs land concurrently, so a running
+                // best reported beside a rival's landing must see it whole or not at all.
+                val landed = rung
+                best = rankingLock.withLock {
+                    if (landed != null) landedRungs += LandedRung(lookupId, computation.rungIndex, landed.cost)
+                    runningBest()
+                }
+            } catch (cancelled: CancellationException) {
+                // A cancel must stay silent — the seam says no update may arrive after one — so it is
+                // rethrown rather than answered. The handler is ordered before the general one below because
+                // a CancellationException is itself an Exception.
+                throw cancelled
+            } catch (failure: Exception) {
+                // D36's answer, and only that — the reason and the conflation are stated once, in this
+                // method's KDoc above. No second trace: `emitTerminal`'s own `DONE` line is the record, so a
+                // broken sink cannot swallow the answer by throwing here a second time.
+                emitTerminal(lookupId, null, RouteReason.NO_PATH)
+                return
             }
-            // The fold and the read are one critical step: the rungs land concurrently, so a running
-            // best reported beside a rival's landing must see it whole or not at all.
-            val best = rankingLock.withLock {
-                if (rung != null) landedRungs += LandedRung(lookupId, computation.rungIndex, rung.cost)
-                runningBest()
-            }
+            // The success path's terminal, emitted **outside** the catch.
             emitTerminal(
                 lookupId,
                 rung?.result,
@@ -309,16 +424,31 @@ class RouteAvoidEngine(
 
     /**
      * **The ladder's shared grid** — built once per arm and awaited by all three rungs. The first rung
-     * to reach it triggers the rasterise; the others await the same `Deferred`, so three rungs cost one
-     * rasterise and three A* passes.
+     * to reach the arm's [holder] computes the `Deferred` **inside** the holder's lock and publishes it;
+     * the other two find that same `Deferred` under the same lock and await it, so no rung starts a
+     * build of its own and the arm costs one rasterise and three A* passes. The build itself is awaited
+     * outside the lock, so the rungs single-flight only the *start* of the one build and then run their
+     * A* passes concurrently over it. The shared grid keeps the first caller's `world` and `pace`, which
+     * the world's own between-solves reload contract makes safe.
      */
-    private fun sharedGrid(world: MultipassWorld, from: RoutePoint, to: RoutePoint): Deferred<GridContext?> {
-        ladderGrid?.let { return it }
-        val deferred = computeScope.async {
-            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), traceSink)
+    private suspend fun sharedGrid(
+        holder: LadderGridHolder,
+        world: MultipassWorld,
+        from: RoutePoint,
+        to: RoutePoint
+    ): Deferred<GridContext?> = holder.lock.withLock {
+        holder.deferred?.let { return@withLock it }
+        // The deferred is published before the build can run (D33): created `LAZY`, assigned to the holder
+        // under the lock, and only then started, so no reader — the disposal included — can ever see a
+        // build beside a null field. The assignment happens-before `start()`, and `start()` before any
+        // body execution, so a build that exists implies a published deferred; the await stays outside the
+        // lock, so the rungs single-flight only the start and then run over the one build concurrently.
+        val deferred = computeScope.async(start = CoroutineStart.LAZY) {
+            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), seatTrace)
         }
-        ladderGrid = deferred
-        return deferred
+        holder.deferred = deferred
+        deferred.start()
+        deferred
     }
 
     /**
@@ -355,13 +485,13 @@ class RouteAvoidEngine(
         val first = solveAtLambda(grid, lambda, publishStage, lookupId)
         if (first == null) {
             if (grid.regionSaturated) return null
-            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), traceSink) ?: return null
+            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), seatTrace) ?: return null
             return solveAtLambda(grown, lambda, publishStage, lookupId)
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
         // the "around" rung's whole job. The wider answer is kept only where it forces fewer crossings.
         if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) return first
-        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), traceSink) ?: return first
+        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), seatTrace) ?: return first
         val grownRung = solveAtLambda(grown, lambda, publishStage, lookupId) ?: return first
         return if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
     }
@@ -388,7 +518,7 @@ class RouteAvoidEngine(
             publish = { stage, points, readings, provisional ->
                 publish(lookupId, publishStage, stage, points, readings, provisional)
             },
-            trace = traceSink,
+            trace = seatTrace,
             guardZones = true,
             guardBand = true
         )
@@ -399,7 +529,7 @@ class RouteAvoidEngine(
                 "PASS lambda=${fmt(lambda, 2)} NO PATH " +
                     "expansions=${passReading.search.expansions} passable=${passReading.search.passableCells} " +
                     "aimClosed=${passReading.search.aimClosed} " +
-                    "aimCell=${ctx.grid.cell(ctx.aimCell.row, ctx.aimCell.col).state} " +
+                    "aimCell=${ctx.grid.state(ctx.aimCell.row, ctx.aimCell.col)} " +
                     "aimLimit=${fmt(ctx.grid.zoneLimitKn(ctx.aimCell.row, ctx.aimCell.col))}kn"
             }
             return null
@@ -409,14 +539,14 @@ class RouteAvoidEngine(
         // The fine stage is the refinement along the settled line alone — the crossings and the
         // re-tension — timed as one `fineMs`.
         val fineStartNs = System.nanoTime()
-        val refined = finePass.finePass(ctx, waypoints, lambda, traceSink)
+        val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace)
         val fineMs = msSince(fineStartNs)
 
-        // **The device reading** — behind the tag's own level, never on a shipped path: the coarse
-        // walk's own A* cost and duration, with the fine stage's duration beside them.
-        if (logEnabled) {
-            instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
-        }
+        // **The device reading** — the coarse walk's own A* cost and duration, with the fine stage's
+        // duration beside them. Always offered to `trace()`: a sink takes it where one stands, and the
+        // device's own `Log.i` path is gated inside `trace()` by the tag's level, so the guard is not
+        // repeated here — the sink must see every reading, and the device behaviour is unmoved.
+        instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
         // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
         // an outward-bulging curve — clear by construction, slowed where the bulge would foul — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
@@ -653,9 +783,14 @@ class RouteAvoidEngine(
 
     // ── The instrument ─────────────────────────────────────────────────────────
 
-    /** Emits one line on the route channel when its level is on, building [message] only then. */
+    /**
+     * **Emits one line where the instrument is listening** — the injected sink where one stands, and the
+     * device's own `Log.i` channel under the tag's level otherwise; [message] is built only when a line
+     * is actually emitted.
+     */
     private inline fun trace(message: () -> String) {
-        if (logEnabled) Log.i(TAG, message())
+        val sink = traceSink
+        if (sink != null) sink(message()) else if (logEnabled) Log.i(TAG, message())
     }
 
     /**
@@ -774,6 +909,34 @@ private data class Rung(
     val result: RouteResult.Success,
     val cost: RoutePassRanking.PassCost
 )
+
+/**
+ * **One arm's shared-grid single-flight** — the [Mutex] guarding the build and the [Deferred] the first
+ * rung publishes. The ladder's three rungs share one holder per arm: the first to enter [lock] starts
+ * the rasterise and stores [deferred]; the rest find it under the same lock and await that one build,
+ * so no rung ever starts a build of its own. [inFlight] counts the arm's live lookups so the shared build
+ * is disposed once the last of them ends rather than outliving its rungs.
+ */
+private class LadderGridHolder {
+    /** Guards the check-build-publish, so exactly one rung starts the arm's rasterise. */
+    val lock = Mutex()
+
+    /**
+     * The one build this arm shares — written once, under [lock]. `@Volatile` only so a reader off the
+     * suspending lane that cannot take [lock] sees the latest write rather than a stale one; it orders
+     * nothing on the shipped path, where [inFlight]'s atomic already orders the last completer's read, so
+     * it removes staleness for a non-last reader and no more (D34).
+     */
+    @Volatile
+    var deferred: Deferred<GridContext?>? = null
+
+    /**
+     * The arm's lookups still in flight — incremented as each is launched and decremented by that job's own
+     * completion, so the shared build is cancelled exactly when the arm's last lookup has ended and never
+     * while a sibling still awaits it.
+     */
+    val inFlight = AtomicInteger(0)
+}
 
 
 /** The repair's ring step (m) — a constant of the algorithm, not a key. */

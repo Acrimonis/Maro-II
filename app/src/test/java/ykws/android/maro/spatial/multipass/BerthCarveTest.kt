@@ -98,13 +98,12 @@ class BerthCarveTest {
         // The limit first — `applyZoneLimit` never writes a LAND cell — then the sweep's own bar.
         grid.applyZoneLimit(cell.row, cell.col, 10.0)
         grid.markLand(cell.row, cell.col)
-        assertFalse("the cell starts barred", grid.cell(cell.row, cell.col).passable)
+        assertFalse("the cell starts barred", grid.passable(cell.row, cell.col))
 
         grid.openCarve(cell.row, cell.col)
 
-        val opened = grid.cell(cell.row, cell.col)
-        assertTrue("the carve opens it", opened.passable)
-        assertEquals("at the grid's base cost", grid.baseCostSec, opened.sourceCostSec, 1e-9)
+        assertTrue("the carve opens it", grid.passable(cell.row, cell.col))
+        assertEquals("at the grid's base cost", grid.baseCostSec, grid.sourceCostSec(cell.row, cell.col), 1e-9)
         assertEquals("and it keeps its zone limit", 10.0, grid.zoneLimitKn(cell.row, cell.col), 1e-9)
     }
 

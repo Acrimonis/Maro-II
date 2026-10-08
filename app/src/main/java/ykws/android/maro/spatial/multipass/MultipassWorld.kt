@@ -50,6 +50,29 @@ interface MultipassWorld {
     /** The chart's EMODnet shallow cutoff (m) — the same setting [depthAt] is gated by. 0 disables it. */
     val emodnetCutoffM: Float get() = 0f
 
+    /**
+     * The speed-zone list's **content stamp** — a rebuilt zone list changes it, so a fine tile keyed on
+     * it invalidates when the zones move, while a moved price slider (which never touches the list) does
+     * not. 0 where the world names none. It is a **content** stamp, not a monotone counter: the cache is
+     * long-lived, and a content hash is the same idiom [coastlineGenerationStamp] already uses.
+     */
+    val zoneGenerationStamp: Long get() = 0L
+
+    /**
+     * The ids of the speed zones the user has **excluded** — the excluded-zone set a fine tile key
+     * carries, because [speedZonesIn] already drops them and a change to the set can move the zones a
+     * tile even-odd-fills. Empty where the world names none.
+     */
+    val excludedZoneIdSet: Set<String> get() = emptySet()
+
+    /**
+     * **The fixed anchor the walk lattices are drawn from** — the depth raster's own south-west origin and
+     * region latitude, so every arm lays its cells on the same lines and the fine layer can be cached tile
+     * by tile. `null` where no depth grid is loaded or the world names none: the caller then falls back to a
+     * whole-degree origin, and never to the corridor, which is the corridor-dependent origin P4.1 removes.
+     */
+    val latticeAnchor: LatticeAnchor? get() = null
+
     /** Every ring/basin land edge whose bounding box overlaps [box], each carrying its ring orientation. */
     fun segmentsIn(box: BBox): List<MultipassEdge>
 
@@ -96,6 +119,15 @@ interface MultipassWorld {
 }
 
 /**
+ * **The zone list's content stamp, one home** — the list's own `hashCode` folded to a `Long`, covering
+ * every zone's id, limit, rings and holes because [`SpeedZone`] is a data class. It is the value
+ * [LiveMultipassWorld.zoneGenerationStamp] answers: a rebuilt list moves it and a re-read of the same
+ * list does not. A content hash rather than a monotone counter, because the cache keyed on it is
+ * long-lived and the same idiom [MultipassWorld.coastlineGenerationStamp] already uses.
+ */
+internal fun zoneContentStamp(zones: List<SpeedZone>): Long = zones.hashCode().toLong()
+
+/**
  * The live adapter over [CoastlineRepository], [DepthRepository] and the speed-zone list — the one file
  * in the feature that imports them, translating the first's index into [MultipassEdge]s and the three
  * layers' readiness into this world's. It holds no data of its own: every query reads the layers'
@@ -136,9 +168,27 @@ class LiveMultipassWorld(
             BBox(it.latSouth, it.latNorth, it.lonWest, it.lonEast)
         }
 
+    /** The loaded grid's own south-west origin and centre latitude — the fixed lattice family anchor. */
+    override val latticeAnchor: LatticeAnchor?
+        get() = depth.getGrid()?.let {
+            LatticeAnchor(it.boundingBox.latSouth, it.boundingBox.lonWest, it.boundingBox.centerLat)
+        }
+
     /** The index's own identity, so a rebuilt coastline changes the stamp and a mask cache invalidates. */
     override val coastlineGenerationStamp: Long
         get() = coastline.spatialIndex?.hashCode()?.toLong() ?: 0L
+
+    /**
+     * The zone list's own content stamp, read fresh from the provider: a rebuilt list moves it and a
+     * moved price slider, which never touches the list, does not. It is read once per arm beside the
+     * other two stamps, so a fine tile invalidates with the zones the rasterizer even-odd-fills.
+     */
+    override val zoneGenerationStamp: Long
+        get() = zoneContentStamp(zonesProvider())
+
+    /** The user's excluded-zone ids, read fresh so a Settings change reaches the next tile key. */
+    override val excludedZoneIdSet: Set<String>
+        get() = excludedZoneIds()
 
     /** The loaded grid's `fetchTimestampMs`, the value the raster cache already keys on. */
     override val depthGenerationStamp: Long

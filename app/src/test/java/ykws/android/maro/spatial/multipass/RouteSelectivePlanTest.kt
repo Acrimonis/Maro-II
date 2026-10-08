@@ -155,12 +155,12 @@ class RouteSelectivePlanTest {
         val rimCell = grid.cellOf(rimPoint.latitude, rimPoint.longitude)
         assertTrue(
             "the zone rim in open water is fine water",
-            grid.cell(rimCell.row, rimCell.col).passable
+            grid.passable(rimCell.row, rimCell.col)
         )
         val farCell = grid.cellOf(corridor.latSouth + 5e-4, corridor.lonWest + 5e-4)
         assertFalse(
             "water far from every collar is painted land",
-            grid.cell(farCell.row, farCell.col).passable
+            grid.passable(farCell.row, farCell.col)
         )
     }
 
@@ -368,8 +368,8 @@ class RouteSelectivePlanTest {
         val withinCell = grid.cellOf(within.latitude, within.longitude)
         val beyondCell = grid.cellOf(beyond.latitude, beyond.longitude)
 
-        assertTrue("water inside the ribbon stays fine", grid.cell(withinCell.row, withinCell.col).passable)
-        assertFalse("water beyond the ribbon is painted land", grid.cell(beyondCell.row, beyondCell.col).passable)
+        assertTrue("water inside the ribbon stays fine", grid.passable(withinCell.row, withinCell.col))
+        assertFalse("water beyond the ribbon is painted land", grid.passable(beyondCell.row, beyondCell.col))
     }
 
     // ── Fixtures ───────────────────────────────────────────────────────────

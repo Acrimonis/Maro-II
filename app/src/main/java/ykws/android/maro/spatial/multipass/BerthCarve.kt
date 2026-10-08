@@ -133,7 +133,7 @@ fun openEndDisc(
             val row = origin.row + dRow
             val col = origin.col + dCol
             if (!grid.inBounds(row, col)) continue
-            if (grid.cell(row, col).passable) continue
+            if (grid.passable(row, col)) continue
             val centre = grid.center(row, col)
             if (SpatialOperations.haversine(centre, end) > marginM) continue
             if (!world.isWater(centre.latitude, centre.longitude)) continue

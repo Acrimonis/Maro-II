@@ -1,23 +1,32 @@
-# Context Hydration — Route — 2026-10-07
+# Context Hydration — Route — 2026-10-08
 
-**Last Bake:** 2026-10-07 21:01 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-08 20:59 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-07 20:56 UTC) the session ran on the user's own words — the seventeen-fix batch was committed under an explicit order, and a performance review of the acquisition was carried out and parked. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read.
+**Directive trace:** Since the last bake (2026-10-08 20:37 UTC) the session ran on the user's own words: `#impl carve and write-up`, whose Code→Ask→Architect pipeline shipped **P4.5** (the carve, closed as its note plus a copy-not-alias pin) and **P5** (the record), verified green at each hop. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: the prior commit `3d0c1f6b`; the P4.5/P5 batch is uncommitted (`#commit` and `#push` invoked).
 
 ## State
 
-**`selective` has landed, the seventeen-fix batch is reviewed and committed, and the acquisition's slowness is parked.** The third engine is `RouteSelectiveEngine` over the shared pipeline — four fine collars (the shoreline, the band's outer boundary, the zone rims, the shallow wall) and a per-metre depth price over a 25 m band beside the gate's wall, its own `route.selective.*` keys, `fineWater(...)` on the plan seam, and `SelectiveMaskCache` holding the pre-snap law keyed on the band width and the four collar widths. The two-layer walk reads the fine cell over its coarse copy (any layer ratio, an even one settled by the `floor` convention), so `evolutive`'s ribbon and `selective`'s collars are fine-only water while `avoid` is untouched.
+**The plan's phases are all closed.** P4.5's carve is closed as its own note — the boundary already held (every carve site writes only to an arm-owned grid, and [`writeInto`](../../app/src/main/java/ykws/android/maro/spatial/multipass/FineTile.kt:78) copies a tile's members rather than aliasing them), and [`writeIntoCopiesMembersWithoutTouchingTheTile`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt:80) holds it across all seven of the tile's arrays. P5's record is folded into [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) (a fine-tiles bullet, the carve's line on the Ends step, the `TILE built` reading) and the feature state, and both plans' statuses and Docs markers read (implemented). `apk-build.bat` and the full `testDebugUnitTest` are green, the harness record unmoved (`priceReads 3135`, `marks 3141`, `expansions 2820`, `tileBuilds 0`, line `2015.8 m / 783.7 s`).
 
-**The batch is committed as `6feac66e`** on `feature/route-algo-ya-more` (38 files; root artefacts excluded; not pushed). The independent review returned **no blocker and four should-fixes** — the band-time KDoc's constant-speed premise is wrong for the profile input; `MarkMemo`'s safety is misattributed to the world's window rather than its field-identity binding; `FEAT_DOC_Route_engines.md` still states the old mask-cache key; and the memo fixture never drives `runPass`. Their plan is [`261007_FEAT_PLN_Route_review-should-fixes.md`](261007_FEAT_PLN_Route_review-should-fixes.md) — **in design, nothing of it implemented**.
+**The day's arc, for the reader arriving cold.** The device pass of 2026-10-08 fixed the cost on the fine-layer build; the JVM harness reproduced the ranking and gated the work; P0–P4.1 landed (one build per arm, the bounded depth scan, the flat cell, the anchored lattice); then P4.2 (the tile map), three debt batches (D1–D39, D40–D52, D53–D62), and the closing P4.5 + P5 — each reviewed independently, with the findings logged.
 
-**The acquisition's slowness is parked, unmeasured.** One arming runs three complete passes (the ladder's Fast · Best · Fun), each re-running the A\*, pull, fine pass and clock with only the grid shared; the search box is grown `route.avoid.corridor.reachM` (3704 m) on every side and doubles on a failed first pass, and the pull's coast-distance reads are the priciest single step. The engine's timings print only on-device under the `MaroRoute` tag, so the leading stage must be read with `adb logcat -s MaroRoute` before a lever is chosen. The suite reads **961 / 2 / 11**, the two reds the pre-existing `TrackOutlineTest` asset-and-default disagreement.
+**What is owed.** The tile-layer device pass alone (R97). The reviews' health items ride later: **D63** (the eviction gate is half-pinned), **D64** (`TILE built` fires before the build), **F8** (the hit-rate has no production reader), **F9** (the carve rationale stands in many homes) and **F11** (the key's completeness is asserted, not proven).
+
+**No open walk.** The feature file holds no `## Walk` section, so nothing bars a fold.
 
 ## Target Files
 
-- `xTrack/Route/FEAT_DSC_Route.md` — the state doc, the parked perf todo added
-- `xTrack/GLOBAL_CONTEXT.md` — this bake's focus entry
-- `xTrack/Route/261007_FEAT_PLN_Route_review-should-fixes.md` — the seven should-fixes, in design
+- `xTrack/Route/261008_FEAT_PLN_Route_selective-perf-eval.md` — the assessment, the measured device pass, the plan, the landed notes, §10's debt ledger (D1–D71, F1–F12) and the `## Implemented` entries
+- `xTrack/Route/261008_FEAT_PLN_Route_anchored-tiles.md` — the tile design's one home (D17), built 2026-10-08 with the carve closed as §4's note
+- `xTrack/Route/FEAT_DOC_Route_engines.md` — the acquisition engines' reference, now carrying the fine layer's tiles
+- `app/src/main/java/ykws/android/maro/spatial/multipass/FineTile.kt` — the sparse hybrid tile, its extractor and the copy-not-alias `writeInto`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/TileKey.kt` — the tile key over every value the rasterisation reads
+- `app/src/main/java/ykws/android/maro/spatial/multipass/FineTileMap.kt` — the lazy single-flight map, the byte ceiling and its in-flight guard
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt` — the tile assembly, the halo and its reason, and the carve's own sites
+- `app/src/test/java/ykws/android/maro/spatial/RouteSelectivePerfEvalTest.kt` — the harness, the count-based reuse signal and the split record
+- `app/src/test/java/ykws/android/maro/spatial/multipass/FineTileExtractTest.kt` — the extract boundary at both raster offsets and the copy-not-alias pin
+- `xTrack/Route/FEAT_DSC_Route.md` — the feature state doc, its acquisition-cost todo refreshed
 
 ## Next Step
 
-Implement the seven should-fixes from [`261007_FEAT_PLN_Route_review-should-fixes.md`](261007_FEAT_PLN_Route_review-should-fixes.md); the acquisition's performance waits on the on-device `MaroRoute` trace.
+The tile-layer device pass — the user's own (R97), the last open item on the plan.

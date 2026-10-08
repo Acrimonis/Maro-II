@@ -178,6 +178,16 @@ protobuf {
 }
 
 tasks.withType<Test> {
+    // Surface the tests' own stdout into the Gradle test log only when asked, so an instrumented harness
+    // that reports through `println` (the selective-perf eval, its PERF-* lines) is readable in the
+    // `test-*.log` the repo habit names without echoing every other class's output. Enable with the Gradle
+    // property `-Pmaro.testStdout=true`; the run recipe in RouteSelectivePerfEvalTest names it (D25).
+    val showStdout = project.providers.gradleProperty("maro.testStdout")
+        .map { it.toBoolean() }
+        .getOrElse(false)
+    testLogging {
+        showStandardStreams = showStdout
+    }
     // Propagate the prebake gate to the test JVM so the @prebake build-tools (CoastlinePrebakeTest,
     // DepthPrebakeTest) run only with -Dmaro.prebake=true; normal runs skip them (Assume).
     systemProperty("maro.prebake", System.getProperty("maro.prebake") ?: "false")
