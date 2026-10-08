@@ -64,10 +64,12 @@ internal class RouteFinePass {
         val refusals = ctx.refusals
         val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
-        // This pass walks one fine grid, so both its clearance step and its price step are that grid's
-        // own cell — its interior is its fine layer, and the price step is never under the fine one.
+        // The **clearance** step is this fine grid's own cell — the line is sampled at the resolution it
+        // was resolved at. The **price** step is the **coarse** cell, never the fine one: the grouping
+        // rule is `RoutePassRunner`'s own (a step at or under the sampling step proves no group and reads
+        // every mark), applied here because this pass prices the same line through the same walk.
         val coarseStepM = fineCellM
-        val priceStepM = fineCellM
+        val priceStepM = cellM
         var out = line
         // The depth band, where the plan prices the shallow wall: the same law the runner's search and
         // guard read, built once here so the crossing re-solves ride it too.
@@ -167,10 +169,10 @@ internal class RouteFinePass {
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
             withDepthBand = depthBand != null
         )
-        // This crossing walks one fine grid, so both its steps are that grid's own cell; the water is
-        // built once here, immediately after the field, and never cached.
+        // This crossing walks one fine grid — clearance at its own cell, price at the coarse one, as in
+        // `finePass`. The water is built once here, immediately after the field, and never cached.
         val coarseStepM = fineCellM
-        val priceStepM = fineCellM
+        val priceStepM = cellM
         val setup = PullSetup(marginM, coarseStepM, priceStepM, guard, start, aim, approaches)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,

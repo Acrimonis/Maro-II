@@ -225,6 +225,11 @@ data class RouteSummaryData(
     val searching: Boolean = false,
     /** The engine's boundary while it searches, or null when nothing is searching. */
     @StringRes val stageRes: Int? = null,
+    /**
+     * The selected route's own number, 1-based over the ladder — the figure the panel's status word
+     * carries, so the band reads the same `<stage> #<n>` the header does; null where no page stands.
+     */
+    val routeNumber: Int? = null,
     /** The plan's own length in nautical miles, or null while no plan stands. */
     val plannedDistanceNm: Double? = null,
     /** The plan's own course seconds — the panel's own derivation, passed in. */

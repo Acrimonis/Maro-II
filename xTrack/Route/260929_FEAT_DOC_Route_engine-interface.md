@@ -38,7 +38,7 @@ interface RouteEngine {
 - All three calls are plain, not `suspend`.
 - The updates are one per-engine `MutableSharedFlow<RouteUpdate>`; the compute jobs run on an engine-owned scope; the id is the only correlation the flow reads.
 - `RouteResult.Success` keeps `points` · `legTimesSec` · `distanceM` · `durationSec` · `forcedCrossingZoneNames`; its `offers` field is deleted.
-- The stage set is the existing `RouteStage` (`CORRIDOR` · `GRID` · `SEARCH` · `PULL` · `SNAP`); a callback reports the stage just finished and the next one.
+- The stage set is the existing `RouteStage` (`CORRIDOR` · `GRID` · `SEARCH` · `PULL` · `SNAP` · `FINE`); a callback reports the stage just finished and the next one.
 
 ## The flow
 

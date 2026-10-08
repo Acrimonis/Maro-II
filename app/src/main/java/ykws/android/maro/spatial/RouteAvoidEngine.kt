@@ -535,9 +535,10 @@ class RouteAvoidEngine(
             return null
         }
         val waypoints = passReading.line
-        if (publishStage) publish(lookupId, publishStage, RouteStage.PULL)
         // The fine stage is the refinement along the settled line alone — the crossings and the
-        // re-tension — timed as one `fineMs`.
+        // re-tension — timed as one `fineMs`; it is a boundary of its own (FINE), since the coarse pass
+        // closed at SNAP and the word must name the refinement rather than a pull already done.
+        if (publishStage) publish(lookupId, publishStage, RouteStage.FINE)
         val fineStartNs = System.nanoTime()
         val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace)
         val fineMs = msSince(fineStartNs)

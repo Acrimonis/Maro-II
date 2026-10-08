@@ -648,8 +648,9 @@ private fun RouteQuickAccessSection(section: RouteSummaryData) {
  * disc. The colour is the toggle's own face — the line's while the engine searches (R51), the navigating
  * token's while a route is followed — so the drawer and the map's square cannot disagree.
  *
- * **It carries two messages, and only those** (the user's word, 2026-10-04): `Acquiring… • <stage>` while the
- * engine searches, and `Routing • <the route's own ETA> / <the plan's total ETA>` while a route is followed.
+ * **It carries two messages, and only those** — `<stage> #<n>`, the engine's stage with the selected route's
+ * own number (the user's word, 2026-10-08), while the engine searches, and `Routing • <the route's own ETA> /
+ * <the plan's total ETA>` while a route is followed.
  *
  * **Four readings stand under it**, in the columned reading cell: the plan's figures on the left as the
  * totals, the route's own on the right — `Dist total` beside `Dist route`, then `ETA total` beside
@@ -685,10 +686,14 @@ private fun RouteSummaryBlock(summary: RouteSummaryData) {
     val bandTail: String?
     when {
         summary.searching -> {
-            // The band's own word carries no ellipsis (`route_status_acquiring_bare`); the shared one, with
-            // the ellipsis, stays the route panel's header word.
-            bandWord = stringResource(R.string.route_status_acquiring_bare)
-            bandTail = summary.stageRes?.let { stringResource(it) }
+            // The band reads the panel's own word — the stage and the selected route's number, `Pull #2` —
+            // so the two surfaces cannot disagree; no stage published leaves the bare acquiring word.
+            bandWord = summary.stageRes?.let { res ->
+                summary.routeNumber?.let { number ->
+                    stringResource(R.string.route_status_stage_number, stringResource(res), number)
+                } ?: stringResource(res)
+            } ?: stringResource(R.string.route_status_acquiring_bare)
+            bandTail = null
         }
         followed != null -> {
             bandWord = stringResource(R.string.route_status_active)
