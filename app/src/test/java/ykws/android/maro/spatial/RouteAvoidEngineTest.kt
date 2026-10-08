@@ -31,6 +31,8 @@ import ykws.android.maro.spatial.multipass.MultipassEdge
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.EndApproaches
+import ykws.android.maro.spatial.multipass.FineWater
+import ykws.android.maro.spatial.multipass.FineWaterQuery
 import ykws.android.maro.spatial.multipass.GridTile
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridPlan
@@ -128,7 +130,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidDepthGateEnabled", true)
         setAvoidSwitch("routeAvoidZone300Enabled", true)
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
-        setAvoidMarginM(25.0)
+        setAvoidMarginM(50.0)
     }
 
     private fun setAvoidSwitch(name: String, value: Boolean) {
@@ -632,21 +634,26 @@ class RouteAvoidEngineTest {
         )
     }
 
-    // ── The fine-cell ratio, shipped and unread until Change 4 ───────────────────
+    // ── The avoid fine cell, shipped in metres ──────────────────────────────────
 
     @Test
-    fun theFineCellRatioShipsAtFortyPercentOfTheCoarseCell() {
-        val raw = shippedProperties().getProperty("route.avoid.fine.cellRatio")
-        assertNotNull("maro.properties must carry route.avoid.fine.cellRatio", raw)
+    fun theAvoidFineCellShipsInMetres() {
+        val props = shippedProperties()
+        val raw = props.getProperty("route.avoid.grid.fineCellM")
+        assertNotNull("maro.properties must carry route.avoid.grid.fineCellM", raw)
         val shipped = raw!!.trim().toDouble()
 
-        assertEquals("the file and the code carry one value", AppConfig.routeAvoidFineCellRatio, shipped, 1e-9)
-        assertEquals("the user's 40 % of the coarse cell", 0.40, shipped, 1e-9)
+        assertEquals("the file and the code carry one value", AppConfig.routeAvoidGridFineCellM, shipped, 1e-9)
+        assertEquals("one third of the 100 m coarse cell", 100.0 / 3.0, shipped, 1e-3)
         assertEquals(
-            "and a 20 m fine cell at today's 50 m coarse cell",
-            20.0,
-            AppConfig.routeAvoidGridCellM * shipped,
+            "and the coarse cell ships at 100 m",
+            100.0,
+            props.getProperty("route.avoid.grid.cellM")!!.trim().toDouble(),
             1e-9
+        )
+        assertNull(
+            "the dead ratio key is gone",
+            props.getProperty("route.avoid.grid.fineRatio")
         )
     }
 
@@ -714,6 +721,8 @@ class RouteAvoidEngineTest {
         var cellReads = 0
         var fineReads = 0
 
+        override val name: String get() = inner.name
+
         override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> {
             cellReads++
             return inner.firstWalkGrid(corridor, baseCellM)
@@ -723,6 +732,8 @@ class RouteAvoidEngineTest {
             fineReads++
             return inner.fineCellM(baseCellM)
         }
+
+        override fun fineWater(query: FineWaterQuery): FineWater = inner.fineWater(query)
     }
 
     /**

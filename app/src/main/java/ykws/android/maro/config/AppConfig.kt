@@ -200,36 +200,32 @@ object AppConfig {
     const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
 
 
-    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 25. */
-    var routeAvoidObstacleMarginM: Double = 25.0
+    /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 50. */
+    var routeAvoidObstacleMarginM: Double = 50.0
         private set
 
-    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 50. */
-    var routeAvoidGridCellM: Double = 50.0
+    /** Side (m) of one corridor-grid cell — `route.avoid.grid.cellM`, default 100. */
+    var routeAvoidGridCellM: Double = 100.0
         private set
 
     /**
-     * The fine pass's cell as a ratio of the coarse cell — `route.avoid.fine.cellRatio`, default 0.40,
-     * clamped [ROUTE_AVOID_FINE_CELL_RATIO_MIN]..[ROUTE_AVOID_FINE_CELL_RATIO_MAX].
+     * The avoid engine's fine cell (m) — `route.avoid.grid.fineCellM`, default 33.3333, clamped
+     * [ROUTE_AVOID_FINE_CELL_M_MIN]..[ROUTE_AVOID_FINE_CELL_M_MAX] and never coarser than
+     * [routeAvoidGridCellM].
      *
-     * The ratio is the home for the relationship the user set — 40 % of the coarse cell — so the size is
-     * written once, in `route.avoid.grid.cellM`: at today's 50 m the fine cell is 20 m, and no metres key
-     * is kept beside it for the two to drift apart.
-     *
-     * **Unread until Change 4 lands**: the coarse-to-fine pass is not built, so this ships parsed and
-     * unused, as `route.avoid.zone300.outsideMarginM` did before the band.
+     * **The metres value is the fact**, on the same idiom as [routeEvolutiveGridFineCellM], so a coarser
+     * walk cannot coarsen the precision a drawn line resolves at. The fine pass reads it: a restrictive
+     * zone the coarse line enters is re-solved locally at this cell, and the settled line is then pulled
+     * and snapped against the field this size prices.
      */
-    var routeAvoidFineCellRatio: Double = 0.40
+    var routeAvoidGridFineCellM: Double = 33.3333
         private set
 
-    /** Lowest fine-cell ratio the load accepts — the one home for that end of the span. */
-    const val ROUTE_AVOID_FINE_CELL_RATIO_MIN = 0.05
+    /** Lowest fine cell (m) the avoid load accepts — the precision's own floor. */
+    const val ROUTE_AVOID_FINE_CELL_M_MIN = 5.0
 
-    /**
-     * Highest fine-cell ratio the load accepts — 1.0 makes the fine cell the coarse one, so the pass
-     * subdivides nothing and stays inert.
-     */
-    const val ROUTE_AVOID_FINE_CELL_RATIO_MAX = 1.0
+    /** Highest fine cell (m) the avoid load accepts — the coarse cell's own ceiling, and never coarser than it. */
+    const val ROUTE_AVOID_FINE_CELL_M_MAX = 500.0
 
     /**
      * The `evolutive` engine's own coarse cell (m) — `route.evolutive.grid.cellM`, default 100, clamped
@@ -255,6 +251,65 @@ object AppConfig {
 
     /** Highest fine cell (m) the evolutive load accepts — the 20 m contract is this ceiling. */
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
+
+    /**
+     * The `selective` engine's own coarse cell (m) — `route.selective.grid.cellM`, default 100, clamped
+     * 10.0..500.0 like the other two. The plan's own answer, so neither `avoid`'s nor `evolutive`'s cell
+     * is touched.
+     */
+    var routeSelectiveGridCellM: Double = 100.0
+        private set
+
+    /**
+     * The `selective` engine's fine cell (m) — `route.selective.grid.fineCellM`, default 20, clamped
+     * 10.0..20.0 on the same 20 m contract as `evolutive` and never coarser than its coarse cell.
+     */
+    var routeSelectiveGridFineCellM: Double = 20.0
+        private set
+
+    /**
+     * The **shoreline collar's** width (m) — `route.selective.shore.collarM`, default 100: the fine water
+     * 0–100 m off the coast, where a berth and an inshore passage are decided.
+     */
+    var routeSelectiveShoreCollarM: Double = 100.0
+        private set
+
+    /**
+     * The **band-outer collar's** width (m) — `route.selective.band.collarM`, default 100: a strip
+     * straddling the 300 m band's own outer boundary, where a route leaves or enters the band.
+     */
+    var routeSelectiveBandCollarM: Double = 100.0
+        private set
+
+    /**
+     * The **zone-rim collar's** width (m) — `route.selective.zone.rimM`, default 100: the water within
+     * 100 m of a priced zone's boundary, where a crossing is decided.
+     */
+    var routeSelectiveZoneRimM: Double = 100.0
+        private set
+
+    /**
+     * The **depth-dilation collar's** width (m) — `route.selective.depth.collarM`, default 100: the water
+     * within 100 m of a cell the depth gate blocks.
+     */
+    var routeSelectiveDepthCollarM: Double = 100.0
+        private set
+
+    /**
+     * The depth price band's **extra width** (m) beyond the gate's own margin —
+     * `route.selective.depth.bandExtraM`, default 25. The band the per-metre gradient prices is the
+     * gate's standoff plus this extra, so the price starts where the standoff ends.
+     */
+    var routeSelectiveDepthBandExtraM: Double = 25.0
+        private set
+
+    /**
+     * The depth price's **per-metre gradient** — `route.selective.depth.priceSecPerM`, default 0.05. A
+     * cell of size `cellM` standing on the shallow wall pays this times `cellM` at the pass's own λ; it
+     * falls linearly to zero at the band's outer edge.
+     */
+    var routeSelectiveDepthPriceSecPerM: Double = 0.05
+        private set
 
     /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
@@ -377,24 +432,24 @@ object AppConfig {
     /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
      * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
-     * the pace after leaving it. 0.1–2.0, default 0.5: a comfortable easing down, 2.0 the briskest a
-     * planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's clock
-     * alone** — it moves the reported time and never the drawn line, which the search has already
+     * the pace after leaving it. 0.1–2.0, default 1.0: a purposeful ease, light bracing, 2.0 the
+     * briskest a planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's
+     * clock alone** — it moves the reported time and never the drawn line, which the search has already
      * chosen. One home for the rate: this value, and the key it is read from.
      */
-    var routeSpeedAccelMps2: Double = 0.5
+    var routeSpeedAccelMps2: Double = 1.0
         private set
 
     /**
      * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`,
-     * default 1.0 (~0.1 g), clamped 0.1..2.94.
+     * default 0.33 (~0.03 g), clamped 0.1..2.94.
      *
      * A corner is drawn as a curve whose radius is `r = v² / a_lat`, so a high value gives a tight,
      * hard turn and a low value a wide, gentle one; the fitter caps a bend's radius at the pace's own
      * `v_pace² / a_lat` and never draws it tighter than the speed's own minimum, `v² / a_lat`. One
      * home for the ceiling: this value and the key it is read from.
      */
-    var routeTurnLateralAccelMps2: Double = 1.0
+    var routeTurnLateralAccelMps2: Double = 0.33
         private set
 
     /**
@@ -1973,7 +2028,7 @@ object AppConfig {
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
-            //    and the fine ratio Change 4 will read) ──
+            //    and the fine cell Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
                 routeAvoidObstacleMarginM = it.coerceIn(1.0, 200.0)
             }
@@ -1991,11 +2046,11 @@ object AppConfig {
             }
             // The fine pass reads it: a restrictive zone the coarse line enters is re-solved locally at
             // this cell, and the settled line is pulled and snapped against the field this size prices.
-            props.getProperty("route.avoid.fine.cellRatio")?.toDoubleOrNull()?.let {
-                routeAvoidFineCellRatio = it.coerceIn(
-                    ROUTE_AVOID_FINE_CELL_RATIO_MIN,
-                    ROUTE_AVOID_FINE_CELL_RATIO_MAX
-                )
+            props.getProperty("route.avoid.grid.fineCellM")?.toDoubleOrNull()?.let {
+                routeAvoidGridFineCellM = it.coerceIn(
+                    ROUTE_AVOID_FINE_CELL_M_MIN,
+                    ROUTE_AVOID_FINE_CELL_M_MAX
+                ).coerceAtMost(routeAvoidGridCellM)
             }
             // ── The evolutive engine's grid: its coarse cell and its fine cell (metres, the precision
             //    fact). `avoid`'s own keys are untouched ──
@@ -2007,6 +2062,34 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
                 ).coerceAtMost(routeEvolutiveGridCellM)
+            }
+            // ── The selective engine's grid and the four collar widths, on its own namespace ──
+            props.getProperty("route.selective.grid.cellM")?.toDoubleOrNull()?.let {
+                routeSelectiveGridCellM = it.coerceIn(10.0, 500.0)
+            }
+            props.getProperty("route.selective.grid.fineCellM")?.toDoubleOrNull()?.let {
+                routeSelectiveGridFineCellM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
+                    ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
+                ).coerceAtMost(routeSelectiveGridCellM)
+            }
+            props.getProperty("route.selective.shore.collarM")?.toDoubleOrNull()?.let {
+                routeSelectiveShoreCollarM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.band.collarM")?.toDoubleOrNull()?.let {
+                routeSelectiveBandCollarM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.zone.rimM")?.toDoubleOrNull()?.let {
+                routeSelectiveZoneRimM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.depth.collarM")?.toDoubleOrNull()?.let {
+                routeSelectiveDepthCollarM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.depth.bandExtraM")?.toDoubleOrNull()?.let {
+                routeSelectiveDepthBandExtraM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.selective.depth.priceSecPerM")?.toDoubleOrNull()?.let {
+                routeSelectiveDepthPriceSecPerM = it.coerceIn(0.0, 10.0)
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)

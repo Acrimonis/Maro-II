@@ -7,7 +7,6 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteStepReading
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
@@ -30,6 +29,11 @@ import ykws.android.maro.spatial.Units
  * so the dropped price is dropped from the search and the guard alike. One cursor prices both sources,
  * so a candidate never names a second λ. [publish] and [trace] are the engine's own, handed in so the
  * emission sequence never belongs to the seat.
+ *
+ * **The provisional pair rides the SNAP boundary on every pass.** Between the first pull and the corner
+ * snap, [runPass] always publishes a [RouteStage.SNAP] reading carrying the pulled line's own distance
+ * and a limit-read duration — the provisional figure — whether or not the caller narrates stages, because
+ * each rung's own row waits on its own line; the caller decides what travels from there.
  */
 internal class RoutePassRunner {
 
@@ -74,7 +78,7 @@ internal class RoutePassRunner {
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
-                lambda = lambda
+                lambda = lambda, withDepthBand = ctx.depthBandActive
             )
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
@@ -88,7 +92,8 @@ internal class RoutePassRunner {
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
-            }
+            },
+            depthK = if (ctx.depthBandActive) lambda else 0.0
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)
@@ -159,12 +164,6 @@ internal class RoutePassRunner {
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
     }
 
-    /** The pulled polyline's own length (m) — the provisional distance, never a staircase's. */
-    private fun pulledLengthM(points: List<LatLng>): Double {
-        var total = 0.0
-        for (i in 0 until points.size - 1) {
-            total += SpatialOperations.haversine(points[i], points[i + 1])
-        }
-        return total
-    }
+    /** The pulled polyline's own length (m) — the provisional distance, the shared sum, never a staircase's. */
+    private fun pulledLengthM(points: List<LatLng>): Double = polylineLengthM(points)
 }

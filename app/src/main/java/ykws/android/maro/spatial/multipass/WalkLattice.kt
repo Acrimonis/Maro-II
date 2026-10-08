@@ -109,8 +109,9 @@ internal class WalkLattice(
  * The one-lattice precondition, strengthened for two resolutions: the coarse pair is derived as **exactly
  * `ratio ×`** the fine pair on the same origin, so each coarse cell covers an integer `ratio × ratio` block
  * of fine cells and the seam's neighbourhood is a fixed relation rather than a search. The layers are
- * ordered **coarse first** — the interior is layer 0 and the band layer 1 — so a layer-agnostic lookup
- * resolves to the interior, which is the layer the first walk's own answers are found on.
+ * ordered **coarse first** — the interior is layer 0 and the band layer 1 — so the family's own indices
+ * read coarse-then-fine; **which layer the walk reads is a separate decision**, and it is the priority
+ * [`WalkWindows`] applies: a passable fine cell standing over the same water supersedes the coarse cell.
  */
 internal class LatticeFamily(
     val coarse: WalkLattice,
@@ -125,6 +126,12 @@ internal class LatticeFamily(
          * The family from a corridor's mid-latitude: the fine pair at [fineCellM] and the coarse pair
          * derived as exactly `ratio ×` it on the same origin, `ratio` being the two cells' integer ratio.
          * Both pairs are therefore exact in metres and the fine cells nest exactly inside the coarse ones.
+         *
+         * The ratio is any integer from 1 up, **even ones included**: a shipped clamp settles one (a 100 m
+         * coarse cell against a 10 m fine cell is a ratio of 10, and 40 against 20 a ratio of 2), so refusing
+         * an even one would be a crash a permitted setting reaches. The priority's fine copy still names a
+         * coarse cell by the fine cell at its centre, and [`fineCopyOf`] resolves the even ratio's centre tie
+         * on a **stated convention** instead of assuming an odd ratio.
          */
         fun of(corridor: BBox, coarseCellM: Double, fineCellM: Double): LatticeFamily {
             require(coarseCellM > 0.0 && fineCellM > 0.0) { "a lattice cell is a positive size" }
@@ -235,6 +242,12 @@ internal data class WalkWindow(
  * and reading is the one the suite already proves. The multi-window case is the sparse id map the adaptive
  * grid pins: a packed `(layer, row, col)` to a slot, and the slot back, built once per walk — the layer in
  * the key so a coarse cell and a fine cell over the same water each keep their own slot.
+ *
+ * **The walk reads the fine cell over the coarse copy.** Where a passable fine cell stands over the same
+ * water as a coarse cell, that fine cell is the one the walk reads and the coarse cell is not read at all;
+ * where the fine grid is land (or holds no cell there), the coarse cell's role is its own. It is a rule of
+ * the reading alone — no grid's content moves — and a single-grid walk, whose lattices are null, reads
+ * exactly as it always did.
  */
 internal class WalkWindows private constructor(
     val windows: List<WalkWindow>,
@@ -249,11 +262,69 @@ internal class WalkWindows private constructor(
     /** How many layers this walk spans — 1 for a uniform grid or a one-lattice chain. */
     val layerCount: Int get() = lattices?.size ?: 1
 
+    /** The **coarse** layer's index — the larger cell — or `-1` where the walk spans fewer than two lattices. */
+    private val coarseLayerIndex: Int
+        get() {
+            val l = lattices ?: return -1
+            if (l.size < 2) return -1
+            return if (l[0].cellM >= l[1].cellM) 0 else 1
+        }
+
+    /** The **fine** layer's index, or `-1` where the walk spans one lattice. */
+    private val fineLayerIndex: Int get() = if (coarseLayerIndex < 0) -1 else 1 - coarseLayerIndex
+
+    /** The exact `1 : ratio` nesting between the two layers, or `1` where the walk spans one lattice. */
+    private val layerRatio: Int
+        get() {
+            val coarse = coarseLayerIndex
+            if (coarse < 0) return 1
+            return (lattices!![coarse].cellM / lattices!![fineLayerIndex].cellM).roundToInt().coerceAtLeast(1)
+        }
+
     /**
-     * The slot the lattice coordinate `(row, col)` takes **on [layer]**, or `-1` where no window holds it —
-     * the walk's own domain, so a neighbour standing outside every rectangle is simply not a step.
+     * **The fine copy of a coarse-layer cell** — the fine cell the rule reads over the coarse cell, named by
+     * the coarse cell's own point read: a cell is read by its centre, and the centre of a coarse cell is the
+     * **central fine cell** of its `ratio × ratio` block. For an **odd** ratio that centre falls in the
+     * middle fine cell, which `layerRatio / 2` names exactly. For an **even** ratio it falls on a
+     * fine-lattice **vertex** shared by four fine cells, and the tie resolves the way [`WalkLattice.rowOf`]
+     * and [`WalkLattice.colOf`] resolve any point standing on a lattice line — `floor` — taking the cell
+     * whose low (south-west) corner is that vertex, the cell **north-east of the centre**. That is a **stated
+     * convention**, not the same water: the four cells share only the vertex, so the reading stays
+     * deterministic and a permitted even ratio is a read rather than a crash. `-1` where no such fine cell is
+     * held or the one held is land — there the coarse cell has no copy and its role is its own.
      */
-    fun slotOf(layer: Int, row: Int, col: Int): Int {
+    private fun fineCopyOf(coarseRow: Int, coarseCol: Int): Int {
+        val fine = fineLayerIndex
+        if (fine < 0) return -1
+        val half = layerRatio / 2
+        val slot = rawSlotOf(fine, coarseRow * layerRatio + half, coarseCol * layerRatio + half)
+        return if (slot >= 0 && cell(slot).passable) slot else -1
+    }
+
+    /**
+     * The fine cell that **supersedes** the coarse-layer cell `(row, col)` for a step on [layer], or `-1`
+     * where the coarse cell is read as it stands: the fine copy on the coarse layer, and never one on the
+     * fine layer, whose cells are superseded by nothing.
+     */
+    fun supersedingSlot(layer: Int, row: Int, col: Int): Int =
+        if (layer == coarseLayerIndex) fineCopyOf(row, col) else -1
+
+    /**
+     * **The raw address of `(row, col)` on one named [layer]** — the layer's own answer, `-1` where no
+     * window holds it. It **bypasses the reading rule**, which is why its name says *raw*: it is never the
+     * coordinate's read, and a reader must not mistake it for one.
+     *
+     * A caller that wants the cell the walk *reads* at a coordinate wants [`slotOf(row, col)`] instead: that
+     * one asks whether a passable fine copy supersedes a coarse cell and answers the fine copy where one
+     * does — the coordinate's own point read. A caller that wants a **named layer's own slot** wants this
+     * one, and none of them may take the reading's choice: the walk's own layer-local neighbour step, the
+     * seam enumerating the other layer's coordinates, the rule-resolved lookup asking whether a layer holds
+     * a cell, and [`cellSizeAt`] probing one named layer. Where a caller does want a **coarse-layer** slot as
+     * the cell to read, it must first ask [`supersedingSlot`] (or [`fineCopyOf`] directly) and take the fine
+     * copy where one supersedes; [`MultipassSearch`]'s neighbour step guards exactly that way, and
+     * [`crossLayerSlots`] redirects a superseded coarse target to its fine copy.
+     */
+    fun rawSlotOf(layer: Int, row: Int, col: Int): Int {
         val map = slots ?: run {
             if (layer != 0) return -1
             val grid = windows[0].grid
@@ -263,13 +334,21 @@ internal class WalkWindows private constructor(
     }
 
     /**
-     * The slot a lattice coordinate takes, resolved through the **first layer that holds it** — the coarse
-     * interior first, so an end standing in the corridor anchors on the layer the first walk runs on.
+     * The slot a lattice coordinate takes, resolved through the walk's own reading rule. Where the
+     * coordinate is a **coarse-layer** cell and a passable fine cell stands over the same water, the fine
+     * cell is the one the walk reads and the coarse copy is not; every other coordinate resolves through
+     * the **first layer that holds it** — the coarse interior first, so an end standing in open corridor
+     * water anchors on the layer the first walk runs on.
      */
     fun slotOf(row: Int, col: Int): Int {
-        if (slots == null) return slotOf(0, row, col)
+        if (slots == null) return rawSlotOf(0, row, col)
+        val coarse = coarseLayerIndex
+        if (coarse >= 0 && rawSlotOf(coarse, row, col) >= 0) {
+            val copy = fineCopyOf(row, col)
+            if (copy >= 0) return copy
+        }
         for (layer in 0 until layerCount) {
-            val slot = slotOf(layer, row, col)
+            val slot = rawSlotOf(layer, row, col)
             if (slot >= 0) return slot
         }
         return -1
@@ -299,7 +378,7 @@ internal class WalkWindows private constructor(
         for (index in layers.indices) {
             val lattice = layers[index]
             if (lattice.cellM >= local.cellM) continue
-            val slot = slotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
+            val slot = rawSlotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
             if (slot >= 0 && cell(slot).passable) local = lattice
         }
         return local.cellM
@@ -327,8 +406,17 @@ internal class WalkWindows private constructor(
         val out = IntArray(targets.size)
         var n = 0
         for (t in targets) {
-            val slot = slotOf(t.layer, t.row, t.col)
-            if (slot >= 0) out[n++] = slot
+            val slot = rawSlotOf(t.layer, t.row, t.col)
+            if (slot < 0) continue
+            // A coarse target a passable fine cell supersedes is not read — but its **fine copy** over the
+            // same water is, so the crossing lands there, exactly as the same-layer neighbour step redirects
+            // ([`MultipassSearch`]). Dropping it instead would lose every path whose only bridge is that
+            // crossing: a face fine cell whose neighbouring block is superseded on its central cell alone
+            // keeps no fine step into the block and no read coarse cell borders it, so the redirect is the
+            // only edge that reaches the block's water. `aSupersededCoarseSeamTargetRedirectsToItsFineCopy`
+            // in [`FinePriorityWalkTest`] pins that case, and the redirect never re-reads the coarse cell.
+            val copy = if (t.layer == coarseLayer) fineCopyOf(t.row, t.col) else -1
+            out[n++] = if (copy >= 0) copy else slot
         }
         return if (n == out.size) out else out.copyOf(n)
     }
@@ -353,6 +441,15 @@ internal class WalkWindows private constructor(
         return window.grid.cell(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
+    /** The window a slot stands on — its own grid and its lattice offset. */
+    fun windowOf(slot: Int): WalkWindow = windows[tiles?.get(slot) ?: 0]
+
+    /** The slot's own cell in the **local** index space of the window it stands on — what a grid open takes. */
+    fun localCell(slot: Int): CellIndex {
+        val window = windowOf(slot)
+        return CellIndex(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset, layerOf(slot))
+    }
+
     /** The strictest limit in force on the slot's cell, in knots. */
     fun limitKn(slot: Int): Double {
         val tile = tiles?.get(slot) ?: 0
@@ -365,6 +462,13 @@ internal class WalkWindows private constructor(
         val tile = tiles?.get(slot) ?: 0
         val window = windows[tile]
         return window.grid.collarLimitKn(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+    }
+
+    /** The slot's **λ-free depth-price coefficient**, or 0.0 where the depth band does not stand. */
+    fun depthCoef(slot: Int): Double {
+        val tile = tiles?.get(slot) ?: 0
+        val window = windows[tile]
+        return window.grid.depthPriceCoef(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
     /** The slot's band-outside-margin limit, in knots. */

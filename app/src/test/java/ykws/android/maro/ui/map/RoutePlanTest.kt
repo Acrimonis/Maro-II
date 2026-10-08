@@ -298,8 +298,7 @@ class RoutePlanTest {
             // The two readings the card prints beside the time: the preference's own word and the
             // set pace. They are carried through here, never resolved.
             preferenceLabelResId = routeRungLabelRes(routeRungIndex(0.0)),
-            paceKn = 25.0,
-            nowMs = computedAt + 5_000L
+            paceKn = 25.0
         )
 
         assertEquals(Units.metresToNauticalMiles(d1), figure.distanceNm, 1e-6)

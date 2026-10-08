@@ -337,7 +337,7 @@ data class RouteTripFigure(
  * **The followed figure, read from the plan's own remaining time** (2026-10-05) — the one home the
  * dashboard trip cell, the drawer summary and the acquisition row all read is
  * [`RoutePlan.remainingFrom`], and this reads its `durationSec` and nothing else. **There is no
- * distance ÷ pace here**: that division survives only where no plan timest a line — the acquisition's
+ * distance ÷ pace here**: that division survives only where no plan times a line — the acquisition's
  * provisional pair, which the engine already prices at the limit in force — and never on a followed,
  * planned line, where it would discard the plan's slow-water time. @see RouteTripFigure
  */
@@ -345,8 +345,7 @@ internal fun routeTripFigure(
     plan: RoutePlan,
     from: RoutePoint,
     preferenceLabelResId: Int,
-    paceKn: Double,
-    nowMs: Long
+    paceKn: Double
 ): RouteTripFigure {
     val remaining = plan.remainingFrom(from)
     return RouteTripFigure(

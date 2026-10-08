@@ -33,7 +33,12 @@ internal fun costField(
     withZones: Boolean,
     withBand: Boolean,
     zones: List<SpeedZone>,
-    lambda: Double
+    lambda: Double,
+    /**
+     * The depth band's own door, mirroring `withZones`/`withBand`: `selective` alone turns it on, so the
+     * shallow-wall gradient is priced by the search and the guard together or by neither.
+     */
+    withDepthBand: Boolean = false
 ): RouteCostField {
     val sources = ArrayList<RouteCostSource>(3)
     sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
@@ -116,6 +121,24 @@ internal fun costField(
             )
         )
     }
+    // **The depth band's arm**, `selective` alone: a per-metre gradient toward the shallow wall over the
+    // gate's own margin plus the plan's extra, read λ-free from the same law the rasterizer writes. Its
+    // clearance is the honest floor — zero — because a per-metre price over a raster distance field can
+    // change at every point, so no group is provable over the wall (the price walk falls back to
+    // per-interval reads there).
+    val depthBand = if (withDepthBand) depthBandOf(world, AppConfig.routeAvoidDepthGateMinM, cellM) else null
+    if (depthBand != null) {
+        sources.add(
+            RouteCostSource.Soft(
+                priceSec = { p ->
+                    val coef = DepthBandLaw.coefAt(p, depthBand.blockedAt, depthBand.stepM, depthBand.bandM)
+                    DepthBandLaw.priceSec(cellM, coef, lambda)
+                },
+                tag = MultipassCellState.BAND,
+                clearanceAt = { 0.0 }
+            )
+        )
+    }
     return RouteCostField(sources)
 }
 
@@ -182,9 +205,7 @@ internal fun snapToCorners(
     path: List<LatLng>
 ): List<LatLng> {
     if (sets.all { it.points.isEmpty() }) return path
-    val ctx = PullContext(
-        setup.marginM, setup.coarseStepM, setup.priceStepM, setup.field, setup.start, setup.aim, setup.approaches
-    )
+    val ctx = setup.context()
     val out = path.toMutableList()
     for (i in 1 until path.size - 1) {
         var nearest: LatLng? = null
@@ -265,3 +286,15 @@ internal fun clampTo(box: BBox, limit: BBox): BBox? {
 /** Whether a point stands inside [box] — the splice's own containment test. */
 internal fun inBox(box: BBox, p: LatLng): Boolean =
     p.latitude in box.latSouth..box.latNorth && p.longitude in box.lonWest..box.lonEast
+
+/**
+ * **A polyline's own length (m)** — the haversine sum, one home for the runner's provisional distance and
+ * the engine's own line figure alike, so the two can never drift apart.
+ */
+internal fun polylineLengthM(points: List<LatLng>): Double {
+    var total = 0.0
+    for (i in 0 until points.size - 1) {
+        total += SpatialOperations.haversine(points[i], points[i + 1])
+    }
+    return total
+}

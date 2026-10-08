@@ -94,7 +94,7 @@ order, the tangent corners own the exact points.
 ## The fine pass and re-search (D8)
 
 The coarse cell closes any passage narrower than roughly two cells. The fine pass re-rasterizes a swath
-around the settled line at `route.avoid.fine.cellRatio` (0.40 → 20 m at 50 m) and keeps the fine line
+around the settled line at `route.avoid.grid.fineCellM` (33.3 m) and keeps the fine line
 **only where it is strictly faster and no worse in slow share** — the clock alone would let the tail undo
 the λ loop's own choice; the crossing's local A\* re-solves a zone the line enters, inside the zone's own
 box, spliced only where it answers, and its price is the loop's own λ, so that splice is price-driven

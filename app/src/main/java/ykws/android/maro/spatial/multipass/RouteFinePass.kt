@@ -27,9 +27,7 @@ internal class RouteFinePass {
      */
     internal fun pricedLineCost(setup: PullSetup, points: List<LatLng>): Double {
         if (!setup.field.hasSoft || points.size < 2) return 0.0
-        val ctx = PullContext(
-            setup.marginM, setup.coarseStepM, setup.priceStepM, setup.field, setup.start, setup.aim, setup.approaches
-        )
+        val ctx = setup.context()
         var total = 0.0
         for (i in 1 until points.size) {
             total += MultipassPull.softPriceSec(points[i - 1], points[i], ctx)
@@ -71,16 +69,23 @@ internal class RouteFinePass {
         val coarseStepM = fineCellM
         val priceStepM = fineCellM
         var out = line
+        // The depth band, where the plan prices the shallow wall: the same law the runner's search and
+        // guard read, built once here so the crossing re-solves ride it too.
+        val depthBand =
+            if (ctx.depthBandActive && ctx.depthGateActive) depthBandOf(world, ctx.minDepthM, fineCellM) else null
         for (zone in zones) {
             if (zonePriceSec(cellM, pace, zone.speedLimitKn, lambda) <= 0.0) continue
             if (!lineEntersZone(out, zone)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals, trace
+                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals, depthBand, trace
             ) ?: out
         }
         val fineGuard =
-            costField(world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda)
+            costField(
+                world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
+                withDepthBand = ctx.depthBandActive
+            )
         val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
         // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
         // the way the device takes it says whether the price walk grouped at all on this fine grid.
@@ -130,6 +135,7 @@ internal class RouteFinePass {
         sets: List<CornerSet>,
         approaches: EndApproaches,
         refusals: PullRefusals?,
+        depthBand: DepthBand? = null,
         trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
         val zoneStartNs = System.nanoTime()
@@ -158,7 +164,8 @@ internal class RouteFinePass {
         val to = if (last == line.size - 1) aim else line[last + 1]
         val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
         val guard = costField(
-            world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda
+            world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
+            withDepthBand = depthBand != null
         )
         // This crossing walks one fine grid, so both its steps are that grid's own cell; the water is
         // built once here, immediately after the field, and never cached.
@@ -167,7 +174,7 @@ internal class RouteFinePass {
         val setup = PullSetup(marginM, coarseStepM, priceStepM, guard, start, aim, approaches)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
-            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
+            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world), depthBand = depthBand
         )
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
@@ -182,7 +189,8 @@ internal class RouteFinePass {
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
-            }
+            },
+            depthK = if (depthBand != null) lambda else 0.0
         )
         val path = search.path
         if (path == null) {

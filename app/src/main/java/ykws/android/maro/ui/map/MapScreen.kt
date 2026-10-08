@@ -3082,8 +3082,7 @@ fun MapScreen(
                     preferenceLabelResId = routeRungLabelRes(
                         routeRungIndex(appSettings.routeSlowWaterAversion.toDouble())
                     ),
-                    paceKn = appSettings.routeFreeWaterPaceKn.toDouble(),
-                    nowMs = System.currentTimeMillis()
+                    paceKn = appSettings.routeFreeWaterPaceKn.toDouble()
                 )
             }
             if (isLandscape) {

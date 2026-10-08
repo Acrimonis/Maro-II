@@ -77,14 +77,14 @@ class RouteEvolutiveEngineTest {
     }
 
     /**
-     * `avoid`'s own fine cell is untouched: the shipped plan still derives it from the ratio, so nothing
-     * this engine's keys say can move `avoid`'s answer.
+     * `avoid`'s own fine cell is untouched: the shipped plan reads its own metres key, so nothing this
+     * engine's keys say can move `avoid`'s answer.
      */
     @Test
-    fun theUniformPlanStillDerivesTheFineCellFromTheRatio() {
+    fun theUniformPlanReadsItsOwnMetresFineCell() {
         assertEquals(
-            "the ratio's own arithmetic at the configured base cell",
-            AppConfig.routeAvoidGridCellM * AppConfig.routeAvoidFineCellRatio,
+            "the plan's fine cell is `avoid`'s own metres key, whatever the base cell",
+            AppConfig.routeAvoidGridFineCellM,
             UniformGridPlan.fineCellM(AppConfig.routeAvoidGridCellM),
             1e-9
         )

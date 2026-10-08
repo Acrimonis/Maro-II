@@ -24,7 +24,6 @@ import ykws.android.maro.spatial.multipass.MultipassGrid
 import ykws.android.maro.spatial.multipass.MultipassSearch
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.CellIndex
-import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.GridContext
 import ykws.android.maro.spatial.multipass.GridWalk
 import ykws.android.maro.spatial.multipass.PassReading
@@ -52,6 +51,7 @@ import ykws.android.maro.spatial.multipass.slowShares
 import ykws.android.maro.spatial.multipass.slowTimeByLimit
 import ykws.android.maro.spatial.multipass.timeLineWithLimits
 import ykws.android.maro.spatial.multipass.timeLineWithProfile
+import ykws.android.maro.spatial.multipass.polylineLengthM
 import ykws.android.maro.spatial.multipass.zoneMetres
 import ykws.android.maro.spatial.multipass.zonePriceSec
 import ykws.android.maro.spatial.multipass.zoneSlowShare
@@ -110,7 +110,7 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * cell at its own aversion without a second rasterise. The forced-crossing growth and the fine pass (§5)
  * still run — the wider corridor kept only when it forces fewer crossings, and the fine pass on the
  * settled line where a restrictive zone the coarse grid could not see around gets a local A* at
- * `route.avoid.fine.cellRatio`. There is no budget loop: the slow-water budget is demoted, so a rung is
+ * `route.avoid.grid.fineCellM`. There is no budget loop: the slow-water budget is demoted, so a rung is
  * computed at its own λ and never corrected.
  *
  * **The ranking.** The engine folds its own rungs: at every rung's terminal the settled costs of the
@@ -642,14 +642,8 @@ class RouteAvoidEngine(
         slowLimitSeconds = slowLimitSeconds
     )
 
-    /** The polyline's own length in metres — one home, read by the answer and by every candidate alike. */
-    private fun lineLengthM(points: List<LatLng>): Double {
-        var total = 0.0
-        for (i in 0 until points.size - 1) {
-            total += SpatialOperations.haversine(points[i], points[i + 1])
-        }
-        return total
-    }
+    /** The polyline's own length in metres — the shared haversine sum, read by the answer and every candidate alike. */
+    private fun lineLengthM(points: List<LatLng>): Double = polylineLengthM(points)
 
 
 
@@ -697,8 +691,8 @@ class RouteAvoidEngine(
         }
     }
 
-    /** The plan this engine walks by, named as the log prints it. */
-    private fun planName(): String = if (plan === EvolutiveGridPlan) "evolutive" else "uniform"
+    /** The plan this engine walks by, named as the log prints it — the plan's own name, never special-cased. */
+    private fun planName(): String = plan.name
 
     /**
      * The metres of a line whose own middle stands inside the band's own **width** — the law's water,
