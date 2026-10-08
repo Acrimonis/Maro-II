@@ -563,9 +563,17 @@ object AppConfig {
     // candidate's own bbox against the projection's visible bounds — so the only key left is the
     // trigger's quiet time; the sweep, the ordering, the metric and the walk are all structural.
 
-    /** Quiet time (ms) the map must stand still after a genuine finger lift before the highlighted
-     *  item is picked. Default 666. Set via `map.inspect.dwellMs`. */
+    /** Quiet time (ms) the map must stand still, with a target acquired under the anchor, before
+     *  inspect mode recentres the camera on that target. Default 666. Set via `map.inspect.dwellMs`. */
     var uiMapInspectDwellMs: Long = 666L
+        private set
+
+    /**
+     * How much closer, in percent, a new nearest must be before it takes the panel over from the item
+     * the mode holds: two candidates at nearly the same distance then cannot hand the panel back and
+     * forth. Default 15. Set via `map.inspect.switchMarginPct`.
+     */
+    var uiMapInspectSwitchMarginPct: Int = 15
         private set
 
     /** Text colour on the shared surface. Default `#FF78909C`
@@ -782,6 +790,18 @@ object AppConfig {
         private set
     /** The selected line's casing colour — `path.line.casing.color`. */
     var trackCasingColour: Int = 0xCC000000.toInt()
+        private set
+    /**
+     * The selection's own gold rim, outside the dark casing — `path.line.casing.selected`. One dp a side
+     * wider than the casing, so the dark rim reads between the gold and the core on every selected path.
+     */
+    var trackSelectionCasingColour: Int = 0xFFFFD700.toInt()
+        private set
+    /**
+     * The gold rim's own width (dp) — `path.line.casing.selected.width`. 22 follows the asset's tripled
+     * value (the derived 7.333 it started at, three times over), the code default tracking the file.
+     */
+    var trackSelectionCasingWidthDp: Float = 22f
         private set
     /** How far a derived casing edge is darkened (per cent) — `path.line.casing.darkenPct`. */
     var trackCasingDarkenPct: Int = 55
@@ -1639,6 +1659,16 @@ object AppConfig {
             trackWidthSelectedCasingDp =
                 pathFloat(PathKind.TRACK, "line", "casing", "width", default = trackWidthSelectedCasingDp).coerceAtLeast(1f / 3f)
             trackCasingColour = pathColor(PathKind.TRACK, "line", "casing", "color", default = trackCasingColour)
+            trackSelectionCasingColour = pathColor(
+                PathKind.TRACK, "line", "casing",
+                pathClass = PathClass.SELECTED,
+                default = trackSelectionCasingColour
+            )
+            trackSelectionCasingWidthDp = pathFloat(
+                PathKind.TRACK, "line", "casing", "width",
+                pathClass = PathClass.SELECTED,
+                default = trackSelectionCasingWidthDp
+            )
             trackCasingDarkenPct =
                 pathInt(PathKind.TRACK, "line", "casing", "darkenPct", default = trackCasingDarkenPct).coerceIn(0, 100)
             trackSelectionGold =
@@ -1727,10 +1757,15 @@ object AppConfig {
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
             // ── Inspect mode ─────────────────────────────────────────────────
-            // The clamp keeps a malformed file from breaking the trigger: a dwell of zero would pick
-            // on the first frame of every pan.
+            // The clamp keeps a malformed file from breaking the trigger: a dwell of zero would
+            // recentre on the first frame of every pan. The margin's own clamp stops it from either
+            // handing the panel back to the true closest on every sweep (0) or pinning it to whatever
+            // it acquired first (a figure near 100).
             props.getProperty("map.inspect.dwellMs")?.toLongOrNull()?.let {
                 uiMapInspectDwellMs = it.coerceIn(0L, 5_000L)
+            }
+            props.getProperty("map.inspect.switchMarginPct")?.toIntOrNull()?.let {
+                uiMapInspectSwitchMarginPct = it.coerceIn(0, 90)
             }
             // ── List title sort ──────────────────────────────────────────────
             // A key present but blank assigns the empty list, which ignores nothing; only an absent key

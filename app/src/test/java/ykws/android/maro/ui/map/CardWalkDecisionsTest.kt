@@ -164,10 +164,12 @@ class CardWalkDecisionsTest {
     }
 
     @Test
-    fun `an inspect card reads the ladder's own ends, and both ends when its cursor is gone`() {
+    fun `an inspect card reads the ladder's own ends, and neither end before the ladder is frozen`() {
         assertEquals(CardStepEnds(true, atFirst = true, atLast = false), cardStepEnds(DrawerSource.INSPECT, 4, 1, true, false))
         assertEquals(CardStepEnds(true, atFirst = false, atLast = true), cardStepEnds(DrawerSource.INSPECT, 4, 1, false, true))
-        assertEquals(CardStepEnds(true, atFirst = true, atLast = true), cardStepEnds(DrawerSource.INSPECT, 4, 1, null, null))
+        // The ladder is not frozen yet — the live acquire's own window: the pills read enabled and correct
+        // themselves when the pause seats the cursor, rather than greying for a frame on every swap.
+        assertEquals(CardStepEnds(true, atFirst = false, atLast = false), cardStepEnds(DrawerSource.INSPECT, 4, 1, null, null))
     }
 
     @Test

@@ -12,8 +12,10 @@ package ykws.android.maro.ui.map
  * A close with nothing to return to (the map still following the boat) does nothing at all.
  *
  * The one exception is the centre the inspect mode has on loan: the frame its exit left is handed
- * back on that same delay, and a card still standing keeps the hold. Kept pure so the rule can be
- * tested without a map, a drawer or a clock.
+ * back on that same delay. The mode's own hold is the **armed flag alone** (plan §4): the landing no
+ * longer stands the armed half down, and the recentre owns the camera for the whole armed time, so no
+ * card half stands beside the flag. Kept pure so the rule can be tested without a map, a drawer or a
+ * clock.
  */
 internal enum class PanResumeAction {
     /** The deadline stands down for as long as a drawer is open — the hold. */
@@ -34,29 +36,27 @@ internal enum class PanResumeAction {
  * @param autoFollowSuppressed true while the user owns the centre: a pan has happened and has not
  *   been recentred, so there is a boat to return to.
  * @param inspectLoaned true while the centre is on loan to the frame the inspect mode's exit left.
- * @param inspectArmed true while the inspect mode is armed.
- * @param inspectCardOpen true while the card the inspect mode opened is still on screen.
+ * @param inspectArmed true while the inspect mode is armed — its whole hold on the centre now (plan
+ *   §4): the card half is gone, so the flag alone keeps the frame the mode sweeps across.
  *
  * **The route mode no longer holds the camera** (R71): its ends are read at the trigger and the map is
  * handed back, so there is no aiming frame to keep — the `routeDraftArmed` term this rule carried left
- * with the aim. The inspect hold below is therefore the only one left, and it is untouched.
+ * with the aim. The inspect hold below is therefore the only one left.
  */
 internal fun panResumeOnDrawerChange(
     open: Boolean,
     autoFollowSuppressed: Boolean,
     inspectLoaned: Boolean,
-    inspectArmed: Boolean,
-    inspectCardOpen: Boolean
+    inspectArmed: Boolean
 ): PanResumeAction = when {
     // The hold: whatever deadline was live is stood down, and the close is what re-arms it.
     open -> PanResumeAction.HOLD
     // The loaned frame is handed back on the ordinary delay, never in this frame: an immediate
-    // recentre on the card's close would undo the very frame the mode was armed on. A card still
-    // standing keeps the hold instead, so this reads NONE.
-    inspectLoaned && !inspectCardOpen -> PanResumeAction.RESTART
+    // recentre would undo the very frame the mode was armed on and recentred onto.
+    inspectLoaned -> PanResumeAction.RESTART
     // A panned map outlives the drawer, and its delay restarts from the close. The inspect hold — the
-    // armed half or the card it opened — outranks the pan, so a close inside it resumes nothing: the
-    // frame the mode is sweeping across must not be handed back to the boat mid-sweep.
-    autoFollowSuppressed && !(inspectArmed || inspectCardOpen) -> PanResumeAction.RESTART
+    // whole armed lifetime — outranks the pan, so a close inside it resumes nothing: the frame the
+    // mode is sweeping and recentring across must not be handed back to the boat mid-sweep.
+    autoFollowSuppressed && !inspectArmed -> PanResumeAction.RESTART
     else -> PanResumeAction.NONE
 }
