@@ -6,7 +6,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -598,36 +597,30 @@ internal fun routeSpanText(seconds: Double): String {
  * **It is never gated.** An engine that cannot answer does not gate the mode: the toggle arms, and
  * the status line carries the reason. The square is therefore **never dead**, and no `enabled` knob
  * exists to make it so.
+ *
+ * `routeFace` (`MapToggleFace.kt`) resolves the square's two channels — off, the acquiring amber while
+ * the search has not answered, the nominal blue once the line is followed — and the square reads the
+ * user's **line colour no longer**: that colour stays on the line alone, and the tile and the mark carry
+ * the mode's own state.
  */
 @Composable
 internal fun RouteToggleButton(
     armed: Boolean,
     following: Boolean,
     searching: Boolean,
-    lineColor: Int,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = when {
-        !armed -> mapSurfaceFaceInactive()
-        following -> mapSurfaceFaceActive(ComposeColor(AppConfig.routeNavigateColor))
-        else -> mapSurfaceFaceActive(ComposeColor(lineColor))
-    }
+    val face = routeFace(armed, following, searching)
     val description = stringResource(R.string.cd_route_toggle)
     MapToggleSquare(
-        face = face,
+        face = face.toSurfaceFace(),
         onClick = onToggle,
         modifier = modifier,
         contentDescription = description
     ) {
         // Hard-coded like the row's other glyphs: a compass, which reads as "where to go".
         Text(text = "\uD83E\uDDED", fontSize = TOP_TOGGLE_ICON_SIZE)
-
-        // The mark is the shared one: the geometry and the colour both live in MapPulseDot (R69), and
-        // it beats while the search runs as well as while the route is followed (R51).
-        if (armed && (following || searching)) {
-            MapPulseDot(modifier = Modifier.align(Alignment.TopEnd))
-        }
     }
 }
 

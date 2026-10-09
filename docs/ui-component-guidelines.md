@@ -746,46 +746,57 @@ Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/Marke
 44×44dp rounded square with a 22sp emoji glyph, one slot each in the top-left status row
 ([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)). Every square's paint comes
 from one path in [`MapSurface.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt):
-`MapSurface` paints the fill, clips the corner, draws the border and applies the padding, and
-`MapToggleSquare` layers the row's own size and the tap on it. A square declares only its own state colours
-in [`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the semantic
-palette) and exposes them via
+`MapSurface` paints the family's white base and the face over it, clips the corner, draws the border and
+applies the padding, and `MapToggleSquare` layers the row's own size and the tap on it. Each square's whole
+state — its tile colour and its data mark — is resolved by one **pure** function in
+[`MapToggleFace.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapToggleFace.kt) (`gpsFace`,
+`trackingFace`, …), so no state logic lives in the painting path. A square declares only its own state
+colours in [`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the
+semantic palette) and exposes them via
 [`AppConfig.kt`](../app/src/main/java/ykws/android/maro/config/AppConfig.kt).
 
 **Visual recipe — one surface block (`ui.map.surface.*`) for every box that paints a background:**
 
 | Aspect | Key |
 |---|---|
-| Fill | `ui.map.surface.inactive`, painted whole: the fill's own weight is in the token |
+| Base | `ui.map.surface.inactive`, painted under every face: the fill's own weight is in the token |
 | Corner / padding / border | `ui.map.surface.corner.radius` / `.padding` / `.border.color` + `.border.width` |
-| Active face | the square's own state colour at `ui.map.surface.active.alpha` |
+| Active face | the square's own state colour laid over the base at `ui.map.surface.active.alpha` |
 | Inactive content alpha | `ui.map.surface.inactive.content.alpha` — the content dims, never the box |
 | Square geometry | `ui.map.toggle.square` / `ui.map.toggle.gutter` / `ui.map.toggle.icon.size` |
 | Overlay-card text | `ui.map.overlay.text.color` + `.weight` (bold) + `.size` |
 
-**State → colour mapping:**
+**Two channels per square — the fill (what it is doing) and the dot (what its data is worth):**
 
-| Square | Off / inactive | Active face |
+One constant five-colour set — pale off · amber still getting the data · blue nominal · green standing by
+· red the thing it needs is gone — and one dot colour per state (green real or complete, amber partial,
+red absent). The five colours and the channels are stated once in
+[`color-scheme.md`](color-scheme.md) §2; the squares resolve them here:
+
+| Square | Off | On faces — fill / dot |
 |---|---|---|
-| GPS | `mapSurfaceFaceInactive()` (DEMO) | acquiring/weak=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale=`semantic.danger` |
-| Tracking | `mapSurfaceFaceInactive()` (OFF) | moving=`semantic.compliant`, idle=`semantic.info` |
-| Earth/Water | — (always a resolved face) | water=`semantic.info`, land=`semantic.compliant` |
-| Screen lock | `mapSurfaceFaceInactive()` (📵) | locked=`semantic.info` (📵) |
-| Recenter | absent when there is nothing to recenter | `ui.accent` = `semantic.info` |
+| GPS | pale, no dot | acquiring/weak — amber / red · estimating — amber / red · healthy/idle — blue / green · stale — red / red |
+| Tracking | pale, no dot | recording — blue / green · standing by — green / green |
+| Earth/Water | never off (a reading) | water — blue / no dot · land — red / no dot |
+| Inspect | pale, no dot | armed — blue (accent) / green |
+| Route | pale, no dot | searching — amber / amber · following — blue / green |
+| Screen lock | pale, no dot | locked — blue / green |
+| Recenter | absent when there is nothing to recenter | blue (accent) / no dot |
 
-The face is resolved by the square itself — `mapSurfaceFace()`, `mapSurfaceFaceInactive()` or
-`mapSurfaceFaceActive(colour)` in `MapSurface.kt` — and the surface only paints it, so no state logic lives
-in the painting path. Because the fade sits on the content, the tracking-OFF and lock-OFF squares paint the
-fill whole and dim their glyph alone; they no longer fade the box.
+The tile is that state colour laid over the family's white base, so a square never becomes a window on the
+map; the dot is the shared pulse mark (`MapPulseDot`), which the square itself paints at the family's one
+top-right placement — inset from the square's own corner by half the disc's size — as a body beating
+1 → 0.5 under a 1 dp ring held at full strength, so the mark never loses its edge at the bottom of the
+beat. Because the fade sits on the content, an off square paints the base whole and dims its glyph alone.
 
 **The collapsed legend square** is the same `MapToggleSquare` read directly by `MapScreen.kt`: one square on
 the shared surface carrying the ⏱ stopwatch written `\u23F1\uFE0F` (`Emoji_Presentation=No`, so the selector
 is what asks for the colour form) and **no** active face — the control's active form is the expanded scale
 card, so the two faces are never on screen together.
 
-**New squares must:** paint through `MapToggleSquare`/`MapSurface`, resolve one face from their own state,
-declare their own colours as a `status.<name>.*` token family parsed in `AppConfig`, and never hardcode a
-fill, a corner, a border or a padding in the composable.
+**New squares must:** paint through `MapToggleSquare`/`MapSurface`, resolve one `TopToggleFace` from their
+own state in `MapToggleFace.kt`, declare their own colours as a `status.<name>.*` token family parsed in
+`AppConfig`, and never hardcode a fill, a dot, a corner, a border or a padding in the composable.
 
 **Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
 top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). Earth/Water is that row's one

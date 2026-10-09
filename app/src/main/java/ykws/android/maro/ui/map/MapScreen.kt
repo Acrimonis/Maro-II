@@ -4742,8 +4742,7 @@ private fun MapContent(
                                     onStartRecording
                             )
                             TopToggleControl.LAND_WATER -> EarthWaterIcon(
-                                emoji = if (isWater) "🌊" else "🏔️",
-                                color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                                isWater = isWater
                             )
                             TopToggleControl.INSPECT -> InspectToggleButton(
                                 armed = inspectArmed,
@@ -4757,8 +4756,6 @@ private fun MapContent(
                                 armed = routeArmed,
                                 following = routeFollowing,
                                 searching = routeSearching,
-                                // The acquiring face follows the line's own colour (R51).
-                                lineColor = appSettings.routeLineColor,
                                 onToggle = onToggleRoute
                             )
                             TopToggleControl.LOCK -> LockScreenButton(

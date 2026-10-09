@@ -30,8 +30,8 @@ No new colour is introduced, and no square invents one.
   **green when the data is real or complete, amber when it is partial, red when there is none**. It is
   absent on the off square, on the recenter and on the reading squares, which is what tells a reading
   from a control at a glance.
-- **The dot's beat stays the shared mark's** — its geometry, its top-right inset and its period remain
-  one home, and only its colour and its floor become parameters.
+- **The dot's beat stays the shared mark's** — its geometry, its half-size top-right inset and its period
+  remain one home, and only its colour and its floor become parameters.
 
 ## The weights
 
@@ -42,10 +42,15 @@ No new colour is introduced, and no square invents one.
 - **The dot is fully saturated.** It paints its state colour at full strength, so it always stands off
   the tinted tile and reads as the crisp mark against the square's softer colour — which is what makes
   the smaller channel legible in the first place.
-- **The beat's floor is 60 %**: the pulse keeps its one geometry and its period but never fades below
-  `0.6`, because it now carries a state and a state has to stay readable at the bottom of the beat —
-  the old 1 → 0.3 range belonged to a dot that meant only *live*. The floor moves with the mark's
-  other constants in `MapPulseDot`, already the beat's one home.
+- **The beat's floor is 50 %**: the pulse keeps its one geometry and its period but its body never fades
+  below `0.5`. The old 1 → 0.3 range belonged to a dot that meant only *live*; the mark's own ring is
+  what lets the body dip below the first pass's 60 % without the state going faint at the bottom of the
+  beat. The floor moves with the mark's other constants in `MapPulseDot`, already the beat's one home.
+- **The mark wears a ring and sits at half its size**: a 1 dp stroke in the mark's own colour at full
+  strength, drawn inside the disc's shipped 10 dp and outside the beat — only the body fades — so the
+  state keeps a crisp edge under it. The square paints the mark itself, from its own top-right corner
+  inset by half the disc's size (5 dp), rather than from the padded content box; the marks outside the
+  row keep their own placement.
 - **The palette follows**: the alphas baked into the semantic tokens stop mattering to the square,
   which reads the token's colour and applies its own two weights — the subdued tint for the tile, none
   for the dot.
@@ -94,10 +99,14 @@ painted in each zone kind's own category colour and neither toggles nor surfaces
 - **The route's refusal is not a face**: the toggle is never dead by design, so the square stays amber
   while the search has not answered and green once it follows.
 - **The zone tags are out of scope.**
-- **The beat's floor is 60 %**, the recenter carries **no dot**, and the tracking square's two greens
-  are **accepted for now** — one hue at two weights, which the weights themselves separate.
-- **The tint's value is a device question**: the family's white under the colour makes every tile paler
-  than it looks today, so `ui.map.surface.active.alpha` is settled in the owed pass rather than here.
+- **The beat's floor is 50 %; the mark wears a 1 dp full-strength ring and the square places it at its own
+  corner inset by half the disc's size** (the marks outside the row keep their own placement); the recenter
+  carries **no dot**, and the tracking square's two greens are **accepted for now** — one hue at two
+  weights, which the weights themselves separate.
+- **The tint is settled at 0.5** (2026-10-09, the gentle set): the family's white under the colour makes
+  every tile paler than it looked before the white base sat beneath it, so `ui.map.surface.active.alpha`
+  softened from 0.65 to **0.5**. The two off knobs moved with it — the base white from 66 % to **55 %**
+  (`#8CFFFFFF`), still painted under every face, and the inactive content alpha from 0.75 to **0.6**.
 
 ## The palette's own changes
 
@@ -131,8 +140,43 @@ painted in each zone kind's own category colour and neither toggles nor surfaces
 - `docs/color-scheme.md` and the map-surface section of `docs/ui-component-guidelines.md` carry the
   five-colour table, the two channels and the two classes.
 - A unit test pins each square's resolved face and dot colour per state, the shape of the row's own
-  `TopToggleControlTest`.
+  `TopToggleControlTest`, and the mark's own constants — its floor and its inset as half the size.
 
 ## Outcome
 
-[Appended when the work ships.]
+**Shipped 2026-10-09.** Every square of the top-left row resolves through one pure home,
+`MapToggleFace.kt` — `TopToggleFace` carrying a fill and an optional dot, with `gpsFace`, `trackingFace`,
+`earthWaterFace`, `inspectFace`, `routeFace`, `lockFace` and `recenterFace` reading only `AppConfig` —
+and `MapSurface`/`MapPulseDot` paint what a resolver returns. `MapSurface` now paints the family's white
+base under the state colour at `ui.map.surface.active.alpha` (0.65 as shipped, then **0.5** from the
+2026-10-09 values pass); `MapPulseDot` takes its colour as a parameter and beats with the mark's 50 % floor,
+while `rememberPulseAlpha` keeps its 30 % default for the non-toggle caller (the trip border); and the
+mark's callers outside the row sit on `ui.map.pulse.dot`. The route square stopped reading the user's line
+colour — `RouteToggleButton`'s `lineColor` parameter and its call site are retired.
+
+**Six readerless palette keys were deleted, not four** — this plan's four off-tokens plus
+`status.tracking.alpha.active` and `status.lock.alpha.active`, on the user's word, each verified to carry
+no `AppConfig` property, parser line or reader. `status.earthWater.water`/`.land` were re-pointed to
+`semantic.info`/`semantic.danger`, `status.gps.estimating` gained the key it never had on the acquiring
+amber, the GPS healthy and idle keys were re-pointed to the nominal blue, and the tracking pair renamed to
+the states it carries (`status.tracking.recording`/`.idle`), its dot pair retired onto `ui.map.pulse.dot`.
+`AppConfig` follows the palette for every added, changed, renamed and deleted key, parsers included.
+
+Tests: `MapToggleFaceTest` (17) pins each square's resolved fill and dot per state,
+`MapTogglePaletteTest` (5) reads the shipped `colors.properties` for the six deletions, the new and
+renamed keys, and the three surface weights, and `TopToggleControlTest` (4) stays green. `apk-build.bat` green and the scoped `ui.map` +
+`config` unit run green with no new red. `docs/color-scheme.md` and the map-surface section of
+`docs/ui-component-guidelines.md` carry the five-colour table, the two channels and the two classes.
+
+**Amended the same day, on the user's word:** the mark gained a **1 dp ring** in its own colour at full
+strength, drawn inside the shipped 10 dp and outside the beat so only the body fades — which is what lets
+the floor drop from 60 % to **50 %**. The row squares stopped placing the mark themselves: the face's dot
+now rides `MapSurfaceFace`, `TopToggleFace.toSurfaceFace()` resolves it, and `MapToggleSquare` paints it
+from the square itself, at its own top-right corner inset by half the disc's size (the mark's one inset
+constant, `MAP_PULSE_DOT_INSET`) rather than from the padded content box. `MenuDrawerOverlay`'s two marks
+and the fan's keep their own placement and gain the ring by being the same component, and the row's
+`MapToggleDot` helper is retired. `MapPulseDotTest` pins the 50 % floor and the half-size inset so the
+two numbers cannot drift.
+
+**Owed:** the device pass over the five faces, the dot's colours, the mark's new ring and inset, and the
+three surface weights as now settled — base `#8CFFFFFF` (55 %), inactive content alpha 0.6, active 0.5.

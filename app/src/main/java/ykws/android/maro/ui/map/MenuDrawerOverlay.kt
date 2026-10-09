@@ -377,7 +377,7 @@ fun MenuDrawerOverlay(
                             // the route card's fade by one number rather than two baked hexes.
                             .background(
                                 Color(
-                                    if (recorderState.isMoving) AppConfig.statusTrackingHealthy
+                                    if (recorderState.isMoving) AppConfig.statusTrackingRecording
                                     else AppConfig.statusTrackingIdle
                                 ).copy(alpha = AppConfig.uiBandFillAlpha)
                             )
@@ -387,7 +387,7 @@ fun MenuDrawerOverlay(
                             .border(
                                 1.dp,
                                 Color(
-                                    if (recorderState.isMoving) AppConfig.statusTrackingHealthy
+                                    if (recorderState.isMoving) AppConfig.statusTrackingRecording
                                     else AppConfig.statusTrackingIdle
                                 ),
                                 bandShape
