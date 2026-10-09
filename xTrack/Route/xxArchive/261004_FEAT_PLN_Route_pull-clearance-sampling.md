@@ -194,3 +194,7 @@ rule the tail already reads
 - The coarse step's value is **decided**: the walk's own cell, because it needs no key and already describes
   the water's own resolution. The alternative — a fixed multiple of the margin — would make both engines read
   alike at the cost of a number nobody else uses.
+
+## Outcome
+
+**Landed 2026-10-04.** The pull's live coastline distance is read at coarse marks behind a 1-Lipschitz proof while the depth gate stays tested at every mark, the coarse step travelling per engine. The device pass put the clearance half at 0.8–3.5 s and named the **price walk** as the pull's cost centre — the parked item this plan handed to its sibling. Only the record had remained.

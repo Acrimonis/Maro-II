@@ -225,3 +225,7 @@ that word alone and nowhere earlier.
 - The clearance walk's own mark count beyond what the memo serves — the proof that spares a *read* is
   landed, and this plan changes only how often a mark is *visited*.
 - Any new key, any new dependency, and any change to the drawn line that the reading does not demand.
+
+## Outcome
+
+**Landed 2026-10-05 (Phases 1 and 2).** The walk's price marks moved onto a `MarkLattice` for a walk — its bound one interval's price, zero where a boundary lands on an interval edge, the number the user's word took — and a per-walk `MarkMemo` keyed on the point, shared by the clearance and price halves and wiped with the field, turns a counting fixture from 410 price reads to 270 with the sums unchanged. Phase 3's instrumentation is built; its own device reading — the one pass the feature keeps — was never taken.

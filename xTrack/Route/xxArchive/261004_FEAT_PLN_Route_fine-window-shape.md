@@ -204,3 +204,7 @@ java.lang.OutOfMemoryError: Failed to allocate a 16 byte allocation ... <1% of h
 - **Whether the instrument settles the mechanism — settled**: 12 ms for a 576-cell tile is per-window work, so
   the rasterizer's edge sweeps dominate and the ring fill's own per-cell allocations are **not** the next
   lever. The window count is, and the instrument's own line is what said so.
+
+## Outcome
+
+**Landed 2026-10-04.** The fine layer's corridor-sized 20 m tile — the box the crash was fatal on — became windows cut along the coast inside the corridor, with a `route.walk.maxCells` ceiling (600 000, clamped) checked before any walk is rastered; the crash's own arms passed clean, the line and clock unchanged. **Superseded 2026-10-08** by the anchored tile-keyed fine layer (`FineTileMap`), the design's one home now, so the window shape and its ceiling live there and not here.

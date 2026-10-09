@@ -154,3 +154,7 @@ the tree rather than diffed, no git being available there.
 
 **Phase 2 was not taken**, on purpose: the callers and the corner snap move `pull`'s own signature and hand the
 context's lifetime to a caller, so it waits on the user's word per §Open questions.
+
+## Outcome
+
+**Landed 2026-10-05 — Phases 1, 3 and 4, with Phase 2 taken by the seam plan.** An `internal PullContext` is built inside `pull()` from its eleven parameters and threaded through the helpers, the tests' hand-built walks moving onto a `walkCtx` helper, and `readPrice`'s double hash probe and `groupPriceSec`'s recomputed `groupStep` tidied. Behaviour-identical: the counting fixture's 270 against 410 unmoved, and the memo's one-per-walk lifetime preserved structurally by building the context inside the walk.

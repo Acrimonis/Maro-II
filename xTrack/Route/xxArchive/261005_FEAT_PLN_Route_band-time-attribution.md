@@ -155,3 +155,7 @@ dropped; and the unused `kotlin.math.abs` import is deleted. The panel's sub-min
 **One observation left standing, and it is not this plan's** — `slowMetres == distance` says the smoothed profile
 rides a hair under the cruise pace across a whole coastal line. That is the profile's shape, and it is also why
 *any* contiguity fold is unsafe here.
+
+## Outcome
+
+**Implemented 2026-10-05, rev 2.** The bounded fold the first pass shipped was struck after a device trace showed every leg of a coastal line slower than the pace, and the shipped rule charges each slow leg to the water at its **own midpoint**, a slow leg on open water to **no entry**; the 2026-10-07 close made the charge the part of a leg that lies inside, dropped the dead `?: bandLimitKn` fallback and an unused import. The sub-minute drop stands, intended, as the display rule that never prints a zero-minute row — now stated in [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md)'s *Two deliberate limits stand*, with the charging rule promoted to that file's `## Rules`.

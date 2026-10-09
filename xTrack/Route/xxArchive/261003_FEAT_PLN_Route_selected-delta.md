@@ -155,3 +155,7 @@ an empty one.
   on — never the seat's.
 - **Verification** — the predicate's cases: the preferred row landed; the preferred row pending with a
   neighbour landed; nothing landed yet; and the single-page set. Then `apk-build.bat` and the suites.
+
+## Outcome
+
+**Shipped 2026-10-03.** The panel's third column now reads each page's delta against the **selected** route — `routeDeltaSec` took the one home the dead `RouteComparison` occupied — and the seat re-seats on data on every landing through `routeSeatedIndex`, so the basis the column measures against is always a row that holds a line. R90's clause and §5.8 of `docs/ui-component-guidelines.md` were rewritten to read *against the selected route*; the device look stays the user's own.

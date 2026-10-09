@@ -46,3 +46,7 @@ accept this current bug.*
   never printed and the only one that would distinguish a tie-break from a cost.
 - **The user's word on a value**, since every remaining lever is a setting: the shore margin, the gate's depth,
   the EMODnet cutoff, or a tie-break in the search.
+
+## Outcome
+
+**Closed 2026-10-06 by decision.** The diagnosis was complete — the step walls real Litto3D water at confidence 90, the coast walls one mainland shore at 41–49 m — and the one fix kept is the routing's depth read passing the chart's own EMODnet shallow filter (`emodnetShallowCutoffM`), pinned by `RouteEmodnetShallowGateTest`. The off-axis first leg and the shore-margin refusals are accepted as known defects and promoted to [`FEAT_DOC_Route_decisions.md`](FEAT_DOC_Route_decisions.md); every instrument was removed on the same word, so the figures live only in the `route-phase9..13.txt` captures.

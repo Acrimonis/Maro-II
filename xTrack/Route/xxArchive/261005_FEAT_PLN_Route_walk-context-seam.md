@@ -196,3 +196,7 @@ field-stability condition that bullet 93 left as this plan's precondition is hel
 
 **Unverified by that hop, and resting on the build's own report:** the suite's triple, `apk-build.bat` and the
 drawn-line identity — the review had no shell.
+
+## Outcome
+
+**Landed 2026-10-05, all three phases.** `PullSetup` holds the walk's water and is built in the four calls that hand a field to a walk-side consumer; `pull`, `snapToCorners` and `pricedLineCost` take it, and both bridging adapters (`legClear`, `softPriceSec`'s entry) are deleted. Its two should-fixes — a verbatim-duplicated tally-free fold and the memo's per-walk convention — were cleared 2026-10-07 with `PullSetup.context()` and a fixture. A pure refactor: no behaviour, no key and no reading moved.

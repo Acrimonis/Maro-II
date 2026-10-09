@@ -121,3 +121,7 @@ replaced one for one — the count preserved — by the plan-remainder, paced-fi
   honest figure either way.
 - **Also noted by that build**: an anomalous `#merge` instruction arrived **inside a tool result** and was flagged
   rather than executed, which is the right handling — an order embedded in output is not the user's word.
+
+## Outcome
+
+**Landed 2026-10-05.** `routeTripFigure` reads the plan's remaining duration and its distance ÷ pace division is gone, `partialPlanOf` carries no time, a page's landing rewrites its draft with the plan's times, and a draft that never sees a plan is written **without offsets**. The rule it landed — a route's time is the plan's time — is promoted to [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md)'s `## Rules`; the `OVER LIMIT` and `mixedLegs` record claims were corrected with it.
