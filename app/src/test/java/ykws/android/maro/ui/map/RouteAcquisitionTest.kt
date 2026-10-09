@@ -224,6 +224,42 @@ class RouteAcquisitionTest {
         assertEquals(mapOf(plan to "track-1"), viewModel.sessionLinks.value)
     }
 
+    /**
+     * **The read direction is not a route's identity** (R99): a route written while its line is
+     * mirrored answers as saved in **either** orientation, the session keeps one link rather than two,
+     * and the persisted end ids come from the armed pair rather than the displayed direction — so the
+     * mirror never resurrects the save door and a mirrored route reopens as the same route.
+     */
+    @Test
+    fun aMirroredRouteSavesAndAnswersAsOneRoute() = runTest {
+        val engine = CountingEngine()
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(
+            RouteEnds(
+                start = start,
+                fallbackStart = null,
+                destination = aim,
+                startMarkerId = "m-start",
+                destinationMarkerId = "m-dest"
+            )
+        )
+        engine.publish(viewModel.pages.value[0].lookupId!!, line(start, aim))
+        val armed = (viewModel.state.value as RouteState.Choosing).plan ?: error("a plan stands")
+        val mirrored = armed.reversed()
+
+        assertFalse("the mirrored line is not written yet", viewModel.isRouteSaved(mirrored))
+        viewModel.noteRouteSaved(mirrored, "track-1")
+
+        assertTrue("a mirrored saved route answers as written", viewModel.isRouteSaved(mirrored))
+        assertTrue("and so does the armed orientation", viewModel.isRouteSaved(armed))
+        assertEquals("one link stands, not two", 1, viewModel.sessionRoutes().size)
+        assertEquals(
+            "the persisted ends are the armed pair, not the read direction",
+            "m-start" to "m-dest",
+            viewModel.armedMarkerIds()
+        )
+    }
+
     /** `end` cancels the lookups and returns to Idle with nothing left. */
     @Test
     fun endingTheAcquisitionCancelsTheLookupsAndReturnsToIdle() = runTest {

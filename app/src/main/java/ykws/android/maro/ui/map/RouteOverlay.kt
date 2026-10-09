@@ -198,6 +198,40 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
 }
 
 /**
+ * **Whether a followed route's ends should now read the other way** (R99) — the boat's course against
+ * the bearing to the route's **armed** destination, a Schmitt trigger.
+ *
+ * A boat driven more than `90 + deadBandDeg` off the bearing to the destination is *heading away*: the
+ * plan mirrors so the end ahead becomes the destination (the callers' own [RoutePlan.reversed]). It
+ * reverts once the boat turns back inside `90 - hysteresisDeg`, the two dials leaving a hysteresis gap
+ * so a course hovering around the beam cannot make the line chatter.
+ *
+ * A `speedKn` under [minSpeedKn] — and any missing or non-finite course, bearing or speed, which is
+ * the demo position and the stale fix alike — leaves the orientation exactly as it stands, so a moored
+ * boat's jitter never flips the route. Pure: the caller reads [swapped] off its own state, hands the
+ * fixed armed destination's bearing, and takes the answer as the next orientation.
+ */
+internal fun routeHeadingAway(
+    courseDeg: Double?,
+    bearingToDestinationDeg: Double?,
+    speedKn: Double?,
+    swapped: Boolean,
+    deadBandDeg: Double,
+    minSpeedKn: Double,
+    hysteresisDeg: Double
+): Boolean {
+    if (courseDeg == null || bearingToDestinationDeg == null || speedKn == null) return swapped
+    if (!courseDeg.isFinite() || !bearingToDestinationDeg.isFinite() || !speedKn.isFinite()) return swapped
+    if (speedKn < minSpeedKn) return swapped
+    val off = angularOffDeg(courseDeg, bearingToDestinationDeg)
+    return if (swapped) off >= 90.0 - hysteresisDeg else off > 90.0 + deadBandDeg
+}
+
+/** The absolute angular difference between two headings, in 0..180 degrees. */
+private fun angularOffDeg(a: Double, b: Double): Double =
+    kotlin.math.abs(((a - b + 540.0) % 360.0) - 180.0)
+
+/**
  * **The auto-pick's one-shot, as a reading of the machine** (R80) — the fan's *Route (auto)* child
  * armed with the intent to take the **final best** of the settled set.
  *

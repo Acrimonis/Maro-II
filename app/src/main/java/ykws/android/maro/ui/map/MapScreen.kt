@@ -1112,6 +1112,19 @@ fun MapScreen(
         navigationState.speedKnots?.toDouble()
     )
 
+    // ── The heading-away mirror's one feed (R99) ─────────────────────────
+    // The boat's own fix and the course the anchor's lead already trusts: the very `routeLeadFix` gate
+    // (GPS mode, a fresh fix) that stands the lead down stands the mirror down too, so demo mode and a
+    // stale fix never flip the followed line. Keyed on the point and the fix's own value, so a
+    // stationary boat re-evaluates nothing.
+    LaunchedEffect(routeBoatPosition, routeLeadFix) {
+        routeViewModel.onBoatFix(
+            from = routeBoatPosition,
+            courseDeg = routeLeadFix?.courseDeg,
+            speedKn = routeLeadFix?.speedKn
+        )
+    }
+
     // ── The Route section's standing pair (R44–R48, R66) ─────────────────────────
     // **A route's two ends are chosen in the drawer and read at the trigger** (R44, R71): each selector
     // offers the fixed entries plus every marker flagged for that end, and the pair persists **per

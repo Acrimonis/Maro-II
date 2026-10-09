@@ -1,37 +1,30 @@
-# Context Hydration — Route — 2026-10-08
+# Context Hydration — Route — 2026-10-09
 
-**Last Bake:** 2026-10-08 21:46 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-09 09:58 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-08 20:59 UTC) the session ran on the user's own words: `#new route-evol-pull`, then `#impl`-style orders — the fine pass's reporting fix, its price-step fix, the status-word change, and the pin bug. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: `feature/route-evol-pull` cut from `origin/develop` with `--no-track` (the tree's changes carried across, the base being content-identical at `bd8ba10f`); the session's changes were uncommitted at bake time with `#commit` and `#push` invoked.
+**Directive trace:** Since the last bake (2026-10-08 21:46 UTC) the session ran on the user's own words: `#focus route`, an assessment order, then `#bake` and `#commit`; one implementation was ordered (`#impl`) and is the pipeline in flight. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: `feature/route-swap-direction` cut from `origin/develop` at `6eb9017b` with `--no-track`, the session's changes carried across and uncommitted at bake time.
 
 ## State
 
-**The branch.** Everything below sits on `feature/route-evol-pull`, cut from `origin/develop`, which already contained the whole `feature/route-algo-selective-eval` line (`git rev-list --count origin/develop..HEAD` read `0` before the cut). Full `testDebugUnitTest` and `apk-build.bat` are green after every step; one `apk-build.bat` run failed once on a transient Gradle build-cache store (`Could not get file mode for …dexBuilderDebug…`) and the retry passed.
+**The branch.** `feature/route-swap-direction`, cut from `origin/develop` (`6eb9017b`) with `--no-track`, holding the R99 heading-away work uncommitted beside its plan.
 
-**The fine pass is named, and its pulls price coarse.** `RouteStage.FINE` — `Refine` / `Affinage` — joins the closed set, and [`RouteAvoidEngine.solveAtLambda`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) publishes it before the fine pass instead of re-publishing `PULL`, so the panel's word names the refinement rather than a pull already done; both stage-set doc homes were reconciled and [`RouteAvoidEngineTest`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt) pins that the main's terminal closes on `FINE`. [`RouteFinePass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt) then took the coarse price step in **both** of its pull setups — the Phase 4b lesson the runner had learned and the fine pass never had — a value-preserving change whose span proof keeps the sum bit-identical.
+**What shipped.** The followed route now **reverses its two ends in place** when the boat heads away from the destination: **R99**, the pure `routeHeadingAway` trigger over the boat's course against the bearing to the armed destination (`route.follow.swap.deadBandDeg` 15, `minSpeedKn` 1.5, `hysteresisDeg` 15), the one transform [`RoutePlan.reversed`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt), the detector [`RouteViewModel.onBoatFix`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt) fed from `MapScreen`'s fix, and the identity bridge so `isRouteSaved`, the session link and the persisted R82 end ids do not fork with the read direction. `testDebugUnitTest` and `apk-build.bat` green.
 
-**The status word tells the truth, and the readings line is gone.** The acquisition's status is now the stage and the **selected route's own number** — `Pull #2` — in the panel header and the drawer band alike, driven by one `routeNumber` on `RouteSummaryData` fed from the panel's own selected page, so the two surfaces cannot disagree. The header's step-readings line went, and with it the whole chain that fed it: the panel's block, parameter and import, `MapScreen`'s collected state and both call-site arguments, and `RouteViewModel._stepReadings`. R90 was rewritten, the band's two-message KDoc follows it, and the `ui-drawer-guidelines` scaffold row dropped `readings`. `RouteUpdate.readings` stays in the seam — the engines still publish it, only the app stopped reading it.
+**What the trigger was then redesigned to — in design, not implemented.** The user found the heading rule inert in demo, where there is no course, and wrong on a curving route; the trigger becomes the route's own **time-to-go loss**: a **toggle** when the trip figure's `remainingFrom(boat).durationSec` is `route.follow.swap.lossSec` (30) worse than its look-back low — the low being the smallest sample in a window derived as twice the loss — with the history bucketed to about one a second on elapsed-realtime and **cleared at every flip**, and `route.follow.swap.debounceSec` 15 spacing the toggles. Beside it a new **arrival cue**: below `route.follow.arrival.etaSec` (60 s) on a new-low crossing, the exit dialog's own doors under a `route_arrival_title` prompt, one per approach, closed as a no-action dismissal whenever a reversal outranks it. All of it is settled in [`261008_FEAT_PLN_Route_heading-away-end-swap.md`](../../xTrack/Route/261008_FEAT_PLN_Route_heading-away-end-swap.md), which also records the three heading keys to delete and the `routeLeadFix` feed coupling to drop.
 
-**The route card's pin flips.** The dashboard card is built from the loaded detail and mirrors it through [`MapScreen`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)'s refresh effect, which read `trackSummaries` — the list built as `all.filter { !it.route }`, so a route was never found and its detail never reloaded. The effect now keys on and looks up `allTrackSummaries`, the one list holding both kinds; the write itself was already sound, and the drawer's Routes list card, which reads `summary.pinned` off the flow, was never affected.
+**What is owed.** The heading-away swap's device pass (R99): a followed route, a real turn away from the destination and back, reading the flip of the ETA, the remaining run and the destination pin — and once the loss model lands, the demo pan-back and the arrival cue. The tile-layer and fine-tail passes from the previous session stand unchanged.
 
-**What is owed.** The fine pass's own tail is **unmeasured**: the harness's fixture settles on a straight two-point line, so both fine pulls read `priceReads=0 marks=0` and only the device can price the saving. Also owed: the tile-layer device pass (unchanged), the corrected status words and the card's pin on device, and the findings left unfixed — `RouteStage.CORRIDOR`/`GRID` published by no engine, `RoutePinOption` and `route_pin_label` dead, no test on the Compose refresh effect.
-
-**No open walk.** The feature file holds no `## Walk` section, so nothing bars a fold, and no `## Implemented` log stands for a retirement sweep to read.
+**No open walk.** The feature file holds no `## Walk` section, so nothing bars a fold.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt` — the `FINE` stage member and its label
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — the fine pass's own boundary, published as `FINE`
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt` — the fine pass's coarse price step, in both pull setups
-- `app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt` — the status word `stage #n`, and the readings line gone
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeNumber` fed to the summary; the readings chain removed; the card refresh reading `allTrackSummaries`
-- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — `_stepReadings` and its assignment removed
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt`, `MenuDrawerOverlay.kt` — `routeNumber` and the band's `stage #n`
-- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `route_status_stage_number` added, `route_status_acquiring_stage` retired, `route_stage_fine` added
-- `app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt` — the `FINE` boundary pin
-- `xTrack/Route/FEAT_DSC_Route.md` — R90 rewritten, the panel bullet and the removal list refreshed
-- `xTrack/Route/FEAT_DOC_Route_engines.md`, `260929_FEAT_DOC_Route_engine-interface.md`, `docs/ui-drawer-guidelines.md` — the stage set and the panel row reconciled
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — `RoutePlan.reversed`, the `mirrored` flag, `onBoatFix` and the identity bridge; the loss toggle and the arrival latch land here next
+- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt` — `routeHeadingAway` and `angularOffDeg`, to be replaced by `routeEtaToggle`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the `LaunchedEffect` feeding `onBoatFix`; the `routeLeadFix` coupling to drop
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/maro.properties` — the three heading keys to delete and `route.follow.swap.lossSec` / `debounceSec` / `route.follow.arrival.etaSec` to add
+- `xTrack/Route/FEAT_DSC_Route.md` — R99 rewritten, R100 added, the concept's arrival line
+- `xTrack/Route/261008_FEAT_PLN_Route_heading-away-end-swap.md` — the design of record
 
 ## Next Step
 
-The fine-tail measurement — whether the refinement still dominates the stage line now that its price step is coarse — is the user's device pass (R97), and the assessment that shapes it is settled: the grouping collapse at the fine cell, the per-zone crossing re-solve beside it, and a fixture that cannot price either.
+Implement the loss redesign on `feature/route-swap-direction`: the `routeEtaToggle` trigger, the arrival cue, the three heading keys deleted and the three new values wired.

@@ -9,6 +9,7 @@ import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -521,5 +522,86 @@ class RoutePlanTest {
         assertEquals("and the whole line is the remaining run", listOf(p0), split.remainingPoints)
         assertEquals(0.0, split.distanceM, 1e-9)
         assertEquals(0.0, split.durationSec, 1e-9)
+    }
+
+    /**
+     * **The mirror reads the same water the other way** (R99): [`RoutePlan.reversed`] is the plan's one
+     * home for the heading-away transform — the polyline and its per-leg times reverse, the two ends
+     * exchange, and every settled total rides unchanged, so a mirrored line is the same bytes as the
+     * drawn one and a mirror of a mirror is the original.
+     */
+    @Test
+    fun theMirrorReversesTheLineExchangesTheEndsAndKeepsEveryTotal() {
+        val original = plan()
+
+        val mirror = original.reversed()
+
+        assertEquals("the start becomes the old destination", p2, mirror.start)
+        assertEquals("and the destination the old start", p0, mirror.destination)
+        assertEquals("the polyline reverses", listOf(p2, p1, p0), mirror.points)
+        assertEquals("and so do the leg times", listOf(240.0, 120.0), mirror.legTimesSec)
+        assertEquals("the distance is the line's, not a direction's", original.distanceM, mirror.distanceM, 1e-9)
+        assertEquals("and the duration with it", original.durationSec, mirror.durationSec, 1e-9)
+        assertEquals("the same instant dates it", original.computedAtMs, mirror.computedAtMs)
+        assertEquals("a mirror of a mirror is the original", original, mirror.reversed())
+    }
+
+    /** The mirror carries the route's own settled facts untouched — nothing forks with the direction. */
+    @Test
+    fun theMirrorCarriesTheRoutesOwnFactsUntouched() {
+        val original = plan().copy(
+            destinationMoved = true,
+            budgetUnmetZoneShare = 0.4,
+            forcedCrossingZoneNames = listOf("Zone A"),
+            slowLimitSeconds = listOf(RouteSlowLimit(limitKn = 5.0, seconds = 90.0, isBand = true))
+        )
+
+        val mirror = original.reversed()
+
+        assertTrue("a moved destination stays reported", mirror.destinationMoved)
+        assertEquals(0.4, mirror.budgetUnmetZoneShare)
+        assertEquals(listOf("Zone A"), mirror.forcedCrossingZoneNames)
+        assertEquals(original.slowLimitSeconds, mirror.slowLimitSeconds)
+    }
+
+    /**
+     * **The heading-away trigger is a Schmitt trigger on the beam** (R99): the boat swaps past
+     * `90 + deadBand`, stays swapped across the gap, and reverts only inside `90 - hysteresis`, the two
+     * dials leaving the gap that keeps a course around the beam from chattering.
+     */
+    @Test
+    fun theTriggerSwapsPastTheDeadBandAndRevertsInsideTheHysteresis() {
+        val dead = 15.0
+        val hyst = 15.0
+        val min = 1.5
+
+        fun away(angleDeg: Double, swapped: Boolean, speedKn: Double = 5.0) = routeHeadingAway(
+            courseDeg = 0.0,
+            bearingToDestinationDeg = angleDeg,
+            speedKn = speedKn,
+            swapped = swapped,
+            deadBandDeg = dead,
+            minSpeedKn = min,
+            hysteresisDeg = hyst
+        )
+
+        assertFalse("inside the dead-band the boat is not judged away", away(90.0 + dead - 1.0, swapped = false))
+        assertTrue("past the dead-band the plan mirrors", away(90.0 + dead + 1.0, swapped = false))
+        assertTrue("a mirrored plan stays mirrored across the gap", away(90.0, swapped = true))
+        assertFalse("but reverts once inside the hysteresis", away(90.0 - hyst - 1.0, swapped = true))
+        assertTrue(
+            "and a bearing off the other beam reads the same angle",
+            away(360.0 - (90.0 + dead + 1.0), swapped = false)
+        )
+    }
+
+    /** The speed gate and the missing-course case: the plan never flips on jitter or with nothing to read. */
+    @Test
+    fun theTriggerStandsDownUnderTheSpeedGateAndWithNoCourse() {
+        assertTrue("a speed under the gate leaves a mirrored plan as it stands", routeHeadingAway(0.0, 180.0, 0.5, true, 15.0, 1.5, 15.0))
+        assertFalse("and a slow boat is never judged away", routeHeadingAway(0.0, 180.0, 0.5, false, 15.0, 1.5, 15.0))
+        assertFalse("no course means no judgement", routeHeadingAway(null, 180.0, 9.0, false, 15.0, 1.5, 15.0))
+        assertTrue("and a mirrored plan stays put with no course either", routeHeadingAway(null, 180.0, 9.0, true, 15.0, 1.5, 15.0))
+        assertFalse("a non-finite course reads as none", routeHeadingAway(Double.NaN, 180.0, 9.0, false, 15.0, 1.5, 15.0))
     }
 }

@@ -184,6 +184,7 @@ starts under the family that owns it:
 | `route.selective.depth.bandExtraM`, `route.selective.depth.priceSecPerM` | The depth price band's extra width and its per-metre gradient |
 | `route.walk.maxCells` | The ceiling a walk is refused over before it is rastered |
 | `route.repair.maxRadiusM` | The end repair's sweep radius |
+| `route.follow.swap.*` | **Not the pipeline's**: the heading-away mirror's dead-band, minimum speed and hysteresis (R99) — a `Following`-phase behaviour of the state machine that reads the boat's course against the armed destination. The engine, the ladder and the clock are untouched; the behaviour's own home is `FEAT_DSC_Route.md` R99 |
 
 ## Known gaps
 

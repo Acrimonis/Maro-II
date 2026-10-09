@@ -146,6 +146,31 @@ object AppConfig {
     var routeNavigateColor: Int = 0xFF1565C0.toInt()
         private set
 
+    /**
+     * **The dead-band past the beam a boat must be driven before a followed route mirrors** (R99) —
+     * `route.follow.swap.deadBandDeg`, default 15, clamped 0..90. The plan reverses when the course
+     * points more than `90 + this` off the bearing to the armed destination.
+     */
+    var routeFollowSwapDeadBandDeg: Double = 15.0
+        private set
+
+    /**
+     * **The minimum speed over ground at which the heading-away trigger reads a course** (R99) —
+     * `route.follow.swap.minSpeedKn`, default 1.5, clamped 0..40. Below it a reported course is jitter
+     * rather than a heading, so the plan never mirrors.
+     */
+    var routeFollowSwapMinSpeedKn: Double = 1.5
+        private set
+
+    /**
+     * **The hysteresis a mirrored route needs before it turns back** (R99) —
+     * `route.follow.swap.hysteresisDeg`, default 15, clamped 0..90. A reversed plan reverts only once
+     * the boat is inside `90 - this` of the bearing to the destination, so this dial and
+     * [routeFollowSwapDeadBandDeg] leave a chatter-free gap around the beam.
+     */
+    var routeFollowSwapHysteresisDeg: Double = 15.0
+        private set
+
     /** The destination pin's fill colour — `route.pin.color`. */
     var routePinColor: Int = 0xFF2ECC71.toInt()
         private set
@@ -2027,6 +2052,13 @@ object AppConfig {
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
+            // ── The heading-away mirror's three dials (R99) ──
+            props.getProperty("route.follow.swap.deadBandDeg")?.toDoubleOrNull()
+                ?.let { routeFollowSwapDeadBandDeg = it.coerceIn(0.0, 90.0) }
+            props.getProperty("route.follow.swap.minSpeedKn")?.toDoubleOrNull()
+                ?.let { routeFollowSwapMinSpeedKn = it.coerceIn(0.0, 40.0) }
+            props.getProperty("route.follow.swap.hysteresisDeg")?.toDoubleOrNull()
+                ?.let { routeFollowSwapHysteresisDeg = it.coerceIn(0.0, 90.0) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine cell Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
