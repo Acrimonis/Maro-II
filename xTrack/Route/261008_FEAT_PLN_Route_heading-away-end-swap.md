@@ -83,10 +83,15 @@ functional case answered by a **new arrival cue**, not by a reversal.
   the existing exit dialog (`MapDialogHost`) under a *you seem to have reached your destination*
   prompt, with the same doors — *Save Route to Track · Continue route · Discard Route*, or *Stop
   following* for a followed saved route.
-- **One prompt per approach.** The cue is armed once the time-to-go is back above the threshold and
-  fires on the crossing below it that is a new low, so the same loss-versus-low test decides both the
-  flip and the prompt and no second dial is invented; a boat that leaves and comes back down — closing
-  to a fresh low — legitimately re-prompts, so the rule is not a blanket one-shot.
+- **One prompt per orientation, and per approach.** The cue is armed on entering `Following` **from
+  above** the threshold and armed again by **every flip** — so the mirrored end behaves exactly like
+  the first and both ends of the route ask — and it fires once on the crossing below the threshold
+  that is a new low, so the same loss-versus-low test decides the flip and the prompt alike.
+- It **disarms on firing** and re-arms whenever the time-to-go reads back above the threshold, so a
+  boat that leaves and comes back down, or turns for the other end, legitimately re-prompts.
+- **Objection, recorded:** arming on a flip lets the prompt fall on the first fix after a turn-back
+  whenever the new goal already lies inside the minute — honest to the threshold, since the boat is
+  within a minute of that end, but it can read as the prompt returning as you turn.
 - **The answer decides only whether the route survives.** The doors that keep the route — *Continue
   route* and a dismissal (no action) — leave the mode `Following`; the doors that end it — *Save Route
   to Track* and *Discard Route* / *Stop following* — make the flip moot.
@@ -97,9 +102,9 @@ functional case answered by a **new arrival cue**, not by a reversal.
   destination `splitAt` clamps the projection to the route's end, so the number sits flat and cannot
   rise; the moment the boat re-enters the line it steps up and the loss accrues, and the toggle fires
   with no further consent.
-- **A route armed inside the zone never prompts.** The cue is armed by a time-to-go **above** the
-  threshold, so a pair whose whole line is under a minute — or a route taken up already inside the
-  zone — raises no prompt; the flip still applies to it as usual.
+- **A route armed inside the zone never prompts.** The **initial** arming needs a time-to-go **above**
+  the threshold, so a pair whose whole line is under a minute — or a route taken up already inside the
+  zone — raises no prompt at the outset; a flip arms it regardless, which is the symmetry above.
 - **One surface, two raisers.** The prompt rides the same `routeExitRequested` dialog the toggle and
   the back key raise, so a raise while it stands is that one dialog with the user's own title, and the
   arrival raiser never stacks a second.
@@ -135,6 +140,15 @@ functional case answered by a **new arrival cue**, not by a reversal.
 - `RouteHost` already remembers the split against the plan object, so a new mirrored instance
   redraws the split, the travelled/remaining runs and the casing; the pin, drawn from the plan's
   resolved destination, moves to the new destination in the same stroke.
+- **At arrival the run is empty, and the covered line alone is drawn** (R93, inverted on the user's
+  word of 2026-10-09). Fewer than two points remaining is **zero points** — nothing ahead — so slot 0
+  and its casing stand down and the host's whole-line fallback goes; the travelled run then carries
+  the line, its *only beside the remaining run* guard relaxed to admit the case where nothing ahead
+  could be doubled. The route reads **done**: the whole line in the shared dimming, no bright
+  remainder, and the line stays drawn as R93 promises. R93's arrival clause is rewritten to match —
+  *fewer than two points remaining means an empty run, and the covered line alone is drawn* — with the
+  two host comments that carried the old sentence, and a paint-level test pins the arrival face rather
+  than the split's arithmetic.
 - The trip figure (`routeTripFigure`) and the drawer band read `remainingFrom(boat)` off the
   mirrored plan, so the time-to-go and the distance face the new destination with no second
   arithmetic.
@@ -219,3 +233,14 @@ behind a flip belong to the other orientation and would poison the minimum — t
 pinned to a **new look-back low** so no second dial is invented for it, the retired heading keys keep
 one home in Docs and rules, and the loss's own bound on the shortest route it can act on is recorded
 as a known limit.
+
+**Reviewed on device, 2026-10-09.** The arrival prompt proved **one-sided**: arming only from a
+reading above the threshold, with a flip resetting it, left the mirrored end unable to ask whenever
+the new goal already lay inside the minute. The flip now **arms** the cue, so both ends behave alike,
+and the objection that it may prompt as you turn is recorded above.
+
+**Amended on device, 2026-10-09.** The arrival paint read the opposite of its intent: the host
+substituted the **whole line** for a remaining run under two points, so the trace jumped to full
+strength at the destination. Fewer than two points is **zero points** — an empty run — so slot 0 and
+its casing stand down, the travelled run carries the covered line in the shared dimming, and the route
+reads done while it is still followed.

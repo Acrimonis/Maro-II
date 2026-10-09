@@ -147,28 +147,32 @@ object AppConfig {
         private set
 
     /**
-     * **The dead-band past the beam a boat must be driven before a followed route mirrors** (R99) —
-     * `route.follow.swap.deadBandDeg`, default 15, clamped 0..90. The plan reverses when the course
-     * points more than `90 + this` off the bearing to the armed destination.
+     * **How much time-to-go the followed route must lose before it turns around** (R99) —
+     * `route.follow.swap.lossSec`, default 30, clamped 0..600. The reading toggles once the trip
+     * figure's own time-to-go is this much worse than its own recent low; small drifts do not count.
+     *
+     * A fall or a flat reading is the ordinary progressing state and does nothing. The **look-back is
+     * derived, not a dial** — twice this — so the loss must accrue within its span and the real gate is
+     * *losing ground at least half as fast as the route expects to gain it*.
      */
-    var routeFollowSwapDeadBandDeg: Double = 15.0
+    var routeFollowSwapLossSec: Double = 30.0
         private set
 
     /**
-     * **The minimum speed over ground at which the heading-away trigger reads a course** (R99) —
-     * `route.follow.swap.minSpeedKn`, default 1.5, clamped 0..40. Below it a reported course is jitter
-     * rather than a heading, so the plan never mirrors.
+     * **How long the followed route leaves the boat alone after turning** (R99) —
+     * `route.follow.swap.debounceSec`, default 15, clamped 0..600. After a flip no further flip happens
+     * for this span, so a boat manoeuvring across one spot cannot chatter the reading.
      */
-    var routeFollowSwapMinSpeedKn: Double = 1.5
+    var routeFollowSwapDebounceSec: Double = 15.0
         private set
 
     /**
-     * **The hysteresis a mirrored route needs before it turns back** (R99) —
-     * `route.follow.swap.hysteresisDeg`, default 15, clamped 0..90. A reversed plan reverts only once
-     * the boat is inside `90 - this` of the bearing to the destination, so this dial and
-     * [routeFollowSwapDeadBandDeg] leave a chatter-free gap around the beam.
+     * **How close the boat must be, in time left, before the app asks whether it has arrived** (R99) —
+     * `route.follow.arrival.etaSec`, default 60, clamped 0..600. When the time-to-go falls through this
+     * as a new look-back low the mode raises its exit dialog under the *reached your destination*
+     * prompt (R100).
      */
-    var routeFollowSwapHysteresisDeg: Double = 15.0
+    var routeFollowArrivalEtaSec: Double = 60.0
         private set
 
     /** The destination pin's fill colour — `route.pin.color`. */
@@ -2052,13 +2056,13 @@ object AppConfig {
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
-            // ── The heading-away mirror's three dials (R99) ──
-            props.getProperty("route.follow.swap.deadBandDeg")?.toDoubleOrNull()
-                ?.let { routeFollowSwapDeadBandDeg = it.coerceIn(0.0, 90.0) }
-            props.getProperty("route.follow.swap.minSpeedKn")?.toDoubleOrNull()
-                ?.let { routeFollowSwapMinSpeedKn = it.coerceIn(0.0, 40.0) }
-            props.getProperty("route.follow.swap.hysteresisDeg")?.toDoubleOrNull()
-                ?.let { routeFollowSwapHysteresisDeg = it.coerceIn(0.0, 90.0) }
+            // ── The followed route's loss toggle and arrival cue (R99) ──
+            props.getProperty("route.follow.swap.lossSec")?.toDoubleOrNull()
+                ?.let { routeFollowSwapLossSec = it.coerceIn(0.0, 600.0) }
+            props.getProperty("route.follow.swap.debounceSec")?.toDoubleOrNull()
+                ?.let { routeFollowSwapDebounceSec = it.coerceIn(0.0, 600.0) }
+            props.getProperty("route.follow.arrival.etaSec")?.toDoubleOrNull()
+                ?.let { routeFollowArrivalEtaSec = it.coerceIn(0.0, 600.0) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine cell Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {

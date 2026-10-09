@@ -638,6 +638,43 @@ class RouteAcquisitionTest {
             routeRowFigures(RoutePage(lookupId = RouteId(3)))
         )
     }
+
+    /**
+     * **The loss toggle, through the machine** (R99): a followed route flips **in place** the moment
+     * its own time-to-go loses `route.follow.swap.lossSec` against its recent low — republishing
+     * `Following` with the mirrored plan and nothing re-armed — while a flat progress never flips.
+     */
+    @Test
+    fun theFollowedRouteFlipsInPlaceWhenItLosesTheLossAgainstItsLow() = runTest {
+        val viewModel = RouteViewModel(MutableStateFlow(CountingEngine()))
+        val a = RoutePoint(43.5000, 7.0000)
+        val b = RoutePoint(43.5200, 7.0000)
+        val midpoint = RoutePoint(43.5100, 7.0000)
+        val quarter = RoutePoint(43.5050, 7.0000)
+        val plan = RoutePlan(
+            start = a,
+            destination = b,
+            destinationMoved = false,
+            points = listOf(a, b),
+            legTimesSec = listOf(600.0),
+            distanceM = 2_000.0,
+            durationSec = 600.0,
+            computedAtMs = 0L
+        )
+        viewModel.followSavedRoute(plan, "track-1")
+
+        // Settling on the line: half the line is left at the midpoint, and a flat step does nothing.
+        viewModel.onBoatFix(midpoint, nowElapsedMs = 0)
+        val flat = viewModel.onBoatFix(midpoint, nowElapsedMs = 1_000)
+        assertFalse("a flat progress does not flip", flat.flip)
+
+        // Heading back: the time-to-go rises by more than the loss → the plan mirrors in place.
+        val flip = viewModel.onBoatFix(quarter, nowElapsedMs = 2_000)
+        assertTrue("a loss against the low flips the line", flip.flip)
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals("and the plan is mirrored in place", plan.reversed(), following.plan)
+    }
 }
 
 /**

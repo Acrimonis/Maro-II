@@ -681,6 +681,10 @@
     <string name="route_exit_continue">Continuer la route</string>
     <string name="route_exit_discard">Abandonner</string>
     <string name="route_exit_stop_following">Arrêter de suivre</string>
+    <!-- Le signalement d'arrivée (R100) : le même dialogue de sortie, levé quand le temps restant de
+         l'itinéraire suivi franchit le seuil d'arrivée — une invite sans message, sur les trois mêmes
+         portes. -->
+    <string name="route_arrival_title">Vous semblez être arrivé à destination</string>
     <!-- Le toast de l'abandon différé : la fin de l'acquisition et celle d'un itinéraire suivi, nommées
          honnêtement, chacune offrant Annuler (`action_undo`) et Nouvelle acquisition, qui réarme les
          mêmes extrémités. -->

@@ -879,6 +879,13 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   ([`ui/components/OptionRow.kt`](../app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt)) —
   one checkbox and its label, the checkbox's own target inset serving as the gap, so every option row in
   every dialog reads the same distance.
+- **The route's one exit dialog carries two raisers** (R59, R100): the toggle's off and the back key raise
+  it under *Leave the Route mode?* (`route_exit_title`), and the followed route's own **arrival cue** raises
+  the **same** dialog under *You seem to have reached your destination* (`route_arrival_title`) — a
+  **title-only** prompt, no message line, over the same three doors (*Save Route to Track* · *Continue
+  route* · *Discard Route*, or *Stop following* for a followed saved route). One surface, never two
+  stacked: a raise while it stands is that one dialog, and a reversal of the followed route closes the
+  arrival prompt as a **no action** dismissal.
 
 **Tokens**
 

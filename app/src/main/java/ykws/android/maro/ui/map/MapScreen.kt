@@ -795,7 +795,10 @@ fun MapScreen(
     // One gate for the draft's writes: the re-save and the final overwrite serialize on it, so a
     // stale partial line can never be written after the full one.
     val routeDraftWriteMutex = remember { Mutex() }
-    var routeExitRequested by remember { mutableStateOf(false) }
+    // **The one exit dialog's own raiser** (R59, R100): null while it is not shown, `EXIT` when the
+    // toggle's off or the back key raises it, `ARRIVAL` when the followed route's own time-to-go crosses
+    // the arrival threshold. The dialog picks only its title from the reason; its doors are the same.
+    var routeExitReason by remember { mutableStateOf<RouteExitReason?>(null) }
     // **The auto-pick's own one-shot flag** (R80): armed by the fan's *Route (auto)* child, it takes the
     // settled line the instant that line exists and clears with it — on the selection, on an end and on a
     // new arming — so no later acquisition can inherit an intent nobody pressed for.
@@ -1112,17 +1115,23 @@ fun MapScreen(
         navigationState.speedKnots?.toDouble()
     )
 
-    // ── The heading-away mirror's one feed (R99) ─────────────────────────
-    // The boat's own fix and the course the anchor's lead already trusts: the very `routeLeadFix` gate
-    // (GPS mode, a fresh fix) that stands the lead down stands the mirror down too, so demo mode and a
-    // stale fix never flip the followed line. Keyed on the point and the fix's own value, so a
-    // stationary boat re-evaluates nothing.
-    LaunchedEffect(routeBoatPosition, routeLeadFix) {
-        routeViewModel.onBoatFix(
+    // ── The followed route's one feed (R99, R100) ────────────────────────
+    // The boat's own fix, purely positional: while a route is followed the mode reads the plan's own
+    // time-to-go off it — a loss against its recent low flips the line in place, and a drop through the
+    // arrival threshold raises the arrival cue. Keyed on the point alone, so a stationary boat
+    // re-evaluates nothing and demo and GPS behave alike.
+    LaunchedEffect(routeBoatPosition) {
+        val decision = routeViewModel.onBoatFix(
             from = routeBoatPosition,
-            courseDeg = routeLeadFix?.courseDeg,
-            speedKn = routeLeadFix?.speedKn
+            nowElapsedMs = SystemClock.elapsedRealtime()
         )
+        if (decision.flip && routeExitReason == RouteExitReason.ARRIVAL) {
+            // A reversal outranks the arrival cue: close it as a no-action dismissal and let the flip stand.
+            routeExitReason = null
+        }
+        if (decision.arrivalCue && routeExitReason == null) {
+            routeExitReason = RouteExitReason.ARRIVAL
+        }
     }
 
     // ── The Route section's standing pair (R44–R48, R66) ─────────────────────────
@@ -2094,7 +2103,7 @@ fun MapScreen(
                 if (!routeArmed) return
                 routeArmed = false
                 routePinned = false
-                routeExitRequested = false
+                routeExitReason = null
                 // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
                 routeAutoPick = false
                 routeDraftId = null
@@ -2116,7 +2125,7 @@ fun MapScreen(
             fun discardRoute() {
                 if (!routeArmed || pendingDiscard != null) return
                 val followed = routeState is RouteState.Following
-                routeExitRequested = false
+                routeExitReason = null
                 val snack = ActiveSnack.RouteDiscard(followed)
                 pendingDiscard = PendingRouteDiscard(snack)
                 enqueueSnack(snack)
@@ -2216,7 +2225,7 @@ fun MapScreen(
              */
             fun requestRouteExit() {
                 if (!routeArmed) return
-                routeExitRequested = true
+                routeExitReason = RouteExitReason.EXIT
             }
 
             /**
@@ -3997,11 +4006,11 @@ fun MapScreen(
             onBatteryOptPrompted = {
                 viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
             },
-            // ── The route's one exit dialog (R59) — the dialog itself lives in the host ──
-            routeExitRequested = routeExitRequested,
+            // ── The route's one exit dialog (R59, R100) — the dialog itself lives in the host ──
+            routeExitReason = routeExitReason,
             routeState = routeState,
             routeViewModel = routeViewModel,
-            onDismissExit = { routeExitRequested = false },
+            onDismissExit = { routeExitReason = null },
             onSaveRoute = { plan -> saveRouteTrack(plan, routePinned) },
             // Save-and-exit never toasts; only the dialog's own Discard is deferred.
             onEndRoute = { endRouteMode() },

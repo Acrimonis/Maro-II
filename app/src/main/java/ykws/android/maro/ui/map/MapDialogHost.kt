@@ -23,6 +23,14 @@ import ykws.android.maro.ui.components.ConfirmDialog
 import ykws.android.maro.ui.components.OptionRow
 
 /**
+ * **Why the route's one exit dialog stands** (R59, R100): the ordinary leave the toggle's off and the
+ * back key raise, or the **arrival cue** the followed route's own time-to-go raises when it crosses the
+ * route's arrival threshold. The doors are the dialog's own in both cases — the arrival prompt changes
+ * only the title.
+ */
+internal enum class RouteExitReason { EXIT, ARRIVAL }
+
+/**
  * Windowed dialogs/sheets host (extracted from MapScreen). Owns ONLY popup windows
  * (AlertDialog / ModalBottomSheet) — the screen-lock scrim lives in `MapLockLayer`,
  * called after this host so it paints above every drawer and the map.
@@ -72,8 +80,8 @@ internal fun MapDialogHost(
     closeBatteryOptDialog: () -> Unit,
     /** Marks the prompt as answered, so it never reappears (persisted via AppSettings). */
     onBatteryOptPrompted: () -> Unit,
-    // ── The route's one exit dialog (R59) ──
-    routeExitRequested: Boolean,
+    // ── The route's one exit dialog (R59, R100) ──
+    routeExitReason: RouteExitReason?,
     routeState: RouteState,
     routeViewModel: RouteViewModel,
     onDismissExit: () -> Unit,
@@ -240,20 +248,24 @@ internal fun MapDialogHost(
         )
     }
 
-    // ── The route's one exit dialog (R59) — asked by the toggle and the back key ───
-    // Both doors raise this same dialog, and it reads in the order every action surface takes
+    // ── The route's one exit dialog (R59, R100) — asked by the toggle, the back key and the arrival cue ───
+    // Every raiser reaches this one dialog, and it reads in the order every action surface takes
     // (ui-component-guidelines §5.6): the affirmative first, the neutral stay, the loss last —
-    // **Save Route to Track** · **Continue route** · **Discard Route**. Its save writes the followed
+    // **Save Route to Track** · **Continue route** · **Discard Route**. The arrival cue rides the same
+    // doors under its own title alone (a title-only prompt, no message). Its save writes the followed
     // route and is **disabled while that route already has its track**, so no second press writes a
     // second track for one line.
-    if (routeExitRequested) {
+    if (routeExitReason != null) {
         val front = routeState.plan
         val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
         // A followed saved route is already a track, so its save door stays grey and its third
         // door reads "Stop following" rather than "Discard Route".
         val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front) && followedTrackId == null
         ConfirmDialog(
-            title = stringResource(R.string.route_exit_title),
+            title = stringResource(
+                if (routeExitReason == RouteExitReason.ARRIVAL) R.string.route_arrival_title
+                else R.string.route_exit_title
+            ),
             visible = true,
             onDismiss = { onDismissExit() },
             message = null,

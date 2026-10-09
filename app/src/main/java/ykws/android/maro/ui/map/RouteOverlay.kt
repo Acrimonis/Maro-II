@@ -197,39 +197,139 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
     return RoutePoint(moved.latitude, moved.longitude)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// The followed route's own progression (R99) — the time-to-go history, the loss
+// toggle and the arrival cue
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One timestamped reading of the followed route's own time-to-go, on `SystemClock` elapsed-realtime. */
+internal data class RouteEtaSample(val etaSec: Double, val atMs: Long)
+
 /**
- * **Whether a followed route's ends should now read the other way** (R99) — the boat's course against
- * the bearing to the route's **armed** destination, a Schmitt trigger.
- *
- * A boat driven more than `90 + deadBandDeg` off the bearing to the destination is *heading away*: the
- * plan mirrors so the end ahead becomes the destination (the callers' own [RoutePlan.reversed]). It
- * reverts once the boat turns back inside `90 - hysteresisDeg`, the two dials leaving a hysteresis gap
- * so a course hovering around the beam cannot make the line chatter.
- *
- * A `speedKn` under [minSpeedKn] — and any missing or non-finite course, bearing or speed, which is
- * the demo position and the stale fix alike — leaves the orientation exactly as it stands, so a moored
- * boat's jitter never flips the route. Pure: the caller reads [swapped] off its own state, hands the
- * fixed armed destination's bearing, and takes the answer as the next orientation.
+ * **The followed route's own progression reading** (R99): the gathered time-to-go samples, whether the
+ * arrival cue is armed, and when the line last flipped. [routeEtaStep] advances it by one fix, and the
+ * detector holds one — cleared on entering `Following` and at every flip.
  */
-internal fun routeHeadingAway(
-    courseDeg: Double?,
-    bearingToDestinationDeg: Double?,
-    speedKn: Double?,
-    swapped: Boolean,
-    deadBandDeg: Double,
-    minSpeedKn: Double,
-    hysteresisDeg: Double
-): Boolean {
-    if (courseDeg == null || bearingToDestinationDeg == null || speedKn == null) return swapped
-    if (!courseDeg.isFinite() || !bearingToDestinationDeg.isFinite() || !speedKn.isFinite()) return swapped
-    if (speedKn < minSpeedKn) return swapped
-    val off = angularOffDeg(courseDeg, bearingToDestinationDeg)
-    return if (swapped) off >= 90.0 - hysteresisDeg else off > 90.0 + deadBandDeg
+internal data class RouteEtaState(
+    val samples: List<RouteEtaSample> = emptyList(),
+    val cueArmed: Boolean = false,
+    val lastFlipMs: Long? = null
+)
+
+/** What one fix decides: the advanced [state], whether the line flips, and whether the arrival cue fires. */
+internal data class RouteEtaDecision(
+    val state: RouteEtaState,
+    val flip: Boolean,
+    val arrivalCue: Boolean
+)
+
+/** The history buckets to about one sample a second, on elapsed-realtime, so a demo pan cannot churn it. */
+internal const val ROUTE_ETA_BUCKET_MS = 1_000L
+
+/**
+ * **The look-back is derived, not a dial** (R99): twice the loss, so the loss must accrue within its
+ * span and the real gate is *losing ground at least half as fast as the route expects to gain it*.
+ */
+internal fun routeEtaLookBackMs(lossSec: Double): Long = (lossSec * 2.0 * 1_000.0).toLong()
+
+/**
+ * The smallest time-to-go inside the look-back ending at [nowMs], or null when the window holds none.
+ * Samples older than the look-back are ignored, so a background pause leaves no stale low behind.
+ */
+internal fun routeEtaLow(samples: List<RouteEtaSample>, nowMs: Long, lookBackMs: Long): Double? {
+    val floor = nowMs - lookBackMs
+    var low: Double? = null
+    for (sample in samples) {
+        if (sample.atMs < floor) continue
+        low = if (low == null) sample.etaSec else minOf(low, sample.etaSec)
+    }
+    return low
 }
 
-/** The absolute angular difference between two headings, in 0..180 degrees. */
-private fun angularOffDeg(a: Double, b: Double): Double =
-    kotlin.math.abs(((a - b + 540.0) % 360.0) - 180.0)
+/**
+ * **The history after one sample** (R99) — bucketed to about one a second ([ROUTE_ETA_BUCKET_MS]), the
+ * samples older than the look-back dropped. A reading inside the last second's own bucket **replaces**
+ * its sample rather than adding one, so a fast stream of fixes stays one-a-second.
+ */
+internal fun routeEtaHistory(
+    samples: List<RouteEtaSample>,
+    etaSec: Double,
+    nowMs: Long,
+    lookBackMs: Long,
+    bucketMs: Long = ROUTE_ETA_BUCKET_MS
+): List<RouteEtaSample> {
+    val floor = nowMs - lookBackMs
+    val fresh = samples.filter { it.atMs >= floor }
+    val last = fresh.lastOrNull()
+    return if (last != null && nowMs - last.atMs < bucketMs) {
+        fresh.dropLast(1) + RouteEtaSample(etaSec, last.atMs)
+    } else {
+        fresh + RouteEtaSample(etaSec, nowMs)
+    }
+}
+
+/**
+ * **Whether the followed route's reading now toggles** (R99) — `eta(now) - low >= lossSec`, where the
+ * low is the smallest sample inside the look-back of twice the loss ([routeEtaLow]). A fall or a flat
+ * reading is the ordinary progressing state; a missing window reads nothing in it, so this answers
+ * false. Pure and positional, so demo and GPS behave alike.
+ */
+internal fun routeEtaToggle(
+    samples: List<RouteEtaSample>,
+    etaSec: Double,
+    nowMs: Long,
+    lossSec: Double
+): Boolean {
+    if (!etaSec.isFinite()) return false
+    val low = routeEtaLow(samples, nowMs, routeEtaLookBackMs(lossSec)) ?: return false
+    return etaSec - low >= lossSec
+}
+
+/**
+ * **The followed route's progression, advanced by one fix** (R99, R100) — the one reading behind both
+ * the loss toggle and the arrival cue.
+ *
+ * A loss of [lossSec] against the look-back low flips the line, unless the [debounceSec] since the last
+ * flip has not yet elapsed; a flip **clears the history**, since the time-to-go jumps to the other
+ * end's own value and the samples behind it belong to the other orientation — without the clear that
+ * stale low would make the jump read as a loss and turn the line straight back. Otherwise the sample
+ * joins the history and the arrival cue fires when the time-to-go has fallen below [arrivalEtaSec] as a
+ * **new look-back low** with the cue armed: the cue arms on any reading above the threshold **and on
+ * every flip**, so a route taken up already inside the zone raises no prompt while its mirrored end
+ * does, and disarms when it fires, so a boat that leaves and comes back down legitimately re-prompts.
+ * Pure: the caller holds [state] and reads the flip and the cue off the answer.
+ */
+internal fun routeEtaStep(
+    state: RouteEtaState,
+    etaSec: Double,
+    nowMs: Long,
+    lossSec: Double,
+    debounceSec: Double,
+    arrivalEtaSec: Double
+): RouteEtaDecision {
+    if (!etaSec.isFinite()) return RouteEtaDecision(state, flip = false, arrivalCue = false)
+    val lookBackMs = routeEtaLookBackMs(lossSec)
+    val debounceMs = (debounceSec * 1_000.0).toLong()
+    val debounced = state.lastFlipMs?.let { nowMs - it < debounceMs } == true
+    if (!debounced && routeEtaToggle(state.samples, etaSec, nowMs, lossSec)) {
+        // A flip clears the history and arms the cue, so the mirrored end prompts as the first end does;
+        // the cue it outranks is the caller's to close.
+        return RouteEtaDecision(
+            state = RouteEtaState(samples = emptyList(), cueArmed = true, lastFlipMs = nowMs),
+            flip = true,
+            arrivalCue = false
+        )
+    }
+    val low = routeEtaLow(state.samples, nowMs, lookBackMs)
+    val history = routeEtaHistory(state.samples, etaSec, nowMs, lookBackMs)
+    val armed = state.cueArmed || etaSec > arrivalEtaSec
+    val crossing = armed && etaSec < arrivalEtaSec && (low == null || etaSec < low)
+    return RouteEtaDecision(
+        state = RouteEtaState(samples = history, cueArmed = armed && !crossing, lastFlipMs = state.lastFlipMs),
+        flip = false,
+        arrivalCue = crossing
+    )
+}
 
 /**
  * **The auto-pick's one-shot, as a reading of the machine** (R80) — the fan's *Route (auto)* child

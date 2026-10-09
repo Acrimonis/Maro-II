@@ -675,6 +675,9 @@
     <string name="route_exit_continue">Continue Route</string>
     <string name="route_exit_discard">Discard</string>
     <string name="route_exit_stop_following">Stop following</string>
+    <!-- The arrival cue (R100): the same exit dialog, raised when the followed route's own time-to-go
+         falls through the arrival threshold — a title-only prompt over the same three doors. -->
+    <string name="route_arrival_title">You seem to have reached your destination</string>
     <!-- The deferred discard's toast: the acquisition's ending and a followed route's, told apart, each
          offering Undo (reusing `action_undo`) and New acquisition, which re-arms the same ends. -->
     <string name="route_discard_acq_toast">Route discarded</string>

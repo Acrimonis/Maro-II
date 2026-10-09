@@ -104,9 +104,10 @@ data class RoutePlan(
      * The projection clamps to `0..1` along the nearest leg, so a boat off to the side or past the
      * destination yields a wholly travelled or a wholly remaining run rather than an extrapolated one.
      * Where the projected point lands on the leg's own end it is **not repeated**: the remaining run
-     * starts at that vertex, so at the destination it falls to a single point and the paint keeps the
-     * whole line at full strength — the mode's arrival rule. A plan under two points has no leg at all,
-     * so the whole line is the remaining run for the same reason: nothing sits behind the boat.
+     * starts at that vertex, so at the destination it falls under two points — an **empty run**, nothing
+     * ahead drawn — and the travelled run carries the covered line in the shared dimming. A plan under
+     * two points has no leg at all, so the whole line is the remaining run for the same reason: nothing
+     * sits behind the boat.
      */
     fun splitAt(from: RoutePoint): RouteSplit {
         if (points.size < 2) {
@@ -149,7 +150,7 @@ data class RoutePlan(
         val afterLeg = points.drop(bestLeg + 1)
         // The projected point coincides with the leg's own end once the boat is at or past it; the
         // remaining run then starts at that vertex rather than repeating it, so it can fall under two
-        // points at the destination — the arrival rule the paint reads.
+        // points at the destination — the empty run the paint reads.
         val remaining = if (notYetTravelled <= 1e-9) afterLeg else listOf(split) + afterLeg
         return RouteSplit(travelled, remaining, bestLeg, remainingM, remainingSec)
     }
@@ -163,7 +164,7 @@ data class RoutePlan(
     }
 
     /**
-     * **The plan mirrored in place** (R99) — the *heading-away* transform: the same water read the
+     * **The plan mirrored in place** (R99) — the *loss* mirror's transform: the same water read the
      * other way. [points] and [legTimesSec] reverse and the two ends exchange, while every settled
      * total rides unchanged — [distanceM], [durationSec], [destinationMoved], [computedAtMs],
      * [budgetUnmetZoneShare], [forcedCrossingZoneNames] and [slowLimitSeconds] describe the line and
@@ -373,12 +374,18 @@ class RouteViewModel(
     private var armedDestinationMarkerId: String? = null
 
     /**
-     * **Whether the followed plan currently reads reversed** (R99) — the heading-away mirror's own
-     * orientation flag. False from every entry into `Following` (the plan handed in is the route *as
-     * armed*) and toggled only by [onBoatFix], so it says which of the plan's two ends is the armed
-     * destination the trigger reads.
+     * **Whether the followed plan currently reads reversed** (R99) — the loss mirror's own orientation
+     * flag. False from every entry into `Following` (the plan handed in is the route *as armed*) and
+     * toggled only by [onBoatFix], so it says which orientation the plan is read in.
      */
     private var mirrored = false
+
+    /**
+     * **The followed route's own progression reading** (R99, R100) — the time-to-go history, the arrival
+     * cue's arming and the last flip's instant. Cleared on entering `Following` and at every flip, so the
+     * samples never outlive the plan they were gathered against.
+     */
+    private var etaState = RouteEtaState()
 
     /** The session's routes and, for the ones already written, the track each became (R25). */
     private val session = LinkedHashMap<RoutePlan, String?>()
@@ -732,42 +739,50 @@ class RouteViewModel(
 
     /**
      * **The one edge into `Following`** — every door (a chosen page, the auto-pick, an early-select
-     * landing and a saved route) enters here, so the heading-away mirror starts cleared with the line:
-     * the plan handed in is the route **as armed**, and [mirrored] reads that orientation.
+     * landing and a saved route) enters here, so the loss mirror and the progression history start
+     * cleared with the line: the plan handed in is the route **as armed**, [mirrored] reads that
+     * orientation, and [etaState] gathers its own samples afresh.
      */
     private fun enterFollowing(plan: RoutePlan, followedTrackId: String? = null) {
         mirrored = false
+        etaState = RouteEtaState()
         _state.value = RouteState.Following(plan, followedTrackId)
     }
 
     /**
-     * **One boat fix, fed from the map while a route is followed** (R99) — the mode's only reader of
-     * the boat's own course. It evaluates [routeHeadingAway] against the **armed** destination and, on
-     * a flip, republishes `Following` with the plan reversed in place. Nothing re-arms and nothing is
-     * asked of an engine: the drawn line and its clock are the same bytes, merely read the other way.
+     * **One boat fix, fed from the map while a route is followed** (R99, R100) — purely positional: it
+     * reads the followed plan's own time-to-go at [from] and, on a loss of `route.follow.swap.lossSec`
+     * against its recent low, republishes `Following` with the plan reversed in place. Nothing re-arms
+     * and nothing is asked of an engine: the drawn line and its clock are the same bytes, merely read
+     * the other way. A fix with nothing to measure — the mode not following — leaves the plan as it
+     * stands.
      *
-     * The armed destination is the plan's own [RoutePlan.destination] while [mirrored] is false and its
-     * [RoutePlan.start] once the line is reversed, so the trigger's reference never turns with the
-     * display. A null or non-finite course or speed — demo mode, a fix the screen does not trust, or a
-     * reading under `route.follow.swap.minSpeedKn` — leaves the plan exactly as it stands.
+     * [nowElapsedMs] is the `SystemClock` elapsed-realtime instant of the fix, carried in so the
+     * history's one-a-second bucketing and the debounce read off the map's own clock rather than an
+     * invented one.
+     *
+     * The answer is the two readings the screen acts on: [RouteEtaDecision.flip] says the line turned,
+     * and [RouteEtaDecision.arrivalCue] says the time-to-go has just fallen below
+     * `route.follow.arrival.etaSec` as a new low, so the arrival prompt (R100) is due.
      */
-    fun onBoatFix(from: RoutePoint, courseDeg: Double?, speedKn: Double?) {
-        val following = _state.value as? RouteState.Following ?: return
+    internal fun onBoatFix(from: RoutePoint, nowElapsedMs: Long): RouteEtaDecision {
+        val following = _state.value as? RouteState.Following
+            ?: return RouteEtaDecision(state = etaState, flip = false, arrivalCue = false)
         val plan = following.plan
-        val destination = if (mirrored) plan.start else plan.destination
-        val bearing = SpatialOperations.initialBearing(from.toLatLng(), destination.toLatLng())
-        val away = routeHeadingAway(
-            courseDeg = courseDeg,
-            bearingToDestinationDeg = bearing,
-            speedKn = speedKn,
-            swapped = mirrored,
-            deadBandDeg = AppConfig.routeFollowSwapDeadBandDeg,
-            minSpeedKn = AppConfig.routeFollowSwapMinSpeedKn,
-            hysteresisDeg = AppConfig.routeFollowSwapHysteresisDeg
+        val decision = routeEtaStep(
+            state = etaState,
+            etaSec = plan.remainingFrom(from).durationSec,
+            nowMs = nowElapsedMs,
+            lossSec = AppConfig.routeFollowSwapLossSec,
+            debounceSec = AppConfig.routeFollowSwapDebounceSec,
+            arrivalEtaSec = AppConfig.routeFollowArrivalEtaSec
         )
-        if (away == mirrored) return
-        mirrored = away
-        _state.value = following.copy(plan = plan.reversed())
+        etaState = decision.state
+        if (decision.flip) {
+            mirrored = !mirrored
+            _state.value = following.copy(plan = plan.reversed())
+        }
+        return decision
     }
 
     /** The page the selection stands on right now, or null while the set is empty. */
@@ -799,6 +814,7 @@ class RouteViewModel(
         _runningBest.value = null
         seatFrozen = false
         mirrored = false
+        etaState = RouteEtaState()
     }
 
     /** **The one disposal function** — the only thing that calls `cancelLookup`, for every in-flight id. */
@@ -815,8 +831,8 @@ class RouteViewModel(
 
     /**
      * The track a route of this session was already written as, or null while it has none. **The read
-     * direction is not an identity** (R99): the link is bridged across the heading-away mirror, so a
-     * reversed plan answers the track its armed orientation was written as.
+     * direction is not an identity** (R99): the link is bridged across the loss mirror, so a reversed
+     * plan answers the track its armed orientation was written as.
      */
     fun trackFor(plan: RoutePlan): String? = session[plan] ?: session[plan.reversed()]
 
