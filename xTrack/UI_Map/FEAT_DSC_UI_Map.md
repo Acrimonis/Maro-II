@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-07 21:15
+modified: 2026-10-09 16:16
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -180,6 +180,8 @@ explicit values/ViewModels + inline callbacks).
 - **inspect mode — live acquire (2026-10-07)** — the mode's trigger was replaced: while armed the nearest inspectable item is re-ranked on every sweep and its dashboard opens at once, with no lift and no dwell, a change of nearest swapping the panel and the anchor losing its target closing it while the mode stays armed. The quiet is now the pause: its expiry recentres the camera on the acquired item through the one framer and freezes the ladder the walk steps, and a drag after that recentre resets the card, the ladder and the captured frame. The card's own close is the mode's exit, the armed map-marker tap went with `MarkerOverlay`'s proximity receiver, and the centre hold is the armed flag alone. New pure rules `inspectAcquireAction` / `inspectUserMoveAction` / `inspectActivityAfterMotion` → `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md`
 - **the map dash family on one frame (2026-10-07)** — the selected-item slot's churn was taken out: the marker card, the track card and the route panel now share one header padding (12 dp horizontal, one vertical value), a scrollable body, the body-only dissolve, square corners in both orientations, and one walk-row frame at 8/8/8 in the row's own `padding(horizontal = 12.dp, vertical = 8.dp)`; the hand-rolled pills went for the route footer's own tier-1 `ConfirmActionButton` pair (Previous `SECONDARY`, Next `PRIMARY`), which is also what stops a cross-type swap lifting the row. The panel trade is damped by `map.inspect.switchMarginPct`, a selected path wears a gold casing on its own `path.line.casing.selected` colour and `.width`, and the slot's incoming card is pre-sized at the outgoing one's height so a route↔marker swap settles once instead of stepping through the floor — findings of the plan's §8 → `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md`
 
+- **the toggle row's lock-mirror collision, fixed generically (2026-10-09)** — the top-left row composes GPS · tracking · land/water · inspect · route · lock while the lock mirror's own constant still counted five squares, so the locked overlay's duplicate lock button landed on the **route** square. The row's order is now one home — a `TopToggleControl` enum whose entries carry their own visibility, filtered by `TopToggleControl.row(appSettings)` — and the mirror reads the same list's `indexOf(LOCK)`; `TOP_TOGGLE_LOCK_SLOT` and `lockSlot` are deleted, the recenter square stays outside the counted list, and the index is pinned by `TopToggleControlTest`
+
 ## Todos
 - [ ] Inspect live-acquire device pass — a drag whose panel swaps as the nearest changes, the pause's recentre, a post-recentre drag resetting everything, the toggle / Back / boat-icon exits, the anchor staying off while armed, a marker↔route swap settling without a jump, and the walk row holding one height across the three panels → `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md`
 - [ ] Device pass against the plan's two tables — the sprite at levels 19 and 20 offshore and inshore, and the 15 % raise on the base pair at each level → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
@@ -187,6 +189,7 @@ explicit values/ViewModels + inline callbacks).
 - [ ] Open Medium from the dp review — the width rows' half-dp grid cannot reach the coastline's shipped 3.333 dp default, so a dragged row loses the 10 px look → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
 
 ## Docs
+- `xTrack/UI_Map/261009_FEAT_PLN_UI_Map_toggle-colour-normalization.md` — The toggle squares' colour normalization: one constant five-colour set, the pulse dot repeating the fill's state, two classes of square (mode and reading) (in design)
 - `xTrack/UI_Map/260614_FEAT_PLN_UI_Map_boat-marker-offset-discussion.md` — Boat marker offset discussion
 - `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_right-edge-gap-asymmetry.md` — Right edge controls gap asymmetry
 - `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_overlay-layout-inventory.md` — Map overlay layout inventory

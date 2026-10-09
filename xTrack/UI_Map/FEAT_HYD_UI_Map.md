@@ -1,40 +1,28 @@
-# Context Hydration — UI_Map — 2026-10-07
+# Context Hydration — UI_Map — 2026-10-09
 
-**Last Bake:** 2026-10-07 21:15 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-09 16:16 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** The session's edits all ran on the user's own device-read orders — the inspect flow, then the dash family — and its build and scoped test runs are named below; no claim below rests on anything but a file read or a command this session.
+**Directive trace:** Since the last bake (2026-10-09 14:23 UTC) the session ran on the user's own words: a defect report on the toggle icons, an order to fix it generically, and a long colour-taxonomy discussion ending in a settled plan. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: the fix and its first bake sit in `3049e359` on `feature/route-swap-direction`, with this bake amended onto it.
 
 ## State
 
-Inspect mode's live acquire shipped and was then driven through a sequence of device readings, each fixed in a
-build of its own: the nearest item now opens its dashboard at once with no lift and no dwell, a change of
-nearest swaps the panel, the anchor losing its target closes it while the mode stays armed, the quiet's expiry
-recentres on the acquired item and freezes the ladder the walk steps, a drag after that recentre resets the
-card, the ladder and the captured frame, and the armed map-marker tap went with `MarkerOverlay`'s proximity
-receiver. The same session then normalised the selected-item slot's whole family — the marker card, the track
-card and the route panel — onto one header padding, one scrollable body, one body-only dissolve, square
-corners in both orientations, and one walk-row frame: 8 dp above, 8 dp between, 8 dp below, all carried in the
-row's own `padding(horizontal = 12.dp, vertical = 8.dp)`, wearing the route footer's own tier-1
-`ConfirmActionButton` pair rather than hand-rolled pills. That swap also gained a distance margin
-(`map.inspect.switchMarginPct`), the selected path a gold casing on its own `path.line.casing.selected` colour
-and `.width` keys, and `DrawerScaffold` an `initialHeight` seed — the outgoing card's measured height — so an
-incoming card is pre-sized at the size already on screen and settles once.
+**What shipped.** The toggle row's lock-mirror collision is fixed **generically**. The row composes GPS · tracking · land/water · inspect · route · lock while `TOP_TOGGLE_LOCK_SLOT` still counted five squares, so the locked overlay's duplicate lock button landed on the route square. The row's order is now one home — a `TopToggleControl` enum whose entries carry their own visibility, filtered by `TopToggleControl.row(appSettings)` — the row composes from that list and the mirror reads the same list's `indexOf(LOCK)`; the constant and `lockSlot` are deleted, the recenter square stays outside the counted list, and `TopToggleControlTest` pins the index at 5 shown and 4 hidden. Suite and `apk-build.bat` green, reviewed with no blocker.
 
-The closed walk of 2026-09-17 was folded: its eight points are resolved into
-`260917_FEAT_PLN_UI_Map_inspect-mode.md`, which the feature's `## Implemented` already points at. The
-feature's four older open todos stand unchanged.
+**What is in design — settled.** [`261009_FEAT_PLN_UI_Map_toggle-colour-normalization.md`](../../xTrack/UI_Map/261009_FEAT_PLN_UI_Map_toggle-colour-normalization.md): the squares ride **one constant five-colour set** — pale off · amber still getting the data · blue nominal, by house taste rather than by claim · green on and standing by · red the thing it needs is gone. **The fill** says what the square is doing; **the dot** says what its data is worth — green real or complete, amber partial, red absent — and every mode square but the recenter wears one, which also tells a control from a reading on sight. The **weights are normalized**: the family's own white sits under the colour at the shared subdued tint, the dot wears its colour fully saturated, and the pulse's floor is **60 %**. GPS has **no idle face** (a held fix reads as healthy), tracking's colours are swapped (idle green, recording blue), land/water becomes water blue and land red, the four unread off-tokens are deleted and `status.gps.estimating` gains the key it never had. The zone tags are declared out of scope, and a saturated active edge was considered and **set aside**.
+
+**What is owed.** The plan's one open number — `ui.map.surface.active.alpha` once the white base sits under the colour — plus the device pass over the five faces and the dot's colours; then the inspect live-acquire, marker-zoom and dp-pass device checks, unchanged.
+
+**No open walk.** The feature file holds no `## Walk` section.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt` — the sweep, the quiet clock, the recentre and the pure rules
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the inspect state machine and the `DashboardBandState` seed
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt`, `OverlayLayer.kt`, `RouteConfirmPanel.kt` — the three panels of the selected-item slot
-- `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` — the wrap frame's `initialHeight` seed and its pre-measured frame
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/maro.properties` — the dwell, switch-margin and selection-casing keys
-- `docs/ui-drawer-guidelines.md` — §6's dash-panel corners, dash-footer buttons, walk-row spacing and swap pre-size
-- `xTrack/UI_Map/261007_FEAT_PLN_UI_Map_inspect-live-acquire.md` — the plan of record, its §8 carrying every reading's fix
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `TopToggleControl`, the row's squares and the faces the normalization will move
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the row composed from the list
+- `app/src/main/java/ykws/android/maro/ui/map/MapLockLayer.kt` — the mirrored lock's index read
+- `app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt`, `MapPulseDot.kt` — the face, the two weights and the mark's floor
+- `app/src/main/assets/colors.properties`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the palette's changes
+- `app/src/test/java/ykws/android/maro/ui/map/TopToggleControlTest.kt` — the index pin
 
 ## Next Step
 
-The device pass the feature's `## Todos` names, on the user's own timing: the live acquire and its exits, and
-the dash family's swap settling without a jump.
+Implement the settled normalization — the faces, the two weights and the dot's colours — once the work is ordered, leaving the tint's value to the device pass.

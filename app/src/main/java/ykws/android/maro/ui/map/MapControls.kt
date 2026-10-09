@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.settings.AppSettings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -48,6 +49,33 @@ internal val TOP_TOGGLE_SQUARE: Dp get() = AppConfig.uiMapToggleSquare.dp
 
 /** Emoji glyph size (sp) drawn inside one of those squares — `ui.map.toggle.icon.size` (default 22 sp). */
 internal val TOP_TOGGLE_ICON_SIZE: TextUnit get() = AppConfig.uiMapToggleIconSize.sp
+
+/**
+ * One square of the map's top-left toggle row, listed in the row's own left-to-right order — the
+ * order's single home. [shown] is that square's own visibility, so the row composes straight from
+ * [row] and the locked-screen mirror reads the same list to find where the lock square lands; neither
+ * can drift from the other the way a hand-kept slot id did. Only [LAND_WATER] is ever conditional —
+ * `showLandWaterIcon` takes it away — and everything after it shifts.
+ *
+ * The recenter square is deliberately absent: it is appended after [LOCK] and never shifts a slot.
+ */
+internal enum class TopToggleControl(val shown: (AppSettings) -> Boolean) {
+    GPS({ true }),
+    TRACKING({ true }),
+    LAND_WATER({ it.showLandWaterIcon }),
+    INSPECT({ true }),
+    ROUTE({ true }),
+    LOCK({ true });
+
+    companion object {
+        /**
+         * The row's squares as drawn: the listed order with the hidden ones dropped, in one place so
+         * the row and the lock mirror derive from the same source.
+         */
+        fun row(appSettings: AppSettings): List<TopToggleControl> =
+            entries.filter { it.shown(appSettings) }
+    }
+}
 
 /**
  * Start inset (dp) of the bottom band's banner family: the band's own gutter, plus the width the
