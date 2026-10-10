@@ -1,6 +1,6 @@
 # Plan: maro-code.md — Feature-to-Code Navigation Map
 
-**Status:** discussion — granularity, rot strategy, Key Files relationship being decided
+**Status:** shipped — the map lives in `docs/maro-code.md`; the discussion below is the record of how it was shaped
 **Created:** 2026-07-17 09:10
 **Updated:** 2026-07-17 09:24
 **Branch:** feature/doc-update
