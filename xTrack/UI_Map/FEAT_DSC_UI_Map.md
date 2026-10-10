@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-10 08:05
+modified: 2026-10-10 12:50
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -121,8 +121,6 @@ Manual two-finger map rotation in demo mode, deriving the cap-arrow bearing from
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `CoastlineViewModel.kt`, `data/settings/SettingsManager.kt`, `res/values*/strings.xml`
 
-#### Docs
-
 ### decenter-map
 
 Shift boat position from screen centre to lower third when moving (dual offset: geo `setCenter` shift + screen `CenterMarkerOverlay` shift).
@@ -160,6 +158,8 @@ explicit values/ViewModels + inline callbacks).
 - `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `WizardDrawer.kt`, `markers/wizard/`, `MapScreen.kt`
 
 ## Implemented
+
+- **the menu chevron gate adopts its list's order (2026-10-10, `feature/listery`)** — the hamburger menu's three chevron doors no longer walk the stored collection's own order: each walks the corresponding list's own sort, while membership stays the map filter, which is what makes a map-filter write close a menu-opened card. `sortMarkers` and `sortSummaries` were lifted out of their view models to top-level pure homes read by both the list and the gate, `menuTrackIdsOf`/`menuRouteIdsOf` take the list sort state and sort through them, and `MapScreen` derives a menu-ordered marker id list for the chevron's walk world and for `firstMarkerId`. A list sort edit closes a menu-opened card of either kind — the close rule lives in the two guards (`scopeClosed`, `trackScopeClosed`), whose map-filter arm is unchanged. The map drawing is untouched: `_mapMarkers`, the stored-track ranking, the render cap and the inspect candidates keep their own order. The marker pin and icon tap suppressors left `MarkerOverlay.kt` in the same pass, so a marker tap now reaches osmdroid's own handler and may open its default info bubble — recorded in the Markers feature's `marker-click-remove` entry. `apk-build.bat` SUCCESSFUL and the scoped list, card-walk, selection-policy and marker suites green.
 
 - **the layer fan as the route-and-tracks master gate (2026-10-10, `feature/rte-n-trck-list`)** — the fan's route-and-tracks child is now the family's **primary display gate**: a new `routeTracksVisible` is what child 1 writes — it no longer writes `tracksVisible`, which stays the TRACKS header eye's own — the render reads master ∧ kind-eye through the new pure `kindLayerOn`, and the pair is applied at the render pass with `routeTracksVisible` in its rebuild keys, at the inspect candidates and at the list preview. The open dashboard's own item is the gates' **one exception**: `storedTrackSelection` takes the open item's id and answers it alone when its half is gated off, and the marker overlay composes for its open card's marker while the layer is hidden — while the filter is never escaped, so the 2026-09-28 rule stands. The two header eyes are drawn dimmed yet stay tappable. Supersedes the split plan's D2. `apk-build.bat` SUCCESSFUL and the scoped `ui.map` suite green at 41 suites and 419 tests → `xTrack/UI_Map/261010_FEAT_PLN_UI_Map_route-tracks-master-gate.md`
 

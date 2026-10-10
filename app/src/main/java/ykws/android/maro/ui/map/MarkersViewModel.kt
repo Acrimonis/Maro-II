@@ -90,9 +90,10 @@ enum class DrawerSource {
  * [DrawerSource.LIST]; the map-filtered set for [DrawerSource.INSPECT], whose ladder is snapshotted
  * from the same set a map filter change rewrites, so a filter write closes the spy card. The menu
  * chevron's card ([DrawerSource.MENU]) walks that same map-referential set — a door of the item's-list
- * kind hands over its list — so a map-filter write closes it too. A click on the map ([DrawerSource.MAP])
- * is the exception (2026-09-28): it seats a single item whose standing is not the filter's business, so a
- * filter write leaves it standing.
+ * kind hands over its list — so a map-filter write closes it too. Since 2026-10-10 that walk reads its
+ * order from the list's own sort, so the list write that re-orders it closes the menu card as well. A
+ * click on the map ([DrawerSource.MAP]) is the exception (2026-09-28): it seats a single item whose
+ * standing is not the filter's business, so a filter write leaves it standing.
  *
  * The caller answers the two flags for the world its change landed in: the list filter and the list sort
  * answer for the list world, the map filter and the map reset for the map world. Membership is the answer
@@ -104,8 +105,29 @@ internal fun scopeClosed(source: DrawerSource, inListWorld: Boolean, inMapWorld:
         DrawerSource.LIST -> inListWorld
         DrawerSource.MAP -> false
         DrawerSource.INSPECT -> inMapWorld
-        DrawerSource.MENU -> inMapWorld
+        // The menu card walks the map-filtered set **in the list's own order**, so its own kind's list
+        // write (the sort that order reads) closes it as well as the map write — the map-filter arm's
+        // meaning is unchanged (2026-10-10).
+        DrawerSource.MENU -> inListWorld || inMapWorld
     }
+
+/**
+ * The marker list's sort, in one pure home both the management list and the menu gate read: the
+ * comparator is the collection's own — `origin` is the one custom key a marker carries, every other
+ * field falling back to `updatedAtEpochMs` through [ListSortState.applySort].
+ *
+ * One home per fact: [MarkersViewModel]'s filter+sort writes and `MapScreen`'s menu-ordered chevron
+ * world both call this, so a menu chevron walks the list's own order rather than the collection's.
+ */
+internal fun sortMarkers(
+    markers: List<UserMarker>,
+    state: ykws.android.maro.data.model.ListSortState
+): List<UserMarker> = state.applySort(markers) { key ->
+    when (key) {
+        "origin" -> compareBy { it.origin }
+        else -> null  // fallback to updatedAtEpochMs
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state
@@ -395,18 +417,6 @@ class MarkersViewModel(
                 val filter = settings?.markerListFilter ?: ListFilter()
                 val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
                 _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            }
-        }
-    }
-
-    private fun sortMarkers(
-        markers: List<UserMarker>,
-        state: ykws.android.maro.data.model.ListSortState
-    ): List<UserMarker> {
-        return state.applySort(markers) { key ->
-            when (key) {
-                "origin" -> compareBy { it.origin }
-                else -> null  // fallback to updatedAtEpochMs
             }
         }
     }
