@@ -434,6 +434,7 @@ internal fun OverlayLayer(
                 routeVisible = menu.routesVisible,
                 onToggleTrackVisible = onToggleTrackVisible,
                 onToggleRouteVisible = onToggleRouteVisible,
+                masterVisible = menu.routeTracksVisible,
                 routeFilterAxes = ykws.android.maro.data.model.trackFilterAxes(),
                 onManageMarkers = {
                     onDismissMenu()
@@ -839,9 +840,10 @@ internal fun OverlayLayer(
                 filterLinked = activeListLinked,
                 onToggleLink = activeListOnToggleLink,
                 // The scope's own kind gates the preview: the routes list keys off routesVisible, the
-                // tracks list off tracksVisible (2026-10-05).
-                tracksVisible = if (listScope == ListScope.ROUTES) appSettings.routesVisible
-                                else appSettings.tracksVisible,
+                // tracks list off tracksVisible (2026-10-05) — each under the fan's master (2026-10-10).
+                tracksVisible = if (listScope == ListScope.ROUTES)
+                                    kindLayerOn(appSettings.routeTracksVisible, appSettings.routesVisible)
+                                else kindLayerOn(appSettings.routeTracksVisible, appSettings.tracksVisible),
                 trackingRenderNb = appSettings.trackingRenderNb,
                 routeRenderNb = appSettings.routeRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,

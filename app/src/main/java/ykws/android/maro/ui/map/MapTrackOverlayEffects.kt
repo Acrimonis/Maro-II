@@ -75,6 +75,7 @@ internal fun MapTrackOverlayHistoryDiff(
         add(trackArrows)
         add(trackColours)
         add(eyeOverride)
+        add(appSettings.routeTracksVisible)
         add(appSettings.tracksVisible)
         add(appSettings.routesVisible)
         add(appSettings.trackingRenderNb)
@@ -183,11 +184,15 @@ internal fun MapTrackOverlayHistoryDiff(
             trackFilter = appSettings.trackMapFilter,
             routeFilter = appSettings.routeMapFilter,
             focus = focus,
-            tracksVisible = appSettings.tracksVisible,
-            routesVisible = appSettings.routesVisible,
+            // The fan's master rules both kinds and each eye refines it (2026-10-10); the pair is taken
+            // at one home so no gate site can read a bare eye by accident.
+            tracksVisible = kindLayerOn(appSettings.routeTracksVisible, appSettings.tracksVisible),
+            routesVisible = kindLayerOn(appSettings.routeTracksVisible, appSettings.routesVisible),
             todayMidnightMs = midnightMs,
             recordingNb = nbToRender,
-            routeNb = routeNb
+            routeNb = routeNb,
+            // The open dashboard's own item, drawn whatever the gates say.
+            selectedId = highlightedTrackId
         )
         val historyList = selection.recorded
         val routeList = selection.routes
@@ -500,14 +505,22 @@ internal data class StoredTrackSelection(
 )
 
 /**
+ * Whether a kind is drawn: the layer fan's **master** gate rules and the kind's own header eye refines
+ * it (2026-10-10) — a false master hides both kinds whatever the eyes say, a true one leaves each kind
+ * to its own eye. One home, so no gate site can read a bare eye by accident.
+ */
+internal fun kindLayerOn(masterVisible: Boolean, kindVisible: Boolean): Boolean =
+    masterVisible && kindVisible
+
+/**
  * What one pass asks each of the three roles for, from one entry point so the two counts cannot drift
  * apart:
  *
  * - [StoredTrackSelection.recorded] — the recorded half, ranked, filtered by [trackFilter] and bounded
- *   by [recordingNb]'s own count, **empty when [tracksVisible] is false**;
+ *   by [recordingNb]'s own count, **empty when [tracksVisible] is false** — save for [selectedId];
  * - [StoredTrackSelection.routes] — the route half, filtered by [routeFilter], bounded by [routeNb] and
  *   **never** by the recorded count: the two sibling counts limit their own role alone (R35), **empty
- *   when [routesVisible] is false**;
+ *   when [routesVisible] is false** — save for [selectedId];
  * - [StoredTrackSelection.pinned] — every pinned summary **its own kind's filter holds** and **its own
  *   kind's visibility allows**, **uncapped**: the pin is what marks a route already saved, so it escapes
  *   [routeNb] (R34, R35), but the pin is no escape from the filter or the layer switch — a hidden kind
@@ -517,6 +530,11 @@ internal data class StoredTrackSelection(
  *   Because the ranked path excludes pinned items and this one excludes unpinned, whichever loop draws
  *   the selected item draws it **once and never twice**. The choice is made here, inside the one entry
  *   point, so every caller and test holds one home for "per kind".
+ *
+ * [selectedId] is the open dashboard's own item, and it is the **visibility gates' one exception**
+ * (2026-10-10): while the info that item describes is on screen, the item must be on the map — so a
+ * switched-off kind still draws it, and it alone. The escape reaches the visibility gates alone and
+ * never the filter, so the recorded decision that no opened item rides past the map filter stands.
  *
  * Membership is [storedTrackSets]' decision; this one only decides what each half is asked for. The
  * two caps are taken here rather than at the call site, so a test can hold the count's home.
@@ -530,25 +548,27 @@ internal fun storedTrackSelection(
     routesVisible: Boolean = tracksVisible,
     todayMidnightMs: Long,
     recordingNb: Int,
-    routeNb: Int
+    routeNb: Int,
+    selectedId: String? = null
 ): StoredTrackSelection {
     val sets = storedTrackSets(summaries)
     val policy = TrackSelectionPolicy()
+    val selected = selectedId?.let { id -> summaries.firstOrNull { it.id == id } }
     return StoredTrackSelection(
-        recorded = if (!tracksVisible) emptyList() else policy.select(
+        recorded = if (tracksVisible) policy.select(
             items = sets.recorded,
             filter = trackFilter,
             cap = recordingNb.coerceIn(0, 20),
             focus = focus,
             todayMidnightMs = todayMidnightMs
-        ),
-        routes = if (!routesVisible) emptyList() else policy.select(
+        ) else listOfNotNull(selected?.takeIf { !it.route }),
+        routes = if (routesVisible) policy.select(
             items = sets.routes,
             filter = routeFilter,
             cap = routeNb.coerceIn(0, 20),
             focus = focus,
             todayMidnightMs = todayMidnightMs
-        ),
+        ) else listOfNotNull(selected?.takeIf { it.route }),
         pinned = summaries
             .filter {
                 it.pinned &&

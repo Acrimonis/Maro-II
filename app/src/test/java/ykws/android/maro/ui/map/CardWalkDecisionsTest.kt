@@ -6,6 +6,7 @@ import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.track.TrackSummary
 
 /**
  * Unit tests for the card-walk decisions ([CardWalkPolicy]): the ordered candidates behind the
@@ -14,7 +15,8 @@ import ykws.android.maro.data.model.markers.UserMarker
  *
  * These are the §5 scenarios that are reachable without a device: the advance after an item write, the
  * not-found close, the editor's return on a card whose walk is the inspect ladder, the four-source
- * world rule the §2 correction turns on, and the step pills' ends for every door — the panel's and the
+ * world rule the §2 correction turns on, the kind-locked list a card of either kind walks, and the step
+ * pills' ends for every door — the panel's and the
  * menu's alike, the ladder's own, the map door's refusal to grey either end, and the one-item walk that
  * draws no bars. The scenarios that need an `AndroidViewModel` or a `@Composable` — the door as
  * recorded state, the drawer's own transitions, the camera — are not here
@@ -29,6 +31,10 @@ class CardWalkDecisionsTest {
         name = id,
         geometry = MarkerGeometry.Pin(LatLng(0.0, 0.0))
     )
+
+    /** A summary of either kind — `route` picks the list it belongs to, `live` marks the recording. */
+    private fun summary(id: String, isRoute: Boolean = false, live: Boolean = false) =
+        TrackSummary(id = id, name = id, startTimeMs = 0L, route = isRoute).apply { isLive = live }
 
     // ── The ordered candidates (the track delete's try-each list) ────────────
 
@@ -201,6 +207,64 @@ class CardWalkDecisionsTest {
         assertEquals(
             filtered,
             cardWalkWorld(DrawerSource.MENU, listOf(marker("list")), filtered, listOf(marker("map-source")))
+        )
+    }
+
+    // ── The kind-locked list a card walks (2026-10-10) ───────────────────────
+
+    @Test
+    fun `a route card walks the routes list, never the tracks one`() {
+        assertEquals(
+            listOf("r1", "r2"),
+            cardWalkListIds(
+                walkWorld = null,
+                cardIsRoute = true,
+                trackSummaries = listOf(summary("t1")),
+                routeSummaries = listOf(summary("r1", isRoute = true), summary("r2", isRoute = true)),
+                pendingDeleteIds = emptyList()
+            )
+        )
+    }
+
+    @Test
+    fun `a track card walks the recorded tracks`() {
+        assertEquals(
+            listOf("t1"),
+            cardWalkListIds(
+                walkWorld = null,
+                cardIsRoute = false,
+                trackSummaries = listOf(summary("t1")),
+                routeSummaries = listOf(summary("r1", isRoute = true)),
+                pendingDeleteIds = emptyList()
+            )
+        )
+    }
+
+    @Test
+    fun `a world its opener handed over wins over either list`() {
+        assertEquals(
+            listOf("x", "y"),
+            cardWalkListIds(
+                walkWorld = listOf("x", "y"),
+                cardIsRoute = true,
+                trackSummaries = listOf(summary("t1")),
+                routeSummaries = listOf(summary("r1", isRoute = true)),
+                pendingDeleteIds = emptyList()
+            )
+        )
+    }
+
+    @Test
+    fun `the live recording and a pending deletion stay out of the walk`() {
+        assertEquals(
+            listOf("t2"),
+            cardWalkListIds(
+                walkWorld = null,
+                cardIsRoute = false,
+                trackSummaries = listOf(summary("live", live = true), summary("t1"), summary("t2")),
+                routeSummaries = emptyList(),
+                pendingDeleteIds = listOf("t:t1")
+            )
         )
     }
 }

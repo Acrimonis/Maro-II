@@ -130,7 +130,12 @@ fun MenuDrawerOverlay(
     trackVisible: Boolean = true,
     routeVisible: Boolean = true,
     onToggleTrackVisible: () -> Unit = {},
-    onToggleRouteVisible: () -> Unit = {}
+    onToggleRouteVisible: () -> Unit = {},
+    /**
+     * The layer fan's master gate above both eyes (2026-10-10): while it is off neither kind is drawn
+     * and each eye is drawn dimmed, though a tap still writes its own kind's flag.
+     */
+    masterVisible: Boolean = true
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -223,10 +228,12 @@ fun MenuDrawerOverlay(
         SectionHeader(title = stringResource(R.string.menu_manage_routes)) {
             // The routes eye stands first and outside the axes gate, so it never disappears with the
             // filters (D3): it shows or hides the whole route kind on the map, never the count or the list.
+            // Dimmed while the fan's master is off, since it then bites nothing (2026-10-10).
             KindVisibilityToggle(
                 visible = routeVisible,
                 onToggle = onToggleRouteVisible,
-                contentDescription = stringResource(R.string.cd_toggle_routes_map)
+                contentDescription = stringResource(R.string.cd_toggle_routes_map),
+                dimmed = !masterVisible
             )
             if (routeFilterAxes.isNotEmpty()) {
                 IconButton(
@@ -278,11 +285,13 @@ fun MenuDrawerOverlay(
 
         // ── TRACKS section + filter controls ─────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks)) {
-            // The tracks eye, first and outside the axes gate — the routes header's twin (D3).
+            // The tracks eye, first and outside the axes gate — the routes header's twin (D3), dimmed
+            // while the fan's master is off (2026-10-10).
             KindVisibilityToggle(
                 visible = trackVisible,
                 onToggle = onToggleTrackVisible,
-                contentDescription = stringResource(R.string.cd_toggle_tracks_map)
+                contentDescription = stringResource(R.string.cd_toggle_tracks_map),
+                dimmed = !masterVisible
             )
             if (trackFilterAxes.isNotEmpty()) {
                 IconButton(
@@ -877,7 +886,12 @@ private fun RoutesRow(
 private fun KindVisibilityToggle(
     visible: Boolean,
     onToggle: () -> Unit,
-    contentDescription: String
+    contentDescription: String,
+    /**
+     * Drawn dimmed while the fan's master gate is off (2026-10-10): the eye's own flag is untouched and
+     * the control stays **tappable**, so a tap still records the kind's choice for the master's return.
+     */
+    dimmed: Boolean = false
 ) {
     IconButton(
         onClick = onToggle,
@@ -886,7 +900,7 @@ private fun KindVisibilityToggle(
         Icon(
             imageVector = if (visible) Visibility else VisibilityOff,
             contentDescription = contentDescription,
-            tint = ButtonColors.icon,
+            tint = ButtonColors.icon.copy(alpha = if (dimmed) ButtonColors.inactiveAlpha else 1f),
             modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
         )
     }

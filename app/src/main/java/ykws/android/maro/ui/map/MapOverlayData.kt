@@ -33,6 +33,7 @@ internal fun buildMenuOverlayData(
     routeMapCount = routeMapVisibleCount,
     markerMapFilterState = appSettings.markerMapFilter,
     markerMapCount = markerMapCount,
+    routeTracksVisible = appSettings.routeTracksVisible,
     tracksVisible = appSettings.tracksVisible,
     routesVisible = appSettings.routesVisible,
 )

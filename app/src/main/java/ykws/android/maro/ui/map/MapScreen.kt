@@ -222,12 +222,16 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
  * R2's scope-close entry point — [MapScreen]'s local `closeDashboardsForScopeChange` — as a value, so
  * the hoisted top-level callbacks (code-health step 3, tier 1) can receive it as a parameter: a
  * top-level function cannot call a local one.
+ *
+ * The two marker flags name the markers' own worlds; the two tokens name the **kind** whose list or map
+ * referential the write moved, null for neither (2026-10-10) — one token per kind, so a kind's write can
+ * no longer name another kind's world through a misplaced boolean.
  */
 private typealias CloseDashboards = (
     markerListWorld: Boolean,
     markerMapWorld: Boolean,
-    trackListWorld: Boolean,
-    trackMapWorld: Boolean,
+    listWorld: ListScope?,
+    mapWorld: ListScope?,
 ) -> Unit
 
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
@@ -848,6 +852,7 @@ fun MapScreen(
     val debugSegments by markersViewModel.debugSegments.collectAsState()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
+    val routeSummaries by trackViewModel.routeSummaries.collectAsState()
     val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
@@ -947,34 +952,41 @@ fun MapScreen(
 
     /**
      * R2 entry point: a referential the open item's Prev/Next walk reads was rewritten, so that dashboard
-     * closes. Each caller passes the world its own change landed in — the list filter, the list sort and
-     * the list reset pass [markerListWorld] / [trackListWorld]; the map filter and the map reset pass
-     * [markerMapWorld] / [trackMapWorld]. A linked write moves both worlds, so the caller passes both
-     * flags; a write to a world the card does not walk is display-only, and which world each door's card
-     * walks is [scopeClosed]'s and [trackScopeClosed]'s answer.
+     * closes. Each caller passes the world its own change landed in — the markers' own two writes through
+     * [markerListWorld] / [markerMapWorld], and the track/route writes as the **kind** whose referential
+     * moved, [listWorld] / [mapWorld]. A linked write moves both of its own kind's worlds, so the caller
+     * passes both tokens; a write to a world the card does not walk is display-only, and which world each
+     * door's card walks is [scopeClosed]'s and [trackScopeClosed]'s answer — the track half matching the
+     * write's kind against the kind the card itself holds (2026-10-10).
      */
     fun closeDashboardsForScopeChange(
         markerListWorld: Boolean = false,
         markerMapWorld: Boolean = false,
-        trackListWorld: Boolean = false,
-        trackMapWorld: Boolean = false
+        listWorld: ListScope? = null,
+        mapWorld: ListScope? = null
     ) {
         if (scopeClosed(markersViewModel.drawerSource, inListWorld = markerListWorld, inMapWorld = markerMapWorld)) {
             closeMarkerDashboard()
         }
-        if (trackScopeClosed(trackDrawerState.source, inListWorld = trackListWorld, inMapWorld = trackMapWorld)) {
+        if (trackScopeClosed(
+                trackDrawerState.source,
+                cardIsRoute = trackDrawerState.track?.route == true,
+                listWorld = listWorld,
+                mapWorld = mapWorld
+            )
+        ) {
             closeTrackDrawer()
         }
     }
 
     // The R2 entry point handed to the hoisted callbacks below (a top-level function cannot call a
     // local one). Rebuilt with the composition exactly as each call site's own lambda always was.
-    val closeDashboards: CloseDashboards = { markerListWorld, markerMapWorld, trackListWorld, trackMapWorld ->
+    val closeDashboards: CloseDashboards = { markerListWorld, markerMapWorld, listWorld, mapWorld ->
         closeDashboardsForScopeChange(
             markerListWorld = markerListWorld,
             markerMapWorld = markerMapWorld,
-            trackListWorld = trackListWorld,
-            trackMapWorld = trackMapWorld
+            listWorld = listWorld,
+            mapWorld = mapWorld
         )
     }
 
@@ -1422,7 +1434,8 @@ fun MapScreen(
         allTrackSummaries
             .filter { summary ->
                 !summary.isLive &&
-                    (if (summary.route) appSettings.routesVisible else appSettings.tracksVisible) &&
+                    (if (summary.route) kindLayerOn(appSettings.routeTracksVisible, appSettings.routesVisible)
+                     else kindLayerOn(appSettings.routeTracksVisible, appSettings.tracksVisible)) &&
                     (if (summary.route) summary.matchesFilter(appSettings.routeMapFilter, midnightMs)
                      else summary.matchesFilter(appSettings.trackMapFilter, midnightMs))
             }
@@ -1884,20 +1897,10 @@ fun MapScreen(
                 // its own landing instead, so the slot never empties between the two cards (plan §5).
                 if (closeMarkerCard) closeMarkerDashboard()
                 if (freshSelection) {
-                    // Force the opened kind's layer on — and only its: a route raised here never touches
-                    // the tracks layer, a recorded track never touches routes (2026-10-05).
-                    val openingRoute = candidates.firstOrNull()?.let { id ->
-                        allTrackSummaries.firstOrNull { it.id == id }?.route
-                    }
-                    when (openingRoute) {
-                        true -> if (!appSettings.routesVisible) {
-                            viewModel.updateSettings { it.copy(routesVisible = true) }
-                        }
-                        false -> if (!appSettings.tracksVisible) {
-                            viewModel.updateSettings { it.copy(tracksVisible = true) }
-                        }
-                        null -> Unit
-                    }
+                    // No layer is raised here any more (2026-10-10): the fan's master rules both kinds and
+                    // the header eyes refine it, so opening an item never rewrites a switch the user set.
+                    // What keeps an opened item visible is the dashboard's own escape — the render pass
+                    // draws the item the open card describes, whatever the gates say.
                     chrome.showTrackHistory = false
                     chrome.showRouteHistory = false
                 }
@@ -3001,7 +3004,7 @@ fun MapScreen(
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
                 onToggleZone300 = viewModel::toggleZone300Visibility,
-                onToggleTracks = viewModel::toggleTracksVisibility,
+                onToggleRouteTracks = viewModel::toggleRouteTracksVisibility,
                 isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
@@ -3268,12 +3271,16 @@ fun MapScreen(
             }
 
             // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
-            if (markerLayerVisible) {
+            // The open dashboard's marker is the **layer gate's one exception** (2026-10-10): while its
+            // info is on screen the marker must be on the map, and it alone. The filter is not escaped —
+            // the lookup reads the map-filtered set — so a card whose marker the filter excludes still
+            // draws nothing, exactly as the 2026-09-28 reveal-on-select deletion decided.
+            val openMarker = selectedMarkerId?.let { id -> mapMarkersState.firstOrNull { it.id == id } }
+            if (markerLayerVisible || openMarker != null) {
                 val matchResult by markersViewModel.matchResult.collectAsState()
-                // The map draws its filter's set and nothing else (plan §3): the reveal-on-select
-                // escape is gone, so an open card never force-draws a marker the filter excludes.
                 MarkerOverlay(
-                    markers = mapMarkersState,
+                    markers = if (markerLayerVisible) mapMarkersState
+                              else openMarker?.let { listOf(it) } ?: emptyList(),
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -3562,8 +3569,15 @@ fun MapScreen(
         // The track drawer's walk world (plan §4): the world its opener handed over — the frozen inspect
         // ladder, or the menu chevron's map-referential list — and the list world the drawer derives
         // itself everywhere else, which is what keeps a list-opened track on the list even while the mode
-        // is armed. The drawer's own pill ends and both walk buttons read it.
-        val trackListIds = trackListIdsOf(trackDrawerState.walkWorld, trackSummaries, pendingDeleteIds)
+        // is armed. The drawer's own pill ends and both walk buttons read it. A derived world follows the
+        // card's **own kind**, the two lists being kind-locked: a route steps routes (2026-10-10).
+        val trackListIds = cardWalkListIds(
+            walkWorld = trackDrawerState.walkWorld,
+            cardIsRoute = trackDrawerState.track?.route == true,
+            trackSummaries = trackSummaries,
+            routeSummaries = routeSummaries,
+            pendingDeleteIds = pendingDeleteIds
+        )
 
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
         OverlayLayer(
@@ -3878,7 +3892,13 @@ fun MapScreen(
                 // remainder is handed over rather than its head: an entry whose geometry cannot load is
                 // skipped and the next candidate has its turn, which is what [openSelectedTrack]'s own
                 // loop is for — and the empty remainder is the close, through that loop's own `onNone`.
-                val world = trackSummaries.filter { !it.isLive }.map { it.id }
+                val world = cardWalkListIds(
+                    walkWorld = null,
+                    cardIsRoute = allTrackSummaries.firstOrNull { it.id == id }?.route == true,
+                    trackSummaries = trackSummaries,
+                    routeSummaries = routeSummaries,
+                    pendingDeleteIds = emptyList()
+                )
                 val excluded = pendingDeleteIds
                     .filter { it.startsWith("t:") }
                     .map { it.removePrefix("t:") }
@@ -4130,17 +4150,6 @@ internal fun routeMapVisibleCountOf(
     midnightMs: Long
 ): Int = allTrackSummaries.count { it.route && it.matchesFilter(mapFilter, midnightMs) }
 
-/**
- * The track drawer's walk world (plan §4): the world its opener handed over — the frozen inspect ladder,
- * or the menu chevron's map-referential list — else the list world the drawer derives itself everywhere
- * else, which is what keeps a list-opened track on the list even while the mode is armed.
- */
-private fun trackListIdsOf(
-    walkWorld: List<String>?,
-    trackSummaries: List<TrackSummary>,
-    pendingDeleteIds: List<String>
-): List<String> = walkWorld
-    ?: trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
 
 // ── OverlayLayer callback bodies, hoisted out of the call site (code-health step 3, tier 1) ──
 // Move, don't rewrite: each body is the lambda's own, its captures threaded as explicit parameters so
@@ -4169,7 +4178,7 @@ private fun applyTrackSortChange(
 ) {
     // R2: the sort rewrites the list world the open track walk reads — and, when the link is
     // on, the map world with it, so a linked write closes a menu- or spy-opened card too.
-    closeDashboards(false, false, true, appSettings.trackFilterLinked)
+    closeDashboards(false, false, ListScope.TRACKS, if (appSettings.trackFilterLinked) ListScope.TRACKS else null)
     viewModel.updateSettings { it.copy(trackListSort = newState) }
     trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
     mapView?.invalidate()
@@ -4185,7 +4194,7 @@ private fun applyTrackFilterChange(
 ) {
     // R2: the list filter rewrites the list world the open track walk reads — and the map
     // world with it when the link is on, closing a menu- or spy-opened card too.
-    closeDashboards(false, false, true, appSettings.trackFilterLinked)
+    closeDashboards(false, false, ListScope.TRACKS, if (appSettings.trackFilterLinked) ListScope.TRACKS else null)
     viewModel.updateSettings { s ->
         if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
         else s.copy(trackListFilter = newFilter)
@@ -4203,7 +4212,7 @@ private fun applyTrackReset(
 ) {
     // R2: the reset rewrites the list world the open track walk reads — and the map world
     // with it when the link is on, closing a menu- or spy-opened card too.
-    closeDashboards(false, false, true, appSettings.trackFilterLinked)
+    closeDashboards(false, false, ListScope.TRACKS, if (appSettings.trackFilterLinked) ListScope.TRACKS else null)
     val resetFilter = ykws.android.maro.data.model.ListFilter()
     viewModel.updateSettings { s ->
         if (s.trackFilterLinked) s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter, trackMapFilter = resetFilter)
@@ -4225,10 +4234,11 @@ private fun applyTrackMapFilterChange(
     newFilter: ListFilter
 ) {
     val linked = appSettings.trackFilterLinked
-    // R2: the map write rewrites the map world every menu- and spy-opened card walks, so it
-    // closes those; while the link is on it moves the list world with it, closing a
-    // list-opened card too. Unlinked it is display-only for the list world.
-    closeDashboards(false, true, linked, true)
+    // R2: the map write rewrites the map world every menu- and spy-opened card of its own kind walks, so
+    // it closes those; while the link is on it moves that kind's list world with it, closing a list-opened
+    // card too. Unlinked it is display-only for the list world, and another kind's referential — the
+    // markers' map world above all — is untouched (2026-10-10).
+    closeDashboards(false, false, if (linked) ListScope.TRACKS else null, ListScope.TRACKS)
     viewModel.updateSettings { s ->
         if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
         else s.copy(trackMapFilter = newFilter)
@@ -4247,9 +4257,9 @@ private fun applyTrackMapReset(
 ) {
     val resetFilter = ykws.android.maro.data.model.ListFilter()
     val linked = appSettings.trackFilterLinked
-    // R2: a map reset rewrites the map world, closing every menu- and spy-opened card; a
-    // linked reset moves the list world with it and closes a list-opened card too.
-    closeDashboards(false, true, linked, true)
+    // R2: a map reset rewrites the map world, closing every menu- and spy-opened card of its own kind;
+    // a linked reset moves that kind's list world with it and closes a list-opened card too.
+    closeDashboards(false, false, if (linked) ListScope.TRACKS else null, ListScope.TRACKS)
     viewModel.updateSettings { s ->
         if (s.trackFilterLinked) s.copy(trackListFilter = resetFilter, trackMapFilter = resetFilter)
         else s.copy(trackMapFilter = resetFilter)
@@ -4267,7 +4277,7 @@ private fun applyRouteSortChange(
     closeDashboards: CloseDashboards,
     newState: ListSortState
 ) {
-    closeDashboards(false, false, true, appSettings.routeFilterLinked)
+    closeDashboards(false, false, ListScope.ROUTES, if (appSettings.routeFilterLinked) ListScope.ROUTES else null)
     viewModel.updateSettings { it.copy(routeListSort = newState) }
 }
 
@@ -4278,7 +4288,7 @@ private fun applyRouteFilterChange(
     closeDashboards: CloseDashboards,
     newFilter: ListFilter
 ) {
-    closeDashboards(false, false, true, appSettings.routeFilterLinked)
+    closeDashboards(false, false, ListScope.ROUTES, if (appSettings.routeFilterLinked) ListScope.ROUTES else null)
     viewModel.updateSettings { s ->
         if (s.routeFilterLinked) s.copy(routeListFilter = newFilter, routeMapFilter = newFilter)
         else s.copy(routeListFilter = newFilter)
@@ -4291,7 +4301,7 @@ private fun applyRouteReset(
     appSettings: AppSettings,
     closeDashboards: CloseDashboards
 ) {
-    closeDashboards(false, false, true, appSettings.routeFilterLinked)
+    closeDashboards(false, false, ListScope.ROUTES, if (appSettings.routeFilterLinked) ListScope.ROUTES else null)
     val resetFilter = ykws.android.maro.data.model.ListFilter()
     viewModel.updateSettings { s ->
         if (s.routeFilterLinked) s.copy(routeListSort = ykws.android.maro.data.model.ListSortState(), routeListFilter = resetFilter, routeMapFilter = resetFilter)
@@ -4308,7 +4318,7 @@ private fun applyRouteMapFilterChange(
     newFilter: ListFilter
 ) {
     val linked = appSettings.routeFilterLinked
-    closeDashboards(false, true, linked, true)
+    closeDashboards(false, false, if (linked) ListScope.ROUTES else null, ListScope.ROUTES)
     viewModel.updateSettings { s ->
         if (s.routeFilterLinked) s.copy(routeListFilter = newFilter, routeMapFilter = newFilter)
         else s.copy(routeMapFilter = newFilter)
@@ -4325,7 +4335,7 @@ private fun applyRouteMapReset(
 ) {
     val resetFilter = ykws.android.maro.data.model.ListFilter()
     val linked = appSettings.routeFilterLinked
-    closeDashboards(false, true, linked, true)
+    closeDashboards(false, false, if (linked) ListScope.ROUTES else null, ListScope.ROUTES)
     viewModel.updateSettings { s ->
         if (s.routeFilterLinked) s.copy(routeListFilter = resetFilter, routeMapFilter = resetFilter)
         else s.copy(routeMapFilter = resetFilter)
@@ -4348,7 +4358,7 @@ private fun applyMarkerSortChange(
 ) {
     // R2: the sort rewrites the list world a list-opened marker walk reads; a map-opened one
     // reads the map world and stays open.
-    closeDashboards(true, false, false, false)
+    closeDashboards(true, false, null, null)
     viewModel.updateSettings { it.copy(markerListSort = newState) }
     markersViewModel.refreshSort(newState)
 }
@@ -4362,7 +4372,7 @@ private fun applyMarkerFilterChange(
 ) {
     android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
     // R2: the list filter rewrites the list world a list-opened marker walk reads.
-    closeDashboards(true, false, false, false)
+    closeDashboards(true, false, null, null)
     viewModel.updateSettings { s ->
         if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
         else s.copy(markerListFilter = newFilter)
@@ -4378,7 +4388,7 @@ private fun applyMarkerReset(
 ) {
     android.util.Log.d("MaroMapRefresh", "onMarkerReset")
     // R2: the reset rewrites the list world a list-opened marker walk reads.
-    closeDashboards(true, false, false, false)
+    closeDashboards(true, false, null, null)
     val resetFilter = ykws.android.maro.data.model.ListFilter()
     viewModel.updateSettings { s ->
         if (s.markerFilterLinked) s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter, markerMapFilter = resetFilter)
@@ -4400,7 +4410,7 @@ private fun applyMarkerMapFilterChange(
     // the spy card, whose walk is bounded by the map filter, still closes here. The view
     // model then re-tests the linked list world too — a map write need not pass through
     // `refreshSort`, which is why the control reports here as well.
-    closeDashboards(false, true, false, false)
+    closeDashboards(false, true, null, null)
     viewModel.updateSettings { s ->
         if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
         else s.copy(markerMapFilter = newFilter)
@@ -4417,7 +4427,7 @@ private fun applyMarkerMapReset(
     closeDashboards: CloseDashboards
 ) {
     // R2: a map-opened marker card stands, while the spy card still closes.
-    closeDashboards(false, true, false, false)
+    closeDashboards(false, true, null, null)
     val resetFilter = ykws.android.maro.data.model.ListFilter()
     viewModel.updateSettings { s ->
         if (s.markerFilterLinked) s.copy(markerListFilter = resetFilter, markerMapFilter = resetFilter)
@@ -4515,7 +4525,7 @@ private fun MapContent(
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
-    onToggleTracks: () -> Unit = {},
+    onToggleRouteTracks: () -> Unit = {},
     onGpsModeToggle: () -> Unit = {},
     isLandscape: Boolean = false,
     expandedFanId: ControlId? = null,
@@ -4980,7 +4990,7 @@ private fun MapContent(
                                 showActiveBadge = true,
                                 activeChildCount = listOf(
                                     markerLayerState != MarkerLayerState.HIDDEN,
-                                    appSettings.tracksVisible,
+                                    appSettings.routeTracksVisible,
                                     appSettings.depthLayerVisible,
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
@@ -4999,7 +5009,7 @@ private fun MapContent(
                             ),
                             activeStates = listOf(
                                 markerLayerState != MarkerLayerState.HIDDEN,
-                                appSettings.tracksVisible,
+                                appSettings.routeTracksVisible,
                                 appSettings.depthLayerVisible,
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
@@ -5008,7 +5018,7 @@ private fun MapContent(
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
                                     0 -> onToggleMarkerLayer()
-                                    1 -> onToggleTracks()
+                                    1 -> onToggleRouteTracks()
                                     2 -> onToggleDepthLayer()
                                     3 -> onToggleRegulatedZones()
                                     4 -> onToggleZone300()

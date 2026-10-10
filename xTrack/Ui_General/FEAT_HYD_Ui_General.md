@@ -1,32 +1,26 @@
-# Context Hydration — Ui_General — 2026-10-06
+# Context Hydration — Ui_General — 2026-10-10
 
-**Last Bake:** 2026-10-06 12:38 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-10 08:05 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met — no dependency was added (the two new icons are hand-written `ImageVector`s already in place), no machine-shaped data file was opened, every write followed an order (the branch work on `feature/list-selection`, the docs reconciliation and the bake on the user's own directive, the commit and push on the same word), the device was never touched (builds only), and every claim written about the code came from a file read this session. The gaps are named rather than hidden: nothing is device-validated, and no Ask verdict is recorded for this session's payload.
+**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (the reported regression, the approved fix, then this bake), the device was never touched (the build and its suites are named below), and every claim about the code rests on a file read. Named rather than hidden: the fan-master work baked beside this one is UI_Map's, and its only footprint here is the plan's marker-side note.
 
 ## State
 
-One branch, `feature/list-selection`, cut from `origin/develop`, carrying no upstream yet — the first `#push` writes its own name. One thing shipped: the list-selection rework, whose plan of record is `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md`, its §10–§14 recording the trials.
+The tracks/routes split's regression on the dashboard walk was found and fixed, on `feature/rte-n-trck-list`. The card's walked list, its delete-advance and the R2 close now all read the **card's own kind** — the two lists being kind-locked, the kind the item carries is the list it came from.
 
-**The per-item door is the card's leading edge.** `ListSelectionRail` draws the item's own colour as a 6 dp accent bar inside a 14 dp visual zone that folds in the content's former 8 dp leading padding; `ListSelectionTouchZone` carries the 24 dp touch band as an overlay above the content (`matchParentSize()`), its last 10 dp overlapping the card body by design, so no layout width moves. A tap enters multiselect and selects through `onSelect`, a long-press resolves as the card's own `onLongPress`; both callbacks null — the drawer and inspect call sites — emits no node.
+`CardWalkPolicy` gained the pure `cardWalkListIds(walkWorld, cardIsRoute, trackSummaries, routeSummaries, pendingDeleteIds)` beside a kind-aware `trackScopeClosed(source, cardIsRoute, listWorld: ListScope?, mapWorld: ListScope?)`. `MapScreen` collects `routeSummaries`, routes the card's walk world and its delete-advance through the helper, deletes the tracks-only `trackListIdsOf`, and carries the kind as `ListScope?` tokens through `CloseDashboards` and its fifteen call sites — so either list's write no longer closes the other list's card, and a track or route map write no longer names the marker world. That last part is a behaviour change on the marker side, taken deliberately and named in the plan rather than carried silently. The derived reads — `currentTrackIndex`, the pill ends and the two Prev/Next bodies — followed the corrected world with no edit of their own, so the fix stayed one cause.
 
-**The picked card and the header.** The selected card wears a 2 dp `uiAccent` border (was 1 dp) and the 15 % tonal shift, and `ListSelectionCheck` draws the 24 dp `uiAccent` disc bearing the white 16 dp check at the head of the first line, selected only, so an unselected card reserves no slot. The multiselect header carries Close (X), the "N selected" count and two text chips — invert (its word `multiselect_invert`, or `multiselect_clear` once everything is picked) and select all (`multiselect_select_all`, enabled only while the selection is partial, dimmed to 0.25 alpha when full); `multiselect_deselect_all` and the dead `deselectAll()` are gone. The batch **export** action wears the card's own `Icons.Filled.Upload` glyph — the one the list item's `cd_export_gpx` button draws — so one action reads as one icon on both surfaces.
+`apk-build.bat` BUILD SUCCESSFUL with `app-debug.apk` produced, and `:app:testDebugUnitTest --tests "ykws.android.maro.ui.map.*"` green at 41 suites / 416 tests / 0 failures, `CardWalkDecisionsTest` and `DashboardScopeClosedTest` among them.
 
-**What left.** The type-glyph path through the scaffold and both card contents, `ListTypeGlyph`, and the marker header's leading icon/pick button — which now leads the trailing cluster at 36 dp, ahead of pin and edit, the coordinate text owning the header's left. The scaffold's `cardContent` slot hands the consumer `(item, isSelected, onSelect, onLongPress)` with no `typeIcon`.
-
-`docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md` §9 and `docs/ui-component-guidelines.md` §5.9 were reconciled to the shipped shape in the same session, and the bake folded the settled `### action faces` section and merged the epic's duplicate `## Implemented` heading. `apk-build.bat` BUILD SUCCESSFUL with no new warning naming a touched file and the scoped `ui.components` suite green; the two `TrackOutlineTest` reds on the branch's base are untouched by this change.
+**Approved, in design, not started — the delete normalization.** One pending set in the shell (hoisted out of `ListOverlayScaffold`, with `MarkersViewModel`'s never-filled twin retired), one hiding rule reaching the map while each surface keeps its own snackbar — the map's toast for the cards, the inline snackbar for the list rows — and every dismissal trigger and Undo preserved verbatim. Its inventory and rule are settled; its plan file is not yet written.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt` — the 6 dp bar / 14 dp zone and `ListSelectionTouchWidth`'s 24 dp touch band
-- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt` — the 24 dp check disc
-- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — the `cardContent` signature, the 2 dp border, the two header text chips
-- `app/src/main/java/ykws/android/maro/ui/components/ListTypeGlyph.kt` — deleted
-- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` · `MarkerManagementOverlay.kt` — the door, the check, the marker cluster order
-- `app/src/main/java/ykws/android/maro/ui/icons/SwapHoriz.kt` · `SelectAll.kt` — deleted
-- `docs/ui-lists-guidelines.md` · `docs/ui-drawer-guidelines.md` §9 · `docs/ui-component-guidelines.md` §5.9
-- `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md` — the plan and its §10–§14 shipped records
+- `app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt` — `cardWalkListIds` and the kind-aware `trackScopeClosed`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeSummaries` collected, the walk world and the delete-advance through the helper, `trackListIdsOf` deleted, the kind through `CloseDashboards` and its fifteen call sites
+- `app/src/test/java/ykws/android/maro/ui/map/CardWalkDecisionsTest.kt` · `DashboardScopeClosedTest.kt` — the walk world per kind and the close's per-kind cases
+- `xTrack/Ui_General/261010_FEAT_PLN_Ui_General_route-card-walk-scope.md` — the plan of record, including the marker-side behaviour change it names
 
 ## Next Step
 
-The device pass, owed and unstarted: the door's tap and long-press against the ancestor swipe detector, the 10 dp overlap, the check's shift of the header line, the 2 dp border's weight, and the two header chips' states.
+The device pass, owed to the user: a route opened from the Routes list with its counter and both pills stepping routes, a recorded track the same the other way, a delete from either list advancing inside its own kind, and one list's filter write leaving the other list's card standing. The approved delete normalization stands next, awaiting its plan file.
