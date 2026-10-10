@@ -239,6 +239,8 @@ class TrackRecordingService : Service() {
                 WhereAmIProvider.whereAmI?.invoke(pos) ?: WhereAmIResult(emptyList())
             },
             markerChangeNotifier = WhereAmIProvider.markerChanges,
+            nameConnector = getString(R.string.track_name_connector),
+            nameMaxLength = AppConfig.trackNameMaxLength,
             gapDistanceThresholdM = AppConfig.trackingGapDistanceThresholdM,
             gapTimeThresholdSec = AppConfig.trackingGapTimeThresholdSec,
             autoMarkerManager = autoMarkerManager

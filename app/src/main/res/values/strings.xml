@@ -243,6 +243,13 @@
     <string name="track_point_count_fmt">%1$d pts</string>
     <string name="track_comment_placeholder">Add a comment...</string>
     <string name="track_live_default_name">Recording...</string>
+    <!-- The one word a marker-derived track name carries from the interface: "A, B to Dest". -->
+    <string name="track_name_connector">to</string>
+    <!-- The save toast: the track or route just written, named (2026-10-10). -->
+    <string name="snackbar_saved">\"%s\" saved</string>
+    <!-- The single-named-end route forms: "From Port de La Salis", "To Cap d'Antibes". -->
+    <string name="route_name_from_fmt">From %1$s</string>
+    <string name="route_name_to_fmt">To %1$s</string>
     <string name="marker_description_placeholder">Add description...</string>
 
     <!-- Recovery dialog — its three doors reuse the recording-exit keys below (one home per word) -->

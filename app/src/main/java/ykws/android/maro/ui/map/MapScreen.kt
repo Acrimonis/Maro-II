@@ -1011,6 +1011,16 @@ fun MapScreen(
     var routeRefusalToast by remember { mutableStateOf<String?>(null) }
     var routeRefusalToastAt by remember { mutableStateOf(0L) }
 
+    // Transient save toast: the track or route just written, named, hidden after two seconds.
+    var trackSavedToast by remember { mutableStateOf<String?>(null) }
+    var trackSavedToastAt by remember { mutableStateOf(0L) }
+    LaunchedEffect(trackSavedToastAt) {
+        if (trackSavedToast != null) {
+            delay(2_000L)
+            trackSavedToast = null
+        }
+    }
+
     // ── Vertical snackbar stack state helpers (the queue itself lives in MapDashboardController) ──
     fun enqueueSnack(snack: ActiveSnack) = dashboardController.enqueue(snack)
 
@@ -1171,6 +1181,8 @@ fun MapScreen(
         RouteEndSelection.End.DESTINATION,
         routeDestinationEligible
     )
+    // The route name's own connector, resolved once here so the save site can stay non-composable.
+    val routeNameConnector = stringResource(R.string.track_name_connector)
 
     /** Writes one end's selection back to the store, keyed on the mode the drawer already carries. */
     fun storeRouteEnd(end: RouteEndSelection.End, selection: RouteEndSelection) {
@@ -1470,6 +1482,12 @@ fun MapScreen(
         }
     }
 
+    /** The one home of the save toast: names the track or route just written (2026-10-10). */
+    fun toastSaved(name: String) {
+        trackSavedToast = context.getString(R.string.snackbar_saved, name)
+        trackSavedToastAt = SystemClock.elapsedRealtime()
+    }
+
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
@@ -1490,6 +1508,7 @@ fun MapScreen(
                         markersViewModel.closeDrawer()
                     }
                 }
+                is ykws.android.maro.data.track.TrackEvent.Finalized -> toastSaved(event.name)
                 is ykws.android.maro.data.track.TrackEvent.Resumed -> {
                     // Restore checkpoint points to the live polyline on Continue.
                     // The polyline may not exist yet (Compose hasn't recomposed after state→ON),
@@ -2094,6 +2113,7 @@ fun MapScreen(
                 routeRefusalToastAt = SystemClock.elapsedRealtime()
             }
 
+
             /**
              * The **real disposal** — the second phase of the ending (R57). A discarding press presents
              * the ending at once but defers this call to the toast's confirmation; the acquisition's own
@@ -2301,6 +2321,45 @@ fun MapScreen(
             }
 
             /**
+             * The name a saved route takes (settled 2026-10-10): `from to destination`, each end
+             * named by the marker zone containing it and, failing that, by its own dropdown
+             * content — a flagged marker's name, or the drawer's fixed label.
+             */
+            fun composeRouteName(plan: RoutePlan): String {
+                val origin = routeEndName(
+                    selection = routeStartSelection,
+                    endPoint = plan.points.firstOrNull(),
+                    markers = routeMarkers,
+                    whereAmI = markersViewModel::whereAmISync
+                )
+                val destination = routeEndName(
+                    selection = routeDestinationSelection,
+                    endPoint = plan.points.lastOrNull(),
+                    markers = routeMarkers,
+                    whereAmI = markersViewModel::whereAmISync
+                )
+                // Both ends named read "A to B"; one named end reads From or To alone; neither
+                // named leaves the route to its own dated name rather than an unnamed pair
+                // (settled 2026-10-10).
+                val raw = when {
+                    origin != null && destination != null ->
+                        ykws.android.maro.data.track.TrackNaming.compose(
+                            body = listOf(origin),
+                            destination = destination,
+                            connector = routeNameConnector,
+                            maxLength = AppConfig.trackNameMaxLength
+                        )
+                    origin != null -> context.getString(R.string.route_name_from_fmt, origin)
+                    destination != null -> context.getString(R.string.route_name_to_fmt, destination)
+                    else -> ""
+                }
+                if (raw.isBlank()) return plan.trackName()
+                return ykws.android.maro.data.track.TrackNaming
+                    .trimProportionally(listOf(raw), AppConfig.trackNameMaxLength)
+                    .first()
+            }
+
+            /**
              * Writes **one** route as an ordinary track. [id], [createdAtMs] and [name] override the
              * plan's own figures when a draft re-save must keep the track's identity while its points
              * grow; the ordinary save leaves them null and takes the plan's.
@@ -2330,11 +2389,13 @@ fun MapScreen(
                     pinned = pin,
                     id = id ?: java.util.UUID.randomUUID().toString(),
                     createdAtMs = createdAtMs ?: plan.computedAtMs,
-                    name = name ?: plan.trackName(),
+                    name = name ?: composeRouteName(plan),
                     routeStartMarkerId = startMarkerId ?: "",
                     routeDestinationMarkerId = destinationMarkerId ?: ""
                 )
-                return trackViewModel.saveBuiltTrack(track)
+                val savedId = trackViewModel.saveBuiltTrack(track)
+                toastSaved(track.name)
+                return savedId
             }
 
             /**
@@ -3023,6 +3084,7 @@ fun MapScreen(
                 importBanner = importBanner,
                 trackOpStatus = chrome.trackOpStatus,
                 routeRefusalToast = routeRefusalToast,
+                trackSavedToast = trackSavedToast,
                 rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
@@ -4576,6 +4638,7 @@ private fun MapContent(
     importBanner: ImportBannerState? = null,
     trackOpStatus: String? = null,
     routeRefusalToast: String? = null,
+    trackSavedToast: String? = null,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
     autoFollowSuppressed: Boolean = false,
@@ -5136,6 +5199,15 @@ private fun MapContent(
                 modifier = Modifier.align(Alignment.BottomStart)
             )
         }
+        // ── Transient save toast, naming the track or route just written ──
+        trackSavedToast?.let { message ->
+            MapStatusBanner(
+                message = message,
+                tagsDrawn = bandTagsDrawn,
+                modifier = Modifier.align(Alignment.BottomStart)
+            )
+        }
+
         // ── Transient route-acquisition refusal toast ──
         routeRefusalToast?.let { message ->
             MapStatusBanner(
@@ -5150,6 +5222,34 @@ private fun MapContent(
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
 
 // ── The Route section's two ends (R44–R46) ──────────────────────────────────
+
+/**
+ * The name one route end contributes to the route's own name (settled 2026-10-10): the marker zone
+ * containing the end where one does, else the flagged marker that end stands on, each wearing its
+ * own icon where one was set.
+ *
+ * `null` when no marker names the end — the drawer's fixed `Current position` / `Marker position`
+ * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder.
+ */
+private fun routeEndName(
+    selection: RouteEndSelection,
+    endPoint: RoutePoint?,
+    markers: List<UserMarker>,
+    whereAmI: ((LatLng) -> ykws.android.maro.spatial.WhereAmIResult)?
+): String? {
+    val zone = endPoint?.let { point ->
+        whereAmI?.invoke(LatLng(point.latitude, point.longitude))
+            ?.allMatches
+            ?.firstOrNull { match ->
+                match is ykws.android.maro.spatial.WhereAmIMatch.ZoneMatch &&
+                    ykws.android.maro.spatial.MarkerMatcher.markerOf(match).origin != MarkerOrigin.IDLE_AUTO
+            }
+            ?.let { ykws.android.maro.spatial.MarkerMatcher.markerOf(it) }
+    }
+    val named = zone ?: (selection as? RouteEndSelection.Marker)
+        ?.let { flagged -> markers.firstOrNull { it.id == flagged.markerId } }
+    return named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) }
+}
 
 /**
  * **One selector's entries, in the contract's own order** (R45, R46): the fixed entries first — the
