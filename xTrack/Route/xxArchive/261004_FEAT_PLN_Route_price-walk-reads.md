@@ -377,3 +377,7 @@ Shipped declarations:
 - **Whether the collar's own price is worth protecting separately — settled in shape, open in value**: the
   collar is a price like any other and its declaration is free, except that a **holed** ring owes the holes'
   segment walk. Whether those chords are common enough to matter is the reading's, not this plan's.
+
+## Outcome
+
+**Landed 2026-10-04/05.** The price walk groups its fine intervals behind each soft source's own declared boundary, reads one price-only field call per group — the hard-walls test no longer paid for a `blocked` flag it discards — and takes the **interior cell** as its step (Phase 4b, the cut the first device reading named), the equivalence being Δ price = 0 so no guard, sum or drawn line moves. The step later became structural when `priceStepFor()` retired with the fine re-search on 2026-10-07, so the walking pass now prices at its own `cellM`. The saving's capture was taken and closed unread on the user's word; the owed `runPass`-driving seam test stays owed.

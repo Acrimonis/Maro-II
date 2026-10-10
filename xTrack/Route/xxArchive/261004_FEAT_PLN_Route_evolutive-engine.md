@@ -291,3 +291,7 @@ The decisions a one-pass implementation needs, and the reason the answer to "are
   cap rather than a zone.
 - Whether the extraction's home is the existing `spatial/avoid/` package or a neutral one, given the
   misnomer above.
+
+## Outcome
+
+**Shipped 2026-10-04** — `evolutive` joined the registry as a third engine row with a plan of its own (`EvolutiveGridPlan`, 100 m coarse / 20 m fine), so it is no longer behaviourally `avoid`; Phases 1 and 2 landed the row and the seam's step readings, and Phase 3's extraction was met by the shared pipeline's plan seam (`RouteGridPlan`) and the later seat split rather than a code move. What became of its instrumentation surface: the panel's flat step line it fed was **removed 2026-10-08** in favour of the stage-and-number status, so `RouteUpdate.readings` stands on the seam read by no app surface. The engine as it stands is in [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md).

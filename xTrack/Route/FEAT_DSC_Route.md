@@ -109,6 +109,9 @@ The live numbered requirements — added after the master book was retired; the 
 - A pair whose ends stand closer than `route.min.acquisition.lengthM` refuses to arm, with a toast, rather than being searched.
 - The drawer's eligible ends are built from the unfiltered marker source `allMarkers`, so no list filter narrows what the two selectors offer.
 - A saved route opens from the track card's resume slot as the active route; its exit dialog is already in the **written** state — the save door disabled, the third door reading **Leave** rather than **Discard route** (R59, R100).
+- A route's time is the plan's time, wherever it is stored or shown: no path derives a time from distance ÷ pace while a plan for that line exists, and a draft that never sees a plan is written with **no time** rather than a paced one.
+- A speed limit's figure counts only the time spent on water where that limit is in force — the part of a leg that lies inside the band or a zone — an open-water slow leg charged to **no entry**, and the band its own bucket rather than the nearest limit's.
+- The routing's depth read passes the chart's own EMODnet shallow cutoff (`emodnetShallowCutoffM`), so a shallow **chart** cell does not wall a chord while a shallow **fine-source** cell still does.
 
 ## Key Files
 
@@ -143,7 +146,7 @@ The live numbered requirements — added after the master book was retired; the 
 - [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) — **the central reference for the acquisition engines as they stand**: the seam, the four shipped rows, the ladder and its ranking, the pipeline, the plan seam, the shared `multipass` layer, the water they price, the readings and the known gaps — present tense, no history
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — the engine interface's spec: the types, the repair, the reason set, the computations and the disposals
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — the avoidance algorithm's design of record: the pipeline, the cost field, the λ loop, the fairing and the evidence
-- [`261005_FEAT_PLN_Route_walk-context-seam.md`](261005_FEAT_PLN_Route_walk-context-seam.md) — the pull's walk context and the `PullSetup` seam
+- [`FEAT_DOC_Route_decisions.md`](FEAT_DOC_Route_decisions.md) — the feature's decisions of record: the stored-route match removed, and the open-water bends accepted as a known defect
 - [`261007_FEAT_PLN_Route_rung-ranking-preselection.md`](261007_FEAT_PLN_Route_rung-ranking-preselection.md) — the ranking, the running best, the seat's freeze and the budget's settings row (R98)
 - [`261007_FEAT_PLN_Route_avoid-settings-taxonomy.md`](261007_FEAT_PLN_Route_avoid-settings-taxonomy.md) — the avoid/evolutive key audit that landed 2026-10-07: the dead key's deletion, the fine layer's one metres idiom and the aligned code defaults (landed)
 - [`261007_FEAT_PLN_Route_selective-engine.md`](261007_FEAT_PLN_Route_selective-engine.md) — **the third engine**: `selective`, a plan over the shared pipeline that spends fine detail only on the collars where the decisions are (the shoreline, the band's outer boundary, the zone rims, the shallow wall) and prices a per-metre depth gradient over a 25 m band beside the wall; Phases 1–6 landed with the two-layer walk's fine-priority reading rule, the device pass its own (landed)
@@ -152,6 +155,7 @@ The live numbered requirements — added after the master book was retired; the 
 - [`261007_FEAT_PLN_Route_review-should-fixes.md`](261007_FEAT_PLN_Route_review-should-fixes.md) — the seventeen-fix batch's review should-fixes: the four behaviour items are sound, and seven KDoc/fixture/record corrections (the band-time approximation, the memo-window attribution, two dead stamps, the engines-doc cache key, the `FineWaterQuery` reason, the memo fixture and the ribbon-mask fixture) are in design (in design)
 - [`261008_FEAT_PLN_Route_heading-away-end-swap.md`](261008_FEAT_PLN_Route_heading-away-end-swap.md) — the followed route's **end-swap**: the heading-away mirror that landed as R99 on 2026-10-08, and its 2026-10-09 redesign to the route's own **time-to-go loss** toggle plus the **arrival cue** — the trigger, the derived look-back, the debounce and the cue's precedence over a reversal all settled (lossSec 30, debounceSec 15, arrival.etaSec 60) (in design)
 - [`261010_FEAT_PLN_Route_dialog-question-syntax.md`](261010_FEAT_PLN_Route_dialog-question-syntax.md) — **the exit dialog's question syntax**: the family's question-and-answer rule (§5.6) and the route dialog's two-state doors — `Save route and exit` · `Continue` · `Discard route` while the line is unwritten, the save door disabled and the third reading `Leave` once it is a track — the doors one pure `routeExitDoors` (R59, R100) (implemented)
+- [`261008_FEAT_PLN_Route_build_shared-phases_ladder.md`](261008_FEAT_PLN_Route_build_shared-phases_ladder.md) — the ladder's λ-free phases (the grown corridor and the forced-crossing probe) shared once per arm; in design; deferred for a later session
 - Retired plans and docs live in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Todos

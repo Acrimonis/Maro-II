@@ -180,3 +180,7 @@ carries `legSpeedsMps` per leg, the drawing reads it, and no proto field changes
   line arrives — **answered 2026-10-05** by [`261005_FEAT_PLN_Route_plan-time-single-source.md`](261005_FEAT_PLN_Route_plan-time-single-source.md): the draft now carries **no time** until a plan lands.
 - **Answered** (2026-10-05): `mixedLegs` never landed — the contract's *no count and no new field* won,
   so there is no count to surface and no trace to carry it.
+
+## Outcome
+
+**Landed 2026-10-04.** `BOUNDARY_SAMPLE_M` is deleted for a required, derived `clockSampleM`, and every emitted leg stands inside one limit regime so a leg's midpoint read is the limit in force — T1's narrow-strip fixture and T3's step arithmetic pin it. Two earlier rules, a slower-end cap and a mixed-legs count, were withdrawn on contact with the code, and D4's three out-of-clock paths were checked rather than changed. The blind spot a regime narrower than the step keeps stays stated rather than hidden.

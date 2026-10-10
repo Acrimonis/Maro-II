@@ -156,3 +156,7 @@ Status: Phases 0–7 landed — the pipeline dissolved into the four seats, then
   [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md:33) and [`docs/maro-code.md`](../../docs/maro-code.md:23) both
   read true now. Still naming the old package or the unwired seat: `FEAT_HYD_Route.md`,
   `FEAT_DOC_Route_avoid-algorithm.md` and the three live plans, left to the next bake, which is Phase 8.
+
+## Outcome
+
+**Shipped 2026-10-04.** The 871-line `RoutePassPipeline` dissolved into the four seats — `RouteGridBuilder`, `RoutePassRunner`, `RouteFinePass` and `RoutePassRules` — composed once as the engine's own fields, and the package `spatial/avoid/` was renamed `spatial/multipass/` with its eight `Avoid*` types taking the `Multipass` prefix. Phases 0–7 landed; only the record (Phase 8) was ever owed. The split and the rename changed no behaviour — the suite's counts and the drawn line are the proof — and `RoutePassRules` shipped with no production caller, a health item named rather than fixed.

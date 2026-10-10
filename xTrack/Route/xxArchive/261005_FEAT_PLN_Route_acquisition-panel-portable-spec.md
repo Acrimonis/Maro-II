@@ -136,3 +136,7 @@ shared reading cell, the drawer live-card's label-width measurer, and string res
 
 - The shipped plan of record, its revision sections, and the UI component guidelines' route-panel section carry the
   same decisions on the branch this was built on.
+
+## Outcome
+
+**Shipped 2026-10-05** on `feature/route-displayS` (`6400d83`) as a portable re-application brief: the pager settles, the absolute page selector, the bold delta, the panel's forced-crossing note gone, the per-limit attribution and its two-column Speed limits table below the delta, and the fold naming its rungs. Its §9 rung names (Coastal/Balanced/Around) and §10 settled status line are **superseded** by the shipped Fast · Best · Fun ladder (R95) and the 2026-10-08 stage-and-number status (`<stage> #<n>`), so neither is the current vocabulary. The per-limit attribution's own contract was re-settled afterwards by the band-time plan.

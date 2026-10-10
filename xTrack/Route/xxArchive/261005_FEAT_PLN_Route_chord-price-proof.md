@@ -159,3 +159,7 @@ stands in the guard field wherever the price is armed.
 - The mark count, the sibling plan.
 - Marker weights (the walk's item 14), the fine band's Change 4 (item 15), and the `avoid` engine's own
   parked ratio test, which stays the user's.
+
+## Outcome
+
+**Landed 2026-10-05 (Phase 1); Phase 2 closed unread.** `softPriceSec` tests a span's midpoint and, proved, prices the whole span from one reading — recursing down to the group walk's own floor (`2 × priceStepM`) where a boundary actually lives — so Δ price = 0 and no verdict moves, and a constant arm's product is exact at any length. The recursion ships as landed, its downside bounded by the floor, because the user's word withdrew the reading that would have priced it.

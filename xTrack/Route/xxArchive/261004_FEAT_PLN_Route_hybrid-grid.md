@@ -607,3 +607,7 @@ pays later for moving fast now. What this plan therefore fixes in advance:
   reading in which that raster dominates; the fallback then is to bound it by the chain boxes it overlaps, and
   it is cheaper than it looks — the detour the repair is looking for needs the 100 m collar the chain's `2w`
   already covers.
+
+## Outcome
+
+**Shipped 2026-10-04, Phases 1–7.** The adaptive grid's metres (`route.evolutive.grid.cellM` 100, `route.evolutive.grid.fineCellM` 20), the one lattice family with its exact 5:1 nesting and seam helper, the two-layer rasterize with the band's membership, the centre-priced seam, and the local-cell tail all landed; the second-pass corridor chain was retired for `evolutive` the same day on Phase 2's reading, and for `avoid` in Phase 7 on the user's own capture. Phase 8 (the record) is this fold; the two-layer walk as it stands is in [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md).
