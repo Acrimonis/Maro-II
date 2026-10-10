@@ -245,11 +245,9 @@
     <string name="track_live_default_name">Recording...</string>
     <string name="marker_description_placeholder">Add description...</string>
 
-    <!-- Recovery dialog -->
-    <string name="recovery_title">Unfinished Recording</string>
-    <string name="recovery_found">Found an unfinished recording from %1$s.</string>
-    <string name="recovery_continue">Continue</string>
-    <string name="recovery_save">Save</string>
+    <!-- Recovery dialog — its three doors reuse the recording-exit keys below (one home per word) -->
+    <string name="recovery_title">Recording interrupted</string>
+    <string name="recovery_found">A track was being recorded at %1$s. What would you like to do?</string>
 
     <!-- Track import match dialog / sheet -->
     <string name="import_match_title">Existing track found</string>
@@ -668,13 +666,20 @@
     <string name="route_stage_pull">Pull</string>
     <string name="route_stage_snap">Snap</string>
     <string name="route_stage_fine">Refine</string>
-    <!-- The one exit dialog, reached by the toggle's off and by the back key alike (R59). Its accent
-         writes the followed route to a track and is disabled while that route already has one. -->
+    <!-- The one exit dialog, reached by the toggle's off and by the back key alike (R59). One axis decides
+         its three doors — is this line already a track? — so the accent door writes the followed route to a
+         track and greys while that route already has one, the accent then falling to the enabled forward
+         outcome `Leave`, and the third door reads `Discard route` while the press would throw the route away
+         or `Leave` once it cannot. `route_exit_discard` and `route_exit_save` also label the acquisition
+         panel's door and the fan's children, so they keep meaning *Discard route* and *Save route*. -->
     <string name="route_exit_title">Leave the Route mode?</string>
     <string name="route_exit_save">Save Route and exit</string>
-    <string name="route_exit_continue">Continue Route</string>
-    <string name="route_exit_discard">Discard</string>
-    <string name="route_exit_stop_following">Stop following</string>
+    <string name="route_exit_continue">Continue</string>
+    <string name="route_exit_discard">Discard route</string>
+    <string name="route_exit_leave">Leave</string>
+    <!-- The arrival cue (R100): the same exit dialog, raised when the followed route's own time-to-go
+         falls through the arrival threshold — a title-only prompt over the same three doors. -->
+    <string name="route_arrival_title">You seem to have reached your destination</string>
     <!-- The deferred discard's toast: the acquisition's ending and a followed route's, told apart, each
          offering Undo (reusing `action_undo`) and New acquisition, which re-arms the same ends. -->
     <string name="route_discard_acq_toast">Route discarded</string>

@@ -746,46 +746,60 @@ Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/Marke
 44×44dp rounded square with a 22sp emoji glyph, one slot each in the top-left status row
 ([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)). Every square's paint comes
 from one path in [`MapSurface.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt):
-`MapSurface` paints the fill, clips the corner, draws the border and applies the padding, and
-`MapToggleSquare` layers the row's own size and the tap on it. A square declares only its own state colours
-in [`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the semantic
-palette) and exposes them via
+`MapSurface` paints the family's white base and the face over it, clips the corner, draws the border and
+applies the padding, and `MapToggleSquare` layers the row's own size and the tap on it. Each square's whole
+state — its tile colour and its data mark — is resolved by one **pure** function in
+[`MapToggleFace.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapToggleFace.kt) (`gpsFace`,
+`trackingFace`, …), so no state logic lives in the painting path. A square declares only its own state
+colours in [`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the
+semantic palette) and exposes them via
 [`AppConfig.kt`](../app/src/main/java/ykws/android/maro/config/AppConfig.kt).
 
 **Visual recipe — one surface block (`ui.map.surface.*`) for every box that paints a background:**
 
 | Aspect | Key |
 |---|---|
-| Fill | `ui.map.surface.inactive`, painted whole: the fill's own weight is in the token |
+| Base | `ui.map.surface.inactive`, painted under every face: the fill's own weight is in the token |
 | Corner / padding / border | `ui.map.surface.corner.radius` / `.padding` / `.border.color` + `.border.width` |
-| Active face | the square's own state colour at `ui.map.surface.active.alpha` |
+| Active face | the square's own state colour laid over the base at `ui.map.surface.active.alpha` |
 | Inactive content alpha | `ui.map.surface.inactive.content.alpha` — the content dims, never the box |
 | Square geometry | `ui.map.toggle.square` / `ui.map.toggle.gutter` / `ui.map.toggle.icon.size` |
 | Overlay-card text | `ui.map.overlay.text.color` + `.weight` (bold) + `.size` |
 
-**State → colour mapping:**
+**Two channels per square — the fill (what it is doing) and the dot (what its data is worth):**
 
-| Square | Off / inactive | Active face |
+One constant five-colour set — pale off · amber still getting the data · blue nominal · green standing by
+· red the thing it needs is gone — and one dot colour per state (green real or complete, amber partial,
+red absent). The five colours and the channels are stated once in
+[`color-scheme.md`](color-scheme.md) §2; the squares resolve them here:
+
+| Square | Off | On faces — fill / dot |
 |---|---|---|
-| GPS | `mapSurfaceFaceInactive()` (DEMO) | acquiring/weak=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale=`semantic.danger` |
-| Tracking | `mapSurfaceFaceInactive()` (OFF) | moving=`semantic.compliant`, idle=`semantic.info` |
-| Earth/Water | — (always a resolved face) | water=`semantic.info`, land=`semantic.compliant` |
-| Screen lock | `mapSurfaceFaceInactive()` (📵) | locked=`semantic.info` (📵) |
-| Recenter | absent when there is nothing to recenter | `ui.accent` = `semantic.info` |
+| GPS | pale, no dot | acquiring/weak — amber / red · estimating — amber / red · healthy/idle — blue / green · stale — red / red |
+| Tracking | pale, no dot | recording — blue / green · standing by — green / green |
+| Earth/Water | never off (a reading) | water — blue / no dot · land — red / no dot |
+| Inspect | pale, no dot | armed — blue (accent) / green |
+| Route | pale, no dot | searching — amber / amber · following — blue / green |
+| Screen lock | pale, no dot | locked — blue / green |
+| Recenter | absent when there is nothing to recenter | blue (accent) / no dot |
 
-The face is resolved by the square itself — `mapSurfaceFace()`, `mapSurfaceFaceInactive()` or
-`mapSurfaceFaceActive(colour)` in `MapSurface.kt` — and the surface only paints it, so no state logic lives
-in the painting path. Because the fade sits on the content, the tracking-OFF and lock-OFF squares paint the
-fill whole and dim their glyph alone; they no longer fade the box.
+The tile is that state colour laid over the family's white base, so a square never becomes a window on the
+map; the dot is the shared pulse mark (`MapPulseDot`), which the square itself paints at the family's one
+top-right placement — inset from the square's own corner by the mark's own `ui.map.pulse.dot.inset.ratio`
+(0.25) of the disc's size, 3 dp at the 12 dp disc — as a body beating
+1 → 0.33 under a 1 dp ring (`ui.map.pulse.dot.ring.width`) held at full strength, so the mark never loses
+its edge at the bottom of the beat; the disc, the floor and the period are the mark's own
+`ui.map.pulse.dot.size`, `.floor` and `.ms` settings. Because the fade sits on the content, an off square
+paints the base whole and dims its glyph alone.
 
 **The collapsed legend square** is the same `MapToggleSquare` read directly by `MapScreen.kt`: one square on
 the shared surface carrying the ⏱ stopwatch written `\u23F1\uFE0F` (`Emoji_Presentation=No`, so the selector
 is what asks for the colour form) and **no** active face — the control's active form is the expanded scale
 card, so the two faces are never on screen together.
 
-**New squares must:** paint through `MapToggleSquare`/`MapSurface`, resolve one face from their own state,
-declare their own colours as a `status.<name>.*` token family parsed in `AppConfig`, and never hardcode a
-fill, a corner, a border or a padding in the composable.
+**New squares must:** paint through `MapToggleSquare`/`MapSurface`, resolve one `TopToggleFace` from their
+own state in `MapToggleFace.kt`, declare their own colours as a `status.<name>.*` token family parsed in
+`AppConfig`, and never hardcode a fill, a dot, a corner, a border or a padding in the composable.
 
 **Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
 top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). Earth/Water is that row's one
@@ -879,6 +893,38 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   ([`ui/components/OptionRow.kt`](../app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt)) —
   one checkbox and its label, the checkbox's own target inset serving as the gap, so every option row in
   every dialog reads the same distance.
+- **The route's one exit dialog carries two raisers** (R59, R100): the toggle's off and the back key raise
+  it under *Leave the Route mode?* (`route_exit_title`), and the followed route's own **arrival cue** raises
+  the **same** dialog under *You seem to have reached your destination* (`route_arrival_title`) — a
+  **title-only** prompt, no message line, over the same three doors. **One axis decides the doors** — is this
+  line already a track? — and three doors stand at every state: while the line is **unwritten**
+  `Save Route and exit` (accent, enabled) · `Continue` (secondary) · `Discard route` (red); once it is
+  **written** the save door keeps its place and is **disabled** · `Continue` (secondary) · **`Leave`**
+  (the accent, and **not red**, because nothing is lost). The third door's word follows the **cost**, never
+  the raiser — `Discard route` while the press would throw the route away, `Leave` once it cannot — so the
+  arrival cue carries no vocabulary of its own and changes only its title. One surface, never two stacked: a
+  raise while it stands is that one dialog, and a reversal of the followed route closes the arrival prompt
+  as a **no action** dismissal.
+
+**How a dialog asks its question and how its doors answer it** — one rule for every confirmation the family
+draws, the **recording exit dialog the reference** the whole family is read against and the **route exit
+dialog the two-state case above**:
+
+- **The title puts the decision in the user's voice** — a question for a confirmation (*Leave the Route
+  mode?*), and, where the doors are three outcomes, the situation with its question (*A track is being
+  recorded. What would you like to do?*).
+- **The doors answer that question in its own vocabulary**, so the title and the doors share their noun and
+  their verb and a reader can pair each door with the question without reading the message.
+- **Every door is a verb-first answer of one to three words**, naming the user's outcome and never a
+  mechanism or an internal state — *Stop following* fails this, *Leave* passes.
+- **The order is fixed in every dialog**: the forward outcome, then the stay, then the ending.
+- **The role follows the cost, never the moment** — accent for the surface's forward outcome, secondary for
+  staying or costing nothing, red only for what loses work, so a door that loses nothing is never red.
+- **A door with no work is disabled, never renamed**, and a disabled door never holds the accent; the accent
+  falls to the enabled forward outcome.
+- **The loss door names what is lost** (*Discard route*, *Discard track*), never the mode transition.
+- **An automatic raiser borrows the doors and brings only its own title**, because the doors are the user's
+  answers rather than the raiser's.
 
 **Tokens**
 

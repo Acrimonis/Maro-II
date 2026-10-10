@@ -192,10 +192,19 @@ class MarkersViewModel(
     private val repo: UserMarkerRepository =
         UserMarkerRepository(java.io.File(application.filesDir, "markers"))
 
-    /** Shared map-selection policy — marker map set is filter-only (no cap, no focus override). */
+    /**
+     * Shared map-selection policy — the marker map set is filter-only **plus the open card's one id**
+     * (the render escape, 2026-10-10): the id [selectedMarkerId] holds is admitted regardless of the
+     * map filter while its card stands, every other marker staying filter-bound. No cap, no ranking.
+     */
     private val markerSelectionPolicy = MarkerSelectionPolicy()
 
-    /** Marker map path carries no session focus; kept for signature parity with the policy. */
+    /**
+     * The marker map path's focus: its highlight is [selectedMarkerId], re-written on every pass of
+     * the map-referential stream, so the one selected item rides past the filter exactly as the track
+     * half's highlighted id does. There is no session boost on this path — the selected id is the
+     * whole of the focus.
+     */
     private val markerMapFocus = MapRenderFocus()
 
     // ── Settings injection (set via observeSettings from NavigationViewModel) ──
@@ -344,9 +353,12 @@ class MarkersViewModel(
                 _markerLayerState.value = settings.markerLayerState
             }
         }
-        // Map-referential stream: reactive to both the MAP filter and any allMarkers reload.
+        // Map-referential stream: reactive to the MAP filter, any allMarkers reload, and the open
+        // card's own selection — so a filter-excluded selected marker is drawn while its card stands
+        // and drops back out the moment the selection clears.
         viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(flow, _allMarkers) { settings, all ->
+            kotlinx.coroutines.flow.combine(flow, _allMarkers, _selectedMarkerId) { settings, all, selectedId ->
+                markerMapFocus.highlight(selectedId)
                 markerSelectionPolicy.select(
                     items = all,
                     filter = settings.markerMapFilter,

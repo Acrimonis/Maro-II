@@ -44,7 +44,7 @@ once with a single edit.
 
 **Alias chain example:**
 ```
-semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #CC4CAF50
+semantic.info → status.gps.healthy → #FF1565C0
 ```
 
 ---
@@ -82,8 +82,8 @@ semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #C
 | `ui.dashboard.zone.normal` | `${ui.dashboard.status.absent}` → `#AA37474F` | Zone status: normal (no-data) |
 | `ui.dashboard.distance.exit` | `${ui.dashboard.status.success}` → `#CC4CAF50` | Exiting to open sea |
 | `overlay.lowDepth.color` | `${ui.dashboard.status.error}` → `#CCB71C1C` | Low-depth warning overlay |
-| `status.gps.healthy` | `${ui.dashboard.status.success}` → `#CC4CAF50` | GPS healthy |
-| `status.earthWater.land` | `${ui.dashboard.status.success}` → `#CC4CAF50` | On land |
+| `status.gps.healthy` | `${semantic.info}` → `#FF1565C0` | GPS healthy (the nominal blue) |
+| `status.earthWater.land` | `${semantic.danger}` → `#CCB71C1C` | On land (the hazard red) |
 | `regulatedZone.type.environmental` | `${ui.dashboard.status.success}` → `#CC4CAF50` | Environmental zones |
 | `map.isobar.litto3d.color` | `${ui.dashboard.status.success}` → `#CC4CAF50` | Litto3D isobath lines |
 
@@ -146,8 +146,7 @@ never a semantic hue: the fan's **parent button** and each of its children alike
 carried by its shape and its place in the stack, not by a colour. The arc's Discard is no
 exception, its 25 % face included, and neither is the fan's parent: its three faces are told apart by the
 pulsing dot alone, so the mode's state lives on that dot and on the map's own route toggle, a square of
-its own whose **acquiring** face follows the *Active route* colour and whose **navigating** face keeps
-its own blue.
+its own whose **acquiring** face wears the amber and whose **navigating** face its own blue.
 
 ### Map Surface & Toggle Row
 
@@ -157,13 +156,13 @@ its own blue.
 
 | Token | Value | Usage |
 |---|---|---|
-| `ui.map.surface.inactive` | `#A8FFFFFF` | The one fill every surface paints — white at 66 % |
+| `ui.map.surface.inactive` | `#8CFFFFFF` | The family's white base — painted under every face, and the whole fill of an off square — white at 55 % |
 | `ui.map.surface.corner.radius` | `8` dp | Corner radius the squares and both cards clip to |
 | `ui.map.surface.padding` | `6` dp | Padding the surface applies inside its own edge — the cards' inset |
 | `ui.map.surface.border.color` | `${ui.divider.color}` → `#14FFFFFF` | Border every surface draws |
 | `ui.map.surface.border.width` | `1` dp | Border width |
-| `ui.map.surface.inactive.content.alpha` | `0.75` | Content dim of an inactive face — the content dims, never the fill |
-| `ui.map.surface.active.alpha` | `0.65` | Alpha an active face paints its own state colour at |
+| `ui.map.surface.inactive.content.alpha` | `0.6` | Content dim of an inactive face — the content dims, never the fill |
+| `ui.map.surface.active.alpha` | `0.5` | Alpha an active face lays its own state colour at, over the white base |
 
 A square's size and gutter are geometry rather than surface, so they stay in the toggle family:
 
@@ -183,6 +182,48 @@ The overlay cards keep their text tokens; the surface never dims their content:
 | `ui.map.overlay.text.line.height` | `14` sp | Line height of the zone-info line's text |
 | `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts |
 | `ui.map.overlay.line.spacing` | `2` dp | Gap between two rows of the zone-info line |
+
+### The toggle squares — five colours, two channels, two classes
+
+Every square of the top-left toggle row rides one constant five-colour set, each read from a semantic
+token. **The fill** says what the square is doing; **the dot** — the shared pulse mark — says what its
+data is worth.
+
+| Colour | Token | Meaning |
+|---|---|---|
+| Pale | `semantic.inactive` | The square is off — the shared base alone, glyph dimmed |
+| Amber | `semantic.caution` | The square is still getting its data |
+| Blue | `semantic.info` | The square is on and doing what it is for — nominal, by house taste (the accent and the sea theme are one blue) |
+| Green | `semantic.compliant` | The square is on and standing by |
+| Red | `semantic.danger` | The thing the square needs is not there |
+
+**The two channels.** The tile's fill is the state colour laid over the family's white base at
+`ui.map.surface.active.alpha`, with the glyph whole — or the base alone with the glyph dimmed when the
+square is off. The mark is the square's data mark, painted at full strength: **green** when the data is
+real or complete, **amber** when it is partial, **red** when there is none. Every mode square except the
+recenter wears one.
+
+**The mark's own look.** The square paints it, at the family's one placement: the top-right corner, inset
+from the square's own edges by the mark's own `ui.map.pulse.dot.inset.ratio` of the disc's size (3 dp for
+the 12 dp disc). It is a body beating
+1 → 0.33 under a 1 dp ring (`ui.map.pulse.dot.ring.width`) in the same colour held at full strength, so the
+edge stays crisp at the bottom of the beat. The disc, the floor and the period are the mark's own
+`ui.map.pulse.dot.size`, `.floor` and `.ms` settings. The marks outside the row — the drawer's recording dot
+and the live card's — keep their own placement and wear the same ring and beat.
+
+**The two classes.** Mode squares — GPS, tracking, inspect, route, lock — carry both channels, so the
+dot doubles as the on-screen answer to *is this a control?* Reading squares — land/water — never turn off
+and wear no dot: the reading is the fill alone.
+
+| Square | Off | On faces — fill / dot |
+|---|---|---|
+| GPS | pale, no dot | ACQUIRING, WEAK — amber / red · ESTIMATING — amber / red · HEALTHY, IDLE — blue / green · STALE — red / red |
+| Tracking | pale, no dot | recording — blue / green · standing by — green / green |
+| Land/water | never off (a reading) | water — blue / no dot · land — red / no dot |
+| Inspect | pale, no dot | armed — blue (accent) / green |
+| Route | pale, no dot | searching — amber / amber · following — blue / green |
+| Lock | pale, no dot | locked — blue / green |
+| Recenter | absent (only while the follow is paused) | blue (accent) / no dot |
 
 The rectangles read `AppConfig.uiMapSurface*` through `MapSurface`, and
 `AppConfig.uiMapSurfaceInactive` is the single colour accessor they share. The overlay family's single
@@ -308,21 +349,26 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ### GPS Icon
 
-| State | Token | Default | Swatch | Alpha |
-|---|---|---|---|---|
-| DEMO | `status.gps.demo` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#33FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No square reads it — the DEMO square paints `ui.map.surface.inactive`, its glyph at `ui.map.surface.inactive.content.alpha`; the key keeps a live reader, the menu drawer's GPS switch (`AppConfig.statusGpsDemo`) |
-| ACQUIRING | `status.gps.acquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
-| HEALTHY | `status.gps.healthy` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
-| IDLE | `status.gps.idle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.65 |
-| STALE | `status.gps.stale` | `#F44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
+The square's two channels per state; the five-colour set and the dot's meaning are stated once above
+(§2). DEMO is off: no key, the shared pale base and no dot.
+
+| State | Token | Fill | Dot |
+|---|---|---|---|
+| ACQUIRING | `status.gps.acquiring` | amber (`semantic.caution`) | red |
+| HEALTHY | `status.gps.healthy` | nominal blue (`semantic.info`) | green |
+| IDLE | `status.gps.idle` | the same nominal blue (no separate idle face) | green |
+| STALE | `status.gps.stale` | hazard red (`semantic.danger`) | red |
+| ESTIMATING | `status.gps.estimating` | the acquiring amber | red |
+| WEAK | `status.gps.acquiring` | the acquiring amber | red |
 
 ### Earth/Water Icon
 
-| State | Token | Default | Swatch | Alpha |
-|---|---|---|---|---|
-| Water (active) | `status.earthWater.water` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.65 |
-| Land (active) | `status.earthWater.land` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
-| Inactive | `status.earthWater.inactive` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No reader — the square resolves water or land only, so the inactive wing is gone (D5) |
+A **reading**, never off and never dotted: the fill alone is the state.
+
+| State | Token | Fill | Dot |
+|---|---|---|---|
+| Water | `status.earthWater.water` | nominal blue (`semantic.info`) | none |
+| Land | `status.earthWater.land` | hazard red (`semantic.danger`) | none |
 
 ---
 

@@ -199,12 +199,12 @@ internal fun RouteHost(
     }
     val split = remember(followedPlan, splitIdentity) { followedPlan?.splitAt(boatPosition) }
 
-    // **The arrival threshold, derived once** — the one expression of the rule that the remaining run
-    // still stands, read by both the paint key's arrival discriminator below and the choice between the
-    // remaining run and the whole line, so the two readers can never disagree.
-    val remainingStands = split != null && split.remainingPoints.size >= 2
+    // **The remaining-run discriminator, derived once** — whether the remaining run still stands, the one
+    // expression the paint key below and the paint's own face ([routeFollowFace]) both read, so the
+    // flip to arrival moves the key and repaints while the two readers can never disagree.
+    val remainingStands = routeRemainingStands(split)
 
-    // The paint's own key: the **arrival discriminator** — whether the remaining run still stands — the
+    // The paint's own key: the **remaining-run discriminator** — whether the remaining run still stands — the
     // best leg the projection landed on (read from [RouteSplit] rather than reconstructed from the run's
     // size), and the projected point rounded to the same step. The flag is what makes the effect re-run
     // at the flip to arrival: by then the projected point has already clamped to the destination, so the
@@ -250,17 +250,14 @@ internal fun RouteHost(
         // `followSavedRoute` both empty the pages, so slot 0 and the pin read the state to stay drawn.
         val followed = (state as? RouteState.Following)?.plan
 
-        // **While following, slot 0 carries the split's remaining run alone** while [remainingStands],
-        // so the covered run is painted by `route_travelled` and never twice beneath it; where the
-        // remaining run falls under two points — the arrival rule — slot 0 keeps the **whole** line at
-        // full strength and the travelled overlay stays off. The two-point test is the same
-        // [remainingStands] the paint key carries.
-        val remainingRun = if (followed != null && remainingStands) split.remainingPoints else null
-        val followedRenderPoints = when {
-            followed == null -> null
-            remainingRun != null -> remainingRenderPoints(followed, split!!)
-            else -> toRenderPoints(followed.points, followed.legTimesSec)
-        }
+        // **The followed line's face, in one pure read** (R93): slot 0's own run, the points the casing
+        // under-strokes, and the travelled run. While the remaining run stands ([remainingStands], the
+        // same expression the paint key carries) slot 0 holds the run ahead alone, so the covered run is
+        // painted by `route_travelled` and never twice beneath it. **At arrival fewer than two points
+        // remaining is zero points** — an empty run — so slot 0 and its casing stand down and the whole-
+        // line fallback is gone; the travelled run then carries the covered line. The face keeps the
+        // arrival shape a pure value, out of this effect's own branches.
+        val face = if (followed != null && split != null) routeFollowFace(followed, split) else null
 
         val colour = routeLineColor
         val ramp = AppConfig.trackHeatmapRamp
@@ -282,7 +279,7 @@ internal fun RouteHost(
         // **The edge** (R93): the selected line's derived under-stroke, dashed with it, mirroring
         // exactly what the selected core draws. Painted through the one painter, as a plain ROUTE line.
         val selectedPlan = followed ?: pages.getOrNull(selectedIndex)?.plan
-        val casingPoints = if (followed != null) remainingRun ?: followed.points else selectedPlan?.points
+        val casingPoints = if (followed != null) face?.casingPoints else selectedPlan?.points
         // The live line's own casing over the shared one (2026-10-07): the followed line takes the
         // live class leaf, the acquisition rung keeps the shared width.
         val casingWidth =
@@ -304,15 +301,12 @@ internal fun RouteHost(
             ).overlays
         }
 
-        // **The travelled run** (R93): the covered run behind the boat wears the shared dimming, solid,
-        // and draws only when slot 0 carries the remaining run, so it never doubles the core. A run
-        // whose endpoints coincide is degenerate and stays off.
-        val travelledPoints = split?.travelledPoints.orEmpty()
-        val travelledDraws = travelledPoints.size >= 2 && (
-            travelledPoints.first().latitude != travelledPoints.last().latitude ||
-                travelledPoints.first().longitude != travelledPoints.last().longitude
-            )
-        if (remainingRun != null && travelledDraws) {
+        // **The travelled run** (R93): the covered run behind the boat wears the shared dimming, solid.
+        // Its guard is relaxed from *only beside the remaining run* to *whenever it is a real run*,
+        // because slot 0 never draws the whole line any more to be doubled — at arrival it carries the
+        // covered line alone. A run whose endpoints coincide is degenerate and stays off.
+        val travelledPoints = face?.travelledPoints.orEmpty()
+        if (travelledPoints.isNotEmpty()) {
             built += lineRendering(
                 spec = LineRenderSpec(
                     PathKind.ROUTE, PathClass.DIMMED, travelledPoints.toRenderPoints(), dashed = false
@@ -339,11 +333,15 @@ internal fun RouteHost(
                 pages.getOrNull(index)?.plan
             }
             if (plan == null || plan.points.size < 2) continue
+            // **At arrival slot 0 carries no points** (R93): fewer than two remaining is an empty run,
+            // so the rung stands down whole — no core, no casing, no chevrons — and only the travelled
+            // run and the pin remain on the map.
+            if (followed != null && index == 0 && face?.slotZeroPoints.isNullOrEmpty()) continue
             val lives = followed != null || index == selectedIndex
             val alpha = if (lives) selectedAlpha else dimmedAlpha
             val title = if (index == 0) ROUTE_LINE_TITLE else "${ROUTE_LINE_TITLE}_$index"
-            val specPoints = if (lives && followedRenderPoints != null) {
-                followedRenderPoints
+            val specPoints = if (lives && followed != null) {
+                face?.slotZeroPoints.orEmpty()
             } else {
                 toRenderPoints(plan.points, plan.legTimesSec)
             }
@@ -445,6 +443,51 @@ internal fun RouteHost(
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
+}
+
+/**
+ * **Whether the remaining run still stands** (R93) — the remaining-run discriminator: fewer than two points
+ * remaining is an empty run, not a whole line. The paint key and the paint's own face
+ * ([routeFollowFace]) both read this one expression, so the flip to arrival cannot go unnoticed by one
+ * while the other draws by it.
+ */
+internal fun routeRemainingStands(split: RouteSplit?): Boolean =
+    split != null && split.remainingPoints.size >= 2
+
+/**
+ * **The followed line's paint face** (R93) — what the host draws for one followed plan at one split:
+ * the points slot 0 carries, the points the casing under-strokes (`null` where no casing is built), and
+ * the travelled run (`null` where it stays off).
+ *
+ * **At arrival the run is empty and the covered line alone is drawn.** Fewer than two points remaining
+ * is **zero points** — nothing ahead — so [slotZeroPoints] is empty and [casingPoints] is `null`, and
+ * the whole-line fallback is gone; [travelledPoints] then carries the whole covered line, drawing
+ * whenever it is a real run because nothing ahead is left to be doubled.
+ */
+internal data class RouteFollowFace(
+    val slotZeroPoints: List<RenderPoint>,
+    val casingPoints: List<RoutePoint>?,
+    val travelledPoints: List<RoutePoint>?
+)
+
+/**
+ * **The face of a followed plan at [split]** — the one reading the host paints from, so the arrival
+ * shape is a pure value rather than an inline branch: while the remaining run stands, slot 0 carries
+ * the run ahead ([remainingRenderPoints]) and the casing under-strokes it; where it does not, slot 0
+ * and the casing stand down together. The travelled run draws whenever it is a real run — two or more
+ * points not coincident at their ends — since slot 0 no longer ever draws the whole line to be doubled.
+ */
+internal fun routeFollowFace(plan: RoutePlan, split: RouteSplit): RouteFollowFace {
+    val stands = routeRemainingStands(split)
+    val travelled = split.travelledPoints
+    val travelledDraws = travelled.size >= 2 &&
+        (travelled.first().latitude != travelled.last().latitude ||
+            travelled.first().longitude != travelled.last().longitude)
+    return RouteFollowFace(
+        slotZeroPoints = if (stands) remainingRenderPoints(plan, split) else emptyList(),
+        casingPoints = split.remainingPoints.takeIf { stands },
+        travelledPoints = travelled.takeIf { travelledDraws }
+    )
 }
 
 /**

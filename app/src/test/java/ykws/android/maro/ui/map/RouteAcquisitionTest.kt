@@ -224,6 +224,42 @@ class RouteAcquisitionTest {
         assertEquals(mapOf(plan to "track-1"), viewModel.sessionLinks.value)
     }
 
+    /**
+     * **The read direction is not a route's identity** (R99): a route written while its line is
+     * mirrored answers as saved in **either** orientation, the session keeps one link rather than two,
+     * and the persisted end ids come from the armed pair rather than the displayed direction — so the
+     * mirror never resurrects the save door and a mirrored route reopens as the same route.
+     */
+    @Test
+    fun aMirroredRouteSavesAndAnswersAsOneRoute() = runTest {
+        val engine = CountingEngine()
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(
+            RouteEnds(
+                start = start,
+                fallbackStart = null,
+                destination = aim,
+                startMarkerId = "m-start",
+                destinationMarkerId = "m-dest"
+            )
+        )
+        engine.publish(viewModel.pages.value[0].lookupId!!, line(start, aim))
+        val armed = (viewModel.state.value as RouteState.Choosing).plan ?: error("a plan stands")
+        val mirrored = armed.reversed()
+
+        assertFalse("the mirrored line is not written yet", viewModel.isRouteSaved(mirrored))
+        viewModel.noteRouteSaved(mirrored, "track-1")
+
+        assertTrue("a mirrored saved route answers as written", viewModel.isRouteSaved(mirrored))
+        assertTrue("and so does the armed orientation", viewModel.isRouteSaved(armed))
+        assertEquals("one link stands, not two", 1, viewModel.sessionRoutes().size)
+        assertEquals(
+            "the persisted ends are the armed pair, not the read direction",
+            "m-start" to "m-dest",
+            viewModel.armedMarkerIds()
+        )
+    }
+
     /** `end` cancels the lookups and returns to Idle with nothing left. */
     @Test
     fun endingTheAcquisitionCancelsTheLookupsAndReturnsToIdle() = runTest {
@@ -601,6 +637,43 @@ class RouteAcquisitionTest {
             "a row with neither a plan nor a provisional pair prints the placeholder",
             routeRowFigures(RoutePage(lookupId = RouteId(3)))
         )
+    }
+
+    /**
+     * **The loss toggle, through the machine** (R99): a followed route flips **in place** the moment
+     * its own time-to-go loses `route.follow.swap.lossSec` against its recent low — republishing
+     * `Following` with the mirrored plan and nothing re-armed — while a flat progress never flips.
+     */
+    @Test
+    fun theFollowedRouteFlipsInPlaceWhenItLosesTheLossAgainstItsLow() = runTest {
+        val viewModel = RouteViewModel(MutableStateFlow(CountingEngine()))
+        val a = RoutePoint(43.5000, 7.0000)
+        val b = RoutePoint(43.5200, 7.0000)
+        val midpoint = RoutePoint(43.5100, 7.0000)
+        val quarter = RoutePoint(43.5050, 7.0000)
+        val plan = RoutePlan(
+            start = a,
+            destination = b,
+            destinationMoved = false,
+            points = listOf(a, b),
+            legTimesSec = listOf(600.0),
+            distanceM = 2_000.0,
+            durationSec = 600.0,
+            computedAtMs = 0L
+        )
+        viewModel.followSavedRoute(plan, "track-1")
+
+        // Settling on the line: half the line is left at the midpoint, and a flat step does nothing.
+        viewModel.onBoatFix(midpoint, nowElapsedMs = 0)
+        val flat = viewModel.onBoatFix(midpoint, nowElapsedMs = 1_000)
+        assertFalse("a flat progress does not flip", flat.flip)
+
+        // Heading back: the time-to-go rises by more than the loss → the plan mirrors in place.
+        val flip = viewModel.onBoatFix(quarter, nowElapsedMs = 2_000)
+        assertTrue("a loss against the low flips the line", flip.flip)
+
+        val following = viewModel.state.value as RouteState.Following
+        assertEquals("and the plan is mirrored in place", plan.reversed(), following.plan)
     }
 }
 

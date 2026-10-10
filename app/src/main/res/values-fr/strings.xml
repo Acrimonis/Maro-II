@@ -244,11 +244,9 @@
     <string name="track_live_default_name">Enregistrement…</string>
     <string name="marker_description_placeholder">Ajouter une description…</string>
 
-    <!-- Recovery dialog -->
-    <string name="recovery_title">Enregistrement inachevé</string>
-    <string name="recovery_found">Enregistrement inachevé trouvé du %1$s.</string>
-    <string name="recovery_continue">Continuer</string>
-    <string name="recovery_save">Sauvegarder</string>
+    <!-- Recovery dialog — ses trois portes reprennent les clés du dialogue de sortie d'enregistrement -->
+    <string name="recovery_title">Enregistrement interrompu</string>
+    <string name="recovery_found">Un parcours était en cours d\'enregistrement à %1$s. Que voulez-vous faire ?</string>
 
     <!-- Track import match dialog / sheet -->
     <string name="import_match_title">Trace existante trouvée</string>
@@ -674,13 +672,21 @@
     <string name="route_stage_snap">Coins</string>
     <string name="route_stage_fine">Affinage</string>
     <!-- Le dialogue de sortie unique, atteint par l'extinction de la bascule comme par la touche
-         retour (R59). Son bouton accentué écrit l'itinéraire suivi dans une trace, et il est désactivé
-         tant que cet itinéraire en a déjà une. -->
+         retour (R59). Un seul axe décide ses trois portes — cette ligne est-elle déjà une trace ? — donc la
+         porte accentuée écrit l'itinéraire suivi dans une trace et grise quand elle en a déjà une, l'accent
+         passant alors à l'issue avant `Quitter`, et la troisième porte affiche `Abandonner la route` tant
+         que la pression jetterait la route ou `Quitter` une fois qu'elle ne le peut plus.
+         `route_exit_discard` et `route_exit_save` nomment aussi la porte du panneau d'acquisition et les
+         enfants de l'éventail, donc ils gardent le sens *Abandonner la route* et *Enregistrer la route*. -->
     <string name="route_exit_title">Quitter la route ?</string>
     <string name="route_exit_save">Enregistrer la route dans les traces</string>
-    <string name="route_exit_continue">Continuer la route</string>
-    <string name="route_exit_discard">Abandonner</string>
-    <string name="route_exit_stop_following">Arrêter de suivre</string>
+    <string name="route_exit_continue">Continuer</string>
+    <string name="route_exit_discard">Abandonner la route</string>
+    <string name="route_exit_leave">Quitter</string>
+    <!-- Le signalement d'arrivée (R100) : le même dialogue de sortie, levé quand le temps restant de
+         l'itinéraire suivi franchit le seuil d'arrivée — une invite sans message, sur les trois mêmes
+         portes. -->
+    <string name="route_arrival_title">Vous semblez être arrivé à destination</string>
     <!-- Le toast de l'abandon différé : la fin de l'acquisition et celle d'un itinéraire suivi, nommées
          honnêtement, chacune offrant Annuler (`action_undo`) et Nouvelle acquisition, qui réarme les
          mêmes extrémités. -->

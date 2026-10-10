@@ -65,8 +65,12 @@
 - **Filed:** [`TrackRepository.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt:172)
 
 ### 2.5 Process-Death Recovery
-- **Decision:** Scan for orphaned `*_checkpoint.bin` files on startup. Offer user to save or discard.
-- **Rationale:** If the app crashes mid-recording, the checkpoint is recovered on next launch. User gets an AlertDialog to decide.
+- **Decision:** Scan for orphaned `*_checkpoint.bin` files on startup. Offer the user to resume, save or discard the interrupted recording.
+- **The dialog (2026-10-10)** — the recording family's own three doors, in that family's order and clothes: `Continue recording` (accent — the recovered session's forward outcome) · `Save track` (outlined) · `Discard track` (red, the only path that deletes the checkpoint). They are the same at every recorder state, so no extra axis is invented for it, and they are listed where the dialog is built in [`MapDialogHost.kt`](app/src/main/java/ykws/android/maro/ui/map/MapDialogHost.kt:130).
+- **Wording** — the title is *Recording interrupted* (`recovery_title`), read against the sibling's *Recording in progress*, and the message *A track was being recorded at %1$s. What would you like to do?* (`recovery_found`, the track name kept, the typo *Unfhinished Track recording at %1$s.* gone).
+- **One home per word** — the doors reuse `recording_exit_continue` / `recording_exit_save` / `recording_exit_discard`; `recovery_continue` and `recovery_save` had no reader left and were retired.
+- **Dismissal still saves** — scrim tap and back run the same `onDismiss` and still save the checkpoint: dismissal is not an abort, and the explicit Discard door did not change that.
+- **Rationale:** If the app crashes mid-recording, the checkpoint is recovered on next launch. User gets a dialog to decide.
 - **Filed:** [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:132)
 
 ### 2.6 Demo Mode: Geofence Bypass

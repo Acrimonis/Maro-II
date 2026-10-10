@@ -856,10 +856,9 @@ private fun LiveTrackCard(
     dateFormat: SimpleDateFormat,
     onUpdateMeta: ((name: String?, comment: String?) -> Unit)? = null
 ) {
-    val dotColor = if (liveState.isMoving)
-        Color(AppConfig.statusTrackingDotRecording)
-    else
-        Color(AppConfig.statusTrackingDotIdle)
+    // The map's one mark: the live card's dot and border wear `ui.map.pulse.dot`, the same colour the
+    // drawer's recording mark carries (the tracking square now wears its state's dot instead).
+    val dotColor = Color(AppConfig.uiMapPulseDot)
 
     val borderColor = dotColor
     val stateLabel = if (liveState.isMoving) stringResource(R.string.state_recording)

@@ -76,9 +76,12 @@ internal fun MapLockLayer(
                         .align(Alignment.TopStart)
                         .padding(
                             top = lockTopInset,
-                            // The arithmetic's one home, over the slot the row actually drew: the
-                            // earth/water square is the one the setting can take away.
-                            start = topToggleSlotOffset(lockSlot(appSettings.showLandWaterIcon))
+                            // The arithmetic's one home, over the slot the row actually drew: the same
+                            // list the row composes from finds the lock square's visible index, so the
+                            // mirror cannot land on another control.
+                            start = topToggleSlotOffset(
+                                TopToggleControl.row(appSettings).indexOf(TopToggleControl.LOCK)
+                            )
                         )
                 )
                 ZoomControls(

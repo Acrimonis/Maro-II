@@ -9,6 +9,7 @@ import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
+import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
@@ -521,5 +522,233 @@ class RoutePlanTest {
         assertEquals("and the whole line is the remaining run", listOf(p0), split.remainingPoints)
         assertEquals(0.0, split.distanceM, 1e-9)
         assertEquals(0.0, split.durationSec, 1e-9)
+    }
+
+    /**
+     * **The mirror reads the same water the other way** (R99): [`RoutePlan.reversed`] is the plan's one
+     * home for the heading-away transform — the polyline and its per-leg times reverse, the two ends
+     * exchange, and every settled total rides unchanged, so a mirrored line is the same bytes as the
+     * drawn one and a mirror of a mirror is the original.
+     */
+    @Test
+    fun theMirrorReversesTheLineExchangesTheEndsAndKeepsEveryTotal() {
+        val original = plan()
+
+        val mirror = original.reversed()
+
+        assertEquals("the start becomes the old destination", p2, mirror.start)
+        assertEquals("and the destination the old start", p0, mirror.destination)
+        assertEquals("the polyline reverses", listOf(p2, p1, p0), mirror.points)
+        assertEquals("and so do the leg times", listOf(240.0, 120.0), mirror.legTimesSec)
+        assertEquals("the distance is the line's, not a direction's", original.distanceM, mirror.distanceM, 1e-9)
+        assertEquals("and the duration with it", original.durationSec, mirror.durationSec, 1e-9)
+        assertEquals("the same instant dates it", original.computedAtMs, mirror.computedAtMs)
+        assertEquals("a mirror of a mirror is the original", original, mirror.reversed())
+    }
+
+    /** The mirror carries the route's own settled facts untouched — nothing forks with the direction. */
+    @Test
+    fun theMirrorCarriesTheRoutesOwnFactsUntouched() {
+        val original = plan().copy(
+            destinationMoved = true,
+            budgetUnmetZoneShare = 0.4,
+            forcedCrossingZoneNames = listOf("Zone A"),
+            slowLimitSeconds = listOf(RouteSlowLimit(limitKn = 5.0, seconds = 90.0, isBand = true))
+        )
+
+        val mirror = original.reversed()
+
+        assertTrue("a moved destination stays reported", mirror.destinationMoved)
+        assertEquals(0.4, mirror.budgetUnmetZoneShare)
+        assertEquals(listOf("Zone A"), mirror.forcedCrossingZoneNames)
+        assertEquals(original.slowLimitSeconds, mirror.slowLimitSeconds)
+    }
+
+    // ── The loss toggle and the arrival cue (R99, R100) ──────────────────
+
+    /** A timestamped time-to-go reading, in the shape the detector gathers. */
+    private fun eta(atMs: Long, sec: Double) = RouteEtaSample(etaSec = sec, atMs = atMs)
+
+    /**
+     * **The toggle fires on a loss against the low, and a fall or a flat reading holds** (R99): the
+     * reading flips only once the time-to-go is `lossSec` worse than the smallest sample in the
+     * look-back — a fall is the ordinary progressing state, and a flat reading does nothing. A window
+     * with nothing in it reads nothing and never toggles.
+     */
+    @Test
+    fun theToggleFiresOnALossAgainstTheLowAndHoldsOnAFallOrAFlat() {
+        val samples = listOf(eta(0, 300.0), eta(1_000, 290.0), eta(2_000, 280.0))
+
+        assertTrue(
+            "a loss of the loss against the low toggles the reading",
+            routeEtaToggle(samples, etaSec = 310.0, nowMs = 3_000, lossSec = 30.0)
+        )
+        assertFalse(
+            "a fall is the ordinary progressing state",
+            routeEtaToggle(samples, etaSec = 270.0, nowMs = 3_000, lossSec = 30.0)
+        )
+        assertFalse(
+            "and a flat reading does nothing",
+            routeEtaToggle(samples, etaSec = 280.0, nowMs = 3_000, lossSec = 30.0)
+        )
+        assertFalse(
+            "a window with no sample reads nothing in it",
+            routeEtaToggle(emptyList(), etaSec = 900.0, nowMs = 3_000, lossSec = 30.0)
+        )
+    }
+
+    /**
+     * **The look-back is derived, not a dial** (R99): twice the loss, so the loss must accrue within
+     * its span, and the low is the smallest sample **inside** it — a reading older than the span never
+     * counts, so a background pause leaves no stale low behind.
+     */
+    @Test
+    fun theLookBackIsTwiceTheLossAndTheLowIsSmallestInsideIt() {
+        assertEquals("the look-back is twice the loss", 60_000L, routeEtaLookBackMs(30.0))
+
+        val samples = listOf(eta(0, 100.0), eta(40_000, 400.0), eta(59_000, 200.0))
+        assertEquals(
+            "the low drops the sample older than the look-back",
+            200.0,
+            routeEtaLow(samples, nowMs = 100_000, lookBackMs = 60_000)!!,
+            1e-9
+        )
+        assertEquals(
+            "and one just inside it still counts",
+            100.0,
+            routeEtaLow(samples, nowMs = 60_000, lookBackMs = 60_000)!!,
+            1e-9
+        )
+    }
+
+    /**
+     * **The history buckets to about one sample a second and drops what the look-back leaves behind**
+     * (R99): a reading inside the last second's own bucket replaces its sample rather than adding one,
+     * so a fast stream of fixes stays one-a-second.
+     */
+    @Test
+    fun theHistoryBucketsToOneASecondAndDropsSamplesOlderThanTheLookBack() {
+        var history = emptyList<RouteEtaSample>()
+        history = routeEtaHistory(history, 300.0, nowMs = 0, lookBackMs = 60_000)
+        history = routeEtaHistory(history, 299.0, nowMs = 200, lookBackMs = 60_000)
+        history = routeEtaHistory(history, 298.0, nowMs = 400, lookBackMs = 60_000)
+        assertEquals("the same second holds one sample", 1, history.size)
+
+        history = routeEtaHistory(history, 290.0, nowMs = 1_500, lookBackMs = 60_000)
+        assertEquals("a later second adds one", 2, history.size)
+
+        val aged = routeEtaHistory(history, 280.0, nowMs = 200_000, lookBackMs = 60_000)
+        assertEquals("everything older than the look-back is dropped", 1, aged.size)
+    }
+
+    /**
+     * **A flip clears the history, and the debounce refuses a second toggle** (R99): the time-to-go
+     * jumps to the other end's own value when the plan reverses, so the samples behind the flip must
+     * not survive to read the jump as a loss; and after a flip no further flip happens inside
+     * `debounceSec`.
+     */
+    @Test
+    fun aFlipClearsTheHistoryAndTheDebounceRefusesASecondToggle() {
+        var state = RouteEtaState()
+        state = routeEtaStep(state, etaSec = 300.0, nowMs = 0, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0).state
+        state = routeEtaStep(state, etaSec = 300.0, nowMs = 1_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0).state
+
+        val flip = routeEtaStep(state, etaSec = 340.0, nowMs = 2_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+        assertTrue("a loss against the low flips the line", flip.flip)
+        assertTrue("and the history is cleared behind it", flip.state.samples.isEmpty())
+
+        var after = flip.state
+        after = routeEtaStep(after, etaSec = 100.0, nowMs = 2_500, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0).state
+        val blocked = routeEtaStep(after, etaSec = 200.0, nowMs = 4_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+        assertFalse("a second loss inside the debounce does not flip", blocked.flip)
+        val allowed = routeEtaStep(after, etaSec = 200.0, nowMs = 20_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+        assertTrue("past the debounce the same loss flips", allowed.flip)
+    }
+
+    /**
+     * **A drift slower than the look-back allows never toggles** (R99): the look-back is twice the
+     * loss, so losing ground at half the route's own pace never accrues the loss inside the span.
+     */
+    @Test
+    fun aDriftSlowerThanTheLookBackAllowsNeverToggles() {
+        var state = RouteEtaState()
+        var nowMs = 0L
+        var etaSec = 300.0
+        var flipped = false
+        repeat(60) {
+            val decision = routeEtaStep(state, etaSec, nowMs, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+            state = decision.state
+            if (decision.flip) flipped = true
+            nowMs += 1_000
+            etaSec += 0.25
+        }
+        assertFalse("a drift slower than half the route's pace never toggles", flipped)
+    }
+
+    /**
+     * **The arrival cue fires once per approach, on a new low below the threshold** (R100): a closing
+     * crossing prompts, a second low in the same approach does not, and a boat that leaves and comes
+     * back down — closing to a fresh low — legitimately re-prompts.
+     */
+    @Test
+    fun theCueFiresOncePerApproachOnANewLowBelowTheThreshold() {
+        var state = RouteEtaState()
+        state = routeEtaStep(state, 300.0, 0, 30.0, 15.0, 60.0).state
+
+        val first = routeEtaStep(state, 55.0, 2_000, 30.0, 15.0, 60.0)
+        assertTrue("a new low below the threshold prompts", first.arrivalCue)
+
+        val second = routeEtaStep(first.state, 50.0, 3_000, 30.0, 15.0, 60.0)
+        assertFalse("one prompt per approach", second.arrivalCue)
+
+        val up = routeEtaStep(second.state, 70.0, 4_000, 30.0, 15.0, 60.0).state
+        val again = routeEtaStep(up, 40.0, 6_000, 30.0, 15.0, 60.0)
+        assertTrue("a fresh approach re-prompts", again.arrivalCue)
+    }
+
+    /**
+     * **A route armed inside the zone never prompts** (R100): the cue is armed by a reading above the
+     * threshold, so a pair whose whole line is under it raises nothing.
+     */
+    @Test
+    fun aRouteArmedInsideTheZoneNeverPrompts() {
+        val first = routeEtaStep(RouteEtaState(), 45.0, 0, 30.0, 15.0, 60.0)
+        assertFalse("a route whose whole line is under the threshold raises no prompt", first.arrivalCue)
+    }
+
+    /**
+     * **A flip inside the minute arms the cue for the mirrored end** (R100): the initial arming needs a
+     * reading above the threshold, but a flip arms the cue regardless, so a mirrored end whose own goal
+     * already lies inside the minute behaves exactly like the first end and asks on its own crossing —
+     * the symmetry that keeps the prompt from being one-sided.
+     */
+    @Test
+    fun aFlipInsideTheMinuteArmsTheCueForTheMirroredEnd() {
+        var state = RouteEtaState()
+        state = routeEtaStep(state, 300.0, 0, 30.0, 15.0, 60.0).state
+        state = routeEtaStep(state, 300.0, 1_000, 30.0, 15.0, 60.0).state
+
+        val flip = routeEtaStep(state, 340.0, 2_000, 30.0, 15.0, 60.0)
+        assertTrue("a loss against the low flips the line", flip.flip)
+        assertTrue("the flip arms the cue for the mirrored end", flip.state.cueArmed)
+
+        val crossing = routeEtaStep(flip.state, 45.0, 3_000, 30.0, 15.0, 60.0)
+        assertTrue("the mirrored end asks on its own new-low crossing", crossing.arrivalCue)
+    }
+
+    /**
+     * **A flat reading past the destination never flips** (R99): the number's own flatness at the
+     * clamped end is what keeps the line quiet there, not a latch.
+     */
+    @Test
+    fun aFlatReadingPastTheDestinationNeverFlips() {
+        var state = routeEtaStep(RouteEtaState(), 0.0, 0, 30.0, 15.0, 60.0).state
+        var nowMs = 1_000L
+        repeat(10) {
+            val decision = routeEtaStep(state, 0.0, nowMs, 30.0, 15.0, 60.0)
+            state = decision.state
+            assertFalse("a flat zero reading never flips", decision.flip)
+            nowMs += 1_000
+        }
     }
 }

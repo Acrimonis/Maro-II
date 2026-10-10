@@ -6,7 +6,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -195,6 +194,140 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
         metres
     )
     return RoutePoint(moved.latitude, moved.longitude)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The followed route's own progression (R99) — the time-to-go history, the loss
+// toggle and the arrival cue
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One timestamped reading of the followed route's own time-to-go, on `SystemClock` elapsed-realtime. */
+internal data class RouteEtaSample(val etaSec: Double, val atMs: Long)
+
+/**
+ * **The followed route's own progression reading** (R99): the gathered time-to-go samples, whether the
+ * arrival cue is armed, and when the line last flipped. [routeEtaStep] advances it by one fix, and the
+ * detector holds one — cleared on entering `Following` and at every flip.
+ */
+internal data class RouteEtaState(
+    val samples: List<RouteEtaSample> = emptyList(),
+    val cueArmed: Boolean = false,
+    val lastFlipMs: Long? = null
+)
+
+/** What one fix decides: the advanced [state], whether the line flips, and whether the arrival cue fires. */
+internal data class RouteEtaDecision(
+    val state: RouteEtaState,
+    val flip: Boolean,
+    val arrivalCue: Boolean
+)
+
+/** The history buckets to about one sample a second, on elapsed-realtime, so a demo pan cannot churn it. */
+internal const val ROUTE_ETA_BUCKET_MS = 1_000L
+
+/**
+ * **The look-back is derived, not a dial** (R99): twice the loss, so the loss must accrue within its
+ * span and the real gate is *losing ground at least half as fast as the route expects to gain it*.
+ */
+internal fun routeEtaLookBackMs(lossSec: Double): Long = (lossSec * 2.0 * 1_000.0).toLong()
+
+/**
+ * The smallest time-to-go inside the look-back ending at [nowMs], or null when the window holds none.
+ * Samples older than the look-back are ignored, so a background pause leaves no stale low behind.
+ */
+internal fun routeEtaLow(samples: List<RouteEtaSample>, nowMs: Long, lookBackMs: Long): Double? {
+    val floor = nowMs - lookBackMs
+    var low: Double? = null
+    for (sample in samples) {
+        if (sample.atMs < floor) continue
+        low = if (low == null) sample.etaSec else minOf(low, sample.etaSec)
+    }
+    return low
+}
+
+/**
+ * **The history after one sample** (R99) — bucketed to about one a second ([ROUTE_ETA_BUCKET_MS]), the
+ * samples older than the look-back dropped. A reading inside the last second's own bucket **replaces**
+ * its sample rather than adding one, so a fast stream of fixes stays one-a-second.
+ */
+internal fun routeEtaHistory(
+    samples: List<RouteEtaSample>,
+    etaSec: Double,
+    nowMs: Long,
+    lookBackMs: Long,
+    bucketMs: Long = ROUTE_ETA_BUCKET_MS
+): List<RouteEtaSample> {
+    val floor = nowMs - lookBackMs
+    val fresh = samples.filter { it.atMs >= floor }
+    val last = fresh.lastOrNull()
+    return if (last != null && nowMs - last.atMs < bucketMs) {
+        fresh.dropLast(1) + RouteEtaSample(etaSec, last.atMs)
+    } else {
+        fresh + RouteEtaSample(etaSec, nowMs)
+    }
+}
+
+/**
+ * **Whether the followed route's reading now toggles** (R99) — `eta(now) - low >= lossSec`, where the
+ * low is the smallest sample inside the look-back of twice the loss ([routeEtaLow]). A fall or a flat
+ * reading is the ordinary progressing state; a missing window reads nothing in it, so this answers
+ * false. Pure and positional, so demo and GPS behave alike.
+ */
+internal fun routeEtaToggle(
+    samples: List<RouteEtaSample>,
+    etaSec: Double,
+    nowMs: Long,
+    lossSec: Double
+): Boolean {
+    if (!etaSec.isFinite()) return false
+    val low = routeEtaLow(samples, nowMs, routeEtaLookBackMs(lossSec)) ?: return false
+    return etaSec - low >= lossSec
+}
+
+/**
+ * **The followed route's progression, advanced by one fix** (R99, R100) — the one reading behind both
+ * the loss toggle and the arrival cue.
+ *
+ * A loss of [lossSec] against the look-back low flips the line, unless the [debounceSec] since the last
+ * flip has not yet elapsed; a flip **clears the history**, since the time-to-go jumps to the other
+ * end's own value and the samples behind it belong to the other orientation — without the clear that
+ * stale low would make the jump read as a loss and turn the line straight back. Otherwise the sample
+ * joins the history and the arrival cue fires when the time-to-go has fallen below [arrivalEtaSec] as a
+ * **new look-back low** with the cue armed: the cue arms on any reading above the threshold **and on
+ * every flip**, so a route taken up already inside the zone raises no prompt while its mirrored end
+ * does, and disarms when it fires, so a boat that leaves and comes back down legitimately re-prompts.
+ * Pure: the caller holds [state] and reads the flip and the cue off the answer.
+ */
+internal fun routeEtaStep(
+    state: RouteEtaState,
+    etaSec: Double,
+    nowMs: Long,
+    lossSec: Double,
+    debounceSec: Double,
+    arrivalEtaSec: Double
+): RouteEtaDecision {
+    if (!etaSec.isFinite()) return RouteEtaDecision(state, flip = false, arrivalCue = false)
+    val lookBackMs = routeEtaLookBackMs(lossSec)
+    val debounceMs = (debounceSec * 1_000.0).toLong()
+    val debounced = state.lastFlipMs?.let { nowMs - it < debounceMs } == true
+    if (!debounced && routeEtaToggle(state.samples, etaSec, nowMs, lossSec)) {
+        // A flip clears the history and arms the cue, so the mirrored end prompts as the first end does;
+        // the cue it outranks is the caller's to close.
+        return RouteEtaDecision(
+            state = RouteEtaState(samples = emptyList(), cueArmed = true, lastFlipMs = nowMs),
+            flip = true,
+            arrivalCue = false
+        )
+    }
+    val low = routeEtaLow(state.samples, nowMs, lookBackMs)
+    val history = routeEtaHistory(state.samples, etaSec, nowMs, lookBackMs)
+    val armed = state.cueArmed || etaSec > arrivalEtaSec
+    val crossing = armed && etaSec < arrivalEtaSec && (low == null || etaSec < low)
+    return RouteEtaDecision(
+        state = RouteEtaState(samples = history, cueArmed = armed && !crossing, lastFlipMs = state.lastFlipMs),
+        flip = false,
+        arrivalCue = crossing
+    )
 }
 
 /**
@@ -464,36 +597,30 @@ internal fun routeSpanText(seconds: Double): String {
  * **It is never gated.** An engine that cannot answer does not gate the mode: the toggle arms, and
  * the status line carries the reason. The square is therefore **never dead**, and no `enabled` knob
  * exists to make it so.
+ *
+ * `routeFace` (`MapToggleFace.kt`) resolves the square's two channels — off, the acquiring amber while
+ * the search has not answered, the nominal blue once the line is followed — and the square reads the
+ * user's **line colour no longer**: that colour stays on the line alone, and the tile and the mark carry
+ * the mode's own state.
  */
 @Composable
 internal fun RouteToggleButton(
     armed: Boolean,
     following: Boolean,
     searching: Boolean,
-    lineColor: Int,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = when {
-        !armed -> mapSurfaceFaceInactive()
-        following -> mapSurfaceFaceActive(ComposeColor(AppConfig.routeNavigateColor))
-        else -> mapSurfaceFaceActive(ComposeColor(lineColor))
-    }
+    val face = routeFace(armed, following, searching)
     val description = stringResource(R.string.cd_route_toggle)
     MapToggleSquare(
-        face = face,
+        face = face.toSurfaceFace(),
         onClick = onToggle,
         modifier = modifier,
         contentDescription = description
     ) {
         // Hard-coded like the row's other glyphs: a compass, which reads as "where to go".
         Text(text = "\uD83E\uDDED", fontSize = TOP_TOGGLE_ICON_SIZE)
-
-        // The mark is the shared one: the geometry and the colour both live in MapPulseDot (R69), and
-        // it beats while the search runs as well as while the route is followed (R51).
-        if (armed && (following || searching)) {
-            MapPulseDot(modifier = Modifier.align(Alignment.TopEnd))
-        }
     }
 }
 

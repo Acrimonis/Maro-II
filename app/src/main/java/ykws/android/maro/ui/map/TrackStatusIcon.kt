@@ -2,26 +2,22 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 
 /**
  * Tracking status icon — one of the row's squares, painted by [MapToggleSquare] on the shared
  * [MapSurface].
  *
- * 44×44 dp rounded square with 🐾 paw-prints emoji, coloured background per state. A pulsing dot in the
- * top-right quadrant indicates sub-state (recording vs idle); the dot is this control's own and is not the
- * surface's business.
+ * 44×44 dp rounded square with 🐾 paw-prints emoji. `trackingFace` (`MapToggleFace.kt`) resolves the
+ * square's two channels from the recorder's state; both the tile and the data mark are painted by
+ * [MapToggleSquare] from the resolved face.
  *
- * States, one resolved [MapSurfaceFace] each:
- * - **OFF:** the shared inactive face — the fill painted whole, the glyph alone dimmed. No dot.
- * - **ON + moving:** `status.tracking.healthy` green at the shared active alpha, red pulsing dot.
- * - **ON + idle:** `status.tracking.idle` blue at the shared active alpha, red pulsing dot.
+ * - **OFF:** the shared pale face, glyph dimmed, no dot.
+ * - **ON + moving (recording):** nominal blue fill, **green** dot.
+ * - **ON + still (standing by):** green fill, **green** dot — the one place the fill and the dot share a
+ *   hue, for two different reasons (standing by, and the data is complete).
  */
 @Composable
 fun TrackStatusIcon(
@@ -29,33 +25,13 @@ fun TrackStatusIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = when (recorderState.state) {
-        TrackRecorderState.OFF -> mapSurfaceFaceInactive()
-        TrackRecorderState.ON -> mapSurfaceFaceActive(
-            Color(
-                if (recorderState.isMoving) AppConfig.statusTrackingHealthy
-                else AppConfig.statusTrackingIdle
-            )
-        )
-    }
-    val showDot = recorderState.state == TrackRecorderState.ON
+    val face = trackingFace(recorderState)
 
-    MapToggleSquare(face = face, onClick = onClick, modifier = modifier) {
+    MapToggleSquare(face = face.toSurfaceFace(), onClick = onClick, modifier = modifier) {
         Text(
             text = "\uD83D\uDC3E", // 🐾 paw prints
             fontSize = TOP_TOGGLE_ICON_SIZE,
             fontWeight = FontWeight.Bold
         )
-
-        // Pulsing dot, top-right of the square. MapToggleSquare sizes this content box to the padded
-        // area, so TopEnd here is the square's own corner inset by `ui.map.surface.padding` (6 dp) on
-        // both axes — the same 10 dp dot at the same 6 dp inset the pre-surface version drew, and now by
-        // construction rather than because the paw's measured box happened to be the padded 32 dp.
-        // **The disc's colour is not this square's to choose** (R69): it is the UI's one mark, read by
-        // MapPulseDot, and the geometry beside it — the size, that inset, the 1 -> 0.3 range and the
-        // 800 ms period — lives in that same shared home, which the route toggle draws through too.
-        if (showDot) {
-            MapPulseDot(modifier = Modifier.align(Alignment.TopEnd))
-        }
     }
 }

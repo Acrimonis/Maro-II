@@ -238,22 +238,11 @@ internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
  *  `ui.map.toggle.gutter` (default 6 dp) — the one reader of that key. */
 internal val TOP_TOGGLE_GUTTER: Dp get() = AppConfig.uiMapToggleGutter.dp
 
-/** 0-based slot of the lock square in the top-left row: GPS, record, earth/water, inspect, lock —
- *  one less while the earth/water square is hidden by its setting, which [lockSlot] decides. */
-private const val TOP_TOGGLE_LOCK_SLOT = 4
-
-/**
- * The lock square's slot in a row drawn with or without the earth/water square. The row's order is
- * this value's dependency: hiding that square takes the slot down by one, so the locked-screen mirror
- * stays over the original. [topToggleSlotOffset] still owns the arithmetic.
- */
-internal fun lockSlot(earthWaterShown: Boolean): Int =
-    if (earthWaterShown) TOP_TOGGLE_LOCK_SLOT else TOP_TOGGLE_LOCK_SLOT - 1
-
 /**
  * Start offset (dp) of the square at [slot] in that row — the row's own start gutter, then one
- * square plus one gutter per slot before it. Derived from the row's order rather than repeated as a
- * literal, which is why inserting the inspect square moved the locked-screen mirror by one constant.
+ * square plus one gutter per slot before it. The slot is read from [TopToggleControl.row], the row's
+ * one order home, so a square inserted or hidden there moves the locked-screen mirror with no literal
+ * to update and nothing to keep in sync.
  */
 internal fun topToggleSlotOffset(slot: Int): Dp =
     TOP_TOGGLE_GUTTER + (TOP_TOGGLE_SQUARE + TOP_TOGGLE_GUTTER) * slot
@@ -795,7 +784,10 @@ fun MapScreen(
     // One gate for the draft's writes: the re-save and the final overwrite serialize on it, so a
     // stale partial line can never be written after the full one.
     val routeDraftWriteMutex = remember { Mutex() }
-    var routeExitRequested by remember { mutableStateOf(false) }
+    // **The one exit dialog's own raiser** (R59, R100): null while it is not shown, `EXIT` when the
+    // toggle's off or the back key raises it, `ARRIVAL` when the followed route's own time-to-go crosses
+    // the arrival threshold. The dialog picks only its title from the reason; its doors are the same.
+    var routeExitReason by remember { mutableStateOf<RouteExitReason?>(null) }
     // **The auto-pick's own one-shot flag** (R80): armed by the fan's *Route (auto)* child, it takes the
     // settled line the instant that line exists and clears with it — on the selection, on an end and on a
     // new arming — so no later acquisition can inherit an intent nobody pressed for.
@@ -1111,6 +1103,25 @@ fun MapScreen(
         navigationState.bearingDeg.toDouble(),
         navigationState.speedKnots?.toDouble()
     )
+
+    // ── The followed route's one feed (R99, R100) ────────────────────────
+    // The boat's own fix, purely positional: while a route is followed the mode reads the plan's own
+    // time-to-go off it — a loss against its recent low flips the line in place, and a drop through the
+    // arrival threshold raises the arrival cue. Keyed on the point alone, so a stationary boat
+    // re-evaluates nothing and demo and GPS behave alike.
+    LaunchedEffect(routeBoatPosition) {
+        val decision = routeViewModel.onBoatFix(
+            from = routeBoatPosition,
+            nowElapsedMs = SystemClock.elapsedRealtime()
+        )
+        if (decision.flip && routeExitReason == RouteExitReason.ARRIVAL) {
+            // A reversal outranks the arrival cue: close it as a no-action dismissal and let the flip stand.
+            routeExitReason = null
+        }
+        if (decision.arrivalCue && routeExitReason == null) {
+            routeExitReason = RouteExitReason.ARRIVAL
+        }
+    }
 
     // ── The Route section's standing pair (R44–R48, R66) ─────────────────────────
     // **A route's two ends are chosen in the drawer and read at the trigger** (R44, R71): each selector
@@ -2081,7 +2092,7 @@ fun MapScreen(
                 if (!routeArmed) return
                 routeArmed = false
                 routePinned = false
-                routeExitRequested = false
+                routeExitReason = null
                 // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
                 routeAutoPick = false
                 routeDraftId = null
@@ -2103,7 +2114,7 @@ fun MapScreen(
             fun discardRoute() {
                 if (!routeArmed || pendingDiscard != null) return
                 val followed = routeState is RouteState.Following
-                routeExitRequested = false
+                routeExitReason = null
                 val snack = ActiveSnack.RouteDiscard(followed)
                 pendingDiscard = PendingRouteDiscard(snack)
                 enqueueSnack(snack)
@@ -2203,7 +2214,7 @@ fun MapScreen(
              */
             fun requestRouteExit() {
                 if (!routeArmed) return
-                routeExitRequested = true
+                routeExitReason = RouteExitReason.EXIT
             }
 
             /**
@@ -3984,11 +3995,11 @@ fun MapScreen(
             onBatteryOptPrompted = {
                 viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
             },
-            // ── The route's one exit dialog (R59) — the dialog itself lives in the host ──
-            routeExitRequested = routeExitRequested,
+            // ── The route's one exit dialog (R59, R100) — the dialog itself lives in the host ──
+            routeExitReason = routeExitReason,
             routeState = routeState,
             routeViewModel = routeViewModel,
-            onDismissExit = { routeExitRequested = false },
+            onDismissExit = { routeExitReason = null },
             onSaveRoute = { plan -> saveRouteTrack(plan, routePinned) },
             // Save-and-exit never toasts; only the dialog's own Discard is deferred.
             onEndRoute = { endRouteMode() },
@@ -4707,50 +4718,52 @@ private fun MapContent(
             // ── LEFT COLUMN: top + middle + btm ──────────────────────────
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
 
-                // top zone: GPS, tracking, land/water, inspect, lock, + recenter while auto-follow is paused (statusBars minus 6dp)
+                // top zone: the row's squares composed from TopToggleControl.row — GPS, tracking,
+                // land/water, inspect, route, lock — then the recenter square while auto-follow is
+                // paused (statusBars minus 6dp). The order and the land/water condition live in that
+                // list alone; the recenter is appended outside it, so it never shifts the lock's slot.
                 Row(
                     modifier = Modifier
                         .padding(top = topInset, start = TOP_TOGGLE_GUTTER),
                     horizontalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    GpsStatusIcon(
-                        state = gpsIconState,
-                        onClick = onGpsModeToggle
-                    )
-                    TrackStatusIcon(
-                        recorderState = trackRecorderState,
-                        onClick = if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON)
-                            onStopRecording
-                        else
-                            onStartRecording
-                    )
-                    if (appSettings.showLandWaterIcon) {
-                        EarthWaterIcon(
-                            emoji = if (isWater) "🌊" else "🏔️",
-                            color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                        )
+                    TopToggleControl.row(appSettings).forEach { control ->
+                        when (control) {
+                            TopToggleControl.GPS -> GpsStatusIcon(
+                                state = gpsIconState,
+                                onClick = onGpsModeToggle
+                            )
+                            TopToggleControl.TRACKING -> TrackStatusIcon(
+                                recorderState = trackRecorderState,
+                                onClick = if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON)
+                                    onStopRecording
+                                else
+                                    onStartRecording
+                            )
+                            TopToggleControl.LAND_WATER -> EarthWaterIcon(
+                                isWater = isWater
+                            )
+                            TopToggleControl.INSPECT -> InspectToggleButton(
+                                armed = inspectArmed,
+                                enabled = inspectEnabled,
+                                onToggle = onToggleInspect
+                            )
+                            // **Never dead** (§17 item 3): a tap while the engine is not ready asks for one more
+                            // preparation and the refusal is shown where the feature's own chrome lives, so this
+                            // square carries its tap always — there is no `enabled` to take it away.
+                            TopToggleControl.ROUTE -> RouteToggleButton(
+                                armed = routeArmed,
+                                following = routeFollowing,
+                                searching = routeSearching,
+                                onToggle = onToggleRoute
+                            )
+                            TopToggleControl.LOCK -> LockScreenButton(
+                                locked = screenLocked,
+                                onClick = onToggleScreenLock
+                            )
+                        }
                     }
-                    InspectToggleButton(
-                        armed = inspectArmed,
-                        enabled = inspectEnabled,
-                        onToggle = onToggleInspect
-                    )
-                    // **Never dead** (§17 item 3): a tap while the engine is not ready asks for one more
-                    // preparation and the refusal is shown where the feature's own chrome lives, so this
-                    // square carries its tap always — there is no `enabled` to take it away.
-                    RouteToggleButton(
-                        armed = routeArmed,
-                        following = routeFollowing,
-                        searching = routeSearching,
-                        // The acquiring face follows the line's own colour (R51).
-                        lineColor = appSettings.routeLineColor,
-                        onToggle = onToggleRoute
-                    )
-                    LockScreenButton(
-                        locked = screenLocked,
-                        onClick = onToggleScreenLock
-                    )
                     if (appSettings.gpsMode && autoFollowSuppressed) {
                         RecenterButton(onClick = onRecenter)
                     }

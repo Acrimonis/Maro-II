@@ -12,7 +12,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color as ComposeColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -55,9 +54,10 @@ internal const val INSPECT_TRACK_TITLE_PREFIX = "track_inspect_"
 private const val INSPECT_GLYPH = "\uD83D\uDD75\uD83C\uDFFD"
 
 /**
- * The inspect toggle: the fourth square of the row's own family, between the earth/water square and
- * the lock square. Armed it wears the app accent at the shared active alpha; disarmed the inactive
- * face.
+ * The inspect toggle: one square of the row's own family, whose order and visibility live in
+ * [TopToggleControl] rather than here. `inspectFace` (`MapToggleFace.kt`) resolves the square's two
+ * channels: off is the shared pale face with no dot, armed the app accent with the complete-data green
+ * dot.
  *
  * While armed it is always tappable — a filter change must not trap the user in a mode they cannot
  * switch off — so [enabled] only ever comes from the disarmed-and-nothing-inspectable gate, and a
@@ -70,10 +70,9 @@ internal fun InspectToggleButton(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = if (armed) mapSurfaceFaceActive(ComposeColor(AppConfig.uiAccent))
-    else mapSurfaceFaceInactive()
+    val face = inspectFace(armed)
     MapToggleSquare(
-        face = face,
+        face = face.toSurfaceFace(),
         onClick = if (enabled || armed) onToggle else null,
         modifier = modifier
     ) {

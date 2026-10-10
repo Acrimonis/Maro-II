@@ -23,6 +23,14 @@ import ykws.android.maro.ui.components.ConfirmDialog
 import ykws.android.maro.ui.components.OptionRow
 
 /**
+ * **Why the route's one exit dialog stands** (R59, R100): the ordinary leave the toggle's off and the
+ * back key raise, or the **arrival cue** the followed route's own time-to-go raises when it crosses the
+ * route's arrival threshold. The doors are the dialog's own in both cases — the arrival prompt changes
+ * only the title.
+ */
+internal enum class RouteExitReason { EXIT, ARRIVAL }
+
+/**
  * Windowed dialogs/sheets host (extracted from MapScreen). Owns ONLY popup windows
  * (AlertDialog / ModalBottomSheet) — the screen-lock scrim lives in `MapLockLayer`,
  * called after this host so it paints above every drawer and the map.
@@ -72,8 +80,8 @@ internal fun MapDialogHost(
     closeBatteryOptDialog: () -> Unit,
     /** Marks the prompt as answered, so it never reappears (persisted via AppSettings). */
     onBatteryOptPrompted: () -> Unit,
-    // ── The route's one exit dialog (R59) ──
-    routeExitRequested: Boolean,
+    // ── The route's one exit dialog (R59, R100) ──
+    routeExitReason: RouteExitReason?,
     routeState: RouteState,
     routeViewModel: RouteViewModel,
     onDismissExit: () -> Unit,
@@ -120,8 +128,11 @@ internal fun MapDialogHost(
     )
 
     // ── Process-death recovery dialog ─────────────────────────────
-    // Dismissing (scrim tap / back) saves the checkpoint — that side effect is preserved
-    // verbatim, and no Cancel is offered because dismissal is not an abort.
+    // The recording family's own three doors, in its order and clothes — Continue recording (the
+    // recovered session's forward outcome, so it takes the accent), Save track, Discard track — and
+    // they are the same at every recorder state, so no extra axis is invented for this dialog.
+    // Dismissing (scrim tap / back) still SAVES the checkpoint: dismissal is not an abort, and the
+    // explicit Discard door did not change that — Discard is the only path that deletes it.
     recoveryTrack?.let { track ->
         ConfirmDialog(
             title = stringResource(R.string.recovery_title),
@@ -129,11 +140,14 @@ internal fun MapDialogHost(
             onDismiss = { trackViewModel.saveOrphanedCheckpoint(track) },
             message = stringResource(R.string.recovery_found, track.name),
             actions = listOf(
-                ConfirmAction(stringResource(R.string.recovery_continue), ConfirmActionRole.PRIMARY) {
+                ConfirmAction(exitContinueLabel, ConfirmActionRole.PRIMARY) {
                     trackViewModel.resumeOrphanedCheckpoint(track)
                 },
-                ConfirmAction(stringResource(R.string.recovery_save), ConfirmActionRole.SECONDARY) {
+                ConfirmAction(exitSaveLabel, ConfirmActionRole.SECONDARY) {
                     trackViewModel.saveOrphanedCheckpoint(track)
+                },
+                ConfirmAction(exitDiscardLabel, ConfirmActionRole.DANGER) {
+                    trackViewModel.discardOrphanedCheckpoint(track)
                 }
             )
         )
@@ -240,45 +254,51 @@ internal fun MapDialogHost(
         )
     }
 
-    // ── The route's one exit dialog (R59) — asked by the toggle and the back key ───
-    // Both doors raise this same dialog, and it reads in the order every action surface takes
-    // (ui-component-guidelines §5.6): the affirmative first, the neutral stay, the loss last —
-    // **Save Route to Track** · **Continue route** · **Discard Route**. Its save writes the followed
-    // route and is **disabled while that route already has its track**, so no second press writes a
-    // second track for one line.
-    if (routeExitRequested) {
+    // ── The route's one exit dialog (R59, R100) — asked by the toggle, the back key and the arrival cue ───
+    // Every raiser reaches this one dialog, and its three doors are one pure decision (`routeExitDoors`,
+    // ui-component-guidelines §5.6): the forward outcome first, the neutral stay, the ending last. One axis
+    // decides them — *is this line already a track?* — read once here. While the line is unwritten the save
+    // door carries the accent, enabled, and the loss door is red; once it is a track the save door keeps its
+    // place and disables, nothing is lost, and the accent falls to the enabled forward outcome, whose word
+    // follows the cost — `Discard route` or `Leave`. The arrival cue rides the same doors under its own
+    // title alone (a title-only prompt, no message).
+    if (routeExitReason != null) {
         val front = routeState.plan
         val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
-        // A followed saved route is already a track, so its save door stays grey and its third
-        // door reads "Stop following" rather than "Discard Route".
-        val frontUnwritten = front != null && !routeViewModel.isRouteSaved(front) && followedTrackId == null
+        // One fact, read once: the line is already a track — a followed saved route is one, and a followed
+        // unsaved line is not until the save door writes it.
+        val written = front == null || routeViewModel.isRouteSaved(front) || followedTrackId != null
+        val doors = routeExitDoors(written)
         ConfirmDialog(
-            title = stringResource(R.string.route_exit_title),
+            title = stringResource(
+                if (routeExitReason == RouteExitReason.ARRIVAL) R.string.route_arrival_title
+                else R.string.route_exit_title
+            ),
             visible = true,
             onDismiss = { onDismissExit() },
             message = null,
             options = null,
             actions = listOf(
-                // The accent is the dialog's own outcome: it writes the route the toggle follows.
+                // The accent is the dialog's own outcome: it writes the route the toggle follows, and it
+                // greys once that write has nothing left to do.
                 ConfirmAction(
-                    label = stringResource(R.string.route_exit_save),
-                    role = ConfirmActionRole.PRIMARY,
-                    enabled = frontUnwritten
+                    label = stringResource(doors.save.labelRes),
+                    role = doors.save.role,
+                    enabled = doors.save.enabled
                 ) {
                     onDismissExit()
                     if (front != null) onSaveRoute(front)
                     onEndRoute()
                 },
                 ConfirmAction(
-                    label = stringResource(R.string.route_exit_continue),
-                    role = ConfirmActionRole.SECONDARY
+                    label = stringResource(doors.stay.labelRes),
+                    role = doors.stay.role,
+                    enabled = doors.stay.enabled
                 ) { onDismissExit() },
                 ConfirmAction(
-                    label = stringResource(
-                        if (followedTrackId != null) R.string.route_exit_stop_following
-                        else R.string.route_exit_discard
-                    ),
-                    role = ConfirmActionRole.DANGER
+                    label = stringResource(doors.loss.labelRes),
+                    role = doors.loss.role,
+                    enabled = doors.loss.enabled
                 ) {
                     onDismissExit()
                     onDiscardRoute()

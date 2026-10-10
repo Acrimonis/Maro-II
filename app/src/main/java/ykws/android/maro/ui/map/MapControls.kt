@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.settings.AppSettings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -50,6 +51,33 @@ internal val TOP_TOGGLE_SQUARE: Dp get() = AppConfig.uiMapToggleSquare.dp
 internal val TOP_TOGGLE_ICON_SIZE: TextUnit get() = AppConfig.uiMapToggleIconSize.sp
 
 /**
+ * One square of the map's top-left toggle row, listed in the row's own left-to-right order — the
+ * order's single home. [shown] is that square's own visibility, so the row composes straight from
+ * [row] and the locked-screen mirror reads the same list to find where the lock square lands; neither
+ * can drift from the other the way a hand-kept slot id did. Only [LAND_WATER] is ever conditional —
+ * `showLandWaterIcon` takes it away — and everything after it shifts.
+ *
+ * The recenter square is deliberately absent: it is appended after [LOCK] and never shifts a slot.
+ */
+internal enum class TopToggleControl(val shown: (AppSettings) -> Boolean) {
+    GPS({ true }),
+    TRACKING({ true }),
+    LAND_WATER({ it.showLandWaterIcon }),
+    INSPECT({ true }),
+    ROUTE({ true }),
+    LOCK({ true });
+
+    companion object {
+        /**
+         * The row's squares as drawn: the listed order with the hidden ones dropped, in one place so
+         * the row and the lock mirror derive from the same source.
+         */
+        fun row(appSettings: AppSettings): List<TopToggleControl> =
+            entries.filter { it.shown(appSettings) }
+    }
+}
+
+/**
  * Start inset (dp) of the bottom band's banner family: the band's own gutter, plus the width the
  * bottom-left tag column takes — one `ui.map.toggle.square` and the `ui.map.overlay.gap` the info text
  * sits at — while [tagsDrawn]. Callers read it wherever they place a banner, so the pill and the two
@@ -76,23 +104,22 @@ private val BANNER_SHADOW_ELEVATION = 8.dp
  * A 44×44 dp icon square showing either water (🌊) or earth (🏔️), painted by [MapToggleSquare] on the
  * shared [MapSurface].
  *
- * No text caption — icon only, and no semantics either: the square has no tap, so nothing here was ever
- * exposed to accessibility and nothing is lost by not naming it. [color] is the side that is under the
- * boat, so the square always paints an active face and there is no inactive wing left to reach: one
- * resolved face is the whole state (D5, map-surface normalization).
+ * A **reading** rather than a control: the side under the boat is the whole state — the nominal blue
+ * over water, the hazard red over land — and the square wears **no data mark**, which is what tells a
+ * reading from a control at a glance (plan §the two channels). No text caption either — icon only, and
+ * no semantics: the square has no tap, so nothing here was ever exposed to accessibility.
  */
 @Composable
 internal fun EarthWaterIcon(
-    emoji: String,
-    color: ComposeColor,
+    isWater: Boolean,
     modifier: Modifier = Modifier
 ) {
     MapToggleSquare(
-        face = mapSurfaceFaceActive(color),
+        face = earthWaterFace(isWater).toSurfaceFace(),
         modifier = modifier
     ) {
         Text(
-            text = emoji,
+            text = if (isWater) "🌊" else "🏔️",
             fontSize = TOP_TOGGLE_ICON_SIZE
         )
     }
@@ -115,17 +142,17 @@ internal fun HamburgerIcon() {
 /**
  * 7-state GPS indicator icon — leftmost in the top-left status row.
  *
- * The state table below is this control's own; the painting is not. Every branch resolves one
- * [MapSurfaceFace] and hands it to [MapToggleSquare], which is the row's single square.
+ * The state table is this control's own; the resolution is not. `gpsFace` (`MapToggleFace.kt`) turns a
+ * state into the square's two channels, and this control only paints them: both the tile and the data
+ * mark are painted by [MapToggleSquare] from the resolved face.
  *
- * - [GpsIconState.DEMO]: GPS toggle off, satellite outline — the inactive face, glyph dimmed
- * - [GpsIconState.ACQUIRING]: GPS on but no fix yet, amber face
- * - [GpsIconState.HEALTHY]: GPS fix good, green face
- * - [GpsIconState.IDLE]: GPS fix but stationary (reduced cadence), blue face
- * - [GpsIconState.STALE]: GPS lost / hasLock false / error, red face
- * - [GpsIconState.ESTIMATING]: dead-reckoning fix, its own amber — `AppConfig.statusGpsEstimating`, a code
- *   default the palette has no key for (deliberate: `colors.properties` holds the other five states)
- * - [GpsIconState.WEAK]: fix too weak to trust, the acquiring amber
+ * - [GpsIconState.DEMO]: GPS off — the shared pale face, glyph dimmed, no dot
+ * - [GpsIconState.ACQUIRING]: no fix yet — the acquiring amber, **red** dot
+ * - [GpsIconState.HEALTHY]: a fix held and moving — nominal blue, **green** dot
+ * - [GpsIconState.IDLE]: a fix held while still — the same nominal blue, **green** dot (no idle face)
+ * - [GpsIconState.STALE]: the fix lost — hazard red, **red** dot
+ * - [GpsIconState.ESTIMATING]: dead reckoning — the acquiring amber, **red** dot (`status.gps.estimating`)
+ * - [GpsIconState.WEAK]: a fix too weak to trust — the acquiring amber, **red** dot
  */
 internal enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE, ESTIMATING, WEAK }
 
@@ -135,17 +162,8 @@ internal fun GpsStatusIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = when (state) {
-        // The inactive face paints the shared fill whole and dims the glyph alone — the fill's own
-        // weight is in the token, so no box alpha is added on top of it.
-        GpsIconState.DEMO -> mapSurfaceFaceInactive()
-        GpsIconState.ACQUIRING, GpsIconState.WEAK -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsAcquiring))
-        GpsIconState.HEALTHY -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsHealthy))
-        GpsIconState.IDLE -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsIdle))
-        GpsIconState.STALE -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsStale))
-        GpsIconState.ESTIMATING -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsEstimating))
-    }
-    MapToggleSquare(face = face, onClick = onClick, modifier = modifier) {
+    val face = gpsFace(state)
+    MapToggleSquare(face = face.toSurfaceFace(), onClick = onClick, modifier = modifier) {
         Text(text = "📡", fontSize = TOP_TOGGLE_ICON_SIZE)
     }
 }
@@ -156,9 +174,9 @@ internal fun GpsStatusIcon(
  * owns. Tapping immediately smooth-scrolls back to the GPS position.
  *
  * Shown, it is an ordinary family square wearing the app's accent blue — `ui.accent`, the palette's
- * `semantic.info` — at the shared active alpha. It reads the accent key because the colour is the app's
- * accent rather than another control's state, and it types no colour of its own (D4, map-surface
- * normalization).
+ * `semantic.info` — at the shared active alpha, and **no data mark**: it is an action rather than a
+ * mode. It reads the accent key because the colour is the app's accent rather than another control's
+ * state, and it types no colour of its own (D4, map-surface normalization).
  */
 @Composable
 internal fun RecenterButton(
@@ -166,7 +184,7 @@ internal fun RecenterButton(
     modifier: Modifier = Modifier
 ) {
     MapToggleSquare(
-        face = mapSurfaceFaceActive(ComposeColor(AppConfig.uiAccent)),
+        face = recenterFace().toSurfaceFace(),
         onClick = onClick,
         modifier = modifier
     ) {
@@ -179,9 +197,9 @@ internal fun RecenterButton(
 
 /**
  * Screen-lock toggle — one slot in the top-left status row. The glyph is 📵 in both states and only the
- * face changes: unlocked is the inactive face with that glyph dimmed, locked paints `status.lock.on` blue
- * at the shared active alpha, as the design has it. The square's paint is [MapToggleSquare]'s; this
- * control owns the two faces and the content description.
+ * face changes: unlocked is the shared pale face with that glyph dimmed and no dot, locked the nominal
+ * blue with the complete-data green dot. The paint is [MapToggleSquare]'s; this control owns the two
+ * resolved faces and the content description.
  */
 @Composable
 internal fun LockScreenButton(
@@ -189,14 +207,10 @@ internal fun LockScreenButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = if (locked) {
-        mapSurfaceFaceActive(ComposeColor(AppConfig.statusLockOn))
-    } else {
-        mapSurfaceFaceInactive()
-    }
+    val face = lockFace(locked)
     val cd = stringResource(if (locked) R.string.cd_unlock_screen else R.string.cd_lock_screen)
     MapToggleSquare(
-        face = face,
+        face = face.toSurfaceFace(),
         onClick = onClick,
         modifier = modifier,
         contentDescription = cd

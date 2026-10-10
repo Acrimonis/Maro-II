@@ -182,7 +182,10 @@ is therefore the edit set and §6 stands as the rejected reading: D1a's "individ
 boost" is amended so the boost keeps the cap override and gives up the filter bypass, while the
 highlighted track keeps both. *(Both superseded 2026-09-28: the highlighted track keeps neither — the map
 filter is authoritative with no exception — and the drawing's three escapes, the pinned carve-out among
-them, are deleted.)*
+them, are deleted.)* **Reversed in part 2026-10-10:** the user's word re-instates the highlighted
+exception in a narrowed shape — one id, and only while its card stands, drawn past the filter and past the
+cap — while the session boost and the pinned carve-out stay filter-bound; the reversal is recorded as its
+own plan, `261010_FEAT_PLN_TracksImport_render-escape-selected-item.md`.
 
 ## 12. Outcome — shipped 2026-09-21
 

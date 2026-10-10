@@ -146,6 +146,35 @@ object AppConfig {
     var routeNavigateColor: Int = 0xFF1565C0.toInt()
         private set
 
+    /**
+     * **How much time-to-go the followed route must lose before it turns around** (R99) —
+     * `route.follow.swap.lossSec`, default 30, clamped 0..600. The reading toggles once the trip
+     * figure's own time-to-go is this much worse than its own recent low; small drifts do not count.
+     *
+     * A fall or a flat reading is the ordinary progressing state and does nothing. The **look-back is
+     * derived, not a dial** — twice this — so the loss must accrue within its span and the real gate is
+     * *losing ground at least half as fast as the route expects to gain it*.
+     */
+    var routeFollowSwapLossSec: Double = 30.0
+        private set
+
+    /**
+     * **How long the followed route leaves the boat alone after turning** (R99) —
+     * `route.follow.swap.debounceSec`, default 15, clamped 0..600. After a flip no further flip happens
+     * for this span, so a boat manoeuvring across one spot cannot chatter the reading.
+     */
+    var routeFollowSwapDebounceSec: Double = 15.0
+        private set
+
+    /**
+     * **How close the boat must be, in time left, before the app asks whether it has arrived** (R99) —
+     * `route.follow.arrival.etaSec`, default 60, clamped 0..600. When the time-to-go falls through this
+     * as a new look-back low the mode raises its exit dialog under the *reached your destination*
+     * prompt (R100).
+     */
+    var routeFollowArrivalEtaSec: Double = 60.0
+        private set
+
     /** The destination pin's fill colour — `route.pin.color`. */
     var routePinColor: Int = 0xFF2ECC71.toInt()
         private set
@@ -550,9 +579,9 @@ object AppConfig {
     // that stay outside. What stays per family is only what is genuinely family-specific: the toggle row's
     // square, gutter and glyph size, and the overlay cards' text tokens.
 
-    /** ARGB fill of the shared map surface. Default `#A8FFFFFF` (white at 66 %).
+    /** ARGB fill of the shared map surface. Default `#8CFFFFFF` (white at 55 %).
      *  Set via `ui.map.surface.inactive` in colors.properties. */
-    var uiMapSurfaceInactive: Int = 0xA8FFFFFF.toInt()
+    var uiMapSurfaceInactive: Int = 0x8CFFFFFF.toInt()
         private set
 
     /** Corner radius (dp) every surface clips to. Default 8.
@@ -574,14 +603,14 @@ object AppConfig {
     var uiMapSurfaceBorderWidth: Float = 1f
         private set
 
-    /** Alpha (0.0–1.0) an inactive surface dims its *content* to, never its fill. Default 0.75.
+    /** Alpha (0.0–1.0) an inactive surface dims its *content* to, never its fill. Default 0.6.
      *  Set via `ui.map.surface.inactive.content.alpha` in colors.properties. */
-    var uiMapSurfaceInactiveContentAlpha: Float = 0.75f
+    var uiMapSurfaceInactiveContentAlpha: Float = 0.6f
         private set
 
-    /** Background alpha (0.0–1.0) an active surface paints its own state colour at. Default 0.65.
+    /** Background alpha (0.0–1.0) an active surface paints its own state colour at. Default 0.5.
      *  Set via `ui.map.surface.active.alpha`. */
-    var uiMapSurfaceActiveAlpha: Float = 0.65f
+    var uiMapSurfaceActiveAlpha: Float = 0.5f
         private set
     /** The share of its own colour a status band fills itself with (0.0–1.0). Default 0.3 — the level a
      *  taken choice wears. Set via `ui.band.fill.alpha`. */
@@ -589,14 +618,57 @@ object AppConfig {
         private set
 
     /**
-     * The one colour of the pulsing mark every toggle wears — `ui.map.pulse.dot`, default `#FFD32F2F`.
+     * The default colour of the shared pulsing mark — `ui.map.pulse.dot`, default `#FFD32F2F`.
      *
-     * R69: the recording square and the route square's two on-phases wear the same dot, so the mark is
-     * a UI token of its own rather than the mode's colour — `semantic.danger`'s role is compliance, and
-     * the refused crosshair keeps `route.target.color`, unrelated to it. `MapPulseDot` keeps the
-     * geometry (its 10 dp, its corner inset and its 1 → 0.3 beat over 800 ms) and reads this value.
+     * `MapPulseDot` reads it when a caller paints no state — the drawer's recording dot and the live
+     * card's dot and border. The toggle squares pass their own resolved state colour
+     * (`semantic.compliant` / `semantic.caution` / `semantic.danger`) instead. The mark's geometry — its
+     * disc size, its beat floor, its period and its ring width — is the four `ui.map.pulse.dot.*`
+     * settings below. The refused crosshair keeps `route.target.color`, unrelated to it.
      */
     var uiMapPulseDot: Int = 0xFFD32F2F.toInt()
+        private set
+
+    /**
+     * Diameter (dp) of the shared pulsing mark's disc. Default 12. Set via `ui.map.pulse.dot.size`.
+     *
+     * The mark's one size: `MAP_PULSE_DOT_SIZE` reads it and `MAP_PULSE_DOT_INSET` derives the square's
+     * top-right placement as a share of it (`uiMapPulseDotInsetRatio`), so one number drives both the disc
+     * and its corner.
+     */
+    var uiMapPulseDotSize: Float = 12f
+        private set
+
+    /**
+     * The mark's top-right corner inset as a share of its own disc's size (0.0–1.0). Default 0.25 — a
+     * quarter of the disc, 3 dp at the 12 dp disc. Set via `ui.map.pulse.dot.inset.ratio`.
+     *
+     * The one number between the mark and its square's corner: `MAP_PULSE_DOT_INSET` multiplies it into
+     * the disc's size, so the placement scales with the disc instead of being a second number to keep in
+     * step.
+     */
+    var uiMapPulseDotInsetRatio: Float = 0.25f
+        private set
+
+    /**
+     * The beat's floor for the toggle mark's body (0.0–1.0): how far the mark fades before its
+     * full-strength ring holds the state readable. Default 0.33. Set via `ui.map.pulse.dot.floor`.
+     */
+    var uiMapPulseDotFloor: Float = 0.33f
+        private set
+
+    /**
+     * How long the shared pulsing mark's one 1 → floor → 1 cycle takes (ms). Default 555.
+     * Set via `ui.map.pulse.dot.ms`.
+     */
+    var uiMapPulseDotMs: Int = 555
+        private set
+
+    /**
+     * Ring width (dp) of the shared pulsing mark — the full-strength rim stroked inside the disc in the
+     * mark's own colour. Default 1. Set via `ui.map.pulse.dot.ring.width`.
+     */
+    var uiMapPulseDotRingWidth: Float = 1f
         private set
 
     /** Side (dp) of one square in the row. Default 44. Set via `ui.map.toggle.square`. */
@@ -1148,57 +1220,37 @@ object AppConfig {
     /** Low-depth warning overlay colour. Default #CCB71C1C (dark red, 80% opacity, alias to ui.dashboard.status.error). Set via `overlay.lowDepth.color` in colors.properties. */
     var overlayLowDepthColor: Int = 0xCCB71C1C.toInt()
         private set
-    /** GPS icon DEMO state background colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.gps.demo` in colors.properties. */
-    var statusGpsDemo: Int = 0x33FFFFFF.toInt()
-        private set
     /** GPS icon ACQUIRING state background colour. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `status.gps.acquiring` in colors.properties. */
     var statusGpsAcquiring: Int = 0xCCEF6C00.toInt()
         private set
-    /** GPS icon HEALTHY state background colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `status.gps.healthy` in colors.properties. */
-    var statusGpsHealthy: Int = 0xCC4CAF50.toInt()
+    /** GPS icon HEALTHY state background colour. Default from semantic.info = #FF1565C0 (the nominal blue). Set via `status.gps.healthy` in colors.properties. */
+    var statusGpsHealthy: Int = 0xFF1565C0.toInt()
         private set
-    /** GPS icon IDLE state background colour. Default #1565C0. Set via `status.gps.idle` in colors.properties. */
+    /** GPS icon IDLE state background colour. Default from semantic.info = #FF1565C0 (the nominal blue; the square has no separate idle face). Set via `status.gps.idle` in colors.properties. */
     var statusGpsIdle: Int = 0xFF1565C0.toInt()
         private set
     /** GPS icon STALE state background colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.gps.stale` in colors.properties. */
     var statusGpsStale: Int = 0xCCB71C1C.toInt()
         private set
-    /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber).
-     *  Code-only: `colors.properties` has no `status.gps.estimating` key, so this default is not a
-     *  palette setting — the file's GPS block holds the other five states. */
-    var statusGpsEstimating: Int = 0xFFFFB300.toInt()
+    /** GPS icon ESTIMATING state background colour (dead reckoning). Default from semantic.caution = #CCEF6C00 (the acquiring amber). Set via `status.gps.estimating` in colors.properties. */
+    var statusGpsEstimating: Int = 0xCCEF6C00.toInt()
         private set
-    /** EarthWater icon water-state colour. Default #1565C0. Set via `status.earthWater.water` in colors.properties. */
+    /** EarthWater icon water-state colour. Default from semantic.info = #FF1565C0 (the nominal blue). Set via `status.earthWater.water` in colors.properties. */
     var statusEarthWaterWater: Int = 0xFF1565C0.toInt()
         private set
-    /** EarthWater icon land-state colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `status.earthWater.land` in colors.properties. */
-    var statusEarthWaterLand: Int = 0xCC4CAF50.toInt()
-        private set
-    /** EarthWater icon inactive-state colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.earthWater.inactive` in colors.properties. */
-    var statusEarthWaterInactive: Int = 0x33FFFFFF.toInt()
+    /** EarthWater icon land-state colour. Default from semantic.danger = #CCB71C1C (the hazard red; the square is a reading and wears no dot). Set via `status.earthWater.land` in colors.properties. */
+    var statusEarthWaterLand: Int = 0xCCB71C1C.toInt()
         private set
 
-    /** Screen-lock icon OFF (unlocked) background colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.lock.off` in colors.properties. */
-    var statusLockOff: Int = 0x33FFFFFF.toInt()
-        private set
     /** Screen-lock icon ON (locked) background colour. Default from semantic.info = #FF1565C0 (blue). Set via `status.lock.on` in colors.properties. */
     var statusLockOn: Int = 0xFF1565C0.toInt()
         private set
 
-    /** Tracking icon HEALTHY state (ON + moving, recording) colour. Default #CC4CAF50. Set via `status.tracking.healthy` in colors.properties. */
-    var statusTrackingHealthy: Int = 0xCC4CAF50.toInt()
+    /** Tracking icon RECORDING state (ON + moving) colour. Default from semantic.info = #FF1565C0 (the nominal blue). Set via `status.tracking.recording` in colors.properties. */
+    var statusTrackingRecording: Int = 0xFF1565C0.toInt()
         private set
-    /** Tracking icon IDLE state (ON + stationary, not recording) colour. Default #FF1565C0. Set via `status.tracking.idle` in colors.properties. */
-    var statusTrackingIdle: Int = 0xFF1565C0.toInt()
-        private set
-    /** Tracking icon OFF state (not tracking) colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.tracking.off` in colors.properties. */
-    var statusTrackingOff: Int = 0x33FFFFFF.toInt()
-        private set
-    /** Tracking icon dot colour when recording (moving). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.recording` in colors.properties. */
-    var statusTrackingDotRecording: Int = 0xCCB71C1C.toInt()
-        private set
-    /** Tracking icon dot colour when idle (stationary). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.idle` in colors.properties. */
-    var statusTrackingDotIdle: Int = 0xCCB71C1C.toInt()
+    /** Tracking icon IDLE state (ON + still, standing by) colour. Default from semantic.compliant = #CC4CAF50 (the standing-by green). Set via `status.tracking.idle` in colors.properties. */
+    var statusTrackingIdle: Int = 0xCC4CAF50.toInt()
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
@@ -1808,6 +1860,11 @@ object AppConfig {
             props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.band.fill.alpha")?.toFloatOrNull()?.let { uiBandFillAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.pulse.dot")?.let { parseColorOrNull(it) }?.let { uiMapPulseDot = it }
+            props.getProperty("ui.map.pulse.dot.size")?.toFloatOrNull()?.let { uiMapPulseDotSize = it }
+            props.getProperty("ui.map.pulse.dot.inset.ratio")?.toFloatOrNull()?.let { uiMapPulseDotInsetRatio = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.pulse.dot.floor")?.toFloatOrNull()?.let { uiMapPulseDotFloor = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.pulse.dot.ms")?.toIntOrNull()?.let { uiMapPulseDotMs = it }
+            props.getProperty("ui.map.pulse.dot.ring.width")?.toFloatOrNull()?.let { uiMapPulseDotRingWidth = it }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
@@ -1921,24 +1978,18 @@ object AppConfig {
 
             props.getProperty("overlay.lowDepth.color")?.let { parseColorOrNull(it) }?.let { overlayLowDepthColor = it }
 
-            props.getProperty("status.gps.demo")?.let { parseColorOrNull(it) }?.let { statusGpsDemo = it }
             props.getProperty("status.gps.acquiring")?.let { parseColorOrNull(it) }?.let { statusGpsAcquiring = it }
             props.getProperty("status.gps.healthy")?.let { parseColorOrNull(it) }?.let { statusGpsHealthy = it }
             props.getProperty("status.gps.idle")?.let { parseColorOrNull(it) }?.let { statusGpsIdle = it }
             props.getProperty("status.gps.stale")?.let { parseColorOrNull(it) }?.let { statusGpsStale = it }
             props.getProperty("status.gps.estimating")?.let { parseColorOrNull(it) }?.let { statusGpsEstimating = it }
 
-            props.getProperty("status.tracking.healthy")?.let { parseColorOrNull(it) }?.let { statusTrackingHealthy = it }
+            props.getProperty("status.tracking.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingRecording = it }
             props.getProperty("status.tracking.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingIdle = it }
-            props.getProperty("status.tracking.off")?.let { parseColorOrNull(it) }?.let { statusTrackingOff = it }
-            props.getProperty("status.tracking.dot.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingDotRecording = it }
-            props.getProperty("status.tracking.dot.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingDotIdle = it }
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
-            props.getProperty("status.earthWater.inactive")?.let { parseColorOrNull(it) }?.let { statusEarthWaterInactive = it }
 
-            props.getProperty("status.lock.off")?.let { parseColorOrNull(it) }?.let { statusLockOff = it }
             props.getProperty("status.lock.on")?.let { parseColorOrNull(it) }?.let { statusLockOn = it }
 
             // ── Dashboard depth readout tints ─────────────────────────────────
@@ -2027,6 +2078,13 @@ object AppConfig {
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
+            // ── The followed route's loss toggle and arrival cue (R99) ──
+            props.getProperty("route.follow.swap.lossSec")?.toDoubleOrNull()
+                ?.let { routeFollowSwapLossSec = it.coerceIn(0.0, 600.0) }
+            props.getProperty("route.follow.swap.debounceSec")?.toDoubleOrNull()
+                ?.let { routeFollowSwapDebounceSec = it.coerceIn(0.0, 600.0) }
+            props.getProperty("route.follow.arrival.etaSec")?.toDoubleOrNull()
+                ?.let { routeFollowArrivalEtaSec = it.coerceIn(0.0, 600.0) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine cell Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {
