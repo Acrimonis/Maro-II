@@ -65,6 +65,8 @@ data class MenuOverlayData(
     /** The two kinds' own map visibility, so each header's eye draws its on/off face (2026-10-05). */
     val tracksVisible: Boolean = true,
     val routesVisible: Boolean = true,
+    /** The layer fan's master gate above both eyes: off, they dim and bite nothing (2026-10-10). */
+    val routeTracksVisible: Boolean = true,
 )
 
 /**

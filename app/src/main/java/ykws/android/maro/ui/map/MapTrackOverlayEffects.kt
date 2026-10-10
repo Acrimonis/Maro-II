@@ -44,6 +44,13 @@ internal fun MapTrackOverlayHistoryDiff(
      */
     eyeOverride: Boolean?,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
+    /**
+     * The stored items a card's deferred delete is hiding while it waits (2026-10-10), prefix already
+     * stripped: they leave the drawn set below, so no overlay paints them, and they return the moment
+     * the entry leaves the shell's set. A list row's swipe (`hideFromMap = false`) never joins it. A key
+     * of the pass too, so a change to the hiding repaints the exclusion it earns.
+     */
+    hiddenTrackIds: Set<String> = emptySet(),
     focus: MapRenderFocus,
     appSettings: AppSettings,
     /**
@@ -75,6 +82,7 @@ internal fun MapTrackOverlayHistoryDiff(
         add(trackArrows)
         add(trackColours)
         add(eyeOverride)
+        add(appSettings.routeTracksVisible)
         add(appSettings.tracksVisible)
         add(appSettings.routesVisible)
         add(appSettings.trackingRenderNb)
@@ -84,6 +92,9 @@ internal fun MapTrackOverlayHistoryDiff(
         add(appSettings.trackFilterLinked)
         add(appSettings.routeFilterLinked)
         add(allTrackSummaries)
+        // The hiding set is a key in every combination: a card's deferred delete must repaint the map
+        // the moment it enters or leaves, not on the next unrelated change.
+        add(hiddenTrackIds)
         add(appSettings.trackingTransparencyNewest)
         add(appSettings.trackingTransparencyOldest)
         add(appSettings.trackingTransparencyPinnedNewest)
@@ -169,7 +180,9 @@ internal fun MapTrackOverlayHistoryDiff(
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
         // The live recording line is drawn by the dedicated live effects and is never filterable, so it
         // is excluded here: a resumed recording must not also render as a stale stored-track overlay.
-        val storedSummaries = allTrackSummaries.filter { !it.isLive }
+        // A card's deferred delete is excluded through the same one home, so its item leaves the map
+        // while it waits and returns when the entry is removed (2026-10-10).
+        val storedSummaries = visibleStoredSummaries(allTrackSummaries, hiddenTrackIds)
         val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
         // The route role's own count, bounding the route set alone (R35): the not-pinned count above
         // goes on limiting recorded tracks.
@@ -183,11 +196,15 @@ internal fun MapTrackOverlayHistoryDiff(
             trackFilter = appSettings.trackMapFilter,
             routeFilter = appSettings.routeMapFilter,
             focus = focus,
-            tracksVisible = appSettings.tracksVisible,
-            routesVisible = appSettings.routesVisible,
+            // The fan's master rules both kinds and each eye refines it (2026-10-10); the pair is taken
+            // at one home so no gate site can read a bare eye by accident.
+            tracksVisible = kindLayerOn(appSettings.routeTracksVisible, appSettings.tracksVisible),
+            routesVisible = kindLayerOn(appSettings.routeTracksVisible, appSettings.routesVisible),
             todayMidnightMs = midnightMs,
             recordingNb = nbToRender,
-            routeNb = routeNb
+            routeNb = routeNb,
+            // The open dashboard's own item, drawn whatever the gates say.
+            selectedId = highlightedTrackId
         )
         val historyList = selection.recorded
         val routeList = selection.routes
@@ -492,6 +509,18 @@ internal fun storedTrackSets(
     recorded = summaries.filterNot { it.route }
 )
 
+/**
+ * The stored set one pass reads (2026-10-10): every summary but the live recording — painted by its own
+ * dedicated effect and never filterable — and every item a card's deferred delete hides while it
+ * waits, [hiddenIds] carrying those ids with the shell's prefix already stripped. One home for the
+ * expression, so the live-recording exclusion and the hiding rule cannot drift, and a test can hold it.
+ */
+internal fun visibleStoredSummaries(
+    summaries: List<ykws.android.maro.data.track.TrackSummary>,
+    hiddenIds: Set<String>
+): List<ykws.android.maro.data.track.TrackSummary> =
+    summaries.filter { !it.isLive && it.id !in hiddenIds }
+
 /** The three sets one pass draws — the recorded half, the route half and the pinned escape. */
 internal data class StoredTrackSelection(
     val recorded: List<TrackSummary>,
@@ -500,14 +529,22 @@ internal data class StoredTrackSelection(
 )
 
 /**
+ * Whether a kind is drawn: the layer fan's **master** gate rules and the kind's own header eye refines
+ * it (2026-10-10) — a false master hides both kinds whatever the eyes say, a true one leaves each kind
+ * to its own eye. One home, so no gate site can read a bare eye by accident.
+ */
+internal fun kindLayerOn(masterVisible: Boolean, kindVisible: Boolean): Boolean =
+    masterVisible && kindVisible
+
+/**
  * What one pass asks each of the three roles for, from one entry point so the two counts cannot drift
  * apart:
  *
  * - [StoredTrackSelection.recorded] — the recorded half, ranked, filtered by [trackFilter] and bounded
- *   by [recordingNb]'s own count, **empty when [tracksVisible] is false**;
+ *   by [recordingNb]'s own count, **empty when [tracksVisible] is false** — save for [selectedId];
  * - [StoredTrackSelection.routes] — the route half, filtered by [routeFilter], bounded by [routeNb] and
  *   **never** by the recorded count: the two sibling counts limit their own role alone (R35), **empty
- *   when [routesVisible] is false**;
+ *   when [routesVisible] is false** — save for [selectedId];
  * - [StoredTrackSelection.pinned] — every pinned summary **its own kind's filter holds** and **its own
  *   kind's visibility allows**, **uncapped**: the pin is what marks a route already saved, so it escapes
  *   [routeNb] (R34, R35), but the pin is no escape from the filter or the layer switch — a hidden kind
@@ -517,6 +554,11 @@ internal data class StoredTrackSelection(
  *   Because the ranked path excludes pinned items and this one excludes unpinned, whichever loop draws
  *   the selected item draws it **once and never twice**. The choice is made here, inside the one entry
  *   point, so every caller and test holds one home for "per kind".
+ *
+ * [selectedId] is the open dashboard's own item, and it is the **visibility gates' one exception**
+ * (2026-10-10): while the info that item describes is on screen, the item must be on the map — so a
+ * switched-off kind still draws it, and it alone. The escape reaches the visibility gates alone and
+ * never the filter, so the recorded decision that no opened item rides past the map filter stands.
  *
  * Membership is [storedTrackSets]' decision; this one only decides what each half is asked for. The
  * two caps are taken here rather than at the call site, so a test can hold the count's home.
@@ -530,25 +572,27 @@ internal fun storedTrackSelection(
     routesVisible: Boolean = tracksVisible,
     todayMidnightMs: Long,
     recordingNb: Int,
-    routeNb: Int
+    routeNb: Int,
+    selectedId: String? = null
 ): StoredTrackSelection {
     val sets = storedTrackSets(summaries)
     val policy = TrackSelectionPolicy()
+    val selected = selectedId?.let { id -> summaries.firstOrNull { it.id == id } }
     return StoredTrackSelection(
-        recorded = if (!tracksVisible) emptyList() else policy.select(
+        recorded = if (tracksVisible) policy.select(
             items = sets.recorded,
             filter = trackFilter,
             cap = recordingNb.coerceIn(0, 20),
             focus = focus,
             todayMidnightMs = todayMidnightMs
-        ),
-        routes = if (!routesVisible) emptyList() else policy.select(
+        ) else listOfNotNull(selected?.takeIf { !it.route }),
+        routes = if (routesVisible) policy.select(
             items = sets.routes,
             filter = routeFilter,
             cap = routeNb.coerceIn(0, 20),
             focus = focus,
             todayMidnightMs = todayMidnightMs
-        ),
+        ) else listOfNotNull(selected?.takeIf { it.route }),
         pinned = summaries
             .filter {
                 it.pinned &&

@@ -121,6 +121,7 @@ import ykws.android.maro.ui.components.ListSelectionCheck
 import ykws.android.maro.ui.components.ListSelectionRail
 import ykws.android.maro.ui.components.ListSelectionTouchZone
 import ykws.android.maro.ui.components.OptionRow
+import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.components.StatCell
 import ykws.android.maro.ui.icons.route
 import java.text.SimpleDateFormat
@@ -200,7 +201,17 @@ internal fun TrackHistoryOverlay(
      * route filter and the route scroll state (passed in by the caller) and hides the live recording
      * card and the Merge action.
      */
-    scope: ListScope = ListScope.TRACKS
+    scope: ListScope = ListScope.TRACKS,
+    /**
+     * The shell's one pending-deletion set (2026-10-10), forwarded to the scaffold so a card's deferred
+     * delete and a row's swipe share one list. Null keeps the scaffold's own local set.
+     */
+    sharedPending: MutableList<PendingDeletion>? = null,
+    /**
+     * The key prefix this surface's rows take in the shared set — `"t:"`, a route being a track record.
+     * Blank keeps the ids bare.
+     */
+    pendingKeyPrefix: String = ""
 ) {
     val isRoutes = scope == ListScope.ROUTES
 
@@ -463,6 +474,8 @@ internal fun TrackHistoryOverlay(
         modifier = modifier,
         // A route is a line between two points, not a leg of a journey: Merge is a tracks-list action.
         multiActions = if (isRoutes) trackMultiActions.filterNot { it.id == "merge" } else trackMultiActions,
+        sharedPending = sharedPending,
+        pendingKeyPrefix = pendingKeyPrefix,
         lazyListState = lazyListState
     )
 }

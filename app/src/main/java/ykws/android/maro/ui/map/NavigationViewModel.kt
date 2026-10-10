@@ -1289,7 +1289,18 @@ class NavigationViewModel(
     }
 
     /**
-     * Toggle the tracks overlay layer visibility on/off.
+     * Toggle the layer fan's **master** gate for the route-and-tracks family — the fan's own child, and
+     * the one switch that rules both kinds (2026-10-10). The two header eyes refine it and never
+     * override it: with the master off neither kind is drawn, whatever an eye says.
+     */
+    fun toggleRouteTracksVisibility() {
+        Log.d("MaroMapRefresh", "toggleRouteTracks → ${!settings.value.routeTracksVisible}")
+        settingsManager.update { it.copy(routeTracksVisible = !it.routeTracksVisible) }
+    }
+
+    /**
+     * Toggle the recorded tracks' own visibility — the TRACKS header's eye, a refinement under the
+     * fan's master gate ([toggleRouteTracksVisibility]).
      */
     fun toggleTracksVisibility() {
         Log.d("MaroMapRefresh", "toggleTracks → ${!settings.value.tracksVisible}")

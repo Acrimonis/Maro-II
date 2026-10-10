@@ -13,7 +13,8 @@ import org.junit.Test
  * ways: a list card closes on a list write; a menu chevron's card and a spy (inspect) card close on a map
  * write; and a map click — a single item whose standing is not the filter's business — never closes this
  * way. The track half repeats the split through its own [TrackCardSource], because the two cards live in
- * different state owners.
+ * different state owners, and since the lists split (2026-10-10) it also matches the write's **kind**
+ * against the kind the card itself holds, so one list's write leaves the other list's card standing.
  */
 class DashboardScopeClosedTest {
 
@@ -46,28 +47,51 @@ class DashboardScopeClosedTest {
         assertTrue(scopeClosed(DrawerSource.LIST, inListWorld = true, inMapWorld = true))
     }
 
-    // ── The track card's twin (plan §4) ──────────────────────────────────────
+    // ── The track card's twin (plan §4, kind-aware 2026-10-10) ───────────────
 
     @Test
-    fun `a list-opened track closes on a list write and stands on a bare map write`() {
-        assertTrue(trackScopeClosed(TrackCardSource.LIST, inListWorld = true, inMapWorld = false))
-        assertFalse(trackScopeClosed(TrackCardSource.LIST, inListWorld = false, inMapWorld = true))
+    fun `a list-opened track closes on its own kind's list write and stands on a bare map write`() {
+        assertTrue(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = false, listWorld = ListScope.TRACKS, mapWorld = null))
+        assertFalse(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = false, listWorld = null, mapWorld = ListScope.TRACKS))
     }
 
     @Test
-    fun `a menu-opened track closes on a map write and stands on a bare list write`() {
-        assertTrue(trackScopeClosed(TrackCardSource.MENU, inListWorld = false, inMapWorld = true))
-        assertFalse(trackScopeClosed(TrackCardSource.MENU, inListWorld = true, inMapWorld = false))
+    fun `a list-opened track stands on the other kind's list write`() {
+        assertFalse(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = false, listWorld = ListScope.ROUTES, mapWorld = null))
     }
 
     @Test
-    fun `a spy-opened track closes on a map write, its ladder being the map's own`() {
-        assertTrue(trackScopeClosed(TrackCardSource.INSPECT, inListWorld = false, inMapWorld = true))
-        assertFalse(trackScopeClosed(TrackCardSource.INSPECT, inListWorld = true, inMapWorld = false))
+    fun `a list-opened route closes on the routes write and stands on the tracks one`() {
+        assertTrue(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = true, listWorld = ListScope.ROUTES, mapWorld = null))
+        assertFalse(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = true, listWorld = ListScope.TRACKS, mapWorld = null))
     }
 
     @Test
-    fun `a linked write into both worlds closes a list-opened track`() {
-        assertTrue(trackScopeClosed(TrackCardSource.LIST, inListWorld = true, inMapWorld = true))
+    fun `a menu-opened track closes on its own kind's map write and stands on a bare list write`() {
+        assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = false, listWorld = null, mapWorld = ListScope.TRACKS))
+        assertFalse(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = false, listWorld = ListScope.TRACKS, mapWorld = null))
+    }
+
+    @Test
+    fun `a menu-opened route stands on the tracks map write and closes on its own`() {
+        assertFalse(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = null, mapWorld = ListScope.TRACKS))
+        assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = null, mapWorld = ListScope.ROUTES))
+    }
+
+    @Test
+    fun `a spy-opened track closes on its own kind's map write, its ladder being the map's own`() {
+        assertTrue(trackScopeClosed(TrackCardSource.INSPECT, cardIsRoute = false, listWorld = null, mapWorld = ListScope.TRACKS))
+        assertFalse(trackScopeClosed(TrackCardSource.INSPECT, cardIsRoute = false, listWorld = null, mapWorld = ListScope.ROUTES))
+    }
+
+    @Test
+    fun `a linked write into both of its kind's worlds closes a list-opened track`() {
+        assertTrue(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = false, listWorld = ListScope.TRACKS, mapWorld = ListScope.TRACKS))
+    }
+
+    @Test
+    fun `a write that moves no world closes nothing`() {
+        assertFalse(trackScopeClosed(TrackCardSource.LIST, cardIsRoute = false, listWorld = null, mapWorld = null))
+        assertFalse(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = null, mapWorld = null))
     }
 }

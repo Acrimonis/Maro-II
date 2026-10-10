@@ -284,11 +284,14 @@ data class AppSettings(
     /** Unpinned halo border/stroke transparency % (0-100). Default 60 = faint ring. */
     val markerHaloUnpinnedBorderTransparencyPct: Int = 60,
     /**
-     * The two kinds' own map visibility — the drawer headers' eye toggles. [tracksVisible] gates
-     * recorded tracks (pinned tracks with them) and [routesVisible] gates routes (pinned routes with
-     * them); each is a **render switch alone**, so the menu counts follow the filters and never these
-     * flags. The map's layer fan reads [tracksVisible] alone.
+     * The two kinds' own map visibility — the drawer headers' eye toggles — and, above them, the layer
+     * fan's own master gate. [routeTracksVisible] is the fan's word and rules both kinds: neither is
+     * drawn while it is off, whatever the eyes say, and the fan's badge reads it (2026-10-10).
+     * Under it, [tracksVisible] gates recorded tracks (pinned tracks with them) and [routesVisible]
+     * gates routes (pinned routes with them); each eye is a **render switch alone**, so the menu counts
+     * follow the filters and never these flags.
      */
+    val routeTracksVisible: Boolean = true,
     val tracksVisible: Boolean = true,
     val routesVisible: Boolean = true,
     /**
@@ -711,6 +714,7 @@ class SettingsManager(
         markerHaloPinnedBorderTransparencyPct = prefs.getInt(KEY_MARKER_HALO_PINNED_BORDER_TRANSPARENCY_PCT, 20),
         markerHaloUnpinnedFillTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, 90),
         markerHaloUnpinnedBorderTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, 60),
+        routeTracksVisible = prefs.getBoolean(KEY_ROUTE_TRACKS_VISIBLE, true),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
         routesVisible = prefs.getBoolean(KEY_ROUTES_VISIBLE, true),
         // Absent means expanded: today's behaviour is the fallback, so no install has anything to migrate.
@@ -912,6 +916,7 @@ class SettingsManager(
             .putInt(KEY_MARKER_HALO_PINNED_BORDER_TRANSPARENCY_PCT, updated.markerHaloPinnedBorderTransparencyPct)
             .putInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, updated.markerHaloUnpinnedFillTransparencyPct)
             .putInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, updated.markerHaloUnpinnedBorderTransparencyPct)
+            .putBoolean(KEY_ROUTE_TRACKS_VISIBLE, updated.routeTracksVisible)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
             .putBoolean(KEY_ROUTES_VISIBLE, updated.routesVisible)
             .putBoolean(KEY_TRACK_LEGEND_EXPANDED, updated.trackLegendExpanded)
@@ -1085,6 +1090,8 @@ class SettingsManager(
         private const val KEY_TRACK_ORIGIN_LON = "track_origin_lon"
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
+        /** The layer fan's master gate for the route-and-tracks family (see [AppSettings.routeTracksVisible]). */
+        private const val KEY_ROUTE_TRACKS_VISIBLE = "route_tracks_visible"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
         /** The routes' own map visibility, the routes header's eye (see [AppSettings.routesVisible]). */
         private const val KEY_ROUTES_VISIBLE = "routes_visible"

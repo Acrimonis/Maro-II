@@ -1,7 +1,9 @@
 package ykws.android.maro.ui.map
 
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.ui.components.PendingDeletion
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The card walk policy — Android-free rules both cards share (plan §1, §3, §4)
@@ -217,19 +219,69 @@ internal enum class TrackCardSource {
 }
 
 /**
- * R2 for the track card, the twin of [scopeClosed] (plan §4): given the door the card was opened by and
- * the two referentials its change landed in, answer whether that change closes it.
+ * R2 for the track card, the twin of [scopeClosed] (plan §4): given the door the card was opened by,
+ * the kind it holds and the referential worlds a change landed in, answer whether that change closes it.
  *
- * A list-opened card walks the list world, so the list filter, sort or reset closes it; the menu chevron
- * and the spy card both walk a map-referential set, so a map-filter write closes them — and the list's
- * own write does not, unless the link carried it into the map world as well (the caller passes both
- * flags, exactly as the marker half does).
+ * The card and the write must name the **same kind**: the two lists are kind-locked, so a route card
+ * walks the routes list and a recorded-track card the tracks list, and a write to the other kind's list —
+ * or to the other kind's map referential — leaves the card standing. The kind-blind pair of booleans this
+ * replaces had either list's write closing either list's card (2026-10-10).
+ *
+ * A list-opened card walks the list world, so its own kind's list filter, sort or reset closes it; the
+ * menu chevron and the spy card both walk a map-referential set, so their own kind's map write closes
+ * them — and the list's own write does not, unless the link carried it into the map world as well (the
+ * caller passes both, exactly as the marker half does).
+ *
+ * [listWorld] and [mapWorld] name the kind whose referential moved, or null for neither.
  */
 internal fun trackScopeClosed(
     source: TrackCardSource,
-    inListWorld: Boolean,
-    inMapWorld: Boolean
-): Boolean = when (source) {
-    TrackCardSource.LIST -> inListWorld
-    TrackCardSource.MENU, TrackCardSource.INSPECT -> inMapWorld
+    cardIsRoute: Boolean,
+    listWorld: ListScope?,
+    mapWorld: ListScope?
+): Boolean {
+    val kind = if (cardIsRoute) ListScope.ROUTES else ListScope.TRACKS
+    return when (source) {
+        TrackCardSource.LIST -> listWorld == kind
+        TrackCardSource.MENU, TrackCardSource.INSPECT -> mapWorld == kind
+    }
 }
+
+/**
+ * The list world a card of this kind walks when its opener handed none over ([walkWorld] null): the
+ * card's own kind's summaries, the live recording dropped and any item already on its way out excluded.
+ *
+ * The two lists are kind-locked, so the kind the item carries **is** the list it was opened from, and a
+ * route card must never be handed the tracks list — which is what left a route's own id absent from its
+ * walk world, its counter pinned at one and its Prev/Next stepping recorded tracks (2026-10-10). The
+ * same rule answers the world a delete's advance walks, `pendingDeletions` empty and the exclusions left
+ * to the caller.
+ *
+ * [pendingDeletions] is the shell's own pending set, read through its keys: the `"t:${it.id}"` spelling
+ * is the tracks kind's, so a route — a track record — is excluded through the same key exactly as a
+ * recorded track (2026-10-10).
+ */
+internal fun cardWalkListIds(
+    walkWorld: List<String>?,
+    cardIsRoute: Boolean,
+    trackSummaries: List<TrackSummary>,
+    routeSummaries: List<TrackSummary>,
+    pendingDeletions: List<PendingDeletion>
+): List<String> = walkWorld
+    ?: (if (cardIsRoute) routeSummaries else trackSummaries)
+        .filter { !it.isLive && pendingDeletions.none { entry -> entry.key == "t:${it.id}" } }
+        .map { it.id }
+
+/**
+ * The map ids a shared pending-deletion set hides (2026-10-10), the prefix stripped: only the entries
+ * whose [PendingDeletion.hideFromMap] is true — a card's deferred delete — carry the item off the map
+ * while it waits, and [prefix] (`"t:"` / `"m:"`) selects the kind. A list row's swipe
+ * (`hideFromMap = false`) never enters the answer, so the map keeps drawing the item the user swiped
+ * away in the list: that is the user's own correction.
+ *
+ * One home for the rule, so the two map passes that read it — the stored-tracks pass and the marker
+ * overlay — cannot drift, and the decision is unit-tested without a device.
+ */
+internal fun hiddenMapIdsOf(pending: List<PendingDeletion>, prefix: String): Set<String> =
+    pending.filter { it.hideFromMap && it.key.startsWith(prefix) }
+        .mapTo(mutableSetOf()) { it.key.removePrefix(prefix) }

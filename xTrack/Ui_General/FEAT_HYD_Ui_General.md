@@ -1,32 +1,29 @@
-# Context Hydration — Ui_General — 2026-10-06
+# Context Hydration — Ui_General — 2026-10-10
 
-**Last Bake:** 2026-10-06 12:38 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-10 08:25 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met — no dependency was added (the two new icons are hand-written `ImageVector`s already in place), no machine-shaped data file was opened, every write followed an order (the branch work on `feature/list-selection`, the docs reconciliation and the bake on the user's own directive, the commit and push on the same word), the device was never touched (builds only), and every claim written about the code came from a file read this session. The gaps are named rather than hidden: nothing is device-validated, and no Ask verdict is recorded for this session's payload.
+**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (the reported regression, the delete normalization's plan and its implementation, then this bake), the device was never touched (the builds and suites are named below), and every claim about the code rests on a file read. Named rather than hidden: the pipeline's Ask hop on the delete pass was **declined by the user**, so that pass carries no independent review, and one claim of the agent's own was refuted by the code earlier in the session and retracted in the plan.
 
 ## State
 
-One branch, `feature/list-selection`, cut from `origin/develop`, carrying no upstream yet — the first `#push` writes its own name. One thing shipped: the list-selection rework, whose plan of record is `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md`, its §10–§14 recording the trials.
+Two passes shipped on `feature/rte-n-trck-list`.
 
-**The per-item door is the card's leading edge.** `ListSelectionRail` draws the item's own colour as a 6 dp accent bar inside a 14 dp visual zone that folds in the content's former 8 dp leading padding; `ListSelectionTouchZone` carries the 24 dp touch band as an overlay above the content (`matchParentSize()`), its last 10 dp overlapping the card body by design, so no layout width moves. A tap enters multiselect and selects through `onSelect`, a long-press resolves as the card's own `onLongPress`; both callbacks null — the drawer and inspect call sites — emits no node.
+**The tracks/routes split's regression on the dashboard walk.** The card's walked list, its delete-advance and the R2 close now all read the **card's own kind** — the two lists being kind-locked, the kind an item carries is the list it came from. `CardWalkPolicy` gained the pure `cardWalkListIds(...)` beside a kind-aware `trackScopeClosed(source, cardIsRoute, listWorld: ListScope?, mapWorld: ListScope?)`; `MapScreen` collects `routeSummaries`, routes the walk world and the delete-advance through the helper, deletes the tracks-only `trackListIdsOf`, and carries the kind as `ListScope?` tokens through `CloseDashboards` and its fifteen call sites. A track or route map write no longer names the marker world — a behaviour change on the marker side, named in the plan rather than carried silently.
 
-**The picked card and the header.** The selected card wears a 2 dp `uiAccent` border (was 1 dp) and the 15 % tonal shift, and `ListSelectionCheck` draws the 24 dp `uiAccent` disc bearing the white 16 dp check at the head of the first line, selected only, so an unselected card reserves no slot. The multiselect header carries Close (X), the "N selected" count and two text chips — invert (its word `multiselect_invert`, or `multiselect_clear` once everything is picked) and select all (`multiselect_select_all`, enabled only while the selection is partial, dimmed to 0.25 alpha when full); `multiselect_deselect_all` and the dead `deselectAll()` are gone. The batch **export** action wears the card's own `Icons.Filled.Upload` glyph — the one the list item's `cd_export_gpx` button draws — so one action reads as one icon on both surfaces.
+**The delete normalization.** The delete family now has **one pending set** and **one hiding rule**, with its surfaces kept: the map's toast for the cards, the scaffold's inline snackbar for the list rows. `ListOverlayScaffold` takes `sharedPending: MutableList<PendingDeletion>` plus a `pendingKeyPrefix`, so the shell's set and the lists' are one instance, and `PendingDeletion(key, hideFromMap)` carries the one difference the doors have. `hiddenMapIdsOf(pending, prefix)` is the hiding rule's single home: only an entry a **card** entered leaves the map, so the stored-tracks pass's `visibleStoredSummaries(allTrackSummaries, hiddenTrackIds)` — with `hiddenTrackIds` in its rebuild keys — and the marker overlay's filter each hide a deferred delete and **neither hides a list swipe**, which is the user's own correction. Every dismissal trigger and every Undo is behaviourally verbatim; the multiselect confirm keeps its immediate commit and the route discard its R92 two-phase inside the route mode. `MarkersViewModel.pendingDeletes` is left alone as the post-create undo's own concept — the plan's first draft claimed it was dead, the code refuted that, and the retraction stands in the plan's own record.
 
-**What left.** The type-glyph path through the scaffold and both card contents, `ListTypeGlyph`, and the marker header's leading icon/pick button — which now leads the trailing cluster at 36 dp, ahead of pin and edit, the coordinate text owning the header's left. The scaffold's `cardContent` slot hands the consumer `(item, isSelected, onSelect, onLongPress)` with no `typeIcon`.
-
-`docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md` §9 and `docs/ui-component-guidelines.md` §5.9 were reconciled to the shipped shape in the same session, and the bake folded the settled `### action faces` section and merged the epic's duplicate `## Implemented` heading. `apk-build.bat` BUILD SUCCESSFUL with no new warning naming a touched file and the scoped `ui.components` suite green; the two `TrackOutlineTest` reds on the branch's base are untouched by this change.
+Both passes: `apk-build.bat` SUCCESSFUL with `app-debug.apk` produced, and the scoped `ui.map` (+ `ui.components`) suites green, the walk pass at 41 suites / 416 tests / 0 failures and the delete pass with `PendingDeletionHidingTest`'s three cases.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt` — the 6 dp bar / 14 dp zone and `ListSelectionTouchWidth`'s 24 dp touch band
-- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt` — the 24 dp check disc
-- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — the `cardContent` signature, the 2 dp border, the two header text chips
-- `app/src/main/java/ykws/android/maro/ui/components/ListTypeGlyph.kt` — deleted
-- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` · `MarkerManagementOverlay.kt` — the door, the check, the marker cluster order
-- `app/src/main/java/ykws/android/maro/ui/icons/SwapHoriz.kt` · `SelectAll.kt` — deleted
-- `docs/ui-lists-guidelines.md` · `docs/ui-drawer-guidelines.md` §9 · `docs/ui-component-guidelines.md` §5.9
-- `xTrack/Ui_General/261006_FEAT_PLN_Ui_General_list-selection-type-icon.md` — the plan and its §10–§14 shipped records
+- `app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt` — `cardWalkListIds`, the kind-aware `trackScopeClosed`, `hiddenMapIdsOf`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeSummaries`, the walk world and delete-advance through the helper, the kind through `CloseDashboards`, the typed pending set with its two card doors and the two hidden-id sets
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — `visibleStoredSummaries` and `hiddenTrackIds` in the rebuild keys
+- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `PendingDeletion`, `sharedPending`, `pendingKeyPrefix`; now `internal`, as `MarkerManagementOverlay` also is
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` · `TrackHistoryOverlay.kt` · `MarkerManagementOverlay.kt` — the shared set and prefix to both list surfaces
+- `app/src/test/java/ykws/android/maro/ui/map/` — `PendingDeletionHidingTest.kt` (new), `CardWalkDecisionsTest.kt`, `DashboardScopeClosedTest.kt`
+- `xTrack/Ui_General/261010_FEAT_PLN_Ui_General_route-card-walk-scope.md` · `261010_FEAT_PLN_Ui_General_delete-normalization.md` — the two plans of record
 
 ## Next Step
 
-The device pass, owed and unstarted: the door's tap and long-press against the ancestor swipe detector, the 10 dp overlap, the check's shift of the header line, the 2 dp border's weight, and the two header chips' states.
+The device pass, owed to the user: a route opened from the Routes list with its counter and both pills stepping routes; one list's filter write leaving the other list's card standing; a card's delete hiding its item at once and returning on Undo; a list swipe leaving the map untouched; the multiselect confirm still deleting at once; and the route discard unchanged.

@@ -386,4 +386,66 @@ class TrackRouteRoleTest {
             routesOff.pinned.map { it.id }
         )
     }
+
+    @Test
+    fun theFanMasterRulesBothKindsAndTheEyesOnlyRefineIt() {
+        // 2026-10-10: the layer fan's master gate is final — off, it hides both kinds whatever the eyes
+        // say; on, each kind is left to its own eye.
+        assertFalse("the master off hides a kind whose eye is on", kindLayerOn(masterVisible = false, kindVisible = true))
+        assertFalse("the master off hides a kind whose eye is off too", kindLayerOn(masterVisible = false, kindVisible = false))
+        assertTrue("the master on leaves an eye on drawn", kindLayerOn(masterVisible = true, kindVisible = true))
+        assertFalse("the master on leaves an eye off hidden", kindLayerOn(masterVisible = true, kindVisible = false))
+    }
+
+    @Test
+    fun theOpenDashboardsOwnItemIsDrawnWhateverTheGatesSay() {
+        // 2026-10-10: while the info an item describes is on screen the item must be on the map, so a
+        // switched-off kind still draws it — and it alone. The other kind's half is untouched.
+        val summaries = listOf(
+            summary("track", startTimeMs = 1_000L),
+            summary("route", route = true, startTimeMs = 1_000L)
+        )
+
+        val hiddenBoth = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(), routeFilter = ListFilter(),
+            focus = MapRenderFocus(),
+            tracksVisible = false, routesVisible = false,
+            todayMidnightMs = 0L, recordingNb = 10, routeNb = 10,
+            selectedId = "route"
+        )
+        assertTrue("the recorded half stays empty", hiddenBoth.recorded.isEmpty())
+        assertEquals("the open route alone is drawn", listOf("route"), hiddenBoth.routes.map { it.id })
+
+        val tracksHiddenOpenTrack = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(), routeFilter = ListFilter(),
+            focus = MapRenderFocus(),
+            tracksVisible = false, routesVisible = true,
+            todayMidnightMs = 0L, recordingNb = 10, routeNb = 10,
+            selectedId = "track"
+        )
+        assertEquals(
+            "the open recorded track alone is drawn",
+            listOf("track"),
+            tracksHiddenOpenTrack.recorded.map { it.id }
+        )
+        assertEquals("the other kind is unaffected", listOf("route"), tracksHiddenOpenTrack.routes.map { it.id })
+    }
+
+    @Test
+    fun theOpenItemNeverEscapesTheFilter() {
+        // The escape reaches the visibility gates alone: with the gate on the filter still decides, so an
+        // opened item the filter excludes stays out (the 2026-09-28 decision, kept rather than re-opened).
+        val summaries = listOf(summary("route", route = true, startTimeMs = 1_000L))
+        val selection = storedTrackSelection(
+            summaries = summaries,
+            trackFilter = ListFilter(), routeFilter = ListFilter(mapOf("pinned" to "PINNED")),
+            focus = MapRenderFocus(),
+            tracksVisible = true, routesVisible = true,
+            todayMidnightMs = 0L, recordingNb = 10, routeNb = 10,
+            selectedId = "route"
+        )
+        assertTrue("an unpinned route stays out while the filter asks for pinned ones", selection.routes.isEmpty())
+    }
 }
