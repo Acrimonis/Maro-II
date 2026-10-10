@@ -38,7 +38,12 @@ internal fun costField(
      * The depth band's own door, mirroring `withZones`/`withBand`: `selective` alone turns it on, so the
      * shallow-wall gradient is priced by the search and the guard together or by neither.
      */
-    withDepthBand: Boolean = false
+    withDepthBand: Boolean = false,
+    /**
+     * **The marker price's strength** — the Routing row's own factor, threaded as a live value beside
+     * [pace] so a slider move reaches the next arm. The marker law is `base × step × strength`.
+     */
+    markerStrength: Double = 1.0
 ): RouteCostField {
     val sources = ArrayList<RouteCostSource>(3)
     sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
@@ -139,6 +144,17 @@ internal fun costField(
             )
         )
     }
+    // **The costed markers** — a λ-free price for 1–9 and a wall for 10. The price is gated by
+    // `route.marker.enabled`; the wall never reads that switch (a wall is law and stands whatever it
+    // says). A marker-free world adds nothing, so today's fast path (`hasSoft`/`hasBlocking` false) holds.
+    sources.addAll(
+        markerSources(
+            world.routeMarkers(),
+            baseCostSec(cellM, pace),
+            markerStrength,
+            AppConfig.routeMarkerEnabled
+        )
+    )
     return RouteCostField(sources)
 }
 

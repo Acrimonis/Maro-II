@@ -52,7 +52,8 @@ class TileKeyTest {
         paceKn = 25.0,
         excludedZoneIdSet = emptySet(),
         zoneGenerationStamp = 3L,
-        zoneRings = listOf(ring(4.0))
+        zoneRings = listOf(ring(4.0)),
+        markers = emptyList()
     )
 
     /** Every keyed value, flipped once — one entry per declared field. */
@@ -87,7 +88,13 @@ class TileKeyTest {
         "paceKn" to base.copy(paceKn = base.paceKn + 1.0),
         "excludedZoneIdSet" to base.copy(excludedZoneIdSet = setOf("excluded")),
         "zoneGenerationStamp" to base.copy(zoneGenerationStamp = base.zoneGenerationStamp + 1),
-        "zoneRings" to base.copy(zoneRings = listOf(ring(6.0)))
+        "zoneRings" to base.copy(zoneRings = listOf(ring(6.0))),
+        "markers" to base.copy(markers = listOf(marker(3)))
+    )
+
+    /** One costed marker, for the key's own flip case. */
+    private fun marker(step: Int) = RouteMarker(
+        "m", RouteMarkerGeometry.Circle(LatLng(43.5, 7.0), 100.0), step = step, isWall = false
     )
 
     @Test

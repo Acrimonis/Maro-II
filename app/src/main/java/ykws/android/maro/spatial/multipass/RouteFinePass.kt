@@ -80,13 +80,14 @@ internal class RouteFinePass {
             if (!lineEntersZone(out, zone)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals, depthBand, trace
+                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals, depthBand,
+                ctx.markerStrength, trace
             ) ?: out
         }
         val fineGuard =
             costField(
                 world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-                withDepthBand = ctx.depthBandActive
+                withDepthBand = ctx.depthBandActive, markerStrength = ctx.markerStrength
             )
         val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
         // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
@@ -138,6 +139,7 @@ internal class RouteFinePass {
         approaches: EndApproaches,
         refusals: PullRefusals?,
         depthBand: DepthBand? = null,
+        markerStrength: Double = 1.0,
         trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
         val zoneStartNs = System.nanoTime()
@@ -164,10 +166,13 @@ internal class RouteFinePass {
         }
         val from = if (first == 0) start else line[first - 1]
         val to = if (last == line.size - 1) aim else line[last + 1]
-        val base = costField(world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda)
+        val base = costField(
+            world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda,
+            markerStrength = markerStrength
+        )
         val guard = costField(
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-            withDepthBand = depthBand != null
+            withDepthBand = depthBand != null, markerStrength = markerStrength
         )
         // This crossing walks one fine grid — clearance at its own cell, price at the coarse one, as in
         // `finePass`. The water is built once here, immediately after the field, and never cached.

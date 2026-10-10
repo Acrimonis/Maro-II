@@ -31,7 +31,8 @@ class FineTileMapTest {
         zoneOutsideMarginM = 100.0, zonesEnabled = true,
         coastBandsM = listOf(0.0..100.0), zoneRimM = 100.0, depthCollarM = 100.0, depthStepM = 20.0,
         paceKn = 25.0, excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
-        zoneRings = listOf(ZoneRing(listOf(LatLng(43.51, 7.02), LatLng(43.51, 7.03)), emptyList(), 4.0))
+        zoneRings = listOf(ZoneRing(listOf(LatLng(43.51, 7.02), LatLng(43.51, 7.03)), emptyList(), 4.0)),
+        markers = emptyList()
     )
 
     /** A tile of [members] dummies — its byte figure is `members * 53`, what the ceiling counts. */

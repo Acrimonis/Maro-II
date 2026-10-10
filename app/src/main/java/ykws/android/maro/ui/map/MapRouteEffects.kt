@@ -32,7 +32,8 @@ internal fun MapRouteEngineEffect(
                     { settingsProvider().routeFreeWaterPaceKn.toDouble() },
                     { settingsProvider().routeSlowWaterAversion.toDouble() },
                     { settingsProvider().routeSlowWaterBudgetPct },
-                    avoidWorldProvider
+                    avoidWorldProvider,
+                    { settingsProvider().routeMarkerStrength.toDouble() }
                 )
     }
 }

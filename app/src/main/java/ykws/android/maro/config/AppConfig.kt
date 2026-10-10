@@ -46,6 +46,21 @@ object AppConfig {
         private set
 
     /**
+     * Whether a marker's **price** (1–9) is armed for the route search. Set via `route.marker.enabled`.
+     * It prices water and **never lifts a wall**: a Blocked marker (10) blocks whatever this says.
+     */
+    var routeMarkerEnabled = true
+        private set
+
+    /**
+     * **The marker price's linear strength** — the per-step factor the marker law scales the base
+     * per-metre cost by (`base × step × this`). The Routing row seeds from it and raises it live. Set
+     * via `route.marker.costPerStep`.
+     */
+    var routeMarkerCostPerStep = 1.0
+        private set
+
+    /**
      * The shortest distance (m) between the two resolved ends the acquisition will arm on — below it
      * the press is refused with a toast. Default 100, read from `route.min.acquisition.lengthM`.
      */
@@ -530,6 +545,12 @@ object AppConfig {
 
     /** Highest slow-water budget (per cent) the properties load accepts — one home for that end. */
     const val ROUTE_SLOW_WATER_BUDGET_PCT_MAX = 100
+
+    /** Lowest marker price strength the Routing row accepts — one home for that end. */
+    const val ROUTE_MARKER_STRENGTH_MIN = 0.0
+
+    /** Highest marker price strength the Routing row accepts — one home for that end. */
+    const val ROUTE_MARKER_STRENGTH_MAX = 5.0
 
     /**
      * The speed zone's outside-margin price as a fraction of the interior's —
@@ -1655,6 +1676,12 @@ object AppConfig {
             }
             props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
                 routeFreeWaterPaceKn = snapFreeWaterPaceKn(it)
+            }
+            props.getProperty("route.marker.enabled")?.toBooleanStrictOrNull()?.let {
+                routeMarkerEnabled = it
+            }
+            props.getProperty("route.marker.costPerStep")?.toDoubleOrNull()?.let {
+                routeMarkerCostPerStep = it.coerceIn(0.0, 100.0)
             }
             props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
                 routeEngineId = it

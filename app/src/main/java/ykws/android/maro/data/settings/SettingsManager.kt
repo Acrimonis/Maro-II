@@ -167,6 +167,13 @@ data class AppSettings(
     val routeSlowWaterBudgetPct: Int =
         ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
     /**
+     * The **marker price's strength** — the linear factor the marker law scales the base per-metre cost
+     * by (`base × step × strength`), seeded from `route.marker.costPerStep` so the property stays the
+     * value's one home. A Routing row raises it live.
+     */
+    val routeMarkerStrength: Float =
+        ykws.android.maro.config.AppConfig.routeMarkerCostPerStep.toFloat(),
+    /**
      * The route algorithm the harness arms with — the id the registry resolves, seeded from
      * `route.engine.id`, so the property stays the value's one home and the user's choice persists
      * here. An id nothing claims falls back to the registry's default and is reported at startup.
@@ -635,6 +642,13 @@ class SettingsManager(
             ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN,
             ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
         ),
+        routeMarkerStrength = prefs.getFloat(
+            KEY_ROUTE_MARKER_STRENGTH,
+            ykws.android.maro.config.AppConfig.routeMarkerCostPerStep.toFloat()
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.ROUTE_MARKER_STRENGTH_MIN.toFloat(),
+            ykws.android.maro.config.AppConfig.ROUTE_MARKER_STRENGTH_MAX.toFloat()
+        ),
         routeEngineId = prefs.getString(
             KEY_ROUTE_ENGINE_ID,
             ykws.android.maro.config.AppConfig.routeEngineId
@@ -852,6 +866,7 @@ class SettingsManager(
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
             .putFloat(KEY_ROUTE_SLOW_WATER_AVERSION, updated.routeSlowWaterAversion)
             .putInt(KEY_ROUTE_SLOW_WATER_BUDGET_PCT, updated.routeSlowWaterBudgetPct)
+            .putFloat(KEY_ROUTE_MARKER_STRENGTH, updated.routeMarkerStrength)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
             .putString(KEY_ROUTE_START_SELECTION_GPS, updated.routeStartSelectionGps)
@@ -1052,6 +1067,8 @@ class SettingsManager(
         private const val KEY_ROUTE_SLOW_WATER_AVERSION = "route_slow_water_aversion"
         /** The persisted slow-water budget (per cent), seeded from `route.avoid.speedZone.timeBudgetPct`. */
         private const val KEY_ROUTE_SLOW_WATER_BUDGET_PCT = "route_slow_water_budget_pct"
+        /** The persisted marker price strength, seeded from `route.marker.costPerStep`. */
+        private const val KEY_ROUTE_MARKER_STRENGTH = "route_marker_strength"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
         private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
         /** The persisted set of speed-zone ids the user excluded from route planning. */

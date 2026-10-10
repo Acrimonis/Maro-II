@@ -52,7 +52,7 @@ class RouteFineReachabilityTest {
 
         for (plan in listOf<RouteGridPlan>(UniformGridPlan, EvolutiveGridPlan)) {
             val ctx = RouteGridBuilder(plan).buildGrid(
-                world, from, to, AppConfig.routeAvoidCorridorReachM, pace
+                world, from, to, AppConfig.routeAvoidCorridorReachM, pace, 1.0
             )
             assertTrue("$plan reaches a corridor context", ctx != null)
 

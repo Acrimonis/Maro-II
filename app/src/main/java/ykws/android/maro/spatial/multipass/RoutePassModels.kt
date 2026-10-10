@@ -57,6 +57,11 @@ internal data class GridContext(
     val marginM: Double,
     val zoneOutsideMarginM: Double,
     val pace: Double,
+    /**
+     * The marker price's **live strength** — the Routing row's factor, carried beside [pace] so every
+     * field this arm builds prices the marker law at one value.
+     */
+    val markerStrength: Double = 1.0,
     val grid: MultipassGrid,
     val startCell: CellIndex,
     val aimCell: CellIndex,

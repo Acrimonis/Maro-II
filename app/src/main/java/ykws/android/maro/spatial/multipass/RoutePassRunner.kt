@@ -78,7 +78,7 @@ internal class RoutePassRunner {
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
-                lambda = lambda, withDepthBand = ctx.depthBandActive
+                lambda = lambda, withDepthBand = ctx.depthBandActive, markerStrength = ctx.markerStrength
             )
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.

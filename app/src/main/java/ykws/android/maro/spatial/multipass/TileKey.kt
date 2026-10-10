@@ -87,5 +87,11 @@ internal data class TileKey(
     /** The speed-zone list's content stamp. */
     val zoneGenerationStamp: Long,
     /** The exact ring set the fill even-odd-fills — the rasterizer's own zone read. */
-    val zoneRings: List<ZoneRing>
+    val zoneRings: List<ZoneRing>,
+    /**
+     * **The costed markers this tile's rasterisation reads** — every Circle or Corridor carrying a cost,
+     * with its geometry and its step / wall flag. It is the key material itself, so a marker created,
+     * moved, re-costed or deleted moves the key and no stale tile survives.
+     */
+    val markers: List<RouteMarker>
 )
