@@ -57,6 +57,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         to: RoutePoint,
         reach: Double,
         pace: Double,
+        markerStrength: Double,
         trace: (() -> String) -> Unit = {}
     ): GridContext? {
         val corridor = corridorBox(from, to, world.regionBounds, reach)
@@ -80,7 +81,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val tiles = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM)
         if (tiles.size > 1) {
             return buildLayeredGrid(
-                world, from, to, box, regionSaturated, edges, openCoast, capLatNorth, tiles, pace, trace
+                world, from, to, box, regionSaturated, edges, openCoast, capLatNorth, tiles, pace,
+                markerStrength, trace
             )
         }
         val cellM = tiles.first().cellM
@@ -109,7 +111,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // this time round. It is therefore **λ-free and built once per solve** — the price is the A*'s
         // own read, so a further pass costs one multiply per expansion and the band's price follows the
         // rung's own λ with every other slow source.
-        val gridField = costField(world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0)
+        val gridField = costField(
+            world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0,
+            markerStrength = markerStrength
+        )
         val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
         val bandSpec = bandLaw(world)
         val grid = rasterize(
@@ -162,7 +167,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         return GridContext(
             world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
             capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
-            zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, grid = grid,
+            zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, markerStrength = markerStrength, grid = grid,
             startCell = startCell, aimCell = aimCell, start = start, aim = aim, sets = sets,
             limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
@@ -201,6 +206,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         capLatNorth: Double,
         tiles: List<GridTile>,
         pace: Double,
+        markerStrength: Double,
         trace: (() -> String) -> Unit
     ): GridContext? {
         val coarseTile = tiles.maxByOrNull { it.cellM }!!
@@ -219,7 +225,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
         val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
         val gridField =
-            costField(world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0)
+            costField(
+                world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0,
+                markerStrength = markerStrength
+            )
         val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
         val bandSpec = bandLaw(world)
         // The fine layer (layer 1): **the windows over the band's own water**, never the corridor's span.
@@ -351,7 +360,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         return GridContext(
             world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
             capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
-            zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, grid = interiorGrid,
+            zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, markerStrength = markerStrength, grid = interiorGrid,
             startCell = startCell, aimCell = aimCell, start = from.toLatLng(), aim = to.toLatLng(),
             sets = sets, limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
@@ -543,7 +552,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         paceKn = pace,
         excludedZoneIdSet = world.excludedZoneIdSet,
         zoneGenerationStamp = world.zoneGenerationStamp,
-        zoneRings = priced
+        zoneRings = priced,
+        markers = world.routeMarkers()
     )
 
     /** A corridor box and whether the region's own bounds cut it short — the instrument's own reading. */

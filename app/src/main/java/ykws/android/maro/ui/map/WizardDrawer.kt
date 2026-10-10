@@ -168,7 +168,8 @@ private fun WizardStepContent(
                 title = if (isCorridor) stringResource(R.string.wizard_slider_width)
                         else stringResource(R.string.wizard_slider_radius),
                 valueM = if (isCorridor) form.widthM else form.radiusM,
-                range = 0.0..1000.0,
+                // A marker's radius/width reaches 2500 m on the user's word of 2026-10-10.
+                range = 0.0..2500.0,
                 step = 25.0,
                 unit = "m",
                 onValueChange = { v ->
@@ -185,7 +186,8 @@ private fun WizardStepContent(
             SliderStep(
                 title = stringResource(R.string.wizard_slider_proximity),
                 valueM = form.proximityOverrideM.toDoubleOrNull() ?: 100.0,
-                range = 0.0..1000.0,
+                // A marker's proximity reaches 2500 m on the user's word of 2026-10-10.
+                range = 0.0..2500.0,
                 step = 25.0,
                 unit = "m",
                 onValueChange = { v ->

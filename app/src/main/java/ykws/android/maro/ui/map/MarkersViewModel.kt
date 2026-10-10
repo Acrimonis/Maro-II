@@ -190,7 +190,11 @@ data class CreateFormState(
     val corridorP2: LatLng? = null,
     val routingCost: Int? = null,        // null = unset; 1–9 when set (slider's 0 = unset)
     val routeOrigin: Boolean = false,    // offered as a route origin; independent of routeDestination
-    val routeDestination: Boolean = false // offered as a route arrival; both may be set
+    val routeDestination: Boolean = false, // offered as a route arrival; both may be set
+    // The marker's origin — an auto (🕐) marker carries **no route step at all**, so the wizard drops
+    // the Routing cost step for one and no role or cost can be set on it.
+    val origin: ykws.android.maro.data.model.markers.MarkerOrigin =
+        ykws.android.maro.data.model.markers.MarkerOrigin.USER
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -505,7 +509,8 @@ class MarkersViewModel(
             corridorP2 = corridorP2,
             routingCost = validRoutingCost(marker.routingCost),
             routeOrigin = marker.routeOrigin,
-            routeDestination = marker.routeDestination
+            routeDestination = marker.routeDestination,
+            origin = marker.origin
         )
         setDrawerState(MarkerDrawerState.Viewing)
     }
@@ -709,22 +714,33 @@ class MarkersViewModel(
 
     // ── Wizard state machine ──────────────────────────────────────────────
 
-    /** Returns the ordered list of steps for the given marker type. */
-    private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
-        MarkerType.PIN -> listOf(
-            WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
-        )
-        MarkerType.CIRCLE -> listOf(
-            WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.Radius, WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title,
-            WizardStep.Description
-        )
-        MarkerType.CORRIDOR -> listOf(
-            WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.PositionP2, WizardStep.Radius,
-            WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
-        )
+    /**
+     * Returns the ordered list of steps for the given marker type. An **auto (🕐) marker** carries no
+     * route step: the whole `RoutingCost` step is dropped for one, so no role and no cost can be set on
+     * it — the engine never prices an auto marker either way.
+     */
+    private fun stepSequenceFor(type: MarkerType): List<WizardStep> {
+        val steps = when (type) {
+            MarkerType.PIN -> listOf(
+                WizardStep.TypeSelect, WizardStep.Position,
+                WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
+            )
+            MarkerType.CIRCLE -> listOf(
+                WizardStep.TypeSelect, WizardStep.Position,
+                WizardStep.Radius, WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title,
+                WizardStep.Description
+            )
+            MarkerType.CORRIDOR -> listOf(
+                WizardStep.TypeSelect, WizardStep.Position,
+                WizardStep.PositionP2, WizardStep.Radius,
+                WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
+            )
+        }
+        return if (_createForm.value.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) {
+            steps.filterNot { it == WizardStep.RoutingCost }
+        } else {
+            steps
+        }
     }
 
     /**
@@ -829,7 +845,8 @@ class MarkersViewModel(
                 corridorP2 = corridorP2,
                 routingCost = validRoutingCost(marker.routingCost),
                 routeOrigin = marker.routeOrigin,
-                routeDestination = marker.routeDestination
+                routeDestination = marker.routeDestination,
+                origin = marker.origin
             )
         }
         wizardForward = true
@@ -954,7 +971,10 @@ class MarkersViewModel(
             colorIndex = form.colorIndex,
             icon = form.icon,
             createdAtEpochMs = System.currentTimeMillis(),
-            routingCost = validRoutingCost(form.routingCost),
+            // A Pin carries no cost (it has no area to price); an auto marker carries none either.
+            routingCost = if (form.type == MarkerType.PIN ||
+                form.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
+            ) null else validRoutingCost(form.routingCost),
             routeOrigin = form.routeOrigin,
             routeDestination = form.routeDestination
         )
@@ -1013,7 +1033,10 @@ class MarkersViewModel(
             description = form.description,
             proximityOverrideM = proximityOverride,
             icon = form.icon,
-            routingCost = validRoutingCost(form.routingCost),
+            // The same guard as the create: a Pin and an auto marker both carry no cost.
+            routingCost = if (form.type == MarkerType.PIN ||
+                form.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
+            ) null else validRoutingCost(form.routingCost),
             routeOrigin = form.routeOrigin,
             routeDestination = form.routeDestination
         )

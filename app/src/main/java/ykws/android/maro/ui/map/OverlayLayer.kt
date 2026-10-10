@@ -49,22 +49,35 @@ import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.icons.Speed
 
-/** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
-private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
-    MarkerType.PIN -> listOf(
-        WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
-    )
-    MarkerType.CIRCLE -> listOf(
-        WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.Radius, WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title,
-        WizardStep.Description
-    )
-    MarkerType.CORRIDOR -> listOf(
-        WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.PositionP2, WizardStep.Radius,
-        WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
-    )
+/**
+ * Returns the step sequence for the given marker type (mirror of the VM method for UI use). An auto
+ * (🕐) marker carries no route step, so `RoutingCost` is dropped for one.
+ */
+private fun stepSequenceFor(
+    type: MarkerType,
+    origin: ykws.android.maro.data.model.markers.MarkerOrigin
+): List<WizardStep> {
+    val steps = when (type) {
+        MarkerType.PIN -> listOf(
+            WizardStep.TypeSelect, WizardStep.Position,
+            WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
+        )
+        MarkerType.CIRCLE -> listOf(
+            WizardStep.TypeSelect, WizardStep.Position,
+            WizardStep.Radius, WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title,
+            WizardStep.Description
+        )
+        MarkerType.CORRIDOR -> listOf(
+            WizardStep.TypeSelect, WizardStep.Position,
+            WizardStep.PositionP2, WizardStep.Radius,
+            WizardStep.Proximity, WizardStep.RoutingCost, WizardStep.Title, WizardStep.Description
+        )
+    }
+    return if (origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) {
+        steps.filterNot { it == WizardStep.RoutingCost }
+    } else {
+        steps
+    }
 }
 
 /**
@@ -358,7 +371,7 @@ internal fun OverlayLayer(
         if (showWizard && activeStep != null) {
             // Compute step sequence from form type
             val form by markersViewModel.createForm.collectAsState()
-            val seq = stepSequenceFor(form.type)
+            val seq = stepSequenceFor(form.type, form.origin)
 
             if (isLandscape) {
                 DrawerSlot(

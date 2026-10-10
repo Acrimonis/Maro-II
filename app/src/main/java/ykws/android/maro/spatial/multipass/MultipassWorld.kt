@@ -5,6 +5,11 @@ import ykws.android.maro.data.depth.DepthRepository
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.data.model.markers.MarkerOrigin
+import ykws.android.maro.data.model.markers.ROUTING_COST_BLOCKED
+import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
 
@@ -116,6 +121,13 @@ interface MultipassWorld {
      * or `null` outside all of them — the ETA's point read, taken along the emitted line.
      */
     fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? = null
+
+    /**
+     * **Every marker that prices or walls the route** — the costed markers in this feature's own
+     * vocabulary ([RouteMarker]), Pins and auto markers dropped at the projection. Empty where none
+     * carries a cost, so the field's marker sources are absent and today's no-marker fast path stands.
+     */
+    fun routeMarkers(): List<RouteMarker> = emptyList()
 }
 
 /**
@@ -146,6 +158,12 @@ class LiveMultipassWorld(
     private val depth: DepthRepository,
     private val zonesProvider: () -> List<SpeedZone> = { emptyList() },
     private val excludedZoneIds: () -> Set<String> = { emptySet() },
+    /**
+     * The costed markers, read fresh so a marker created, moved or re-costed since the last search is
+     * picked up on the next call — the same shape [zonesProvider] already has. Only a Circle or a
+     * Corridor carrying a cost survives the projection; a Pin and an auto marker are dropped here.
+     */
+    private val markersProvider: () -> List<UserMarker> = { emptyList() },
     /**
      * The chart's own `emodnetShallowCutoffM`, read fresh on every call so a slider move reaches the
      * next search — the same setting the bitmap, the warning layer, the isobaths and the chart
@@ -230,4 +248,23 @@ class LiveMultipassWorld(
 
     override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
+
+    /**
+     * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
+     * [validRoutingCost] and is a Circle or a Corridor becomes a [RouteMarker]; a Pin (no area) and an
+     * auto marker (a record, not a rule) are dropped. The wall is the top of the shipped scale
+     * ([ROUTING_COST_BLOCKED]) and carries step `0`; a price carries its own step.
+     */
+    override fun routeMarkers(): List<RouteMarker> =
+        markersProvider().mapNotNull { m ->
+            if (m.origin != MarkerOrigin.USER) return@mapNotNull null
+            val cost = validRoutingCost(m.routingCost) ?: return@mapNotNull null
+            val geometry = when (val g = m.geometry) {
+                is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM)
+                is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM)
+                is MarkerGeometry.Pin -> return@mapNotNull null
+            }
+            val isWall = cost >= ROUTING_COST_BLOCKED
+            RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else cost, isWall = isWall)
+        }
 }

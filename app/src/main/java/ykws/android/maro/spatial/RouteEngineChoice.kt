@@ -27,7 +27,8 @@ data class RouteEngineChoice(
         paceKn: () -> Double,
         aversionKn: () -> Double,
         budgetPct: () -> Int,
-        world: () -> MultipassWorld
+        world: () -> MultipassWorld,
+        markerStrength: () -> Double
     ) -> RouteEngine
 ) {
     companion object {
@@ -37,27 +38,27 @@ data class RouteEngineChoice(
             RouteEngineChoice(
                 id = "dummy",
                 labelResId = R.string.route_engine_dummy,
-                factory = { _, _, _, _ -> RouteDummyEngine() }
+                factory = { _, _, _, _, _ -> RouteDummyEngine() }
             ),
             RouteEngineChoice(
                 id = "avoid",
                 labelResId = R.string.route_engine_avoid,
-                factory = { paceKn, aversionKn, budgetPct, world ->
-                    RouteAvoidEngine(paceKn, aversionKn, budgetPct, world)
+                factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
+                    RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, markerStrength)
                 }
             ),
             RouteEngineChoice(
                 id = "evolutive",
                 labelResId = R.string.route_engine_evolutive,
-                factory = { paceKn, aversionKn, budgetPct, world ->
-                    RouteEvolutiveEngine(paceKn, aversionKn, budgetPct, world)
+                factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
+                    RouteEvolutiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength)
                 }
             ),
             RouteEngineChoice(
                 id = "selective",
                 labelResId = R.string.route_engine_selective,
-                factory = { paceKn, aversionKn, budgetPct, world ->
-                    RouteSelectiveEngine(paceKn, aversionKn, budgetPct, world)
+                factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
+                    RouteSelectiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength)
                 }
             )
         )

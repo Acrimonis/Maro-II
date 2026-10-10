@@ -726,6 +726,10 @@ fun MapScreen(
     // Bumped at the end of every canonical track-rebuild pass: the mode re-stacks its own candidate
     // overlay on each bump, because a rebuild can float other tracks above it.
     val trackRebuildGeneration = remember { mutableStateOf(0) }
+    // The markers view model — declared **above** the route block: the route cost reads the costed
+    // markers through the world's own provider, so the handle must be in scope where that is wired.
+    val markersViewModel: MarkersViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(factory = MarkersViewModel.Factory)
 
     // ── Route destination mode (FEAT_DSC_Route, destination-ui) ──────────────
     // Session-lived like inspect's own state. The ViewModel owns every piece of route runtime state;
@@ -746,6 +750,7 @@ fun MapScreen(
             depthViewModel.depthRepository,
             zonesProvider = { viewModel.speedZones.value },
             excludedZoneIds = { appSettings.excludedSpeedZoneIds },
+            markersProvider = { markersViewModel.allMarkers.value },
             // The chart's own EMODnet shallow cutoff, so the router reads the same water the chart
             // draws; read through the provider so a slider move reaches the next search.
             emodnetShallowCutoffM = { appSettings.emodnetShallowCutoffM }
@@ -758,7 +763,8 @@ fun MapScreen(
                     { viewModel.settings.value.routeFreeWaterPaceKn.toDouble() },
                     { viewModel.settings.value.routeSlowWaterAversion.toDouble() },
                     { viewModel.settings.value.routeSlowWaterBudgetPct },
-                    avoidWorldProvider
+                    avoidWorldProvider,
+                    { viewModel.settings.value.routeMarkerStrength.toDouble() }
                 )
         )
     }
@@ -855,8 +861,6 @@ fun MapScreen(
     val hiddenMarkerIds = hiddenMapIdsOf(pendingDeleteIds, "m:")
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
-    val markersViewModel: MarkersViewModel =
-        androidx.lifecycle.viewmodel.compose.viewModel(factory = MarkersViewModel.Factory)
     val debugSegments by markersViewModel.debugSegments.collectAsState()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()

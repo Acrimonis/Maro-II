@@ -268,7 +268,7 @@ class FinePriorityWalkTest {
         val from = RoutePoint(43.4700, 6.9800)
         val to = RoutePoint(43.4700, 7.0200)
         val ctx = RouteGridBuilder(EvolutiveGridPlan).buildGrid(
-            world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn
+            world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn, 1.0
         )
 
         assertNotNull("the corridor builds", ctx)

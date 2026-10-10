@@ -742,6 +742,10 @@
     <string name="settings_section_route_budget">Budget d\'eau lente</string>
     <string name="settings_route_budget_label">Budget</string>
     <string name="settings_route_budget_desc">La part du trajet que Optimal laisse aux zones de vitesse avant que la route la plus propre ne l\'emporte. 0 ne garde que les lignes sans zone ; 100 laisse l\'horloge décider.</string>
+    <string name="settings_section_route_marker">Tarification des repères</string>
+    <string name="settings_route_marker_strength_label">Force des repères</string>
+    <string name="settings_route_marker_strength_desc">L\'intensité avec laquelle un repère à coût écarte la route de sa zone. Un repère bloqué est un mur et l\'ignore.</string>
+    <string name="settings_route_marker_strength_value_fmt">%1$.1f\u00d7</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les trois lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
