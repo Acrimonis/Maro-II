@@ -203,6 +203,7 @@ import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
+import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.components.bandHeightFor
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
@@ -844,7 +845,13 @@ fun MapScreen(
     val markerListState = rememberLazyListState()
     val dashboardController = remember { MapDashboardController() }
     val activeSnacks = dashboardController.activeSnacks
-    val pendingDeleteIds = remember { androidx.compose.runtime.mutableStateListOf<String>() }
+    // The one pending-deletion set the shell and both list surfaces share (2026-10-10): a card's
+    // deferred delete enters with `hideFromMap = true` and leaves the map while it waits, a list row's
+    // swipe with `hideFromMap = false` and the map keeps drawing it.
+    val pendingDeleteIds = remember { androidx.compose.runtime.mutableStateListOf<PendingDeletion>() }
+    // The ids each kind's hiding entries carry, prefix stripped — read by the two map passes below.
+    val hiddenTrackIds = hiddenMapIdsOf(pendingDeleteIds, "t:")
+    val hiddenMarkerIds = hiddenMapIdsOf(pendingDeleteIds, "m:")
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
     val markersViewModel: MarkersViewModel =
@@ -1010,7 +1017,7 @@ fun MapScreen(
         dashboardController.remove(snack)
         when (snack) {
             is ActiveSnack.TrackDelete -> {
-                pendingDeleteIds.remove("t:${snack.id}")
+                pendingDeleteIds.removeAll { it.key == "t:${snack.id}" }
                 trackScope.launch {
                     val track = trackViewModel.loadTrackDetailCached(snack.id)
                     if (track != null && track.trackPoints.isNotEmpty()) {
@@ -1028,7 +1035,7 @@ fun MapScreen(
                 }
             }
             is ActiveSnack.MarkerDelete -> {
-                pendingDeleteIds.remove("m:${snack.id}")
+                pendingDeleteIds.removeAll { it.key == "m:${snack.id}" }
                 // An inspect source would reopen the card with the mode's merged walk already stood down
                 // and no cursor seated on it, leaving both buttons dead; the drawer's own map world keeps
                 // them live (plan §8, folded review fix).
@@ -1046,11 +1053,11 @@ fun MapScreen(
         dashboardController.remove(snack)
         when (snack) {
             is ActiveSnack.TrackDelete -> {
-                pendingDeleteIds.remove("t:${snack.id}")
+                pendingDeleteIds.removeAll { it.key == "t:${snack.id}" }
                 trackViewModel.deleteTrack(snack.id)
             }
             is ActiveSnack.MarkerDelete -> {
-                pendingDeleteIds.remove("m:${snack.id}")
+                pendingDeleteIds.removeAll { it.key == "m:${snack.id}" }
                 markersViewModel.deleteMarker(snack.id, closeDrawer = false)
             }
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
@@ -1593,6 +1600,8 @@ fun MapScreen(
         trackColours = appSettings.trackColours,
         eyeOverride = eyeOverride,
         allTrackSummaries = allTrackSummaries,
+        // The card doors' deferred deletes, hidden from the drawn set while the snackbar waits.
+        hiddenTrackIds = hiddenTrackIds,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
         paintedTrackIds = paintedTrackIds,
@@ -2493,8 +2502,8 @@ fun MapScreen(
                 val source = markersViewModel.drawerSource
                 val selection = markersViewModel.selectedMarkerIds.value
                 val excluded = pendingDeleteIds
-                    .filter { it.startsWith("m:") }
-                    .map { it.removePrefix("m:") }
+                    .filter { it.key.startsWith("m:") }
+                    .map { it.key.removePrefix("m:") }
                     .toSet() + deletedId
                 val next = advanceAfterDeparture(deletedId, selection, excluded)
                 if (next == null) {
@@ -3279,8 +3288,11 @@ fun MapScreen(
             if (markerLayerVisible || openMarker != null) {
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 MarkerOverlay(
-                    markers = if (markerLayerVisible) mapMarkersState
-                              else openMarker?.let { listOf(it) } ?: emptyList(),
+                    // A card's deferred delete hides its marker while it waits; the open card's own
+                    // exception still stands over the filter, never over the hiding (2026-10-10).
+                    markers = (if (markerLayerVisible) mapMarkersState
+                               else openMarker?.let { listOf(it) } ?: emptyList())
+                        .filter { it.id !in hiddenMarkerIds },
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -3576,7 +3588,7 @@ fun MapScreen(
             cardIsRoute = trackDrawerState.track?.route == true,
             trackSummaries = trackSummaries,
             routeSummaries = routeSummaries,
-            pendingDeleteIds = pendingDeleteIds
+            pendingDeletions = pendingDeleteIds
         )
 
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
@@ -3657,6 +3669,9 @@ fun MapScreen(
             },
             markersViewModel = markersViewModel,
             trackViewModel = trackViewModel,
+            // The one pending set the shell and both list surfaces share (2026-10-10), forwarded
+            // verbatim so a card's deferred delete and a row's swipe land in the same list.
+            pendingDeletions = pendingDeleteIds,
             menu = buildMenuOverlayData(
                 appSettings = appSettings,
                 firstTrackId = firstTrackId,
@@ -3672,7 +3687,10 @@ fun MapScreen(
                     is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope, onProgress = { chrome.trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope, onProgress = { chrome.trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
-                    is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
+                    // The scaffold's commit arms and the confirm dialog both land here: a row's swipe
+                    // carries the shell's `t:` prefix, the dialog's id is bare, so the strip is harmless
+                    // for either (2026-10-10).
+                    is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id.removePrefix("t:"))
                     is ykws.android.maro.data.model.ListAction.TogglePin -> trackViewModel.setPinned(action.id, action.pinned)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState, reloadFromDisk = false)
                     is ykws.android.maro.data.model.ListAction.RefreshLayer -> mapView?.invalidate()
@@ -3787,9 +3805,11 @@ fun MapScreen(
                         // plan §4 (delete leftovers): the management delete leaves a card showing a
                         // *different* marker standing, and advances the deleted item's own card to its
                         // neighbour — never closing a card it had no business touching. An id the
-                        // walk world does not hold closes, the one ordering rule's own none.
-                        markersViewModel.deleteMarker(action.id, closeDrawer = false)
-                        advanceMarkerCardFrom(action.id)
+                        // walk world does not hold closes, the one ordering rule's own none. The strip
+                        // answers the scaffold's prefixed commit; the dialog's bare id passes through.
+                        val markerId = action.id.removePrefix("m:")
+                        markersViewModel.deleteMarker(markerId, closeDrawer = false)
+                        advanceMarkerCardFrom(markerId)
                     }
                     is ykws.android.maro.data.model.ListAction.TogglePin -> markersViewModel.setMarkerPinned(action.id, action.pinned)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> markersViewModel.refreshSort(action.sortState)
@@ -3885,7 +3905,7 @@ fun MapScreen(
             onDeleteTrack = { id ->
                 val track = trackDrawerState.track
                 enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
-                pendingDeleteIds.add("t:$id")
+                pendingDeleteIds.add(PendingDeletion("t:$id", hideFromMap = true))
                 // Advance to the adjacent track through the one ordering rule the marker path uses too
                 // (plan §4): next, else previous, else none. The exclusions are the pending track
                 // deletions, so an item already on its way out is never stepped onto. The whole ordered
@@ -3897,11 +3917,11 @@ fun MapScreen(
                     cardIsRoute = allTrackSummaries.firstOrNull { it.id == id }?.route == true,
                     trackSummaries = trackSummaries,
                     routeSummaries = routeSummaries,
-                    pendingDeleteIds = emptyList()
+                    pendingDeletions = emptyList()
                 )
                 val excluded = pendingDeleteIds
-                    .filter { it.startsWith("t:") }
-                    .map { it.removePrefix("t:") }
+                    .filter { it.key.startsWith("t:") }
+                    .map { it.key.removePrefix("t:") }
                     .toSet()
                 val candidates = advanceCandidatesAfterDeparture(id, world, excluded)
                 openSelectedTrack(candidates, freshSelection = false) { closeTrackDrawer() }
@@ -3910,7 +3930,7 @@ fun MapScreen(
                 val selection = markersViewModel.selectedMarkerIds.value
                 val source = markersViewModel.drawerSource
                 enqueueSnack(ActiveSnack.MarkerDelete(id, name, selection, source))
-                pendingDeleteIds.add("m:$id")
+                pendingDeleteIds.add(PendingDeletion("m:$id", hideFromMap = true))
                 // The card's neighbours, rebuilt after the removal (plan §4, §9): next, else previous,
                 // through the one ordering rule, with the map highlight following the target.
                 advanceMarkerCardFrom(id)

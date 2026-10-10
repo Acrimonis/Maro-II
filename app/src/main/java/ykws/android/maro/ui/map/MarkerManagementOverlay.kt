@@ -75,6 +75,7 @@ import ykws.android.maro.ui.components.ListSelectionCheck
 import ykws.android.maro.ui.components.ListSelectionRail
 import ykws.android.maro.ui.components.ListSelectionTouchZone
 import ykws.android.maro.ui.components.MarkerCreateAction
+import ykws.android.maro.ui.components.PendingDeletion
 
 /**
  * Full-screen overlay displaying a LazyColumn of user marker cards with
@@ -90,7 +91,7 @@ import ykws.android.maro.ui.components.MarkerCreateAction
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MarkerManagementOverlay(
+internal fun MarkerManagementOverlay(
     markers: List<UserMarker>,
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
@@ -108,7 +109,14 @@ fun MarkerManagementOverlay(
     filterLinked: Boolean = true,
     onToggleLink: () -> Unit = {},
     modifier: Modifier = Modifier,
-    lazyListState: LazyListState = rememberLazyListState()
+    lazyListState: LazyListState = rememberLazyListState(),
+    /**
+     * The shell's one pending-deletion set (2026-10-10), forwarded to the scaffold so a card's deferred
+     * delete and a row's swipe share one list. Null keeps the scaffold's own local set.
+     */
+    sharedPending: MutableList<PendingDeletion>? = null,
+    /** The key prefix this surface's rows take in the shared set — markers spell theirs `"m:"`. */
+    pendingKeyPrefix: String = ""
 ) {
     val markerCustomSortFields = remember {
         listOf(
@@ -234,6 +242,8 @@ fun MarkerManagementOverlay(
         modifier = modifier,
         multiActions = markerMultiActions,
         headerActions = { MarkerCreateAction(onClick = onCreateFirst) },
+        sharedPending = sharedPending,
+        pendingKeyPrefix = pendingKeyPrefix,
         lazyListState = lazyListState
     )
 

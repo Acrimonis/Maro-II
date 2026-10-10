@@ -338,6 +338,13 @@ private const val PIN_HOLD_MS = 1000L
 // the 24 dp glyph plus 16 dp of clearance. A fixed space, so the flash reads the same on every card.
 private const val PIN_REVEAL_GAP_DP = 56f
 
+/**
+ * One pending deletion, in the **one** set the shell and a list surface share (2026-10-10): [key] wears
+ * the shell's `kind:id` spelling, and [hideFromMap] says whether the item leaves the map while it waits
+ * — true for a card's deferred delete, false for a list row's swipe, whose item the map keeps drawing.
+ */
+internal data class PendingDeletion(val key: String, val hideFromMap: Boolean)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun <T : ListableItem> SwipeableItemCard(
@@ -528,7 +535,7 @@ private fun SnackbarSlot(name: String, onUndo: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun <T : ListableItem> ListOverlayScaffold(
+internal fun <T : ListableItem> ListOverlayScaffold(
     items: List<T>,
     title: String,
     sectionLabel: String,
@@ -557,9 +564,21 @@ fun <T : ListableItem> ListOverlayScaffold(
     multiActions: List<MultiActionSpec> = emptyList(),
     headerActions: @Composable () -> Unit = {},
     lazyListState: LazyListState = rememberLazyListState(),
-    restoredScrollState: SavedScrollState? = null
+    restoredScrollState: SavedScrollState? = null,
+    /**
+     * The pending-deletion set the **consumer owns**, so the shell's deferred card deletes and this
+     * surface's own share one instance (2026-10-10). Null falls back to a local set, which keeps the
+     * scaffold usable on its own — a consumer passing nothing leaves its inline Undo inert and changes
+     * nothing else.
+     */
+    sharedPending: MutableList<PendingDeletion>? = null,
+    /**
+     * The key prefix this surface's records take in the shared set (`"t:"` / `"m:"`) — the one boundary
+     * at which a kind-agnostic scaffold meets the shell's spelling. Blank keeps the ids bare.
+     */
+    pendingKeyPrefix: String = ""
 ) {
-    val pendingDeletes = remember { mutableStateListOf<String>() }
+    val pendingDeletes = sharedPending ?: remember { mutableStateListOf<PendingDeletion>() }
 
     // ── Restore scroll position on reopen ──────────────────────────────
     LaunchedEffect(restoredScrollState) {
@@ -579,7 +598,7 @@ fun <T : ListableItem> ListOverlayScaffold(
     fun enterMultiselect(id: String) {
         if (isMultiSelectMode) return
         // Commit any pending soft-deletes before entering multiselect
-        pendingDeletes.forEach { pid -> onAction(ListAction.PermanentDelete(pid)) }
+        pendingDeletes.forEach { entry -> onAction(ListAction.PermanentDelete(entry.key)) }
         pendingDeletes.clear()
         isMultiSelectMode = true
         selectedIds.add(id)
@@ -616,7 +635,7 @@ fun <T : ListableItem> ListOverlayScaffold(
         if (isMultiSelectMode) {
             exitMultiselect()
         } else {
-            pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }
+            pendingDeletes.forEach { entry -> onAction(ListAction.PermanentDelete(entry.key)) }
             pendingDeletes.clear()
             onDismiss()
         }
@@ -626,7 +645,7 @@ fun <T : ListableItem> ListOverlayScaffold(
     DisposableEffect(Unit) {
         onDispose {
             if (pendingDeletes.isNotEmpty()) {
-                pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }
+                pendingDeletes.forEach { entry -> onAction(ListAction.PermanentDelete(entry.key)) }
                 pendingDeletes.clear()
             }
         }
@@ -722,7 +741,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }; pendingDeletes.clear(); onDismiss() },
+                        onClick = { pendingDeletes.forEach { entry -> onAction(ListAction.PermanentDelete(entry.key)) }; pendingDeletes.clear(); onDismiss() },
                         modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.settings_back), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
@@ -957,9 +976,20 @@ fun <T : ListableItem> ListOverlayScaffold(
                                                 if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null
                                             )
                                         },
-                                        onSoftDelete = { pendingDeletes.add(it.id); onAction(ListAction.SoftDelete(it.id, it.title)) },
-                                        onUndoDelete = { pendingDeletes.remove(it.id); onAction(ListAction.UndoDelete(it.id)) },
-                                        onPermanentDelete = { pendingDeletes.remove(it.id); onAction(ListAction.PermanentDelete(it.id)) },
+                                        onSoftDelete = {
+                                            // A swipe's record enters with hideFromMap false: its row leaves the
+                                            // list, and the map keeps drawing the item until the commit.
+                                            pendingDeletes.add(PendingDeletion(pendingKeyPrefix + it.id, hideFromMap = false))
+                                            onAction(ListAction.SoftDelete(it.id, it.title))
+                                        },
+                                        onUndoDelete = {
+                                            pendingDeletes.removeAll { entry -> entry.key == pendingKeyPrefix + it.id }
+                                            onAction(ListAction.UndoDelete(it.id))
+                                        },
+                                        onPermanentDelete = {
+                                            pendingDeletes.removeAll { entry -> entry.key == pendingKeyPrefix + it.id }
+                                            onAction(ListAction.PermanentDelete(pendingKeyPrefix + it.id))
+                                        },
                                         onTogglePin = { onAction(ListAction.TogglePin(it.id, !it.isPinned)) },
                                         isMultiSelectMode = isMultiSelectMode,
                                         isSelected = isSelected,

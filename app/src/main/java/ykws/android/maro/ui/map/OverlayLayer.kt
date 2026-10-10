@@ -46,6 +46,7 @@ import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.icons.Speed
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
@@ -156,6 +157,14 @@ internal fun OverlayLayer(
     onToggleRouteVisible: () -> Unit = {},
     /** The routes chevron's own menu world, mirroring [onOpenFirstTrack]. */
     onOpenFirstRoute: (String) -> Unit = {},
+
+    /**
+     * The shell's one pending-deletion set (2026-10-10), shared with both list surfaces so a card's
+     * deferred delete and a row's swipe land in the same list: the tracks/routes surface takes it with
+     * the `"t:"` prefix — a route being a track record — and the markers surface with `"m:"`. Null
+     * leaves each surface its own local set, which is what keeps the surface usable on its own.
+     */
+    pendingDeletions: MutableList<PendingDeletion>? = null,
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
@@ -863,6 +872,9 @@ internal fun OverlayLayer(
                 trackingColorRouteFrom = appSettings.trackingColorRouteFrom,
                 trackingColorRouteTo = appSettings.trackingColorRouteTo,
                 scope = listScope,
+                // A route is a track record, so both scopes' rows take the shell's own `t:` spelling.
+                sharedPending = pendingDeletions,
+                pendingKeyPrefix = "t:",
                 lazyListState = activeListState
             )
         }
@@ -897,6 +909,8 @@ internal fun OverlayLayer(
                 onReset = onMarkerReset,
                 filterLinked = markerFilterLinked,
                 onToggleLink = onToggleMarkerLink,
+                sharedPending = pendingDeletions,
+                pendingKeyPrefix = "m:",
                 lazyListState = markerListState
             )
         }

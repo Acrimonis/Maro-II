@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-10-10 08:05
+modified: 2026-10-10 08:25
 ---
 
 # Feature: Ui_General
@@ -77,6 +77,8 @@ The app's dropdown is the row family's own box: the row is the anchor, the list 
 - `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the popup surface the wheel sits on; §2.15 the rule of entry
 
 ## Implemented
+
+- **delete-normalization (2026-10-10, `feature/rte-n-trck-list`)** — the delete family got **one pending set** and **one hiding rule**, with the surfaces kept. `ListOverlayScaffold` now takes `sharedPending: MutableList<PendingDeletion>` and a `pendingKeyPrefix`, so the shell's set and the lists' are one instance, and the new `internal data class PendingDeletion(key, hideFromMap)` carries the one difference the doors have. `hiddenMapIdsOf(pending, prefix)` is the hiding rule's single home: only an entry a **card** entered (`hideFromMap = true`) leaves the map, so the stored-tracks pass's `visibleStoredSummaries(allTrackSummaries, hiddenTrackIds)` — with `hiddenTrackIds` in its rebuild keys — and the marker overlay's filter each hide a deferred delete and neither hides a list swipe, which is the user's own correction. Every dismissal trigger and every Undo is behaviourally verbatim; the multiselect confirm keeps its immediate commit, the route discard its R92 two-phase inside the route mode, and `MarkersViewModel.pendingDeletes` is left alone as the post-create undo's own concept — a retraction of this pass's first draft, recorded in the plan. `apk-build.bat` SUCCESSFUL and the scoped `ui.map` + `ui.components` suites green with `PendingDeletionHidingTest`'s three cases → [`261010_FEAT_PLN_Ui_General_delete-normalization.md`](261010_FEAT_PLN_Ui_General_delete-normalization.md)
 
 - **route-card-walk-scope (2026-10-10, `feature/rte-n-trck-list`)** — the tracks/routes split's fallout on the dashboard walk: the card's walked list, its delete-advance and the R2 close now all read the **card's own kind**. `CardWalkPolicy` gained the pure `cardWalkListIds(walkWorld, cardIsRoute, trackSummaries, routeSummaries, pendingDeleteIds)` beside a kind-aware `trackScopeClosed(source, cardIsRoute, listWorld: ListScope?, mapWorld: ListScope?)`; `MapScreen` collects `routeSummaries`, routes the walk world and the delete-advance through the helper, deletes the tracks-only `trackListIdsOf`, and carries the kind as `ListScope?` tokens through `CloseDashboards` and its fifteen call sites — so either list's write no longer closes the other list's card, and a track or route map write no longer names the marker world. `apk-build.bat` SUCCESSFUL and `:app:testDebugUnitTest --tests "ykws.android.maro.ui.map.*"` green at 41 suites and 416 tests → [`261010_FEAT_PLN_Ui_General_route-card-walk-scope.md`](261010_FEAT_PLN_Ui_General_route-card-walk-scope.md)
 

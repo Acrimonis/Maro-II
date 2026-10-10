@@ -7,6 +7,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackSummary
+import ykws.android.maro.ui.components.PendingDeletion
 
 /**
  * Unit tests for the card-walk decisions ([CardWalkPolicy]): the ordered candidates behind the
@@ -221,7 +222,7 @@ class CardWalkDecisionsTest {
                 cardIsRoute = true,
                 trackSummaries = listOf(summary("t1")),
                 routeSummaries = listOf(summary("r1", isRoute = true), summary("r2", isRoute = true)),
-                pendingDeleteIds = emptyList()
+                pendingDeletions = emptyList()
             )
         )
     }
@@ -235,7 +236,7 @@ class CardWalkDecisionsTest {
                 cardIsRoute = false,
                 trackSummaries = listOf(summary("t1")),
                 routeSummaries = listOf(summary("r1", isRoute = true)),
-                pendingDeleteIds = emptyList()
+                pendingDeletions = emptyList()
             )
         )
     }
@@ -249,7 +250,7 @@ class CardWalkDecisionsTest {
                 cardIsRoute = true,
                 trackSummaries = listOf(summary("t1")),
                 routeSummaries = listOf(summary("r1", isRoute = true)),
-                pendingDeleteIds = emptyList()
+                pendingDeletions = emptyList()
             )
         )
     }
@@ -263,7 +264,7 @@ class CardWalkDecisionsTest {
                 cardIsRoute = false,
                 trackSummaries = listOf(summary("live", live = true), summary("t1"), summary("t2")),
                 routeSummaries = emptyList(),
-                pendingDeleteIds = listOf("t:t1")
+                pendingDeletions = listOf(PendingDeletion("t:t1", hideFromMap = true))
             )
         )
     }

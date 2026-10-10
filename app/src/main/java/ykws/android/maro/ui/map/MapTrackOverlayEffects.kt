@@ -44,6 +44,13 @@ internal fun MapTrackOverlayHistoryDiff(
      */
     eyeOverride: Boolean?,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
+    /**
+     * The stored items a card's deferred delete is hiding while it waits (2026-10-10), prefix already
+     * stripped: they leave the drawn set below, so no overlay paints them, and they return the moment
+     * the entry leaves the shell's set. A list row's swipe (`hideFromMap = false`) never joins it. A key
+     * of the pass too, so a change to the hiding repaints the exclusion it earns.
+     */
+    hiddenTrackIds: Set<String> = emptySet(),
     focus: MapRenderFocus,
     appSettings: AppSettings,
     /**
@@ -85,6 +92,9 @@ internal fun MapTrackOverlayHistoryDiff(
         add(appSettings.trackFilterLinked)
         add(appSettings.routeFilterLinked)
         add(allTrackSummaries)
+        // The hiding set is a key in every combination: a card's deferred delete must repaint the map
+        // the moment it enters or leaves, not on the next unrelated change.
+        add(hiddenTrackIds)
         add(appSettings.trackingTransparencyNewest)
         add(appSettings.trackingTransparencyOldest)
         add(appSettings.trackingTransparencyPinnedNewest)
@@ -170,7 +180,9 @@ internal fun MapTrackOverlayHistoryDiff(
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
         // The live recording line is drawn by the dedicated live effects and is never filterable, so it
         // is excluded here: a resumed recording must not also render as a stale stored-track overlay.
-        val storedSummaries = allTrackSummaries.filter { !it.isLive }
+        // A card's deferred delete is excluded through the same one home, so its item leaves the map
+        // while it waits and returns when the entry is removed (2026-10-10).
+        val storedSummaries = visibleStoredSummaries(allTrackSummaries, hiddenTrackIds)
         val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
         // The route role's own count, bounding the route set alone (R35): the not-pinned count above
         // goes on limiting recorded tracks.
@@ -496,6 +508,18 @@ internal fun storedTrackSets(
     routes = summaries.filter { it.route },
     recorded = summaries.filterNot { it.route }
 )
+
+/**
+ * The stored set one pass reads (2026-10-10): every summary but the live recording — painted by its own
+ * dedicated effect and never filterable — and every item a card's deferred delete hides while it
+ * waits, [hiddenIds] carrying those ids with the shell's prefix already stripped. One home for the
+ * expression, so the live-recording exclusion and the hiding rule cannot drift, and a test can hold it.
+ */
+internal fun visibleStoredSummaries(
+    summaries: List<ykws.android.maro.data.track.TrackSummary>,
+    hiddenIds: Set<String>
+): List<ykws.android.maro.data.track.TrackSummary> =
+    summaries.filter { !it.isLive && it.id !in hiddenIds }
 
 /** The three sets one pass draws — the recorded half, the route half and the pinned escape. */
 internal data class StoredTrackSelection(

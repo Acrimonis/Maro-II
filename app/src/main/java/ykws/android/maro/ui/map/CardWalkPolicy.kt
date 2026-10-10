@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.ui.components.PendingDeletion
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The card walk policy — Android-free rules both cards share (plan §1, §3, §4)
@@ -253,16 +254,34 @@ internal fun trackScopeClosed(
  * The two lists are kind-locked, so the kind the item carries **is** the list it was opened from, and a
  * route card must never be handed the tracks list — which is what left a route's own id absent from its
  * walk world, its counter pinned at one and its Prev/Next stepping recorded tracks (2026-10-10). The
- * same rule answers the world a delete's advance walks, `pendingDeleteIds` empty and the exclusions left
+ * same rule answers the world a delete's advance walks, `pendingDeletions` empty and the exclusions left
  * to the caller.
+ *
+ * [pendingDeletions] is the shell's own pending set, read through its keys: the `"t:${it.id}"` spelling
+ * is the tracks kind's, so a route — a track record — is excluded through the same key exactly as a
+ * recorded track (2026-10-10).
  */
 internal fun cardWalkListIds(
     walkWorld: List<String>?,
     cardIsRoute: Boolean,
     trackSummaries: List<TrackSummary>,
     routeSummaries: List<TrackSummary>,
-    pendingDeleteIds: List<String>
+    pendingDeletions: List<PendingDeletion>
 ): List<String> = walkWorld
     ?: (if (cardIsRoute) routeSummaries else trackSummaries)
-        .filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }
+        .filter { !it.isLive && pendingDeletions.none { entry -> entry.key == "t:${it.id}" } }
         .map { it.id }
+
+/**
+ * The map ids a shared pending-deletion set hides (2026-10-10), the prefix stripped: only the entries
+ * whose [PendingDeletion.hideFromMap] is true — a card's deferred delete — carry the item off the map
+ * while it waits, and [prefix] (`"t:"` / `"m:"`) selects the kind. A list row's swipe
+ * (`hideFromMap = false`) never enters the answer, so the map keeps drawing the item the user swiped
+ * away in the list: that is the user's own correction.
+ *
+ * One home for the rule, so the two map passes that read it — the stored-tracks pass and the marker
+ * overlay — cannot drift, and the decision is unit-tested without a device.
+ */
+internal fun hiddenMapIdsOf(pending: List<PendingDeletion>, prefix: String): Set<String> =
+    pending.filter { it.hideFromMap && it.key.startsWith(prefix) }
+        .mapTo(mutableSetOf()) { it.key.removePrefix(prefix) }
