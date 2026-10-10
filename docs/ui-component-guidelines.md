@@ -785,9 +785,12 @@ red absent). The five colours and the channels are stated once in
 
 The tile is that state colour laid over the family's white base, so a square never becomes a window on the
 map; the dot is the shared pulse mark (`MapPulseDot`), which the square itself paints at the family's one
-top-right placement — inset from the square's own corner by half the disc's size — as a body beating
-1 → 0.5 under a 1 dp ring held at full strength, so the mark never loses its edge at the bottom of the
-beat. Because the fade sits on the content, an off square paints the base whole and dims its glyph alone.
+top-right placement — inset from the square's own corner by the mark's own `ui.map.pulse.dot.inset.ratio`
+(0.25) of the disc's size, 3 dp at the 12 dp disc — as a body beating
+1 → 0.33 under a 1 dp ring (`ui.map.pulse.dot.ring.width`) held at full strength, so the mark never loses
+its edge at the bottom of the beat; the disc, the floor and the period are the mark's own
+`ui.map.pulse.dot.size`, `.floor` and `.ms` settings. Because the fade sits on the content, an off square
+paints the base whole and dims its glyph alone.
 
 **The collapsed legend square** is the same `MapToggleSquare` read directly by `MapScreen.kt`: one square on
 the shared surface carrying the ⏱ stopwatch written `\u23F1\uFE0F` (`Emoji_Presentation=No`, so the selector
@@ -893,10 +896,35 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
 - **The route's one exit dialog carries two raisers** (R59, R100): the toggle's off and the back key raise
   it under *Leave the Route mode?* (`route_exit_title`), and the followed route's own **arrival cue** raises
   the **same** dialog under *You seem to have reached your destination* (`route_arrival_title`) — a
-  **title-only** prompt, no message line, over the same three doors (*Save Route to Track* · *Continue
-  route* · *Discard Route*, or *Stop following* for a followed saved route). One surface, never two
-  stacked: a raise while it stands is that one dialog, and a reversal of the followed route closes the
-  arrival prompt as a **no action** dismissal.
+  **title-only** prompt, no message line, over the same three doors. **One axis decides the doors** — is this
+  line already a track? — and three doors stand at every state: while the line is **unwritten**
+  `Save Route and exit` (accent, enabled) · `Continue` (secondary) · `Discard route` (red); once it is
+  **written** the save door keeps its place and is **disabled** · `Continue` (secondary) · **`Leave`**
+  (the accent, and **not red**, because nothing is lost). The third door's word follows the **cost**, never
+  the raiser — `Discard route` while the press would throw the route away, `Leave` once it cannot — so the
+  arrival cue carries no vocabulary of its own and changes only its title. One surface, never two stacked: a
+  raise while it stands is that one dialog, and a reversal of the followed route closes the arrival prompt
+  as a **no action** dismissal.
+
+**How a dialog asks its question and how its doors answer it** — one rule for every confirmation the family
+draws, the **recording exit dialog the reference** the whole family is read against and the **route exit
+dialog the two-state case above**:
+
+- **The title puts the decision in the user's voice** — a question for a confirmation (*Leave the Route
+  mode?*), and, where the doors are three outcomes, the situation with its question (*A track is being
+  recorded. What would you like to do?*).
+- **The doors answer that question in its own vocabulary**, so the title and the doors share their noun and
+  their verb and a reader can pair each door with the question without reading the message.
+- **Every door is a verb-first answer of one to three words**, naming the user's outcome and never a
+  mechanism or an internal state — *Stop following* fails this, *Leave* passes.
+- **The order is fixed in every dialog**: the forward outcome, then the stay, then the ending.
+- **The role follows the cost, never the moment** — accent for the surface's forward outcome, secondary for
+  staying or costing nothing, red only for what loses work, so a door that loses nothing is never red.
+- **A door with no work is disabled, never renamed**, and a disabled door never holds the accent; the accent
+  falls to the enabled forward outcome.
+- **The loss door names what is lost** (*Discard route*, *Discard track*), never the mode transition.
+- **An automatic raiser borrows the doors and brings only its own title**, because the doors are the user's
+  answers rather than the raiser's.
 
 **Tokens**
 

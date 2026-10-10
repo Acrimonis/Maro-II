@@ -7,11 +7,12 @@ package ykws.android.maro.data.model
  *  - [highlightedId] — the track currently opened/viewed (single id);
  *  - [touchedIds]    — ids touched this session by import / record / merge / update.
  *
- * The highlighted id outranks both the map filter and the render cap; the touched ids outrank the cap
- * alone, the filter governing which tracks may be drawn at all since 2026-09-21 — see
- * `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md`. Neither overrides
- * the master layer toggles (`tracksVisible`, `markerLayerState`) — the shell applies those gates
- * separately, after selection.
+ * The highlighted id outranks both the map filter and the render cap — one id, and only while its
+ * card stands (the render escape, 2026-10-10, reversing 2026-09-28 in part); the touched ids outrank
+ * the cap alone, the filter still governing which tracks may be drawn at all — see
+ * `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md` and the 2026-10-10
+ * plan that records the reversal. Neither overrides the master layer toggles (`tracksVisible`,
+ * `markerLayerState`) — the shell applies those gates separately, after selection.
  *
  * Bounded: only the [maxTouched] most-recently touched ids are kept (oldest evicted first).
  */

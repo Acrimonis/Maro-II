@@ -30,8 +30,9 @@ No new colour is introduced, and no square invents one.
   **green when the data is real or complete, amber when it is partial, red when there is none**. It is
   absent on the off square, on the recenter and on the reading squares, which is what tells a reading
   from a control at a glance.
-- **The dot's beat stays the shared mark's** — its geometry, its half-size top-right inset and its period
-  remain one home, and only its colour and its floor become parameters.
+- **The dot's beat stays the shared mark's** — its geometry, its ratio top-right inset and its period
+  remain one home, each an accessor over its own `ui.map.pulse.dot.*` setting, and only its colour is the
+  caller's.
 
 ## The weights
 
@@ -42,15 +43,16 @@ No new colour is introduced, and no square invents one.
 - **The dot is fully saturated.** It paints its state colour at full strength, so it always stands off
   the tinted tile and reads as the crisp mark against the square's softer colour — which is what makes
   the smaller channel legible in the first place.
-- **The beat's floor is 50 %**: the pulse keeps its one geometry and its period but its body never fades
-  below `0.5`. The old 1 → 0.3 range belonged to a dot that meant only *live*; the mark's own ring is
-  what lets the body dip below the first pass's 60 % without the state going faint at the bottom of the
-  beat. The floor moves with the mark's other constants in `MapPulseDot`, already the beat's one home.
-- **The mark wears a ring and sits at half its size**: a 1 dp stroke in the mark's own colour at full
-  strength, drawn inside the disc's shipped 10 dp and outside the beat — only the body fades — so the
-  state keeps a crisp edge under it. The square paints the mark itself, from its own top-right corner
-  inset by half the disc's size (5 dp), rather than from the padded content box; the marks outside the
-  row keep their own placement.
+- **The beat's floor is 33 %**: the pulse keeps its one geometry and its period but its body never fades
+  below `0.33`. The old 1 → 0.3 range belonged to a dot that meant only *live*; the mark's own ring is
+  what lets the body dip past the first pass's 60 % — and past the 50 % the ring's own pass settled —
+  without the state going faint at the bottom of the beat. The floor is its own `ui.map.pulse.dot.floor`
+  setting, read through `MapPulseDot`, already the beat's one home.
+- **The mark wears a ring and sits inset by its own ratio**: a `ui.map.pulse.dot.ring.width` (1 dp) stroke
+  in the mark's own colour at full strength, drawn inside the disc's `ui.map.pulse.dot.size` (12 dp) and
+  outside the beat — only the body fades — so the state keeps a crisp edge under it. The square paints the
+  mark itself, from its own top-right corner inset by `ui.map.pulse.dot.inset.ratio` of the disc's size
+  (0.25, 3 dp), rather than from the padded content box; the marks outside the row keep their own placement.
 - **The palette follows**: the alphas baked into the semantic tokens stop mattering to the square,
   which reads the token's colour and applies its own two weights — the subdued tint for the tile, none
   for the dot.
@@ -99,8 +101,9 @@ painted in each zone kind's own category colour and neither toggles nor surfaces
 - **The route's refusal is not a face**: the toggle is never dead by design, so the square stays amber
   while the search has not answered and green once it follows.
 - **The zone tags are out of scope.**
-- **The beat's floor is 50 %; the mark wears a 1 dp full-strength ring and the square places it at its own
-  corner inset by half the disc's size** (the marks outside the row keep their own placement); the recenter
+- **The beat's floor is 33 %; the mark wears a 1 dp full-strength ring and the square places it at its own
+  corner inset by its own `ui.map.pulse.dot.inset.ratio` of the disc's size** (the marks outside the row keep
+  their own placement); the recenter
   carries **no dot**, and the tracking square's two greens are **accepted for now** — one hue at two
   weights, which the weights themselves separate.
 - **The tint is settled at 0.5** (2026-10-09, the gentle set): the family's white under the colour makes
@@ -125,7 +128,7 @@ painted in each zone kind's own category colour and neither toggles nor surfaces
 
 ## Rejected, on the record
 
-- **A binary fill with the dot carrying the state alone** — rejected: it would make a 10 dp disc that
+- **A binary fill with the dot carrying the state alone** — rejected: it would make a 12 dp disc that
   fades to 30 % the only channel for a state, where a glance at the whole square is what the row is
   for.
 - **Green as "good"** — rejected: green in the fill means *standing by*, and the good readings are
@@ -140,7 +143,8 @@ painted in each zone kind's own category colour and neither toggles nor surfaces
 - `docs/color-scheme.md` and the map-surface section of `docs/ui-component-guidelines.md` carry the
   five-colour table, the two channels and the two classes.
 - A unit test pins each square's resolved face and dot colour per state, the shape of the row's own
-  `TopToggleControlTest`, and the mark's own constants — its floor and its inset as half the size.
+  `TopToggleControlTest`, and the mark's own geometry — its floor, its inset as a ratio of the size and the
+  `ui.map.pulse.dot.*` keys — read from the shipped palette.
 
 ## Outcome
 
@@ -149,7 +153,7 @@ painted in each zone kind's own category colour and neither toggles nor surfaces
 `earthWaterFace`, `inspectFace`, `routeFace`, `lockFace` and `recenterFace` reading only `AppConfig` —
 and `MapSurface`/`MapPulseDot` paint what a resolver returns. `MapSurface` now paints the family's white
 base under the state colour at `ui.map.surface.active.alpha` (0.65 as shipped, then **0.5** from the
-2026-10-09 values pass); `MapPulseDot` takes its colour as a parameter and beats with the mark's 50 % floor,
+2026-10-09 values pass); `MapPulseDot` takes its colour as a parameter and beats with the mark's 33 % floor,
 while `rememberPulseAlpha` keeps its 30 % default for the non-toggle caller (the trip border); and the
 mark's callers outside the row sit on `ui.map.pulse.dot`. The route square stopped reading the user's line
 colour — `RouteToggleButton`'s `lineColor` parameter and its call site are retired.
@@ -169,14 +173,29 @@ renamed keys, and the three surface weights, and `TopToggleControlTest` (4) stay
 `docs/ui-component-guidelines.md` carry the five-colour table, the two channels and the two classes.
 
 **Amended the same day, on the user's word:** the mark gained a **1 dp ring** in its own colour at full
-strength, drawn inside the shipped 10 dp and outside the beat so only the body fades — which is what lets
-the floor drop from 60 % to **50 %**. The row squares stopped placing the mark themselves: the face's dot
-now rides `MapSurfaceFace`, `TopToggleFace.toSurfaceFace()` resolves it, and `MapToggleSquare` paints it
-from the square itself, at its own top-right corner inset by half the disc's size (the mark's one inset
-constant, `MAP_PULSE_DOT_INSET`) rather than from the padded content box. `MenuDrawerOverlay`'s two marks
-and the fan's keep their own placement and gain the ring by being the same component, and the row's
-`MapToggleDot` helper is retired. `MapPulseDotTest` pins the 50 % floor and the half-size inset so the
-two numbers cannot drift.
+strength, drawn inside the shipped 12 dp and outside the beat so only the body fades — which is what lets
+the floor drop from 60 % first to **50 %** and, on the values pass below, to **33 %**. The row squares
+stopped placing the mark themselves: the face's dot now rides `MapSurfaceFace`,
+`TopToggleFace.toSurfaceFace()` resolves it, and `MapToggleSquare` paints it from the square itself, at its
+own top-right corner inset by the mark's one inset constant, `MAP_PULSE_DOT_INSET`
+rather than from the padded content box. `MenuDrawerOverlay`'s two marks and the fan's keep their own
+placement and gain the ring by being the same component, and the row's `MapToggleDot` helper is retired.
+`MapPulseDotTest` pins the floor, the ratio inset and the geometry keys so none of them can drift
+silently.
+
+**Amended once more the same day — the mark's whole geometry became settings:** the disc size, the beat
+floor, the period and the ring width each left the code for `ui.map.pulse.dot.size` (12), `.floor` (0.33),
+`.ms` (555) and `.ring.width` (1) in `colors.properties`, each with `AppConfig` following the palette and
+`MapPulseDot` reading it through its own `get()` accessor — the top-right inset then derived as half the
+size (6 dp), and only `MAP_PULSE_GENERIC_FLOOR` (30 %, the non-toggle caller's floor) left a code constant.
+`MapPulseDotTest` now reads the shipped palette for the floor, the inset and the four keys.
+
+**Amended again on 2026-10-10 — the corner inset became a ratio:** the space between the mark and its
+square's top-right corner left the code for `ui.map.pulse.dot.inset.ratio` (0.25) in `colors.properties`, so
+`MAP_PULSE_DOT_INSET` derives as `size × ratio` — 3 dp at the 12 dp disc — and the placement scales with the
+disc instead of being a second number to keep in step. `AppConfig` follows the palette
+(`uiMapPulseDotInsetRatio`) and `MapPulseDotTest` reads the shipped value; the settled period also moved to
+**555 ms** in the palette, with `AppConfig`'s default and the test following it.
 
 **Owed:** the device pass over the five faces, the dot's colours, the mark's new ring and inset, and the
 three surface weights as now settled — base `#8CFFFFFF` (55 %), inactive content alpha 0.6, active 0.5.

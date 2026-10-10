@@ -184,8 +184,9 @@ internal fun MapToggleSquare(
                 content()
             }
         }
-        // The mark is the square's own: drawn from the square, against its edge, inset by half the disc
-        // on both the top and the right, so it no longer rides the padded content box the glyph sits in.
+        // The mark is the square's own: drawn from the square, against its edge, inset by the mark's own
+        // ratio of the disc on both the top and the right, so it no longer rides the padded content box
+        // the glyph sits in.
         face.dot?.let { dotColor ->
             MapPulseDot(
                 color = dotColor,

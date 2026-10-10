@@ -1,26 +1,29 @@
-# Context Hydration — UI_Map — 2026-10-09
+# Context Hydration — UI_Map — 2026-10-10
 
-**Last Bake:** 2026-10-09 17:02 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-10 07:43 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-09 16:56 UTC) the session ran on the user's own words alone: the mark's ring, the beat's low point at 50 % and its half-size placement, then the look pass on the off and active faces, each settled by the user and shipped on an `#implement`. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: the lock-mirror fix sits in `248e1c3e` on `feature/route-swap-direction`, and the normalisation, the mark's follow-up and the values pass are in the working tree under this session's own `#commit`.
+**Directive trace:** Since the last bake (2026-10-09 17:02 UTC) the session ran on the user's own words alone: the mark's geometry moved into the palette one key at a time — size, floor, period, ring width, then the corner inset as a ratio — with the user's own edits to `colors.properties` taken as the source of truth, and the selection escape's marker half landed in this feature's files. Every landing ran on an `#implement`; no dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was not touched, and every claim about the code follows a file read. Git: the toggle-colour work sits in `50452a44` on `feature/route-swap-direction`, and today's work is in the working tree under this session's own `#commit`.
 
 ## State
 
-**What shipped.** The row's squares ride one constant five-colour set — pale off · amber getting the data · blue nominal by house taste · green standing by · red gone — with the fill saying what a square is doing and the pulse mark what its data is worth, all resolved from one pure home, `MapToggleFace.kt`, so a state answers both channels without a Compose call. The mark is a **body under a 1 dp full-strength ring**: only the body beats, 1 → **50 %**, which is what lets the floor sit that low; the row's squares paint it themselves at their own top-right corner inset by **half the disc's size** (the face's dot now rides `MapSurfaceFace`, `MapToggleDot` retired), while the marks outside the row keep their own placement and gain the ring by being the same component. Six readerless palette keys are deleted — the four off-tokens plus `status.tracking.alpha.active` and `status.lock.alpha.active`, on the user's word — `status.gps.estimating` gained its key, and the family's three weights settled on the user's **gentle set**: base white **55 %** (`#8CFFFFFF`), inactive content alpha **0.6**, active tile **0.5** with the glyph whole.
+**What shipped.** The mark's whole geometry is settings now — `ui.map.pulse.dot.size` 12, `.floor` 0.25, `.ms` 666, `.ring.width` 1 and `.inset.ratio` 0.25 — with the corner inset **derived** as that share of the disc (3 dp at the 12 dp disc) rather than a second number to keep in step, and `AppConfig` following the palette for each. The ring holds full strength outside the beat, so only the body fades; the row's squares paint the mark from the square's own corner, and the marks outside the row keep their own placement by being the same component. The palette block's own comment was rewritten in the same pass, retiring its stale 60 % floor. **The selection escape's marker half landed here**: `MarkerSelectionPolicy` gained the selection term it never had, fed from `MarkersViewModel`'s own selected marker id, so a marker the map filter excludes is drawn while its card stands — the decision itself is filed under TracksImport.
 
-**Status.** `apk-build.bat` green and the scoped `ui.map` + `config` unit run green at 476 tests / 0 failed, the faces, the shipped palette and the mark's own constants pinned by `MapToggleFaceTest` (17), `MapTogglePaletteTest` (5), `MapPulseDotTest` and `TopToggleControlTest` (4); no open walk — the feature file holds no `## Walk` section.
+**Known red, on the user's word.** The palette reads `.floor` 0.25 and `.ms` 666 while `AppConfig`'s defaults and `MapPulseDotTest` still read 0.33 and 555, so two `MapPulseDotTest` assertions are red. The user ordered the pulse left exactly as it is, so the code and the test were **not** brought onto the palette: the red is expected, not a regression, and the pass that next touches the mark is the one to settle it.
 
-**What is owed.** The device pass over the five faces, the dot's colours, the mark's ring and half-size inset, and the three surface weights as settled; then the inspect live-acquire, marker-zoom and dp-pass device checks, unchanged.
+**Status.** `apk-build.bat` green; the faces, the shipped palette and the mark's own keys pinned by `MapToggleFaceTest` (17), `MapTogglePaletteTest` (5) and `TopToggleControlTest` (4), and no open walk — the feature file holds no `## Walk` section.
+
+**What is owed.** The device pass over the five faces, the dot's colours, the mark's ring, its 25 % floor and its ratio inset, and the three surface weights as settled; then the inspect live-acquire, marker-zoom and dp-pass device checks, unchanged.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapToggleFace.kt` — the one pure resolution home: `TopToggleFace(fill, dot)` and the per-square resolvers
-- `app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt`, `MapPulseDot.kt` — the base under the face, the three weights, and the mark's ring, 50 % floor and half-size inset
-- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt`, `InspectMode.kt`, `RouteOverlay.kt`, `TrackStatusIcon.kt` — the five row squares, which no longer place their own mark
-- `app/src/main/assets/colors.properties`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the palette's keys and the code defaults following them
-- `app/src/test/java/ykws/android/maro/ui/map/MapToggleFaceTest.kt`, `MapTogglePaletteTest.kt`, `MapPulseDotTest.kt`, `TopToggleControlTest.kt` — the face, palette, mark-constant and row-index pins
-- `xTrack/UI_Map/261009_FEAT_PLN_UI_Map_toggle-colour-normalization.md` — the design's one home, its `## Outcome` carrying all three passes
+- `app/src/main/java/ykws/android/maro/ui/map/MapPulseDot.kt` — the mark's four geometry keys and the derived ratio inset, each read from `AppConfig`
+- `app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt`, `MapToggleFace.kt` — the base under every face and the row's one pure resolution home
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — the selected marker id the marker policy now reads
+- `app/src/main/java/ykws/android/maro/data/model/MapSelectionPolicy.kt` — the marker and track selection policies; the escape is filed under TracksImport
+- `app/src/main/assets/colors.properties`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the palette's keys and the code defaults that follow them
+- `app/src/test/java/ykws/android/maro/ui/map/MapToggleFaceTest.kt`, `MapTogglePaletteTest.kt`, `MapPulseDotTest.kt`, `TopToggleControlTest.kt` — the face, palette and mark-key pins
+- `xTrack/UI_Map/261009_FEAT_PLN_UI_Map_toggle-colour-normalization.md` — the normalization's one home; `xTrack/TracksImport/261010_FEAT_PLN_TracksImport_render-escape-selected-item.md` — the escape's
 
 ## Next Step
 
-The device pass over the toggle squares — the five faces, the dot's colours, the mark's new ring and half-size inset, and the three surface weights as settled (base 55 %, inactive content 0.6, active 0.5).
+The device pass over the toggle squares — the five faces, the dot's colours, the mark's ring, its 25 % floor and its ratio inset, and the three surface weights as settled.

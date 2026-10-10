@@ -511,7 +511,11 @@ internal data class StoredTrackSelection(
  * - [StoredTrackSelection.pinned] — every pinned summary **its own kind's filter holds** and **its own
  *   kind's visibility allows**, **uncapped**: the pin is what marks a route already saved, so it escapes
  *   [routeNb] (R34, R35), but the pin is no escape from the filter or the layer switch — a hidden kind
- *   hides its pinned items too (2026-09-28, 2026-10-05). The choice is made here, inside the one entry
+ *   hides its pinned items too (2026-09-28, 2026-10-05). **The open card's own id is the one exception**
+ *   (2026-10-10): a pinned selected item the filter excludes is drawn, one id and only while its card
+ *   stands, exactly as [TrackSelectionPolicy] carries the unpinned selection past the filter and cap.
+ *   Because the ranked path excludes pinned items and this one excludes unpinned, whichever loop draws
+ *   the selected item draws it **once and never twice**. The choice is made here, inside the one entry
  *   point, so every caller and test holds one home for "per kind".
  *
  * Membership is [storedTrackSets]' decision; this one only decides what each half is asked for. The
@@ -549,8 +553,9 @@ internal fun storedTrackSelection(
             .filter {
                 it.pinned &&
                     (if (it.route) routesVisible else tracksVisible) &&
-                    (if (it.route) it.matchesFilter(routeFilter, todayMidnightMs)
-                                  else it.matchesFilter(trackFilter, todayMidnightMs))
+                    (focus.isHighlighted(it.id) ||
+                        (if (it.route) it.matchesFilter(routeFilter, todayMidnightMs)
+                                      else it.matchesFilter(trackFilter, todayMidnightMs)))
             }
             .sortedByDescending { it.startTimeMs }
     )

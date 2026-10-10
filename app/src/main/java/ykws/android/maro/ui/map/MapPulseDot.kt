@@ -26,37 +26,39 @@ import ykws.android.maro.config.AppConfig
 //
 // One disc, one geometry and one beat, worn by every mode square of the toggle row — GPS, tracking,
 // inspect, route and the lock — and by the map's own marks outside the row (the drawer's recording dot,
-// the live track card's dot and border). Its **geometry** (10 dp, the half-size corner inset, the 800 ms
-// period, the 1 dp rim) stays here, one home; its **colour** is the caller's, because the mark carries the
+// the live track card's dot and border). Its **geometry** — the disc's size, the ratio corner inset,
+// the period and the rim width — stays here, one home, each number an accessor over its own
+// `ui.map.pulse.dot.*` setting; its **colour** is the caller's, because the mark carries the
 // square's state (`semantic.compliant` / `semantic.caution` / `semantic.danger`) and the callers that
 // paint no state read the UI's own `ui.map.pulse.dot` by default.
 //
-// The mark is a **body under a ring**: the body alone beats (1 → 0.5), while a 1 dp rim in the mark's own
+// The mark is a **body under a ring**: the body alone beats (1 → its floor), while a rim in the mark's own
 // colour is stroked at full strength and never fades, so a state stays readable at the bottom of the beat.
-// That rim is why the beat's floor can sit at 50 %; the shared beat keeps 30 % for the non-toggle callers
-// that beat without a state (the refused crosshair, the trip border).
+// That rim is why the beat's floor can sit as low as it does; the shared beat keeps 30 % for the
+// non-toggle callers that beat without a state (the refused crosshair, the trip border).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** The beat every pulsing marker in the app uses: how long one 1 → floor → 1 cycle takes (ms). */
-internal const val MAP_PULSE_DEFAULT_MS = 800
+internal val MAP_PULSE_DEFAULT_MS: Int get() = AppConfig.uiMapPulseDotMs
 
 /** The disc's diameter (dp) — the recording dot's own size, shared rather than re-chosen. */
-internal val MAP_PULSE_DOT_SIZE: Dp = 10.dp
+internal val MAP_PULSE_DOT_SIZE: Dp get() = AppConfig.uiMapPulseDotSize.dp
 
 /**
- * The mark's inset from its square's top-right edges: half the disc's own size (5 dp for the 10 dp disc),
- * so the every-square placement can never drift from the size the disc is drawn at.
+ * The mark's inset from its square's top-right edges: `ui.map.pulse.dot.inset.ratio` (0.25) of the disc's
+ * own size — 3 dp for the 12 dp disc — so the every-square placement scales with the disc instead of being
+ * a second number to keep in step.
  */
-internal val MAP_PULSE_DOT_INSET: Dp = MAP_PULSE_DOT_SIZE / 2
+internal val MAP_PULSE_DOT_INSET: Dp get() = MAP_PULSE_DOT_SIZE * AppConfig.uiMapPulseDotInsetRatio
 
-/** The mark's ring width (dp) — a hairline that crisps a 10 dp disc without eating it. */
-internal val MAP_PULSE_DOT_RING_WIDTH: Dp = 1.dp
+/** The mark's ring width (dp) — a hairline that crisps the disc without eating it. */
+internal val MAP_PULSE_DOT_RING_WIDTH: Dp get() = AppConfig.uiMapPulseDotRingWidth.dp
 
 /**
- * The beat's floor for the toggle mark: the body never fades past 50 %, and the full-strength ring keeps
+ * The beat's floor for the toggle mark: the body never fades past it, and the full-strength ring keeps
  * the state readable under it at the bottom of the cycle.
  */
-internal const val MAP_PULSE_DOT_FLOOR = 0.5f
+internal val MAP_PULSE_DOT_FLOOR: Float get() = AppConfig.uiMapPulseDotFloor
 
 /** The shared beat's own default floor — the 30 % a state-less pulse (the refused crosshair) fades to. */
 private const val MAP_PULSE_GENERIC_FLOOR = 0.3f
@@ -91,7 +93,7 @@ internal fun rememberPulseAlpha(
 /**
  * The shared pulsing disc — one geometry, one beat, a caller's colour, and a ring that never fades.
  *
- * The mark is a filled body under a 1 dp rim struck in the same colour: only the body carries the beat,
+ * The mark is a filled body under a rim struck in the same colour: only the body carries the beat,
  * so the disc dims toward its floor while its edge holds full strength and the state stays legible. The
  * body and the rim both sit inside the disc's own [size], so a caller's placement is unchanged.
  *

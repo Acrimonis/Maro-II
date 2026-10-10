@@ -265,8 +265,9 @@ sealed interface RouteState {
         override val plan: RoutePlan,
         /**
          * The stored track this route was followed from, or null when it came from an acquisition's
-         * `Select route`. The id greys the exit dialog's save door and reads **Stop following** on its
-         * third door, so a followed saved route is never written a second time.
+         * `Select route`. The id settles the exit dialog in its **written** state — the save door greys
+         * and the third door reads **Leave** rather than **Discard route** — so a followed saved route is
+         * never written a second time.
          */
         val followedTrackId: String? = null
     ) : RouteState {
@@ -837,9 +838,10 @@ class RouteViewModel(
     fun trackFor(plan: RoutePlan): String? = session[plan] ?: session[plan.reversed()]
 
     /**
-     * **Is this route already written?** — the one predicate both saves read (R55, R59). A route saved
-     * while its line is mirrored answers true for **either** orientation (R99), so the mirror never
-     * resurrects the save door and the exit dialog still reads *Stop following*.
+     * **Is this route already written?** — the one predicate both saves read and the one fact the exit
+     * dialog's doors resolve from (R55, R59). A route saved while its line is mirrored answers true for
+     * **either** orientation (R99), so the mirror never resurrects the save door and the exit dialog's
+     * third door still reads *Leave*.
      */
     fun isRouteSaved(plan: RoutePlan): Boolean =
         (session[plan] ?: session[plan.reversed()]) != null

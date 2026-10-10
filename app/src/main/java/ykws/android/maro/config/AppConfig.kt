@@ -622,11 +622,53 @@ object AppConfig {
      *
      * `MapPulseDot` reads it when a caller paints no state — the drawer's recording dot and the live
      * card's dot and border. The toggle squares pass their own resolved state colour
-     * (`semantic.compliant` / `semantic.caution` / `semantic.danger`) instead, and `MapPulseDot` keeps
-     * the geometry (its 10 dp, its half-size corner inset, its 800 ms period, its 1 dp full-strength ring
-     * and the mark's own 50 % floor). The refused crosshair keeps `route.target.color`, unrelated to it.
+     * (`semantic.compliant` / `semantic.caution` / `semantic.danger`) instead. The mark's geometry — its
+     * disc size, its beat floor, its period and its ring width — is the four `ui.map.pulse.dot.*`
+     * settings below. The refused crosshair keeps `route.target.color`, unrelated to it.
      */
     var uiMapPulseDot: Int = 0xFFD32F2F.toInt()
+        private set
+
+    /**
+     * Diameter (dp) of the shared pulsing mark's disc. Default 12. Set via `ui.map.pulse.dot.size`.
+     *
+     * The mark's one size: `MAP_PULSE_DOT_SIZE` reads it and `MAP_PULSE_DOT_INSET` derives the square's
+     * top-right placement as a share of it (`uiMapPulseDotInsetRatio`), so one number drives both the disc
+     * and its corner.
+     */
+    var uiMapPulseDotSize: Float = 12f
+        private set
+
+    /**
+     * The mark's top-right corner inset as a share of its own disc's size (0.0–1.0). Default 0.25 — a
+     * quarter of the disc, 3 dp at the 12 dp disc. Set via `ui.map.pulse.dot.inset.ratio`.
+     *
+     * The one number between the mark and its square's corner: `MAP_PULSE_DOT_INSET` multiplies it into
+     * the disc's size, so the placement scales with the disc instead of being a second number to keep in
+     * step.
+     */
+    var uiMapPulseDotInsetRatio: Float = 0.25f
+        private set
+
+    /**
+     * The beat's floor for the toggle mark's body (0.0–1.0): how far the mark fades before its
+     * full-strength ring holds the state readable. Default 0.33. Set via `ui.map.pulse.dot.floor`.
+     */
+    var uiMapPulseDotFloor: Float = 0.33f
+        private set
+
+    /**
+     * How long the shared pulsing mark's one 1 → floor → 1 cycle takes (ms). Default 555.
+     * Set via `ui.map.pulse.dot.ms`.
+     */
+    var uiMapPulseDotMs: Int = 555
+        private set
+
+    /**
+     * Ring width (dp) of the shared pulsing mark — the full-strength rim stroked inside the disc in the
+     * mark's own colour. Default 1. Set via `ui.map.pulse.dot.ring.width`.
+     */
+    var uiMapPulseDotRingWidth: Float = 1f
         private set
 
     /** Side (dp) of one square in the row. Default 44. Set via `ui.map.toggle.square`. */
@@ -1818,6 +1860,11 @@ object AppConfig {
             props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.band.fill.alpha")?.toFloatOrNull()?.let { uiBandFillAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.pulse.dot")?.let { parseColorOrNull(it) }?.let { uiMapPulseDot = it }
+            props.getProperty("ui.map.pulse.dot.size")?.toFloatOrNull()?.let { uiMapPulseDotSize = it }
+            props.getProperty("ui.map.pulse.dot.inset.ratio")?.toFloatOrNull()?.let { uiMapPulseDotInsetRatio = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.pulse.dot.floor")?.toFloatOrNull()?.let { uiMapPulseDotFloor = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.pulse.dot.ms")?.toIntOrNull()?.let { uiMapPulseDotMs = it }
+            props.getProperty("ui.map.pulse.dot.ring.width")?.toFloatOrNull()?.let { uiMapPulseDotRingWidth = it }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }

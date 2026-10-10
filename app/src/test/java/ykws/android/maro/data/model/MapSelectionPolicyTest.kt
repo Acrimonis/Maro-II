@@ -11,12 +11,13 @@ import ykws.android.maro.data.track.TrackSummary
 
 /**
  * Pure policy tests — no device, no IO. Covers the map-render visibility contract:
- * eligibility, ranking + cap, focus override, session boost (+ reset invalidation), resume-backup
- * twin ordering, and the deliberate asymmetry between tracks (ranked + capped) and markers
- * (filter-only, no cap).
+ * eligibility, ranking + cap, the open card's one-id render escape (+ its reversal of 2026-09-28),
+ * session boost (+ reset invalidation), resume-backup twin ordering, and the deliberate asymmetry
+ * between tracks (ranked + capped) and markers (filter-only, no cap).
  *
- * Since 2026-09-28 the map filter is authoritative with no exception: the highlighted id is a rank term
- * alone and the session boost keeps the render cap alone as its override — both pinned below.
+ * Since 2026-10-10 the open card's item is drawn past the map filter and past the cap — one id, and
+ * only while its card stands (reversing 2026-09-28 in part) — while the session boost keeps the rank
+ * term alone and stays filter-bound; both pinned below.
  */
 class MapSelectionPolicyTest {
 
@@ -101,16 +102,51 @@ class MapSelectionPolicyTest {
     // ── Focus rank, not a filter override ─────────────────────────────────
 
     @Test
-    fun highlightedId_ranksFirstButDoesNotOverrideTheFilter() {
-        // 2026-09-28: the highlighted id is a rank term alone — the map draws its filter's set and
-        // nothing else, so a highlighted track the filter excludes is not drawn, cap or no cap.
+    fun selectedTrack_excludedByTheFilter_isStillDrawn() {
+        // 2026-10-10: the open card's one item is a render escape — drawn past the map filter while
+        // its card stands (reversing 2026-09-28 in part). The highlighted id leads the rank.
         val focus = MapRenderFocus().apply { highlight("viewed") }
         val items = listOf(
             summary("newest", startTimeMs = today),
             summary("viewed", startTimeMs = today - 100 * dayMs)   // outside LAST_7_DAYS
         )
         val selected = trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today)
-        assertEquals(listOf("newest"), selected.map { it.id })
+        assertEquals(listOf("viewed", "newest"), selected.map { it.id })
+    }
+
+    @Test
+    fun selectedTrack_survivesTheCap_evenAtZero() {
+        // The escape is past the cap as well: with a render cap of zero a closed card draws nothing,
+        // but the open card's item is still drawn.
+        val focus = MapRenderFocus().apply { highlight("viewed") }
+        val items = listOf(
+            summary("newest", startTimeMs = today),
+            summary("viewed", startTimeMs = today - dayMs)
+        )
+        assertEquals(
+            listOf("viewed"),
+            trackPolicy.select(items, ListFilter(), cap = 0, focus = focus, todayMidnightMs = today).map { it.id }
+        )
+        // A closed card draws nothing at a zero cap.
+        assertEquals(
+            emptyList<String>(),
+            trackPolicy.select(items, ListFilter(), cap = 0, focus = MapRenderFocus(), todayMidnightMs = today).map { it.id }
+        )
+    }
+
+    @Test
+    fun unselectedFilterExcludedTrack_isNotDrawn() {
+        // The escape is exactly one id — the open card's — never a set: a filter-excluded track that
+        // is not selected stays off the map.
+        val focus = MapRenderFocus().apply { highlight("viewed") }
+        val items = listOf(
+            summary("newest", startTimeMs = today),
+            summary("viewed", startTimeMs = today - dayMs),
+            summary("excluded", startTimeMs = today - 100 * dayMs)
+        )
+        val selected = trackPolicy.select(items, last7Days, cap = 10, focus = focus, todayMidnightMs = today)
+        assertEquals(listOf("viewed", "newest"), selected.map { it.id })
+        assertFalse(selected.any { it.id == "excluded" })
     }
 
     @Test
@@ -211,6 +247,27 @@ class MapSelectionPolicyTest {
     }
 
     // ── Markers: filter-only, no cap ──────────────────────────────────────
+
+    @Test
+    fun selectedMarker_excludedByTheFilter_isStillDrawn() {
+        // 2026-10-10: the marker half carries the same one-id render escape as the track half — the
+        // open card's marker is drawn past the map filter; every other excluded marker stays out. The
+        // filter is WITHOUT_ICON, which excludes the selected marker because it carries an icon.
+        val focus = MapRenderFocus().apply { highlight("selected") }
+        val markers = listOf(
+            marker("selected", icon = "⚓"),
+            marker("kept")
+        )
+        val withoutIcon = ListFilter(mapOf("icon" to "WITHOUT_ICON"))
+        assertEquals(
+            listOf("kept"),
+            MarkerSelectionPolicy().select(markers, withoutIcon, cap = Int.MAX_VALUE, focus = MapRenderFocus(), todayMidnightMs = today).map { it.id }
+        )
+        assertEquals(
+            listOf("selected", "kept"),
+            MarkerSelectionPolicy().select(markers, withoutIcon, cap = Int.MAX_VALUE, focus = focus, todayMidnightMs = today).map { it.id }
+        )
+    }
 
     @Test
     fun markers_filterOnly_noCap() {

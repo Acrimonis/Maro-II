@@ -204,10 +204,12 @@ real or complete, **amber** when it is partial, **red** when there is none. Ever
 recenter wears one.
 
 **The mark's own look.** The square paints it, at the family's one placement: the top-right corner, inset
-from the square's own edges by half the disc's size (5 dp for the 10 dp disc). It is a body beating
-1 → 0.5 under a 1 dp ring in the same colour held at full strength, so the edge stays crisp at the bottom
-of the beat. The marks outside the row — the drawer's recording dot and the live card's — keep their own
-placement and wear the same ring and beat.
+from the square's own edges by the mark's own `ui.map.pulse.dot.inset.ratio` of the disc's size (3 dp for
+the 12 dp disc). It is a body beating
+1 → 0.33 under a 1 dp ring (`ui.map.pulse.dot.ring.width`) in the same colour held at full strength, so the
+edge stays crisp at the bottom of the beat. The disc, the floor and the period are the mark's own
+`ui.map.pulse.dot.size`, `.floor` and `.ms` settings. The marks outside the row — the drawer's recording dot
+and the live card's — keep their own placement and wear the same ring and beat.
 
 **The two classes.** Mode squares — GPS, tracking, inspect, route, lock — carry both channels, so the
 dot doubles as the on-screen answer to *is this a control?* Reading squares — land/water — never turn off

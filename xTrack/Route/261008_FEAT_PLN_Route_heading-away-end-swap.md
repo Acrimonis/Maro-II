@@ -81,8 +81,8 @@ functional case answered by a **new arrival cue**, not by a reversal.
 - Crossing: when `remainingFrom(boat).durationSec` falls through `route.follow.arrival.etaSec` (60 s)
   **as a new look-back low** — a genuine approach, not a reversal drifting back in — the mode raises
   the existing exit dialog (`MapDialogHost`) under a *you seem to have reached your destination*
-  prompt, with the same doors — *Save Route to Track · Continue route · Discard Route*, or *Stop
-  following* for a followed saved route.
+  prompt, with the same three doors at every state — *Save Route and exit* · *Continue* · *Discard route*
+  while the line is unwritten, the save door disabled and the third reading *Leave* once it is a track.
 - **One prompt per orientation, and per approach.** The cue is armed on entering `Following` **from
   above** the threshold and armed again by **every flip** — so the mirrored end behaves exactly like
   the first and both ends of the route ask — and it fires once on the crossing below the threshold
@@ -92,9 +92,9 @@ functional case answered by a **new arrival cue**, not by a reversal.
 - **Objection, recorded:** arming on a flip lets the prompt fall on the first fix after a turn-back
   whenever the new goal already lies inside the minute — honest to the threshold, since the boat is
   within a minute of that end, but it can read as the prompt returning as you turn.
-- **The answer decides only whether the route survives.** The doors that keep the route — *Continue
-  route* and a dismissal (no action) — leave the mode `Following`; the doors that end it — *Save Route
-  to Track* and *Discard Route* / *Stop following* — make the flip moot.
+- **The answer decides only whether the route survives.** The doors that keep the route — *Continue*
+  and a dismissal (no action) — leave the mode `Following`; the doors that end it — *Save Route and
+  exit* and *Discard route* / *Leave* — make the flip moot.
 - **A reversal outranks the prompt.** If the loss accrues while the cue is open, the cue is closed as
   a **no action** dismissal and the flip proceeds; the prompt never blocks a reversal, and the flip is
   never gated by the threshold.
@@ -124,8 +124,8 @@ functional case answered by a **new arrival cue**, not by a reversal.
   `destinationMoved`, `computedAtMs`, `budgetUnmetZoneShare`, `forcedCrossingZoneNames` and
   `slowLimitSeconds` carried unchanged.
 - The session link is keyed on the plan; the mirror must resolve to the **same** entry, so
-  `isRouteSaved` reads true for a saved route's mirror and the exit dialog still reads
-  *Stop following*.
+  `isRouteSaved` reads true for a saved route's mirror and the exit dialog's third door still reads
+  *Leave*.
 
 ## The detector's home
 
@@ -159,7 +159,7 @@ functional case answered by a **new arrival cue**, not by a reversal.
 - The persisted end ids (R82) are a fact of the route **as armed**, not of the read direction: a
   route saved from a mirrored plan keeps the original `routeStartMarkerId` /
   `routeDestinationMarkerId`, so the track lists and reopens to the same route.
-- `isRouteSaved`, the session's route-to-track link and the exit dialog's *Stop following* all read
+- `isRouteSaved`, the session's route-to-track link and the exit dialog's *Leave* all read
   the route's identity, so the mirror never resurrects the save door.
 
 ## Docs and rules
