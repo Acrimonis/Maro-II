@@ -106,7 +106,7 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 - [ ] 1 · [sub-item]
 
 [Exhaustion closes a level: one bullet summary naming resolutions and drops, written into the parent
-item at level 2 and into the digest's `## Outcome` at level 1. A closed child renders as
+item at level 2 and into the digest's `## Implemented` at level 1. A closed child renders as
 `- [x] n · [subject] — child walk closed: [one-line resolution, drops named]`. Never cleared, never
 trimmed, kept while any level is open — the fold and `#archive`'s retirement both wait.]
 
@@ -197,6 +197,6 @@ Scope tag is `feature`.
 
 [Content]
 
-## Outcome
+## Implemented
 [Appended once at completion: what actually shipped + deviations from plan.]
 ```
