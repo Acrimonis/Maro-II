@@ -1,5 +1,7 @@
 package ykws.android.maro.ui.markers.wizard.steps
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +25,7 @@ import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.SectionRow
 import ykws.android.maro.ui.components.SliderControl
+import ykws.android.maro.ui.map.MarkerType
 import ykws.android.maro.ui.map.MarkersViewModel
 
 /**
@@ -44,6 +47,9 @@ private enum class RouteRoleOption { ORIGIN, DESTINATION }
  * Routing-cost step — one `CardArea` holding two sections side by side, divided by the vertical rule
  * (`ui-component-guidelines` §2.14): **Route role** on the left, **Routing cost** on the right.
  *
+ * **A Pin carries no cost** — it is a point and has no area to price — so for a Pin the cost side is
+ * hidden and the step shows the Route role alone, full width. A Circle and a Corridor keep both sides.
+ *
  * Each side leads with its heading and a one-line comment, then gives the slack to a weighted spacer, so
  * the two controls sit on one bottom line although the stacked options and the slider differ in height,
  * while the headings stay aligned at the top.
@@ -60,75 +66,92 @@ private enum class RouteRoleOption { ORIGIN, DESTINATION }
 @Composable
 internal fun RoutingCostStep(viewModel: MarkersViewModel) {
     val form by viewModel.createForm.collectAsState()
+
+    CardArea {
+        if (form.type == MarkerType.PIN) {
+            // A Pin has no area to price, so it carries **no cost**: the step shows the Route role alone.
+            Column(modifier = Modifier.fillMaxWidth()) {
+                RouteRoleSection(viewModel)
+            }
+        } else {
+            SectionRow(
+                weightLeft = 1f - COST_COLUMN_WEIGHT,
+                left = { RouteRoleSection(viewModel) },
+                right = { RouteCostSection(viewModel) }
+            )
+        }
+    }
+}
+
+/** The **Route role** side — the heading and the shared multi-select, in whatever column holds it. */
+@Composable
+private fun ColumnScope.RouteRoleSection(viewModel: MarkersViewModel) {
+    val form by viewModel.createForm.collectAsState()
+    StepSectionHeading(
+        title = stringResource(R.string.wizard_route_role_title),
+        description = stringResource(R.string.wizard_route_role_description)
+    )
+    Spacer(modifier = Modifier.weight(1f))
+    Spacer(modifier = Modifier.height(HEADING_TO_CONTROL_GAP_DP.dp))
+    MultiSelectRow(
+        options = listOf(
+            RouteRoleOption.ORIGIN to stringResource(R.string.wizard_route_role_origin),
+            RouteRoleOption.DESTINATION to stringResource(R.string.wizard_route_role_destination)
+        ),
+        isOn = { option ->
+            when (option) {
+                RouteRoleOption.ORIGIN -> form.routeOrigin
+                RouteRoleOption.DESTINATION -> form.routeDestination
+            }
+        },
+        onToggle = { option ->
+            viewModel.updateForm { current ->
+                when (option) {
+                    RouteRoleOption.ORIGIN ->
+                        current.copy(routeOrigin = !current.routeOrigin)
+                    RouteRoleOption.DESTINATION ->
+                        current.copy(routeDestination = !current.routeDestination)
+                }
+            }
+        }
+    )
+}
+
+/** The **Routing cost** side — the heading, the value line and the slider; never drawn for a Pin. */
+@Composable
+private fun ColumnScope.RouteCostSection(viewModel: MarkersViewModel) {
+    val form by viewModel.createForm.collectAsState()
     val cost = validRoutingCost(form.routingCost) ?: 0
     val offLabel = stringResource(R.string.wizard_routing_cost_unset)
     val blockedLabel = stringResource(R.string.wizard_routing_cost_blocked)
-
-    CardArea {
-        SectionRow(
-            weightLeft = 1f - COST_COLUMN_WEIGHT,
-            left = {
-                StepSectionHeading(
-                    title = stringResource(R.string.wizard_route_role_title),
-                    description = stringResource(R.string.wizard_route_role_description)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Spacer(modifier = Modifier.height(HEADING_TO_CONTROL_GAP_DP.dp))
-                MultiSelectRow(
-                    options = listOf(
-                        RouteRoleOption.ORIGIN to stringResource(R.string.wizard_route_role_origin),
-                        RouteRoleOption.DESTINATION to stringResource(R.string.wizard_route_role_destination)
-                    ),
-                    isOn = { option ->
-                        when (option) {
-                            RouteRoleOption.ORIGIN -> form.routeOrigin
-                            RouteRoleOption.DESTINATION -> form.routeDestination
-                        }
-                    },
-                    onToggle = { option ->
-                        viewModel.updateForm { current ->
-                            when (option) {
-                                RouteRoleOption.ORIGIN ->
-                                    current.copy(routeOrigin = !current.routeOrigin)
-                                RouteRoleOption.DESTINATION ->
-                                    current.copy(routeDestination = !current.routeDestination)
-                            }
-                        }
-                    }
-                )
-            },
-            right = {
-                StepSectionHeading(
-                    title = stringResource(R.string.wizard_routing_cost_title),
-                    description = stringResource(R.string.wizard_routing_cost_description)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Spacer(modifier = Modifier.height(HEADING_TO_CONTROL_GAP_DP.dp))
-                Text(
-                    text = when (cost) {
-                        0 -> offLabel
-                        ROUTING_COST_BLOCKED -> blockedLabel
-                        else -> cost.toString()
-                    },
-                    color = ComposeColor(AppConfig.uiValueText),
-                    fontSize = AppConfig.uiFontValueSize.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SliderControl(
-                    value = cost.toFloat(),
-                    valueRange = 0f..ROUTING_COST_BLOCKED.toFloat(),
-                    steps = ROUTING_COST_BLOCKED - 1,
-                    onValueChange = { v ->
-                        viewModel.updateForm { it.copy(routingCost = routingCostForSlider(v.toDouble())) }
-                    },
-                    startLabel = offLabel,
-                    endLabel = blockedLabel
-                )
-            }
-        )
-    }
+    StepSectionHeading(
+        title = stringResource(R.string.wizard_routing_cost_title),
+        description = stringResource(R.string.wizard_routing_cost_description)
+    )
+    Spacer(modifier = Modifier.weight(1f))
+    Spacer(modifier = Modifier.height(HEADING_TO_CONTROL_GAP_DP.dp))
+    Text(
+        text = when (cost) {
+            0 -> offLabel
+            ROUTING_COST_BLOCKED -> blockedLabel
+            else -> cost.toString()
+        },
+        color = ComposeColor(AppConfig.uiValueText),
+        fontSize = AppConfig.uiFontValueSize.sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.End,
+        modifier = Modifier.fillMaxWidth()
+    )
+    SliderControl(
+        value = cost.toFloat(),
+        valueRange = 0f..ROUTING_COST_BLOCKED.toFloat(),
+        steps = ROUTING_COST_BLOCKED - 1,
+        onValueChange = { v ->
+            viewModel.updateForm { it.copy(routingCost = routingCostForSlider(v.toDouble())) }
+        },
+        startLabel = offLabel,
+        endLabel = blockedLabel
+    )
 }
 
 /**

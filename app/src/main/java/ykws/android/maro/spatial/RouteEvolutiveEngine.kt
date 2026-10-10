@@ -30,6 +30,8 @@ class RouteEvolutiveEngine(
     aversionKn: () -> Double,
     budgetPct: () -> Int,
     world: () -> MultipassWorld,
+    /** The marker price's live strength, forwarded to the shared engine beside the pace. */
+    markerStrength: () -> Double = { 1.0 },
     /**
      * **Where this algorithm's own walk differs**, and the only thing it will not share: the cell it
      * rasterizes at and the fine cell its clock steps at. [`EvolutiveGridPlan`] answers its own
@@ -40,7 +42,7 @@ class RouteEvolutiveEngine(
 ) : RouteEngine {
 
     /** The pipeline both engines stand on — replaced, not wrapped, as the adaptive grid lands. */
-    private val delegate = RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, plan)
+    private val delegate = RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, markerStrength, plan)
 
     override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations =
         delegate.routesToCompute(origin, destination)

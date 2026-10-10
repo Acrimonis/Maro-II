@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-10 12:50
+modified: 2026-10-10 18:55
 ---
 
 # Feature: Markers
@@ -102,6 +102,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 
 ## Docs
 - `xTrack/Markers/260929_FEAT_PLN_Markers_add-marker-trigger.md` — the shared create action in both markers headers, the rule dividing it from the read chrome, and the row's order
+- `xTrack/Markers/261010_FEAT_PLN_Markers_scaled-slider-control.md` — the ×10 range toggle and the shared `ScaledSliderRow` scaffold
 - `xTrack/Markers/260928_FEAT_PLN_Markers_route-role-flags.md` — a marker's two route roles, the cost wall and the rebuilt Routing cost step
 - `xTrack/Markers/260928_FEAT_PLN_Markers_filter-validation-and-route-axis.md` — the marker filter's two route axes, the pinned report and the log pass
 - `xTrack/Markers/260925_FEAT_PLN_Markers_marker-tile-header-layout-discussion.md` — marker tile header layout: the icon-action relocation, the locked decisions and the residuals

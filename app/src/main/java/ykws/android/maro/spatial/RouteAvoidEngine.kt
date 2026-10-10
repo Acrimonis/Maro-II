@@ -148,6 +148,12 @@ class RouteAvoidEngine(
     /** The world provider — the map always holds the layers it wraps, so it answers a live world. */
     private val worldProvider: () -> MultipassWorld,
     /**
+     * **The marker price's live strength** — the Routing row's factor, asked fresh like the pace so a
+     * slider move reaches the next arm. It scales the marker price and nothing else; the wall is not
+     * scaled.
+     */
+    private val markerStrength: () -> Double = { 1.0 },
+    /**
      * **The decisions this engine makes about its own walk** — the cell it rasterizes the corridor at and
      * the fine cell its clock steps at. `avoid` ships [`UniformGridPlan`], which is exactly the behaviour
      * this engine had before the plan existed, so the default changes nothing; a second algorithm passes
@@ -444,7 +450,7 @@ class RouteAvoidEngine(
         // body execution, so a build that exists implies a published deferred; the await stays outside the
         // lock, so the rungs single-flight only the start and then run over the one build concurrently.
         val deferred = computeScope.async(start = CoroutineStart.LAZY) {
-            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), seatTrace)
+            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), markerStrength(), seatTrace)
         }
         holder.deferred = deferred
         deferred.start()
@@ -485,13 +491,13 @@ class RouteAvoidEngine(
         val first = solveAtLambda(grid, lambda, publishStage, lookupId)
         if (first == null) {
             if (grid.regionSaturated) return null
-            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), seatTrace) ?: return null
+            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace) ?: return null
             return solveAtLambda(grown, lambda, publishStage, lookupId)
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
         // the "around" rung's whole job. The wider answer is kept only where it forces fewer crossings.
         if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) return first
-        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), seatTrace) ?: return first
+        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace) ?: return first
         val grownRung = solveAtLambda(grown, lambda, publishStage, lookupId) ?: return first
         return if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
     }
@@ -620,9 +626,15 @@ class RouteAvoidEngine(
         return null
     }
 
-    /** The engine's own water test: on the coastline, and deep enough where the gate is armed. */
+    /**
+     * The engine's own water test: on the coastline, deep enough where the gate is armed, and **outside
+     * every wall marker** — a Blocked marker is law, so an end standing inside one is moved sea-side by
+     * [repair] exactly as a land or shallow end is.
+     */
     private fun validWater(point: RoutePoint, world: MultipassWorld): Boolean {
         if (!world.isWater(point.latitude, point.longitude)) return false
+        val at = LatLng(point.latitude, point.longitude)
+        if (world.routeMarkers().any { it.isWall && it.geometry.contains(at) }) return false
         val gateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
         return depthClearsGate(world.depthAt(point.latitude, point.longitude), gateActive, minDepthM)

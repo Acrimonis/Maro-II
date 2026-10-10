@@ -1639,6 +1639,33 @@ private fun RoutingSettings(
                 }
             )
         }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Marker strength ──────────────────────────────────────────────────
+        // How strongly a **costed marker** pushes the line: the linear factor the marker law scales the
+        // base per-metre cost by (`base × step × strength`). Seeded from `route.marker.costPerStep` and
+        // read live by the engine's provider. A Blocked marker is a wall and is never scaled by this.
+        SectionHeader(title = stringResource(R.string.settings_section_route_marker))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+
+        CardArea {
+            SliderRow(
+                label = stringResource(R.string.settings_route_marker_strength_label),
+                description = stringResource(R.string.settings_route_marker_strength_desc),
+                valueLabel = stringResource(
+                    R.string.settings_route_marker_strength_value_fmt, settings.routeMarkerStrength
+                ),
+                value = settings.routeMarkerStrength,
+                valueRange = AppConfig.ROUTE_MARKER_STRENGTH_MIN.toFloat()..
+                    AppConfig.ROUTE_MARKER_STRENGTH_MAX.toFloat(),
+                // Half-steps across 0–5 — ten intervals on the slider's own track.
+                steps = 9,
+                onValueChange = { v ->
+                    onUpdateSettings { it.copy(routeMarkerStrength = (v * 2f).roundToInt() / 2f) }
+                }
+            )
+        }
     }
 }
 
