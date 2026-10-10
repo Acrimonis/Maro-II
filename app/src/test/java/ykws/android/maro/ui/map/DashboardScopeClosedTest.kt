@@ -10,11 +10,13 @@ import org.junit.Test
  *
  * The two flags answer for the world a change landed in — a list filter, sort or reset answers for the
  * list world; a map filter or reset answers for the map world. Since 2026-09-28 the sources read three
- * ways: a list card closes on a list write; a menu chevron's card and a spy (inspect) card close on a map
- * write; and a map click — a single item whose standing is not the filter's business — never closes this
- * way. The track half repeats the split through its own [TrackCardSource], because the two cards live in
- * different state owners, and since the lists split (2026-10-10) it also matches the write's **kind**
- * against the kind the card itself holds, so one list's write leaves the other list's card standing.
+ * ways: a list card closes on a list write; a spy (inspect) card closes on a map write alone; and a map
+ * click — a single item whose standing is not the filter's business — never closes this way. Since
+ * 2026-10-10 the menu chevron's card walks the map-filtered set **in the list's own order**, so its own
+ * kind's list write (the sort that order reads) closes it as well as its own kind's map write. The track
+ * half repeats the split through its own [TrackCardSource], because the two cards live in different state
+ * owners, and since the lists split (2026-10-10) it also matches the write's **kind** against the kind the
+ * card itself holds, so one list's write leaves the other list's card standing.
  */
 class DashboardScopeClosedTest {
 
@@ -37,9 +39,16 @@ class DashboardScopeClosedTest {
     }
 
     @Test
-    fun `a menu chevron's card walks the map referential and closes with it`() {
+    fun `a menu chevron's card walks the map referential in the list order and closes on either write`() {
         assertTrue(scopeClosed(DrawerSource.MENU, inListWorld = false, inMapWorld = true))
-        assertFalse(scopeClosed(DrawerSource.MENU, inListWorld = true, inMapWorld = false))
+        assertTrue(scopeClosed(DrawerSource.MENU, inListWorld = true, inMapWorld = false))
+    }
+
+    @Test
+    fun `a list sort edit closes the menu-opened marker card`() {
+        // The menu walk is order-bound to the list sort, so the sweep that rewrites it closes the card
+        // rather than letting its walk re-order under it (2026-10-10).
+        assertTrue(scopeClosed(DrawerSource.MENU, inListWorld = true, inMapWorld = false))
     }
 
     @Test
@@ -67,15 +76,23 @@ class DashboardScopeClosedTest {
     }
 
     @Test
-    fun `a menu-opened track closes on its own kind's map write and stands on a bare list write`() {
+    fun `a menu-opened track closes on its own kind's map write and, its walk now reading the list order, the list write`() {
         assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = false, listWorld = null, mapWorld = ListScope.TRACKS))
-        assertFalse(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = false, listWorld = ListScope.TRACKS, mapWorld = null))
+        assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = false, listWorld = ListScope.TRACKS, mapWorld = null))
     }
 
     @Test
-    fun `a menu-opened route stands on the tracks map write and closes on its own`() {
+    fun `a menu-opened route stands on the other kind's writes and closes on its own`() {
         assertFalse(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = null, mapWorld = ListScope.TRACKS))
+        assertFalse(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = ListScope.TRACKS, mapWorld = null))
         assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = null, mapWorld = ListScope.ROUTES))
+        assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = ListScope.ROUTES, mapWorld = null))
+    }
+
+    @Test
+    fun `a list sort edit closes the menu-opened card of its own kind`() {
+        assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = false, listWorld = ListScope.TRACKS, mapWorld = null))
+        assertTrue(trackScopeClosed(TrackCardSource.MENU, cardIsRoute = true, listWorld = ListScope.ROUTES, mapWorld = null))
     }
 
     @Test

@@ -232,7 +232,6 @@ fun MarkerOverlay(
                 is MarkerGeometry.Pin -> {
                     if (!skipDots) {
                         addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap,
-                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -270,7 +269,7 @@ fun MarkerOverlay(
                         addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier,
                             strokePx = markerStrokePx,
                             underStrokeAddPx = highlightUnderStrokeAddPx,
-                            confirmed = confirmed, skipDots = skipDots,
+                            skipDots = skipDots,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -278,7 +277,6 @@ fun MarkerOverlay(
                     } else if (!skipDots) {
                         // Center dot only
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap,
-                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -329,13 +327,11 @@ fun MarkerOverlay(
                     // Endpoint dots (or icons) with halo rings.
                     if (!skipDots) {
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.p1), "${marker.id}_p1", baseColor, dotBitmap,
-                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
                             markerPointIconZoom = markerPointIconZoom)
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.p2), "${marker.id}_p2", baseColor, dotBitmap,
-                            confirmed = confirmed,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
                             haloDimFraction = haloDimFraction,
@@ -445,7 +441,6 @@ fun MarkerOverlay(
                     val baseline = iconCenter - (bounds.top + bounds.bottom) / 2f
                     canvas.drawText(iconText, iconCenter, baseline, paint)
                     icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
-                    setOnMarkerClickListener { _, _ -> true }
                 }
                 mv.overlays.add(iconMarker)
             }
@@ -485,15 +480,16 @@ private fun addHaloOverlay(
     })
 }
 
-/** Add a pin [Marker] at [geom.position]. When [confirmed] a bare click listener is set that returns
- *  true, so osmdroid's default info window never opens over the map. */
+/**
+ * Add a pin [Marker] at [geom.position]. No click listener is set: a tap reaches osmdroid's own handler,
+ * which may open its default info window on the marker.
+ */
 private fun addPinOverlay(
     mv: MapView,
     geom: MarkerGeometry.Pin,
     markerId: String,
     color: Int,
     dotBitmap: Bitmap,
-    confirmed: Boolean = true,
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
     haloSizePct: Int = 50,
@@ -526,11 +522,6 @@ private fun addPinOverlay(
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color, mv.paintDensity, radiusMultiplier = markerZoom))
         title = "${OVERLAY_PREFIX}pin_$markerId"
-        if (confirmed) {
-            // The overlay no longer hands a tap to anything (plan §1): the listener stays as a bare
-            // suppressor, so osmdroid's default info window never opens over the map on a tap.
-            setOnMarkerClickListener { _, _ -> true }
-        }
     }
     mv.overlays.add(marker)
 }
@@ -546,7 +537,6 @@ private fun addCircleOverlay(
     /** The circle's own stroke in px, and the selection's under-stroke add in px. */
     strokePx: Float,
     underStrokeAddPx: Float,
-    confirmed: Boolean = true,
     skipDots: Boolean = false,
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
@@ -581,7 +571,6 @@ private fun addCircleOverlay(
     // Center dot (suppressed when skipDots — icon replaces it)
     if (!skipDots) {
         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), markerId, color, dotBitmap,
-            confirmed = confirmed,
             isSelected = isSelected, haloSpec = haloSpec,
             haloSizePct = haloSizePct,
             haloDimFraction = haloDimFraction,

@@ -227,10 +227,12 @@ internal enum class TrackCardSource {
  * or to the other kind's map referential — leaves the card standing. The kind-blind pair of booleans this
  * replaces had either list's write closing either list's card (2026-10-10).
  *
- * A list-opened card walks the list world, so its own kind's list filter, sort or reset closes it; the
- * menu chevron and the spy card both walk a map-referential set, so their own kind's map write closes
- * them — and the list's own write does not, unless the link carried it into the map world as well (the
- * caller passes both, exactly as the marker half does).
+ * A list-opened card walks the list world, so its own kind's list filter, sort or reset closes it. The
+ * menu chevron's walk is the map-filtered set **in the list's own sort order** (2026-10-10), so its own
+ * kind's list write — the sort that order reads — closes it as well as its own kind's map write. The spy
+ * card's ladder is the map's own alone, so only its own kind's map write closes it; for either the
+ * other world's write is display-only, unless the link carried it into the map world as well (the caller
+ * passes both, exactly as the marker half does).
  *
  * [listWorld] and [mapWorld] name the kind whose referential moved, or null for neither.
  */
@@ -243,7 +245,10 @@ internal fun trackScopeClosed(
     val kind = if (cardIsRoute) ListScope.ROUTES else ListScope.TRACKS
     return when (source) {
         TrackCardSource.LIST -> listWorld == kind
-        TrackCardSource.MENU, TrackCardSource.INSPECT -> mapWorld == kind
+        // The menu card walks the map-filtered set in the list's own order, so the list write that
+        // reorders it closes it too; the map-filter arm's meaning is unchanged.
+        TrackCardSource.MENU -> listWorld == kind || mapWorld == kind
+        TrackCardSource.INSPECT -> mapWorld == kind
     }
 }
 
