@@ -1,27 +1,27 @@
-# Context Hydration — Tracks — 2026-10-07
+# Context Hydration — Tracks — 2026-10-10
 
-**Last Bake:** 2026-10-07 15:58 UTC — written by `#bake`
+**Last Bake:** 2026-10-10 14:19 UTC — written by `#bake`
 
-**Directive trace:** no covered action stopped, and nothing was bent. No dependency was added, no machine-shaped data file was opened, and the device was not touched — the fix pass was built and judged on `apk-build.bat` and the unit suite, so the device pass stays owed. Every claim about the code came from a file read or a command's own output, and the one test failure the Code hop met elsewhere this session (a heatmap class leaf spelled for the wrong line) was read, corrected and its cause named rather than parked. The git write is the user's and runs as `#commit`; nothing was pushed.
+**Directive trace:** no covered action stopped and nothing was bent: no dependency was added, no machine-shaped data file was opened, and the device was not touched — the naming was judged on `apk-build.bat` and the unit suite, so the device pass stays owed. Every claim about the code came from a file read or a command's own output, and the two failing tests were read and traced to a palette commit this branch never touches, named as pre-existing rather than fixed here. The git writes are the user's: `#commit` ran once for the plan, and this session's pair runs on their word.
 
 ## State
 
-The path render engine and the speed/arrow display normalisation are shipped on `feature/tracks-rotes-norm` (cut from `origin/develop` with `--no-track`), and this session built the review's fix pass on top: **R6, R9 and R8 ship and R7 stays parked**. R6 closed a regression the normalisation introduced — the legend gate's derivation was retained across the eye's state being recreated per open id, so flipping the eye moved the stroke without the scale; the derivation now keys on `remember(appSettings, eyeOverride)`. R9 dropped a dead `|| eyeOverride == true` arm from the rebuild list, and R8 renamed `bandedStrokeOnMap`'s and `legendVisibleForState`'s pair to `arrowAxis` / `coloursAxis`. `apk-build.bat` is SUCCESSFUL and the scoped `ui.map` + `config` + `spatial` suite reads 659 tests, its single red the parked `route.avoid.fine.cellRatio` and two pre-existing skips.
+A recorded trip and a saved route are both named on `feature/rte-track-naming`. **A trip is named from the marker zones it met**, ranked by the ascending `Σ seconds × score` fusion over its raw points, capped at two, with a shared loop endpoint dropped, a distinct marked destination appended, and every token trimmed in proportion with an ellipsis. The naming runs live on the recorder's title poll and again at finalize, the comment falls back to the traversed markers when no name forms, and a marker's own icon leads its name with one space through the single helper `markerLabel`. **A saved route** reads `<origin> to <destination>`, `From <origin>` or `To <destination>`, keeping its dated `Route <instant>` name when nothing identifies either end; saving either kind toasts its own name in the locale's own words. `apk-build.bat` is SUCCESSFUL and the full suite reads **1099 tests**, its two reds the pre-existing `MapPulseDotTest` palette mismatch.
 
-**Open and recorded.** The **device pass is owed** over the engine, the eye and the per-kind axes. **R7** — a resolution test for the class leaf beating the persisted setting — stays parked: it needs the retained `Properties` bag, which only `AppConfig.init` fills. The archive left four loose ends, reported and none fixed: two walk narrations name moved plans by their old paths in prose, `### verification` holds open E2E todos naming archived plans by slug, relative links inside the moved plans are one level shallow, and the two plans owned by other features sit outside this archive.
-
-**Other features moved this session, bakes outstanding.** Two plans seeded earlier today shipped since their own bakes: the route's live-casing class override and the UI settings sections rearrangement. Both feature books carry their `## Implemented` entries; their `FEAT_HYD_` files and their summary rows still describe the earlier state, and neither appears in the focus stack.
+**Open and recorded.** The **device pass is owed** over the live name, the route's three forms and the save toast. The stop tiers in `pollTitle` and `computeFinalTitle` still spell the icon without the space, so one rule wears two spellings until both read `markerLabel`. The plan's own residual decisions stand: the source end, the comment fallback's shape, the geofence-off case, whether the new name replaces the old tiers, which place owns the two-name cap, and whether the `Route ` prefix survives. The epic's requirements are not yet updated for the settled rules.
 
 ## Target Files
 
-- `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — the plan: its `## Outcome`, its normalisation section, `### Second pass` R6–R9 and the `### Fix pass` now reading built
-- `xTrack/Tracks/FEAT_DSC_Tracks.md` — its `## Implemented` entry for the fix pass
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the legend gate keyed on the eye
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — the dropped key arm and the renamed pair
-- `app/src/test/java/ykws/android/maro/ui/map/TrackRouteRoleTest.kt`, `TrackRenderFlagsPathTest.kt` — the moved named arguments
-- `app/src/main/assets/maro.properties`, `app/src/main/java/ykws/android/maro/config/PathProperties.kt`, `config/AppConfig.kt` — the `path.*` family the axes ride
-- `xTrack/Tracks/xxArchive/INDEX.md` with the eighteen retired plans — the folder's only read entry point
+- `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the plan, its `## Implemented` included
+- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — the fusion, the shape, the trim, `markerLabel`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — the live title poll and the finalize pass over the raw points
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeEndName`, `composeRouteName` and the save toast
+- `app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt` — `Finalized` now carrying the saved name
+- `app/src/main/assets/maro.properties`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `track.name.maxLength` at 254
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the connector, the saved toast and the From/To forms
+- `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt` — `markerOf` / `sortScore` widened to `internal`
+- `app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt` — the fusion, the shape, the trim and `markerLabel`
 
 ## Next Step
 
-Take the owed device pass over the engine and the normalisation — a route's chevrons and bands, the pool's rebuild, the pin, and the eye with the per-kind axes — and the branch's fate (its merge) is the user's call. **R7** remains the plan's one parked finding. The session's two other shipments, the route's live-casing class override and the settings sections rearrangement, keep their own plans and await their features' bakes.
+Take the owed device pass over the naming — a trip's live name growing, a route's three forms and the save toast in both locales — and settle the plan's residual decisions; the branch's fate is the user's call.

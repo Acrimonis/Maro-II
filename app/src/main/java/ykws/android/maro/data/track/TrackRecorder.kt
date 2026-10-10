@@ -26,6 +26,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackEvent.*
+import ykws.android.maro.spatial.MarkerMatcher
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import ykws.android.maro.spatial.WhereAmIMatch
@@ -157,6 +158,8 @@ class TrackRecorder(
     private val idleThresholdCallback: IdleThresholdCallback? = null,
     private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
     private val markerChangeNotifier: Flow<Unit>? = null,
+    private val nameConnector: String = "to",
+    private val nameMaxLength: Int = AppConfig.trackNameMaxLength,
     private val gapDistanceThresholdM: Double = 200.0,
     private val gapTimeThresholdSec: Long = 120L,
     private val autoMarkerManager: AutoMarkerManager? = null
@@ -1082,9 +1085,16 @@ class TrackRecorder(
             updatedAtEpochMs = finalizeTimeMs
         ).let { it.copy(lastPointTimeMs = it.lastRealPointTimeMsOrNull() ?: 0L) }
 
-        // Only auto-rename if the current name matches the auto-generated pattern (D6)
+        // Only auto-rename if the current name matches the auto-generated pattern (D6), and the
+        // markers the trip met name it ahead of a stop's own title: the fusion is read on the raw
+        // points, before simplification thins the detail a short visit lives in.
         val isAutoName = trackAfterClose.name.matches(Regex("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}"))
-        val finalName = if (isAutoName) computeFinalTitle(finalized) else null
+        val markerName = if (isAutoName) composeTripName(trackAfterClose.trackPoints) else null
+        val finalName = when {
+            !isAutoName -> null
+            markerName != null -> markerName
+            else -> computeFinalTitle(finalized)
+        }
         val finalizedWithTitle = if (finalName != null) finalized.copy(name = finalName) else finalized
         currentTrack = finalizedWithTitle
 
@@ -1118,7 +1128,7 @@ class TrackRecorder(
             repository.save(finalizedTrack)
             repository.deleteCheckpoint(finalizedTrack.id)
         }
-        _events.tryEmit(Finalized(finalizedTrack.id))
+        _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name))
         _events.tryEmit(Stopped)
 
         transitionTo(TrackRecorderState.OFF)
@@ -1443,7 +1453,13 @@ class TrackRecorder(
                 formatStopLine(bm, zones)
             }
 
-            val newComment = lines.joinToString("\n")
+            // No marker strong enough to name the trip: the list of markers traversed is written
+            // into the comment instead, so the journey is still described (settled 2026-10-10).
+            val traversed = if (composeTripName(track.trackPoints) == null) {
+                traversedMarkers(track.trackPoints)
+            } else emptyList()
+            val newComment = (if (traversed.isEmpty()) lines else lines + traversed.joinToString(", "))
+                .joinToString("\n")
             if (track.comment != newComment) {
                 updateCurrentTrackMeta(comment = newComment)
             }
@@ -1489,6 +1505,12 @@ class TrackRecorder(
         try {
             val wia = whereAmI ?: return
             val track = currentTrack ?: return
+            // The markers the trip has met name it live, updated as the trip goes (settled
+            // 2026-10-10); the stop tiers below are the fallback when nothing fused yet.
+            composeTripName(track.trackPoints)?.let { composed ->
+                if (track.name != composed) updateCurrentTrackMeta(name = composed)
+                return
+            }
             val markers = track.boatMarkers
             if (markers.isEmpty()) return
 
@@ -1532,6 +1554,97 @@ class TrackRecorder(
             Log.w(TAG, "pollTitle failed", e)
             _uiState.update { it.copy(infoError = "Track info: ${e.message}") }
         }
+    }
+
+    // ── Marker-zone naming (settled 2026-10-10) ──────────────────────────────
+
+    /** The markers one point met, with the matcher's own score for each — the identity a dwell is
+     *  credited to and the number the fusion weighs it by. An auto marker never names a trip. */
+    private fun contactsAt(point: TrackPoint): List<MarkerContact> {
+        val wia = whereAmI ?: return emptyList()
+        return wia(LatLng(point.lat, point.lon)).allMatches.mapNotNull { match ->
+            val marker = MarkerMatcher.markerOf(match)
+            if (marker.origin == MarkerOrigin.IDLE_AUTO) null
+            else MarkerContact(
+                marker.id,
+                markerLabel(marker.name, marker.icon),
+                MarkerMatcher.sortScore(match)
+            )
+        }
+    }
+
+    /** The marker identifying one end: the match the matcher's own order ranks first, user markers
+     *  ahead of auto ones, or null where nothing identifies the place. */
+    private fun endAt(point: TrackPoint): TripEnd? {
+        val wia = whereAmI ?: return null
+        val top = wia(LatLng(point.lat, point.lon)).allMatches
+            .firstOrNull { MarkerMatcher.markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+            ?: return null
+        val marker = MarkerMatcher.markerOf(top)
+        return TripEnd(marker.id, markerLabel(marker.name, marker.icon))
+    }
+
+    /** The registered stop that takes the name's first slot by rule, ranked by the same tiers the
+     *  stop title uses — diving, then a manual marker, then the longest idle. */
+    private fun leadingStop(track: Track): TimedMarker? {
+        val wia = whereAmI ?: return null
+        data class Stop(val marker: UserMarker, val tier: Int, val durationSec: Long)
+        val best = track.boatMarkers.mapNotNull { bm ->
+            val result = wia(LatLng(bm.boatLat, bm.boatLon))
+            val match = result.allMatches
+                .firstOrNull { MarkerMatcher.markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+                ?: return@mapNotNull null
+            val tier = when {
+                hasDivingPinnedMarker(result) -> 1
+                bm.trigger == BoatMarkerTrigger.MANUAL -> 2
+                else -> 3
+            }
+            val now = System.currentTimeMillis()
+            Stop(MarkerMatcher.markerOf(match), tier, ((bm.endTimeMs ?: now) - bm.startTimeMs) / 1000)
+        }.minWithOrNull(compareBy({ it.tier }, { -it.durationSec })) ?: return null
+        return TimedMarker(best.marker.id, markerLabel(best.marker.name, best.marker.icon), 0.0)
+    }
+
+    /** The markers the trip met, in the fusion's own order — what the comment falls back to when
+     *  no marker was strong enough to name the trip. */
+    private fun traversedMarkers(points: List<TrackPoint>): List<String> =
+        TrackNaming.timedScores(points) { contactsAt(it) }
+            .map { it.label }
+            .filter { it.isNotBlank() }
+
+    /**
+     * The trip's name from the markers it met, or null where nothing names it (settled 2026-10-10).
+     *
+     * Reads the matcher's order rather than re-deriving it, and walks the points it is handed: the
+     * live call hands the fixes recorded so far, and the finalize call the whole raw set before
+     * simplification thins it. The two ends are dropped from the body, a shared marked endpoint is
+     * not repeated, and a distinct marked destination closes the name whatever its score.
+     */
+    private fun composeTripName(points: List<TrackPoint>): String? {
+        if (whereAmI == null) return null
+        if (points.size < 2) return null
+        val first = points.first()
+        val last = points.last()
+        val ranked = TrackNaming.timedScores(points) { contactsAt(it) }
+        val origin = endAt(first)
+        val samePlace = SpatialOperations.haversine(
+            LatLng(first.lat, first.lon),
+            LatLng(last.lat, last.lon)
+        ) <= geofenceRadiusM
+        val destination = if (samePlace) null else endAt(last)
+        if (ranked.isEmpty() && origin == null && destination == null) return null
+        val shape = TrackNaming.select(
+            ranked = ranked,
+            origin = origin ?: TripEnd(null, ""),
+            destination = destination,
+            leading = currentTrack?.let { leadingStop(it) }
+        )
+        return TrackNaming.compose(
+            body = shape.body,
+            destination = shape.destination,
+            connector = nameConnector,
+            maxLength = nameMaxLength
+        ).takeIf { it.isNotBlank() }
     }
 
     /**

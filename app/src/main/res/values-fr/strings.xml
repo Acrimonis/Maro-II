@@ -242,6 +242,13 @@
     <string name="track_point_count_fmt">%1$d pts</string>
     <string name="track_comment_placeholder">Ajouter un commentaire…</string>
     <string name="track_live_default_name">Enregistrement…</string>
+    <!-- Le seul mot qu\'un nom de trace tire de l\'interface : « A, B à Dest ». -->
+    <string name="track_name_connector">à</string>
+    <!-- Le toast d\'enregistrement : la trace ou l\'itinéraire qui vient d\'être écrit, nommé. -->
+    <string name="snackbar_saved">\"%s\" enregistré</string>
+    <!-- Les formes à une seule extrémité nommée : « De Port de La Salis », « À Cap d\'Antibes ». -->
+    <string name="route_name_from_fmt">De %1$s</string>
+    <string name="route_name_to_fmt">À %1$s</string>
     <string name="marker_description_placeholder">Ajouter une description…</string>
 
     <!-- Recovery dialog — ses trois portes reprennent les clés du dialogue de sortie d'enregistrement -->

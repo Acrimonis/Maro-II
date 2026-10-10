@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-07 15:58
+modified: 2026-10-10 14:19
 ---
 
 # Feature: Tracks
@@ -329,6 +329,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **marker-zone naming (2026-10-10, `feature/rte-track-naming`)** — a recorded trip is now named from the marker zones it met: [`TrackNaming.kt`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) computes the ascending `Σ seconds × score` fusion over the raw points, keeps the top two, drops a shared loop endpoint, appends a distinct marked destination and trims in proportion with an ellipsis; the recorder names the trip live on its title poll and again at finalize, the comment falls back to the traversed markers, and a marker's own icon leads its name with one space. A saved route reads `<origin> to <destination>`, `From <origin>` or `To <destination>`, and keeps its dated `Route <instant>` name when nothing identifies either end; saving either kind toasts its own name; and `track.name.maxLength` stands at 254 against the file name's separate 100. `apk-build.bat` SUCCESSFUL and the full suite at **1099 tests**, its two reds the pre-existing palette mismatch `MapPulseDotTest` carries; the device pass stays owed → [`261010_FEAT_PLN_Tracks_marker-zone-naming.md`](261010_FEAT_PLN_Tracks_marker-zone-naming.md)
 
 - **recovery-dialog-three-doors (2026-10-10)** — the process-death recovery dialog joined the recording family: its two doors became three — `Continue recording` (the accent, resuming being the interrupted session's forward outcome) · `Save track` (outlined) · `Discard track` (red, the only path that deletes the checkpoint) — listed inline where the dialog is built in [`MapDialogHost.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapDialogHost.kt:130), with no state axis invented for it since the doors hold at every recorder state. The wording became *Recording interrupted* over *A track was being recorded at %1$s. What would you like to do?* in both locales — the shipped typo gone, the track name kept — and the door labels reuse `recording_exit_continue` / `recording_exit_save` / `recording_exit_discard`, `recovery_continue` and `recovery_save` retired with no reader left; scrim and back still save the checkpoint, so the explicit Discard door is the only abort, recorded rather than left implicit. `apk-build.bat` SUCCESSFUL and the scoped `ui.map` suite at **457 tests** with only the two pre-existing `MapPulseDotTest` reds — the palette's in-flight `ui.map.pulse.dot.floor=0.25` / `ms=666` retune sitting against the test's `0.33` / `555`, left untouched, no regression of this work; the device pass stays owed → [`FEAT_DOC_Tracks_decisions.md`](FEAT_DOC_Tracks_decisions.md)
 

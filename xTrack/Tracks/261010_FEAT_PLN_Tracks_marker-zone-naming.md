@@ -33,8 +33,8 @@ This answers the case the current code cannot name: a trip with no dwell long en
 - **Loop:** when the source and the destination are the same place within the **geofence radius** and that place is marked, the shared endpoint is dropped from the name, leaving the ranked body alone — `marker#1, marker#2`.
 - **Marked at an end** means the match-list winner at the exact first or last point, a Pin or a zone, `IDLE_AUTO` excluded.
 - **A registered stop takes the first slot by rule**, not by score, with the existing tiers — diving beats manual beats idle — ordering the stops among themselves and the timed score filling the remaining slot.
-- **Length:** when the whole name exceeds the cap, each token is trimmed in proportion to its own length until the result fits, and an ellipsis marks every token that was cut (settled 2026-10-10). The cap must satisfy both the list card and the hundred-character file name built in [`trackFileBaseName`](../../app/src/main/java/ykws/android/maro/ui/map/TrackSharing.kt:33); the sanitised file name will now carry the accented connector in French, since [`sanitizeFileName`](../../app/src/main/java/ykws/android/maro/ui/map/TrackSharing.kt:14) does not strip it.
-- **Icons.** The live title prefixes the matched marker's emoji today (`🤿Cap d'Antibes`); whether each name in the list keeps it is open (§5).
+- **Length:** the cap is `track.name.maxLength`, raised to `254` (settled 2026-10-10); beyond it each token is cut in proportion to its own length, an ellipsis marking every cut. The exported file name is capped separately, at 100 characters, by [`sanitizeFileName`](../../app/src/main/java/ykws/android/maro/ui/map/TrackSharing.kt:14) — which also lets the accented French connector through, so a long name reaches the list and the export differently.
+- **Icons:** a marker's manually-set icon leads its own name with one space between them, `🤿 Cap d'Antibes`, and a marker without one shows its bare name (settled 2026-10-10). One pure helper, `markerLabel`, is the single home of that rule.
 
 - Examples: `Cap d'Antibes, 🤿Le Village` for a loop, `Cap d'Antibes, 🤿Le Village to Port de La Salis` for a distinct marked destination, and `Port de La Salis` alone when the destination is the only marker.
 
@@ -45,17 +45,16 @@ When the title has **no marker at all**, the list of zones traversed is written 
 ## 5. Open decisions
 
 - **The source end** — excluded from the body like the destination, or allowed to rank in it.
-- **The icon prefix** on each name in the list, and on the destination token.
 - **The comment fallback's exact shape** — conditional on a marker-free title, or always appended.
-- **Saved routes** — the from-to form is settled (§9); whether the `Route ` prefix survives, whether the connector localises, and how a bare `Current position` fallback is avoided are still open.
 - **The geofence as the same-place test** — its meaning when the geofence is disabled, or when the trip is nowhere near Port Salis.
 - **Replace or sit beside the old tiers** — whether the new name replaces `computeFinalTitle`'s diving-manual-idle ladder or runs next to it.
 - **One cap, not two** — `topZoneNames` already takes its own top two, so one place should own that number.
+- **The `Route ` prefix** — whether it survives anywhere, now that the from-to forms have replaced it for a save while a draft still wears it.
 
 ## 6. Where it lands
 
 - `data/track/` — a new pure builder for the timed score and the name, called from both the live title poll and the finalize hook, the latter repeating it over the whole raw set before simplification.
-- `data/track/WhereAmIProvider.kt` — a sibling `MarkerSetProvider` in the same shape: a nullable function the map layer sets once and the recording service reads, rather than a new constructor dependency threaded through the service. The builder still takes the marker list as a parameter, so the provider is production wiring only and the tests pass a list straight in.
+- **No new provider was needed**, contrary to this plan's first draft: the per-point matches come from the `whereAmI` seam the recorder already holds, so the whole `MarkerSetProvider` idea was dropped in the build.
 - `spatial/MarkerMatcher.kt` — read-only; the ordering's one home.
 - `data/track/Track.kt` — `trackAutoName` stays the fallback.
 - `ui/map/TrackSharing.kt` — the file-name length cap and the trimming rule.
@@ -63,7 +62,7 @@ When the title has **no marker at all**, the list of zones traversed is written 
 
 ## 7. Tests
 
-Timed ranking order; a shared loop endpoint dropped; the destination appended regardless of dwell; the destination alone as an empty body; the two-marker cap; proportional trimming with its ellipsis; the no-marker fallback into the comment; a route end named by its marker zone and by its dropdown fallback; the `sortScore` reuse; ties.
+Timed ranking order; a shared loop endpoint dropped; the destination appended regardless of dwell; the destination alone as an empty body; the two-marker cap; proportional trimming with its ellipsis; the no-marker fallback into the comment; a marker's icon leading its own name; the `sortScore` reuse; ties. The route's own name is built in `MapScreen`, so its three forms are device-tested rather than unit-tested.
 
 ## 8. Verification
 
@@ -71,13 +70,21 @@ Timed ranking order; a shared loop endpoint dropped; the destination appended re
 
 ## 9. Route naming (the router's own line)
 
-A route saved as a track is named `[from] to [destination]` rather than the dated `Route <instant>` of [`routeTrackName`](../../app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt:169) (settled 2026-10-10).
+A route saved as a track is named from its two ends rather than the dated `Route <instant>` of [`routeTrackName`](../../app/src/main/java/ykws/android/maro/data/track/TrackFromCourse.kt:169) (settled 2026-10-10).
 
-- **Each end is named by the marker zone containing it**, the same marker-zone source as a recorded trip.
-- **Failing that, the end falls back to its source/destination dropdown content** ([`routeEndOptions`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:5144)): a flagged end's own marker name, or the fixed `Current position` / `Marker position` label ([`route_end_current`](../../app/src/main/res/values/strings.xml:614), [`route_end_position`](../../app/src/main/res/values/strings.xml:615)).
-- **Named consequence:** dropping the instant means two routes over the same pair carry the same name, where R40's timestamp currently keeps them apart.
-- **Open:** whether the `Route ` prefix survives anywhere; whether the connector localises to ` à ` here as it does for a recorded trip; whether the proportional trimming applies; and how a bare `Current position to Marker position` is avoided when nothing identifies either end.
+- **Each end is named by the marker zone containing it**, else by the flagged marker that end stands on, each wearing its own icon (settled 2026-10-10).
+- **The drawer's fixed entries are entries, not names**, so an unnamed end contributes nothing: both ends named read `<origin> to <destination>`, one named end reads `From <origin>` or `To <destination>` ([`route_name_from_fmt`](../../app/src/main/res/values/strings.xml:250)), and neither named leaves the route to its own dated `Route <instant>` name (all settled 2026-10-10).
+- **Named consequence:** the instant survives only for a route whose ends nothing identifies, so two *named* routes over the same pair still carry the same name.
+
+## 10. The save toast (settled 2026-10-10)
+
+A track or a route just written names itself in a two-second toast — `"%s" saved` / `"%s" enregistré` — through the app's own [`MapStatusBanner`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:5174) idiom, the same one the route refusal already wears, rather than a platform Toast. The recording's save rides the recorder's `Finalized` event, which now carries the saved name; the route's save rides `writeRouteTrack`.
 
 ## Implemented
 
-[Appended once at completion: what actually shipped, and deviations from this plan.]
+- **Shipped** (2026-10-10, `feature/rte-track-naming`): [`TrackNaming`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) computes the ascending `Σ seconds × score` fusion, selects the body and the destination, and trims in proportion with an ellipsis; [`TrackRecorder`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:1488) names the trip live on the title poll and again at finalize over the raw points, with the comment falling back to the traversed markers when no name forms; [`MapScreen`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2311) names a saved route `from to destination` through `routeEndLabel`; `snackbar_saved` toasts the written track or route; and `track.name.maxLength` stands at 254 against the file name's separate 100.
+- **Deviations:** no `MarkerSetProvider` was added — the recorder already holds `whereAmI`, so the per-point matches come from the seam that exists; `MarkerMatcher.markerOf`/`sortScore` were widened from private to `internal` instead of the plan's read-only promise; and the icon prefix, the geofence-as-same-place test and the `Route ` prefix shipped as defaults rather than as decided rules.
+- **Second pass, same day:** a marker's own icon now leads its name with one space through `markerLabel`, the route ends return no name rather than the drawer's fixed labels so an unnamed pair keeps the dated `Route <instant>`, and a single named end reads `From <origin>` or `To <destination>`.
+- **Still inconsistent:** `pollTitle`'s stop tiers and `computeFinalTitle` still spell that icon without the space, so the same marker renders two ways — one rule, two homes — until both read `markerLabel`.
+- **Verification:** `apk-build.bat` SUCCESS, and the full `gradlew.bat testDebugUnitTest` reports 1099 tests with two failures in `MapPulseDotTest` — pre-existing, reading `colors.properties`, which this change never touches.
+- **Left open:** the §5 decisions above, and the Tracks epic requirements are not yet updated.

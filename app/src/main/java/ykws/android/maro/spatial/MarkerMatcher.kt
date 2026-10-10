@@ -447,8 +447,8 @@ object MarkerMatcher {
         }
     }
 
-    /** Extracts the [UserMarker] from a [WhereAmIMatch]. */
-    private fun markerOf(match: WhereAmIMatch): UserMarker = when (match) {
+    /** Extracts the [UserMarker] from a [WhereAmIMatch] — the identity a dwell is credited to. */
+    internal fun markerOf(match: WhereAmIMatch): UserMarker = when (match) {
         is WhereAmIMatch.ZoneMatch -> match.marker
         is WhereAmIMatch.LineOfSightMatch -> match.marker
     }
@@ -511,7 +511,7 @@ object MarkerMatcher {
      *   ZoneMatch always beats LineOfSightMatch (0.0–2.0 < 1.0–3.0).
      *   Tie-breaker: smaller zoneSize wins.
      */
-    private fun sortScore(match: WhereAmIMatch): Double {
+    internal fun sortScore(match: WhereAmIMatch): Double {
         val typeWeight = when (markerOf(match).geometry) {
             is MarkerGeometry.Pin -> AppConfig.markerSortTypeWeightPin
             is MarkerGeometry.Circle -> AppConfig.markerSortTypeWeightCircle

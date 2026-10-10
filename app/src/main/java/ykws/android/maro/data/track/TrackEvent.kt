@@ -42,6 +42,6 @@ sealed class TrackEvent {
     /** Tracks were successfully merged into a single new track. */
     data class TracksMerged(val mergedId: String, val mergedName: String) : TrackEvent()
 
-    /** A live recording was finalized and persisted — carries the saved track id. */
-    data class Finalized(val trackId: String) : TrackEvent()
+    /** A live recording was finalized and persisted — its id and the name it was saved under. */
+    data class Finalized(val trackId: String, val name: String = "") : TrackEvent()
 }

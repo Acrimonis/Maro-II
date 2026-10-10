@@ -1032,6 +1032,16 @@ object AppConfig {
     var trackingGapTimeThresholdSec: Long = 120L
         private set
 
+    /**
+     * The cap a recorded trip's marker-derived name may reach, beyond which every token is cut in
+     * proportion to its own length, marked with an ellipsis (settled 2026-10-10). Set via
+     * `track.name.maxLength` in maro.properties. The exported file name is capped separately, at
+     * 100 characters, by `sanitizeFileName`, so a longer name reaches the list and the export
+     * differently.
+     */
+    var trackNameMaxLength: Int = 254
+        private set
+
     // ── Power management — screen hold ───────────────────────────────
     // Bounds, default and developer constants only. The value the user picks lives in
     // SettingsManager prefs; these define the slider range and the fallbacks.
@@ -1695,6 +1705,9 @@ object AppConfig {
             }
             props.getProperty("tracking.gapTimeThresholdSec")?.toLongOrNull()?.let {
                 trackingGapTimeThresholdSec = it.coerceAtLeast(0L)
+            }
+            props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
+                trackNameMaxLength = it.coerceIn(8, 254)
             }
 
             // ── Power management — screen hold ──────────────────────────────
