@@ -17,6 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -164,14 +167,19 @@ private fun WizardStepContent(
         is WizardStep.Radius -> {
             val form by viewModel.createForm.collectAsState()
             val isCorridor = form.type == MarkerType.CORRIDOR
+            val valueM = if (isCorridor) form.widthM else form.radiusM
+            // The ×10 toggle opens off; an edited value already above the fine ceiling opens with it on,
+            // so the track always holds the value it shows.
+            var scaled by remember { mutableStateOf(valueM > 250.0) }
             SliderStep(
                 title = if (isCorridor) stringResource(R.string.wizard_slider_width)
                         else stringResource(R.string.wizard_slider_radius),
-                valueM = if (isCorridor) form.widthM else form.radiusM,
-                // A marker's radius/width reaches 2500 m on the user's word of 2026-10-10.
-                range = 0.0..2500.0,
+                valueM = valueM,
+                baseRange = 0.0..250.0,
                 step = 25.0,
                 unit = "m",
+                scaled = scaled,
+                onScaledChange = { scaled = it },
                 onValueChange = { v ->
                     viewModel.updateForm {
                         if (isCorridor) it.copy(widthM = v) else it.copy(radiusM = v)
@@ -183,13 +191,16 @@ private fun WizardStepContent(
         }
         is WizardStep.Proximity -> {
             val form by viewModel.createForm.collectAsState()
+            val valueM = form.proximityOverrideM.toDoubleOrNull() ?: 100.0
+            var scaled by remember { mutableStateOf(valueM > 250.0) }
             SliderStep(
                 title = stringResource(R.string.wizard_slider_proximity),
-                valueM = form.proximityOverrideM.toDoubleOrNull() ?: 100.0,
-                // A marker's proximity reaches 2500 m on the user's word of 2026-10-10.
-                range = 0.0..2500.0,
+                valueM = valueM,
+                baseRange = 0.0..250.0,
                 step = 25.0,
                 unit = "m",
+                scaled = scaled,
+                onScaledChange = { scaled = it },
                 onValueChange = { v ->
                     viewModel.updateForm { it.copy(proximityOverrideM = v.toLong().toString()) }
                 },

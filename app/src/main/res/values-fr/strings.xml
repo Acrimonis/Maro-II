@@ -521,6 +521,7 @@
     <string name="wizard_slider_radius_comment">Rayon de la zone en mètres</string>
     <string name="wizard_slider_proximity">Proximité</string>
     <string name="wizard_slider_proximity_comment">Distance d\'alerte autour de la zone</string>
+    <string name="wizard_range_scale_x10">\u00d710</string>
     <string name="wizard_field_name">Nom</string>
     <string name="wizard_field_description">Description</string>
     <string name="wizard_routing_cost_title">Coût de routage</string>
