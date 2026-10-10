@@ -11,7 +11,7 @@ Everything needed to get a development machine ready for Maro II.
 | Dependency | Check |
 |-----------|-------|
 | **JDK 17+** (Corretto 21 is what `JAVA_HOME` currently points at) | `java -version` |
-| **Android SDK** | `$ANDROID_SDK` must point to a valid SDK with `platforms;android-34` and `build-tools;34.0.0` installed |
+| **Android SDK** | `$ANDROID_SDK` must point to a valid SDK carrying the platform and build-tools levels [`app/build.gradle.kts`](../app/build.gradle.kts) declares (`compileSdk` / `targetSdk`) |
 
 ---
 
@@ -105,31 +105,4 @@ adb devices
 
 ## FAQ
 
-### Why isn't the SSH key stored in the repository?
-
-The **private key** (`id_github_acrimonis`) authenticates you on GitHub. Committing it would let anyone impersonate you — **never do this**.
-
-The **public key** (`id_github_acrimonis.pub`) is safe to share, but it's already registered on your GitHub account. Storing it in the repo is redundant.
-
-### I cloned on a new machine and `git push` asks for a password — why?
-
-The Git config (user name, SSH command, remote URL) lives in `.git/config`, which is **not version-controlled**. See [Git Config](#git-config-per-machine) above.
-
-### Why can't I just use my global GitHub account?
-
-You can — this project uses a dedicated `Acrimonis` account for separation. Your global account (`nbadino-doca`) stays untouched and works as before for all other repositories.
-
-### I use TortoiseGit — will the SSH key work?
-
-Yes. TortoiseGit uses the same SSH client as the command line. Point it to the key at:
-
-```
-C:\Users\<you>\.ssh\id_github_acrimonis
-```
-
-Or set it globally in your `%USERPROFILE%\.ssh\config`:
-
-```
-Host github.com
-    IdentityFile ~/.ssh/id_github_acrimonis
-```
+Build, setup and git questions live in the one FAQ: [`docs/FAQ.md`](FAQ.md).

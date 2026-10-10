@@ -8,24 +8,26 @@
 
 | Package | Role | Key Files |
 |---------|------|-----------|
-| `data/model/` | Domain models — pure data classes, no logic | `LatLng.kt`, `BoundingBox.kt`, `DepthGrid.kt`, `CoastlineData.kt`, `CoastlinePoint.kt`, `CoastlineSegment.kt`, `Isobath.kt`, `Zone300Data.kt`, `GenerationProgress.kt`, `ListableItem.kt` |
+| `data/model/` | Domain models — pure data classes, no logic | `LatLng.kt`, `BoundingBox.kt`, `DepthGrid.kt`, `CoastlineData.kt`, `CoastlinePoint.kt`, `CoastlineSegment.kt`, `Isobath.kt`, `Zone300Data.kt`, `GenerationProgress.kt`, `ListableItem.kt`, `RoutePoint.kt`, `RouteResult.kt`, `MapSelectionPolicy.kt`, `MapRenderFocus.kt`, `ListFilter.kt`, `ListAction.kt`, `ListSortOrder.kt`, `MultiActionSpec.kt`, `PointHazard.kt`, `RasterProgress.kt`, `RegionBounds.kt`, `ValidationReport.kt`, `CoastlineCache.kt`, `CoastlineDistanceResult.kt`, `CoastlineMetadata.kt`, `CoastlineState.kt`, `DepthState.kt` |
 | `data/model/markers/` | User marker domain model | `UserMarker.kt` |
-| `data/depth/` | Depth pipeline: generate, serialize, validate, isobath extraction, raster caching | `DepthGenerator.kt`, `DepthSerializer.kt`, `DepthRepository.kt`, `DepthIsobaths.kt`, `DepthMerge.kt`, `DepthValidator.kt`, `RasterCache.kt` |
+| `data/depth/` | Depth pipeline: generate, serialize, isobath extraction, raster caching (the validator lives in `validation/`) | `DepthGenerator.kt`, `DepthSerializer.kt`, `DepthRepository.kt`, `DepthIsobaths.kt`, `DepthMerge.kt`, `DepthZoneMask.kt`, `DepthConstants.kt`, `RasterCache.kt` |
 | `data/depth/raster/` | Raster source parsers and clients | `AsciiGridParser.kt`, `EmodnetRestClient.kt`, `EmodnetWcsClient.kt`, `SourceRaster.kt` |
+| `data/depth/validation/` | Depth control points and the validator that judges a generated grid | `DepthValidator.kt`, `ControlPoints.kt` |
 | `data/coastline/` | Coastline pipeline: OSM fetch, serialize, hazard rings, seamarks | `CoastlineGenerator.kt`, `CoastlineRepository.kt`, `CoastlineSerializer.kt`, `HazardRings.kt`, `SeamarkParser.kt` |
-| `data/regulation/` | Regulated zones: SHOM/IGN/INPN sources, aggregation, filtering | `RegulatedZonesRepository.kt`, `RegulationAggregator.kt`, `ShomRegulationClient.kt`, `IgnCartoNatureClient.kt`, `InpnRegulationClient.kt`, `RegulatedZoneSerializer.kt`, `RegulatedZone.kt`, `SpeedZone.kt`, `SpeedZoneBuilder.kt` |
-| `data/track/` | Boat tracking: record, persist, GPX export/import, merge, simplify | `TrackRecorder.kt`, `TrackRepository.kt`, `TrackViewModel.kt`, `TrackMerger.kt`, `TrackSimplifier.kt`, `GpxExporter.kt`, `GpxImporter.kt`, `TrackRecordingService.kt`, `BoatMarker.kt` |
-| `data/markers/` | User markers CRUD (Pin, Circle, Corridor) | `UserMarkerRepository.kt` |
+| `data/regulation/` | Regulated zones: SHOM/IGN/INPN sources, aggregation, filtering | `RegulatedZonesRepository.kt`, `RegulationAggregator.kt`, `RegulationFilter.kt`, `RegulationSeeds.kt`, `ShomRegulationClient.kt`, `IgnCartoNatureClient.kt`, `InpnRegulationClient.kt`, `RegulatedZoneSerializer.kt`, `RegulatedZone.kt`, `SpeedZone.kt`, `SpeedZoneBuilder.kt` |
+| `data/track/` | Boat tracking: record, persist, GPX export/import, merge, simplify | `TrackRecorder.kt`, `TrackRepository.kt`, `TrackViewModel.kt`, `TrackMerger.kt`, `TrackSimplifier.kt`, `GpxExporter.kt`, `GpxImporter.kt`, `TrackRecordingService.kt`, `BoatMarker.kt`, `Track.kt`, `TrackPoint.kt`, `TrackSample.kt`, `TrackEvent.kt`, `TrackPosition.kt`, `TrackSpeed.kt`, `TrackStats.kt`, `TrackFromCourse.kt`, `TrackGeofenceChecker.kt`, `IdleSessionContext.kt`, `IdleThresholdCallback.kt`, `StopRecordingReceiver.kt`, `WhereAmIProvider.kt` |
+| `data/route/` | Route drawer's own models — one end's persisted selection, and the pace a route's trip figure plans at | `RouteEndSelection.kt`, `RoutePace.kt` |
+| `data/markers/` | User markers CRUD (Pin, Circle, Corridor) + automatic marker creation | `UserMarkerRepository.kt`, `AutoMarkerManager.kt` |
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
-| `data/power/` | Power management: framework-free screen-hold policy + its Android keeper | `PowerPolicy.kt`, `PowerKeeper.kt` |
-| `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt`, `RouteEngine.kt`, `RouteAvoidEngine.kt`, `Units.kt` |
-| `spatial/multipass/` | The shared route machine both engines stand on — the unified cost field, the corridor grid, the A* and the taut pull | `RouteCostField.kt`, `MultipassWorld.kt`, `MultipassGrid.kt`, `MultipassSearch.kt`, `MultipassPull.kt`, `TangentCorners.kt` |
-| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerColors.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt`, `MapOverlayData.kt`, `MapScreenChrome.kt`, `MapDashboardController.kt`, `MapLockLayer.kt`, `MapRouteEffects.kt` |
-| `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmDialog.kt`, `IconPickerDialog.kt` |
-| `ui/markers/wizard/` | Marker creation wizard (multi-step form) | `WizardTopBar.kt`, `WizardButtonRow.kt`, `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
-| `ui/icons/` | Material Symbols as standalone ImageVector .kt files | `ActivityZone.kt`, `AddLocationAlt.kt`, `FilterAlt.kt`, `LocationOn.kt`, `WhereToVote.kt`, etc. |
-| `config/` | App-wide config constants | `AppConfig.kt` |
+| `data/power/` | Power management: framework-free screen-hold policy + its Android keeper | `PowerPolicy.kt`, `PowerKeeper.kt`, `BatteryExemption.kt`, `SpeedFreshness.kt` |
+| `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `NonSpeedZoneIndex.kt`, `PolygonIndexBase.kt`, `SpatialOperations.kt`, `Zone300Builder.kt`, `ZonePrimitives.kt`, `LandRingOrientation.kt`, `WhereAmIDebugger.kt`, `Units.kt`, `RouteEngine.kt`, `RouteEngineChoice.kt`, `RouteDummyEngine.kt`, `RouteAvoidEngine.kt`, `RouteEvolutiveEngine.kt`, `RouteSelectiveEngine.kt` |
+| `spatial/multipass/` | The shared route machine every engine stands on — the unified cost field, the corridor grid, the A* and the taut pull | `RouteCostField.kt`, `MultipassWorld.kt`, `MultipassGrid.kt`, `MultipassSearch.kt`, `MultipassPull.kt`, `TangentCorners.kt`, `BerthCarve.kt`, `FineTile.kt`, `FineTileMap.kt`, `RouteCornerPass.kt`, `RouteCorridorChain.kt`, `RouteEta.kt`, `RouteFinePass.kt`, `RouteFineWater.kt`, `RouteGridBuilder.kt`, `RouteGridPlan.kt`, `RouteLogFormat.kt`, `RoutePassModels.kt`, `RoutePassPrimitives.kt`, `RoutePassRanking.kt`, `RoutePassRunner.kt`, `RoutePreference.kt`, `TileKey.kt`, `WalkLattice.kt`, `ZoneGeometry.kt` |
+| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI (72 files today — entry points only; the rest is discovered from `MapScreen.kt`) | `MapScreen.kt`, `MapSurface.kt`, `MapControls.kt`, `MapOverlays.kt`, `MapOverlayRenderer.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `OverlayTracker.kt`, `OverlayZOrder.kt`, `InspectMode.kt`, `MapToggleFace.kt`, `MapPulseDot.kt`, `CardWalkPolicy.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `DrawerSlot.kt`, `MarkerColors.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `IconPickerDialog.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt`, `MapOverlayData.kt`, `MapScreenChrome.kt`, `MapDashboardController.kt`, `MapLockLayer.kt`, `MapRouteEffects.kt`, `RouteViewModel.kt`, `RouteHost.kt`, `SettingsViewModel.kt` |
+| `ui/components/` | Shared UI primitives | `CardArea.kt`, `ConfirmDialog.kt`, `DashboardBandGeometry.kt`, `DrawerScaffold.kt`, `DropdownBox.kt`, `DropdownPairRow.kt`, `DropdownRow.kt`, `DropdownWheel.kt`, `Expander.kt`, `ListOverlayScaffold.kt`, `ListSelectionCheck.kt`, `ListSelectionRail.kt`, `MarkerCreateAction.kt`, `MultiSelectRow.kt`, `NestedCard.kt`, `OptionRow.kt`, `PageDots.kt`, `PopupFamily.kt`, `SectionDivider.kt`, `SectionHeader.kt`, `SectionRow.kt`, `SegmentedRow.kt`, `SliderRow.kt`, `StatCell.kt`, `SubSectionHeader.kt`, `SwipePager.kt`, `SwipePolicy.kt`, `ToggleRow.kt`, `WheelPolicy.kt` |
+| `ui/markers/wizard/` | Marker creation wizard — only the `steps/` form steps remain | `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/RoutingCostStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
+| `ui/icons/` | Material Symbols as standalone ImageVector .kt files (21 today) | `ActivityZone.kt`, `AddLocationAlt.kt`, `FilterAlt.kt`, `LocationOn.kt`, `Route.kt`, `Visibility.kt`, etc. |
+| `config/` | App-wide config constants and the `path.*` resolver | `AppConfig.kt`, `PathProperties.kt`, `HeatmapRamp.kt` |
 
 ## Feature → Package Cross-Reference
 
@@ -70,9 +72,9 @@
 | `MarkerMatcher.kt` | `spatial/` | Proximity matching: which markers are near a given position |
 | `SpeedZoneIndex.kt` | `spatial/` | Spatial index for speed zone lookup around boat |
 | `Zone300Builder.kt` | `spatial/` | Generates 300m zone band from coastline |
-| `RouteEngine.kt` | `spatial/` | The route's engine seam — a session (readiness, the two entry points, the point-validity question) whose implementations are `RouteDummyEngine` and `RouteAvoidEngine` |
+| `RouteEngine.kt` | `spatial/` | The route's engine seam — declares the routes an engine can compute between two points and exposes one `Flow` of updates per lookup; its four implementations are `RouteDummyEngine`, `RouteAvoidEngine`, `RouteEvolutiveEngine` and `RouteSelectiveEngine`, picked by `RouteEngineChoice.kt` |
 | `RouteCostField.kt` | `spatial/multipass/` | The shared layer's unified cost field — every world source (`RouteCostSource.Hard` walls / `Soft` prices) read through one evaluator, on a grid whose base cost a source may only add to |
-| `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management; its read-only data arrives via six `@Immutable` bundles declared in `OverlayLayerParams.kt` |
+| `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management; its read-only data arrives via `@Immutable` bundles declared in `OverlayLayerParams.kt` |
 | `MapOverlayRenderer.kt` | `ui/map/` | Renders overlays onto map (depth, zones, tracks, markers) |
 | `SettingsManager.kt` | `data/settings/` | SharedPreferences read/write — all persisted config |
 | `GpsLocationSource.kt` | `data/location/` | GPS location provider (real + demo mode) |
@@ -80,9 +82,9 @@
 
 ## MapScreen Decomposition (2026-09 → 2026-10 refactor)
 
-`ui/map/MapScreen.kt` is an orchestration shell (`fun MapScreen` 505–3471; file 4,527 reader lines) whose
-concerns were extracted to same-package files (step 1 settings extraction + step 2 orchestration-monolith
-refactor + step 3 mapscreen-health migration, zero behavior change):
+`ui/map/MapScreen.kt` is an orchestration shell whose concerns were extracted to same-package files
+(step 1 settings extraction + step 2 orchestration-monolith refactor + step 3 mapscreen-health migration,
+zero behavior change):
 
 | File | Owns |
 |------|------|
@@ -101,7 +103,7 @@ refactor + step 3 mapscreen-health migration, zero behavior change):
 | `MapDialogHost.kt` | Windowed dialogs/sheets: exit/stop-recording, recovery, permission, source-switch, battery, route-exit and resume dialogs |
 | `MapSnackbarHost.kt` | Snackbar stack render (render-only; queue stays in `MapDashboardController`) |
 | `MapImportConflictHost.kt` | GPX import Duplicate/Override/Cancel conflict path |
-| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` — 66 params total (6 bundles + explicit values/ViewModels + inline callbacks) |
+| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into `@Immutable` bundles in `OverlayLayerParams.kt` |
 
 ## Path Render Engine — one painter for tracks and routes
 
