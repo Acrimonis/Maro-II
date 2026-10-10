@@ -1,6 +1,6 @@
 # Context Hydration — Tracks — 2026-10-10
 
-**Last Bake:** 2026-10-10 14:19 UTC — written by `#bake`
+**Last Bake:** 2026-10-10 14:19 UTC — written by `#bake`; the branch has since taken `origin/develop` in merge `d83cb068`, whose one conflict was the global context's own stack and summary rows.
 
 **Directive trace:** no covered action stopped and nothing was bent: no dependency was added, no machine-shaped data file was opened, and the device was not touched — the naming was judged on `apk-build.bat` and the unit suite, so the device pass stays owed. Every claim about the code came from a file read or a command's own output, and the two failing tests were read and traced to a palette commit this branch never touches, named as pre-existing rather than fixed here. The git writes are the user's: `#commit` ran once for the plan, and this session's pair runs on their word.
 
