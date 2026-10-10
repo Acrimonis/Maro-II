@@ -16,16 +16,21 @@ import ykws.android.maro.ui.components.ConfirmActionRole
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * One door of the route exit dialog, resolved — its label, its role and whether it can be taken.
+ * One door of the route exit dialog, resolved — its label, its role, whether it can be taken and what its
+ * press does.
  *
  * [labelRes] is the label's own string id, [role] the family's visual rank, and [enabled] the one
  * disabled state the whole app shares (§5.6) — which is why a door with no work is disabled rather than
  * renamed, and why the accent falls to the enabled forward outcome rather than staying on a dead one.
+ *
+ * [discards] is the act behind the word: `true` only while the press would throw the line away, which is
+ * what makes this door the **deferred, toasting** discard (R92) rather than a plain exit.
  */
 internal data class RouteExitDoor(
     @StringRes val labelRes: Int,
     val role: ConfirmActionRole,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val discards: Boolean = false
 )
 
 /**
@@ -50,6 +55,9 @@ internal data class RouteExitDoors(
 /**
  * The route exit dialog's three doors for [written] — `true` once the line is already a track, so the
  * save has nothing left to do and the accent belongs to the forward outcome that leaves.
+ *
+ * The action follows the cost as well as the word: only an ending that would throw the line away defers
+ * on the toast, so a loss-free ending is the ordinary end, with no window and no toast.
  */
 internal fun routeExitDoors(written: Boolean): RouteExitDoors = RouteExitDoors(
     save = RouteExitDoor(
@@ -64,6 +72,35 @@ internal fun routeExitDoors(written: Boolean): RouteExitDoors = RouteExitDoors(
     loss = if (written) {
         RouteExitDoor(labelRes = R.string.route_exit_leave, role = ConfirmActionRole.PRIMARY)
     } else {
-        RouteExitDoor(labelRes = R.string.route_exit_discard, role = ConfirmActionRole.DANGER)
+        RouteExitDoor(
+            labelRes = R.string.route_exit_discard,
+            role = ConfirmActionRole.DANGER,
+            discards = true
+        )
     }
 )
+
+/**
+ * The acquisition panel's ending door for [written] — **the same ending, and the same word once nothing
+ * is lost**. While the line is unwritten the press would throw it away, so the door reads the
+ * acquisition's own short `route_acq_discard` and is red; once it **is written** the ending costs
+ * nothing, and the door hands over to [routeExitDoors]'s own loss door, *Leave* under the accent — its
+ * word follows the **cost**, never the surface that raises it (§5.6).
+ *
+ * The written state is **derived** from that resolver rather than written a second time: one ending, one
+ * word, one home. The acquisition's own short word exists only because this door holds a third of the
+ * footer row, where the dialog's longer loss word would not fit.
+ *
+ * The action follows the cost as well as the word: only the unwritten ending would throw the selected
+ * line away, so a loss-free ending is the ordinary end, with no window and no toast.
+ */
+internal fun routeAcquisitionEndingDoor(written: Boolean): RouteExitDoor =
+    if (written) {
+        routeExitDoors(written = true).loss
+    } else {
+        RouteExitDoor(
+            labelRes = R.string.route_acq_discard,
+            role = ConfirmActionRole.DANGER,
+            discards = true
+        )
+    }
