@@ -228,4 +228,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("maro.repoDir", rootProject.projectDir.absolutePath)
     // On-demand GPX repair tool (GpxBBoxCleanToolTest) — inert unless -Dmaro.cleanGpx=true.
     systemProperty("maro.cleanGpx", System.getProperty("maro.cleanGpx", "false"))
+    // Probe point for the PrebakedDataDiagnostic containment dump — `<lat>,<lon>`.
+    systemProperty("maro.point", System.getProperty("maro.point", ""))
 }

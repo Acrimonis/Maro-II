@@ -253,35 +253,40 @@ class ShomRegulationClient(
         }
 
         // ── Name ────────────────────────────────────────────────────────────
-        // The SHOM WFS sometimes returns the literal string "null" for unnamed
-        // zones — filter it to empty so SpeedZoneBuilder can apply its fallback.
-        val name = (properties["objnam"]?.jsonPrimitive?.content
-            ?: properties["nobjnm"]?.jsonPrimitive?.content
-            ?: properties["nom"]?.jsonPrimitive?.content
-            ?: "")
-            .takeIf { it != "null" && it.isNotBlank() } ?: ""
+        // The SHOM WFS sometimes returns the literal string "null" — cleanText
+        // drops it so SpeedZoneBuilder can apply its fallback.
+        val name = cleanText(
+            properties["objnam"]?.jsonPrimitive?.content
+                ?: properties["nobjnm"]?.jsonPrimitive?.content
+                ?: properties["nom"]?.jsonPrimitive?.content
+        ) ?: ""
 
         // ── Source reference ────────────────────────────────────────────────
-        val sourceRef = properties["inspireid"]?.jsonPrimitive?.content
-            ?: properties["id_reglementation"]?.jsonPrimitive?.content
-            ?: properties["INSPIREID"]?.jsonPrimitive?.content
-            ?: ""
+        val sourceRef = cleanText(
+            properties["inspireid"]?.jsonPrimitive?.content
+                ?: properties["id_reglementation"]?.jsonPrimitive?.content
+                ?: properties["INSPIREID"]?.jsonPrimitive?.content
+        ) ?: ""
 
         // ── Description ─────────────────────────────────────────────────────
-        val description = properties["inform"]?.jsonPrimitive?.content
-            ?: properties["INFORM"]?.jsonPrimitive?.content
-            ?: properties["ninfom"]?.jsonPrimitive?.content
-            ?: properties["description"]?.jsonPrimitive?.content
-            ?: ""
+        val description = cleanText(
+            properties["inform"]?.jsonPrimitive?.content
+                ?: properties["INFORM"]?.jsonPrimitive?.content
+                ?: properties["ninfom"]?.jsonPrimitive?.content
+                ?: properties["description"]?.jsonPrimitive?.content
+        ) ?: ""
 
         // ── Raw French INFORM text ──────────────────────────────────────────
-        val informFr = properties["inform_fr"]?.jsonPrimitive?.content
-            ?: properties["INFORM"]?.jsonPrimitive?.content
-            ?: properties["inform"]?.jsonPrimitive?.content
+        val informFr = cleanText(
+            properties["inform_fr"]?.jsonPrimitive?.content
+                ?: properties["INFORM"]?.jsonPrimitive?.content
+                ?: properties["inform"]?.jsonPrimitive?.content
+        )
 
         // ── Legal decree reference (TXTDSC) ─────────────────────────────────
-        val legalDecreeRef = txtdscText
-            ?: properties["TXTDSC"]?.jsonPrimitive?.content
+        val legalDecreeRef = cleanText(
+            txtdscText ?: properties["TXTDSC"]?.jsonPrimitive?.content
+        )
 
         // ── Parse geometry ──────────────────────────────────────────────────
         return when (geomType) {
@@ -326,30 +331,44 @@ class ShomRegulationClient(
     }
 
     /**
-     * Map SHOM INSPIRE restriction code to [RegulatedZoneType].
-     * Based on S-101 / SHOM restrn enumeration:
-     *   1  = Speed limit
-     *   2  = Depth limit / draught
-     *   7  = Anchoring prohibited
-     *   8  = Fishing prohibited
-     *   9  = Trawling prohibited
-     *   10 = Prohibited area (access)
-     *   11 = Entry prohibited (access)
-     *   12 = Exit prohibited
-     *   18 = Berthing prohibited
-     *   27 = Seasonal restriction (check perend/persta)
-     *   28 = Marine nature reserve
+     * SHOM publishes the literal string "null" (and blanks) for absent text
+     * properties — treat them as absent so no field ever carries "null".
      */
-    private fun parseRestrictionCode(code: String?): RegulatedZoneType = when (code?.trim()) {
-        "1" -> RegulatedZoneType.SPEED_LIMIT
-        "7" -> RegulatedZoneType.ANCHORING_PROHIBITED
-        "8", "9" -> RegulatedZoneType.FISHING_PROHIBITED
-        "10", "11", "12" -> RegulatedZoneType.ACCESS_PROHIBITED
-        "18" -> RegulatedZoneType.MOORING
-        "27" -> RegulatedZoneType.NAVIGATION_RESTRICTION
-        "28" -> RegulatedZoneType.ENVIRONMENTAL
+    private fun cleanText(value: String?): String? =
+        value?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+
+    /**
+     * Map a SHOM restriction code to a [RegulatedZoneType] — ONE table, read by
+     * both [parseRestrictionCode] (the INSPIRE `restrn` string) and
+     * [parseRestrnAuth] (the auth `RESTRN` integer).
+     *
+     * The values are S-57 RESTRN, verified against the baked source 2026-10-10:
+     * every code-1/2 zone reads "anchoring … prohibited" and every code-7/8 zone
+     * an entry/access restriction, so the earlier S-101 reading (which had
+     * 1 = speed limit, 7 = anchoring, 8/9 = fishing) was wrong and is corrected.
+     *
+     *   1, 2  = anchoring prohibited / restricted
+     *   3-6   = fishing / trawling prohibited / restricted
+     *   7, 8  = entry (access) prohibited / restricted
+     *   10-12 = dredging / diving
+     *   18    = berthing (mooring)
+     *   27    = navigation restriction
+     *   28    = marine nature reserve
+     */
+    private fun restrictionType(code: Int?): RegulatedZoneType = when (code) {
+        1, 2 -> RegulatedZoneType.ANCHORING_PROHIBITED
+        3, 4, 5, 6 -> RegulatedZoneType.FISHING_PROHIBITED
+        7, 8 -> RegulatedZoneType.ACCESS_PROHIBITED
+        10, 11, 12 -> RegulatedZoneType.OTHER // dredging / diving, flagged by displayCategories
+        18 -> RegulatedZoneType.MOORING
+        27 -> RegulatedZoneType.NAVIGATION_RESTRICTION
+        28 -> RegulatedZoneType.ENVIRONMENTAL
         else -> RegulatedZoneType.OTHER
     }
+
+    /** String form of [restrictionType] — the INSPIRE `restrn` property. */
+    private fun parseRestrictionCode(code: String?): RegulatedZoneType =
+        restrictionType(code?.trim()?.toIntOrNull())
 
     /**
      * Parse S-57 CATREA (Category of Regulation Area) code to [RegulatedZoneType].
@@ -374,22 +393,8 @@ class ShomRegulationClient(
         else -> RegulatedZoneType.OTHER
     }
 
-    /**
-     * Parse S-57 RESTRN (Restriction) code to [RegulatedZoneType].
-     *
-     * Common RESTRN codes:
-     *   1 = Anchoring prohibited
-     *   2 = Anchoring prohibited for specific vessels
-     *   7 = Entry prohibited
-     *   8 = Access prohibited for specific vessels
-     *   10 = Other (e.g. diving restriction)
-     */
-    private fun parseRestrnAuth(code: Int): RegulatedZoneType = when (code) {
-        1, 2 -> RegulatedZoneType.ANCHORING_PROHIBITED
-        7, 8 -> RegulatedZoneType.ACCESS_PROHIBITED
-        10 -> RegulatedZoneType.OTHER  // Diving prohibition — mapped via displayCategories
-        else -> RegulatedZoneType.OTHER
-    }
+    /** Integer form of [restrictionType] — the auth `RESTRN` property. */
+    private fun parseRestrnAuth(code: Int): RegulatedZoneType = restrictionType(code)
 
     /**
      * Parse a speed limit from an INFORM description string.
