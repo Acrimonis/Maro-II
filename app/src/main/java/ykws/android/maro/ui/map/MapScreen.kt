@@ -209,6 +209,7 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.data.track.TrackViewModel
 import ykws.android.maro.data.track.TrackSummary
+import ykws.android.maro.data.track.sortSummaries
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.spatial.SpatialOperations
@@ -3619,19 +3620,27 @@ fun MapScreen(
 
         // ── Menu chevron shortcuts: the first item of the menu's own referential (plan §4) ──
         // The menu is the map-referential surface, so its chevron opens the first item of the
-        // map-filtered set — not the first of the list world, whose filter and sort are the lists'
-        // own. The menu carries a filter and a count but no order of its own, so the collection's own
-        // order stands in for it.
+        // map-filtered set **in the corresponding list's own sort order** — the menu carries a filter and
+        // a count but no order of its own, so the list's sort stands in for it. Membership stays the map
+        // filter: that is what makes a map-filter write close a menu-opened card.
         val menuMidnightMs = ykws.android.maro.data.model.todayMidnightMs()
-        // The menu's own track referential (plan §4): the map-filtered stored recorded set, in the
-        // collection's own order. The chevron's first id is read from it, and the whole list is what its
-        // card is handed.
-        val menuTrackIds = menuTrackIdsOf(allTrackSummaries, appSettings.trackMapFilter, menuMidnightMs)
+        // The menu's own track referential (plan §4): the map-filtered stored recorded set, in the tracks
+        // list's order. The chevron's first id is read from it, and the whole list is what its card is
+        // handed.
+        val menuTrackIds = menuTrackIdsOf(
+            allTrackSummaries, appSettings.trackMapFilter, appSettings.trackListSort, menuMidnightMs
+        )
         val firstTrackId = menuTrackIds.firstOrNull()
         // The menu's own route referential (S5), the same shape for the routes list's chevron.
-        val menuRouteIds = menuRouteIdsOf(allTrackSummaries, appSettings.routeMapFilter, menuMidnightMs)
+        val menuRouteIds = menuRouteIdsOf(
+            allTrackSummaries, appSettings.routeMapFilter, appSettings.routeListSort, menuMidnightMs
+        )
         val firstRouteId = menuRouteIds.firstOrNull()
-        val firstMarkerId = mapMarkersState.firstOrNull()?.id
+        // The menu's own marker referential (plan §4): the map-filtered collection in the marker list's
+        // own order. Derived as an id list so `mapMarkersState` keeps the order the overlay and the
+        // inspect candidates read; the marker chevron walks this list and its first id seats the card.
+        val menuMarkerIds = sortMarkers(mapMarkersState, appSettings.markerListSort).map { it.id }
+        val firstMarkerId = menuMarkerIds.firstOrNull()
 
         // Menu (map-referential) track counter: stored non-live recorded tracks matching the map filter —
         // pinned included (they always render). Render-cap divergence is acceptable.
@@ -3717,14 +3726,15 @@ fun MapScreen(
                 )
             },
             // The marker chevron hands its card the world it should walk (plan §4): the menu's own
-            // map-filtered collection, resolved in that same collection so a marker the list filter
-            // drops is still found. The source is the menu door's ([DrawerSource.MENU]) and not the map
-            // tap's ([DrawerSource.MAP]): a door of the item's-list kind walks the menu's referential, so
-            // a map-filter write closes its card — where a map tap's card stands (2026-09-28).
+            // map-filtered collection, in the marker list's own order, resolved in that same collection
+            // so a marker the list filter drops is still found. The source is the menu door's
+            // ([DrawerSource.MENU]) and not the map tap's ([DrawerSource.MAP]): a door of the item's-list
+            // kind walks the menu's referential, so a map-filter write closes its card — where a map tap's
+            // card stands (2026-09-28).
             onOpenFirstMarker = { id ->
                 openMarkerDetail(
                     id = id,
-                    walkWorld = mapMarkersState.map { it.id },
+                    walkWorld = menuMarkerIds,
                     markerLookup = { lookupId -> mapMarkersState.find { it.id == lookupId } },
                     walkWorldSource = DrawerSource.MENU
                 )
@@ -4189,16 +4199,22 @@ private fun routeLeadFixOf(
 } else null
 
 /**
- * The menu's own track referential (plan §4): the map-filtered stored set, in the collection's own order —
- * the menu carries a filter and a count but no order of its own, so the collection's order stands in.
+ * The menu's own track referential (plan §4): the map-filtered stored set, in the tracks list's own sort
+ * order — the menu carries a filter and a count but no order of its own, so the list's sort stands in.
+ * [sortState] is `trackListSort`, read through the same [sortSummaries] home the list itself uses, so the
+ * chevron and the list cannot disagree about the order.
  */
 internal fun menuTrackIdsOf(
     allTrackSummaries: List<TrackSummary>,
     mapFilter: ListFilter,
-    midnightMs: Long
-): List<String> = allTrackSummaries
-    .filter { !it.isLive && !it.route && it.matchesFilter(mapFilter, midnightMs) }
-    .map { it.id }
+    sortState: ListSortState,
+    midnightMs: Long,
+    nowMs: Long = System.currentTimeMillis()
+): List<String> = sortSummaries(
+    allTrackSummaries.filter { !it.isLive && !it.route && it.matchesFilter(mapFilter, midnightMs) },
+    sortState,
+    nowMs
+).map { it.id }
 
 /**
  * Menu (map-referential) track counter: stored non-live **recorded** tracks matching the map filter —
@@ -4211,16 +4227,21 @@ internal fun trackMapVisibleCountOf(
 ): Int = allTrackSummaries.count { !it.isLive && !it.route && it.matchesFilter(mapFilter, midnightMs) }
 
 /**
- * The menu's own route referential (S5): the route-map-filtered saved routes, in the collection's own
- * order. The routes chevron's first id is read from it, and the whole list is what its card is handed.
+ * The menu's own route referential (S5): the route-map-filtered saved routes, in the routes list's own
+ * sort order. [sortState] is `routeListSort`, read through the same [sortSummaries] home the routes list
+ * uses. The routes chevron's first id is read from it, and the whole list is what its card is handed.
  */
 internal fun menuRouteIdsOf(
     allTrackSummaries: List<TrackSummary>,
     mapFilter: ListFilter,
-    midnightMs: Long
-): List<String> = allTrackSummaries
-    .filter { it.route && it.matchesFilter(mapFilter, midnightMs) }
-    .map { it.id }
+    sortState: ListSortState,
+    midnightMs: Long,
+    nowMs: Long = System.currentTimeMillis()
+): List<String> = sortSummaries(
+    allTrackSummaries.filter { it.route && it.matchesFilter(mapFilter, midnightMs) },
+    sortState,
+    nowMs
+).map { it.id }
 
 /**
  * Menu (map-referential) route counter: saved routes matching the route map filter — pinned included

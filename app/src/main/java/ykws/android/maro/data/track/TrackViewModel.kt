@@ -346,28 +346,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         renderFocus.clearBoost()
     }
 
-    /** Apply [ListSortOrder] to a list of [TrackSummary]. */
-    private fun sortSummaries(
-        summaries: List<TrackSummary>,
-        state: ListSortState
-    ): List<TrackSummary> {
-        val nowMs = System.currentTimeMillis()
-        return state.applySort(summaries) { key ->
-            when (key) {
-                "distanceNm" -> compareBy { it.distanceNm }
-                "totalTimeSec" -> compareBy { s ->
-                    val end = s.lastPointTimeMs.takeIf { it != 0L } ?: s.endTimeMs ?: nowMs
-                    end - s.startTimeMs
-                }
-                "movingTimeSec" -> compareBy { s ->
-                    val totalMs = (s.endTimeMs ?: nowMs) - s.startTimeMs
-                    totalMs - s.idleDurationSec * 1000L
-                }
-                else -> null  // fallback to updatedAtEpochMs
-            }
-        }
-    }
-
     // ── LRU track detail cache for overlay rendering ────────────────────
     // Prevents repeated protobuf deserialization when refreshing the map overlay.
     private val trackDetailCache = object : LinkedHashMap<String, Track>(32, 0.75f, true) {
@@ -567,5 +545,32 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
         private const val MARKER_LINK_SCHEMA_VERSION = 1
         private const val KEY_MARKER_LINK_SCHEMA_VERSION = "marker_link_schema_version"
+    }
+}
+
+/**
+ * The recorded-track/route list sort, in one pure home both lists and the menu gate read: the
+ * comparators are the summaries' own — `distanceNm`, `totalTimeSec` and `movingTimeSec` — every other
+ * field falling back to `updatedAtEpochMs` through [ListSortState.applySort].
+ *
+ * [nowMs] is the wall clock the two time keys read. It is injectable so a test pins it, and the menu
+ * gate passes it straight through so the list and the chevron cannot disagree about "total time".
+ */
+internal fun sortSummaries(
+    summaries: List<TrackSummary>,
+    state: ListSortState,
+    nowMs: Long = System.currentTimeMillis()
+): List<TrackSummary> = state.applySort(summaries) { key ->
+    when (key) {
+        "distanceNm" -> compareBy { it.distanceNm }
+        "totalTimeSec" -> compareBy { s ->
+            val end = s.lastPointTimeMs.takeIf { it != 0L } ?: s.endTimeMs ?: nowMs
+            end - s.startTimeMs
+        }
+        "movingTimeSec" -> compareBy { s ->
+            val totalMs = (s.endTimeMs ?: nowMs) - s.startTimeMs
+            totalMs - s.idleDurationSec * 1000L
+        }
+        else -> null  // fallback to updatedAtEpochMs
     }
 }
