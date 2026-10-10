@@ -86,9 +86,9 @@ internal fun MapDialogHost(
     routeViewModel: RouteViewModel,
     onDismissExit: () -> Unit,
     onSaveRoute: (RoutePlan) -> Unit,
-    /** The dialog's own Discard — the deferred, toasting ending. */
+    /** The dialog's own Discard — the deferred, toasting ending, taken only while the press would throw the line away. */
     onDiscardRoute: () -> Unit,
-    /** Save-and-exit's silent ending: it writes first and never toasts. */
+    /** The silent ending: it writes first for the save door and never toasts, and the written state's *Leave* rides it. */
     onEndRoute: () -> Unit,
     // ── Resume confirmation (optional backup) ──
     resumeTarget: PendingTrackResume?,
@@ -260,8 +260,8 @@ internal fun MapDialogHost(
     // decides them — *is this line already a track?* — read once here. While the line is unwritten the save
     // door carries the accent, enabled, and the loss door is red; once it is a track the save door keeps its
     // place and disables, nothing is lost, and the accent falls to the enabled forward outcome, whose word
-    // follows the cost — `Discard route` or `Leave`. The arrival cue rides the same doors under its own
-    // title alone (a title-only prompt, no message).
+    // and act follow the cost — `Discard route` defers on the toast, `Leave` ends the mode silently. The
+    // arrival cue rides the same doors under its own title alone (a title-only prompt, no message).
     if (routeExitReason != null) {
         val front = routeState.plan
         val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
@@ -301,7 +301,7 @@ internal fun MapDialogHost(
                     enabled = doors.loss.enabled
                 ) {
                     onDismissExit()
-                    onDiscardRoute()
+                    if (doors.loss.discards) onDiscardRoute() else onEndRoute()
                 }
             )
         )

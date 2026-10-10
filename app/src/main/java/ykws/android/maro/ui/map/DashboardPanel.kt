@@ -2,6 +2,7 @@
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -269,15 +270,16 @@ private fun DashboardIndicatorGrid(
 /** The card's corner: one home for the clip and for any border worn on the same shape. */
 private val DASHBOARD_CARD_SHAPE = RoundedCornerShape(8.dp)
 
-/** The optional border's stroke width, kept beside the card so the card and its border share one measure. */
+/** The pulsing border's stroke width, kept beside the card whose shape it outlines. */
 private val DASHBOARD_CARD_BORDER_WIDTH = 2.dp
 
 /**
  * A rounded card: a small, subdued title on top, the value as large as the cell allows in the
  * middle, and small subdued context at the bottom. Designed to fill a 2×2 grid cell.
  *
- * [borderColor] is an optional stroke on the card's own shape, **absent by default so every other
- * tile is unchanged**; when given it is drawn over the fill and moves nothing inside the card.
+ * [border] is an optional stroke on the card's own shape, **absent by default so every other tile is
+ * unchanged**; when given it is drawn over the fill and moves nothing inside the card. The card takes
+ * the stroke whole rather than a colour plus a width, so the width stays with whoever draws it.
  */
 @Composable
 private fun DashboardCard(
@@ -290,8 +292,8 @@ private fun DashboardCard(
     subtitleColor: Color = DashboardColors.textMutedBright,
     subtitleWeight: FontWeight = FontWeight.Medium,
     isEmpty: Boolean = false,
-    /** The optional border, absent by default so every other tile is unchanged. */
-    borderColor: Color? = null,
+    /** The optional stroke, absent by default so every other tile is unchanged; the caller owns its width. */
+    border: BorderStroke? = null,
     /** An optional tap on the whole card — used by the trip card's recompute, null everywhere else. */
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -301,8 +303,7 @@ private fun DashboardCard(
             .clip(DASHBOARD_CARD_SHAPE)
             .background(cardColor)
             .then(
-                if (borderColor != null)
-                    Modifier.border(DASHBOARD_CARD_BORDER_WIDTH, borderColor, DASHBOARD_CARD_SHAPE)
+                if (border != null) Modifier.border(border, DASHBOARD_CARD_SHAPE)
                 else Modifier
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -421,9 +422,10 @@ private fun distanceText(distanceM: Double): String {
  * faces are one cell the boat can flip, this one being what a freshly armed route opens on and the
  * face [DistanceFace] sits behind until a tap brings it back.
  *
- * While the route is followed the tile's border pulses in the route toggle's **own blue**
- * (`AppConfig.routeNavigateColor`), beating with the app's single pulse home. The border marks the
- * route rather than the cell, so flipping the cell to the shore reading shows it with no border.
+ * While the route is followed the cell wears a pulsing border in the route toggle's **own blue**
+ * (`AppConfig.routeNavigateColor`), and **both faces wear it**: the border marks the *followed route*,
+ * so a flip changes which reading the cell shows, never whether it is bordered. [DistanceCard] owns
+ * that one beat and hands the whole stroke down, so the two faces cannot drift out of phase.
  *
  * The remaining time is the tile's **main figure** — the bare ETA with its unit, read through
  * [routeEtaText] so the app keeps one ETA home rather than printing a second form here — standing over
@@ -438,6 +440,7 @@ private fun distanceText(distanceM: Double): String {
 @Composable
 private fun RouteTripCard(
     trip: RouteTripFigure,
+    border: BorderStroke? = null,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -448,15 +451,12 @@ private fun RouteTripCard(
         stringResource(R.string.settings_route_pace_value_fmt, trip.paceKn)
     )
 
-    // The beat is the app's one pulse home — this border shares it rather than inventing a second.
-    val pulseAlpha = rememberPulseAlpha(MAP_PULSE_DEFAULT_MS, label = "routeTripBorder")
-
     DashboardCard(
         title = stringResource(R.string.route_trip_title),
         value = routeEtaText(trip.etaSeconds),
         subtitle = subtitle,
         valueColor = DashboardColors.textPrimary,
-        borderColor = Color(AppConfig.routeNavigateColor).copy(alpha = pulseAlpha),
+        border = border,
         onClick = onClick,
         modifier = modifier
     )
@@ -478,6 +478,11 @@ private fun formatEta(etaSeconds: Double?): String? {
  * and the face a tap on the route face returns to. Its sibling [RouteTripCard] is the route face, and
  * the two are one cell the boat can flip — [DistanceCard] below owns the tap that swaps between them.
  *
+ * [border] is the cell's stroke, handed down by [DistanceCard]: while a route is followed the border
+ * marks that route, so whichever reading stands on this face wears the same pulsing blue its sibling
+ * [RouteTripCard] does — the border is the cell's, never one face's. It is null with no route,
+ * leaving each reading plain as it was.
+ *
  * [onClick] is forwarded to every card this face builds, so the whole cell answers a tap **only while
  * a route is followed** (its caller passes null otherwise): with no route there is nothing to flip back
  * to, and the idle tile keeps its ordinary, untappable behaviour.
@@ -490,6 +495,7 @@ private fun DistanceFace(
     zoneSituation: ZoneSituation? = null,
     autoRevealDistanceM: Float = 100f,
     autoRevealTimeS: Float = 10f,
+    border: BorderStroke? = null,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -499,6 +505,7 @@ private fun DistanceFace(
             title = stringResource(R.string.dash_distance_title),
             value = stringResource(R.string.dash_empty),
             isEmpty = true,
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -516,6 +523,7 @@ private fun DistanceFace(
             titleColor = dull,
             valueColor = dull,
             subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -535,6 +543,7 @@ private fun DistanceFace(
             value = distanceText(distanceToShore),
             subtitle = stringResource(R.string.dash_distance_from_shore),
             cardColor = DashboardColors.cardBg,
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -574,6 +583,7 @@ private fun DistanceFace(
             value = distanceText(distanceToShore),
             subtitle = stringResource(R.string.dash_distance_from_shore),
             cardColor = DashboardColors.cardBg,
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -590,6 +600,7 @@ private fun DistanceFace(
             value = distanceText(distanceToShore),
             subtitle = stringResource(R.string.dash_distance_from_shore),
             cardColor = DashboardColors.cardBg,
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -603,6 +614,7 @@ private fun DistanceFace(
             value = distanceText(distanceToShore),
             subtitle = stringResource(R.string.dash_distance_from_shore),
             cardColor = DashboardColors.cardBg,
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -624,6 +636,7 @@ private fun DistanceFace(
             value = distanceText(distanceToShore),
             subtitle = stringResource(R.string.dash_distance_from_shore),
             cardColor = DashboardColors.cardBg,
+            border = border,
             onClick = onClick,
             modifier = modifier
         )
@@ -662,6 +675,7 @@ private fun DistanceFace(
         value = displayText,
         subtitle = labelWithEta,
         cardColor = cardColor,
+        border = border,
         onClick = onClick,
         modifier = modifier
     )
@@ -676,6 +690,10 @@ private fun DistanceFace(
  * place of the shore reading as the **default** face, not the only one — a tap on it falls back to
  * [DistanceFace], and a tap on that face brings the trip reading back. With no route there is nothing
  * to flip to, so the cell keeps its ordinary, untappable behaviour.
+ *
+ * The cell's border belongs here too: while a route is followed the border marks that route, so the
+ * one pulse is held by the cell and its colour handed to whichever face is up — a single beat, so a
+ * flip cannot swap in a second border that has drifted out of phase with the first.
  */
 @Composable
 private fun DistanceCard(
@@ -690,9 +708,25 @@ private fun DistanceCard(
 ) {
     // A new plan (a new computedAtMs) starts on the route face; the flip does not survive it.
     var showRoute by remember(routeTrip?.computedAtMs) { mutableStateOf(true) }
+
+    // The cell's stroke marks the followed route, so it lives here and both faces share it — one beat
+    // for the cell, so flipping does not hand the edge to a second animation out of phase with the
+    // first. Its width is the card's own fixed measure and its beat the app's single pulse home, the
+    // floor that beat fades to being the shared generic one. No route, no border: the pulse exists
+    // only while a route is followed.
+    val border: BorderStroke? = if (routeTrip != null) {
+        BorderStroke(
+            DASHBOARD_CARD_BORDER_WIDTH,
+            Color(AppConfig.routeNavigateColor).copy(
+                alpha = rememberPulseAlpha(MAP_PULSE_DEFAULT_MS, label = "distanceCellBorder")
+            )
+        )
+    } else null
+
     if (routeTrip != null && showRoute) {
         RouteTripCard(
             trip = routeTrip,
+            border = border,
             onClick = { showRoute = false },
             modifier = modifier
         )
@@ -704,6 +738,7 @@ private fun DistanceCard(
             zoneSituation = zoneSituation,
             autoRevealDistanceM = autoRevealDistanceM,
             autoRevealTimeS = autoRevealTimeS,
+            border = border,
             onClick = if (routeTrip != null) ({ showRoute = true }) else null,
             modifier = modifier
         )

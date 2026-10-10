@@ -639,9 +639,13 @@
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
     <!-- The acquisition's own three actions (R55, rewritten 2026-09-28): the save writes the
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
-         asking nothing under `route_exit_discard`'s own word — one act, one key, one colour. -->
+         asking nothing. The ending's word follows the cost (§5.6), so an unwritten line reads the short
+         `route_acq_discard` — its own third of the footer being the room its word must fit, not the exit
+         dialog's longer loss word — and a written one hands over to that dialog's own `route_exit_leave`,
+         because nothing is lost and the word must say so. -->
     <string name="route_action_save_track">Save</string>
     <string name="route_action_select">Follow</string>
+    <string name="route_acq_discard">Discard</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
          CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
@@ -677,8 +681,10 @@
          its three doors — is this line already a track? — so the accent door writes the followed route to a
          track and greys while that route already has one, the accent then falling to the enabled forward
          outcome `Leave`, and the third door reads `Discard route` while the press would throw the route away
-         or `Leave` once it cannot. `route_exit_discard` and `route_exit_save` also label the acquisition
-         panel's door and the fan's children, so they keep meaning *Discard route* and *Save route*. -->
+         or `Leave` once it cannot. `route_exit_save` also labels the fan's save child and this door's own
+         key the fan's Discard child, so they keep meaning *Save route* and *Discard route*; the acquisition
+         panel's door is its own `route_acq_discard` while its line is unwritten, and this dialog's own
+         `route_exit_leave` once it is written — one cost, one word. -->
     <string name="route_exit_title">Leave the Route mode?</string>
     <string name="route_exit_save">Save Route and exit</string>
     <string name="route_exit_continue">Continue</string>

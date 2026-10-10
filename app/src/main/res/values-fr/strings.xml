@@ -644,9 +644,13 @@
     <string name="route_eta_value_fmt">%1$d:%2$02d min</string>
     <!-- Les trois actions propres à l'acquisition (R55, réécrit le 2026-09-28) : l'enregistrement écrit
          la ligne **sélectionnée** et partage une ligne avec la sélection, et l'abandon quitte
-         l'acquisition sans rien demander sous le mot de `route_exit_discard` — un acte, une clé. -->
+         l'acquisition sans rien demander. Le mot de la porte suit le coût (§5.6) : tant que la ligne n'est
+         pas écrite la porte lit le court `route_acq_discard` — son propre tiers de pied de panneau étant la
+         place que son mot doit tenir, pas le mot de sortie — et une fois qu'elle l'est elle passe au
+         `route_exit_leave` du dialogue, parce que plus rien n'est perdu et que le mot doit le dire. -->
     <string name="route_action_save_track">Enregistrer</string>
     <string name="route_action_select">Suivre</string>
+    <string name="route_acq_discard">Abandonner</string>
     <string name="route_pin_label">Épingler la trace</string>
     <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
          une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,
@@ -683,8 +687,10 @@
          porte accentuée écrit l'itinéraire suivi dans une trace et grise quand elle en a déjà une, l'accent
          passant alors à l'issue avant `Quitter`, et la troisième porte affiche `Abandonner la route` tant
          que la pression jetterait la route ou `Quitter` une fois qu'elle ne le peut plus.
-         `route_exit_discard` et `route_exit_save` nomment aussi la porte du panneau d'acquisition et les
-         enfants de l'éventail, donc ils gardent le sens *Abandonner la route* et *Enregistrer la route*. -->
+         `route_exit_save` nomme aussi l'enfant d'enregistrement de l'éventail et la clé de cette porte
+         l'enfant d'abandon, donc ils gardent le sens *Enregistrer la route* et *Abandonner la route* ; la
+         porte du panneau d'acquisition est son propre `route_acq_discard` tant que sa ligne n'est pas
+         écrite, et le `route_exit_leave` de ce dialogue une fois qu'elle l'est — un coût, un mot. -->
     <string name="route_exit_title">Quitter la route ?</string>
     <string name="route_exit_save">Enregistrer la route dans les traces</string>
     <string name="route_exit_continue">Continuer</string>

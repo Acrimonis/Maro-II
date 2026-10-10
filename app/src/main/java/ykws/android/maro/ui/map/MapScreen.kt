@@ -2138,11 +2138,13 @@ fun MapScreen(
             }
 
             /**
-             * **The deferred discard's one entry** — every discarding door: the panel's `Discard route`,
-             * the fan's Discard, the toggle-off and the back key inside the acquisition, and the exit
-             * dialog's own discard while Following. The display reads the ending at once (the panel and
-             * the line leave, the toggle reads off) while the mode stays live underneath; the real
-             * disposal waits on the toast. Idempotent: a second press while the window stands no-ops.
+             * **The deferred discard's one entry** — every discarding door: the panel's `Discard route`
+             * while the selected line is unwritten, the fan's Discard, the toggle-off and the back key
+             * inside the acquisition, and the exit dialog's own ending while the line is not yet a track.
+             * The written-state doors read *Leave* and end the mode silently instead, never reaching here.
+             * The display reads the ending at once (the panel and the line leave, the toggle reads off)
+             * while the mode stays live underneath; the real disposal waits on the toast. Idempotent:
+             * a second press while the window stands no-ops.
              */
             fun discardRoute() {
                 if (!routeArmed || pendingDiscard != null) return
@@ -3188,6 +3190,9 @@ fun MapScreen(
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
                         onDiscard = { discardRoute() },
+                        // A loss-free ending is the ordinary end: this door's word is *Leave* and it
+                        // closes the mode silently, where the discarding press defers on the toast.
+                        onLeave = { endRouteMode() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -3236,6 +3241,9 @@ fun MapScreen(
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
                         onDiscard = { discardRoute() },
+                        // A loss-free ending is the ordinary end: this door's word is *Leave* and it
+                        // closes the mode silently, where the discarding press defers on the toast.
+                        onLeave = { endRouteMode() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()

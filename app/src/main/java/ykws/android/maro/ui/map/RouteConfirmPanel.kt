@@ -83,8 +83,15 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
  *                        position in the ETA-ordered view.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
- * @param onDiscard       **Discard route**: presents the ending at once — the panel and the line leave,
- *                        the toggle reads off — while the real disposal waits on the toast (R57).
+ * @param onDiscard       **Discard**: the deferred ending, taken **only while the press would throw the
+ *                        selected line away** — presents the ending at once, the panel and the line leave,
+ *                        the toggle reads off, while the real disposal waits on the toast (R57). Its word
+ *                        follows the cost (§5.6): the acquisition's own short *Discard* while the selected
+ *                        line is unwritten, the exit dialog's own *Leave* once it is written and nothing
+ *                        is lost — the short word existing only because this door holds a third of the
+ *                        footer row.
+ * @param onLeave         **Leave**: the ending that costs nothing — the written state's own door, ending
+ *                        the mode silently, with no window and no toast.
  */
 @Composable
 internal fun RouteConfirmationPanel(
@@ -115,6 +122,7 @@ internal fun RouteConfirmationPanel(
     onSelectRoute: () -> Unit,
     onSaveTrack: () -> Unit,
     onDiscard: () -> Unit,
+    onLeave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val acquiring = state as? RouteState.Choosing ?: return
@@ -142,6 +150,9 @@ internal fun RouteConfirmationPanel(
     val refusal = acquiring.refusal ?: selected?.reason
     val canSelect = selectedPlan != null || (partialDrawn && !committed)
     val canSave = (selectedPlan != null || partialDrawn) && !frontSaved
+    // The third door's word follows the cost (§5.6): its own short red one while the selected line is
+    // unwritten, the exit dialog's own *Leave* under the accent once `frontSaved` says nothing is lost.
+    val endingDoor = routeAcquisitionEndingDoor(written = frontSaved)
     // The *so far* mark stands only while the ladder still computes (the user's word of 2026-10-07):
     // the winner's row wears it until the last rung lands.
     val soFarLookupId = if (acquiring.searching) runningBestLookupId else null
@@ -214,9 +225,9 @@ internal fun RouteConfirmationPanel(
                 )
                 ConfirmActionButton(
                     action = ConfirmAction(
-                        label = stringResource(R.string.route_exit_discard),
-                        role = ConfirmActionRole.DANGER,
-                        onClick = onDiscard
+                        label = stringResource(endingDoor.labelRes),
+                        role = endingDoor.role,
+                        onClick = if (endingDoor.discards) onDiscard else onLeave
                     ),
                     modifier = Modifier.weight(1f)
                 )
