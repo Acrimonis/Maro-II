@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 
@@ -19,8 +21,9 @@ import ykws.android.maro.config.AppConfig
  * The app's one rendering of a checkbox and its label — the dialogs' option rows and the route panel's
  * pin all read it, so a box and its label read the same distance apart everywhere.
  *
- * **The row states no gap of its own: the checkbox's target inset is the gap**, which is what keeps
- * that distance identical at every call site without inventing a number.
+ * **The box-to-label gap is one named token**, `ui.spacing.checkbox.label`, read through
+ * `AppConfig.uiSpacingCheckboxLabel` and laid on the label rather than on the box: the row states the
+ * number once, so every call site reads the same distance, and the label's own left edge carries it.
  *
  * The row is the target, not the box: it carries the `toggleable` and the merged descendants while the
  * box is left at `onCheckedChange = null`, so the whole row is one tap and one announcement. The
@@ -59,7 +62,9 @@ internal fun OptionRow(
             text = label,
             color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = labelFontSize,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = AppConfig.uiSpacingCheckboxLabel.dp)
         )
     }
 }

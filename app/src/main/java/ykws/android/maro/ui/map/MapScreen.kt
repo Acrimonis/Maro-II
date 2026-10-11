@@ -5269,9 +5269,10 @@ private fun MapContent(
  * own icon where one was set.
  *
  * `null` when no marker names the end — the drawer's fixed `Current position` / `Marker position`
- * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder —
- * and `null` again when the end is the boat's own home port, told by the place or by the name
- * itself (settled 2026-10-11).
+ * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder. A
+ * routing-weight-only marker names nothing either: flagged or not, it leaves the end its fixed or dated
+ * name rather than lending it its own — and `null` again when the end is the boat's own home port,
+ * told by the place or by the name itself (settled 2026-10-11).
  */
 private fun routeEndName(
     selection: RouteEndSelection,
@@ -5291,8 +5292,13 @@ private fun routeEndName(
             }
             ?.let { ykws.android.maro.spatial.MarkerMatcher.markerOf(it) }
     }
-    val named = zone ?: (selection as? RouteEndSelection.Marker)
-        ?.let { flagged -> markers.firstOrNull { it.id == flagged.markerId } }
+    // The zone branch already reads the matcher's filtered result; the flagged-selection fallback
+    // guards the same rule by hand, so a routing-only marker never lends its name to an end, and the
+    // end is refused again when it is the boat's own home port.
+    val flagged = (selection as? RouteEndSelection.Marker)
+        ?.let { end -> markers.firstOrNull { it.id == end.markerId } }
+        ?.takeIf { !it.routingOnly }
+    val named = zone ?: flagged
     val label = named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) } ?: return null
     val homePort = endPoint?.let { point ->
         ykws.android.maro.data.track.TrackNaming.namesHomePort(

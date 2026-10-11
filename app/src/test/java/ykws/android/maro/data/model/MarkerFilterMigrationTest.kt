@@ -14,9 +14,10 @@ import ykws.android.maro.data.settings.SettingsManager
 import java.io.File
 
 /**
- * Unit tests for [UserMarker.matchesFilter] on the `icon`, `pinned`, `origin`, `routeCost` and
- * `routeRole` axes — the two route criteria independent of each other — and for the fact that a
- * stored `markerListFilter` is parsed as written.
+ * Unit tests for [UserMarker.matchesFilter] on the `icon`, `pinned`, `origin`, `routeCost`, `routeRole`
+ * and `routingOnly` axes — the two route criteria independent of each other, and the routing-only axis
+ * cutting a marker's *purpose* rather than its weight — and for the fact that a stored
+ * `markerListFilter` is parsed as written.
  */
 class MarkerFilterMigrationTest {
 
@@ -29,7 +30,8 @@ class MarkerFilterMigrationTest {
         origin: MarkerOrigin = MarkerOrigin.USER,
         routingCost: Int? = null,
         routeOrigin: Boolean = false,
-        routeDestination: Boolean = false
+        routeDestination: Boolean = false,
+        routingOnly: Boolean = false
     ): UserMarker = UserMarker(
         id = id,
         name = id,
@@ -39,7 +41,8 @@ class MarkerFilterMigrationTest {
         origin = origin,
         routingCost = routingCost,
         routeOrigin = routeOrigin,
-        routeDestination = routeDestination
+        routeDestination = routeDestination,
+        routingOnly = routingOnly
     )
 
     private fun filter(vararg entries: Pair<String, String>): ListFilter =
@@ -213,6 +216,48 @@ class MarkerFilterMigrationTest {
         assertTrue(originOnly.matchesFilter(f))
         assertTrue(destinationOnly.matchesFilter(f))
         assertTrue(bothRoles.matchesFilter(f))
+    }
+
+    // ── UserMarker.matchesFilter: routingOnly axis ──────────────────────────
+
+    @Test
+    fun `routingOnly axis ONLY keeps a routing-only marker and drops a named one`() {
+        val routingOnly = marker("a", routingOnly = true, routingCost = 3)
+        val named = marker("b", routeOrigin = true)
+        val f = filter("routingOnly" to "ONLY")
+
+        assertTrue(routingOnly.matchesFilter(f))
+        assertFalse(named.matchesFilter(f))
+    }
+
+    @Test
+    fun `routingOnly axis NORMAL keeps a named marker and drops a routing-only one`() {
+        val routingOnly = marker("a", routingOnly = true, routingCost = 3)
+        val named = marker("b", routeOrigin = true)
+        val f = filter("routingOnly" to "NORMAL")
+
+        assertFalse(routingOnly.matchesFilter(f))
+        assertTrue(named.matchesFilter(f))
+    }
+
+    @Test
+    fun `routingOnly axis ALL keeps both, which is the default`() {
+        val routingOnly = marker("a", routingOnly = true)
+        val named = marker("b")
+
+        assertTrue(routingOnly.matchesFilter(filter("routingOnly" to "ALL")))
+        assertTrue(named.matchesFilter(filter()))
+    }
+
+    @Test
+    fun `the routing-only axis is independent of the cost and role axes`() {
+        // A routing-only marker answers ONLY and WITH_COST at once, and no role at all.
+        val routingOnlyCosted = marker("a", routingOnly = true, routingCost = 3)
+        val f = filter("routingOnly" to "ONLY", "routeCost" to "WITH_COST", "routeRole" to "NONE")
+
+        assertTrue(routingOnlyCosted.matchesFilter(f))
+        assertFalse(marker("b", routingCost = 3).matchesFilter(f))          // cost, but names itself
+        assertFalse(marker("c", routingOnly = true, routeOrigin = true).matchesFilter(f))
     }
 
     // ── The two route axes are independent ──────────────────────────────────

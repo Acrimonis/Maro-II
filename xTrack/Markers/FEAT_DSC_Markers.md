@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-11 13:17
+modified: 2026-10-11 18:37
 ---
 
 # Feature: Markers
@@ -13,22 +13,11 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ## Todos
 - [ ] The debug overlay marks no difference between a date point that matched and one the range gate rejected: both segments carry `blocked = false`, which `MapMarkerEffects` paints green — the colour `MarkersViewModel` documents as "clear". Decide whether a rejected point keeps that green, takes the blocked red, or is given a third state.
 
-## Walk
-**Level 1 — Date:** 2026-09-18 · **Source:** `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md` · **Closed:** 2026-09-28 — every point resolved, nothing parked, one point raised by the last ruling carried to `## Todos`
-- [x] 1 · Touch zone — a fixed thumb-sized circle centred on the sprite's visual centre at any zoom, with a short transparent-gold ring flash on an accepted tap
-- [x] 2 · Rays cleared when the dashboard closes — segments cleared, the run left to finish, publishing gated on the dashboard still being its own
-- [x] 3 · Rays withdrawn when the debug toggle goes off
-- [x] 4 · Debugger passed per call, the no-op collector for the recorder and the service
-- [x] 5 · One resolve body, the null-index and empty-marker cases kept apart
-- [x] 6 · One query per tap, the recording snapshot ordered against the close
-- [x] 7 · Debugger interface shrunk to what is called
-- [x] 8 · The `marker.debug.rays.enabled` hook — retired 2026-09-18, the setting left as the single carrier
-- [x] 9 · Verification — build, scoped tests, and whatever guards `spatial/`
-- [x] 10 · Device pass — closed by decision 2026-09-18: the user owns it, and this walk no longer tracks it
-- [x] 11 · Bookkeeping bake across Markers, UI_Map and Ui_Settings — closed 2026-09-28: Markers baked earlier the same session, UI_Map took the tap-zone and ray-clear pointer with the superseded marker-filter clause and a corrected hydration, and Ui_Settings the de-wired debug-rays toggle
-- [x] 12 · Proximity of date points — closed 2026-09-28: a pin's segment is recorded before its range gate answers, so every date point is tested and drawn while the 300 m rule keeps deciding the match; the drawing's own marking for a rejected point went to `## Todos` rather than dropped
-- **Closed 2026-09-28** — the tap zone, the ray clearing and the debugger work shipped 2026-09-18 with their verification; the device pass was ruled out of the level's scope; the three-feature bookkeeping bake closed on 2026-09-28; and the level's last point, the date-point coverage, shipped the same night as one moved line in `MarkerMatcher`, pinned by `MarkerMatcherPinDebugTest`.
 ## Implemented
+
+- **routing-only-flag (2026-10-11, `feature/mrkRs`)** — a marker may now exist for its routing weight alone: `UserMarker.routingOnly` (last constructor parameter, KDoc'd, additive so a legacy `user_markers.json` reads `false` and no migration is needed), excluded from where-am-i by the pure `MarkerMatcher.countsForWhereAmI` applied in `resolveAllMarkers` **before** any match is resolved — the one producer every consumer reads, so `TrackRecorder` is untouched — with `routeEndName`'s flagged-selection fallback guarded so a routing-only end keeps its fixed or dated name. The wizard's Routing cost section carries the shared `OptionRow` on the value line's own row, bound through `updateForm`, the form field seeded at all three construction sites, copied by `updateMarker` and passed by both save paths, `wizard_routing_cost_only` (Only · Uniquement) added and the non-Pin top revalued to **Wall · Mur**; the card shows a ☑ left of the 💲 through `coordinateHeader`. On the map the variant is one flag, `MarkerAppearance.isRoutingOnly`: every ring dashes — zone and proximity strokes, the selected under-stroke, the corridor band's parallels and caps, and the halo's border ring through a new `MarkerHaloSpec.dashed` reading `MarkerOverlay`'s dash rhythm, now `internal` — and every fill hatches through the `BitmapShader` that `hatchShader` tiles. The marker filter gained the `routingOnly` axis (All · Route Only · Normal) beside `routeRole`, its predicate pure and its labels in both locales. Six paint keys then left `MarkerOverlay`'s constants for `maro.properties`, named for the art they paint: `marker.zone.outlineAlpha` / `fillAlpha`, `marker.proximity.outlineAlpha` / `fillAlpha` and `marker.routingOnly.stripeSpacingDp` / `stripeWidthDp`. `MarkerMatcherRoutingOnlyTest` 2/2, `MarkerRoutingCostHeaderTest` 13/13, `MarkerFilterMigrationTest` 22/22, `:app:assembleDebug` and `apk-build.bat` SUCCESSFUL. Review carried four findings — the corridor's proximity dash stays unconditional for every marker, the builders' `dashed` parameter also hatches the fill, nothing pins `MarkerAppearance.of`, and the hatch's contrast is bounded by the fill's alpha — and the device pass is owed → `xTrack/Markers/261011_FEAT_PLN_Markers_routing-only-flag.md`
+
+- **whereami-tap-zone-and-ray-clear — the level folded (2026-09-18, `feature/misc-ui-n-routing`, closed 2026-09-28)** — twelve points, every one resolved and none parked: a fixed thumb-sized touch zone on the sprite's visual centre with a gold ring flash on an accepted tap, the rays cleared when the dashboard closes and withdrawn when the debug toggle goes off, the debugger passed per call with a no-op collector for the recorder and the service, one resolve body with the null-index and empty-marker cases kept apart, one query per tap with the recording snapshot ordered against the close, the debugger interface shrunk to what is called, and the `marker.debug.rays.enabled` hook retired in favour of the setting. The level's last point shipped late the same night — a pin's segment recorded before its range gate answers, so every date point is tested and drawn while the 300 m rule keeps deciding the match, pinned by `MarkerMatcherPinDebugTest` — and the one thing its closing ruling raised rather than dropped stays in `## Todos` → `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md`
 
 - **focus-include-proximity (2026-10-11, `feature/mkrEl`)** — a marker's dashboard open now frames its **body plus the proximity collar the map draws outward from it**, so the whole proximity zone lands on screen: [`markerFocusTarget`](../../app/src/main/java/ykws/android/maro/ui/map/MarkerFocus.kt:45) builds the extent per geometry — a circle at `radius + proximity`, a corridor as a band grown by the proximity each side, a pin (a point) at its reach — reads the reach through its one home `markerProximityRangeM`, and keeps the existing `marker.focus.corridorShare` / `zoneShare`. The pin's zoom-in-only rule (the 2026-09-18 lock) is **dropped** — a pin now zooms out to frame its reach, a deliberate reversal — with `marker.focus.pinFootprintM` kept as its floor; `frameMarker` feeds `AppConfig.markerProximityPinM` / `markerProximityZoneMultiplier`; the `marker.focus` property comments restated. `gradlew :app:assembleDebug` SUCCESSFUL and the scoped `ui.map` + `config` run green, `MarkerFocusTest` 8/8; the device pass is owed → [`xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md`](261011_FEAT_PLN_Markers_focus-include-proximity.md:1)
 
@@ -101,8 +90,11 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
 - `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardButtonRow.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt`
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
+- `app/src/main/assets/maro.properties`
 
 ## Docs
+- `xTrack/Markers/261011_FEAT_PLN_Markers_routing-only-flag.md` — the routing-weight-only flag: the model field, the one exclusion predicate, the wizard row and card mark, the map cue (every ring dashed, every fill hatched), the `routingOnly` filter axis and the six paint keys
 - `xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md` — the focus framing now includes the proximity collar; the pin's zoom-in-only rule dropped
 - `xTrack/Markers/260929_FEAT_PLN_Markers_add-marker-trigger.md` — the shared create action in both markers headers, the rule dividing it from the read chrome, and the row's order
 - `xTrack/Markers/261010_FEAT_PLN_Markers_scaled-slider-control.md` — the ×10 range toggle and the shared `ScaledSliderRow` scaffold

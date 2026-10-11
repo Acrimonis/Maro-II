@@ -170,7 +170,10 @@ object MarkerMatcher {
         if (markers.isEmpty()) return WhereAmIResult(emptyList())
 
         // ── 1. Resolve all markers ──
-        val results = markers.mapNotNull { marker ->
+        // A routing-weight-only marker is dropped before resolution: it never names where the boat is,
+        // and this one result is what every consumer reads — the where-am-i card, the recorder's naming
+        // helpers and whereAmISync, the service bridge, and routeEndName's zone lookup.
+        val results = markers.filter(::countsForWhereAmI).mapNotNull { marker ->
             resolveMatch(boat, marker, spatialIndex, debugger)
         }
 
@@ -452,6 +455,13 @@ object MarkerMatcher {
         is WhereAmIMatch.ZoneMatch -> match.marker
         is WhereAmIMatch.LineOfSightMatch -> match.marker
     }
+
+    /**
+     * Whether [marker] may name the boat's position. A `routingOnly` marker exists for its routing
+     * weight alone — it labels no track and no route — so it is dropped before any match is resolved
+     * and never enters a [WhereAmIResult]. Pure, so a JVM test pins it without a spatial index.
+     */
+    internal fun countsForWhereAmI(marker: UserMarker): Boolean = !marker.routingOnly
 
     /** Tests whether [match]'s marker position is geometrically inside [zoneGeometry]. */
     private fun isMatchInsideZone(
