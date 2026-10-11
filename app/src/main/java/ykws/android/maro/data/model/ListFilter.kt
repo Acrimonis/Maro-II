@@ -110,6 +110,12 @@ fun UserMarker.matchesFilter(f: ListFilter): Boolean =
             "routeRole" -> value == "ALL" ||
                 (value == "ROLE" && (this.routeOrigin || this.routeDestination)) ||
                 (value == "NONE" && !this.routeOrigin && !this.routeDestination)
+            // The marker's *purpose*, not its weight: a routing-only marker exists for its routing
+            // weight alone, names no track and no route, and where-am-i ignores it — so it is the one
+            // axis that can clear those markers out of the list and off the map together.
+            "routingOnly" -> value == "ALL" ||
+                (value == "ONLY" && this.routingOnly) ||
+                (value == "NORMAL" && !this.routingOnly)
             else -> true
         }
     }
@@ -224,6 +230,15 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("ROLE", R.string.filter_option_route_role),
             FilterOptionSpec("NONE", R.string.filter_option_no_route_role)
+        )
+    ),
+    FilterAxisSpec(
+        key = "routingOnly",
+        labelResId = R.string.filter_axis_routing_only,
+        options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("ONLY", R.string.filter_option_routing_only),
+            FilterOptionSpec("NORMAL", R.string.filter_option_normal)
         )
     )
 )

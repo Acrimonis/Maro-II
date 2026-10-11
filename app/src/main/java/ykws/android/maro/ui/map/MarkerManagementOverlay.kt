@@ -536,12 +536,13 @@ internal fun MarkerCardContent(
 
 /**
  * The card header line: the geometry's coordinates and glyph, then — when the marker carries any
- * route-role or cost mark — a ` | ` separator setting that mark group apart from the geometry, in the
- * settled display order 🚩 while it is offered as a route origin, 💲 while it carries a valid routing
- * cost, and 🏁 while it is offered as a route destination. The separator is emitted once, before the
- * first mark, and each mark keeps its own leading space; a marker with neither role and no cost draws
- * the geometry line alone, with no separator. Both role marks are true colour emoji, so they no longer
- * take the coordinate line's colour. Pure, so the glyph rule is asserted in a JVM test.
+ * route-role, routing-only or cost mark — a ` | ` separator setting that mark group apart from the
+ * geometry, in the settled display order 🚩 while it is offered as a route origin, ☑ while it is
+ * routing-weight-only, 💲 while it carries a valid routing cost, and 🏁 while it is offered as a route
+ * destination. The separator is emitted once, before the first mark, and each mark keeps its own leading
+ * space; a marker carrying none of them draws the geometry line alone, with no separator. Both role marks
+ * are true colour emoji, so they no longer take the coordinate line's colour. Pure, so the glyph rule is
+ * asserted in a JVM test.
  */
 internal fun coordinateHeader(marker: UserMarker): String {
     val icon = MarkerGeometry.iconFor(marker.geometry)
@@ -554,6 +555,8 @@ internal fun coordinateHeader(marker: UserMarker): String {
     }
     val marks = buildString {
         if (marker.routeOrigin) append(" \uD83D\uDEA9")
+        // A routing-weight-only marker wears a checked box, immediately left of the cost's dollar.
+        if (marker.routingOnly) append(" \u2611")
         if (validRoutingCost(marker.routingCost) != null) append(" \uD83D\uDCB2")
         if (marker.routeDestination) append(" \uD83C\uDFC1")
     }

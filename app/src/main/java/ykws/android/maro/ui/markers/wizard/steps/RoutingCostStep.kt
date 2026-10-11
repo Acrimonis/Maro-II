@@ -1,13 +1,14 @@
 package ykws.android.maro.ui.markers.wizard.steps
 
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
@@ -23,6 +24,7 @@ import ykws.android.maro.data.model.markers.routingCostForSlider
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.MultiSelectRow
+import ykws.android.maro.ui.components.OptionRow
 import ykws.android.maro.ui.components.SectionRow
 import ykws.android.maro.ui.components.SliderControl
 import ykws.android.maro.ui.map.MarkerType
@@ -55,11 +57,15 @@ private enum class RouteRoleOption { ORIGIN, DESTINATION }
  * while the headings stay aligned at the top.
  *
  * The left section is the shared `MultiSelectRow` — the options side by side under short labels, so both
- * fit the narrower column — and the right is the bare `SliderControl` under a right-aligned value line,
+ * fit the narrower column — and the right is the `SliderControl` under a right-aligned value line,
  * whose `0` is the Off position and the only clear: the value line reads the Off label at `0` and a price
  * in between, while the track's two ends carry its own pair of names — Off under its left end and, under
  * its right, the wall's own words for a Circle or a Corridor or the top price's for a **Pin**, which can
  * never be a wall. The value is mapped through [routingCostForSlider] and capped at the track's own top.
+ *
+ * The **Only** row — the shared `OptionRow` — shares the value line's own row, left of the value, and
+ * flags the marker as existing for its routing weight alone. It is independent of any set cost, exactly
+ * as the two route roles are.
  *
  * No wizard step is added, so neither step sequence changes.
  */
@@ -109,7 +115,8 @@ private fun ColumnScope.RouteRoleSection(viewModel: MarkersViewModel) {
 }
 
 /**
- * The **Routing cost** side — the heading, the value line and the slider, for every marker type.
+ * The **Routing cost** side — the heading, the value line with the **Only** row on its left, and the
+ * slider, for every marker type.
  *
  * The track's top is the wall ([ROUTING_COST_BLOCKED], read as the wall's own words at that position)
  * for a Circle and a Corridor, and the top **price** ([ROUTING_COST_MAX]) for a Pin: a point has no body
@@ -131,18 +138,26 @@ private fun ColumnScope.RouteCostSection(viewModel: MarkersViewModel) {
     )
     Spacer(modifier = Modifier.weight(1f))
     Spacer(modifier = Modifier.height(HEADING_TO_CONTROL_GAP_DP.dp))
-    Text(
-        text = when {
-            cost == 0 -> offLabel
-            cost == ROUTING_COST_BLOCKED -> endLabel
-            else -> cost.toString()
-        },
-        color = ComposeColor(AppConfig.uiValueText),
-        fontSize = AppConfig.uiFontValueSize.sp,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.End,
-        modifier = Modifier.fillMaxWidth()
-    )
+    // The Only row shares the value line's row, the value keeping the column's right edge.
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OptionRow(
+            label = stringResource(R.string.wizard_routing_cost_only),
+            checked = form.routingOnly,
+            onCheckedChange = { on -> viewModel.updateForm { it.copy(routingOnly = on) } },
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = when {
+                cost == 0 -> offLabel
+                cost == ROUTING_COST_BLOCKED -> endLabel
+                else -> cost.toString()
+            },
+            color = ComposeColor(AppConfig.uiValueText),
+            fontSize = AppConfig.uiFontValueSize.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End
+        )
+    }
     SliderControl(
         value = cost.toFloat(),
         valueRange = 0f..top.toFloat(),

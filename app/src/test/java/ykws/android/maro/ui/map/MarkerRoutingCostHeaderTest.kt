@@ -11,17 +11,18 @@ import ykws.android.maro.data.model.markers.ROUTING_COST_BLOCKED
 import ykws.android.maro.data.model.markers.UserMarker
 
 /**
- * The route-role and cost marks of the marker card header — [coordinateHeader] (2026-09-28).
+ * The route-role, routing-only and cost marks of the marker card header — [coordinateHeader] (2026-09-28).
  *
  * Asserted on the glyphs rather than the coordinates, because the numbers are formatted with the
- * default locale. The display order is 🚩 origin, 💲 cost, 🏁 destination, and the mark group is set
- * apart from the geometry line by a ` | ` separator, emitted once before the first mark and absent
- * from the bare line.
+ * default locale. The display order is 🚩 origin, ☑ routing-only, 💲 cost, 🏁 destination, and the mark
+ * group is set apart from the geometry line by a ` | ` separator, emitted once before the first mark and
+ * absent from the bare line.
  */
 class MarkerRoutingCostHeaderTest {
 
     private val pinGlyph = "\uD83D\uDCCD"
     private val originGlyph = "\uD83D\uDEA9"
+    private val onlyGlyph = "\u2611"
     private val costGlyph = "\uD83D\uDCB2"
     private val destinationGlyph = "\uD83C\uDFC1"
     private val separator = " | "
@@ -29,7 +30,8 @@ class MarkerRoutingCostHeaderTest {
     private fun marker(
         cost: Int? = null,
         origin: Boolean = false,
-        destination: Boolean = false
+        destination: Boolean = false,
+        routingOnly: Boolean = false
     ) = UserMarker(
         id = "m",
         name = "m",
@@ -37,7 +39,8 @@ class MarkerRoutingCostHeaderTest {
         origin = MarkerOrigin.USER,
         routingCost = cost,
         routeOrigin = origin,
-        routeDestination = destination
+        routeDestination = destination,
+        routingOnly = routingOnly
     )
 
     @Test
@@ -108,5 +111,28 @@ class MarkerRoutingCostHeaderTest {
             coordinateHeader(marker(destination = true))
                 .endsWith("$pinGlyph$separator$destinationGlyph")
         )
+    }
+
+    @Test
+    fun `a routing-only marker draws the checked box immediately left of the dollar`() {
+        assertTrue(
+            coordinateHeader(marker(cost = 3, routingOnly = true))
+                .endsWith("$pinGlyph$separator$onlyGlyph $costGlyph")
+        )
+        assertTrue(
+            coordinateHeader(marker(cost = 3, origin = true, routingOnly = true, destination = true))
+                .endsWith("$pinGlyph$separator$originGlyph $onlyGlyph $costGlyph $destinationGlyph")
+        )
+    }
+
+    @Test
+    fun `a routing-only box without a cost still opens the mark group`() {
+        assertTrue(coordinateHeader(marker(routingOnly = true)).endsWith("$pinGlyph$separator$onlyGlyph"))
+    }
+
+    @Test
+    fun `a plain marker draws no checked box`() {
+        assertFalse(coordinateHeader(marker(cost = 3)).contains(onlyGlyph))
+        assertFalse(coordinateHeader(marker(origin = true, destination = true)).contains(onlyGlyph))
     }
 }

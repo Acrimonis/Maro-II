@@ -371,6 +371,9 @@
     <string name="filter_axis_route_role">Route role</string>
     <string name="filter_option_route_role">Origin or Dest</string>
     <string name="filter_option_no_route_role">No route role</string>
+    <string name="filter_axis_routing_only">Routing only</string>
+    <string name="filter_option_routing_only">Route Only</string>
+    <string name="filter_option_normal">Normal</string>
     <string name="color_picker_title">Pick color</string>
     <string name="settings_section_depth_map">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
@@ -528,8 +531,9 @@
     <string name="wizard_routing_cost_title">Routing cost</string>
     <string name="wizard_routing_cost_description">Cost to a Route of this Marker</string>
     <string name="wizard_routing_cost_unset">Off</string>
-    <string name="wizard_routing_cost_blocked">Blocked/Wall</string>
+    <string name="wizard_routing_cost_blocked">Wall</string>
     <string name="wizard_routing_cost_top">Max</string>
+    <string name="wizard_routing_cost_only">Only</string>
     <string name="wizard_route_role_title">Route role</string>
     <string name="wizard_route_role_description">Marker can be used as Origin or Dest of Route</string>
     <string name="wizard_route_role_origin">Origin</string>

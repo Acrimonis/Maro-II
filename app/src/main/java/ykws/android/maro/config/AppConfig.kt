@@ -785,6 +785,30 @@ object AppConfig {
     /** Default proximity range (m) for Pin-type user markers. Set via `marker.proximity.pinM` in maro.properties. */
     var markerProximityPinM: Double = 200.0
         private set
+
+    /** Opacity of a user marker zone's outline (0.0-1.0). Set via `marker.zone.outlineAlpha`. */
+    var markerZoneOutlineAlpha: Float = 1.0f
+        private set
+
+    /** Opacity of a user marker zone's fill (0.0-1.0). Set via `marker.zone.fillAlpha`. */
+    var markerZoneFillAlpha: Float = 0.25f
+        private set
+
+    /** Opacity of the proximity ring's outline (0.0-1.0). Set via `marker.proximity.outlineAlpha`. */
+    var markerProximityOutlineAlpha: Float = 0.75f
+        private set
+
+    /** Opacity of the proximity ring's fill (0.0-1.0). Set via `marker.proximity.fillAlpha`. */
+    var markerProximityFillAlpha: Float = 0.175f
+        private set
+
+    /** The spacing between a routing-weight-only fill's stripes, in dp. Set via `marker.routingOnly.stripeSpacingDp`. */
+    var markerRoutingOnlyStripeSpacingDp: Float = 6f
+        private set
+
+    /** One routing-weight-only stripe's width, in dp. Set via `marker.routingOnly.stripeWidthDp`. */
+    var markerRoutingOnlyStripeWidthDp: Float = 1f
+        private set
     /** Direction-arrow density speed floor (kn) — below this, arrows use min spacing. */
     var trackDirectionSpeedFloorKn: Float = 3.0f
         private set
@@ -1510,6 +1534,9 @@ object AppConfig {
     var uiSpacingLabelControl: Float = 16f; private set
     var uiSpacingExpanderToContent: Float = 4f; private set
 
+    /** The gap between a checkbox and its label in the shared option row, in dp. */
+    var uiSpacingCheckboxLabel: Float = 4f; private set
+
     /** The gap between two dropdown fields of one group, whichever way they sit — one value for both axes. */
     var uiSpacingDropdownGap: Float = 4f; private set
 
@@ -1695,6 +1722,24 @@ object AppConfig {
             }
             props.getProperty("marker.proximity.zoneMultiplier")?.toDoubleOrNull()?.let {
                 markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
+            }
+            props.getProperty("marker.zone.outlineAlpha")?.toFloatOrNull()?.let {
+                markerZoneOutlineAlpha = it.coerceIn(0f, 1f)
+            }
+            props.getProperty("marker.zone.fillAlpha")?.toFloatOrNull()?.let {
+                markerZoneFillAlpha = it.coerceIn(0f, 1f)
+            }
+            props.getProperty("marker.proximity.outlineAlpha")?.toFloatOrNull()?.let {
+                markerProximityOutlineAlpha = it.coerceIn(0f, 1f)
+            }
+            props.getProperty("marker.proximity.fillAlpha")?.toFloatOrNull()?.let {
+                markerProximityFillAlpha = it.coerceIn(0f, 1f)
+            }
+            props.getProperty("marker.routingOnly.stripeSpacingDp")?.toFloatOrNull()?.let {
+                markerRoutingOnlyStripeSpacingDp = it.coerceIn(2f, 24f)
+            }
+            props.getProperty("marker.routingOnly.stripeWidthDp")?.toFloatOrNull()?.let {
+                markerRoutingOnlyStripeWidthDp = it.coerceIn(0.5f, 6f)
             }
             // ── Marker focus framing ────────────────────────────────────────────
             props.getProperty("marker.focus.corridorShare")?.toDoubleOrNull()?.let {
@@ -2319,6 +2364,7 @@ object AppConfig {
             uiSpacingGroupedAfterExpander = dp("ui.spacing.grouped.after-expander", uiSpacingGroupedAfterExpander)
             uiSpacingLabelControl = dp("ui.spacing.label.control", uiSpacingLabelControl)
             uiSpacingExpanderToContent = dp("ui.spacing.expander.to-content", uiSpacingExpanderToContent)
+            uiSpacingCheckboxLabel = dp("ui.spacing.checkbox.label", uiSpacingCheckboxLabel)
             uiSpacingDropdownGap = dp("ui.spacing.dropdown.gap", uiSpacingDropdownGap)
 
             // Padding

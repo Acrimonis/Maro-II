@@ -18,6 +18,11 @@ import ykws.android.maro.data.model.markers.UserMarker
  * Note: pin dimming is removed — unpinned markers now render at full marker colour
  * like pinned ones; the halo is the only pinned-vs-unpinned differentiator.
  * Search dimming is kept (non-matching markers fade during a whereAmI result).
+ *
+ * A **routing-weight-only** marker (`routingOnly`) is a *variant*, not a state: it keeps its place in the
+ * precedence above, and only its rings and its fill change — every ring dashes and the fill hatches. That
+ * decision is made here, once, so the two painters ([MarkerHalo]'s bitmap and [MarkerOverlay]'s zone)
+ * read the same flag instead of each deciding for itself.
  */
 data class MarkerAppearance(
     /** Resolved marker colour (ARGB) used for dots, lines and zone strokes. */
@@ -28,6 +33,11 @@ data class MarkerAppearance(
     val isSelected: Boolean,
     /** True when a whereAmI result is active and this marker is NOT a match (faded). */
     val isDimmed: Boolean,
+    /**
+     * True for a routing-weight-only marker: every ring it draws is dashed and its fill is hatched, so
+     * the map tells it apart from a marker that also names where the boat is.
+     */
+    val isRoutingOnly: Boolean,
     /** Halo spec when a halo ring should be drawn, else null (unconfirmed / selected). */
     val halo: MarkerHaloSpec?
 ) {
@@ -106,7 +116,7 @@ data class MarkerAppearance(
                 }
                 // Both fully transparent (100) → no visible halo.
                 if (fill >= 100 && border >= 100) null
-                else MarkerHaloSpec(color, fill, border)
+                else MarkerHaloSpec(color, fill, border, dashed = marker.routingOnly)
             }
 
             return MarkerAppearance(
@@ -114,6 +124,7 @@ data class MarkerAppearance(
                 strokeMultiplier = strokeMultiplier,
                 isSelected = isSelected,
                 isDimmed = isDimmed,
+                isRoutingOnly = marker.routingOnly,
                 halo = halo
             )
         }
@@ -136,5 +147,7 @@ data class MarkerAppearance(
 data class MarkerHaloSpec(
     val color: Int,
     val fillTransparencyPct: Int,
-    val borderTransparencyPct: Int
+    val borderTransparencyPct: Int,
+    /** True when the border ring is dashed rather than solid — a routing-weight-only marker's ring. */
+    val dashed: Boolean = false
 )

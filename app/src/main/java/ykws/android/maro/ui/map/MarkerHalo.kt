@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 
 /**
@@ -50,7 +51,8 @@ object MarkerHalo {
 
     /**
      * Build a halo [Bitmap]: a filled disc of [spec.color] at [spec.fillTransparencyPct]
-     * with a border ring at [spec.borderTransparencyPct].
+     * with a border ring at [spec.borderTransparencyPct] — the ring dashed when [MarkerHaloSpec.dashed]
+     * is set (a routing-weight-only marker), on the marker's own dash rhythm.
      *
      * The halo ring radius is absolute ([radiusDpFor]) and independent of the anchor
      * it surrounds; [anchorRadiusPx] is retained only for sizing/centering the bitmap
@@ -97,6 +99,16 @@ object MarkerHalo {
                 isAntiAlias = true
                 style = Paint.Style.STROKE
                 strokeWidth = borderPx
+                // The marker's one dash rhythm, shared with the zone strokes in MarkerOverlay.
+                if (spec.dashed) {
+                    pathEffect = DashPathEffect(
+                        floatArrayOf(
+                            dpToPx(MARKER_DASH_ON_DP, density),
+                            dpToPx(MARKER_DASH_OFF_DP, density)
+                        ),
+                        0f
+                    )
+                }
             }
             canvas.drawCircle(center, center, haloRadius, borderPaint)
         }

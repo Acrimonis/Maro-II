@@ -1,9 +1,11 @@
 package ykws.android.maro.ui.map
 
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
 import android.util.Log
 import androidx.compose.runtime.Composable
@@ -50,11 +52,10 @@ private const val HIGHLIGHT_UNDER_STROKE_ADD_DP = 2f
 /** Alpha for dimmed (non-matched) markers during match-result highlighting (30%). */
 private const val DIMMED_ALPHA_FRACTION = 0.30f
 
-/** Alpha fraction for zone fill (20% — subtle transparent background). */
-private const val ZONE_FILL_ALPHA_FRACTION = 0.20f
-
-/** Alpha fraction for proximity preview — 50% for strokes, fills use ZONE_FILL_ALPHA_FRACTION/2 (10%). */
-private const val PROXIMITY_ALPHA_FRACTION = 0.50f
+// The zone's and the proximity ring's outline and fill opacities are not constants here: they are
+// `marker.zone.outlineAlpha` / `.fillAlpha` and `marker.proximity.outlineAlpha` / `.fillAlpha` in
+// maro.properties, read through AppConfig, so that file is the one home for the four figures. The
+// routing-only hatch's stripes take their colour from whichever fill figure paints them.
 
 /** Extra stroke width added to the corridor under-line halo beneath the connecting line, in dp. */
 private const val CORRIDOR_UNDERLINE_HALO_ADD_DP = 2f
@@ -65,9 +66,12 @@ private const val MARKER_STROKE_DP = 4f / 3f
 /** The always-on corridor connecting line's stroke, in dp — the 2 px of the 3× reference. */
 private const val CORRIDOR_CONNECTING_STROKE_DP = 2f / 3f
 
-/** The marker's dashed strokes, in dp — the 12 px on and 8 px off of the 3× reference. */
-private const val MARKER_DASH_ON_DP = 4f
-private const val MARKER_DASH_OFF_DP = 8f / 3f
+/**
+ * The marker's one dash rhythm, in dp — the 12 px on and 8 px off of the 3× reference. Shared with the
+ * halo's dashed border ring ([MarkerHalo]), so a routing-only marker's rings read as one hand.
+ */
+internal const val MARKER_DASH_ON_DP = 4f
+internal const val MARKER_DASH_OFF_DP = 8f / 3f
 
 // ── Public composable ─────────────────────────────────────────────────────────
 
@@ -204,8 +208,8 @@ fun MarkerOverlay(
             val haloSpec = appearance.halo
             // Halo fades together with a search non-match.
             val haloDimFraction = if (appearance.isDimmed) DIMMED_ALPHA_FRACTION else 1f
-            val proxColor = dimColor(markerColor, PROXIMITY_ALPHA_FRACTION)
-            val proxFillColor = dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION / 2.0f)
+            val proxColor = dimColor(markerColor, AppConfig.markerProximityOutlineAlpha)
+            val proxFillColor = dimColor(markerColor, AppConfig.markerProximityFillAlpha)
 
             // Zone shapes gated by markerZonesVisible for confirmed markers;
             // unconfirmed (creating/editing) always show full geometry; the selected
@@ -247,6 +251,9 @@ fun MarkerOverlay(
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
                             fillPaint.color = proxFillColor
                             fillPaint.isAntiAlias = true
+                            if (appearance.isRoutingOnly) {
+                                fillPaint.shader = hatchShader(proxFillColor, mv.paintDensity)
+                            }
                             outlinePaint.strokeWidth = 0f
                             points = Polygon.pointsAsCircle(
                                 GeoPoint(geom.position.latitude, geom.position.longitude),
@@ -259,7 +266,7 @@ fun MarkerOverlay(
                             mv, geom.position, previewRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
                             proxColor, corridorConnectingStrokePx,
-                            dashed = false
+                            dashed = appearance.isRoutingOnly
                         )
                     }
                 }
@@ -269,6 +276,7 @@ fun MarkerOverlay(
                         addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier,
                             strokePx = markerStrokePx,
                             underStrokeAddPx = highlightUnderStrokeAddPx,
+                            dashed = appearance.isRoutingOnly,
                             skipDots = skipDots,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
@@ -293,6 +301,9 @@ fun MarkerOverlay(
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
                             fillPaint.color = proxFillColor
                             fillPaint.isAntiAlias = true
+                            if (appearance.isRoutingOnly) {
+                                fillPaint.shader = hatchShader(proxFillColor, mv.paintDensity)
+                            }
                             outlinePaint.strokeWidth = 0f
                             points = Polygon.pointsAsCircle(
                                 GeoPoint(geom.center.latitude, geom.center.longitude),
@@ -305,7 +316,7 @@ fun MarkerOverlay(
                             mv, geom.center, totalRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
                             proxColor, corridorConnectingStrokePx,
-                            dashed = false
+                            dashed = appearance.isRoutingOnly
                         )
                     }
                 }
@@ -321,7 +332,8 @@ fun MarkerOverlay(
 
                     // Full pill band (fill + parallels + caps) only when zones shown.
                     if (drawZones) {
-                        addCorridorBand(mv, geom, marker.id, baseColor, strokeMultiplier, isSelected, markerStrokePx, highlightUnderStrokeAddPx)
+                        addCorridorBand(mv, geom, marker.id, baseColor, strokeMultiplier, isSelected, markerStrokePx, highlightUnderStrokeAddPx,
+                            dashed = appearance.isRoutingOnly)
                     }
 
                     // Endpoint dots (or icons) with halo rings.
@@ -350,6 +362,9 @@ fun MarkerOverlay(
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
                             fillPaint.color = proxFillColor
                             fillPaint.isAntiAlias = true
+                            if (appearance.isRoutingOnly) {
+                                fillPaint.shader = hatchShader(proxFillColor, mv.paintDensity)
+                            }
                             outlinePaint.strokeWidth = 0f
                             points = proxFillPts
                         }
@@ -537,6 +552,8 @@ private fun addCircleOverlay(
     /** The circle's own stroke in px, and the selection's under-stroke add in px. */
     strokePx: Float,
     underStrokeAddPx: Float,
+    /** The rings dash when the marker's routing weight is its only purpose (a routing-only marker). */
+    dashed: Boolean = false,
     skipDots: Boolean = false,
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
@@ -544,12 +561,15 @@ private fun addCircleOverlay(
     haloDimFraction: Float = 1f,
     markerPointIconZoom: Int = 100
 ) {
-    // Fill: subtle transparent background
-    val fillColor = dimColor(color, ZONE_FILL_ALPHA_FRACTION)
+    // Fill: subtle transparent background — hatched when the marker is routing-weight-only.
+    val fillColor = dimColor(color, AppConfig.markerZoneFillAlpha)
+    // The outline's own opacity, `marker.zone.outlineAlpha`; the centre dot keeps the full colour.
+    val outlineColor = dimColor(color, AppConfig.markerZoneOutlineAlpha)
     val fillPoly = Polygon().apply {
         title = "${OVERLAY_PREFIX}circle_fill_$markerId"
         fillPaint.color = fillColor
         fillPaint.isAntiAlias = true
+        if (dashed) fillPaint.shader = hatchShader(fillColor, mv.paintDensity)
         outlinePaint.strokeWidth = 0f
         points = Polygon.pointsAsCircle(
             GeoPoint(geom.center.latitude, geom.center.longitude),
@@ -561,12 +581,12 @@ private fun addCircleOverlay(
     // Dark under-stroke circle for selected markers
     if (isSelected) {
         val underStrokeW = strokePx * strokeMultiplier + underStrokeAddPx
-        addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_${markerId}_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW)
+        addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_${markerId}_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed = dashed)
     }
 
     // Circle outline as closed Polyline
     val strokeW = strokePx * strokeMultiplier
-    addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", color, strokeW)
+    addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", outlineColor, strokeW, dashed = dashed)
 
     // Center dot (suppressed when skipDots — icon replaces it)
     if (!skipDots) {
@@ -630,30 +650,35 @@ private fun addCorridorBand(
     isSelected: Boolean,
     /** The band's own stroke in px, and the selection's under-stroke add in px. */
     strokePx: Float,
-    underStrokeAddPx: Float
+    underStrokeAddPx: Float,
+    /** The band's outline dashes when the marker's routing weight is its only purpose. */
+    dashed: Boolean = false
 ) {
     val halfW = geom.widthM / 2.0
 
-    // Fill: subtle transparent background as closed pill polygon
-    val fillColor = dimColor(color, ZONE_FILL_ALPHA_FRACTION)
+    // Fill: subtle transparent background as closed pill polygon — hatched when routing-weight-only.
+    val fillColor = dimColor(color, AppConfig.markerZoneFillAlpha)
+    // The band's own outline opacity, `marker.zone.outlineAlpha`; the endpoint dots keep full colour.
+    val outlineColor = dimColor(color, AppConfig.markerZoneOutlineAlpha)
     val bearing = SpatialOperations.initialBearing(geom.p1, geom.p2)
     val corridorFillPts = buildCorridorFillPoints(geom.p1, geom.p2, halfW, bearing)
     val fillPoly = Polygon().apply {
         title = "${OVERLAY_PREFIX}corr_fill_$markerId"
         fillPaint.color = fillColor
         fillPaint.isAntiAlias = true
+        if (dashed) fillPaint.shader = hatchShader(fillColor, mv.paintDensity)
         outlinePaint.strokeWidth = 0f
         points = corridorFillPts
     }
     mv.overlays.add(fillPoly)
 
     // Two parallel lines at ±halfW
-    addCorridorParallels(mv, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", color,
-        strokePx * strokeMultiplier, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
+    addCorridorParallels(mv, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", outlineColor,
+        strokePx * strokeMultiplier, dashed = dashed, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
 
     // Semi-circle caps at each end (close the band into a pill shape)
-    addSemiCircleCaps(mv, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", color,
-        strokePx * strokeMultiplier, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
+    addSemiCircleCaps(mv, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", outlineColor,
+        strokePx * strokeMultiplier, dashed = dashed, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
 }
 
 /** Build a closed polygon tracing the corridor pill shape (fill):
@@ -904,6 +929,36 @@ private fun createDotBitmap(color: Int, density: Float, radiusMultiplier: Float 
     }
     canvas.drawCircle(size / 2f, size / 2f, radiusPx.toFloat(), paint)
     return bitmap
+}
+
+/**
+ * The routing-weight-only marker's fill texture: a tiled diagonal hatch in [color] — the fill's own
+ * colour and alpha, so the difference from a plain marker is a stripe pattern rather than a tint.
+ *
+ * The tile carries the colour at full alpha because a paint's colour is ignored once a shader is set, and
+ * the tile is built per routing-only marker per rebuild: the count of those is small, and the pattern is
+ * colour-specific, so one shared tile would have to be re-tinted anyway.
+ *
+ * Its two dp figures are `marker.routingOnly.stripeSpacingDp` and `.stripeWidthDp` in maro.properties,
+ * read through [AppConfig], so the file and the map agree on the texture the stripes draw.
+ */
+private fun hatchShader(color: Int, density: Float): BitmapShader {
+    val periodPx = dpToPx(AppConfig.markerRoutingOnlyStripeSpacingDp, density).roundToInt().coerceAtLeast(2)
+    val stripePx = dpToPx(AppConfig.markerRoutingOnlyStripeWidthDp, density).coerceAtLeast(1f)
+    val bitmap = Bitmap.createBitmap(periodPx, periodPx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val stripePaint = Paint().apply {
+        this.color = color
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = stripePx
+    }
+    // Three passes of the same 45° line, so the tile repeats seamlessly on both axes.
+    val p = periodPx.toFloat()
+    canvas.drawLine(0f, p, p, 0f, stripePaint)
+    canvas.drawLine(-p / 2f, p / 2f, p / 2f, -p / 2f, stripePaint)
+    canvas.drawLine(p / 2f, p * 1.5f, p * 1.5f, p / 2f, stripePaint)
+    return BitmapShader(bitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
 }
 
 /**

@@ -192,6 +192,7 @@ data class CreateFormState(
     val routingCost: Int? = null,        // null = unset; 1–9 when set (slider's 0 = unset)
     val routeOrigin: Boolean = false,    // offered as a route origin; independent of routeDestination
     val routeDestination: Boolean = false, // offered as a route arrival; both may be set
+    val routingOnly: Boolean = false,    // exists only for its routing weight; names no track, ignored by where-am-i
     // The marker's origin — an auto (🕐) marker carries **no route step at all**, so the wizard drops
     // the Routing cost step for one and no role or cost can be set on it.
     val origin: ykws.android.maro.data.model.markers.MarkerOrigin =
@@ -511,6 +512,7 @@ class MarkersViewModel(
             routingCost = validRoutingCost(marker.routingCost),
             routeOrigin = marker.routeOrigin,
             routeDestination = marker.routeDestination,
+            routingOnly = marker.routingOnly,
             origin = marker.origin
         )
         setDrawerState(MarkerDrawerState.Viewing)
@@ -794,7 +796,8 @@ class MarkersViewModel(
             colorIndex = colorIdx,
             routingCost = null,
             routeOrigin = false,
-            routeDestination = false
+            routeDestination = false,
+            routingOnly = false
         )
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
@@ -847,6 +850,7 @@ class MarkersViewModel(
                 routingCost = validRoutingCost(marker.routingCost),
                 routeOrigin = marker.routeOrigin,
                 routeDestination = marker.routeDestination,
+                routingOnly = marker.routingOnly,
                 origin = marker.origin
             )
         }
@@ -976,7 +980,8 @@ class MarkersViewModel(
             // marker is dropped, and the Pin's own cost is capped at the top price (see [formCostForSave]).
             routingCost = formCostForSave(form),
             routeOrigin = form.routeOrigin,
-            routeDestination = form.routeDestination
+            routeDestination = form.routeDestination,
+            routingOnly = form.routingOnly
         )
 
         viewModelScope.launch {
@@ -1048,7 +1053,8 @@ class MarkersViewModel(
             // The same guard as the create (see [formCostForSave]).
             routingCost = formCostForSave(form),
             routeOrigin = form.routeOrigin,
-            routeDestination = form.routeDestination
+            routeDestination = form.routeDestination,
+            routingOnly = form.routingOnly
         )
 
         viewModelScope.launch {

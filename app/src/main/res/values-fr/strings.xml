@@ -370,6 +370,9 @@
     <string name="filter_axis_route_role">Rôle de route</string>
     <string name="filter_option_route_role">Origine ou destination</string>
     <string name="filter_option_no_route_role">Sans rôle de route</string>
+    <string name="filter_axis_routing_only">Routage uniquement</string>
+    <string name="filter_option_routing_only">Routage seul</string>
+    <string name="filter_option_normal">Normal</string>
     <string name="color_picker_title">Choisir une couleur</string>
     <string name="settings_section_depth_map">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
@@ -527,8 +530,9 @@
     <string name="wizard_routing_cost_title">Coût de routage</string>
     <string name="wizard_routing_cost_description">Coût d\'un itinéraire vers ce repère</string>
     <string name="wizard_routing_cost_unset">Désactivé</string>
-    <string name="wizard_routing_cost_blocked">Bloqué/Mur</string>
+    <string name="wizard_routing_cost_blocked">Mur</string>
     <string name="wizard_routing_cost_top">Maxi</string>
+    <string name="wizard_routing_cost_only">Uniquement</string>
     <string name="wizard_route_role_title">Rôle d\'itinéraire</string>
     <string name="wizard_route_role_description">Le repère peut servir d\'origine ou de destination</string>
     <string name="wizard_route_role_origin">Origine</string>

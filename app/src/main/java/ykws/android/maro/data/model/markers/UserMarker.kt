@@ -35,6 +35,8 @@ enum class MarkerOrigin { USER, IDLE_AUTO }
  *                               both.
  * @property routeDestination    True when the marker is offered as the destination end of a route.
  *                               Independent of [routeSource].
+ * @property routingOnly         True when the marker exists only for its routing weight — it names no
+ *                               track or route, and where-am-i ignores it. See the property's own note.
  */
 @Serializable
 data class UserMarker(
@@ -71,7 +73,13 @@ data class UserMarker(
      * True when the marker is offered as a route **destination** — the arrival end. Independent of
      * [routeOrigin], so both may be set. Nothing consumes it yet.
      */
-    val routeDestination: Boolean = false
+    val routeDestination: Boolean = false,
+    /**
+     * True when the marker exists **only for its routing weight** — the price the route engine reads.
+     * It names no track and no route, and the where-am-i lookup ignores it, so it never says where the
+     * boat is. Additive default: a payload that predates it reads `false`.
+     */
+    val routingOnly: Boolean = false
 ) : ListableItem {
     override val title: String get() = name
     override val isPinned: Boolean get() = pinned
