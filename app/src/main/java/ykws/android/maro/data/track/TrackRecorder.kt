@@ -1613,12 +1613,13 @@ class TrackRecorder(
             .filter { it.isNotBlank() }
 
     /**
-     * The trip's name from the markers it met, or null where nothing names it (settled 2026-10-10).
+     * The trip's name from the markers it met, or null where nothing names it (settled 2026-10-11).
      *
      * Reads the matcher's order rather than re-deriving it, and walks the points it is handed: the
      * live call hands the fixes recorded so far, and the finalize call the whole raw set before
-     * simplification thins it. The two ends are dropped from the body, a shared marked endpoint is
-     * not repeated, and a distinct marked destination closes the name whatever its score.
+     * simplification thins it. Both ends are dropped from the body, a shared marked endpoint is not
+     * repeated, and a distinct marked destination closes the name whatever its score. An identified
+     * origin now leads the name, and an end that is the boat's own home port names nothing.
      */
     private fun composeTripName(points: List<TrackPoint>): String? {
         if (whereAmI == null) return null
@@ -1626,12 +1627,15 @@ class TrackRecorder(
         val first = points.first()
         val last = points.last()
         val ranked = TrackNaming.timedScores(points) { contactsAt(it) }
-        val origin = endAt(first)
         val samePlace = SpatialOperations.haversine(
             LatLng(first.lat, first.lon),
             LatLng(last.lat, last.lon)
         ) <= geofenceRadiusM
-        val destination = if (samePlace) null else endAt(last)
+        // An end names the trip only when identified and not the home port. A home-port end keeps
+        // its id — so the body still drops it as an end — but contributes no label (settled
+        // 2026-10-11).
+        val origin = endAt(first)?.unlessHomePort(first)
+        val destination = if (samePlace) null else endAt(last)?.unlessHomePort(last)
         if (ranked.isEmpty() && origin == null && destination == null) return null
         val shape = TrackNaming.select(
             ranked = ranked,
@@ -1640,12 +1644,21 @@ class TrackRecorder(
             leading = currentTrack?.let { leadingStop(it) }
         )
         return TrackNaming.compose(
+            origin = shape.origin,
             body = shape.body,
             destination = shape.destination,
             connector = nameConnector,
             maxLength = nameMaxLength
         ).takeIf { it.isNotBlank() }
     }
+
+    /** The end blanked of its label when it is the home port, its id kept so the body drops it. */
+    private fun TripEnd.unlessHomePort(point: TrackPoint): TripEnd =
+        if (TrackNaming.namesHomePort(
+                point.lat, point.lon, label,
+                geofenceOriginLat, geofenceOriginLon, geofenceRadiusM
+            )
+        ) TripEnd(markerId, "") else this
 
     /**
      * Compute the final track title from BoatMarker history at finalize time.

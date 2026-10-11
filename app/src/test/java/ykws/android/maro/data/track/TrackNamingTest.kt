@@ -1,6 +1,7 @@
 package ykws.android.maro.data.track
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,7 +45,7 @@ class TrackNamingTest {
     }
 
     @Test
-    fun `both ends leave the body and a distinct destination closes the name`() {
+    fun `both ends leave the body, the origin leads and a distinct destination closes`() {
         val ranked = listOf(
             TimedMarker("o", "Origin", 1.0),
             TimedMarker("a", "A", 2.0),
@@ -52,15 +53,17 @@ class TrackNamingTest {
         )
         val shape = TrackNaming.select(ranked, TripEnd("o", "Origin"), TripEnd("d", "Dest"))
 
+        assertEquals("Origin", shape.origin)
         assertEquals(listOf("A"), shape.body)
         assertEquals("Dest", shape.destination)
     }
 
     @Test
-    fun `a shared loop endpoint is dropped, not repeated`() {
+    fun `a shared loop endpoint is dropped from the body, not repeated`() {
         val ranked = listOf(TimedMarker("o", "Origin", 1.0), TimedMarker("a", "A", 2.0))
         val shape = TrackNaming.select(ranked, TripEnd("o", "Origin"), destination = null)
 
+        assertEquals("Origin", shape.origin)
         assertEquals(listOf("A"), shape.body)
         assertEquals(null, shape.destination)
     }
@@ -83,12 +86,24 @@ class TrackNamingTest {
     }
 
     @Test
-    fun `the name joins the body and closes on the destination in the caller's own word`() {
-        assertEquals("A, B", TrackNaming.compose(listOf("A", "B"), null, "to", 200))
-        assertEquals("A, B to Dest", TrackNaming.compose(listOf("A", "B"), "Dest", "to", 200))
-        assertEquals("A, B \u00e0 Dest", TrackNaming.compose(listOf("A", "B"), "Dest", "\u00e0", 200))
-        assertEquals("Dest", TrackNaming.compose(emptyList(), "Dest", "to", 200))
-        assertEquals("", TrackNaming.compose(emptyList(), null, "to", 200))
+    fun `the name chains the origin, the body and the destination in the caller's own word`() {
+        assertEquals(
+            "Ori to #1, #2 to Dest",
+            TrackNaming.compose("Ori", listOf("#1", "#2"), "Dest", "to", 200)
+        )
+        assertEquals(
+            "#1, #2 to Dest",
+            TrackNaming.compose(null, listOf("#1", "#2"), "Dest", "to", 200)
+        )
+        assertEquals(
+            "Ori to #1, #2",
+            TrackNaming.compose("Ori", listOf("#1", "#2"), null, "to", 200)
+        )
+        assertEquals("#1, #2", TrackNaming.compose(null, listOf("#1", "#2"), null, "to", 200))
+        assertEquals("Ori to Dest", TrackNaming.compose("Ori", emptyList(), "Dest", "to", 200))
+        assertEquals("Ori \u00e0 Dest", TrackNaming.compose("Ori", emptyList(), "Dest", "\u00e0", 200))
+        assertEquals("Dest", TrackNaming.compose(null, emptyList(), "Dest", "to", 200))
+        assertEquals("", TrackNaming.compose(null, emptyList(), null, "to", 200))
     }
 
     @Test
@@ -102,6 +117,7 @@ class TrackNamingTest {
     @Test
     fun `an over-long name is cut in proportion, marked with an ellipsis`() {
         val name = TrackNaming.compose(
+            origin = "\u00celes de L\u00e9rins",
             body = listOf("Cap d'Antibes", "Le Village Englouti"),
             destination = "Port de La Salis",
             connector = "to",
@@ -110,6 +126,20 @@ class TrackNamingTest {
 
         assertTrue("fits the cap: $name", name.length <= 20)
         assertTrue("marked as cut: $name", name.contains(TrackNaming.ELLIPSIS))
+    }
+
+    @Test
+    fun `a label naming Salis is the home port wherever it stands`() {
+        assertTrue(TrackNaming.namesHomePort(0.0, 0.0, "Port de La Salis", 43.55, 7.00, 500.0))
+        assertTrue(
+            TrackNaming.namesHomePort(0.0, 0.0, "\uD83E\uDD3F Anse de la salis", 43.55, 7.00, 500.0)
+        )
+    }
+
+    @Test
+    fun `a place inside the Port Salis geofence is the home port without the name`() {
+        assertTrue(TrackNaming.namesHomePort(43.55, 7.00, "Cap d'Antibes", 43.55, 7.00, 500.0))
+        assertFalse(TrackNaming.namesHomePort(43.60, 7.10, "Cap d'Antibes", 43.55, 7.00, 500.0))
     }
 
     @Test
