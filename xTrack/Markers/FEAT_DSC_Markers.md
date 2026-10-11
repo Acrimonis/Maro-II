@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-10 18:55
+modified: 2026-10-11 13:17
 ---
 
 # Feature: Markers
@@ -29,6 +29,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [x] 12 · Proximity of date points — closed 2026-09-28: a pin's segment is recorded before its range gate answers, so every date point is tested and drawn while the 300 m rule keeps deciding the match; the drawing's own marking for a rejected point went to `## Todos` rather than dropped
 - **Closed 2026-09-28** — the tap zone, the ray clearing and the debugger work shipped 2026-09-18 with their verification; the device pass was ruled out of the level's scope; the three-feature bookkeeping bake closed on 2026-09-28; and the level's last point, the date-point coverage, shipped the same night as one moved line in `MarkerMatcher`, pinned by `MarkerMatcherPinDebugTest`.
 ## Implemented
+
+- **focus-include-proximity (2026-10-11, `feature/mkrEl`)** — a marker's dashboard open now frames its **body plus the proximity collar the map draws outward from it**, so the whole proximity zone lands on screen: [`markerFocusTarget`](../../app/src/main/java/ykws/android/maro/ui/map/MarkerFocus.kt:45) builds the extent per geometry — a circle at `radius + proximity`, a corridor as a band grown by the proximity each side, a pin (a point) at its reach — reads the reach through its one home `markerProximityRangeM`, and keeps the existing `marker.focus.corridorShare` / `zoneShare`. The pin's zoom-in-only rule (the 2026-09-18 lock) is **dropped** — a pin now zooms out to frame its reach, a deliberate reversal — with `marker.focus.pinFootprintM` kept as its floor; `frameMarker` feeds `AppConfig.markerProximityPinM` / `markerProximityZoneMultiplier`; the `marker.focus` property comments restated. `gradlew :app:assembleDebug` SUCCESSFUL and the scoped `ui.map` + `config` run green, `MarkerFocusTest` 8/8; the device pass is owed → [`xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md`](261011_FEAT_PLN_Markers_focus-include-proximity.md:1)
 
 - **marker-click-remove (2026-10-07, `feature/marker-click-remove`)** — a plain tap on a marker no longer selects it or opens its card: the non-armed branch of `MapScreen`'s `onMarkerTap` lambda is gone, so that callback now acts only while inspect mode is armed. The inspect-armed door is untouched, and `DrawerSource.MAP` stays live through the inspect fallback (`CardWalkPolicy.kt:95`) and the snack reopen, so nothing is orphaned. The survivors that entry named have since moved: the proximity `MapEventsOverlay` no longer exists, and on 2026-10-10 (`feature/listery`) both bare `setOnMarkerClickListener` suppressors were removed from `MarkerOverlay.kt` — the pin's and the icon's — so a tap reaches osmdroid's own handler and may open its default info bubble on a marker. The marker list, the menu chevron and an inspect pick are the remaining doors onto a marker card, and the gold highlight and framing are unchanged. `apk-build.bat` SUCCESSFUL.
 
@@ -101,6 +103,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt`
 
 ## Docs
+- `xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md` — the focus framing now includes the proximity collar; the pin's zoom-in-only rule dropped
 - `xTrack/Markers/260929_FEAT_PLN_Markers_add-marker-trigger.md` — the shared create action in both markers headers, the rule dividing it from the read chrome, and the row's order
 - `xTrack/Markers/261010_FEAT_PLN_Markers_scaled-slider-control.md` — the ×10 range toggle and the shared `ScaledSliderRow` scaffold
 - `xTrack/Markers/260928_FEAT_PLN_Markers_route-role-flags.md` — a marker's two route roles, the cost wall and the rebuilt Routing cost step

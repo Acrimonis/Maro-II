@@ -3426,10 +3426,11 @@ fun MapScreen(
                 marker = marker,
                 viewportWidthPx = mv.width,
                 viewportHeightPx = mv.height,
-                currentZoom = mv.zoomLevelDouble,
                 corridorShare = AppConfig.markerFocusCorridorShare,
                 zoneShare = AppConfig.markerFocusZoneShare,
-                pinFootprintM = AppConfig.markerFocusPinFootprintM
+                pinFootprintM = AppConfig.markerFocusPinFootprintM,
+                proximityPinM = AppConfig.markerProximityPinM,
+                proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier
             )
             if (focus == null) {
                 mv.controller.animateTo(
