@@ -45,6 +45,32 @@ not the λ 5 case, is what reads as "too strong".
   back at that cap.
 - **The route stays arm-only**: no automatic re-run on a cost, proximity, strength or switch edit.
 
+## The owed engine-level fixture
+
+The law is pinned in arithmetic; the price is now proven through the **A\*'s own read** as well, in the
+shape [`AvoidBandCostTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/AvoidBandCostTest.kt:1)
+already gives the band. The suite beside it is `AvoidMarkerCostTest` — **landed 2026-10-11**, five cases,
+the suite reading 1139 with only the two documented `MapPulseDotTest` reds — driving the same seats rather
+than the whole engine:
+
+- **A world the field can read** — a `MultipassWorld` fake whose `routeMarkers()` answers the costed set
+  under test, water everywhere with the depth reading clear, and no zones and no band, so the marker is
+  the field's only source beyond the coast.
+- **The price reaches the grid** — `costField(…, markerStrength = 1.0)` through `rasterize`, then a cell's
+  own `sourceCostSec`: the base **plus** its step's price at the body's centre, strictly between the two in
+  the collar, and the base alone beyond the outer edge.
+- **The line detours** — `MultipassSearch.search` between two cells straddling a costed Circle centred on
+  the chord answers a path whose greatest distance from the chord **grows with the step**, so a low cost
+  leans off the centre and a high one widens the berth, where the same pair with no marker answers the
+  chord itself.
+- **A Pin prices its cone** — the same pair against a costed Pin detours too, with the reach of its own
+  proximity, proving a zero-radius body reaches the search.
+- **A wall is never crossed** — with `isWall = true` no cell of the answered path lies inside the body, and
+  where the body spans the corridor the search answers **no path**, the refusal the acquisition reads as
+  `NO_PATH`.
+- **Out of scope, already pinned** — the tile key's two marker fields are `TileKeyTest`'s subject, and the
+  whole-engine reading on real water stays the owed device pass (R97); this suite prices the search alone.
+
 ## Implemented
 
 - [`RouteMarker.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteMarker.kt:1) — the
@@ -76,4 +102,26 @@ not the λ 5 case, is what reads as "too strong".
   assembleDebug` → BUILD SUCCESSFUL.
 - Omitted deliberately: no `## Implemented` pointer was written into
   [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md:1) and no hydration touched — those are `#bake`'s, on the
-  user's word.
+  user's word. (Both followed on the same day, on the user's word, so that omission stands only as the
+  record of the first landing.)
+- The **engine-level fixture** landed the next session, on `#implement`: `AvoidMarkerCostTest`, five cases
+  through the A\*'s own read — the grid's cells carrying `base × (1 + step)` in the body with a fading
+  collar back to the base beyond, a cheap well **crossed** where a dear one earns a berth, a costed Pin's
+  cone steering, a wall spanning the corridor answering no path, and no cell of an answered line standing
+  inside a wall's body. It proved two things worth keeping: a cell carries the price of its **own centre**
+  (half a cell of placement), and the graded well really is graded — step 1 is crossed, step 9 is not.
+- The plan's own section above is complete; only the device pass (R97) is owed.
+- **A housekeeping batch on the same day, on `#impl blemishes` and `#archive`**: `MapPulseDotTest`'s two
+  long-standing reds closed by aligning the values' **source of truth** — `colors.properties` already
+  shipped `ui.map.pulse.dot.floor=0.25` and `.ms=666`, so `AppConfig`'s code defaults and the test's own
+  literals were moved onto it rather than the palette being moved back; `AvoidMarkerCostTest` gained an
+  `@After` that puts `routeMarkerEnabled` back to whatever it found, and a case arming the depth gate over
+  uniform deep water, so a well is no longer proven only in isolation; the feature stack's two same-day
+  entries were put back in newest-first order; and `#archive` retired four landed plans into `xxArchive/`
+  with index rows and their `## Docs` rows detached — the marker-cost integration, the dialog-question
+  syntax, the anchored tiles and the avoid/evade settings taxonomy — keeping
+  `261008_FEAT_PLN_Route_selective-perf-eval.md` attached on the user's own word, and re-pointing the one
+  Todo that had linked the moved tile plan into the archive.
+- Note for the next bake: `261008_FEAT_PLN_Route_anchored-tiles.md` was retired with **no closure section
+  of its own** (neither `## Implemented` nor `## Outcome`), its floor being the feature's tile paragraph
+  and `FEAT_DOC_Route_engines.md`.

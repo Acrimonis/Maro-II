@@ -675,14 +675,14 @@ object AppConfig {
      * The beat's floor for the toggle mark's body (0.0–1.0): how far the mark fades before its
      * full-strength ring holds the state readable. Default 0.33. Set via `ui.map.pulse.dot.floor`.
      */
-    var uiMapPulseDotFloor: Float = 0.33f
+    var uiMapPulseDotFloor: Float = 0.25f
         private set
 
     /**
      * How long the shared pulsing mark's one 1 → floor → 1 cycle takes (ms). Default 555.
      * Set via `ui.map.pulse.dot.ms`.
      */
-    var uiMapPulseDotMs: Int = 555
+    var uiMapPulseDotMs: Int = 666
         private set
 
     /**

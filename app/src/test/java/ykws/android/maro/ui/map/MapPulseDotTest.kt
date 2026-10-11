@@ -45,8 +45,8 @@ class MapPulseDotTest {
         val props = shipped()
         assertEquals("disc size", "12", props.getProperty("ui.map.pulse.dot.size"))
         assertEquals("inset ratio", "0.25", props.getProperty("ui.map.pulse.dot.inset.ratio"))
-        assertEquals("beat floor", "0.33", props.getProperty("ui.map.pulse.dot.floor"))
-        assertEquals("period", "555", props.getProperty("ui.map.pulse.dot.ms"))
+        assertEquals("beat floor", "0.25", props.getProperty("ui.map.pulse.dot.floor"))
+        assertEquals("period", "666", props.getProperty("ui.map.pulse.dot.ms"))
         assertEquals("ring width", "1", props.getProperty("ui.map.pulse.dot.ring.width"))
     }
 
