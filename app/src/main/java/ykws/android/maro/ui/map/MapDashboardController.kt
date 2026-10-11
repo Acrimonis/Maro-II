@@ -18,12 +18,12 @@ internal class MapDashboardController {
     /**
      * Adds a snack, or queues it once the three visible slots are taken.
      *
-     * **The route discard's toast jumps the queue**: it is the confirmation window for a deferred
+     * **The route ending's toast jumps the queue**: it is the confirmation window for a deferred
      * disposal, so it goes to the front and the oldest visible snack is pushed back rather than
      * letting the window silently lengthen behind delete toasts.
      */
     fun enqueue(snack: ActiveSnack) {
-        if (snack is ActiveSnack.RouteDiscard) {
+        if (snack is ActiveSnack.RouteEnd) {
             activeSnacks.add(0, snack)
             if (activeSnacks.size > 3) queuedSnacks.add(0, activeSnacks.removeAt(activeSnacks.size - 1))
             return

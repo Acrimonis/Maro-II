@@ -256,7 +256,8 @@ State machine: `CARD → SNACKBAR → DELETED`
 
 The map's undo snackbar stack (`SnackRow`) shares this dismiss contract: the 4 s timeout and a
 horizontal swipe both take the **commit** path, Undo takes the reverse path and is drawn **first**, and a
-row may carry one optional **second action** after it — only the route discard uses it, adding **New acquisition**.
+row may carry one optional **second action** after it — only the route's ending toasts use it, adding
+`route_action_new` (`New...`).
 What the row is **made of** is not this page's: its skin, its clearance and its text are the banner
 family's, written once in `docs/ui-component-guidelines.md` §5.7.
 

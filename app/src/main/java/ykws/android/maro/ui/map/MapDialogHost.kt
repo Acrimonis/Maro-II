@@ -88,8 +88,8 @@ internal fun MapDialogHost(
     onSaveRoute: (RoutePlan) -> Unit,
     /** The dialog's own Discard — the deferred, toasting ending, taken only while the press would throw the line away. */
     onDiscardRoute: () -> Unit,
-    /** The silent ending: it writes first for the save door and never toasts, and the written state's *Leave* rides it. */
-    onEndRoute: () -> Unit,
+    /** The loss-free endings — the save door once it has written, and the third door's own *Leave*: both defer on `route_left_toast`. */
+    onLeaveRoute: () -> Unit,
     // ── Resume confirmation (optional backup) ──
     resumeTarget: PendingTrackResume?,
     onClearResume: () -> Unit,
@@ -260,7 +260,8 @@ internal fun MapDialogHost(
     // decides them — *is this line already a track?* — read once here. While the line is unwritten the save
     // door carries the accent, enabled, and the loss door is red; once it is a track the save door keeps its
     // place and disables, nothing is lost, and the accent falls to the enabled forward outcome, whose word
-    // and act follow the cost — `Discard route` defers on the toast, `Leave` ends the mode silently. The
+    // follows the cost while its act is the same either way — every ending leaves through the deferred
+    // window, on `route_discard_acq_toast` · `route_discard_followed_toast` or `route_left_toast`. The
     // arrival cue rides the same doors under its own title alone (a title-only prompt, no message).
     if (routeExitReason != null) {
         val front = routeState.plan
@@ -288,7 +289,7 @@ internal fun MapDialogHost(
                 ) {
                     onDismissExit()
                     if (front != null) onSaveRoute(front)
-                    onEndRoute()
+                    onLeaveRoute()
                 },
                 ConfirmAction(
                     label = stringResource(doors.stay.labelRes),
@@ -301,7 +302,7 @@ internal fun MapDialogHost(
                     enabled = doors.loss.enabled
                 ) {
                     onDismissExit()
-                    if (doors.loss.discards) onDiscardRoute() else onEndRoute()
+                    if (doors.loss.discards) onDiscardRoute() else onLeaveRoute()
                 }
             )
         )

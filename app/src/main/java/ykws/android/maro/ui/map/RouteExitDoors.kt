@@ -23,8 +23,9 @@ import ykws.android.maro.ui.components.ConfirmActionRole
  * disabled state the whole app shares (§5.6) — which is why a door with no work is disabled rather than
  * renamed, and why the accent falls to the enabled forward outcome rather than staying on a dead one.
  *
- * [discards] is the act behind the word: `true` only while the press would throw the line away, which is
- * what makes this door the **deferred, toasting** discard (R92) rather than a plain exit.
+ * [discards] is the **cost** behind the word: `true` only while the press would throw the line away. It is
+ * not what defers — every ending defers (R92) — it only names which of the two acts the press takes: the
+ * deferred discard, or the deferred leave.
  */
 internal data class RouteExitDoor(
     @StringRes val labelRes: Int,
@@ -42,6 +43,9 @@ internal data class RouteExitDoor(
  * door keeps its place and **disables**, the accent moves to the enabled forward outcome and the third
  * door reads *Leave* with **no red** — its word follows the **cost**, never the raiser, so the arrival cue
  * carries no vocabulary of its own and changes only its title. The label *Leave Route* exists nowhere.
+ *
+ * The cost moves the **word**, never the act: every ending leaves through the deferred window (R92), the
+ * discarding one on its own toast and the loss-free one on `route_left_toast`.
  */
 internal data class RouteExitDoors(
     val save: RouteExitDoor,
@@ -56,8 +60,8 @@ internal data class RouteExitDoors(
  * The route exit dialog's three doors for [written] — `true` once the line is already a track, so the
  * save has nothing left to do and the accent belongs to the forward outcome that leaves.
  *
- * The action follows the cost as well as the word: only an ending that would throw the line away defers
- * on the toast, so a loss-free ending is the ordinary end, with no window and no toast.
+ * The act does not follow the cost: every ending leaves through the deferred window (R92) — the discarding
+ * one on its own toast, the loss-free one on `route_left_toast`.
  */
 internal fun routeExitDoors(written: Boolean): RouteExitDoors = RouteExitDoors(
     save = RouteExitDoor(
@@ -91,8 +95,8 @@ internal fun routeExitDoors(written: Boolean): RouteExitDoors = RouteExitDoors(
  * word, one home. The acquisition's own short word exists only because this door holds a third of the
  * footer row, where the dialog's longer loss word would not fit.
  *
- * The action follows the cost as well as the word: only the unwritten ending would throw the selected
- * line away, so a loss-free ending is the ordinary end, with no window and no toast.
+ * The act does not follow the cost: the written ending leaves through the same deferred window (R92) as
+ * the unwritten one, on `route_left_toast` rather than the discard's own toast.
  */
 internal fun routeAcquisitionEndingDoor(written: Boolean): RouteExitDoor =
     if (written) {

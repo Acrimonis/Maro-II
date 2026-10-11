@@ -898,11 +898,13 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   the **same** dialog under *You seem to have reached your destination* (`route_arrival_title`) — a
   **title-only** prompt, no message line, over the same three doors. **One axis decides the doors** — is this
   line already a track? — and three doors stand at every state: while the line is **unwritten**
-  `Save Route and exit` (accent, enabled) · `Continue` (secondary) · `Discard route` (red); once it is
+  `Save and Leave` (accent, enabled) · `Continue` (secondary) · `Discard route` (red); once it is
   **written** the save door keeps its place and is **disabled** · `Continue` (secondary) · **`Leave`**
   (the accent, and **not red**, because nothing is lost). The third door's word follows the **cost**, never
-  the raiser — `Discard route` while the press would throw the route away, `Leave` once it cannot — so the
-  arrival cue carries no vocabulary of its own and changes only its title. One surface, never two stacked: a
+  the raiser — `Discard route` while the press would throw the route away, `Leave` once it cannot — while
+  the **act** does not: every ending leaves through the deferred window (R92), the save door writing the
+  track first, and each raises its own toast (`route_discard_*_toast`, `route_left_toast`). The arrival cue
+  carries no vocabulary of its own and changes only its title. One surface, never two stacked: a
   raise while it stands is that one dialog, and a reversal of the followed route closes the arrival prompt
   as a **no action** dismissal.
 
