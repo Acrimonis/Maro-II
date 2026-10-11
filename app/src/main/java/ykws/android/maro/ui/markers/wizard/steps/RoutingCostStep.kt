@@ -1,6 +1,5 @@
 package ykws.android.maro.ui.markers.wizard.steps
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.markers.ROUTING_COST_BLOCKED
+import ykws.android.maro.data.model.markers.ROUTING_COST_MAX
 import ykws.android.maro.data.model.markers.routingCostForSlider
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.ui.components.CardArea
@@ -47,8 +47,8 @@ private enum class RouteRoleOption { ORIGIN, DESTINATION }
  * Routing-cost step — one `CardArea` holding two sections side by side, divided by the vertical rule
  * (`ui-component-guidelines` §2.14): **Route role** on the left, **Routing cost** on the right.
  *
- * **A Pin carries no cost** — it is a point and has no area to price — so for a Pin the cost side is
- * hidden and the step shows the Route role alone, full width. A Circle and a Corridor keep both sides.
+ * **Every type carries a cost, the Pin included**: a Pin is a point, so its price is a cone from the
+ * centre out to its own proximity, and the same two sections stand for all three geometries.
  *
  * Each side leads with its heading and a one-line comment, then gives the slack to a weighted spacer, so
  * the two controls sit on one bottom line although the stacked options and the slider differ in height,
@@ -56,30 +56,21 @@ private enum class RouteRoleOption { ORIGIN, DESTINATION }
  *
  * The left section is the shared `MultiSelectRow` — the options side by side under short labels, so both
  * fit the narrower column — and the right is the bare `SliderControl` under a right-aligned value line,
- * whose `0` is the Off position and the only clear and whose top step is the wall: the value line reads
- * the Off label at `0`, a price in between, and the wall's own words at `ROUTING_COST_BLOCKED`, while
- * the track's two ends carry the same pair of names — Off under its left end, the wall under its right —
- * and the value is mapped through [routingCostForSlider].
+ * whose `0` is the Off position and the only clear: the value line reads the Off label at `0` and a price
+ * in between, while the track's two ends carry its own pair of names — Off under its left end and, under
+ * its right, the wall's own words for a Circle or a Corridor or the top price's for a **Pin**, which can
+ * never be a wall. The value is mapped through [routingCostForSlider] and capped at the track's own top.
  *
  * No wizard step is added, so neither step sequence changes.
  */
 @Composable
 internal fun RoutingCostStep(viewModel: MarkersViewModel) {
-    val form by viewModel.createForm.collectAsState()
-
     CardArea {
-        if (form.type == MarkerType.PIN) {
-            // A Pin has no area to price, so it carries **no cost**: the step shows the Route role alone.
-            Column(modifier = Modifier.fillMaxWidth()) {
-                RouteRoleSection(viewModel)
-            }
-        } else {
-            SectionRow(
-                weightLeft = 1f - COST_COLUMN_WEIGHT,
-                left = { RouteRoleSection(viewModel) },
-                right = { RouteCostSection(viewModel) }
-            )
-        }
+        SectionRow(
+            weightLeft = 1f - COST_COLUMN_WEIGHT,
+            left = { RouteRoleSection(viewModel) },
+            right = { RouteCostSection(viewModel) }
+        )
     }
 }
 
@@ -117,13 +108,23 @@ private fun ColumnScope.RouteRoleSection(viewModel: MarkersViewModel) {
     )
 }
 
-/** The **Routing cost** side — the heading, the value line and the slider; never drawn for a Pin. */
+/**
+ * The **Routing cost** side — the heading, the value line and the slider, for every marker type.
+ *
+ * The track's top is the wall ([ROUTING_COST_BLOCKED], read as the wall's own words at that position)
+ * for a Circle and a Corridor, and the top **price** ([ROUTING_COST_MAX]) for a Pin: a point has no body
+ * to bar, so the wall is not offered to it, and a cost stored above that is read back at the cap.
+ */
 @Composable
 private fun ColumnScope.RouteCostSection(viewModel: MarkersViewModel) {
     val form by viewModel.createForm.collectAsState()
-    val cost = validRoutingCost(form.routingCost) ?: 0
+    val pin = form.type == MarkerType.PIN
+    val top = if (pin) ROUTING_COST_MAX else ROUTING_COST_BLOCKED
+    val cost = (validRoutingCost(form.routingCost) ?: 0).coerceAtMost(top)
     val offLabel = stringResource(R.string.wizard_routing_cost_unset)
-    val blockedLabel = stringResource(R.string.wizard_routing_cost_blocked)
+    val endLabel = stringResource(
+        if (pin) R.string.wizard_routing_cost_top else R.string.wizard_routing_cost_blocked
+    )
     StepSectionHeading(
         title = stringResource(R.string.wizard_routing_cost_title),
         description = stringResource(R.string.wizard_routing_cost_description)
@@ -131,9 +132,9 @@ private fun ColumnScope.RouteCostSection(viewModel: MarkersViewModel) {
     Spacer(modifier = Modifier.weight(1f))
     Spacer(modifier = Modifier.height(HEADING_TO_CONTROL_GAP_DP.dp))
     Text(
-        text = when (cost) {
-            0 -> offLabel
-            ROUTING_COST_BLOCKED -> blockedLabel
+        text = when {
+            cost == 0 -> offLabel
+            cost == ROUTING_COST_BLOCKED -> endLabel
             else -> cost.toString()
         },
         color = ComposeColor(AppConfig.uiValueText),
@@ -144,13 +145,14 @@ private fun ColumnScope.RouteCostSection(viewModel: MarkersViewModel) {
     )
     SliderControl(
         value = cost.toFloat(),
-        valueRange = 0f..ROUTING_COST_BLOCKED.toFloat(),
-        steps = ROUTING_COST_BLOCKED - 1,
+        valueRange = 0f..top.toFloat(),
+        steps = top - 1,
         onValueChange = { v ->
-            viewModel.updateForm { it.copy(routingCost = routingCostForSlider(v.toDouble())) }
+            val picked = routingCostForSlider(v.toDouble())?.coerceAtMost(top)
+            viewModel.updateForm { it.copy(routingCost = picked) }
         },
         startLabel = offLabel,
-        endLabel = blockedLabel
+        endLabel = endLabel
     )
 }
 

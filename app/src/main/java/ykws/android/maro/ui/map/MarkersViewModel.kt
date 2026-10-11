@@ -19,6 +19,7 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.MarkerSelectionPolicy
 import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.data.model.markers.ROUTING_COST_MAX
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.data.model.matchesFilter
@@ -971,10 +972,9 @@ class MarkersViewModel(
             colorIndex = form.colorIndex,
             icon = form.icon,
             createdAtEpochMs = System.currentTimeMillis(),
-            // A Pin carries no cost (it has no area to price); an auto marker carries none either.
-            routingCost = if (form.type == MarkerType.PIN ||
-                form.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
-            ) null else validRoutingCost(form.routingCost),
+            // A Pin carries a cost like any other marker — a well from its centre — so only an auto
+            // marker is dropped, and the Pin's own cost is capped at the top price (see [formCostForSave]).
+            routingCost = formCostForSave(form),
             routeOrigin = form.routeOrigin,
             routeDestination = form.routeDestination
         )
@@ -994,6 +994,18 @@ class MarkersViewModel(
             _selectedMarkerId.value = null
             wizardDoor = WizardDoor.LIST
         }
+    }
+
+    /**
+     * **The cost a save stores.** An auto marker carries none — it is a record, not a rule. A Pin keeps
+     * its cost like any other marker, since its well is a cone from its centre, but its value is capped at
+     * the top **price**: a point has no body to bar, so the wall is never offered to it and a stored `10`
+     * is read back as that top price.
+     */
+    private fun formCostForSave(form: CreateFormState): Int? {
+        if (form.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) return null
+        val cost = validRoutingCost(form.routingCost) ?: return null
+        return if (form.type == MarkerType.PIN) cost.coerceAtMost(ROUTING_COST_MAX) else cost
     }
 
     /**
@@ -1033,10 +1045,8 @@ class MarkersViewModel(
             description = form.description,
             proximityOverrideM = proximityOverride,
             icon = form.icon,
-            // The same guard as the create: a Pin and an auto marker both carry no cost.
-            routingCost = if (form.type == MarkerType.PIN ||
-                form.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
-            ) null else validRoutingCost(form.routingCost),
+            // The same guard as the create (see [formCostForSave]).
+            routingCost = formCostForSave(form),
             routeOrigin = form.routeOrigin,
             routeDestination = form.routeDestination
         )

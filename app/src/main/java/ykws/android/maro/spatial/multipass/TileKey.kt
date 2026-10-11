@@ -21,6 +21,9 @@ package ykws.android.maro.spatial.multipass
  *   the [excludedZoneIdSet], because the rasterizer reads all five.
  * - **The zone set** — [zoneRings], the exact ring set the fill even-odd-fills, and [capLatNorth], the
  *   open-coast closure's own cap.
+ * - **The marker price** — [markers], the costed set itself; and the two values that scale and gate it,
+ *   [markerStrength] and [markerPriceEnabled], which the rasterizer reads per cell although they live
+ *   nowhere on a marker. A strength or switch move must therefore move the key like a marker move does.
  *
  * It is a data class so equality and hashing are the fields' own — the completeness a
  * `flippingEachKeyedValueChangesTheKey` test pins field by field.
@@ -89,9 +92,21 @@ internal data class TileKey(
     /** The exact ring set the fill even-odd-fills — the rasterizer's own zone read. */
     val zoneRings: List<ZoneRing>,
     /**
-     * **The costed markers this tile's rasterisation reads** — every Circle or Corridor carrying a cost,
-     * with its geometry and its step / wall flag. It is the key material itself, so a marker created,
-     * moved, re-costed or deleted moves the key and no stale tile survives.
+     * **The costed markers this tile's rasterisation reads** — every Circle, Corridor or costed Pin, with
+     * its geometry and its step / wall flag. The geometry carries the marker's own proximity, so a moved
+     * ring moves the key beside a moved body. It is the key material itself, so a marker created, moved,
+     * re-costed or deleted moves the key and no stale tile survives.
      */
-    val markers: List<RouteMarker>
+    val markers: List<RouteMarker>,
+    /**
+     * **The marker price's strength** — the live `base × step × strength` factor of [`markerPriceSec`].
+     * It is not a marker's own value, so it is keyed **here**: the rasterizer writes the scaled price into
+     * a cell, and a slider move that left the key standing would serve the old price from a cached tile.
+     */
+    val markerStrength: Double,
+    /**
+     * **Whether the marker price is armed** (`route.marker.enabled`). The rasterizer reads it, so a
+     * toggled switch must move the key; the wall never reads it and stands either way.
+     */
+    val markerPriceEnabled: Boolean
 )

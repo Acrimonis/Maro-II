@@ -6,9 +6,12 @@ import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.ROUTING_COST_BLOCKED
+import ykws.android.maro.data.model.markers.ROUTING_COST_MAX
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.markers.markerProximityRangeM
 import ykws.android.maro.data.model.markers.validRoutingCost
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.LandRingOrientation
@@ -251,20 +254,31 @@ class LiveMultipassWorld(
 
     /**
      * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
-     * [validRoutingCost] and is a Circle or a Corridor becomes a [RouteMarker]; a Pin (no area) and an
-     * auto marker (a record, not a rule) are dropped. The wall is the top of the shipped scale
-     * ([ROUTING_COST_BLOCKED]) and carries step `0`; a price carries its own step.
+     * [validRoutingCost] becomes a [RouteMarker]: a Circle, a Corridor, or a **Pin** — a body of radius
+     * `0` whose whole price is its own proximity collar. An auto marker (a record, not a rule) is dropped.
+     *
+     * The wall is the top of the shipped scale ([ROUTING_COST_BLOCKED]) and carries step `0`; a price
+     * carries its own step. **A Pin is never a wall** — a point has no body to bar — so its cost is capped
+     * at the top price ([ROUTING_COST_MAX]) whatever is stored.
+     *
+     * The collar each geometry carries is the marker's own proximity, read through the rule's one home
+     * [markerProximityRangeM] so a legacy marker without a stored override still projects its well.
      */
     override fun routeMarkers(): List<RouteMarker> =
         markersProvider().mapNotNull { m ->
             if (m.origin != MarkerOrigin.USER) return@mapNotNull null
             val cost = validRoutingCost(m.routingCost) ?: return@mapNotNull null
+            val proximityM = markerProximityRangeM(
+                m, AppConfig.markerProximityPinM, AppConfig.markerProximityZoneMultiplier
+            )
+            val pin = m.geometry is MarkerGeometry.Pin
             val geometry = when (val g = m.geometry) {
-                is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM)
-                is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM)
-                is MarkerGeometry.Pin -> return@mapNotNull null
+                is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM, proximityM)
+                is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM, proximityM)
+                is MarkerGeometry.Pin -> RouteMarkerGeometry.Circle(g.position, 0.0, proximityM)
             }
-            val isWall = cost >= ROUTING_COST_BLOCKED
-            RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else cost, isWall = isWall)
+            val price = if (pin) cost.coerceAtMost(ROUTING_COST_MAX) else cost
+            val isWall = !pin && price >= ROUTING_COST_BLOCKED
+            RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else price, isWall = isWall)
         }
 }

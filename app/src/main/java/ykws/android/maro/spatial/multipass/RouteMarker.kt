@@ -6,15 +6,15 @@ import kotlin.math.abs
 
 /**
  * **A costed marker as the route engine reads it** — the projection the `spatial/` layer holds in its
- * own vocabulary, so no engine or field file imports `UserMarker`. Only a **Circle** or a **Corridor**
- * that carries a routing cost becomes one: a Pin (no area) and an auto marker (a record, not a rule) are
- * dropped at the world.
+ * own vocabulary, so no engine or field file imports `UserMarker`. Only a marker the user placed becomes
+ * one: a **Circle**, a **Corridor** and, since a point may carry a well, a **Pin**; an auto marker (a
+ * record, not a rule) is dropped at the world.
  *
  * The scale is the marker's shipped one: `1..9` is a **price** ([step]), the top step is the **wall**
- * ([isWall]) the route may never cross.
+ * ([isWall]) the route may never cross — and a Pin is never a wall, so its own cost tops out at a price.
  *
  * @property id    The marker's id, carried for the fine tile key and any future reading.
- * @property geometry The price area and the wall's own containment.
+ * @property geometry The price area, the wall's own containment and the well's fall-off.
  * @property step  The price step (1–9); 0 where this marker is a wall.
  * @property isWall True where this marker is the wall rather than a price.
  */
@@ -26,54 +26,98 @@ data class RouteMarker(
 )
 
 /**
- * The two geometries a costed marker may carry — a **price area**, never a point.
+ * The two geometries a costed marker may carry — a **price area**, never a bare point, so a Pin reaches
+ * the field as a body of radius `0` whose whole price is the collar.
  *
- * Both answer the two reads the cost field needs: [contains] (the price is paid here, the wall blocks
- * here) and [boundaryDistanceM] — the metres to the geometry's own boundary, the **price walk's declared
- * clearance**. That declaration must be a **true distance** to a real arm change, **caps included**, or
- * the group proof is unsound and the drawn line can move silently.
+ * Each answers three reads. [contains] is the marker's **own body** — the water a wall blocks. [wellFactor]
+ * is the price's own shape: full inside the body, falling away across the **proximity collar** the map
+ * already draws, so a cheap mark is only leaned around and a dear one is given a wide berth.
+ * [boundaryDistanceM] is the metres to the **outer priced edge** — the price walk's declared clearance.
+ *
+ * That declaration must be a **true distance** to a real arm change, **caps included**, or the group proof
+ * is unsound and the drawn line can move silently.
+ *
+ * **The collar is the marker's own proximity**, the same reach the map draws and the where-am-I match
+ * gates on, so there is one number per marker and no second control: moving the ring moves the well.
  */
 sealed interface RouteMarkerGeometry {
 
-    /** True when [p] stands inside this geometry — the price is paid here and the wall blocks here. */
+    /** True when [p] stands inside the marker's own body — the wall's own area, never the collar. */
     fun contains(p: LatLng): Boolean
 
-    /** The metres from [p] to this geometry's own boundary — the price walk's declared clearance. */
+    /**
+     * **The well's own factor at [p]**, in `0.0..1.0`: `1.0` anywhere inside the body, a straight line to
+     * `0.0` at the outer edge of the proximity collar, and `0.0` beyond it. A zero collar prices the body
+     * alone — the pre-well behaviour, kept for a marker stored without a proximity.
+     */
+    fun wellFactor(p: LatLng): Double
+
+    /** The metres from [p] to the **outer priced edge** — the price walk's declared clearance. */
     fun boundaryDistanceM(p: LatLng): Double
 
-    /** A circular zone: the price is paid within [radiusM] of [center]. */
-    data class Circle(val center: LatLng, val radiusM: Double) : RouteMarkerGeometry {
+    /** A circular body: a flat core within [radiusM] of [center], and a collar of [proximityM] beyond it. */
+    data class Circle(
+        val center: LatLng,
+        val radiusM: Double,
+        val proximityM: Double
+    ) : RouteMarkerGeometry {
         override fun contains(p: LatLng): Boolean =
             SpatialOperations.haversine(p, center) <= radiusM
 
+        override fun wellFactor(p: LatLng): Double =
+            collarFactor(SpatialOperations.haversine(p, center), radiusM, proximityM)
+
         override fun boundaryDistanceM(p: LatLng): Double =
-            abs(SpatialOperations.haversine(p, center) - radiusM)
+            abs(SpatialOperations.haversine(p, center) - (radiusM + proximityM))
     }
 
     /**
-     * A linear zone between [p1] and [p2] with a width: the price is paid within `widthM / 2` of the
-     * segment, its **rounded end caps included** ([SpatialOperations.pointToSegmentDistance] clamps to
-     * the segment, so a point beyond an end reads its distance to that end — the cap's own boundary).
+     * A linear body between [p1] and [p2] with a width: a flat core within `widthM / 2` of the segment,
+     * its **rounded end caps included** ([SpatialOperations.pointToSegmentDistance] clamps to the
+     * segment, so a point beyond an end reads its distance to that end — the cap's own boundary), and a
+     * collar of [proximityM] beyond it.
      */
-    data class Corridor(val p1: LatLng, val p2: LatLng, val widthM: Double) : RouteMarkerGeometry {
+    data class Corridor(
+        val p1: LatLng,
+        val p2: LatLng,
+        val widthM: Double,
+        val proximityM: Double
+    ) : RouteMarkerGeometry {
         private val halfWidthM: Double get() = widthM / 2.0
 
         override fun contains(p: LatLng): Boolean =
             SpatialOperations.pointToSegmentDistance(p, p1, p2) <= halfWidthM
 
+        override fun wellFactor(p: LatLng): Double =
+            collarFactor(SpatialOperations.pointToSegmentDistance(p, p1, p2), halfWidthM, proximityM)
+
         override fun boundaryDistanceM(p: LatLng): Double =
-            abs(SpatialOperations.pointToSegmentDistance(p, p1, p2) - halfWidthM)
+            abs(SpatialOperations.pointToSegmentDistance(p, p1, p2) - (halfWidthM + proximityM))
     }
 }
 
 /**
- * **The one marker price law.** A cell inside a priced marker adds the **base per-metre cost** scaled by
- * the marker's step and the user's [strength]. It is **linear** and **λ-free** — a marker is a rule, not a
- * Driving preference, so all three rungs price it alike — and it only ever **adds**, so no passable cell
- * drops below the base and the A\*'s closed set stays valid (the field's own invariant).
+ * **The well's one fall-off law, in one home.** Full at the body's own edge ([coreM], the flat core) and
+ * a straight line to zero at the collar's outer edge ([coreM] + [proximityM]): `1.0` inside the body,
+ * `0.0` beyond the collar, and the position between the two bands in between. A collar of zero — a marker
+ * stored without a proximity — prices the body alone.
  */
-internal fun markerPriceSec(baseCostSec: Double, step: Int, strength: Double): Double =
-    baseCostSec * step * strength
+private fun collarFactor(distanceM: Double, coreM: Double, proximityM: Double): Double {
+    if (distanceM <= coreM) return 1.0
+    if (proximityM <= 0.0) return 0.0
+    val outerM = coreM + proximityM
+    return if (distanceM >= outerM) 0.0 else (outerM - distanceM) / proximityM
+}
+
+/**
+ * **The one marker price law.** A cell inside a priced marker adds the **base per-metre cost** scaled by
+ * the marker's step, the user's [strength] and the geometry's own [factor] — its position in the well.
+ * It is **linear** and **λ-free** — a marker is a rule, not a Driving preference, so all three rungs price
+ * it alike — and it only ever **adds**, so no passable cell drops below the base and the A\*'s closed set
+ * stays valid (the field's own invariant).
+ */
+internal fun markerPriceSec(baseCostSec: Double, step: Int, strength: Double, factor: Double): Double =
+    baseCostSec * step * strength * factor.coerceIn(0.0, 1.0)
 
 /**
  * **The marker sources for one field** — a soft price source for the priced markers (1–9) and a rastered
@@ -81,10 +125,11 @@ internal fun markerPriceSec(baseCostSec: Double, step: Int, strength: Double): D
  * their own list is non-empty**, so a marker-free solve keeps today's fast path (`hasSoft` and
  * `hasBlocking` both false).
  *
- * The price is a single source summing over every priced marker that contains the point, its declared
- * clearance the **minimum** boundary distance across those markers — one source, so the dearest tag the
- * field writes is the one zone's for a marker cell. The wall is the depth gate's own shape: a per-cell
- * step tested at every mark, never a distance the margin stands off.
+ * The price is a single source summing over every priced marker that reaches the point — its own step
+ * scaled by that marker's well factor — its declared clearance the **minimum** outer-edge distance across
+ * those markers, so a point beyond every collar is provably free and the walk can group there. The wall
+ * is the depth gate's own shape: a per-cell step tested at every mark, never a distance the margin stands
+ * off, and it blocks the marker's **body** alone — the collar is a price, never a wall.
  *
  * @param priceEnabled the price's own switch (`route.marker.enabled`); the **wall never reads it** — a
  *   wall is law and stands whatever the switch says.
@@ -104,7 +149,8 @@ internal fun markerSources(
                 priceSec = { p ->
                     var sec = 0.0
                     for (m in priced) {
-                        if (m.geometry.contains(p)) sec += markerPriceSec(baseCostSec, m.step, strength)
+                        val factor = m.geometry.wellFactor(p)
+                        if (factor > 0.0) sec += markerPriceSec(baseCostSec, m.step, strength, factor)
                     }
                     sec
                 },
