@@ -13,6 +13,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.markers.markerProximityRangeM
 import java.io.File
 
 /**
@@ -114,8 +115,9 @@ class UserMarkerRepository(
     }
 
     /**
-     * Compute the default proximity range (metres) for a marker, using the
-     * configured defaults and any per-marker override.
+     * The effective proximity range (metres) for a marker — a thin door onto the rule's own home,
+     * [markerProximityRangeM], where the per-type fallback lives because the map, the matcher and the
+     * route's price well all read the same reach.
      *
      * @param marker                 The marker to evaluate.
      * @param proximityPinM          Default proximity for Pin markers (from config).
@@ -126,14 +128,7 @@ class UserMarkerRepository(
         marker: UserMarker,
         proximityPinM: Double,
         proximityZoneMultiplier: Double
-    ): Double {
-        marker.proximityOverrideM?.let { return it }
-        return when (val g = marker.geometry) {
-            is MarkerGeometry.Pin -> proximityPinM
-            is MarkerGeometry.Circle -> g.radiusM * proximityZoneMultiplier
-            is MarkerGeometry.Corridor -> g.widthM * proximityZoneMultiplier
-        }
-    }
+    ): Double = markerProximityRangeM(marker, proximityPinM, proximityZoneMultiplier)
 
     companion object {
         private const val MARKERS_DIR_NAME = "markers"

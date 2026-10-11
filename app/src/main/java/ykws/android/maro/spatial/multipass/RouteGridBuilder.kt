@@ -290,7 +290,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             val bandGrid = fineWindowGrid(
                 world, anchor, family.fine, fineBox, pace, marginM, zoneOutsideMarginM,
                 gridField, priced, bandSpec, fineMask, depthBand, edges, openCoast,
-                minDepthM, depthGateActive, fineWater, trace
+                minDepthM, depthGateActive, fineWater, markerStrength, trace
             )
             fineCells += bandGrid.rows * bandGrid.cols
             windows.add(
@@ -395,6 +395,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         minDepthM: Double,
         depthGateActive: Boolean,
         fineWater: FineWater,
+        markerStrength: Double,
         trace: (() -> String) -> Unit
     ): MultipassGrid {
         val rows = ceil((fineBox.latNorth - fineBox.latSouth) / fine.cellSizeDegLat).toInt().coerceAtLeast(1)
@@ -416,7 +417,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             for (tileCol in firstTileCol..lastTileCol) {
                 val key = fineTileKey(
                     world, anchor, fine, tileRow, tileCol, haloCells, pace, marginM, zoneOutsideMarginM,
-                    bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive
+                    bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive, markerStrength
                 )
                 val tile = fineTiles.get(key) {
                     // Only a **miss** reaches here, so the count of these lines is the arm's own tile
@@ -519,7 +520,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         fineWater: FineWater,
         priced: List<ZoneRing>,
         minDepthM: Double,
-        depthGateActive: Boolean
+        depthGateActive: Boolean,
+        markerStrength: Double
     ): TileKey = TileKey(
         anchorLatSouth = anchor.latSouth,
         anchorLonWest = anchor.lonWest,
@@ -553,7 +555,9 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         excludedZoneIdSet = world.excludedZoneIdSet,
         zoneGenerationStamp = world.zoneGenerationStamp,
         zoneRings = priced,
-        markers = world.routeMarkers()
+        markers = world.routeMarkers(),
+        markerStrength = markerStrength,
+        markerPriceEnabled = AppConfig.routeMarkerEnabled
     )
 
     /** A corridor box and whether the region's own bounds cut it short — the instrument's own reading. */

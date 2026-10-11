@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 
@@ -53,7 +54,9 @@ class TileKeyTest {
         excludedZoneIdSet = emptySet(),
         zoneGenerationStamp = 3L,
         zoneRings = listOf(ring(4.0)),
-        markers = emptyList()
+        markers = emptyList(),
+        markerStrength = 1.0,
+        markerPriceEnabled = true
     )
 
     /** Every keyed value, flipped once — one entry per declared field. */
@@ -89,12 +92,14 @@ class TileKeyTest {
         "excludedZoneIdSet" to base.copy(excludedZoneIdSet = setOf("excluded")),
         "zoneGenerationStamp" to base.copy(zoneGenerationStamp = base.zoneGenerationStamp + 1),
         "zoneRings" to base.copy(zoneRings = listOf(ring(6.0))),
-        "markers" to base.copy(markers = listOf(marker(3)))
+        "markers" to base.copy(markers = listOf(marker(3))),
+        "markerStrength" to base.copy(markerStrength = base.markerStrength + 1.0),
+        "markerPriceEnabled" to base.copy(markerPriceEnabled = !base.markerPriceEnabled)
     )
 
-    /** One costed marker, for the key's own flip case. */
-    private fun marker(step: Int) = RouteMarker(
-        "m", RouteMarkerGeometry.Circle(LatLng(43.5, 7.0), 100.0), step = step, isWall = false
+    /** One costed marker, for the key's own flip cases. */
+    private fun marker(step: Int, proximityM: Double = 500.0) = RouteMarker(
+        "m", RouteMarkerGeometry.Circle(LatLng(43.5, 7.0), 100.0, proximityM), step = step, isWall = false
     )
 
     @Test
@@ -115,5 +120,26 @@ class TileKeyTest {
             declared,
             flips(baseKey()).size
         )
+    }
+
+    /** The marker's own ring is key material too: a wider collar is a different tile, not a stale one. */
+    @Test
+    fun aMarkersProximityMovesTheKey() {
+        val narrow = baseKey().copy(markers = listOf(marker(3, proximityM = 100.0)))
+        val wide = baseKey().copy(markers = listOf(marker(3, proximityM = 900.0)))
+        assertNotEquals("a moved ring must move the key", narrow, wide)
+    }
+
+    /**
+     * **The values the rasteriser reads but no marker carries, pinned by name.** The reflection count above
+     * can only see a field that exists: a rasteriser input that was never made a field slips past it, which
+     * is exactly how the marker price's strength and switch were once omitted. They are named here so
+     * deleting either — the only guard this test can give for that shape — fails loudly.
+     */
+    @Test
+    fun theMarkerPriceInputsAreKeyedByName() {
+        val names = TileKey::class.java.declaredFields.map { it.name }
+        assertTrue("the marker price's strength must be key material", "markerStrength" in names)
+        assertTrue("the marker price's switch must be key material", "markerPriceEnabled" in names)
     }
 }

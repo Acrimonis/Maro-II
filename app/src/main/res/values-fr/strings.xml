@@ -520,7 +520,7 @@
     <string name="wizard_slider_width_comment">Largeur du couloir en mètres</string>
     <string name="wizard_slider_radius_comment">Rayon de la zone en mètres</string>
     <string name="wizard_slider_proximity">Proximité</string>
-    <string name="wizard_slider_proximity_comment">Distance d\'alerte autour de la zone</string>
+    <string name="wizard_slider_proximity_comment">Distance d\'alerte, et portée d\'un coût de routage</string>
     <string name="wizard_range_scale_x10">\u00d710</string>
     <string name="wizard_field_name">Nom</string>
     <string name="wizard_field_description">Description</string>
@@ -528,6 +528,7 @@
     <string name="wizard_routing_cost_description">Coût d\'un itinéraire vers ce repère</string>
     <string name="wizard_routing_cost_unset">Désactivé</string>
     <string name="wizard_routing_cost_blocked">Bloqué/Mur</string>
+    <string name="wizard_routing_cost_top">Maxi</string>
     <string name="wizard_route_role_title">Rôle d\'itinéraire</string>
     <string name="wizard_route_role_description">Le repère peut servir d\'origine ou de destination</string>
     <string name="wizard_route_role_origin">Origine</string>

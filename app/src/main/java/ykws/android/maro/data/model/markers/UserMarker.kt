@@ -238,3 +238,21 @@ sealed class MarkerGeometry {
         }
     }
 }
+
+/**
+ * **A marker's own proximity reach (m) — the one home for the per-type fallback.** The collar the map
+ * draws outward from the body, the where-am-I match's gate and the route's price well all read this one
+ * value, so a marker has a single reach and no two surfaces can disagree about where it ends.
+ *
+ * A stored [UserMarker.proximityOverrideM] wins; else a Pin takes [pinM] and a Circle or a Corridor takes
+ * [zoneMultiplier] times its own size — its radius or its width, measured from the body outward, exactly
+ * as the map draws the ring.
+ */
+fun markerProximityRangeM(marker: UserMarker, pinM: Double, zoneMultiplier: Double): Double {
+    marker.proximityOverrideM?.let { return it }
+    return when (val g = marker.geometry) {
+        is MarkerGeometry.Pin -> pinM
+        is MarkerGeometry.Circle -> g.radiusM * zoneMultiplier
+        is MarkerGeometry.Corridor -> g.widthM * zoneMultiplier
+    }
+}
