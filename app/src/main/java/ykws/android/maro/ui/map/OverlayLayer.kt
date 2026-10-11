@@ -946,6 +946,18 @@ internal fun OverlayLayer(
                 onUpdateSettings = onUpdateSettings,
                 onImportTracks = { onDismissSettings(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
                 onExportAllTracks = { onDismissSettings(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) },
+                // The markers' own pair. Export all is the whole backup — every marker held, not the
+                // listed set — because that is what a backup means; the list's own door exports the
+                // selection instead.
+                onImportMarkers = { onDismissSettings(); onMarkerAction(ykws.android.maro.data.model.ListAction.ImportMarkers) },
+                onExportAllMarkers = {
+                    onDismissSettings()
+                    onMarkerAction(
+                        ykws.android.maro.data.model.ListAction.BatchExportMarkerGpx(
+                            markersViewModel.allMarkers.value.map { it.id }.toSet()
+                        )
+                    )
+                },
                 onDismiss = onDismissSettings,
                 selectedTab = selectedTab,
                 onTabChange = onTabChange,

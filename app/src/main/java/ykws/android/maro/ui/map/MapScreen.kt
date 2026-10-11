@@ -4,7 +4,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
-import ykws.android.maro.data.track.ImportMode
+import ykws.android.maro.data.model.ImportMode
 import ykws.android.maro.spatial.RouteEngineChoice
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.LiveMultipassWorld
@@ -404,9 +404,16 @@ internal data class PendingTrackResume(
     val fromList: Boolean
 )
 
+/** Which transfer a result banner speaks for — a track's counts or a marker's. */
+internal enum class TransferKind { TRACK, MARKER }
+
 /** Transient import feedback: result counts or a hard failure. */
 internal sealed interface ImportBannerState {
-    data class Result(val imported: Int, val ignored: Int) : ImportBannerState
+    data class Result(
+        val imported: Int,
+        val ignored: Int,
+        val kind: TransferKind = TransferKind.TRACK
+    ) : ImportBannerState
     data object Failed : ImportBannerState
 }
 
@@ -1008,6 +1015,8 @@ fun MapScreen(
 
     // Single-GPX import whose match dialog is pending a Duplicate / Override / Cancel choice.
     var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
+    // Single-GPX marker import whose match dialog is pending a Duplicate / Override / Cancel choice.
+    var pendingMarkerImport by remember { mutableStateOf<PendingMarkerImport?>(null) }
     // Import feedback banner: null = hidden; Result / Failed shows briefly at the map bottom.
     var importBanner by remember { mutableStateOf<ImportBannerState?>(null) }
     var importBannerAt by remember { mutableStateOf(0L) }
@@ -1353,6 +1362,57 @@ fun MapScreen(
                             withContext(Dispatchers.Main) {
                                 chrome.trackOpStatus = null
                                 showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    withContext(Dispatchers.Main) {
+                        chrome.trackOpStatus = null
+                        showImportBanner(ImportBannerState.Failed)
+                    }
+                }
+            }
+        }
+    }
+
+    // Marker import file picker launcher — the track import's own shape over the marker door: a ZIP
+    // always skips what is held, a single file asks only when it matches a marker already here.
+    val markerImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            chrome.trackOpStatus = context.getString(R.string.importing_markers)
+            trackScope.launch(Dispatchers.IO) {
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes == null) {
+                        withContext(Dispatchers.Main) { chrome.trackOpStatus = null }
+                        return@launch
+                    }
+                    val isZip = bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
+                    val extension = if (isZip) "zip" else "gpx"
+                    if (isZip) {
+                        val result = markersViewModel.importMarkers(bytes, extension, ImportMode.SKIP_EXISTING)
+                        withContext(Dispatchers.Main) {
+                            chrome.trackOpStatus = null
+                            showImportBanner(
+                                ImportBannerState.Result(result.imported, result.ignored, kind = TransferKind.MARKER)
+                            )
+                        }
+                    } else {
+                        val match = markersViewModel.peekMarkerImport(bytes, extension)
+                        if (match != null) {
+                            withContext(Dispatchers.Main) {
+                                chrome.trackOpStatus = null
+                                pendingMarkerImport = PendingMarkerImport(bytes, extension, match.name)
+                            }
+                        } else {
+                            val result = markersViewModel.importMarkers(bytes, extension, ImportMode.IMPORT_NEW)
+                            withContext(Dispatchers.Main) {
+                                chrome.trackOpStatus = null
+                                showImportBanner(
+                                    ImportBannerState.Result(result.imported, result.ignored, kind = TransferKind.MARKER)
+                                )
                             }
                         }
                     }
@@ -3082,7 +3142,7 @@ fun MapScreen(
                     trackScope.launch {
                         val track = trackViewModel.loadTrackDetail(id)
                         if (track != null) {
-                            val gpx = track.toGpx()
+                            val gpx = track.toGpx(trackViewModel.ownedMarkers(track.id))
                             val file = java.io.File(context.cacheDir, "${id}.gpx")
                             file.writeText(gpx)
                             val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -3096,7 +3156,7 @@ fun MapScreen(
                                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             context.startActivity(
-                                android.content.Intent.createChooser(intent, "Share GPX")
+                                android.content.Intent.createChooser(intent, context.getString(R.string.share_gpx_title))
                             )
                         }
                     }
@@ -3923,6 +3983,12 @@ fun MapScreen(
                         advanceMarkerCardFrom(markerId)
                     }
                     is ykws.android.maro.data.model.ListAction.TogglePin -> markersViewModel.setMarkerPinned(action.id, action.pinned)
+                    is ykws.android.maro.data.model.ListAction.ExportMarkerGpx ->
+                        shareMarkerGpx(context, markersViewModel, action.id, trackScope, onProgress = { chrome.trackOpStatus = it })
+                    is ykws.android.maro.data.model.ListAction.BatchExportMarkerGpx ->
+                        shareMarkersZip(context, markersViewModel, action.ids, trackScope, onProgress = { chrome.trackOpStatus = it })
+                    is ykws.android.maro.data.model.ListAction.ImportMarkers ->
+                        markerImportLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
                     is ykws.android.maro.data.model.ListAction.RefreshList -> markersViewModel.refreshSort(action.sortState)
                     else -> {}
                 }
@@ -4170,6 +4236,17 @@ fun MapScreen(
             trackScope = trackScope,
             clearPending = { pendingTrackImport = null },
             setTrackOpStatus = { chrome.trackOpStatus = it },
+            showImportBanner = { b -> showImportBanner(b) }
+        )
+
+        // ── Single-marker import conflict sheet — the same three doors over the marker door ──
+        MarkerImportConflictHost(
+            pendingMarkerImport = pendingMarkerImport,
+            context = context,
+            markersViewModel = markersViewModel,
+            markerScope = trackScope,
+            clearPending = { pendingMarkerImport = null },
+            setOpStatus = { chrome.trackOpStatus = it },
             showImportBanner = { b -> showImportBanner(b) }
         )
 
@@ -5214,12 +5291,14 @@ private fun MapContent(
                     if (banner.imported == 0 && banner.ignored == 0) {
                         stringResource(R.string.import_failed)
                     } else {
-                        val importedText = pluralStringResource(
-                            R.plurals.import_result_imported, banner.imported, banner.imported
-                        )
-                        val ignoredText = pluralStringResource(
-                            R.plurals.import_result_ignored, banner.ignored, banner.ignored
-                        )
+                        val (importedPlural, ignoredPlural) = when (banner.kind) {
+                            TransferKind.MARKER ->
+                                R.plurals.import_result_marker_imported to R.plurals.import_result_marker_ignored
+                            TransferKind.TRACK ->
+                                R.plurals.import_result_imported to R.plurals.import_result_ignored
+                        }
+                        val importedText = pluralStringResource(importedPlural, banner.imported, banner.imported)
+                        val ignoredText = pluralStringResource(ignoredPlural, banner.ignored, banner.ignored)
                         stringResource(R.string.import_result_format, importedText, ignoredText)
                     }
                 ImportBannerState.Failed -> stringResource(R.string.import_failed)

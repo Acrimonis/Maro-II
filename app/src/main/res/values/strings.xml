@@ -276,11 +276,14 @@
     <string name="track_merge_keep_originals">Keep original tracks</string>
     <string name="track_merge_default_name">Merged Track</string>
 
-    <!-- Track import result feedback -->
+    <!-- Track and marker import result feedback -->
     <string name="import_failed">Import failed</string>
     <string name="import_result_format">%1$s, %2$s</string>
     <string name="exporting_tracks">Exporting tracks…</string>
     <string name="importing_tracks">Importing tracks…</string>
+    <string name="exporting_markers">Exporting markers…</string>
+    <string name="importing_markers">Importing markers…</string>
+    <string name="import_marker_match_title">Existing marker found</string>
     <plurals name="import_result_imported">
         <item quantity="one">%d track imported</item>
         <item quantity="other">%d tracks imported</item>
@@ -289,6 +292,20 @@
         <item quantity="one">%d track ignored</item>
         <item quantity="other">%d tracks ignored</item>
     </plurals>
+    <plurals name="import_result_marker_imported">
+        <item quantity="one">%d marker imported</item>
+        <item quantity="other">%d markers imported</item>
+    </plurals>
+    <plurals name="import_result_marker_ignored">
+        <item quantity="one">%d marker ignored</item>
+        <item quantity="other">%d markers ignored</item>
+    </plurals>
+
+    <!-- Share sheet titles -->
+    <string name="share_gpx_title">Share GPX</string>
+    <string name="share_tracks_title">Share Tracks</string>
+    <string name="share_marker_title">Share Marker</string>
+    <string name="share_markers_title">Share Markers</string>
 
     <!-- Background location permission -->
     <string name="bg_location_title">Background Location</string>
@@ -386,6 +403,7 @@
     <string name="settings_section_tracks_and_routes">Tracks and Routes</string>
     <string name="settings_tracks_and_routes_desc">Recorded tracks and routes on the map</string>
     <string name="settings_tracks_transfer_desc">Export and import recorded tracks and routes</string>
+    <string name="settings_markers_transfer_desc">Export all markers, or import markers from a file</string>
     <string name="settings_tracks_direction_settings_label">Speed Arrows Settings</string>
     <string name="settings_speed_display_label">Speed Display</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>

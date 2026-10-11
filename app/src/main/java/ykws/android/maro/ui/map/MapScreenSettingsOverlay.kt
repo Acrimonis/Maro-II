@@ -100,6 +100,8 @@ internal fun SettingsOverlay(
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
     onImportTracks: () -> Unit = {},
     onExportAllTracks: () -> Unit = {},
+    onImportMarkers: () -> Unit = {},
+    onExportAllMarkers: () -> Unit = {},
     layersScrollState: ScrollState,
     navigationScrollState: ScrollState,
     routingScrollState: ScrollState,
@@ -181,7 +183,13 @@ internal fun SettingsOverlay(
                     // argument order carries meaning and the order lives in SettingsTab alone.
                     when (val tab = SettingsTab.entries[page]) {
                         SettingsTab.LAYERS -> LayersSettings(
-                            settings, onUpdateSettings, onImportTracks, onExportAllTracks, layersScrollState
+                            settings = settings,
+                            onUpdateSettings = onUpdateSettings,
+                            onImportTracks = onImportTracks,
+                            onExportAllTracks = onExportAllTracks,
+                            onImportMarkers = onImportMarkers,
+                            onExportAllMarkers = onExportAllMarkers,
+                            scrollState = layersScrollState
                         )
                         SettingsTab.ROUTING -> RoutingSettings(settings, onUpdateSettings, routingScrollState)
                         SettingsTab.NAVIGATION -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
@@ -271,6 +279,8 @@ private fun LayersSettings(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onImportTracks: () -> Unit,
     onExportAllTracks: () -> Unit,
+    onImportMarkers: () -> Unit,
+    onExportAllMarkers: () -> Unit,
     scrollState: ScrollState
 ) {
     val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
@@ -832,6 +842,32 @@ private fun LayersSettings(
                 }
             }
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+
+            // The transfer card — the track card's own twin, inside the markers card: the backup out,
+            // the backup back in.
+            SectionDivider()
+            CardDescription(stringResource(R.string.settings_markers_transfer_desc))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.action_export),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onExportAllMarkers
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.action_import),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onImportMarkers
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))

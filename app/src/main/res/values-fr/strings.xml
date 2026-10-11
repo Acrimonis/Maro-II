@@ -275,11 +275,14 @@
     <string name="track_merge_keep_originals">Conserver les parcours d\'origine</string>
     <string name="track_merge_default_name">Parcours fusionné</string>
 
-    <!-- Track import result feedback -->
+    <!-- Track and marker import result feedback -->
     <string name="import_failed">Échec de l\'importation</string>
     <string name="import_result_format">%1$s, %2$s</string>
     <string name="exporting_tracks">Exportation des pistes…</string>
     <string name="importing_tracks">Importation des pistes…</string>
+    <string name="exporting_markers">Exportation des repères…</string>
+    <string name="importing_markers">Importation des repères…</string>
+    <string name="import_marker_match_title">Repère existant trouvé</string>
     <plurals name="import_result_imported">
         <item quantity="one">%d piste importée</item>
         <item quantity="other">%d pistes importées</item>
@@ -288,6 +291,20 @@
         <item quantity="one">%d piste ignorée</item>
         <item quantity="other">%d pistes ignorées</item>
     </plurals>
+    <plurals name="import_result_marker_imported">
+        <item quantity="one">%d repère importé</item>
+        <item quantity="other">%d repères importés</item>
+    </plurals>
+    <plurals name="import_result_marker_ignored">
+        <item quantity="one">%d repère ignoré</item>
+        <item quantity="other">%d repères ignorés</item>
+    </plurals>
+
+    <!-- Share sheet titles -->
+    <string name="share_gpx_title">Partager le GPX</string>
+    <string name="share_tracks_title">Partager les pistes</string>
+    <string name="share_marker_title">Partager le repère</string>
+    <string name="share_markers_title">Partager les repères</string>
 
     <!-- Background location permission -->
     <string name="bg_location_title">Position en arrière-plan</string>
@@ -385,6 +402,7 @@
     <string name="settings_section_tracks_and_routes">Traces et itinéraires</string>
     <string name="settings_tracks_and_routes_desc">Traces et itinéraires enregistrés sur la carte</string>
     <string name="settings_tracks_transfer_desc">Exporter les traces enregistrées, ou importer des traces depuis un fichier</string>
+    <string name="settings_markers_transfer_desc">Exporter tous les repères, ou importer des repères depuis un fichier</string>
     <string name="settings_tracks_direction_settings_label">Réglages des flèches de vitesse</string>
     <string name="settings_speed_display_label">Affichage de la vitesse</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>

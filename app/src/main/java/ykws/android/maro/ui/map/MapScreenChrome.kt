@@ -27,7 +27,11 @@ internal class MapScreenChrome(
     /** Resume confirmation: non-null while the dialog awaits the Resume/Cancel choice. */
     var pendingResume by mutableStateOf<PendingTrackResume?>(null)
 
-    /** Transient track-operation status banner (export/import in progress): null = hidden. */
+    /**
+     * Transient transfer status banner (a track's or a marker's export/import in progress): null =
+     * hidden. One slot serves both transfers, since only one of them can run at a time and the message
+     * itself names which it is.
+     */
     var trackOpStatus by mutableStateOf<String?>(null)
 
     companion object {

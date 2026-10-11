@@ -1,5 +1,7 @@
 package ykws.android.maro.data.track
 
+import ykws.android.maro.data.model.ImportMode
+
 import android.app.Application
 import android.content.Intent
 import android.util.Log
@@ -492,6 +494,16 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * The markers a track's own file carries: every marker whose owner is this track.
+     *
+     * There is no inverse index on `trackId`, so this is one store read and a filter — enough at this
+     * size, and it keeps the link one-directional, exactly as the delete cascade and the merge
+     * re-point already read it.
+     */
+    suspend fun ownedMarkers(trackId: String): List<ykws.android.maro.data.model.markers.UserMarker> =
+        markerRepository.loadAll().filter { it.trackId == trackId }
+
+    /**
      * Import tracks from a GPX file or ZIP archive.
      * Saves each imported track via [TrackRepository.saveOrReplace]: UPDATE keeps the
      * matched id (replacing in place), NEW/foreign imports get fresh ids.
@@ -511,6 +523,16 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             repository.saveOrReplace(track)
             // Imported tracks join the session boost so they render without selecting or pinning.
             renderFocus.markTouched(track.id)
+        }
+        // A trip's own markers land with it, through the store that owns them, so its mutex
+        // serialises the writes and its change channel refreshes the marker list and the map. The
+        // markers arrive re-pointed at the imported track's own id, and a skipped duplicate carries
+        // none — nothing is ever written pointing at a track that was not persisted.
+        if (batch.markers.isNotEmpty()) {
+            val heldMarkerIds = markerRepository.loadAll().map { it.id }.toSet()
+            for (marker in batch.markers) {
+                if (marker.id in heldMarkerIds) markerRepository.update(marker) else markerRepository.add(marker)
+            }
         }
         refreshSummaries()
         return batch.result
