@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-11 17:15
+modified: 2026-10-11 19:16
 ---
 
 # Feature: Tracks
@@ -69,10 +69,12 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 
 ### marker-export-import
 
-Track export hardening (unique names, Windows-safe sanitization) + import modes (single GPX Skip/Update/New, ZIP silent skip) shipped; marker export/import pending.
+Track export hardening (unique names, Windows-safe sanitization) + import modes (single GPX Skip/Update/New, ZIP silent skip) shipped; the marker transfer and the trip carriage are now planned, in design and unwritten — the marker file takes user markers only and the auto ones ride their own track's file, a **reversal** of the 260831 plan's evaluation. This section's fold is held by the feature's open `## Walk`.
 
 #### Docs
-- `xTrack/Tracks/260831_FEAT_PLN_Tracks_marker-export-import.md` — plan
+- `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its auto markers: the payloads in a track's extensions, the `wpt` companions, the `trackId` remap, the keeper and skip rules (in design, 2026-10-11)
+- `xTrack/Tracks/260831_FEAT_PLN_Tracks_marker-export-import.md` — plan, superseded 2026-10-11 by the two plans of record
+- `xTrack/Markers/261011_FEAT_PLN_Markers_marker-import-export.md` — owned by Markers: the marker transfer itself
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/YYMMDD_FEAT_PLN_[Feature]_[topic].md`.
@@ -87,6 +89,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - A route and a recorded trip are named from the marker zones they met: an identified origin leads the name, the ranked body (top two) follows, and a distinct marked destination closes it; an end that is the boat's home port — inside the Port Salis geofence, or a label naming Salis — never names either kind.
 
 ## Docs
+- `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its auto markers: the payloads in a track's extensions and their `wpt` companions, the `trackId` remap on import, the keeper rule for a plain waypoint and the skip-consistency rule (in design, 2026-10-11)
 - `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the marker-zone naming design: the timed fusion, the name shape, and the origin-led chain with the Port Salis home port excluded (settled 2026-10-11)
 - `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — **the path render engine**: one painter for tracks and routes — the seam's `RenderPoint` / `LineRenderSpec` / `LineRenderPlan`, the `path.*` contract and its `pathKeyCandidates` cascade, the route parity (chevrons, speed bands and dash), the docs / rebuild-key / test pass and the grep guard (implementation landed; device pass owed); its `## Speed and arrow display` normalisation — per-axis global → kind → class tiers, the per-kind persisted settings and per-kind Settings split, the new `acquisition` class, `path.gate.*` retired — **shipped 2026-10-07**, uncommitted
 - `xTrack/Tracks/260618_FEAT_PLN_Tracks_TrackList_Design.md` — track list UI requirements

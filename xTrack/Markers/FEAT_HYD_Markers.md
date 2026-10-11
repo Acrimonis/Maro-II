@@ -1,10 +1,12 @@
 # Context Hydration — Markers — 2026-10-11
 
-**Last Bake:** 2026-10-11 18:44 UTC — written by `#bake` on `feature/mrkRs`; the same day's earlier bake (13:17, on `feature/mkrEl`) is folded in below rather than lost, and the line's absence means never baked.
+**Last Bake:** 2026-10-11 19:16 UTC — written by `#bake` on `feature/mrkr-imexport`, cut from `origin/develop` by the user's `#new`; that session shipped no code — it wrote the two plans of record and this bake. The same day's earlier bakes (18:44 on `feature/mrkRs`, 13:17 on `feature/mkrEl`) are folded in below rather than lost.
 
-**Directive trace:** All five covered action classes were met by both sessions and none stopped either — no dependency was added, no machine-shaped data file was opened, each branch was cut only on the user's own `#new`, every implementation ran on an explicit order (the direct instructions and the `#implement` pipeline, each hop through a mode hand-off), no device was touched by the agent (the user rebuilt, deployed and reported; no log was fetched), and every claim written about the code carries a file read behind it. One boundary was named rather than crossed: the `strokeAlpha` hits in `ui/icons/*.kt` are the generated Material icons' own API and were deliberately left alone.
+**Directive trace:** All five covered action classes were met by both sessions and none stopped either — no dependency was added, no machine-shaped data file was opened, each branch was cut only on the user's own `#new`, every implementation ran on an explicit order (the direct instructions and the `#implement` pipeline, each hop through a mode hand-off), no device was touched by the agent (the user rebuilt, deployed and reported; no log was fetched), and every claim written about the code carries a file read behind it. One boundary was named rather than crossed: the `strokeAlpha` hits in `ui/icons/*.kt` are the generated Material icons' own API and were deliberately left alone. The planning session that followed (`feature/mrkr-imexport`) wrote Markdown only — two plans, this hydration and the feature records — added no dependency, opened no machine-shaped file, touched no device, and its git writes ran on the user's own `#new` and `#commit`; every claim it wrote carries a file read.
 
 ## State
+
+**The transfer is planned, not built (2026-10-11, `feature/mrkr-imexport`).** The marker export/import is designed and unwritten: one GPX file per marker carrying a `<wpt>` at the marker's centre, a `<maro:markerData>` payload holding the whole `UserMarker` in protobuf and a `<maro:markerJson>` mirror of every field in readable JSON, with a ZIP of those files for a batch. The doors are a share action on the card, an export spec in the list's multi-select bar and a Markers transfer card in Settings; a single file matching an existing marker asks Duplicate / Override / Cancel while a ZIP always skips. The marker file exports **user markers only** — the auto ones ride the trip file of their own track, planned at `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md`, where the import rewrites their `trackId` to the imported track, skips them with a skipped duplicate and reads a plain waypoint as a keeper so the startup cleanup cannot delete it. The payload codec gets one home and `ImportMode` moves out of `data/track` to `data/model`; no code is written and no property key is added.
 
 Two sessions landed on 2026-10-11, each cut from `origin/develop` by the user's `#new` — `feature/mkrEl` (the focus framing) and `feature/mrkRs` (this one) — and this file is their union after `feature/mrkRs` was rebased onto `origin/develop`, the one conflict in shared code being `routeEndName`.
 
@@ -41,6 +43,8 @@ Two sessions landed on 2026-10-11, each cut from `origin/develop` by the user's 
 - `xTrack/Markers/261011_FEAT_PLN_Markers_routing-only-flag.md` · `xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md` — the two plans of record
 
 ## Next Step
+
+The marker transfer is the next work and it is unwritten: implement `xTrack/Markers/261011_FEAT_PLN_Markers_marker-import-export.md` on `feature/mrkr-imexport`, then the Tracks half in `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md`.
 
 Nothing is open in the code; `:app:assembleDebug`, the marker, track and matcher suites and `apk-build.bat` are all green. **Device passes are owed on both changes and are the user's**: the framed ring — a default circle (reach ≈ 4× radius) and a corridor — and, from this session, the wizard row's new placement, the card's ☑, and whether the hatch and the dash read at all against the tuned fill alpha.
 

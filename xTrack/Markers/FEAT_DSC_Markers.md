@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-11 18:37
+modified: 2026-10-11 19:16
 ---
 
 # Feature: Markers
@@ -94,6 +94,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - `app/src/main/assets/maro.properties`
 
 ## Docs
+- `xTrack/Markers/261011_FEAT_PLN_Markers_marker-import-export.md` — **marker export/import (in design, nothing implemented)**: the GPX waypoint with its protobuf payload and its readable mirror of every field, the ZIP batch, the doors, the Duplicate/Override/Cancel rule, and the user-markers-only set
 - `xTrack/Markers/261011_FEAT_PLN_Markers_routing-only-flag.md` — the routing-weight-only flag: the model field, the one exclusion predicate, the wizard row and card mark, the map cue (every ring dashed, every fill hatched), the `routingOnly` filter axis and the six paint keys
 - `xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md` — the focus framing now includes the proximity collar; the pin's zoom-in-only rule dropped
 - `xTrack/Markers/260929_FEAT_PLN_Markers_add-marker-trigger.md` — the shared create action in both markers headers, the rule dividing it from the read chrome, and the row's order
