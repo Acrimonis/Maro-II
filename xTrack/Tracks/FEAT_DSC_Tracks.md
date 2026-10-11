@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-10 14:19
+modified: 2026-10-11 17:15
 ---
 
 # Feature: Tracks
@@ -84,8 +84,10 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - GPS spike rejection uses four gates — a receiver-lock recovery skips the fix, a context cap separates sea from land (auto-detected), a direction check applies at sea only, and an acceleration limit rejects the fix; demo mode bypasses every gate.
 - Rejection compares on the GPS epoch timestamp, and the stillness policy still sees every fix — only point *recording* is gated.
 - The recording foreground service runs `START_STICKY` with a persistent, ongoing, low-importance notification ("Ready", or "Recording • speed • elapsed • distance", suffixed "(Demo)" outside GPS mode); update intents are throttled to 5 s.
+- A route and a recorded trip are named from the marker zones they met: an identified origin leads the name, the ranked body (top two) follows, and a distinct marked destination closes it; an end that is the boat's home port — inside the Port Salis geofence, or a label naming Salis — never names either kind.
 
 ## Docs
+- `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the marker-zone naming design: the timed fusion, the name shape, and the origin-led chain with the Port Salis home port excluded (settled 2026-10-11)
 - `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — **the path render engine**: one painter for tracks and routes — the seam's `RenderPoint` / `LineRenderSpec` / `LineRenderPlan`, the `path.*` contract and its `pathKeyCandidates` cascade, the route parity (chevrons, speed bands and dash), the docs / rebuild-key / test pass and the grep guard (implementation landed; device pass owed); its `## Speed and arrow display` normalisation — per-axis global → kind → class tiers, the per-kind persisted settings and per-kind Settings split, the new `acquisition` class, `path.gate.*` retired — **shipped 2026-10-07**, uncommitted
 - `xTrack/Tracks/260618_FEAT_PLN_Tracks_TrackList_Design.md` — track list UI requirements
 - `xTrack/Tracks/FEAT_DOC_Tracks_decisions.md` — comprehensive decisions record (7 categories, 40+ decisions); its §2.5 carries the process-death recovery dialog's three doors, wording and dismiss-still-saves rule
@@ -329,6 +331,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **origin-and-home-port naming (2026-10-11, `feature/troute-naming`)** — a route and a recorded trip now name their origin and never their home port. [`TrackNaming`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) composes the name as a chain — origin, then the ranked body, then the destination — each empty segment dropped, so a bodyless pair reads `<origin> to <destination>`; `select` now carries the origin out of the body into the name, and the new `namesHomePort` refuses an end inside the Port Salis geofence or one whose label carries `salis`. [`composeTripName`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) shows an identified origin and blanks a home-port end while still dropping its id from the body, and [`routeEndName`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) applies the same exclusion to a saved route. `apk-build.bat` SUCCESSFUL and the full suite green at **1142 tests**, 0 failures, 11 ignored; the device pass stays owed → [`261010_FEAT_PLN_Tracks_marker-zone-naming.md`](261010_FEAT_PLN_Tracks_marker-zone-naming.md)
 
 - **marker-zone naming (2026-10-10, `feature/rte-track-naming`)** — a recorded trip is now named from the marker zones it met: [`TrackNaming.kt`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) computes the ascending `Σ seconds × score` fusion over the raw points, keeps the top two, drops a shared loop endpoint, appends a distinct marked destination and trims in proportion with an ellipsis; the recorder names the trip live on its title poll and again at finalize, the comment falls back to the traversed markers, and a marker's own icon leads its name with one space. A saved route reads `<origin> to <destination>`, `From <origin>` or `To <destination>`, and keeps its dated `Route <instant>` name when nothing identifies either end; saving either kind toasts its own name; and `track.name.maxLength` stands at 254 against the file name's separate 100. `apk-build.bat` SUCCESSFUL and the full suite at **1099 tests**, its two reds the pre-existing palette mismatch `MapPulseDotTest` carries; the device pass stays owed → [`261010_FEAT_PLN_Tracks_marker-zone-naming.md`](261010_FEAT_PLN_Tracks_marker-zone-naming.md)
 

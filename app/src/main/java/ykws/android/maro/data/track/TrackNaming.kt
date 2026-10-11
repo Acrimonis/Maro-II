@@ -30,8 +30,11 @@ data class TripEnd(val markerId: String?, val label: String)
 fun markerLabel(name: String, icon: String?): String =
     if (icon.isNullOrBlank()) name else "$icon $name"
 
-/** A name's two halves before they are joined: the ranked body and the closing destination. */
-data class NameShape(val body: List<String>, val destination: String?)
+/**
+ * A name's segments before they are joined: the origin, the ranked body and the closing
+ * destination, each absent when nothing names it.
+ */
+data class NameShape(val origin: String?, val body: List<String>, val destination: String?)
 
 /**
  * The pure half of a trip's name: the time-weighted ranking its markers are chosen by, the shape
@@ -48,6 +51,24 @@ object TrackNaming {
 
     /** The separator between body markers. */
     private const val SEPARATOR = ", "
+
+    /** The fragment marking the boat's own home port in a label (settled 2026-10-11). */
+    private const val HOME_PORT_LABEL = "salis"
+
+    /**
+     * True when an end must not name a route or a trip: the boat's own home port, told either by
+     * the place — [lat]/[lon] inside the Port Salis geofence — or by the label itself naming Salis
+     * (settled 2026-10-11).
+     */
+    fun namesHomePort(
+        lat: Double,
+        lon: Double,
+        label: String,
+        homeLat: Double,
+        homeLon: Double,
+        homeRadiusM: Double
+    ): Boolean = label.contains(HOME_PORT_LABEL, ignoreCase = true) ||
+        TrackGeofenceChecker.isInsideGeofence(lat, lon, homeLat, homeLon, homeRadiusM)
 
     /**
      * The timed score of every marker the trip met: for each marker, the sum over the trip's
@@ -84,12 +105,12 @@ object TrackNaming {
     }
 
     /**
-     * The body and the destination a name will show, chosen from the ranked markers and the trip's
-     * two resolved ends (settled 2026-10-10).
+     * The origin, body and destination a name will show, chosen from the ranked markers and the
+     * trip's two resolved ends (settled 2026-10-11).
      *
      * A [leading] marker — a registered stop's own — takes the first slot by rule rather than by
-     * score. Both ends are then dropped from the body, because a distinct destination closes the
-     * name instead and a shared loop endpoint is not repeated. The body is capped at [MAX_BODY].
+     * score. Both ends are then dropped from the body, since the origin now leads the name and a
+     * distinct destination closes it. The body is capped at [MAX_BODY].
      *
      * @param destination `null` when the destination is the same marked place as the origin, which
      *                    is how a loop drops its shared endpoint.
@@ -106,62 +127,55 @@ object TrackNaming {
             .distinctBy { it.markerId }
             .take(MAX_BODY)
             .map { it.label }
-        return NameShape(body = body, destination = destination?.label)
+        return NameShape(
+            origin = origin.label.takeIf { it.isNotBlank() },
+            body = body,
+            destination = destination?.label?.takeIf { it.isNotBlank() }
+        )
     }
 
     /**
-     * The name the shape composes, in the fixed form `marker#1, marker#2` or
-     * `marker#1, marker#2 to Dest` (settled 2026-10-10).
+     * The name the shape composes, as a chain of segments — the origin, the ranked body and the
+     * destination, each dropped when empty and the survivors joined by [connector] (settled
+     * 2026-10-11): `<origin> to <body#1>, <body#2> to <destination>`, so a bodyless pair reads
+     * `<origin> to <destination>`, a pair with no origin reads `<body> to <destination>`, and a
+     * lone segment stands alone.
      *
-     * When the destination is the only marker the name is the destination alone, with no connector;
-     * when nothing is left the result is empty and the caller falls back to the timestamp.
+     * When the whole exceeds [maxLength] every part is cut in proportion to its own length, an
+     * ellipsis marking each cut; nothing left means an empty result and the caller falls back to
+     * the timestamp.
      *
      * @param connector the language's own word — `to` or `à` — supplied by the caller: a track's
-     *                  name is data, and this is the one place it carries literal UI text, so the
-     *                  word travels with the name it was written into.
-     * @param maxLength the cap the list card and the exported file name both have to live within,
-     *                  beyond which every token is cut in proportion to its own length.
+     *                  name is data, and this is the one place it carries literal UI text.
+     * @param maxLength the cap the list card and the exported file name both have to live within.
      */
     fun compose(
+        origin: String?,
         body: List<String>,
         destination: String?,
         connector: String,
         maxLength: Int
     ): String {
+        val head = origin?.trim()?.takeIf { it.isNotEmpty() }
         val tokens = body.map { it.trim() }.filter { it.isNotEmpty() }.take(MAX_BODY)
         val tail = destination?.trim()?.takeIf { it.isNotEmpty() }
-        return when {
-            tokens.isEmpty() && tail == null -> ""
-            tokens.isEmpty() -> tail!!
-            tail == null -> fit(tokens, null, connector, maxLength)
-            else -> fit(tokens, tail, connector, maxLength)
-        }
-    }
+        val bodyText = tokens.joinToString(SEPARATOR)
+        // The segments as they will read; an empty one contributes nothing, so the name is the
+        // survivors' chain.
+        val segments = listOfNotNull(head, bodyText.takeIf { it.isNotEmpty() }, tail)
+        if (segments.isEmpty()) return ""
 
-    /**
-     * Joins the parts and, when the whole exceeds [maxLength], cuts each part in proportion to its
-     * own length until it fits, marking every cut part with [ELLIPSIS] (settled 2026-10-10). The
-     * connector rides at the head of the destination part, so a cut there never leaves the word
-     * dangling.
-     */
-    private fun fit(
-        body: List<String>,
-        destination: String?,
-        connector: String,
-        maxLength: Int
-    ): String {
-        val tail = destination?.let { "$connector $it" }
-        // The body's markers take the separator; the destination closes the name on a single space.
-        val overhead = SEPARATOR.length * (body.size - 1) +
-            if (tail != null && body.isNotEmpty()) 1 else 0
-        val trimmed = trimProportionally(body + listOfNotNull(tail), maxLength - overhead)
-        val head = trimmed.take(body.size).joinToString(SEPARATOR)
-        val closing = trimmed.getOrNull(body.size)
-        return when {
-            closing == null -> head
-            head.isEmpty() -> closing
-            else -> "$head $closing"
-        }
+        // Each segment is one part; a join carries the connector, a body token the separator.
+        val parts = listOfNotNull(head) + tokens + listOfNotNull(tail)
+        val overhead = (segments.size - 1) * (connector.length + 2) +
+            (tokens.size - 1).coerceAtLeast(0) * SEPARATOR.length
+        val trimmed = trimProportionally(parts, maxLength - overhead)
+        var i = 0
+        val trimmedHead = head?.let { trimmed[i++] }
+        val trimmedBody = tokens.map { trimmed[i++] }.joinToString(SEPARATOR)
+        val trimmedTail = tail?.let { trimmed[i++] }
+        return listOfNotNull(trimmedHead, trimmedBody.takeIf { it.isNotEmpty() }, trimmedTail)
+            .joinToString(" $connector ")
     }
 
     /**

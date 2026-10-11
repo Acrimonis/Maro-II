@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Tracks — naming a recorded trip from the markers it entered, weighted by time
 
-**Status:** design, in discussion — 2026-10-10, branch `feature/rte-track-naming`. Nothing implemented; every rule below is settled except the items under §5.
+**Status:** shipped — §1–§4 and §9–§10 landed 2026-10-10 on `feature/rte-track-naming`; §11, the origin-led chain and the home port, added 2026-10-11 on `feature/troute-naming`; the residual items under §5 stand open except the source end.
 
 ## 1. The rule
 
@@ -44,7 +44,7 @@ When the title has **no marker at all**, the list of zones traversed is written 
 
 ## 5. Open decisions
 
-- **The source end** — excluded from the body like the destination, or allowed to rank in it.
+- **The source end** — **closed 2026-10-11:** it leads the name rather than ranking in the body (§11), and it is still dropped from the body as an end.
 - **The comment fallback's exact shape** — conditional on a marker-free title, or always appended.
 - **The geofence as the same-place test** — its meaning when the geofence is disabled, or when the trip is nowhere near Port Salis.
 - **Replace or sit beside the old tiers** — whether the new name replaces `computeFinalTitle`'s diving-manual-idle ladder or runs next to it.
@@ -80,7 +80,16 @@ A route saved as a track is named from its two ends rather than the dated `Route
 
 A track or a route just written names itself in a two-second toast — `"%s" saved` / `"%s" enregistré` — through the app's own [`MapStatusBanner`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:5174) idiom, the same one the route refusal already wears, rather than a platform Toast. The recording's save rides the recorder's `Finalized` event, which now carries the saved name; the route's save rides `writeRouteTrack`.
 
+## 11. The origin and the home port (settled 2026-10-11)
+
+- **The source end leads the name** — the §5 question is closed on the side of showing it, so a route and a trip read alike: the name is the chain `<origin> to <body> to <destination>`, every empty segment dropped.
+- **The form is a chain of segments** — origin, the `, `-joined body (top two), destination — the survivors joined by the locale's connector: `<ori> to <#1>, <#2> to <dest>`; `<#1>, <#2> to <dest>` with no origin; `<ori> to <#1>, <#2>` with no destination; `<ori> to <dest>` with no body; and a lone segment standing alone.
+- **The home port never names anything** — an end inside the Port Salis geofence (`track.originLat` / `track.originLon` / `track.geofenceRadiusM`) or one whose label carries `salis` is excluded from both ends of both kinds; a trip's home-port end keeps its id, so the body still drops it as an end.
+- **One home** — the exclusion is `TrackNaming.namesHomePort`, read by the recorder's `composeTripName` and by the route's `routeEndName`.
+
 ## Implemented
+
+- **Origin and home port (2026-10-11, `feature/troute-naming`):** `TrackNaming.compose` takes the origin and joins the segments, `select` carries the origin out of the body, and `namesHomePort` is the exclusion's one home; the recorder shows an identified origin and blanks a home-port end, and `routeEndName` excludes it for a saved route. `apk-build.bat` SUCCESS and the full suite green at 1142 tests.
 
 - **Shipped** (2026-10-10, `feature/rte-track-naming`): [`TrackNaming`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) computes the ascending `Σ seconds × score` fusion, selects the body and the destination, and trims in proportion with an ellipsis; [`TrackRecorder`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:1488) names the trip live on the title poll and again at finalize over the raw points, with the comment falling back to the traversed markers when no name forms; [`MapScreen`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2311) names a saved route `from to destination` through `routeEndLabel`; `snackbar_saved` toasts the written track or route; and `track.name.maxLength` stands at 254 against the file name's separate 100.
 - **Deviations:** no `MarkerSetProvider` was added — the recorder already holds `whereAmI`, so the per-point matches come from the seam that exists; `MarkerMatcher.markerOf`/`sortScore` were widened from private to `internal` instead of the plan's read-only promise; and the icon prefix, the geofence-as-same-place test and the `Route ` prefix shipped as defaults rather than as decided rules.

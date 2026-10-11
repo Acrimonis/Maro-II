@@ -1,27 +1,25 @@
-# Context Hydration — Tracks — 2026-10-10
+# Context Hydration — Tracks — 2026-10-11
 
-**Last Bake:** 2026-10-10 14:19 UTC — written by `#bake`; the branch has since taken `origin/develop` in merge `d83cb068`, whose one conflict was the global context's own stack and summary rows.
+**Last Bake:** 2026-10-11 17:15 UTC — written by `#bake`; the branch is `feature/troute-naming`, cut from `origin/develop` by the user's `#new` and still without an upstream.
 
-**Directive trace:** no covered action stopped and nothing was bent: no dependency was added, no machine-shaped data file was opened, and the device was not touched — the naming was judged on `apk-build.bat` and the unit suite, so the device pass stays owed. Every claim about the code came from a file read or a command's own output, and the two failing tests were read and traced to a palette commit this branch never touches, named as pre-existing rather than fixed here. The git writes are the user's: `#commit` ran once for the plan, and this session's pair runs on their word.
+**Directive trace:** no covered action stopped and nothing was bent: no dependency was added, no machine-shaped data file was opened, and the device was not touched — the naming was judged on `apk-build.bat` and the full unit suite, so the device pass stays owed. Every claim about the code came from a file read or a command's own output. The one gate asked was a genuine ambiguity — how the origin joins a name, and what "around La Salis" means — put to the user before any edit; the git writes are the user's, and `#commit` / `#push` ran on their word.
 
 ## State
 
-A recorded trip and a saved route are both named on `feature/rte-track-naming`. **A trip is named from the marker zones it met**, ranked by the ascending `Σ seconds × score` fusion over its raw points, capped at two, with a shared loop endpoint dropped, a distinct marked destination appended, and every token trimmed in proportion with an ellipsis. The naming runs live on the recorder's title poll and again at finalize, the comment falls back to the traversed markers when no name forms, and a marker's own icon leads its name with one space through the single helper `markerLabel`. **A saved route** reads `<origin> to <destination>`, `From <origin>` or `To <destination>`, keeping its dated `Route <instant>` name when nothing identifies either end; saving either kind toasts its own name in the locale's own words. `apk-build.bat` is SUCCESSFUL and the full suite reads **1099 tests**, its two reds the pre-existing `MapPulseDotTest` palette mismatch.
+A route and a recorded trip are both named on `feature/troute-naming`. **A name is a chain of segments** — the origin, then the ranked body (top two), then the destination — each empty one dropped and the survivors joined by the locale's connector, so a bodyless pair reads `<origin> to <destination>`, a pair with no origin reads `<body> to <destination>` and a lone segment stands alone. **The boat's home port never names anything**: an end inside the Port Salis geofence, or one whose label carries `salis`, is excluded from both ends of both kinds through the single `TrackNaming.namesHomePort`, and a trip's home-port end keeps its id so the body still drops it as an end. `TrackNaming.select` now carries the origin out of the body into the name, `TrackRecorder.composeTripName` shows an identified origin, and `MapScreen`'s `routeEndName` applies the same exclusion to a saved route. `apk-build.bat` SUCCESSFUL and the full suite green at **1142 tests**, 0 failures, 11 ignored.
 
-**Open and recorded.** The **device pass is owed** over the live name, the route's three forms and the save toast. The stop tiers in `pollTitle` and `computeFinalTitle` still spell the icon without the space, so one rule wears two spellings until both read `markerLabel`. The plan's own residual decisions stand: the source end, the comment fallback's shape, the geofence-off case, whether the new name replaces the old tiers, which place owns the two-name cap, and whether the `Route ` prefix survives. The epic's requirements are not yet updated for the settled rules.
+**Open and recorded.** The **device pass is owed** over a trip's live name, the route's three forms and the home-port exclusion. The plan's §5 questions stand except the source end, now closed by its §11; the two-marker body cap was left unchanged because the origin is its own segment, and the home-port test reads the geofence regardless of `trackGeofenceEnabled`. **An open `## Walk` stands in the feature file** — the 2026-09-14 / 09-15 / 09-22 levels, some items parked — so `#bake`'s section-fold was reported and skipped.
 
 ## Target Files
 
-- `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the plan, its `## Implemented` included
-- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — the fusion, the shape, the trim, `markerLabel`
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — the live title poll and the finalize pass over the raw points
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeEndName`, `composeRouteName` and the save toast
-- `app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt` — `Finalized` now carrying the saved name
-- `app/src/main/assets/maro.properties`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `track.name.maxLength` at 254
-- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the connector, the saved toast and the From/To forms
-- `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt` — `markerOf` / `sortScore` widened to `internal`
-- `app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt` — the fusion, the shape, the trim and `markerLabel`
+- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — the chain `compose`, the origin in `select`, `namesHomePort`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — `composeTripName` and `unlessHomePort`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeEndName`, `composeRouteName`
+- `app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt` — the chain shapes and `namesHomePort`
+- `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the plan, its §11 and `## Implemented`
+- `xTrack/Tracks/FEAT_DSC_Tracks.md` — the feature's Rules, Docs and Implemented
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the connector and the From / To forms (read, unchanged)
 
 ## Next Step
 
-Take the owed device pass over the naming — a trip's live name growing, a route's three forms and the save toast in both locales — and settle the plan's residual decisions; the branch's fate is the user's call.
+Take the owed device pass over the naming — a trip's live name with its origin, a route's forms and the home-port exclusion — and settle the plan's residual §5 decisions; the feature file's open walk is the next thing to close.

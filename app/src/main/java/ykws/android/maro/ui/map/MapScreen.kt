@@ -2355,21 +2355,28 @@ fun MapScreen(
                     selection = routeStartSelection,
                     endPoint = plan.points.firstOrNull(),
                     markers = routeMarkers,
+                    homePortLat = appSettings.trackOriginLat,
+                    homePortLon = appSettings.trackOriginLon,
+                    homePortRadiusM = appSettings.trackGeofenceRadiusM,
                     whereAmI = markersViewModel::whereAmISync
                 )
                 val destination = routeEndName(
                     selection = routeDestinationSelection,
                     endPoint = plan.points.lastOrNull(),
                     markers = routeMarkers,
+                    homePortLat = appSettings.trackOriginLat,
+                    homePortLon = appSettings.trackOriginLon,
+                    homePortRadiusM = appSettings.trackGeofenceRadiusM,
                     whereAmI = markersViewModel::whereAmISync
                 )
                 // Both ends named read "A to B"; one named end reads From or To alone; neither
                 // named leaves the route to its own dated name rather than an unnamed pair
-                // (settled 2026-10-10).
+                // (settled 2026-10-10; the origin joins the naming 2026-10-11).
                 val raw = when {
                     origin != null && destination != null ->
                         ykws.android.maro.data.track.TrackNaming.compose(
-                            body = listOf(origin),
+                            origin = origin,
+                            body = emptyList(),
                             destination = destination,
                             connector = routeNameConnector,
                             maxLength = AppConfig.trackNameMaxLength
@@ -5262,12 +5269,17 @@ private fun MapContent(
  * own icon where one was set.
  *
  * `null` when no marker names the end — the drawer's fixed `Current position` / `Marker position`
- * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder.
+ * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder —
+ * and `null` again when the end is the boat's own home port, told by the place or by the name
+ * itself (settled 2026-10-11).
  */
 private fun routeEndName(
     selection: RouteEndSelection,
     endPoint: RoutePoint?,
     markers: List<UserMarker>,
+    homePortLat: Double,
+    homePortLon: Double,
+    homePortRadiusM: Double,
     whereAmI: ((LatLng) -> ykws.android.maro.spatial.WhereAmIResult)?
 ): String? {
     val zone = endPoint?.let { point ->
@@ -5281,7 +5293,14 @@ private fun routeEndName(
     }
     val named = zone ?: (selection as? RouteEndSelection.Marker)
         ?.let { flagged -> markers.firstOrNull { it.id == flagged.markerId } }
-    return named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) }
+    val label = named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) } ?: return null
+    val homePort = endPoint?.let { point ->
+        ykws.android.maro.data.track.TrackNaming.namesHomePort(
+            point.latitude, point.longitude, label,
+            homePortLat, homePortLon, homePortRadiusM
+        )
+    } ?: false
+    return if (homePort) null else label
 }
 
 /**
