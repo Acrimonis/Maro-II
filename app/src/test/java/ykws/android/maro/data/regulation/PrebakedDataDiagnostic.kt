@@ -5,18 +5,26 @@ import ykws.android.maro.data.model.LatLng
 import java.io.File
 
 /**
- * Diagnostic: read the prebaked .bin file and for each zone print centroid,
- * description, display categories, and whether it contains the La Salis point.
+ * Diagnostic (not a test): read the prebaked `.bin` and report the zones that
+ * contain a probe point, then dump every zone by type.
  *
- * Run: `gradlew testDebugUnitTest --tests "*PrebakedDataDiagnostic*" --rerun-tasks -Dmaro.repoDir="."`
+ * Run:
+ *   gradlew testDebugUnitTest --tests "*PrebakedDataDiagnostic*" --rerun-tasks
+ *       -Dmaro.point=43.530864,7.034939
+ *
+ * `maro.point` is `<lat>,<lon>` and defaults to La Salis (Cannes).
  */
 class PrebakedDataDiagnostic {
 
-    /** La Salis port (Cannes) — approximate boat position reported by user */
-    private val laSalisPoint = LatLng(latitude = 43.549, longitude = 7.019)
+    /** Probe point: `<lat>,<lon>` via `-Dmaro.point`, else La Salis (Cannes). */
+    private val probePoint: LatLng = System.getProperty("maro.point")
+        ?.split(',')
+        ?.takeIf { it.size == 2 }
+        ?.let { LatLng(it[0].trim().toDouble(), it[1].trim().toDouble()) }
+        ?: LatLng(latitude = 43.549, longitude = 7.019)
 
     @Test
-    fun `dump prebaked regulated zone centroids with descriptions`() {
+    fun `dump prebaked regulated zones containing the probe point`() {
         val repoDir = File(System.getProperty("maro.repoDir") ?: "..")
         val binFile = File(repoDir, "data/app-assets/regulated-zones/nice-menton.bin")
 
@@ -28,48 +36,52 @@ class PrebakedDataDiagnostic {
 
         val bytes = binFile.readBytes()
         val zoneSet = RegulatedZoneSerializer.deserialize(bytes)
-        println("=" .repeat(100))
-        println("  PREBAKED DATA DIAGNOSTIC — La Salis focus")
+        println("=".repeat(100))
+        println("  PREBAKED DATA DIAGNOSTIC — probe point")
         println("  File: ${binFile.absolutePath}")
         println("  Size: ${binFile.length()} bytes")
         println("  Zones: ${zoneSet.zones.size}")
-        println("  La Salis point: (${laSalisPoint.latitude}, ${laSalisPoint.longitude})")
-        println("=" .repeat(100))
+        println("  Probe point: (${probePoint.latitude}, ${probePoint.longitude})")
+        println("=".repeat(100))
 
-        println("\n  Zones containing La Salis point (boat is INSIDE these):")
+        println("\n  Zones containing the probe point:")
         var containsCount = 0
         for ((i, zone) in zoneSet.zones.withIndex()) {
-            if (zone.contains(laSalisPoint)) {
+            if (zone.contains(probePoint)) {
                 containsCount++
                 val c = centroid(zone)
                 val cats = zone.displayCategories().joinToString(", ") { it.name }
-                println("    #${i + 1} [${zone.zoneType.name.padEnd(25)}] " +
-                        "centre=(${"%.4f".format(c.latitude)}, ${"%.4f".format(c.longitude)})")
+                println(
+                    "    #${i + 1} [${zone.zoneType.name.padEnd(25)}] " +
+                        "speed=${zone.speedLimitKn}  source=${zone.source}  ref=${zone.sourceRef}"
+                )
                 println("         name=\"${zone.name}\"")
-                println("         desc=\"${zone.description.take(120)}\"")
-                println("         speed=${zone.speedLimitKn}  categories=[$cats]")
+                println("         centre=(${"%.4f".format(c.latitude)}, ${"%.4f".format(c.longitude)})")
+                println("         categories=[$cats]")
+                val desc = zone.description.replace("\n", " | ").take(160)
+                if (desc.isNotBlank()) println("         desc=\"$desc\"")
             }
         }
-
         if (containsCount == 0) {
-            println("    ⚠️  NONE — boat is not inside any zone polygon")
+            println("    (none)")
         }
 
         println("\n  All zones (sorted by type):")
         val byType = zoneSet.zones.groupBy { it.zoneType }
         for ((type, list) in byType.entries.sortedBy { it.key.name }) {
-            println("\n  ▶ ${type.name} (${list.size})")
+            println("\n  > ${type.name} (${list.size})")
             for ((i, zone) in list.withIndex()) {
                 val c = centroid(zone)
-                val cats = zone.displayCategories().joinToString(", ") { it.name }
-                val inLaSalis = if (zone.contains(laSalisPoint)) " ★ INSIDE La Salis" else ""
-                println("    ${i + 1}. centre=(${"%.4f".format(c.latitude)}, ${"%.4f".format(c.longitude)}) " +
-                        "v=${zone.outerRing.size} cats=[$cats]$inLaSalis")
-                val desc = zone.description.take(100)
+                val inside = if (zone.contains(probePoint)) " <-- CONTAINS PROBE" else ""
+                println(
+                    "    ${i + 1}. [${zone.zoneType.name}] speed=${zone.speedLimitKn} " +
+                        "centre=(${"%.4f".format(c.latitude)}, ${"%.4f".format(c.longitude)}) " +
+                        "v=${zone.outerRing.size}$inside"
+                )
+                val desc = zone.description.replace("\n", " | ").take(140)
                 if (desc.isNotBlank()) println("         desc=\"$desc\"")
             }
         }
-
         println()
     }
 

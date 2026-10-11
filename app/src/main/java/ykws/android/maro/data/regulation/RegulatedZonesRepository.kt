@@ -40,11 +40,30 @@ class RegulatedZonesRepository(
             context.assets.open(assetPath()).use { stream ->
                 val bytes = stream.readBytes()
                 val parsed = RegulatedZoneSerializer.deserialize(bytes)
-                _zoneSet.value = parsed
+                val overrides = readOverrides(context)
+                val applied = RegulationSpeedOverrides.apply(parsed.zones, overrides)
+                _zoneSet.value = parsed.copy(
+                    zones = applied,
+                    metadata = parsed.metadata.copy(totalZones = applied.size)
+                )
             }
         } catch (_: Exception) {
             // No baked asset or corrupt — regulated zones overlay is simply absent.
             _zoneSet.value = null
         }
+    }
+
+    /**
+     * The hand-edited speed overrides and ignore flags shipped as the
+     * `zones.properties` asset next to `maro.properties` (see
+     * [RegulationSpeedOverrides]). Best-effort: a missing or unreadable file
+     * yields no overrides, so the raw baked set is used as-is.
+     */
+    private fun readOverrides(context: Context): RegulationSpeedOverrides.Overrides = try {
+        context.assets.open(RegulationSpeedOverrides.FILE_NAME).use {
+            RegulationSpeedOverrides.load(it)
+        }
+    } catch (_: Exception) {
+        RegulationSpeedOverrides.Overrides(emptyMap(), emptyMap())
     }
 }

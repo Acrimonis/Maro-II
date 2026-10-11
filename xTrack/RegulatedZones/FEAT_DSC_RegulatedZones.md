@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-09-16 17:10
+modified: 2026-10-10 21:05
 ---
 
 # Feature: RegulatedZones
@@ -11,20 +11,6 @@ modified: 2026-09-16 17:10
 French coastal waters (Nice–Fréjus corridor) have numerous regulated zones: speed limitations, anchoring restrictions, access prohibitions, environmental protection areas. Published by SHOM via REST/WFS and by DIRM Méditerranée / data.gouv.fr. Goal: gather, aggregate, and model these zones into a structured, serialized dataset prebaked as a bundled asset and rendered as a map overlay. The app is a pure consumer — all gathering at build time. Key constraint: the boat is <6 m, so vessel-size restrictions must be captured and filterable.
 
 ## Sections
-
-### data-lookup
-
-Source discovery (SHOM WFS/INSPIRE), `RegulatedZone` data model + Protobuf, `ShomRegulationClient`, aggregation/dedup with seed fallback, and prebake.
-
-#### Todos
-- [ ] Build bake script `tools/bake-regulated-zones.bat` calling the prebake test
-
-#### Rules
-- Follow the prebake pattern; best-effort fetch (seeds provide baseline); no redistribution; bbox = Nice–Fréjus corridor
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/data/regulation/{RegulatedZone,ShomRegulationClient,RegulationAggregator,RegulatedZoneSerializer}.kt`
-- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt`
 
 ### trouble-shoot-reg-layers
 
@@ -91,12 +77,15 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 
 ## Implemented
 
+- **speed-override-family (2026-10-10, `feature/zonetile`)** — the regulated-zone set is now controlled app side by the `zones.properties` asset shipped next to `maro.properties`: `RegulatedZonesRepository.load` reads it and applies two hand-edited key families to the deserialized `.bin` — `regulatedZone.speedOverride.<key>` replaces the limit (a value on a zone with none makes it a speed zone) and `regulatedZone.ignore.<key>=true` drops the zone so the map, warning strip and speed engine never see it. The bake only seeds the file, one entry per aggregated zone, speed or not: `RegulationSpeedOverrides` folds the key to ASCII (inspireid, else decree ref, else name + centroid slug), preserves an existing entry's comment text, value and flag so a manual renaming survives, appends new zones and comments a vanished zone `# stale`. → `xTrack/RegulatedZones/261010_FEAT_PLN_RegulatedZones_speed-override-family.md`
 - **zones-transparency (2026-09-18, `feature/zones-transparency-settings`)** — `drawRegulatedZones()` no longer bakes its own alphas: the polygon fill and outline alpha now come from the user's transparency pair (`regulatedZoneFillTransparencyPct` default 80, `regulatedZoneBoundaryTransparencyPct` default 20, set by the Regulated Zones Appearance row in Settings), derived through the shared `transparencyPctToAlpha`, and `regulatedZoneColor()` returns the per-type hue alone — the `RegulationZoneColor` pair is gone. The icon stack is untouched: it paints opaque category colours. → `xTrack/Ui_Settings/260918_FEAT_PLN_Ui_Settings_regulated-zones-transparency.md`
 - **display-layer** — `RegulatedZonesRepository` asset loader + 8-type colour palette + `drawRegulatedZones()` + visibility toggle + layer button
 - **toggle-control-merge** — 4-state cycle button (`ZoneLayerButton` / `ZoneLayerState`) + settings toggle; `maro.properties` defaults
 - **preparation-for-icons-layout** — GPS icon moved top-left beside EarthWater; icon transparency properties
 - **multi-source-normalization** — `RegulationClassification` + enhanced speed extraction (CATREA/RESTRN/INFORM/TXTDSC) + IGN Carto Nature (Natura 2000) + 3-way dedup
 - **tag-stack-trigger (2026-09-16, `feature/tracking-more`)** — the bottom-left tags stopped riding the layer's visibility: their set is derived from the Zone categories settings, they are tested against the marker rather than the boat, and the band sign gets its own band result at that point (`markerInZone300`), so the dashboard keeps the boat while the stack answers what the user is looking at. `MapContent`'s `boatPosition` parameter is gone. → `xTrack/RegulatedZones/260916_FEAT_PLN_RegulatedZones_tag-stack-trigger.md`
+- **restriction-table-fix (2026-10-10, `feature/zonetile`)** — the restriction code is S-57 RESTRN, and `parseRestrictionCode` (INSPIRE `restrn`) and `parseRestrnAuth` (auth `RESTRN`) now read ONE table, `restrictionType`; the earlier S-101 reading had `1 = speed`, which made every public-endpoint anchoring zone a speed zone — verified against the baked source (1/2 = anchoring, 7/8 = entry/access, 11/12 = diving) and corrected, with `RegulatedZone`'s field doc and `displayCategories()`'s diving check following. → `xTrack/RegulatedZones/261010_FEAT_PLN_RegulatedZones_speed-override-family.md`
+- **data-lookup** — the SHOM WFS/INSPIRE clients, the `RegulatedZone` model with its Protobuf serializer, the aggregator's dedup/validate/sort and the prebake entry point, driven by `tools/bake-regulated-zones.bat`
 
 ## Rules
 - Personal-use app — regulatory data fetched offline, not redistributed
@@ -105,6 +94,10 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - The warning strip sits bottom-left, is fed by the zones that contain the boat, dedupes by display category and speed, and suppresses the regulated speed tags while the 300 m band is in force (promoted from the retired icon-warnings plan)
 - Two points, on purpose: the stack answers for the marker and the dashboard for the boat. The tags are fed `mapCenter` and their own band result (`markerInZone300`) — never the pipeline's `inZone300`, and never gated by the layer's visibility, which gates the polygons only
 - The 300 m sign is unconditional: it ignores the Zone categories toggles by design, where every other tag follows them
+- A manual speed value lives in the `zones.properties` asset next to `maro.properties`, under `regulatedZone.speedOverride.<key>`, seeded add-only by the bake and applied at runtime by `RegulatedZonesRepository`; a value on a zone with none makes it a speed zone at that value, and the runtime `effectiveSpeedLimitKn()` re-maps still run after it, so a zone it matches needs that predicate reconciled too
+- A zone is hidden by `regulatedZone.ignore.<key>=true` in the same asset: the repository drops it before the set is published, so the map overlay, warning strip and speed engine never see it, and the entry stays in the file so the flag can be flipped back
+- The restriction code is S-57 RESTRN, and one table (`restrictionType()`) is read by both the INSPIRE `restrn` and the auth `RESTRN`: 1/2 anchoring, 3-6 fishing, 7/8 entry (access), 10-12 dredging/diving, 18 mooring, 27 navigation, 28 marine nature reserve — the earlier S-101 reading of `restrn` was wrong
+- Gather and aggregate on the prebake pattern: best-effort fetch with the aggregator's dedup/validate/sort, no redistribution, bbox = the Nice–Menton corridor (6.7–7.6°E, 43.4–43.8°N)
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/regulation/` — model, clients, aggregator, serializer, repository
@@ -122,6 +115,7 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_vessel-filter-design.md`
 - `xTrack/RegulatedZones/260916_FEAT_PLN_RegulatedZones_tag-stack-trigger.md`
 - `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` — companion plan, Step 2
+- `xTrack/RegulatedZones/261010_FEAT_PLN_RegulatedZones_speed-override-family.md`
 
 ## Walk
 

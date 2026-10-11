@@ -98,7 +98,7 @@ data class RegulatedZone(
     @ProtoNumber(7) val sourceRef: String = "",
     @ProtoNumber(8) val description: String = "",
     @ProtoNumber(9) val vesselSizeRestriction: VesselSizeRestriction? = null,
-    /** Raw SHOM S-101 restriction code integer, e.g. 1=speed, 7=no-anchor, 25=diving, 28=environment. */
+    /** Raw SHOM S-57 RESTRN integer, e.g. 1/2 = anchoring, 7/8 = entry (access), 11/12 = diving, 28 = marine nature reserve. */
     @ProtoNumber(10) val restrictionCode: Int? = null,
     /** Provenance-aware classification — see [RegulationClassification]. */
     @ProtoNumber(11) val classification: RegulationClassification? = null,
@@ -300,9 +300,9 @@ fun RegulatedZone.displayCategories(): Set<ZoneDisplayCategory> {
     ) cats += ZoneDisplayCategory.NO_ANCHOR
 
     // ── Diving / plongée ───────────────────────────────────────────────────
-    // Also check restrictionCode == 10 (S-101: prohibited area, often diving)
+    // Also check the S-57 diving codes (11 prohibited, 12 restricted)
     val divingDesc = "diving" in desc || "plongée" in desc || "subaquatique" in desc
-    if (divingDesc || restrictionCode == 10) cats += ZoneDisplayCategory.NO_DIVING
+    if (divingDesc || restrictionCode == 11 || restrictionCode == 12) cats += ZoneDisplayCategory.NO_DIVING
 
     // ── Small craft mooring / amarrage ──────────────────────────────────────
     if (zoneType == RegulatedZoneType.MOORING ||

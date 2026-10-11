@@ -108,6 +108,72 @@ class ShomRegulationClientParsingTest {
     }
 
     @Test
+    fun `INSPIRE restrn 1 is an anchoring prohibition, not a speed zone`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {
+              "restrn": "1",
+              "inform": "In this area, anchoring is prohibited (see French sailing directions).",
+              "id_reglementation": "ANC-002"
+            }
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(RegulatedZoneType.ANCHORING_PROHIBITED, zones.first().zoneType)
+        assertEquals(null, zones.first().speedLimitKn)
+    }
+
+    @Test
+    fun `INSPIRE restrn 7 is an access prohibition`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {"restrn": "7"}
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(RegulatedZoneType.ACCESS_PROHIBITED, zones.first().zoneType)
+    }
+
+    @Test
+    fun `literal null text properties are dropped`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {"type_reglementation": "mouillage", "objnam": null, "inform": null}
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        assertEquals("", zones.first().name)
+        assertEquals("", zones.first().description)
+    }
+
+    @Test
     fun `parse access prohibition zone`() = runBlocking {
         val json = """
         {

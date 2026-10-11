@@ -61,8 +61,17 @@ class RegulatedZonePrebakeTest {
         )
         println("[prebake] Aggregated: ${zoneSet.metadata.totalZones} zones after dedup")
 
+        // ── 4. Seed the app-side override file ─────────────────────────────────
+        // One entry per zone (add-only). The app applies the speed overrides and
+        // ignore flags at runtime from app/src/main/assets/zones.properties, so
+        // the serialized .bin keeps the raw set.
+        val zonesFile = RegulationSpeedOverrides.file(repoDir)
+        RegulationSpeedOverrides.seed(zonesFile, zoneSet.zones)
+        val finalSet = zoneSet
+        println("[prebake] Seeded ${zoneSet.zones.size} zone entries at ${zonesFile.path}")
+
         // ── 5. Per-source summary ──────────────────────────────────────────────
-        val bySource = zoneSet.zones.groupBy { it.source }
+        val bySource = finalSet.zones.groupBy { it.source }
         println("[prebake] Per-source breakdown:")
         for ((source, zones) in bySource.entries.sortedByDescending { it.value.size }) {
             println("         $source: ${zones.size} zones")
@@ -70,7 +79,7 @@ class RegulatedZonePrebakeTest {
 
         // ── 6. Per-zone detail dump ────────────────────────────────────────────
         println("[prebake] Per-zone details (full descriptions):")
-        for ((i, z) in zoneSet.zones.withIndex()) {
+        for ((i, z) in finalSet.zones.withIndex()) {
             val desc = z.description.replace("\n", " | ").take(120)
             val src = z.source.padEnd(5)
             println("         #${i + 1} [${src}] [${z.zoneType.name.padEnd(25)}] " +
@@ -78,7 +87,7 @@ class RegulatedZonePrebakeTest {
         }
 
         // ── 7. Display-category summary ────────────────────────────────────────
-        val byCategory = zoneSet.zones
+        val byCategory = finalSet.zones
             .flatMap { zone ->
                 zone.displayCategories().map { cat -> cat to zone.speedLimitKn }
             }
@@ -92,11 +101,11 @@ class RegulatedZonePrebakeTest {
 
         // ── 8. Serialize to .bin ──────────────────────────────────────────────
         val out = File(outputDir, "$region.bin")
-        out.writeBytes(RegulatedZoneSerializer.serialize(zoneSet))
+        out.writeBytes(RegulatedZoneSerializer.serialize(finalSet))
         println("[prebake] Wrote ${out.length()} bytes -> ${out.path}")
 
         // ── 9. Breakdown by zone type ─────────────────────────────────────────
-        val byType = zoneSet.zones.groupBy { it.zoneType }
+        val byType = finalSet.zones.groupBy { it.zoneType }
         println("[prebake] Breakdown by zone type:")
         for ((type, list) in byType.entries.sortedByDescending { it.value.size }) {
             println("         ${type.name.padEnd(30)} ${list.size}")
