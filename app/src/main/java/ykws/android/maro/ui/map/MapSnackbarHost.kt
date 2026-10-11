@@ -24,9 +24,9 @@ import ykws.android.maro.config.AppConfig
  *
  * Every row is the banner family's third **full-width face**: the skin and the band's clearance are
  * [`MapBanner`](MapControls.kt)'s, so this host pads only the band it sits above and never the row's
- * own edges (`docs/ui-component-guidelines.md` §5.7). The route discard's toast carries a second
- * action — **New acquisition** — while the three delete snacks carry only Undo; every message names
- * its item from string resources.
+ * own edges (`docs/ui-component-guidelines.md` §5.7). The route ending's toast carries a second
+ * action — `route_action_new` — while the three delete snacks carry only Undo; every message names
+ * its item from string resources, and the ending's own kind picks which of the three it prints.
  */
 @Composable
 internal fun MapSnackbarHost(
@@ -60,15 +60,18 @@ internal fun MapSnackbarHost(
         ) {
             activeSnacks.forEach { snack ->
                 key(snack.uid) {
-                    val routeDiscard = snack as? ActiveSnack.RouteDiscard
+                    val routeEnd = snack as? ActiveSnack.RouteEnd
                     SnackRow(
                         message = when (snack) {
                             is ActiveSnack.TrackDelete -> stringResource(R.string.snack_track_deleted, snack.name)
                             is ActiveSnack.MarkerDelete -> stringResource(R.string.snack_marker_deleted, snack.name)
                             is ActiveSnack.CreateUndo -> stringResource(R.string.snack_marker_created, snack.name)
-                            is ActiveSnack.RouteDiscard -> stringResource(
-                                if (snack.followed) R.string.route_discard_followed_toast
-                                else R.string.route_discard_acq_toast
+                            is ActiveSnack.RouteEnd -> stringResource(
+                                when (snack.kind) {
+                                    RouteEndKind.DISCARD_ACQ -> R.string.route_discard_acq_toast
+                                    RouteEndKind.DISCARD_FOLLOWED -> R.string.route_discard_followed_toast
+                                    RouteEndKind.LEAVE -> R.string.route_left_toast
+                                }
                             )
                         },
                         snackKey = snack.uid,
@@ -76,10 +79,10 @@ internal fun MapSnackbarHost(
                         onTimeout = { onTimeout(snack) },
                         tagsDrawn = tagsDrawn,
                         showUndo = true,
-                        secondActionLabel = if (routeDiscard != null) {
+                        secondActionLabel = if (routeEnd != null) {
                             stringResource(R.string.route_action_new)
                         } else null,
-                        onSecondAction = if (routeDiscard != null) {
+                        onSecondAction = if (routeEnd != null) {
                             { onSecondAction(snack) }
                         } else null
                     )

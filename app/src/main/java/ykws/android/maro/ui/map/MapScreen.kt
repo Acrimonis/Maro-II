@@ -429,19 +429,23 @@ internal sealed class ActiveSnack(val id: String, val name: String) {
     class CreateUndo(id: String, name: String) : ActiveSnack(id, name)
 
     /**
-     * **The route discard's toast** (the two-phase model): the acquisition's ending or a followed
-     * route's, told apart so the offered next step is named honestly. It carries no name of its own —
-     * the message comes from string resources in the host.
+     * **The route ending's toast** (the two-phase model): the acquisition's ending, a followed route's,
+     * and the loss-free leave — told apart so the message names what happened. It carries no name of its
+     * own — the message comes from string resources in the host.
      */
-    class RouteDiscard(val followed: Boolean) : ActiveSnack("", "")
+    class RouteEnd(val kind: RouteEndKind) : ActiveSnack("", "")
 }
 
+/** What the window's press cost: the line thrown away, or a leave with nothing lost. */
+internal enum class RouteEndKind { DISCARD_ACQ, DISCARD_FOLLOWED, LEAVE }
+
 /**
- * The deferred route discard's window: the toast that confirms the disposal.
- * Held by the screen so the display can read a completed discard while the mode stays live underneath.
+ * The deferred route ending's window: the toast that confirms the disposal — a discard, or a loss-free
+ * leave. Held by the screen so the display can read a completed ending while the mode stays live
+ * underneath.
  */
 internal data class PendingRouteDiscard(
-    val snack: ActiveSnack.RouteDiscard
+    val snack: ActiveSnack.RouteEnd
 )
 
 /** The snackbar's horizontal-swipe threshold, past which the press takes the timeout's own path. */
@@ -1058,9 +1062,9 @@ fun MapScreen(
                 markersViewModel.openEditDrawer(snack.selection, selectedId = snack.id, source = source)
             }
             is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
-            // The route discard's toast is answered at the host call site, inside the route block where
+            // The route ending's toast is answered at the host call site, inside the route block where
             // the disposal lives; this branch keeps the exhaustive `when` honest.
-            is ActiveSnack.RouteDiscard -> Unit
+            is ActiveSnack.RouteEnd -> Unit
         }
     }
 
@@ -1077,7 +1081,7 @@ fun MapScreen(
             }
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
             // Answered at the host call site (see `onSnackUndo`).
-            is ActiveSnack.RouteDiscard -> Unit
+            is ActiveSnack.RouteEnd -> Unit
         }
     }
 
@@ -2145,16 +2149,31 @@ fun MapScreen(
              * **The deferred discard's one entry** — every discarding door: the panel's `Discard route`
              * while the selected line is unwritten, the fan's Discard, the toggle-off and the back key
              * inside the acquisition, and the exit dialog's own ending while the line is not yet a track.
-             * The written-state doors read *Leave* and end the mode silently instead, never reaching here.
              * The display reads the ending at once (the panel and the line leave, the toggle reads off)
              * while the mode stays live underneath; the real disposal waits on the toast. Idempotent:
              * a second press while the window stands no-ops.
              */
             fun discardRoute() {
                 if (!routeArmed || pendingDiscard != null) return
-                val followed = routeState is RouteState.Following
+                val kind = if (routeState is RouteState.Following) RouteEndKind.DISCARD_FOLLOWED
+                else RouteEndKind.DISCARD_ACQ
                 routeExitReason = null
-                val snack = ActiveSnack.RouteDiscard(followed)
+                val snack = ActiveSnack.RouteEnd(kind)
+                pendingDiscard = PendingRouteDiscard(snack)
+                enqueueSnack(snack)
+            }
+
+            /**
+             * **The deferred leave's one entry** — every ending that costs nothing: the acquisition
+             * panel's written `Leave`, and the exit dialog's own `Leave` and `Save and Leave` door, the
+             * latter having written the track at the press. Nothing is thrown away, so the window's own
+             * disposal is the discard's (`commitPendingDiscard`), its Undo brings the mode straight back
+             * with nothing recomputed, and `New...` re-arms the same ends. Idempotent, like the discard.
+             */
+            fun leaveRoute() {
+                if (!routeArmed || pendingDiscard != null) return
+                routeExitReason = null
+                val snack = ActiveSnack.RouteEnd(RouteEndKind.LEAVE)
                 pendingDiscard = PendingRouteDiscard(snack)
                 enqueueSnack(snack)
             }
@@ -3194,9 +3213,9 @@ fun MapScreen(
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
                         onDiscard = { discardRoute() },
-                        // A loss-free ending is the ordinary end: this door's word is *Leave* and it
-                        // closes the mode silently, where the discarding press defers on the toast.
-                        onLeave = { endRouteMode() },
+                        // A loss-free ending defers on its own toast too: this door's word is *Leave*, and
+                        // its press opens the window `route_left_toast` confirms.
+                        onLeave = { leaveRoute() },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .width(landscapeDashboardWidth)
@@ -3245,9 +3264,9 @@ fun MapScreen(
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
                         onDiscard = { discardRoute() },
-                        // A loss-free ending is the ordinary end: this door's word is *Leave* and it
-                        // closes the mode silently, where the discarding press defers on the toast.
-                        onLeave = { endRouteMode() },
+                        // A loss-free ending defers on its own toast too: this door's word is *Leave*, and
+                        // its press opens the window `route_left_toast` confirms.
+                        onLeave = { leaveRoute() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -4037,23 +4056,23 @@ fun MapScreen(
             dashboardBandHeight = dashboardBandHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
             tagsDrawn = bandTagsDrawn,
-            // The route discard's toast is answered here, inside the route block where the disposal
+            // The route ending's toast is answered here, inside the route block where the disposal
             // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
             // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
             // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
             // of disposing a restored route. Every other snack keeps its own handler.
             onUndo = { snack ->
-                if (snack is ActiveSnack.RouteDiscard) {
+                if (snack is ActiveSnack.RouteEnd) {
                     if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
                 } else onSnackUndo(snack)
             },
             onTimeout = { snack ->
-                if (snack is ActiveSnack.RouteDiscard) {
+                if (snack is ActiveSnack.RouteEnd) {
                     if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
                 } else onSnackTimeout(snack)
             },
             onSecondAction = { snack ->
-                if (snack is ActiveSnack.RouteDiscard) {
+                if (snack is ActiveSnack.RouteEnd) {
                     if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
                 }
             }
@@ -4125,8 +4144,9 @@ fun MapScreen(
             routeViewModel = routeViewModel,
             onDismissExit = { routeExitReason = null },
             onSaveRoute = { plan -> saveRouteTrack(plan, routePinned) },
-            // Save-and-exit never toasts; only the dialog's own Discard is deferred.
-            onEndRoute = { endRouteMode() },
+            // Both of the dialog's endings defer: the save door writes the track and then hands over, and
+            // the loss-free *Leave* costs nothing — each raises `route_left_toast`.
+            onLeaveRoute = { leaveRoute() },
             onDiscardRoute = { discardRoute() },
             // ── Resume confirmation — its retained copy moved with the dialog ──
             resumeTarget = chrome.pendingResume,

@@ -90,8 +90,8 @@ import ykws.android.maro.ui.components.rememberLabelColumnWidth
  *                        line is unwritten, the exit dialog's own *Leave* once it is written and nothing
  *                        is lost — the short word existing only because this door holds a third of the
  *                        footer row.
- * @param onLeave         **Leave**: the ending that costs nothing — the written state's own door, ending
- *                        the mode silently, with no window and no toast.
+ * @param onLeave         **Leave**: the ending that costs nothing — the written state's own door, which
+ *                        defers on `route_left_toast` like every other ending (R92).
  */
 @Composable
 internal fun RouteConfirmationPanel(

@@ -15,6 +15,10 @@ import ykws.android.maro.ui.components.ConfirmActionRole
  * the loss door is red; once it is, the save door disables, nothing is lost, and the accent moves to the
  * forward outcome *Leave*. The acquisition panel's own ending door is pinned here too, both of its states
  * reached through the same kind of pure function rather than through a composable.
+ *
+ * The word follows the cost and the act does not — every ending leaves through the deferred window (R92) —
+ * so what is pinned here is each door's word, role and enabled state, and `discards` is read as the cost
+ * it names rather than as the deferral.
  */
 class RouteExitDoorsTest {
 
@@ -32,7 +36,7 @@ class RouteExitDoorsTest {
         assertEquals("the loss door names what is lost", R.string.route_exit_discard, doors.loss.labelRes)
         assertEquals("the loss door is red", ConfirmActionRole.DANGER, doors.loss.role)
         assertTrue("the loss door can be taken", doors.loss.enabled)
-        assertTrue("the press would throw the line away, so the ending defers", doors.loss.discards)
+        assertTrue("the press would throw the line away, so the ending is the discard act", doors.loss.discards)
     }
 
     @Test
@@ -48,7 +52,7 @@ class RouteExitDoorsTest {
         assertEquals("the third door reads Leave", R.string.route_exit_leave, doors.loss.labelRes)
         assertEquals("the accent falls to the enabled forward outcome", ConfirmActionRole.PRIMARY, doors.loss.role)
         assertTrue("nothing is lost, so no door greys", doors.loss.enabled)
-        assertFalse("nothing is thrown away, so the ending is silent", doors.loss.discards)
+        assertFalse("nothing is thrown away, so the ending is the leave act", doors.loss.discards)
     }
 
     @Test
@@ -62,7 +66,7 @@ class RouteExitDoorsTest {
             door.role
         )
         assertTrue("the ending can be taken", door.enabled)
-        assertTrue("the press would throw the selected line away, so the ending defers", door.discards)
+        assertTrue("the press would throw the selected line away, so the ending is the discard act", door.discards)
     }
 
     @Test
@@ -72,7 +76,7 @@ class RouteExitDoorsTest {
         assertEquals("one cost, one word — the exit dialog's own Leave", R.string.route_exit_leave, door.labelRes)
         assertEquals("nothing is lost, so the accent replaces the red", ConfirmActionRole.PRIMARY, door.role)
         assertTrue("the ending can be taken", door.enabled)
-        assertFalse("nothing is thrown away, so the ending is silent", door.discards)
+        assertFalse("nothing is thrown away, so the ending is the leave act", door.discards)
         assertEquals(
             "the written door is the dialog's own loss door, derived rather than copied",
             routeExitDoors(written = true).loss,
