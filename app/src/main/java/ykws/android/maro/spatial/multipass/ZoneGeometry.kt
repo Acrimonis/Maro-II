@@ -70,7 +70,7 @@ fun strictestLimitKnAt(
 ): Double? = zones
     .filter { it.id !in excludedIds }
     .filter { it.contains(latitude, longitude) }
-    .minOfOrNull { it.speedLimitKn }
+    .minOfOrNull { it.routeLimitKn }
 
 /**
  * The strictest limit among the non-excluded zones whose **outer ring** lies within [marginM] of the
@@ -95,8 +95,8 @@ fun speedZoneCollarLimitKnAt(
         for (i in 0 until outer.size - 1) {
             nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, outer[i], outer[i + 1]))
         }
-        if (nearest <= marginM && (strictest == null || zone.speedLimitKn < strictest)) {
-            strictest = zone.speedLimitKn
+        if (nearest <= marginM && (strictest == null || zone.routeLimitKn < strictest)) {
+            strictest = zone.routeLimitKn
         }
     }
     return strictest

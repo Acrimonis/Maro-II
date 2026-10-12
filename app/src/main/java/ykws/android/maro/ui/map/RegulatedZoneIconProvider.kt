@@ -38,20 +38,20 @@ object RegulatedZoneIconProvider {
     /**
      * Background colour for each [ZoneDisplayCategory].
      *
-     * All prohibition/info categories use dark blue (#1565C0) for a uniform
-     * background, except:
-     * - SPEED_LIMIT (red — stands out as primary action)
+     * Every prohibition/info category uses the shared dark-blue strip background
+     * (`regulatedZone.category.background`), except:
+     * - SPEED_LIMIT (the alert red `regulatedZone.type.speedLimit` — stands out as primary action)
      * - SEAPLANE (grey — informational, low priority)
      */
     fun colorForCategory(category: ZoneDisplayCategory): Color = when (category) {
-        ZoneDisplayCategory.NO_ANCHOR -> Color(AppConfig.regulatedZoneTypeSpeedLimit)      // Dark blue — uniform background
-        ZoneDisplayCategory.MOORING -> Color(AppConfig.regulatedZoneTypeSpeedLimit)        // Dark blue — uniform background
-        ZoneDisplayCategory.SPEED_LIMIT -> Color(AppConfig.regulatedZoneTypeAccessProhibited)    // Red — speed limit (stand out)
-        ZoneDisplayCategory.NO_DIVING -> Color(AppConfig.regulatedZoneTypeSpeedLimit)      // Dark blue — uniform background
-        ZoneDisplayCategory.SEAPLANE -> Color(AppConfig.regulatedZoneTypeOther)       // Blue Grey — low priority info
-        ZoneDisplayCategory.NO_ACCESS -> Color(AppConfig.regulatedZoneTypeSpeedLimit)      // Dark blue — uniform background
-        ZoneDisplayCategory.FISHING_PROHIBITED -> Color(AppConfig.regulatedZoneTypeSpeedLimit) // Dark blue — uniform background
-        ZoneDisplayCategory.ENVIRONMENTAL -> Color(AppConfig.regulatedZoneTypeSpeedLimit)   // Dark blue — uniform background
-        ZoneDisplayCategory.INFORMATION -> Color(AppConfig.regulatedZoneTypeSpeedLimit)     // Dark blue — uniform background
+        ZoneDisplayCategory.NO_ANCHOR -> Color(AppConfig.regulatedZoneCategoryBackground)      // Dark blue — uniform background
+        ZoneDisplayCategory.MOORING -> Color(AppConfig.regulatedZoneCategoryBackground)        // Dark blue — uniform background
+        ZoneDisplayCategory.SPEED_LIMIT -> Color(AppConfig.regulatedZoneTypeSpeedLimit)        // Alert red — speed limit (stand out)
+        ZoneDisplayCategory.NO_DIVING -> Color(AppConfig.regulatedZoneCategoryBackground)      // Dark blue — uniform background
+        ZoneDisplayCategory.SEAPLANE -> Color(AppConfig.regulatedZoneTypeOther)                // Blue Grey — low priority info
+        ZoneDisplayCategory.NO_ACCESS -> Color(AppConfig.regulatedZoneCategoryBackground)      // Dark blue — uniform background
+        ZoneDisplayCategory.FISHING_PROHIBITED -> Color(AppConfig.regulatedZoneCategoryBackground) // Dark blue — uniform background
+        ZoneDisplayCategory.ENVIRONMENTAL -> Color(AppConfig.regulatedZoneCategoryBackground)  // Dark blue — uniform background
+        ZoneDisplayCategory.INFORMATION -> Color(AppConfig.regulatedZoneCategoryBackground)    // Dark blue — uniform background
     }
 }

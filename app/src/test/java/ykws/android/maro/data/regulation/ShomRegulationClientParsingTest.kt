@@ -83,7 +83,7 @@ class ShomRegulationClientParsingTest {
     }
 
     @Test
-    fun `parse anchoring prohibition zone`() = runBlocking {
+    fun `parse mooring zone`() = runBlocking {
         val json = """
         {
           "type": "FeatureCollection",
@@ -103,7 +103,7 @@ class ShomRegulationClientParsingTest {
         val zones = client.fetchZones(testBbox)
 
         assertEquals(typeNameCount, zones.size)
-        assertEquals(RegulatedZoneType.ANCHORING_PROHIBITED, zones.first().zoneType)
+        assertEquals(RegulatedZoneType.MOORING, zones.first().zoneType)
         assertEquals("Zone de mouillage interdite", zones.first().name)
     }
 

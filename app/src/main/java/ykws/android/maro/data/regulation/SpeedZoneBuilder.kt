@@ -35,6 +35,8 @@ object SpeedZoneBuilder {
                         .takeIf { it != "null" && it.isNotBlank() }
                         ?: "Zone ${"%.0f".format(effectiveKn)} kn",
                     speedLimitKn = effectiveKn,
+                    // The route engine reads this; the routing-only override wins when set.
+                    routeLimitKn = zone.speedRouteKn ?: effectiveKn,
                     outerRing = zone.outerRing,
                     holes = zone.holes,
                     source = zone.source

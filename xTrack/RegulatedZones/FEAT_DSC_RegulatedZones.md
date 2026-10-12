@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-10-10 21:05
+modified: 2026-10-12 16:32
 ---
 
 # Feature: RegulatedZones
@@ -35,7 +35,7 @@ Vessel-size filtering + speed-limit extraction at bake time; icon assignment + w
 - Phase 3 (icon assignment) and Phase 4 (warning strip UI) are built — see `## Implemented`; the tag column's family alignment and its trigger rule landed 2026-09-16
 
 #### Rules
-- Filter runs at bake time; speed zones always apply via `appliesTo()`; default filtered types: ENVIRONMENTAL/FISHING_PROHIBITED/OTHER
+- Filter runs at bake time; speed zones always apply via `appliesTo()`; default filtered types ENVIRONMENTAL/OTHER — the hard filter is empty (`RegulationFilter.dropHardFiltered` drops nothing, so FISHING_PROHIBITED zones are included), while the soft keyword gate (`RegulationFilter.filter`) stays dormant
 
 ### add-zone-text
 
@@ -75,7 +75,20 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
+### hazard-layers-deferred
+
+OBSTRN (obstructions), WRECKS and SBDARE (seabed areas) are hazard/hydrography layers, not regulation — a different domain, plausibly served by a paid ENC S-57/S-63 product.
+
+#### Rules
+- The regulation bake covers regulatory layers only; hazards stay out of scope until a keyed or paid source is chosen
+
 ## Implemented
+
+- **shom-name-ws (2026-10-12, `feature/shom`)** — every seeded block gained `# nameWs`, the name the WFS itself gave (`objnam`/`nobjnm` via the model's `name`), kept independent of the preserved `# name` label and written `-` when the WFS gave none, so a manual renaming and the source name are both readable.
+
+- **shom-route-and-seed-fields (2026-10-12, `feature/shom`)** — `regulatedZone.speedRoute.<key>` is a routing-only speed: `RegulatedZone.speedRouteKn` (protobuf 16, added because 14 and 15 were taken) feeds `SpeedZone.routeLimitKn`, which the route engine reads at `RouteGridBuilder`, `RouteFinePass` and `ZoneGeometry` while every display surface keeps `speedLimitKn`. Each seeded block gained `# layer` (the S-57 typeName), `# codes` (every RESTRN code) and a `# geometry` WKT outline simplified by adaptive RDP to at most 8 vertices, and a read-only [`ShomWfsSchemaProbeTest`](app/src/test/java/ykws/android/maro/data/regulation/ShomWfsSchemaProbeTest.kt:1) showed the INSPIRE endpoint serves only lowercase `restrn`/`catrea` — the only unread fields are `perend`, `persta` and `status`, and no `vitesse_max` or `TXTDSC` is served, so the decree stays empty and `ctsare_polygon`/`admare_polygon` yield no zones.
+
+- **shom-inspire-parity (2026-10-12, `feature/shom`)** — the bake now parses the real INSPIRE shapes: `restrn` is a comma-separated S-57 code list kept whole in `RegulatedZone.restrictionCodes` instead of being nulled by a whole-string `toIntOrNull()`; `zoneType` resolves speed-wins first (non-null `speedLimitKn` → `SPEED_LIMIT`), then the legacy `type_reglementation`, then the first code; `achare_*` is classified from `restrn` then `catach` (1/8 = positive `MOORING`); `Point` zones buffer into a 100 m ring and `MultiPolygon` features split into one zone per polygon; `sourceLayer` records the typeName; and the fetch sends a server-side EPSG:3857 bbox (1293 → ~78 `resare_polygon` features). Fishing cantonnements parse as `FISHING_PROHIBITED` (3) plus 15 more carrying the fishing category, and are now included at bake — the hard filter is empty (see the reg-zones-filtering rule). The native `REGNAV_BDD_WFS:resare` layer is not fetched — it needs a SHOM API key (INSPIRE answers `MissingRights`, `wfs/reglementation` answers `MissingParameter: Key`).
 
 - **speed-override-family (2026-10-10, `feature/zonetile`)** — the regulated-zone set is now controlled app side by the `zones.properties` asset shipped next to `maro.properties`: `RegulatedZonesRepository.load` reads it and applies two hand-edited key families to the deserialized `.bin` — `regulatedZone.speedOverride.<key>` replaces the limit (a value on a zone with none makes it a speed zone) and `regulatedZone.ignore.<key>=true` drops the zone so the map, warning strip and speed engine never see it. The bake only seeds the file, one entry per aggregated zone, speed or not: `RegulationSpeedOverrides` folds the key to ASCII (inspireid, else decree ref, else name + centroid slug), preserves an existing entry's comment text, value and flag so a manual renaming survives, appends new zones and comments a vanished zone `# stale`. → `xTrack/RegulatedZones/261010_FEAT_PLN_RegulatedZones_speed-override-family.md`
 - **zones-transparency (2026-09-18, `feature/zones-transparency-settings`)** — `drawRegulatedZones()` no longer bakes its own alphas: the polygon fill and outline alpha now come from the user's transparency pair (`regulatedZoneFillTransparencyPct` default 80, `regulatedZoneBoundaryTransparencyPct` default 20, set by the Regulated Zones Appearance row in Settings), derived through the shared `transparencyPctToAlpha`, and `regulatedZoneColor()` returns the per-type hue alone — the `RegulationZoneColor` pair is gone. The icon stack is untouched: it paints opaque category colours. → `xTrack/Ui_Settings/260918_FEAT_PLN_Ui_Settings_regulated-zones-transparency.md`
@@ -96,8 +109,9 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - The 300 m sign is unconditional: it ignores the Zone categories toggles by design, where every other tag follows them
 - A manual speed value lives in the `zones.properties` asset next to `maro.properties`, under `regulatedZone.speedOverride.<key>`, seeded add-only by the bake and applied at runtime by `RegulatedZonesRepository`; a value on a zone with none makes it a speed zone at that value, and the runtime `effectiveSpeedLimitKn()` re-maps still run after it, so a zone it matches needs that predicate reconciled too
 - A zone is hidden by `regulatedZone.ignore.<key>=true` in the same asset: the repository drops it before the set is published, so the map overlay, warning strip and speed engine never see it, and the entry stays in the file so the flag can be flipped back
-- The restriction code is S-57 RESTRN, and one table (`restrictionType()`) is read by both the INSPIRE `restrn` and the auth `RESTRN`: 1/2 anchoring, 3-6 fishing, 7/8 entry (access), 10-12 dredging/diving, 18 mooring, 27 navigation, 28 marine nature reserve — the earlier S-101 reading of `restrn` was wrong
+- The restriction code is S-57 RESTRN, one table (`restrictionType()`) read by both the INSPIRE `restrn` and the native `RESTRN`; `restrn` is a comma-separated list kept whole in `RegulatedZone.restrictionCodes`; `zoneType` resolves speed-wins first (a parsed speed limit → `SPEED_LIMIT`), then `type_reglementation`, then the first code: 1/2 anchoring, 3-6 fishing, 7/8 entry (access), 10-12 dredging/diving, 18 mooring, 27 navigation, 28 marine nature reserve
 - Gather and aggregate on the prebake pattern: best-effort fetch with the aggregator's dedup/validate/sort, no redistribution, bbox = the Nice–Menton corridor (6.7–7.6°E, 43.4–43.8°N)
+- The regulation source is the anonymous INSPIRE host (`REGLEMENTATION_NAVIGATION_BDD_WFS:*`); the fetch sends an EPSG:3857 bbox so the server filters, and the native `REGNAV_BDD_WFS:resare` layer is not fetched because it needs a SHOM API key
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/regulation/` — model, clients, aggregator, serializer, repository

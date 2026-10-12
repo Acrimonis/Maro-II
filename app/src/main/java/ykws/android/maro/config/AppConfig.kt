@@ -1364,8 +1364,8 @@ object AppConfig {
         private set
 
     // ── Regulated zone type colours ───────────────────────────────────────────
-    /** Regulated zone speed-limit colour. Default #FF1565C0. Set via `regulatedZone.type.speedLimit` in colors.properties. */
-    var regulatedZoneTypeSpeedLimit: Int = 0xFF1565C0.toInt()
+    /** Regulated zone speed-limit colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `regulatedZone.type.speedLimit` in colors.properties. */
+    var regulatedZoneTypeSpeedLimit: Int = 0xCCB71C1C.toInt()
         private set
     /** Regulated zone anchoring-prohibited colour. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `regulatedZone.type.anchoringProhibited` in colors.properties. */
     var regulatedZoneTypeAnchoringProhibited: Int = 0xCCEF6C00.toInt()
@@ -1387,6 +1387,9 @@ object AppConfig {
         private set
     /** Regulated zone other colour. Default #FF78909C. Set via `regulatedZone.type.other` in colors.properties. */
     var regulatedZoneTypeOther: Int = 0xFF78909C.toInt()
+        private set
+    /** Uniform warning-strip background for every category except speed. Default #FF1565C0. Set via `regulatedZone.category.background` in colors.properties. */
+    var regulatedZoneCategoryBackground: Int = 0xFF1565C0.toInt()
         private set
 
     // ── Map overlay colours ───────────────────────────────────────────────────
@@ -2303,6 +2306,7 @@ object AppConfig {
             props.getProperty("regulatedZone.type.fishingProhibited")?.let { parseColorOrNull(it) }?.let { regulatedZoneTypeFishingProhibited = it }
             props.getProperty("regulatedZone.type.navigationRestriction")?.let { parseColorOrNull(it) }?.let { regulatedZoneTypeNavigationRestriction = it }
             props.getProperty("regulatedZone.type.other")?.let { parseColorOrNull(it) }?.let { regulatedZoneTypeOther = it }
+            props.getProperty("regulatedZone.category.background")?.let { parseColorOrNull(it) }?.let { regulatedZoneCategoryBackground = it }
 
             // ── Map overlays ──────────────────────────────────────────────────
             props.getProperty("map.hazard.disc.fill.color")?.let { parseColorOrNull(it) }?.let { mapHazardDiscFill = it }

@@ -12,7 +12,9 @@ import ykws.android.maro.data.model.LatLng
  *
  * @property id          Source reference ID (e.g. SHOM sourceRef).
  * @property name        Display name (e.g. "Cap d'Antibes").
- * @property speedLimitKn Speed limit in knots (always non-null).
+ * @property speedLimitKn Speed limit in knots — the display/dashboard value (always non-null).
+ * @property routeLimitKn Speed the route engine prices the zone at: the routing-only override
+ *                        when one is set, else [speedLimitKn].
  * @property outerRing   Polygon outer boundary as a closed LatLng ring.
  * @property holes       Zero or more interior holes (islands exempt).
  * @property source      Data source identifier ("SHOM", "SEED", etc.).
@@ -23,7 +25,8 @@ data class SpeedZone(
     val speedLimitKn: Double,
     val outerRing: List<LatLng>,
     val holes: List<List<LatLng>> = emptyList(),
-    val source: String = "SHOM"
+    val source: String = "SHOM",
+    val routeLimitKn: Double = speedLimitKn
 )
 
 /**

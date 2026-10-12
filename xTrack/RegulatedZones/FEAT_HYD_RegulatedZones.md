@@ -1,22 +1,23 @@
-# Context Hydration — RegulatedZones — 2026-10-10
+# Context Hydration — RegulatedZones — 2026-10-12
 
-**Last Bake:** 2026-10-10 21:05 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-12 15:46 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake, none of the five covered action classes stopped the work — no dependency added, no binary opened (the `.bin` was probed only through the diagnostic), no device touched, no work started without an order, and every code claim had a file read behind it.
+**Directive trace:** Since the last bake, none of the five covered action classes stopped the work — no dependency added, no binary opened (the `.bin` was only read through diagnostics), no device touched, no work started without an order, and every code claim had a file read behind it.
 
 ## State
 
-The regulated-zone set is now controlled app side by `app/src/main/assets/zones.properties`, a generated asset next to `maro.properties`: the bake seeds one block per zone with both `regulatedZone.speedOverride.*` and `regulatedZone.ignore.*` lines plus a full-info comment block, and `RegulatedZonesRepository.load` applies it — an ignored zone is dropped, a speed override replaces the limit, and a value on a zone with none makes it a speed zone. The seed preserves only a `# name` label the user edits; the values and flags survive across re-bakes. Alongside, the classification was corrected — `parseRestrictionCode` and `parseRestrnAuth` now read one S-57 RESTRN table (`restrictionType`), so restriction-1 zones read `ANCHORING_PROHIBITED` instead of a speed zone — and `cleanText` drops the literal `"null"`. Unit tests, the prebake and `apk-build.bat` are green on `feature/zonetile`.
+The SHOM INSPIRE bake parses the real shapes — the whole comma-separated `restrn` list with speed-wins typing, ACHARE anchorages from `catach`, `Point` buffering, `MultiPolygon` split, `sourceLayer` and a server-side bbox — and `regulatedZone.speedRoute.<key>` now steers only the route engine while every display surface keeps the override. Each seeded `zones.properties` block carries `# layer`, `# codes` and a `# geometry` WKT outline simplified by adaptive RDP to at most 8 vertices. A read-only schema probe showed the endpoint serves only lowercase `restrn`/`catrea` (the only unread fields are `perend`, `persta`, `status`) and no `vitesse_max`/`TXTDSC`, so the decree stays empty; `ctsare_polygon` and `admare_polygon` yield no zones. Prebake, scoped tests and `assembleDebug` are green on `feature/shom`.
 
 ## Target Files
 
-- `app/src/main/assets/zones.properties` — the generated, app-applied override asset
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSpeedOverrides.kt` — fold, key, parse, load, apply, seed
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — applies the asset at load
-- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` — the RESTRN table, `cleanText`, the name/speed/description parsing
-- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` — the bake entry point
-- `xTrack/RegulatedZones/261010_FEAT_PLN_RegulatedZones_speed-override-family.md` — the plan
+- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` — parsing, `classifyZone`, the code tables, the bbox
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` — `restrictionCodes`, `speedRouteKn`, `displayCategories`
+- `app/src/main/java/ykws/android/maro/data/regulation/SpeedZone.kt` + `SpeedZoneBuilder.kt` — the routing-only `routeLimitKn`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt`, `RouteFinePass.kt`, `ZoneGeometry.kt` — the route engine's `routeLimitKn` reads
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSpeedOverrides.kt` — the three key families and the seed's comment block
+- `app/src/main/assets/zones.properties`, `maro.properties`, `colors.properties` — the seeded zones, the filter types, the speed red
+- `app/src/test/java/ykws/android/maro/data/regulation/ShomWfsSchemaProbeTest.kt` — the schema probe
 
 ## Next Step
 
-Device pass: edit a value or an ignore in `zones.properties`, rebuild, and confirm the app honours it; then decide whether the runtime `effectiveSpeedLimitKn()` re-map, which still catches the "outside the channel" zone, should be reconciled.
+Device pass: confirm the map polygons and the bottom-left tags read correctly after the speed-red change and that a `speedRoute` value steers the route without moving any displayed limit; then decide whether the two empty layers (`ctsare_polygon`, `admare_polygon`) and the parked RESTRN 9 dredging gap are worth pursuing.
