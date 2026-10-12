@@ -136,3 +136,7 @@ Three passes on the step were built, reviewed and superseded the same session, a
   is `Destination`.
 - **O9** The wall's words appear twice by design — the value line at `10` and the track's right end — the
   user having asked for both; trimming one is a free call if it reads as noise on the device.
+
+## Outcome
+
+Implemented 2026-09-28 as planned. The Routing cost step is one `CardArea` holding a two-column `SectionRow` — Route role left (the horizontal `MultiSelectRow`, Origin / Dest), Routing cost right (a right-aligned value line over `SliderControl`) — and the cost scale runs `0..ROUTING_COST_BLOCKED`: `0` the Off clear, 1–9 the prices and `10` the wall named Blocked/Wall, with `SliderRow` now forwarding to `SliderControl`. The three intermediate rounds were withdrawn unbuilt. `gradlew :app:assembleDebug` recompiled and SUCCESSFUL and the `*Marker*` / `*RoutingCost*` suites green; nine open items stand recorded, from the alignment's intrinsic-measure dependency to the hand-rolled heading.

@@ -139,3 +139,7 @@ Start with the toggle + a simple color preview (swatch box, no full color picker
 | 7 | SliderStep padding reduction | Trivial | None |
 | 8 | Wizard button restyling | Small | None |
 | 9 | Marker zone color customization (swatches) | Medium | #2 |
+
+## Outcome
+
+This plan is a fix-and-normalization list with no status line and no implemented section, so what shipped versus what was planned cannot be read from this file alone.

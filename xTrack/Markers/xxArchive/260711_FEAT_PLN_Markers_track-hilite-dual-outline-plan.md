@@ -58,3 +58,7 @@ osmdroid renders overlays in insertion order — first added = bottom. The dark 
 | File | Change |
 |------|--------|
 | [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | History track loop: `appearance` → `appearances` list + inner loop. Pinned track loop: same change. |
+
+## Outcome
+
+This plan's header reads *planned* and it carries no implemented section, so what shipped versus what was planned cannot be read from this file alone.

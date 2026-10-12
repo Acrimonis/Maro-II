@@ -393,3 +393,7 @@ sealed class WizardStep {
 | `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` | Replace dashboard with wizard when Creating/Editing; keyboard offset |
 | `app/src/main/AndroidManifest.xml` | No change — `windowSoftInputMode` toggled programmatically at runtime |
 | `xTrack/Markers/FEAT_DSC_Markers.md` | Add `create-zones-flow` subfeature |
+
+## Outcome
+
+This is a confirmed design whose six phases carry no status, so what shipped versus what was planned cannot be read from this file alone; later plans do reference the wizard it proposes (`WizardDrawer` and its step composables), which shows the proposal was built.

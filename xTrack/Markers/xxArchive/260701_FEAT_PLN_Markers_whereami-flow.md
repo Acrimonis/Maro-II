@@ -98,3 +98,7 @@ Already uses `proximityRange(markerOf(match))` which now reads `proximityOverrid
 | Pre-filter used computed defaults | Pre-filter uses stored `proximityOverrideM` |
 | `ProximityMatch` | `LineOfSightMatch` |
 | `circlePointAtBearing` dropped tangents | `pointAlongBearing` from center |
+
+## Outcome
+
+This plan is a change list with no status line and no implemented section, so what shipped versus what was planned cannot be read from this file alone.

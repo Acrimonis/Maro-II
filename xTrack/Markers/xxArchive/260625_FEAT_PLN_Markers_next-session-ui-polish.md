@@ -88,3 +88,7 @@
 | 3 | Viewing drawer redesign | `MarkerDrawer.kt`, `MarkersViewModel.kt` |
 | 4 | Color picker | Find settings picker, adapt for markers |
 | 5 | Build & verify | `assembleDebug` |
+
+## Outcome
+
+This plan's header reads *Plan — 4 items, ready for implementation* and it carries no implemented section, so what shipped versus what was planned cannot be read from this file alone.

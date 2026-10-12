@@ -250,3 +250,7 @@ glyph and moving icon picking into Edit.
 Applied and built: `apk-build.bat` SUCCESSFUL. Open doubt: a 20sp emoji's advance can reach ~24-26dp,
 so `maxLines = 1` plus the default clip may shave a pixel off a wide glyph — only the device pass
 settles it.
+
+## Outcome
+
+Implemented 2026-09-25 on `feature/marker-tile`, in rounds. The icon-picker action moved to the header row's leading slot with the geometry glyph kept inline; a correction shifted the button to align its ink with the title; and the final round settled the shape — the leading control's box becomes the glyph's width (`Modifier.size(width = 24.dp, height = 36.dp)`), the offset and `MARKER_HEADER_ICON_INSET` are deleted, and the emoji branch carries `maxLines = 1`, so the icon-to-coordinate gap is `MARKER_HEADER_ICON_GAP` (2 dp) alone. The trailing cluster reduced to pin + edit. `apk-build.bat` SUCCESSFUL; residual doubts — a 20 sp emoji's advance, and the doc-drift chevron contract — are recorded, not resolved.

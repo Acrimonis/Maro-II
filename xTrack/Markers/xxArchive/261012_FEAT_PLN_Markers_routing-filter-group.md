@@ -70,3 +70,7 @@ Presentational only. No change to `UserMarker.matchesFilter`, `ListFilter` persi
 - **Decision taken in the user's silence** — the French group word **`Routage`**, one line to reverse.
 
 **Tests:** `apk-build.bat` (`:app:assembleDebug`) BUILD SUCCESSFUL; the marker suites green via `gradlew.bat :app:testDebugUnitTest --tests "*Marker*"` with [`MarkerFilterMigrationTest`](../../app/src/test/java/ykws/android/maro/data/model/MarkerFilterMigrationTest.kt:1) untouched. The track, route and menu filter popups are unchanged — the route and track controls both feed `trackFilterAxes()`, whose three titles all differ. The device pass is owed and is the user's.
+
+## Outcome
+
+Shipped 2026-10-12, presentational only, as planned: the three routing axes stand under one `Routing` title in the order role · cost · Only, `FilterControl` draws a `PopupSectionTitle` only when the axis's title id changes, the role's negative option reads `None` / `Aucun`, and `filter_axis_route_cost`, `filter_axis_route_role` and `filter_axis_routing_only` retired from both locales, with the two docs updated in the same pass. `apk-build.bat` BUILD SUCCESSFUL and the marker suites green with `MarkerFilterMigrationTest` untouched; the device pass is owed. One decision was taken in the user's silence — the French group word `Routage`.

@@ -76,3 +76,7 @@ All 7 change points applied to [`MarkerOverlay.kt`](app/src/main/java/ykws/andro
 7 | Main loop | Computed `isHighlighted` per marker; passed to all geometry branches; proximity previews hard-coded `false` |
 
 **Build:** `gradlew.bat assembleDebug` — BUILD SUCCESSFUL (41 tasks, 0 errors).
+
+## Outcome
+
+Implemented 2026-07-11 on `feature/track-hilite`: all seven change points were applied to `MarkerOverlay.kt` — `COLOR_HIGHLIGHT_UNDER` (0xCC000000) and `HIGHLIGHT_UNDER_STROKE_ADD` (6f) added, an `isHighlighted` parameter threaded through `addPinOverlay`, `addCircleOverlay`, `addCorridorOverlay`, `addCorridorParallels` and `addSemiCircleCaps`, and each highlighted geometry drawn with a dark under-stroke before its gold, with proximity previews hard-coded unhighlighted. `gradlew.bat assembleDebug` BUILD SUCCESSFUL.

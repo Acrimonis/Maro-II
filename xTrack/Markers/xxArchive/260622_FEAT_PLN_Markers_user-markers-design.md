@@ -534,3 +534,7 @@ On-demand query — see §6.5 for detailed breakdown. Summary:
 - [x] Inline snackbar undo, permanent delete on snackbar swipe
 - [x] Tap item → opens drawer in edit mode
 - [x] Layer toggle only — no per-marker visibility
+
+## Outcome
+
+Delivered as designed: all six phases — A data model + persistence, B land-blocking engine, C match resolution, D overlay rendering, E creation/editing UI, F where-am-i + management page — are checked complete, and the decisions it set (the sealed geometry, per-marker proximity, on-demand matching, the coastline spatial index) are the feature's decisions of record. Later plans revised parts of it — the single creation form became the wizard, the tri-state layer became binary, and GPX export/import arrived on 2026-10-11 — so this is the origin document rather than the current shape.
