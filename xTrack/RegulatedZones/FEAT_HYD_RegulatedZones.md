@@ -1,22 +1,22 @@
-# Context Hydration — RegulatedZones — 2026-10-10
+# Context Hydration — RegulatedZones — 2026-10-12
 
-**Last Bake:** 2026-10-10 21:05 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-12 13:25 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake, none of the five covered action classes stopped the work — no dependency added, no binary opened (the `.bin` was probed only through the diagnostic), no device touched, no work started without an order, and every code claim had a file read behind it.
+**Directive trace:** Since the last bake, none of the five covered action classes stopped the work — no dependency added, no binary opened (the `.bin` was only read through the diagnostic), no device touched, no work started without an order, and every code claim had a file read behind it.
 
 ## State
 
-The regulated-zone set is now controlled app side by `app/src/main/assets/zones.properties`, a generated asset next to `maro.properties`: the bake seeds one block per zone with both `regulatedZone.speedOverride.*` and `regulatedZone.ignore.*` lines plus a full-info comment block, and `RegulatedZonesRepository.load` applies it — an ignored zone is dropped, a speed override replaces the limit, and a value on a zone with none makes it a speed zone. The seed preserves only a `# name` label the user edits; the values and flags survive across re-bakes. Alongside, the classification was corrected — `parseRestrictionCode` and `parseRestrnAuth` now read one S-57 RESTRN table (`restrictionType`), so restriction-1 zones read `ANCHORING_PROHIBITED` instead of a speed zone — and `cleanText` drops the literal `"null"`. Unit tests, the prebake and `apk-build.bat` are green on `feature/zonetile`.
+The SHOM INSPIRE bake now parses the real shapes: `restrn` is a comma-separated S-57 code list kept whole in `RegulatedZone.restrictionCodes`, and `zoneType` resolves speed-wins first (a parsed speed limit → `SPEED_LIMIT`) then `type_reglementation` then the first code; `achare_*` is classified from `restrn`/`catach` (1/8 = positive `MOORING`), `Point` zones buffer into a 100 m ring, `MultiPolygon` features split into one zone per polygon, `sourceLayer` records the typeName, and the fetch sends a server-side EPSG:3857 bbox. Fishing is included (the hard filter is empty), `mouillage` maps to MOORING, and the strip's speed tag uses its own alert red with a uniform `regulatedZone.category.background`; the info text falls back to the category label. The type audit, the re-bake (`132` zones) and `assembleDebug` are green on `feature/shom`.
 
 ## Target Files
 
-- `app/src/main/assets/zones.properties` — the generated, app-applied override asset
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSpeedOverrides.kt` — fold, key, parse, load, apply, seed
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — applies the asset at load
-- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` — the RESTRN table, `cleanText`, the name/speed/description parsing
-- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` — the bake entry point
-- `xTrack/RegulatedZones/261010_FEAT_PLN_RegulatedZones_speed-override-family.md` — the plan
+- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` — the `restrn`/RESTRN parsing, `classifyZone`, `restrictionType`, `parseCatrea`, `parseZoneType`, the server-side bbox
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` — `restrictionCodes` and `displayCategories`
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationFilter.kt` — the empty hard filter
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt` + `RegulatedZoneComponents.kt` — the category colours and the info-text label
+- `app/src/main/assets/colors.properties`, `maro.properties`, `zones.properties` — the speed red, the strip background, the filteredTypes and the seeded zones
+- `xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md` — the feature record
 
 ## Next Step
 
-Device pass: edit a value or an ignore in `zones.properties`, rebuild, and confirm the app honours it; then decide whether the runtime `effectiveSpeedLimitKn()` re-map, which still catches the "outside the channel" zone, should be reconciled.
+Device pass: confirm the map polygons and the bottom-left tags read correctly after the speed-red and category changes; then decide whether the parked RESTRN 9 dredging gap is worth a new category.

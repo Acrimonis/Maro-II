@@ -46,10 +46,12 @@ object RegulationFilter {
      * Zone types that are **hard-filtered** — removed unconditionally with no
      * keep-keyword exception. These types are considered completely irrelevant
      * to the user's navigation regardless of description content.
+     *
+     * Currently empty: no type is hard-filtered, so [dropHardFiltered] drops
+     * nothing and every `regulatedZone.filteredTypes` entry survives the bake.
+     * The soft keyword gate ([filter]) remains dormant.
      */
-    private val HARD_FILTERED_TYPES = setOf(
-        RegulatedZoneType.FISHING_PROHIBITED,
-    )
+    private val HARD_FILTERED_TYPES = emptySet<RegulatedZoneType>()
 
     /**
      * Description substrings (lowercased) that indicate a zone is **not** useful
@@ -120,6 +122,30 @@ object RegulationFilter {
         return RegulatedZoneSet(
             zones = filtered,
             metadata = zoneSet.metadata.copy(totalZones = filtered.size)
+        )
+    }
+
+    /**
+     * **The bake's hard drop** — remove every zone of [zoneSet] whose type is both in
+     * [HARD_FILTERED_TYPES] and named in [filteredTypes], so a hard type the property
+     * lists is gone whatever its description says.
+     *
+     * This is the one gate the bake applies: [filter]'s vessel-size and boilerplate gates
+     * stay dormant, so no zone beyond the named hard types is lost — a zone of another
+     * filtered type (say `ENVIRONMENTAL`) is kept. [RegulationMetadata.totalZones]
+     * follows the surviving set; the input is returned unchanged when nothing is dropped.
+     */
+    fun dropHardFiltered(
+        zoneSet: RegulatedZoneSet,
+        filteredTypes: Set<RegulatedZoneType>
+    ): RegulatedZoneSet {
+        val dropped = HARD_FILTERED_TYPES intersect filteredTypes
+        if (dropped.isEmpty()) return zoneSet
+        val kept = zoneSet.zones.filterNot { it.zoneType in dropped }
+        if (kept.size == zoneSet.zones.size) return zoneSet
+        return RegulatedZoneSet(
+            zones = kept,
+            metadata = zoneSet.metadata.copy(totalZones = kept.size)
         )
     }
 }

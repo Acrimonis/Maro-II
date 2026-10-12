@@ -257,7 +257,7 @@ fun RegulatedZoneInfoText(
             val name = if (zone != null) {
                 val rawName = zone.name
                 if (rawName.isNullOrBlank() || rawName.equals("null", ignoreCase = true)) {
-                    zone.zoneType.name.lowercase().replace('_', ' ')
+                    category.name.lowercase().replace('_', ' ')
                 } else {
                     rawName
                 }

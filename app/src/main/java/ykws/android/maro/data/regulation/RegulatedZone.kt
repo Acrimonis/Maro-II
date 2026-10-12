@@ -86,6 +86,8 @@ data class VesselSizeRestriction(
  * @property classification      Provenance-aware classification (sealed class)
  * @property speedSource         How the speed limit was extracted (null = not applicable)
  * @property legalDecreeRef      Official legal decree reference (e.g. "FR_PREMAR_MED_134_2021")
+ * @property sourceLayer         WFS typeName that produced this zone (e.g. "…:resare_polygon")
+ * @property restrictionCodes    Every S-57 RESTRN code on this zone (a zone may carry several)
  */
 @Serializable
 data class RegulatedZone(
@@ -105,7 +107,11 @@ data class RegulatedZone(
     /** How the speed limit was extracted — see [SpeedSource]. */
     @ProtoNumber(12) val speedSource: SpeedSource? = null,
     /** Official legal decree reference (e.g. "FR_PREMAR_MED_134_2021"). */
-    @ProtoNumber(13) val legalDecreeRef: String? = null
+    @ProtoNumber(13) val legalDecreeRef: String? = null,
+    /** WFS typeName that produced this zone (e.g. "REGLEMENTATION_NAVIGATION_BDD_WFS:resare_polygon"). */
+    @ProtoNumber(14) val sourceLayer: String? = null,
+    /** Every SHOM S-57 RESTRN code on this zone — a single zone may carry several, e.g. [3, 11]. */
+    @ProtoNumber(15) val restrictionCodes: List<Int> = emptyList()
 ) {
     /**
      * Check whether this zone applies to a vessel of the given length.
@@ -284,6 +290,8 @@ enum class ZoneDisplayCategory {
 fun RegulatedZone.displayCategories(): Set<ZoneDisplayCategory> {
     val desc = description.lowercase()
     val cats = mutableSetOf<ZoneDisplayCategory>()
+    // Every S-57 code on the zone — a multi-code zone keeps all of them.
+    val codes = restrictionCodes.ifEmpty { listOfNotNull(restrictionCode) }
 
     // ── Anchoring / mouillage ──────────────────────────────────────────────
     // Keyword match includes seagrass keywords which imply no-anchoring rules.
@@ -291,18 +299,18 @@ fun RegulatedZone.displayCategories(): Set<ZoneDisplayCategory> {
             "anchoring and stopping prohibited" in desc ||
             "anchorage is prohibited" in desc ||
             "anchoring" in desc ||
-            "mouillage" in desc ||
             "ancrage" in desc ||
             "posidonie" in desc ||
             "herbier" in desc
     if (zoneType == RegulatedZoneType.ANCHORING_PROHIBITED ||
+        codes.any { it == 1 || it == 2 } ||
         (zoneType != RegulatedZoneType.SPEED_LIMIT && hasAnchorDesc)
     ) cats += ZoneDisplayCategory.NO_ANCHOR
 
     // ── Diving / plongée ───────────────────────────────────────────────────
     // Also check the S-57 diving codes (11 prohibited, 12 restricted)
     val divingDesc = "diving" in desc || "plongée" in desc || "subaquatique" in desc
-    if (divingDesc || restrictionCode == 11 || restrictionCode == 12) cats += ZoneDisplayCategory.NO_DIVING
+    if (divingDesc || codes.any { it == 11 || it == 12 }) cats += ZoneDisplayCategory.NO_DIVING
 
     // ── Small craft mooring / amarrage ──────────────────────────────────────
     if (zoneType == RegulatedZoneType.MOORING ||
@@ -339,6 +347,7 @@ fun RegulatedZone.displayCategories(): Set<ZoneDisplayCategory> {
 
     // ── Fishing prohibition ─────────────────────────────────────────────────
     if (zoneType == RegulatedZoneType.FISHING_PROHIBITED ||
+        codes.any { it in 3..6 } ||
         "fishing" in desc ||
         "trawling" in desc ||
         "pêche" in desc ||
