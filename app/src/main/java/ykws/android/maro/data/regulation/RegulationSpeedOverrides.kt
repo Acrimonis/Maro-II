@@ -312,6 +312,7 @@ object RegulationSpeedOverrides {
         val c = centroid(zone)
         return listOf(
             field("name", label ?: foldForComment(zone.name.ifBlank { "(unnamed)" })),
+            field("nameWs", foldForComment(zone.name).ifBlank { "-" }),
             field("type", zone.zoneType.name),
             field("speed", zone.speedLimitKn?.let { "${formatKn(it)} kn" } ?: "-"),
             field("route", route?.let { "${formatKn(it)} kn" } ?: "-"),

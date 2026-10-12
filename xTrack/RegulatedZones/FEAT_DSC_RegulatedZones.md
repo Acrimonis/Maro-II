@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-10-12 15:46
+modified: 2026-10-12 16:32
 ---
 
 # Feature: RegulatedZones
@@ -83,6 +83,8 @@ OBSTRN (obstructions), WRECKS and SBDARE (seabed areas) are hazard/hydrography l
 - The regulation bake covers regulatory layers only; hazards stay out of scope until a keyed or paid source is chosen
 
 ## Implemented
+
+- **shom-name-ws (2026-10-12, `feature/shom`)** — every seeded block gained `# nameWs`, the name the WFS itself gave (`objnam`/`nobjnm` via the model's `name`), kept independent of the preserved `# name` label and written `-` when the WFS gave none, so a manual renaming and the source name are both readable.
 
 - **shom-route-and-seed-fields (2026-10-12, `feature/shom`)** — `regulatedZone.speedRoute.<key>` is a routing-only speed: `RegulatedZone.speedRouteKn` (protobuf 16, added because 14 and 15 were taken) feeds `SpeedZone.routeLimitKn`, which the route engine reads at `RouteGridBuilder`, `RouteFinePass` and `ZoneGeometry` while every display surface keeps `speedLimitKn`. Each seeded block gained `# layer` (the S-57 typeName), `# codes` (every RESTRN code) and a `# geometry` WKT outline simplified by adaptive RDP to at most 8 vertices, and a read-only [`ShomWfsSchemaProbeTest`](app/src/test/java/ykws/android/maro/data/regulation/ShomWfsSchemaProbeTest.kt:1) showed the INSPIRE endpoint serves only lowercase `restrn`/`catrea` — the only unread fields are `perend`, `persta` and `status`, and no `vitesse_max` or `TXTDSC` is served, so the decree stays empty and `ctsare_polygon`/`admare_polygon` yield no zones.
 
