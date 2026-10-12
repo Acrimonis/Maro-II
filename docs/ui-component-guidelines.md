@@ -397,7 +397,11 @@ geometry above as constants: the 240dp width, the 16dp/2dp row padding, the 24dp
 in `uiAccent` at 16sp SemiBold on the selected row alone, the 15sp Medium–SemiBold label and the 0.4 dim of
 a switched-off row. The dropdown's menu ([§2.12](#212-dropdown-row--dropdownrow)) reads them all; the two
 list popups read the rows and the constants but still state their own outer surface inline, and
-`PopupSurface` is there for them to move onto.
+`PopupSurface` is there for them to move onto. **A title is drawn only when an axis's label differs from the
+previous axis's** — the rule [`FilterControl`](../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt)
+applies, and the one home for it, since that popup is the only member with keys to share — so axes sharing a
+title, the marker filter's three routing axes the case, group under one heading while each keeps its own card;
+an axis must never reuse a neighbour's label by accident, because a repeated key merges the two silently.
 
 **The dropdown's list is a wheel, and it is this family's one exception**: `DropdownWheel`
 draws a snapped column of three to five rows where the centre slot is marked by the taken-choice face rather

@@ -382,13 +382,11 @@
     <string name="filter_option_without_icon">Without icon</string>
     <string name="filter_option_manual">Manual</string>
     <string name="filter_option_auto">Auto</string>
-    <string name="filter_axis_route_cost">Routing cost</string>
+    <string name="filter_group_routing">Routing</string>
     <string name="filter_option_route_cost">Route cost</string>
     <string name="filter_option_no_route_cost">No route cost</string>
-    <string name="filter_axis_route_role">Route role</string>
     <string name="filter_option_route_role">Origin or Dest</string>
-    <string name="filter_option_no_route_role">No route role</string>
-    <string name="filter_axis_routing_only">Routing only</string>
+    <string name="filter_option_no_route_role">None</string>
     <string name="filter_option_routing_only">Route Only</string>
     <string name="filter_option_normal">Normal</string>
     <string name="color_picker_title">Pick color</string>

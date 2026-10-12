@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-11 19:44
+modified: 2026-10-12 07:12
 ---
 
 # Feature: Markers
@@ -14,6 +14,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [ ] The debug overlay marks no difference between a date point that matched and one the range gate rejected: both segments carry `blocked = false`, which `MapMarkerEffects` paints green — the colour `MarkersViewModel` documents as "clear". Decide whether a rejected point keeps that green, takes the blocked red, or is given a third state.
 
 ## Implemented
+
+- **routing-filter-group (2026-10-12)** — the marker filter popup's three routing axes now stand under one `Routing` title while each keeps its own card, with no field added to [`FilterAxisSpec`](../../app/src/main/java/ykws/android/maro/data/model/ListFilter.kt:142): the three axes in [`markerFilterAxes()`](../../app/src/main/java/ykws/android/maro/data/model/ListFilter.kt:189) share the one `filter_group_routing` key and [`FilterControl`](../../app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:294) draws a `PopupSectionTitle` only when the key differs from the one drawn last, so a repeated key is one group; the order became role, cost, Only, the role axis' negative option was revalued from `No route role` to `None` / `Aucun`, and `filter_axis_route_cost`, `filter_axis_route_role` and `filter_axis_routing_only` retired from both locales; presentational only, so `matchesFilter` and `MarkerFilterMigrationTest` are untouched and the track, route and menu popups render as before, while the Marker Filter Axes table in [`ui-lists-guidelines.md`](../../docs/ui-lists-guidelines.md:132) gained the three rows it had been missing; `apk-build.bat` BUILD SUCCESSFUL with the marker suites green, and the review's verdict **ship** left three non-blocking findings — its two documentation points then folded in on the user's word, the shared-title rule left with one home in [`ui-component-guidelines.md`](../../docs/ui-component-guidelines.md:400) pointing at the `FilterControl` that applies it, while the one-assertion test pinning `markerFilterAxes()` stays owed and the device pass is owed → [`261012_FEAT_PLN_Markers_routing-filter-group.md`](261012_FEAT_PLN_Markers_routing-filter-group.md:1)
 
 - **transfer-result-line-and-share-titles (2026-10-11, `feature/mrkr-imexport`)** — the transfer's result banner stopped naming the wrong kind: the shared [`ImportBannerState.Result`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:412) carries a `TransferKind` defaulted to `TRACK`, so every track call site is unchanged while the two marker doors — `markerImportLauncher`'s two results and `MarkerImportConflictHost`'s own — pass `MARKER`, and the banner's render picks `import_result_marker_imported` / `_ignored` (`%d repère(s) importé(s)` / `ignoré(s)`) for a marker against the existing pair for a track; beside it the four share-sheet chooser titles (`Share GPX`, `Share Tracks`, `Share Marker`, `Share Markers`) left `TrackSharing.kt` / `MarkerSharing.kt` for `values/strings.xml` and `values-fr/strings.xml`, read through `context.getString`. `:app:testDebugUnitTest` and `:app:assembleDebug` BUILD SUCCESSFUL, `apk-build.bat` SUCCESS → [`xTrack/Markers/261011_FEAT_PLN_Markers_marker-import-export.md`](261011_FEAT_PLN_Markers_marker-import-export.md:1)
 
@@ -98,6 +100,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - `app/src/main/assets/maro.properties`
 
 ## Docs
+- `xTrack/Markers/261012_FEAT_PLN_Markers_routing-filter-group.md` — the three routing filter axes under one Routing title, each keeping its own card; the shared-title rule, the retired axis keys and the revalued role option
 - `xTrack/Markers/261011_FEAT_PLN_Markers_marker-import-export.md` — **marker export/import (shipped 2026-10-11)**: the GPX waypoint with its protobuf payload and its readable mirror of every field, the ZIP batch, the doors, the Duplicate/Override/Cancel rule, and the `origin == USER || trackId == null` set
 - `xTrack/Markers/261011_FEAT_PLN_Markers_routing-only-flag.md` — the routing-weight-only flag: the model field, the one exclusion predicate, the wizard row and card mark, the map cue (every ring dashed, every fill hatched), the `routingOnly` filter axis and the six paint keys
 - `xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md` — the focus framing now includes the proximity collar; the pin's zoom-in-only rule dropped
