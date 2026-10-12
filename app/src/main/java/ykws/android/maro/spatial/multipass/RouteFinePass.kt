@@ -76,7 +76,7 @@ internal class RouteFinePass {
         val depthBand =
             if (ctx.depthBandActive && ctx.depthGateActive) depthBandOf(world, ctx.minDepthM, fineCellM) else null
         for (zone in zones) {
-            if (zonePriceSec(cellM, pace, zone.speedLimitKn, lambda) <= 0.0) continue
+            if (zonePriceSec(cellM, pace, zone.routeLimitKn, lambda) <= 0.0) continue
             if (!lineEntersZone(out, zone)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,

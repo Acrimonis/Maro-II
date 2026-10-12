@@ -1,6 +1,7 @@
 package ykws.android.maro.data.regulation
 
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.spatial.SpatialOperations
 import java.io.File
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -13,11 +14,14 @@ import java.util.Locale
  * App-side control over the regulated-zone set, driven by the
  * `zones.properties` asset that ships next to `maro.properties`.
  *
- * Two key families, one block per zone:
+ * Three key families, one block per zone:
  *
  * - `regulatedZone.speedOverride.<key>=<kn>` — replaces the zone's speed limit;
  *   setting a value on a zone that carries none turns it into a speed zone at
  *   that value;
+ * - `regulatedZone.speedRoute.<key>=<kn>` — a routing-only speed: the route engine
+ *   prices the zone at this value while every other surface keeps the limit above;
+ *   blank for none;
  * - `regulatedZone.ignore.<key>=true` — drops the zone from the set, so it is
  *   never drawn, listed or priced.
  *
@@ -35,6 +39,7 @@ import java.util.Locale
 object RegulationSpeedOverrides {
 
     const val SPEED_PREFIX = "regulatedZone.speedOverride."
+    const val SPEED_ROUTE_PREFIX = "regulatedZone.speedRoute."
     const val IGNORE_PREFIX = "regulatedZone.ignore."
 
     /** Asset name, resolved at the assets root next to `maro.properties`. */
@@ -43,7 +48,8 @@ object RegulationSpeedOverrides {
     /** The hand-edited values read back from the file. */
     data class Overrides(
         val speeds: Map<String, Double>,
-        val ignores: Map<String, Boolean>
+        val ignores: Map<String, Boolean>,
+        val routeSpeeds: Map<String, Double> = emptyMap()
     )
 
     /** Resolve the override file for a repo root directory. */
@@ -100,12 +106,14 @@ object RegulationSpeedOverrides {
 
     private fun fromParsed(parsed: Parsed): Overrides {
         val speeds = LinkedHashMap<String, Double>()
+        val routeSpeeds = LinkedHashMap<String, Double>()
         val ignores = LinkedHashMap<String, Boolean>()
         for ((key, block) in parsed.blocks) {
             block.speed?.let { speeds[key] = it }
+            block.route?.let { routeSpeeds[key] = it }
             block.ignore?.let { ignores[key] = it }
         }
-        return Overrides(speeds, ignores)
+        return Overrides(speeds, ignores, routeSpeeds)
     }
 
     private val EMPTY = Overrides(emptyMap(), emptyMap())
@@ -115,16 +123,28 @@ object RegulationSpeedOverrides {
     /**
      * Apply [overrides] to [zones]: an ignored zone is dropped, every survivor
      * whose key carries a speed override gets its [RegulatedZone.speedLimitKn]
-     * replaced (a zone with none thereby becomes a speed zone), and the rest are
+     * replaced (a zone with none thereby becomes a speed zone), a `speedRoute`
+     * value sets the routing-only [RegulatedZone.speedRouteKn], and the rest are
      * returned untouched.
      */
     fun apply(zones: List<RegulatedZone>, overrides: Overrides): List<RegulatedZone> {
-        if (overrides.speeds.isEmpty() && overrides.ignores.isEmpty()) return zones
+        if (overrides.speeds.isEmpty() && overrides.routeSpeeds.isEmpty() &&
+            overrides.ignores.isEmpty()
+        ) return zones
         return zones.asSequence()
             .filter { overrides.ignores[keyFor(it)] != true }
             .map { zone ->
-                val value = overrides.speeds[keyFor(zone)]
-                if (value != null) zone.copy(speedLimitKn = value) else zone
+                val key = keyFor(zone)
+                val speed = overrides.speeds[key]
+                val route = overrides.routeSpeeds[key]
+                if (speed == null && route == null) {
+                    zone
+                } else {
+                    zone.copy(
+                        speedLimitKn = speed ?: zone.speedLimitKn,
+                        speedRouteKn = route ?: zone.speedRouteKn
+                    )
+                }
             }
             .toList()
     }
@@ -153,11 +173,15 @@ object RegulationSpeedOverrides {
             emitted += key
             val prev = previous[key]
 
-            for (line in generatedComments(zone, prev?.label)) sb.append(line).append('\n')
+            for (line in generatedComments(zone, prev?.label, prev?.route)) sb.append(line).append('\n')
 
             val speed = prev?.speed ?: zone.speedLimitKn
             sb.append(SPEED_PREFIX).append(key).append('=')
                 .append(speed?.let { formatKn(it) } ?: "").append('\n')
+
+            val route = prev?.route ?: zone.speedRouteKn
+            sb.append(SPEED_ROUTE_PREFIX).append(key).append('=')
+                .append(route?.let { formatKn(it) } ?: "").append('\n')
 
             val ignore = prev?.ignore ?: false
             sb.append(IGNORE_PREFIX).append(key).append('=').append(ignore).append('\n')
@@ -170,6 +194,9 @@ object RegulationSpeedOverrides {
             sb.append("# stale (not in current bake): ")
                 .append(SPEED_PREFIX).append(key).append('=')
                 .append(block.speed?.let { formatKn(it) } ?: "").append('\n')
+            sb.append("# stale (not in current bake): ")
+                .append(SPEED_ROUTE_PREFIX).append(key).append('=')
+                .append(block.route?.let { formatKn(it) } ?: "").append('\n')
             sb.append("# stale (not in current bake): ")
                 .append(IGNORE_PREFIX).append(key).append('=')
                 .append(block.ignore ?: false).append('\n')
@@ -185,6 +212,7 @@ object RegulationSpeedOverrides {
     private class Block {
         var label: String? = null
         var speed: Double? = null
+        var route: Double? = null
         var ignore: Boolean? = null
     }
 
@@ -193,7 +221,9 @@ object RegulationSpeedOverrides {
         val staleLines: List<String>
     )
 
-    private class KeyLine(val key: String, val isSpeed: Boolean, val value: String)
+    private class KeyLine(val key: String, val kind: Kind, val value: String)
+
+    private enum class Kind { SPEED, ROUTE, IGNORE }
 
     private fun parse(lines: List<String>): Parsed {
         val blocks = LinkedHashMap<String, Block>()
@@ -218,10 +248,10 @@ object RegulationSpeedOverrides {
                         val block = blocks.getOrPut(keyLine.key) { Block() }
                         if (block.label == null) block.label = pendingLabel
                         pendingLabel = null
-                        if (keyLine.isSpeed) {
-                            block.speed = keyLine.value.toDoubleOrNull()
-                        } else {
-                            block.ignore = keyLine.value.toBooleanOrNull()
+                        when (keyLine.kind) {
+                            Kind.SPEED -> block.speed = keyLine.value.toDoubleOrNull()
+                            Kind.ROUTE -> block.route = keyLine.value.toDoubleOrNull()
+                            Kind.IGNORE -> block.ignore = keyLine.value.toBooleanOrNull()
                         }
                     }
                 }
@@ -245,8 +275,12 @@ object RegulationSpeedOverrides {
         val key = line.substring(0, eq).trim()
         val value = line.substring(eq + 1).trim()
         return when {
-            key.startsWith(SPEED_PREFIX) -> KeyLine(key.removePrefix(SPEED_PREFIX), true, value)
-            key.startsWith(IGNORE_PREFIX) -> KeyLine(key.removePrefix(IGNORE_PREFIX), false, value)
+            key.startsWith(SPEED_ROUTE_PREFIX) ->
+                KeyLine(key.removePrefix(SPEED_ROUTE_PREFIX), Kind.ROUTE, value)
+            key.startsWith(SPEED_PREFIX) ->
+                KeyLine(key.removePrefix(SPEED_PREFIX), Kind.SPEED, value)
+            key.startsWith(IGNORE_PREFIX) ->
+                KeyLine(key.removePrefix(IGNORE_PREFIX), Kind.IGNORE, value)
             else -> null
         }
     }
@@ -270,17 +304,24 @@ object RegulationSpeedOverrides {
         return stripped.map { ch -> if (ch.code < 128) ch else '_' }.joinToString("")
     }
 
-    private fun generatedComments(zone: RegulatedZone, label: String? = null): List<String> {
+    private fun generatedComments(
+        zone: RegulatedZone,
+        label: String? = null,
+        route: Double? = null
+    ): List<String> {
         val c = centroid(zone)
         return listOf(
             field("name", label ?: foldForComment(zone.name.ifBlank { "(unnamed)" })),
             field("type", zone.zoneType.name),
             field("speed", zone.speedLimitKn?.let { "${formatKn(it)} kn" } ?: "-"),
+            field("route", route?.let { "${formatKn(it)} kn" } ?: "-"),
             field("source", foldForComment(zone.source).ifBlank { "-" }),
+            field("layer", foldForComment(zone.sourceLayer.orEmpty()).ifBlank { "-" }),
             field("inspireid", foldForComment(zone.sourceRef).ifBlank { "-" }),
             field("decree", foldForComment(zone.legalDecreeRef.orEmpty()).ifBlank { "-" }),
             field("speedSrc", zone.speedSource?.name ?: "-"),
             field("restriction", zone.restrictionCode?.toString() ?: "-"),
+            field("codes", zone.restrictionCodes.joinToString(",").ifBlank { "-" }),
             field("class", zone.classification?.let { foldForComment(it.toString()) } ?: "-"),
             field("vessel", vesselText(zone)),
             field("holes", zone.holes.size.toString()),
@@ -292,7 +333,8 @@ object RegulationSpeedOverrides {
             field(
                 "centroid",
                 String.format(Locale.US, "%.4f", c.latitude) + "," + String.format(Locale.US, "%.4f", c.longitude)
-            )
+            ),
+            field("geometry", geometryWkt(zone))
         )
     }
 
@@ -323,6 +365,66 @@ object RegulationSpeedOverrides {
         )
     }
 
+    /** Cap on the simplified outer-ring vertex count the `# geometry` line carries. */
+    private const val GEOMETRY_MAX_VERTICES = 8
+
+    /** First RDP epsilon (m); doubled until the ring fits [GEOMETRY_MAX_VERTICES]. */
+    private const val GEOMETRY_EPSILON_START_M = 20.0
+
+    /** Upper bound on the RDP epsilon (m) — the doubling stops here. */
+    private const val GEOMETRY_EPSILON_CAP_M = 20_480.0
+
+    /**
+     * The `# geometry` value: the zone's outer ring as a WKT `POLYGON`, adaptively
+     * simplified with Ramer-Douglas-Peucker to at most [GEOMETRY_MAX_VERTICES]
+     * distinct vertices.
+     *
+     * The ring is opened (the duplicated closing point dropped), simplified, then
+     * re-closed by appending the first point. A ring already at or below the cap is
+     * kept as is; otherwise epsilon starts at [GEOMETRY_EPSILON_START_M] and doubles
+     * up to [GEOMETRY_EPSILON_CAP_M] until the result fits. A result below three
+     * points falls back to the ring's bounding-box rectangle so the WKT stays valid.
+     * Holes are dropped — too few vertices to carry them.
+     */
+    private fun geometryWkt(zone: RegulatedZone): String {
+        val ring = zone.outerRing
+        val points = if (ring.size > 1 && ring.first() == ring.last()) ring.dropLast(1) else ring
+        if (points.isEmpty()) return "-"
+
+        val simplified = if (points.size <= GEOMETRY_MAX_VERTICES) {
+            points
+        } else {
+            var epsilon = GEOMETRY_EPSILON_START_M
+            var result = SpatialOperations.douglasPeucker(points, epsilon)
+            while (result.size > GEOMETRY_MAX_VERTICES && epsilon < GEOMETRY_EPSILON_CAP_M) {
+                epsilon *= 2.0
+                result = SpatialOperations.douglasPeucker(points, epsilon)
+            }
+            result
+        }
+
+        val vertices = if (simplified.size < 3) boundingBoxRing(points) else simplified
+        val closed = vertices + vertices.first()
+        val body = closed.joinToString(", ") { p ->
+            String.format(Locale.US, "%.5f %.5f", p.longitude, p.latitude)
+        }
+        return "POLYGON(($body))"
+    }
+
+    /** The ring's bounding-box rectangle — the valid fallback when simplification collapses it. */
+    private fun boundingBoxRing(points: List<LatLng>): List<LatLng> {
+        val minLat = points.minOf { it.latitude }
+        val maxLat = points.maxOf { it.latitude }
+        val minLon = points.minOf { it.longitude }
+        val maxLon = points.maxOf { it.longitude }
+        return listOf(
+            LatLng(minLat, minLon),
+            LatLng(minLat, maxLon),
+            LatLng(maxLat, maxLon),
+            LatLng(maxLat, minLon)
+        )
+    }
+
     private fun formatKn(value: Double): String =
         if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
 
@@ -341,10 +443,13 @@ object RegulationSpeedOverrides {
         # Read at runtime by RegulatedZonesRepository from the APK asset
         # of this name, next to maro.properties.
         #
-        # Two key families, one block per zone:
+        # Three key families, one block per zone:
         #   regulatedZone.speedOverride.<key>=<kn>   replace the limit;
         #     a value on a zone with none makes it a speed zone.
         #     Leave it blank for no override.
+        #   regulatedZone.speedRoute.<key>=<kn>      routing-only speed;
+        #     the route engine prices the zone at this value, every
+        #     other surface keeps the limit above. Blank = none.
         #   regulatedZone.ignore.<key>=true|false    drop the zone.
         # <key> chain: SHOM inspireid, else decree ref, else name +
         #   centroid slug; every string folded to ASCII (e -> e,

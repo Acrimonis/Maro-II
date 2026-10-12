@@ -166,6 +166,48 @@ class RegulationSpeedOverridesTest {
         assertEquals(true, overrides.ignores["ref-y"])
     }
 
+    @Test
+    fun `apply sets a routing-only speed without touching the displayed limit`() {
+        val zones = listOf(zone(name = "A", sourceRef = "ref-a", speedLimitKn = 5.0))
+        val result = RegulationSpeedOverrides.apply(
+            zones,
+            RegulationSpeedOverrides.Overrides(
+                speeds = emptyMap(),
+                ignores = emptyMap(),
+                routeSpeeds = mapOf("ref-a" to 10.0)
+            )
+        )
+        assertEquals(5.0, result.single().speedLimitKn!!, 0.0)
+        assertEquals(10.0, result.single().speedRouteKn!!, 0.0)
+    }
+
+    @Test
+    fun `load reads the speedRoute family from a stream`() {
+        val stream = "regulatedZone.speedRoute.ref-x=12\n".byteInputStream()
+        assertEquals(12.0, RegulationSpeedOverrides.load(stream).routeSpeeds["ref-x"]!!, 0.0)
+    }
+
+    @Test
+    fun `seed writes a blank speedRoute line and keeps an edited one across a re-run`() {
+        val dir = tempDir()
+        try {
+            val file = RegulationSpeedOverrides.file(dir)
+            val a = zone(name = "A", sourceRef = "ref-a", speedLimitKn = 5.0)
+
+            RegulationSpeedOverrides.seed(file, listOf(a))
+            assertTrue(file.readText().contains("regulatedZone.speedRoute.ref-a=\n"))
+
+            file.writeText(
+                file.readText()
+                    .replace("regulatedZone.speedRoute.ref-a=\n", "regulatedZone.speedRoute.ref-a=10\n")
+            )
+            RegulationSpeedOverrides.seed(file, listOf(a))
+            assertEquals(10.0, RegulationSpeedOverrides.load(file).routeSpeeds["ref-a"]!!, 0.0)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     private fun zone(
         name: String = "Test",
         speedLimitKn: Double? = 10.0,

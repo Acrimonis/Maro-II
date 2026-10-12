@@ -88,6 +88,7 @@ data class VesselSizeRestriction(
  * @property legalDecreeRef      Official legal decree reference (e.g. "FR_PREMAR_MED_134_2021")
  * @property sourceLayer         WFS typeName that produced this zone (e.g. "…:resare_polygon")
  * @property restrictionCodes    Every S-57 RESTRN code on this zone (a zone may carry several)
+ * @property speedRouteKn        Routing-only speed override (kn); null = the route uses [speedLimitKn]
  */
 @Serializable
 data class RegulatedZone(
@@ -111,7 +112,12 @@ data class RegulatedZone(
     /** WFS typeName that produced this zone (e.g. "REGLEMENTATION_NAVIGATION_BDD_WFS:resare_polygon"). */
     @ProtoNumber(14) val sourceLayer: String? = null,
     /** Every SHOM S-57 RESTRN code on this zone — a single zone may carry several, e.g. [3, 11]. */
-    @ProtoNumber(15) val restrictionCodes: List<Int> = emptyList()
+    @ProtoNumber(15) val restrictionCodes: List<Int> = emptyList(),
+    /**
+     * Routing-only speed override (kn) from `regulatedZone.speedRoute.<key>`: when set, the route
+     * engine prices this zone at this value while every other surface keeps [speedLimitKn].
+     */
+    @ProtoNumber(16) val speedRouteKn: Double? = null
 ) {
     /**
      * Check whether this zone applies to a vessel of the given length.

@@ -104,7 +104,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
         trace {
             "HARVEST edges=${edges.size} openCoast=${openCoast.size} band=${fmt(world.bandWidthM)}m " +
-                "zones=[${zones.joinToString(", ") { "${it.name} ${fmt(it.speedLimitKn)}kn" }}] " +
+                "zones=[${zones.joinToString(", ") { "${it.name} ${fmt(it.routeLimitKn)}kn" }}] " +
                 "cell=${fmt(cellM)}m margin=${fmt(marginM)}m outsideMargin=${fmt(zoneOutsideMarginM)}m"
         }
         // The grid takes the rings, the band and the **limits**: what a slow cell is, never what it costs
@@ -115,7 +115,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0,
             markerStrength = markerStrength
         )
-        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
+        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
         val bandSpec = bandLaw(world)
         val grid = rasterize(
             box, cellM, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
@@ -229,7 +229,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0,
                 markerStrength = markerStrength
             )
-        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.speedLimitKn) }
+        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
         val bandSpec = bandLaw(world)
         // The fine layer (layer 1): **the windows over the band's own water**, never the corridor's span.
         // The mask keeps only the coastal ribbon, so the ribbon's own tiles are what is rastered — the same

@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-10-12 13:25
+modified: 2026-10-12 15:46
 ---
 
 # Feature: RegulatedZones
@@ -83,6 +83,8 @@ OBSTRN (obstructions), WRECKS and SBDARE (seabed areas) are hazard/hydrography l
 - The regulation bake covers regulatory layers only; hazards stay out of scope until a keyed or paid source is chosen
 
 ## Implemented
+
+- **shom-route-and-seed-fields (2026-10-12, `feature/shom`)** — `regulatedZone.speedRoute.<key>` is a routing-only speed: `RegulatedZone.speedRouteKn` (protobuf 16, added because 14 and 15 were taken) feeds `SpeedZone.routeLimitKn`, which the route engine reads at `RouteGridBuilder`, `RouteFinePass` and `ZoneGeometry` while every display surface keeps `speedLimitKn`. Each seeded block gained `# layer` (the S-57 typeName), `# codes` (every RESTRN code) and a `# geometry` WKT outline simplified by adaptive RDP to at most 8 vertices, and a read-only [`ShomWfsSchemaProbeTest`](app/src/test/java/ykws/android/maro/data/regulation/ShomWfsSchemaProbeTest.kt:1) showed the INSPIRE endpoint serves only lowercase `restrn`/`catrea` — the only unread fields are `perend`, `persta` and `status`, and no `vitesse_max` or `TXTDSC` is served, so the decree stays empty and `ctsare_polygon`/`admare_polygon` yield no zones.
 
 - **shom-inspire-parity (2026-10-12, `feature/shom`)** — the bake now parses the real INSPIRE shapes: `restrn` is a comma-separated S-57 code list kept whole in `RegulatedZone.restrictionCodes` instead of being nulled by a whole-string `toIntOrNull()`; `zoneType` resolves speed-wins first (non-null `speedLimitKn` → `SPEED_LIMIT`), then the legacy `type_reglementation`, then the first code; `achare_*` is classified from `restrn` then `catach` (1/8 = positive `MOORING`); `Point` zones buffer into a 100 m ring and `MultiPolygon` features split into one zone per polygon; `sourceLayer` records the typeName; and the fetch sends a server-side EPSG:3857 bbox (1293 → ~78 `resare_polygon` features). Fishing cantonnements parse as `FISHING_PROHIBITED` (3) plus 15 more carrying the fishing category, and are now included at bake — the hard filter is empty (see the reg-zones-filtering rule). The native `REGNAV_BDD_WFS:resare` layer is not fetched — it needs a SHOM API key (INSPIRE answers `MissingRights`, `wfs/reglementation` answers `MissingParameter: Key`).
 
