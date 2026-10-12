@@ -185,7 +185,11 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
     )
 )
 
-/** Marker filter axes. */
+/**
+ * Marker filter axes. The three routing axes — `routeRole`, `routeCost` and `routingOnly` — share one
+ * `filter_group_routing` title and stand together, so the popup draws a single **Routing** heading over
+ * their three cards; every other axis carries a title of its own.
+ */
 fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
     FilterAxisSpec(
         key = "icon",
@@ -214,18 +218,10 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("AUTO", R.string.filter_option_auto)
         )
     ),
-    FilterAxisSpec(
-        key = "routeCost",
-        labelResId = R.string.filter_axis_route_cost,
-        options = listOf(
-            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
-            FilterOptionSpec("WITH_COST", R.string.filter_option_route_cost),
-            FilterOptionSpec("WITHOUT_COST", R.string.filter_option_no_route_cost)
-        )
-    ),
+    // The three routing axes carry the same title on purpose: one Routing heading, one card each.
     FilterAxisSpec(
         key = "routeRole",
-        labelResId = R.string.filter_axis_route_role,
+        labelResId = R.string.filter_group_routing,
         options = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("ROLE", R.string.filter_option_route_role),
@@ -233,8 +229,17 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
         )
     ),
     FilterAxisSpec(
+        key = "routeCost",
+        labelResId = R.string.filter_group_routing,
+        options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("WITH_COST", R.string.filter_option_route_cost),
+            FilterOptionSpec("WITHOUT_COST", R.string.filter_option_no_route_cost)
+        )
+    ),
+    FilterAxisSpec(
         key = "routingOnly",
-        labelResId = R.string.filter_axis_routing_only,
+        labelResId = R.string.filter_group_routing,
         options = listOf(
             FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
             FilterOptionSpec("ONLY", R.string.filter_option_routing_only),

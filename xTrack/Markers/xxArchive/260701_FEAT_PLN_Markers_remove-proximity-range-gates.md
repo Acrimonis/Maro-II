@@ -71,3 +71,7 @@ closestUnblockedPoint()
 - ZoneMatch — unchanged
 - `closestUnblockedPoint` — unchanged
 - `sampleBoundaryPoints` — unchanged (fixed in prior task)
+
+## Outcome
+
+This plan is a change list with no status line and no implemented section, so what shipped versus what was planned cannot be read from this file alone.

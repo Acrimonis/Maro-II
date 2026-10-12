@@ -70,3 +70,7 @@ proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
 - `app/src/main/assets/maro.properties` — new key
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — field + loading
 - `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — use config
+
+## Outcome
+
+This plan is a short three-file fix list with no status line and no implemented section, so what shipped versus what was planned cannot be read from this file alone.

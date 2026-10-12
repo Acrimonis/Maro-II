@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.markers.markerProximityRangeM
@@ -38,10 +37,11 @@ class UserMarkerRepository(
 
     private var lastKnownGood: List<UserMarker>? = null
 
-    private val json = Json {
-        ignoreUnknownKeys = true
-        prettyPrint = true
-    }
+    /**
+     * The one JSON configuration a marker is written with — [MarkerPayload.json], the payload codec's
+     * own, so the file on disk and the readable copy a GPX export carries cannot drift apart.
+     */
+    private val json = MarkerPayload.json
 
     /** Serializes load-modify-save cycles — two writers (UI VM + service) share the file. */
     private val writeMutex = Mutex()

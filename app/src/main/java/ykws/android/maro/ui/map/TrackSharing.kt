@@ -54,7 +54,8 @@ internal fun shareTrackGpx(
             onProgress(null)
             return@launch
         }
-        val gpx = track.toGpx()
+        // The trip's own markers ride its file, re-pointed nowhere — they already name this track.
+        val gpx = track.toGpx(trackViewModel.ownedMarkers(track.id))
         val safeName = "${trackFileBaseName(track.name, track.startTimeMs)}-1"
         val gpxFile = java.io.File(context.filesDir, "tracks/$safeName.gpx")
         gpxFile.parentFile?.mkdirs()
@@ -70,7 +71,7 @@ internal fun shareTrackGpx(
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         onProgress(null)
-        context.startActivity(android.content.Intent.createChooser(intent, "Share GPX"))
+        context.startActivity(android.content.Intent.createChooser(intent, context.getString(R.string.share_gpx_title)))
     }
 }
 
@@ -97,7 +98,7 @@ internal fun shareTracksZip(
             val counters = HashMap<String, Int>()
             java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zipFile))).use { zos ->
                 tracks.forEach { track ->
-                    val gpx = track.toGpx()
+                    val gpx = track.toGpx(trackViewModel.ownedMarkers(track.id))
                     val base = trackFileBaseName(track.name, track.startTimeMs)
                     val counter = (counters[base] ?: -1) + 1
                     counters[base] = counter
@@ -120,6 +121,6 @@ internal fun shareTracksZip(
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         onProgress(null)
-        context.startActivity(android.content.Intent.createChooser(intent, "Share Tracks"))
+        context.startActivity(android.content.Intent.createChooser(intent, context.getString(R.string.share_tracks_title)))
     }
 }

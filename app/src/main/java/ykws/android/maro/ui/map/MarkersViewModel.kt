@@ -1194,6 +1194,59 @@ class MarkersViewModel(
     }
 
     /**
+     * Peek at a marker file and report whether it matches a marker already held: the matched marker's
+     * id and name, or null when there is no match or the file is a ZIP, which never prompts.
+     *
+     * The match is asked of the payload's own id first and of the name second, so a file this app
+     * exported resolves by identity and a file another application wrote resolves the way the track
+     * transfer's foreign path does.
+     */
+    fun peekMarkerImport(bytes: ByteArray, extension: String): ykws.android.maro.data.markers.MarkerImportMatch? {
+        val all = _allMarkers.value
+        return ykws.android.maro.data.markers.MarkerGpxImporter.peekImportMatch(
+            bytes,
+            extension,
+            existingIds = all.map { it.id }.toSet(),
+            existingIdByName = all.associate { it.name to it.id }
+        )
+    }
+
+    /**
+     * Import markers from a GPX file or a ZIP archive of them.
+     *
+     * Every write goes through [UserMarkerRepository], and that is the whole refresh mechanism: the
+     * repository's mutex serialises it against the recorder's own writes, and its change channel is
+     * what reloads this view model's list and the map, so no bespoke reload is needed here. A marker
+     * that already exists is replaced in place — the UPDATE path — and one that does not is added.
+     *
+     * @param mode How a match is treated; a ZIP always skips what is held.
+     * @return Aggregate counts: markers imported versus duplicates ignored.
+     */
+    suspend fun importMarkers(
+        bytes: ByteArray,
+        extension: String,
+        mode: ykws.android.maro.data.model.ImportMode
+    ): ykws.android.maro.data.markers.MarkerImportResult {
+        val all = _allMarkers.value
+        val batch = ykws.android.maro.data.markers.MarkerGpxImporter.import(
+            bytes,
+            extension,
+            existingNames = all.map { it.name }.toSet(),
+            existingIds = all.map { it.id }.toSet(),
+            existingIdByName = all.associate { it.name to it.id },
+            mode = mode
+        )
+        val heldIds = all.map { it.id }.toSet()
+        for (marker in batch.markers) {
+            if (marker.id in heldIds) repo.update(marker) else repo.add(marker)
+        }
+        // Imported markers must be visible or the import looks like nothing happened; the layer is
+        // the only gate here, since markers carry no session boost of their own.
+        if (batch.imported > 0) showLayer()
+        return batch.result
+    }
+
+    /**
      * Confirm a temporary 🕐 auto-marker — sets confirmed=true, keepable=true,
      * and updates the name and description with final values.
      */

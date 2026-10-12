@@ -56,3 +56,7 @@ Remove duplicate `mutableStateOf`, `remember`, `setValue` imports from [`MarkerD
 ## Build
 
 assembleDebug expected ✅
+
+## Outcome
+
+This plan's header reads *Plan* and it carries no implemented section, so what shipped versus what was planned cannot be read from this file alone.

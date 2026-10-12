@@ -1,6 +1,12 @@
 package ykws.android.maro.data.track
 
-import android.util.Base64
+// The JVM's Base64, for the reason the exporter states: the app's floor is API 26, and this keeps the
+// import path reachable from a JVM test. The MIME decoder tolerates whitespace a foreign writer may
+// have wrapped its output with.
+import java.util.Base64
+import ykws.android.maro.data.markers.MarkerPayload
+import ykws.android.maro.data.model.ImportMode
+import ykws.android.maro.data.model.markers.UserMarker
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -25,7 +31,8 @@ object GpxImporter {
 
     /** Outcome of a single-GPX import attempt. */
     private sealed interface SingleImportOutcome {
-        data class Imported(val track: Track) : SingleImportOutcome
+        /** A track, with the markers its file carried — already re-pointed at this track's own id. */
+        data class Imported(val track: Track, val markers: List<UserMarker> = emptyList()) : SingleImportOutcome
         data object SkippedDuplicate : SingleImportOutcome
         data object Invalid : SingleImportOutcome
     }
@@ -52,7 +59,7 @@ object GpxImporter {
         return when (extension.lowercase()) {
             "zip" -> importZip(input, existingNames, existingIds, existingIdByName)
             else -> when (val outcome = importSingleGpx(input, existingNames, existingIds, existingIdByName, mode)) {
-                is SingleImportOutcome.Imported -> ImportBatch(listOf(outcome.track), 1, 0)
+                is SingleImportOutcome.Imported -> ImportBatch(listOf(outcome.track), 1, 0, outcome.markers)
                 SingleImportOutcome.SkippedDuplicate -> ImportBatch(emptyList(), 0, 1)
                 SingleImportOutcome.Invalid -> ImportBatch(emptyList(), 0, 0)
             }
@@ -99,6 +106,7 @@ object GpxImporter {
         existingIdByName: Map<String, String>
     ): ImportBatch {
         val tracks = mutableListOf<Track>()
+        val markers = mutableListOf<UserMarker>()
         var ignored = 0
         val nameSet = existingNames.toMutableSet()
         val idSet = existingIds.toMutableSet()
@@ -117,6 +125,7 @@ object GpxImporter {
                         when (val outcome = importSingleGpx(zis.readBytes(), nameSet, idSet, idByName, ImportMode.SKIP_EXISTING)) {
                             is SingleImportOutcome.Imported -> {
                                 tracks.add(outcome.track)
+                                markers.addAll(outcome.markers)
                                 nameSet.add(outcome.track.name)
                                 idSet.add(outcome.track.id)
                                 idByName[outcome.track.name] = outcome.track.id
@@ -131,7 +140,7 @@ object GpxImporter {
         } catch (_: ZipException) {
             // Corrupt archive — surface the partial result instead of propagating.
         }
-        return ImportBatch(tracks, tracks.size, ignored)
+        return ImportBatch(tracks, tracks.size, ignored, markers)
     }
 
     /**
@@ -151,6 +160,11 @@ object GpxImporter {
             // Try MaroII extension blob first (lossless round-trip, carries the Track id).
             val maroBlob = extractMaroBlob(xml)
             if (maroBlob != null) {
+                // The trip's own markers, read from the payloads the exporter wrote. Only a keeper
+                // travels: a transient idle marker (`keepable = false`) was scaffolding rather than a
+                // stop, and importing one would hand it to the startup cleanup, which deletes exactly
+                // that shape.
+                val bundled = MarkerPayload.markersIn(xml).filter { it.keepable }
                 val decoded = proto.decodeFromByteArray(Track.serializer(), maroBlob)
                 // Normalize lastPointTimeMs for exports saved before the field existed.
                 val track = if (decoded.endTimeMs != null && decoded.lastPointTimeMs == 0L) {
@@ -159,19 +173,24 @@ object GpxImporter {
 
                 when (mode) {
                     ImportMode.SKIP_EXISTING -> {
+                        // A skipped track takes its markers with it: nothing may be written pointing at
+                        // a track that was never persisted.
                         if (track.id in existingIds) SingleImportOutcome.SkippedDuplicate
-                        else SingleImportOutcome.Imported(track)
+                        else SingleImportOutcome.Imported(track, bundled.ownedBy(track.id))
                     }
                     ImportMode.IMPORT_NEW -> {
                         val safeName = resolveNameCollision(track.name, existingNames)
-                        SingleImportOutcome.Imported(track.copy(id = UUID.randomUUID().toString(), name = safeName))
+                        val fresh = track.copy(id = UUID.randomUUID().toString(), name = safeName)
+                        SingleImportOutcome.Imported(fresh, bundled.ownedBy(fresh.id))
                     }
                     ImportMode.UPDATE_EXISTING -> {
                         if (track.id in existingIds) {
-                            SingleImportOutcome.Imported(updateTrackFromBlob(track, input))
+                            val updated = updateTrackFromBlob(track, input)
+                            SingleImportOutcome.Imported(updated, bundled.ownedBy(updated.id))
                         } else {
                             val safeName = resolveNameCollision(track.name, existingNames)
-                            SingleImportOutcome.Imported(track.copy(id = UUID.randomUUID().toString(), name = safeName))
+                            val fresh = track.copy(id = UUID.randomUUID().toString(), name = safeName)
+                            SingleImportOutcome.Imported(fresh, bundled.ownedBy(fresh.id))
                         }
                     }
                 }
@@ -237,7 +256,7 @@ object GpxImporter {
         if (dataEnd < 0) return null
         val base64 = xml.substring(contentStart, dataEnd).trim()
         return try {
-            Base64.decode(base64, Base64.DEFAULT)
+            Base64.getMimeDecoder().decode(base64)
         } catch (_: Exception) {
             null
         }
@@ -400,13 +419,26 @@ data class ImportResult(
     val ignored: Int
 )
 
-/** Full batch result: imported [Track] objects plus aggregate counts. */
-data class ImportBatch(val tracks: List<Track>, val imported: Int, val ignored: Int) {
+/** Full batch result: imported [Track] objects, the markers their files carried, plus counts. */
+data class ImportBatch(
+    val tracks: List<Track>,
+    val imported: Int,
+    val ignored: Int,
+    /**
+     * The markers the imported files carried — one trip's stops, each already written to name its own
+     * imported track. The track importer persists them beside the tracks; a skipped duplicate carries
+     * none, which is the skip-consistency rule.
+     */
+    val markers: List<UserMarker> = emptyList()
+) {
     val result: ImportResult get() = ImportResult(imported, ignored)
 }
 
-/** How a track import should treat an existing track with the same identity. */
-enum class ImportMode { SKIP_EXISTING, UPDATE_EXISTING, IMPORT_NEW }
+/**
+ * Re-point a trip's bundled markers at the track that actually lands: the id it was given after the
+ * import decided to keep, replace or mint one.
+ */
+private fun List<UserMarker>.ownedBy(trackId: String): List<UserMarker> = map { it.copy(trackId = trackId) }
 
 /** Result of a single-GPX match peek: the existing track that would be affected. */
 data class ImportMatch(

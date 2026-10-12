@@ -291,13 +291,24 @@ internal fun FilterControl(
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        // A title is drawn only when the axis's label id differs from the one drawn
+                        // last, because a repeated key is one group: the three routing axes carry the
+                        // same `labelResId`, so they print a single heading while each keeps its own
+                        // card. A per-pass variable, not remembered state — the dedup belongs to this
+                        // drawn list, and a key left over from an earlier pass would wrongly swallow
+                        // the next pass's first title. Every other popup's axes all differ, so its
+                        // titles render exactly as before.
+                        var lastTitleResId: Int? = null
                         filterAxes.forEach { axis ->
                             val gatingValue = axis.dependsOn?.let { filterState.axes[it] }
                             val isDisabled = gatingValue != null && axis.dependsOnValues != null &&
                                 gatingValue in axis.dependsOnValues
                             val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
                             
-                            PopupSectionTitle(stringResource(axis.labelResId))
+                            if (axis.labelResId != lastTitleResId) {
+                                PopupSectionTitle(stringResource(axis.labelResId))
+                                lastTitleResId = axis.labelResId
+                            }
                             PopupSectionCard {
                                 axis.options.forEach { option ->
                                     val isSelected = option.value == currentValue

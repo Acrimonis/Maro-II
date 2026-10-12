@@ -150,3 +150,7 @@ Check if `viewModel` (CoastlineViewModel) has `updateSettings` — if not, we ma
 |---|------|--------|
 | 1 | `TrackDrawerOverlay.kt` | Rebuild MARKERS section, add 4 new params |
 | 2 | `MapScreen.kt` | Wire new params at invocation site |
+
+## Outcome
+
+This plan is a change list with no status line and no implemented section, so what shipped versus what was planned cannot be read from this file alone.

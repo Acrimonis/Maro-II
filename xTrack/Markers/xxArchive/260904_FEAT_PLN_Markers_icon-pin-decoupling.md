@@ -77,3 +77,7 @@ Diving-tier auto-naming in `TrackRecorder` currently keys on `pinned && icon == 
 
 - `gradlew assembleDebug`.
 - Unit tests for `UserMarker.matchesFilter` (pinned + icon axes) and the `markerListFilter` settings migration.
+
+## Outcome
+
+This plan is a design whose header reads *Plan — Approved (awaiting implementation)* and whose body carries no implemented section, so what shipped versus what was planned cannot be read from this file alone; the feature's `## Implemented` log is where the shipped state is recorded.

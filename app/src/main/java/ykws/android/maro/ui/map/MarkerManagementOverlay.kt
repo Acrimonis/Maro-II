@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.foundation.background
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
@@ -128,6 +129,7 @@ internal fun MarkerManagementOverlay(
     val iconLabel = stringResource(R.string.action_icon)
     val confirmDeleteMsg = stringResource(R.string.confirm_delete_markers)
     val setIconAllLabel = stringResource(R.string.action_set_icon_all)
+    val exportLabel = stringResource(R.string.action_export)
     val clearIconAllLabel = stringResource(R.string.action_clear_icon_all)
     val pinLabel = stringResource(R.string.action_pin)
     val pinAllLabel = stringResource(R.string.action_pin_all)
@@ -173,6 +175,17 @@ internal fun MarkerManagementOverlay(
                 )
             ),
             MultiActionSpec(
+                id = "export",
+                label = exportLabel,
+                icon = Icons.Filled.Upload,
+                action = { ids ->
+                    onAction(
+                        if (ids.size == 1) ListAction.ExportMarkerGpx(ids.first())
+                        else ListAction.BatchExportMarkerGpx(ids)
+                    )
+                }
+            ),
+            MultiActionSpec(
                 id = "icon",
                 label = iconLabel,
                 icon = Icons.Outlined.LocationOff,
@@ -216,6 +229,7 @@ internal fun MarkerManagementOverlay(
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon,
                 onSetPin = onSetPin,
+                onShare = { onAction(ykws.android.maro.data.model.ListAction.ExportMarkerGpx(marker.id)) },
                 onUpdateText = { name, desc -> onUpdateMarkerText(marker.id, name, desc) },
                 onLongPress = onLongPress,
                 isSelected = isSelected,
@@ -280,6 +294,7 @@ internal fun MarkerCardContent(
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
     onSetPin: (String, Boolean) -> Unit = { _, _ -> },
+    onShare: (() -> Unit)? = null,
     onUpdateText: (String?, String?) -> Unit,
     onLongPress: (() -> Unit)? = null,
     showChevron: Boolean = true,
@@ -351,6 +366,19 @@ internal fun MarkerCardContent(
                                 Icon(
                                     imageVector = Icons.Outlined.LocationOff,
                                     contentDescription = stringResource(R.string.cd_set_icon),
+                                    tint = ButtonColors.icon,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        onShare?.let { share ->
+                            IconButton(
+                                onClick = share,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Upload,
+                                    contentDescription = stringResource(R.string.cd_export_gpx),
                                     tint = ButtonColors.icon,
                                     modifier = Modifier.size(24.dp)
                                 )

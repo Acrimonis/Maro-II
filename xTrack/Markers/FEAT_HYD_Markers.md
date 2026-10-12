@@ -1,47 +1,27 @@
-# Context Hydration — Markers — 2026-10-11
+# Context Hydration — Markers — 2026-10-12
 
-**Last Bake:** 2026-10-11 18:44 UTC — written by `#bake` on `feature/mrkRs`; the same day's earlier bake (13:17, on `feature/mkrEl`) is folded in below rather than lost, and the line's absence means never baked.
+**Last Bake:** 2026-10-12 07:53 UTC — written by `#bake`. Two passes landed today: the marker filter popup grouped its three routing axes under one `Routing` title, and then all 26 of the feature's landed plans were retired into `xxArchive/` with a promotion pass first.
 
-**Directive trace:** All five covered action classes were met by both sessions and none stopped either — no dependency was added, no machine-shaped data file was opened, each branch was cut only on the user's own `#new`, every implementation ran on an explicit order (the direct instructions and the `#implement` pipeline, each hop through a mode hand-off), no device was touched by the agent (the user rebuilt, deployed and reported; no log was fetched), and every claim written about the code carries a file read behind it. One boundary was named rather than crossed: the `strokeAlpha` hits in `ui/icons/*.kt` are the generated Material icons' own API and were deliberately left alone.
+**Directive trace:** All five covered action classes were met and none stopped the session — no dependency was added, no machine-shaped data file was opened, the work ran only on the user's own `#focus`, `#impl`, `#archive`, `#bake`, `#commit` and `#push` rather than without an order, no device was touched by the agent (the device pass stays the user's), and every claim written here about the code carries a file read behind it, save the Code hops' build and test results, which are carried forward as their own reports rather than as reads of this session's.
 
 ## State
 
-Two sessions landed on 2026-10-11, each cut from `origin/develop` by the user's `#new` — `feature/mkrEl` (the focus framing) and `feature/mrkRs` (this one) — and this file is their union after `feature/mrkRs` was rebased onto `origin/develop`, the one conflict in shared code being `routeEndName`.
+**The three routing filters now share one title (2026-10-12).** The marker filter popup's three routing axes stand under one `Routing` heading while each keeps its own card. No field joined `FilterAxisSpec`: the three axes carry the one `filter_group_routing` key and `FilterControl` draws a `PopupSectionTitle` only when the key differs from the one drawn last, so a repeated key is one group. The order is role, cost, Only, the role axis' negative option reads `None` / `Aucun`, and `filter_axis_route_cost`, `filter_axis_route_role` and `filter_axis_routing_only` retired from both locales. Presentational only — `matchesFilter`, the persistence, the map filter, the wizard, the card marks and `maro.properties` are untouched, and the track, route and menu popups render as before.
 
-**The frame includes the reach (2026-10-11, `feature/mkrEl`).** A marker's dashboard open now frames the marker's **body plus the proximity collar the map draws outward from it**, so the whole proximity zone lands on screen; before, the fit framed only the body and the ring spilled past the edge. `markerFocusTarget` builds the extent per geometry — a circle at `radius + proximity`, a corridor as a band grown by the proximity each side, a pin at its reach — reads the reach through its one home `markerProximityRangeM`, and keeps `marker.focus.corridorShare` / `zoneShare`. The pin's **zoom-in-only rule is dropped** (a reversal of the 2026-09-18 lock), with `marker.focus.pinFootprintM` kept as its floor. `MarkerFocusTest` 8/8.
+**The archive swept clean (2026-10-12).** All 26 landed plans are retired into `xTrack/Markers/xxArchive/` with one row each in its `INDEX.md`, and none was refused — no plan in the set held an open `## Walk`. The promotion pass ran first, as ordered: 28 rules the shipped code still obeys now live in the feature's new `## Rules` section, and six decision groups with their rationale joined `FEAT_DOC_Markers_decisions.md`. Fourteen Outcomes were written without knowing what shipped and say so in one line; the other seven were written from the plans' own evidence. The three superseded decisions in the decisions doc were reviewed and validated by the user, and the doc's header brought current.
 
-**The routing-weight-only flag (2026-10-11, `feature/mrkRs`).** A marker may exist for its routing weight alone: `UserMarker.routingOnly` — the last constructor parameter, KDoc'd and additive, so a legacy `user_markers.json` reads `false` with no migration — excluded from naming and where-am-i by the one pure predicate `MarkerMatcher.countsForWhereAmI`, applied in `resolveAllMarkers` before any match is resolved: the single producer every consumer reads, so `TrackRecorder` was untouched. Route behaviour and the route acquisition are unchanged.
-
-**The wizard and the card.** The Routing cost step carries the shared `OptionRow` on the value line's own row, bound through `updateForm`; the form field is seeded at all three construction sites, copied by `updateMarker` and passed by both save paths; `wizard_routing_cost_only` (Only / Uniquement) was added and the non-Pin top revalued to **Wall / Mur**; and the card shows a ☑ left of the 💲 through `coordinateHeader`, between the 🚩 origin mark and the cost mark.
-
-**The map cue.** One flag, `MarkerAppearance.isRoutingOnly`, read by both painters: every ring dashes — the Pin's and the Circle's proximity strokes, the Circle's zone outline and its selected under-stroke, the corridor band's parallels and caps, and the halo's border ring through a new `MarkerHaloSpec.dashed` reading the marker's one dash rhythm, widened from `private` to `internal` — and every fill hatches through the `BitmapShader` that `hatchShader` tiles, applied at all five fill paints.
-
-**The filter.** The marker filter gained the `routingOnly` axis after `routeRole`: ALL (default) · ONLY · NORMAL, its predicate pure in `UserMarker.matchesFilter`, labels in both locales, and four cases added to `MarkerFilterMigrationTest`, now 22/22. Both referentials inherited it, the list and the map each holding its own filter.
-
-**The paint keys.** Six values left `MarkerOverlay`'s constants for `maro.properties` — `marker.zone.outlineAlpha` / `marker.zone.fillAlpha`, `marker.proximity.outlineAlpha` / `marker.proximity.fillAlpha`, `marker.routingOnly.stripeSpacingDp` / `marker.routingOnly.stripeWidthDp` — read through `AppConfig` with the shipped figures as the code fallbacks. Their names were then normalized so each states the art it paints: `outline`, never `stroke`; `fill`; `stripe`. The four deleted constants (`ZONE_FILL_ALPHA_FRACTION`, `PROXIMITY_ALPHA_FRACTION`, `HATCH_PERIOD_DP`, `HATCH_STROKE_DP`) are gone rather than kept beside the file.
-
-**The route-end naming narrowed from both sides.** `routeEndName` now refuses an end twice over, merged rather than picked in the rebase: develop's rule leaves it unnamed when the end is the boat's own home port, told by the Place or by the name itself, and the routing-only guard leaves it unnamed when the flagged marker is a routing-weight-only one — while the zone branch inherits the matcher's own exclusion.
+**What is owed.** The device pass is the user's: the three cards under the one `Routing` title in the list overlay and in the menu drawer, in both locales, and whether three cards each leading with an "All" row read clearly with no per-card title. One code item stayed open from the review — nothing pins `markerFilterAxes()`, so a future axis reusing a neighbour's `labelResId` would merge silently. And the sweep exposed one record gap: about eleven live plans still in `xTrack/Markers/` carry no `## Docs` row.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerFocus.kt` — the extent now body ⊕ proximity; the signature drops `currentZoom` and gains the two proximity values
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `frameMarker` feeding the two proximity values, and `routeEndName` carrying both naming refusals
-- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — `namesHomePort` and the origin-led name chain
-- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — `routingOnly` and its KDoc
-- `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt` — the exclusion in `resolveAllMarkers` and the pure `countsForWhereAmI`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — the six paint reads, the dash and hatch wiring, `hatchShader`, the dash rhythm widened to `internal`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerAppearance.kt` · `MarkerHalo.kt` — `isRoutingOnly` and the halo spec's `dashed` flag
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — the ☑ mark in `coordinateHeader`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — the form field, its three seeds, the update copy and both save paths
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/RoutingCostStep.kt` — the Only row on the value line
-- `app/src/main/java/ykws/android/maro/data/model/ListFilter.kt` — the `routingOnly` axis and its predicate arm
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` · `app/src/main/assets/maro.properties` — the six keys, their fallbacks and the restated `marker.focus` comments
-- `app/src/main/res/values/strings.xml` · `app/src/main/res/values-fr/strings.xml` — `wizard_routing_cost_only`, the Wall / Mur revalue, the axis labels
-- `app/src/test/java/ykws/android/maro/spatial/MarkerMatcherRoutingOnlyTest.kt` · `data/model/MarkerFilterMigrationTest.kt` · `ui/map/MarkerRoutingCostHeaderTest.kt` · `ui/map/MarkerFocusTest.kt` · `data/track/TrackNamingTest.kt` · `ui/map/RouteExitDoorsTest.kt` — the cases both sessions added
-- `xTrack/Markers/261011_FEAT_PLN_Markers_routing-only-flag.md` · `xTrack/Markers/261011_FEAT_PLN_Markers_focus-include-proximity.md` — the two plans of record
+- `app/src/main/java/ykws/android/maro/data/model/ListFilter.kt` — the three routing axes reordered and sharing `filter_group_routing`
+- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `FilterControl`'s title dedup, the rule's code-local home
+- `app/src/main/res/values/strings.xml` · `app/src/main/res/values-fr/strings.xml` — `filter_group_routing` added, `filter_option_no_route_role` revalued, the three axis keys retired
+- `docs/ui-lists-guidelines.md` · `docs/ui-component-guidelines.md` — the six-row marker axes table, and §2.10's shared-title rule pointing at `FilterControl`
+- `xTrack/Markers/FEAT_DSC_Markers.md` — the shipped entry, the new `## Rules` section, the pointer drops and the `## Docs` detachments
+- `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — the promoted decisions and the validated supersessions
+- `xTrack/Markers/xxArchive/` — the 26 retired plans and their `INDEX.md`
 
 ## Next Step
 
-Nothing is open in the code; `:app:assembleDebug`, the marker, track and matcher suites and `apk-build.bat` are all green. **Device passes are owed on both changes and are the user's**: the framed ring — a default circle (reach ≈ 4× radius) and a corridor — and, from this session, the wizard row's new placement, the card's ☑, and whether the hatch and the dash read at all against the tuned fill alpha.
-
-Four findings from this session's review stay unwritten as work: the corridor's proximity dash is unconditional for every marker, so it carries no routing-only meaning there; the two builders' parameter is still named `dashed` while it also hatches the fill; nothing pins `MarkerAppearance.of`; and the ring's dash pen and rhythm — and the halo's own rhythm, shared with it — have no property. One finding still stands from `feature/mkrEl`: `MarkerOverlay` computes the reach inline at three sites rather than through the one home. The `## Todos` item about a rejected date point's marking on the debug overlay is untouched and still open.
+The device pass is the user's, over the three cards under the one `Routing` title in both surfaces and both locales. The one open code item is the owed assertion pinning `markerFilterAxes()`, and the one open record item is the live plans in `xTrack/Markers/` that no `## Docs` row points at.

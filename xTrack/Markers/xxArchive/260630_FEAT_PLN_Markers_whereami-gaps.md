@@ -62,3 +62,7 @@ closestUnblockedPoint(boat, marker, spatialIndex):
 **The gap between direct test and angular algorithm:** The direct test checks only the closest boundary point. The angular algorithm checks ALL bearings. The island shoreline at bearings far from the closest approach casts shadows that merge to cover the gap.
 
 **Potential fix direction:** Replace or augment the angular algorithm with the direct line test. If the closest geometric boundary point has a clear line of sight, return it directly without angular shadow analysis. Only fall back to angular shadows if the closest point is blocked.
+
+## Outcome
+
+This file is an analysis rather than a plan: it records the current code state, a remaining issue and a fix direction, and no delivered outcome, so what was fixed and when cannot be read from this file alone.

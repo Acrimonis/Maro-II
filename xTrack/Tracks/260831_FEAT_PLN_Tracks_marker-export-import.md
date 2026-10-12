@@ -3,6 +3,8 @@
 **Date:** 2026-08-31
 **Phase:** 4 — export/import of markers and their track links, with three import modes
 
+**Superseded (2026-10-11, in design — nothing implemented):** its marker half — the GPX `<wpt>` + Maro blob format, the three import modes and the identity rule — is carried forward by `xTrack/Markers/261011_FEAT_PLN_Markers_marker-import-export.md`, and the trip carriage this plan deferred by `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md`. Its Evaluation §1 and §2 are **reversed** there: the marker file takes user markers only, and the auto markers ride their own track's file. Kept as a decisions record.
+
 ## Current state (gap)
 
 - Track export ([`GpxExporter.kt`](app/src/main/java/ykws/android/maro/data/track/GpxExporter.kt:25)) emits standard `<trkpt>` elements **and** a `<maro:data>` blob (full `Track` protobuf). No `UserMarker`s, no `trackId`.

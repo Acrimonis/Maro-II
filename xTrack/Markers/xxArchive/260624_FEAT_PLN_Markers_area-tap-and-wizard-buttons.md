@@ -196,3 +196,7 @@ The existing centerline, parallel edges, and pin markers remain unchanged.
 2. **Corridor semi-circle caps** — standalone rendering change, no state dependencies
 3. **Area tap + selected rendering** — hit-test functions, MapEventsOverlay, state plumbing, selected visuals
 4. **Marker color settings** — Settings page + config plumbing, depends on MarkerOverlay reading from config
+
+## Outcome
+
+This plan's header reads *designed* and it carries no implemented section, so what shipped versus what was planned cannot be read from this file alone.

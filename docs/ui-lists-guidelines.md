@@ -136,6 +136,12 @@ Live track always exempt from filter + always first.
 | `icon` | `ALL` / `WITH_ICON` / `WITHOUT_ICON` | `ALL` |
 | `pinned` | `ALL` / `PINNED` / `UNPINNED` | `ALL` |
 | `origin` | `ALL` / `MANUAL` / `AUTO` | `ALL` |
+| `routeRole` | `ALL` / `ROLE` / `NONE` | `ALL` |
+| `routeCost` | `ALL` / `WITH_COST` / `WITHOUT_COST` | `ALL` |
+| `routingOnly` | `ALL` / `ONLY` / `NORMAL` | `ALL` |
+
+The last three all carry `labelResId = R.string.filter_group_routing`, so one **Routing** heading stands over
+their three cards. The rule that makes a shared title a group is §2.10's.
 
 Neither set has an axis that gates another today, though `FilterAxisSpec.dependsOn` and
 `dependsOnValues` carry the mechanism for one that would.

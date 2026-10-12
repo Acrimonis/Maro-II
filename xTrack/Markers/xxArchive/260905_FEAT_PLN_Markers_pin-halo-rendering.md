@@ -115,3 +115,7 @@ Add a **separate collapsible "Marker rendering" expander** under the Markers sec
 
 - `gradlew assembleDebug`.
 - Manual: verify pinned vs unpinned halo in both zone states; verify no pin dimming remains but search dimming works; verify corridor line in both zone states; verify corridor/circle focus zoom-fits the whole zone; verify selected marker gold on top (map-tap and list-open).
+
+## Outcome
+
+This plan is a design whose header reads *Plan — Approved (awaiting implementation)* and whose body carries no implemented section, so what shipped versus what was planned cannot be read from this file alone; the feature's `## Implemented` log is where the shipped state is recorded.
