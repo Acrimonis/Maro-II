@@ -26,6 +26,9 @@ object Units {
     /** Knots in one metre per second, as the app's speed maths has always spelled it. */
     const val KNOTS_PER_MPS = 1.94384
 
+    /** Exact kilometres per hour in one knot — the land-speed reading's one conversion home. */
+    const val KMH_PER_KNOT = 1.852
+
     /** @return the same distance expressed in metres. */
     fun nauticalMilesToMetres(nm: Double): Double = nm * METRES_PER_NAUTICAL_MILE
 
@@ -37,4 +40,7 @@ object Units {
 
     /** @return the same speed expressed in knots. */
     fun mpsToKnots(mps: Double): Double = mps * KNOTS_PER_MPS
+
+    /** @return the same speed expressed in kilometres per hour. */
+    fun knotsToKmh(kn: Double): Double = kn * KMH_PER_KNOT
 }
