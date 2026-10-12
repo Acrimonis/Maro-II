@@ -2,7 +2,7 @@
 name: Ui_Dashboard
 status: active
 created: 2026-06-06 00:00
-modified: 2026-10-03 17:51
+modified: 2026-10-12 08:58
 ---
 
 # Feature: Dashboard
@@ -59,6 +59,8 @@ Investigate and fix dashboard sizing in immersive edge-to-edge mode (portrait he
 **Closed 2026-10-03 — level exhausted:** 20 items resolved, none dropped and no level parked. W1–W12 are recorded in the plan's §14; one device verdict was taken, one doc updated in place, and the thirteen fixes wait on an order.
 
 ## Implemented
+
+- **ground-units (2026-10-12, `feature/ground-units`)** — the dashboard's Speed tile reads **whole km/h while the dashboard position is on land** and knots at sea. [`Units.kt`](../../app/src/main/java/ykws/android/maro/spatial/Units.kt:41) gained the one conversion home (`KMH_PER_KNOT = 1.852` and `knotsToKmh`), a `dash_value_kmh_int` key joined [`values/strings.xml`](../../app/src/main/res/values/strings.xml:196) and [`values-fr/strings.xml`](../../app/src/main/res/values-fr/strings.xml:195), and [`SpeedCard`](../../app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt:968) took `isWater` and a `when` selecting whole km/h on land against the untouched integer/one-decimal knot forms, the `> 99.9 kn` guard and the compliance colour. `apk-build.bat` BUILD SUCCESSFUL; nothing device-validated.
 
 - **dashboard-padding-normalization (2026-10-06, `feature/ui-small`)** — the dashboard's vertical padding was raised to its horizontal twin, on the user's word that the band above the top row read tighter than everything else. [`DashboardPanel`](../../app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt:129)'s `padV` went **2 dp → 4 dp** — the frame's `contentPadding`, the grid's bounded height (`dashboardBaseHeight − padV × 2`, now 8 dp) and the landscape branch with it — and the cards' `padding(horizontal = 4.dp, vertical = 2.dp)` became **4 dp on both axes**, so the panel's vertical spaces now equal its 4 dp sides and its 4 dp grid gaps. [`ui-component-guidelines.md`](../../docs/ui-component-guidelines.md:671) §5.3's tile pad moved from `4×2dp` to `4dp`. `apk-build.bat` BUILD SUCCESSFUL; nothing device-validated → [`261003_FEAT_PLN_Ui_Dashboard_dashboard-layout-normalization.md`](261003_FEAT_PLN_Ui_Dashboard_dashboard-layout-normalization.md)
 

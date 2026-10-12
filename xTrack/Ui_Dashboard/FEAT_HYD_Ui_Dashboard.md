@@ -1,21 +1,21 @@
-# Context Hydration — Ui_Dashboard — 2026-10-03
+# Context Hydration — Ui_Dashboard — 2026-10-12
 
-**Last Bake:** 2026-10-03 17:51 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-12 08:58 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met with a verdict line and none stopped — no dependency added, no machine-shaped data file opened, every step taken on an explicit order, the device untouched (its one verdict came from the user's own run), and every claim about the code backed by a file read. The one git write, the branch creation, ran on the user's own `#new` invocation; nothing is committed yet.
+**Directive trace:** All five covered action classes were met with a verdict line and none stopped — no dependency added, no machine-shaped data file opened, every step taken on an explicit order, the device untouched, and every claim about the code backed by a file read. The one git write, the branch creation, ran on the user's own `#new` invocation.
 
 ## State
 
-The bottom dashboard family sits on one auto-resizing frame: `dashboardBaseHeight` is the named floor, the Layer-0 grid and Where-Am-I ride `DrawerScaffold`, and the band the map keeps clear is one animated value read from the open panel's measured height, so a taller dashboard pushes the map rather than covering it. The corners stay square at every size — the round-once-grown effect was withdrawn on the device's word — and the walk's residue landed: the dead `MeasureHeight` probe, the unused non-wrap ceiling, the validation-badge residue and the stray landscape measurement are gone, `bandHeightFor` lives in `ui/components`, and the outer inset and grid spacing tightened to 4h/2v and 4 dp. `apk-build.bat` and `gradlew :app:testDebugUnitTest` are green; the open items are W20 and the device pass.
+The dashboard's Speed tile now reads **whole km/h while the dashboard position is on land** and knots at sea: `Units.kt` holds the one conversion (`KMH_PER_KNOT = 1.852`, `knotsToKmh`), a `dash_value_kmh_int` key joined both locales, and `SpeedCard` took `isWater` and a `when` that keeps the off-land integer/one-decimal knot forms, the `> 99.9 kn` guard and the zone-compliance colour untouched. The layout normalisation from the 2026-10-03 bake still stands beneath it, with its open items W20 and the device pass. `apk-build.bat` is green.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` — the shared frame: the optional header, `backgroundColor`, `wrapContentMaxHeight`, `onMeasuredHeight`, and no shape gate
-- `app/src/main/java/ykws/android/maro/ui/components/DashboardBandGeometry.kt` — the pure `bandHeightFor` the map's height reads
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `dashboardBaseHeight`, the `DashboardBandState` holder, `MapContent`'s band
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — the migrated 2×2 grid, the one `padV` and the off-water caption
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the panel slots, the ceiling and the portrait-only measurement
+- `app/src/main/java/ykws/android/maro/spatial/Units.kt` — the one unit-conversion home, now carrying `KMH_PER_KNOT` and `knotsToKmh`
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — `SpeedCard` with its `isWater` argument and the land/sea format `when`
+- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — the `dash_value_kmh_int` key
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the `isWater` source feeding `DashboardPanel`
+- `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` · `DashboardBandGeometry.kt` — the shared frame and band coercion from the layout work
 
 ## Next Step
 
-Take the device pass: the square corners at every size, the map shrinking and returning as a card opens and closes, the tightened inset, the landscape column's spacing, and whether the dashboard sits behind the navigation bar (plan §14 W19).
+Nothing outstanding from this session. The standing items remain the layout work's device pass: the square corners at every size, the map shrinking and returning as a card opens and closes, the tightened inset, the landscape column's spacing, and whether the dashboard sits behind the navigation bar (plan §14 W19).

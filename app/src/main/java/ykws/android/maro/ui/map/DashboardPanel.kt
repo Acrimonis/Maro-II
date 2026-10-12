@@ -46,6 +46,7 @@ import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
+import ykws.android.maro.spatial.Units
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -256,6 +257,7 @@ private fun DashboardIndicatorGrid(
             )
             SpeedCard(
                 speedKnots = speedKnots,
+                isWater = isWater,
                 activeSpeedLimitKn = zoneSituation?.currentZone?.speedLimitKn,
                 modifier = Modifier
                     .weight(1f)
@@ -958,6 +960,9 @@ private fun DepthCard(
 /**
  * Speed card showing current speed over ground.
  *
+ * The reading is in knots at sea and in **whole km/h on land**, driven by [isWater]: the road unit is
+ * what a shore position calls for. The zone-compliance colour is untouched by it.
+ *
  * Colour-codes compliance relative to the active speed zone limit (if any):
  * - No zone: normal blue background
  * - Inside zone, speed ≤ limit: dark green
@@ -967,6 +972,7 @@ private fun DepthCard(
 @Composable
 private fun SpeedCard(
     speedKnots: Float?,
+    isWater: Boolean,
     activeSpeedLimitKn: Double? = null,
     modifier: Modifier = Modifier
 ) {
@@ -1005,11 +1011,16 @@ private fun SpeedCard(
     val subtitle = if (activeSpeedLimitKn != null)
         stringResource(R.string.dash_speed_zone_limit, activeSpeedLimitKn)
     else null
-    // Smart speed format: integer when ≥ 10 kn (shorter = bigger font), decimal when < 10
-    val speedText = if (speedKnots >= 10f)
-        stringResource(R.string.dash_value_kn_int, speedKnots.toInt())
-    else
-        stringResource(R.string.dash_value_kn, speedKnots)
+    // On land the reading switches to whole km/h — the road unit a shore position calls for; at sea
+    // the knot forms stand, integer at ≥ 10 kn (shorter = bigger font) and a decimal below.
+    val speedText = when {
+        !isWater -> stringResource(
+            R.string.dash_value_kmh_int,
+            Units.knotsToKmh(speedKnots.toDouble()).roundToInt()
+        )
+        speedKnots >= 10f -> stringResource(R.string.dash_value_kn_int, speedKnots.toInt())
+        else -> stringResource(R.string.dash_value_kn, speedKnots)
+    }
     DashboardCard(
         title = stringResource(R.string.dash_speed_title),
         value = speedText,
