@@ -1,6 +1,16 @@
 <!-- scope: feature -->
 # Route — the turns: more reach, and symmetry
 
+## Outcome
+
+Settled on 2026-10-13 on `feature/routing-angles`, from the captures and seven device logs: the reach is no
+longer the shorter half-segment. A bend's room is the whole **significant** leg, two bends on one leg share it
+weighted by their own angles, a close same-way pair is read as one turn over the crossing of its outer legs,
+the corner floor is a target the room may draw under, and the overlap guard measures bow to bow. The artefact
+that opened this item — a turn taken at 2.56 kn with 3.9 m of room beside a 1,949 m leg — now reads its 1,398 m
+leg, and the sibling's 14.9 m cap is gone with the guard's correction. Evidence, hop by hop, in
+[`261013_FEAT_PLN_Route_corner-pass-fixes.md`](261013_FEAT_PLN_Route_corner-pass-fixes.md).
+
 **Date:** 2026-10-07 · **Status:** in design, for discussion (point 3 of four) · **Order:** the user's word
 of 2026-10-07 — *"I would like to review the turn computation. I would like them to have more impact: reach
 farther in and out from the turns, to look more like a driving trajectory (for smoother driving and wider

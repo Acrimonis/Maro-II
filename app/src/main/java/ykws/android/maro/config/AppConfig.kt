@@ -517,20 +517,21 @@ object AppConfig {
         private set
 
     /**
-     * The floor a bend's corner speed may not go below (kn) — `route.turn.minSpeedKn`, default 5,
-     * clamped 2..10.
+     * The speed a bend's drawing **aims** for (kn) — `route.turn.minSpeedKn`, default 5, clamped
+     * 2..10.
      *
-     * A boat cannot crawl to zero, so where no radius clears the walls even at this floor, the bend
-     * is left sharp and taken at the floor. One home for the floor: this value and the key it is
-     * read from.
+     * A target rather than a rule: the room may take the drawn curve below it, down to the corner
+     * pass's own 1 kn minimum, under which the bend is left sharp, and where the room fits no radius
+     * for the target the bend is still curved at the widest radius the room holds. One home for the
+     * value: this value and the key it is read from.
      */
     var routeTurnMinSpeedKn: Double = 5.0
         private set
 
     /**
-     * The fraction of the half-segment a corner's racing line reaches along each leg —
-     * `route.turn.reachFraction`, default 1.0, clamped 0.0..1.0. 1.0 curves all the way to the
-     * neighbouring apex's midpoint; a smaller value leaves a straight run between corners.
+     * The fraction of the shorter leg a corner's racing line reaches along —
+     * `route.turn.reachFraction`, default 1.0, clamped 0.0..1.0. 1.0 reaches the whole shorter leg; a
+     * smaller value leaves a straight run before the next corner.
      */
     var routeTurnReachFraction: Double = 1.0
         private set
