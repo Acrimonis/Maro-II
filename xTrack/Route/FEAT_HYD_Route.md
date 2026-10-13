@@ -1,6 +1,6 @@
 # Context Hydration — Route — 2026-10-13
 
-**Last Bake:** 2026-10-13 18:24 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-13 19:07 UTC — written by `#bake`; absence means never baked
 
 **Directive trace:** Since the last bake (2026-10-11 11:20 UTC) the session ran on the user's own words: `#focus route`, `#new route-perf`, then a scoped device pass the user ran and whose logcat the agent fetched only on their word; then the reading and a long correction round (`#brief`, the engine comparison, the zone fine grid, the cache's persistence); then "let's cache / save all we can save" and "we will redo the refactoring in this pass"; then the plan file, its acceptance, `#bake` with `#commit`, and `#merge` at the end to take `develop`'s corner pass in. No dependency was added, no machine-shaped data file was opened (the depth `.bin` was never read), no work was started without an order, the device was never touched by the agent, and every claim about the code follows a file read.
 
