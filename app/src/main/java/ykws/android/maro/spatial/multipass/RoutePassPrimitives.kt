@@ -159,6 +159,45 @@ internal fun costField(
 }
 
 /**
+ * **The fine tile's own field — the depth gate's wall and the priced markers, at an explicit base.**
+ *
+ * A fine tile is rasterised at a **unit base** (its grid opens at `1.0`), so its field's marker price is
+ * `1.0 × factor` and the raster's own source cost *is* the pace-free multiplier the tile stores. The
+ * walls a fine tile needs are the [costField] grid arm's own — the depth gate's rastered wall and (inert
+ * for the fill) the coastline's materialised one — because the tile's depth-collar mask keeps a
+ * gate-blocked cell's own water unless the wall paints it land. The band, the zones and the depth band
+ * are deliberately absent: a fine tile carries none of them.
+ *
+ * It is [costField]'s grid arm with the base lifted out, so the marker law stays one home
+ * ([markerFactorAt]) and a tile's factor and the field's price cannot disagree.
+ */
+internal fun tileCostField(
+    world: MultipassWorld,
+    baseCostSec: Double,
+    markerStrength: Double
+): RouteCostField {
+    val sources = ArrayList<RouteCostSource>(3)
+    sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
+    if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
+        sources.add(
+            depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p ->
+                val sample = world.depthAt(p.latitude, p.longitude)
+                if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
+            }
+        )
+    }
+    sources.addAll(
+        markerSources(
+            world.routeMarkers(),
+            baseCostSec,
+            markerStrength,
+            AppConfig.routeMarkerEnabled
+        )
+    )
+    return RouteCostField(sources)
+}
+
+/**
  * The band's law for the rasterizer, or `null` where it is not priced: its own width and limit and
  * the outside margin beyond it. `route.avoid.zone300.enabled` gates it — the switch prices the band,
  * so a priced band is a band whose limit the grid stores; the clock's own read is untouched by the

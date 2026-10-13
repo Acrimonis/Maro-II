@@ -12,10 +12,15 @@ internal const val FINE_TILE_CELLS = 64
  * parallel primitive arrays over that member list, never a per-cell box and never a dense box:
  *
  * - a [state] of the stored [`MultipassCellState`] ordinal, one byte a member,
- * - six doubles a member — [sourceCostSec], [zoneLimitKn], [collarLimitKn], [bandLimitKn],
+ * - six doubles a member — [sourceCostFactor], [zoneLimitKn], [collarLimitKn], [bandLimitKn],
  *   [bandCollarLimitKn] and [depthPriceCoef],
  * - an [localIndex] of each member's **local** cell index within the tile (`row * cols + col`), so a
  *   dense box is never materialised to hold one and the member's position is recovered by arithmetic.
+ *
+ * **The tile is pace-free.** Its one price-bearing double is [sourceCostFactor] — the multiplier `f` a
+ * member's cost is `base × f` at — read from the **unit-base** raster the build lays, so a change of pace
+ * moves neither the key nor a byte and one tile serves every speed. The base is re-applied once, in one
+ * home ([memberCostAtBase]), when [writeInto] materialises the tile into the arm's grid.
  *
  * The tile is the same water a per-arm fine window used to carry — its contents come from the existing
  * [`rasterizeWindow`] with the plan's `fineMask` applied — so a shared tile is the marking work done
@@ -43,12 +48,14 @@ internal class FineTile(
     val cellSizeDegLon: Double,
     /** The fine lattice's cell size in metres. */
     val cellM: Double,
-    /** The base cost (s) a cell of this lattice opens at — one `baseCostSec(cellM, pace)`. */
-    val baseCostSec: Double,
     /** The stored tag ordinal of each member, one byte each. */
     val state: ByteArray,
-    /** The source cost (s) of each member. */
-    val sourceCostSec: DoubleArray,
+    /**
+     * **The pace-free source-cost factor `f` of each member** — the member's cost is `base × f` at any
+     * target grid's base, and `f` is `1.0` on marker-free water. It is read from the unit-base raster
+     * unchanged ([extract]) and re-applied by [writeInto] through [memberCostAtBase].
+     */
+    val sourceCostFactor: DoubleArray,
     /** The interior zone limit (kn) of each member. */
     val zoneLimitKn: DoubleArray,
     /** The zone outside-margin limit (kn) of each member. */
@@ -74,6 +81,10 @@ internal class FineTile(
      * target grid's own lattice origin, so a member's block-local index becomes the target's local one by
      * arithmetic; a member outside the target's box is skipped, which is how a window narrower than the
      * tile (clamped to the corridor) is filled from the same tile.
+     *
+     * Each member's stored **pace-free factor** is re-applied to the **target's own base** — the fine
+     * lattice's, at this arm's pace — through [memberCostAtBase], so one shared tile yields the seconds
+     * the arm's grid opens at.
      */
     fun writeInto(target: MultipassGrid, windowRowOffset: Int, windowColOffset: Int) {
         val firstRow = tileRow * tileCells
@@ -84,8 +95,8 @@ internal class FineTile(
             val col = firstCol + local % cols - windowColOffset
             if (!target.inBounds(row, col)) continue
             target.writeMember(
-                row, col, state[m], sourceCostSec[m], zoneLimitKn[m], collarLimitKn[m],
-                bandLimitKn[m], bandCollarLimitKn[m], depthPriceCoef[m]
+                row, col, state[m], memberCostAtBase(target.baseCostSec, sourceCostFactor[m]),
+                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m], depthPriceCoef[m]
             )
         }
     }
@@ -95,7 +106,8 @@ internal class FineTile(
          * **Extracts a rasterised tile's water into the sparse form.** The rasteriser ran over [grid] —
          * the block grown by [haloCells] on every side so its depth bound saw the collar's wall — and
          * only the **inner** block is kept. Every inner cell the fill left passable is a member, and its
-         * stored tag, its cost, its four limits and its depth coefficient are read straight into the
+         * stored tag, its **pace-free source-cost factor** (the unit-base raster's own source cost), its
+         * four limits and its depth coefficient are read straight into the
          * parallel arrays. The member's local index is its position in the block, `row * tileCells + col`,
          * so [writeInto] recovers it without a map.
          *
@@ -132,7 +144,7 @@ internal class FineTile(
                 for (col in haloCells until haloCells + tileCells) if (grid.passable(row, col)) members++
             }
             val state = ByteArray(members)
-            val sourceCostSec = DoubleArray(members)
+            val sourceCostFactor = DoubleArray(members)
             val zoneLimitKn = DoubleArray(members)
             val collarLimitKn = DoubleArray(members)
             val bandLimitKn = DoubleArray(members)
@@ -144,7 +156,7 @@ internal class FineTile(
                 for (col in haloCells until haloCells + tileCells) {
                     if (!grid.passable(row, col)) continue
                     state[m] = grid.stateOrdinal(row, col)
-                    sourceCostSec[m] = grid.sourceCostSec(row, col)
+                    sourceCostFactor[m] = grid.sourceCostSec(row, col)
                     zoneLimitKn[m] = grid.zoneLimitKn(row, col)
                     collarLimitKn[m] = grid.collarLimitKn(row, col)
                     bandLimitKn[m] = grid.bandLimitKn(row, col)
@@ -160,8 +172,8 @@ internal class FineTile(
                 latSouth = grid.latSouth + haloCells * grid.cellSizeDegLat,
                 lonWest = grid.lonWest + haloCells * grid.cellSizeDegLon,
                 cellSizeDegLat = grid.cellSizeDegLat, cellSizeDegLon = grid.cellSizeDegLon,
-                cellM = grid.cellM, baseCostSec = grid.baseCostSec,
-                state = state, sourceCostSec = sourceCostSec, zoneLimitKn = zoneLimitKn,
+                cellM = grid.cellM,
+                state = state, sourceCostFactor = sourceCostFactor, zoneLimitKn = zoneLimitKn,
                 collarLimitKn = collarLimitKn, bandLimitKn = bandLimitKn,
                 bandCollarLimitKn = bandCollarLimitKn, depthPriceCoef = depthPriceCoef,
                 localIndex = localIndex

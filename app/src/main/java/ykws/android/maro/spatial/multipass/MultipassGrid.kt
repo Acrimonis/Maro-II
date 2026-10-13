@@ -441,6 +441,10 @@ fun rasterize(
  * priced ring or within the depth collar of a gate-blocked cell, and every other passable cell is painted
  * land. `null` — the uniform pass — masks nothing. The coast measure is the margin's own sweep, so the
  * collars and the land can never disagree about where the coast is.
+ *
+ * [baseCostSecOverride] replaces the frame's own `baseCostSec(cellM, paceKn)` grid base where it is
+ * non-null — the fine tile's **unit base** alone uses it, so the raster's own source cost *is* the
+ * pace-free factor its build stores. `null` — every other caller — keeps the derived base.
  */
 internal fun rasterizeWindow(
     box: BBox,
@@ -456,13 +460,14 @@ internal fun rasterizeWindow(
     zoneOutsideMarginM: Double = 0.0,
     band: BandLaw? = null,
     fineMask: FineMask? = null,
-    depthBand: DepthBand? = null
+    depthBand: DepthBand? = null,
+    baseCostSecOverride: Double? = null
 ): MultipassGrid {
     val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, lattice.cellSizeDegLat, lattice.cellSizeDegLon,
         mPerDegLat, mPerDegLon, lattice.cellM, paceKn, marginM, edges, openCoast, capLatNorth, field,
-        zones, blockZones, zoneOutsideMarginM, band, fineMask, depthBand
+        zones, blockZones, zoneOutsideMarginM, band, fineMask, depthBand, baseCostSecOverride
     )
 }
 
@@ -487,13 +492,14 @@ private fun rasterizeFrame(
     zoneOutsideMarginM: Double,
     band: BandLaw?,
     fineMask: FineMask? = null,
-    depthBand: DepthBand? = null
+    depthBand: DepthBand? = null,
+    baseCostSecOverride: Double? = null
 ): MultipassGrid {
     val cols = ceil((box.lonEast - lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
     val rows = ceil((box.latNorth - latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
     val grid = MultipassGrid(
         latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM,
-        baseCostSec(cellM, paceKn)
+        baseCostSecOverride ?: baseCostSec(cellM, paceKn)
     )
 
     // 1. One sweep per edge — CCW ring and CW basin — and per open-coast segment, reaching as far as

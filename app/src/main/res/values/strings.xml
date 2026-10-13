@@ -612,6 +612,8 @@
     <string name="startup_colour_value_unreadable">Unreadable colour value in maro.properties (%1$s) — the default colour was used.</string>
     <!-- D4: a persisted route-engine id nothing claims fell back to the default, and the app says so at start. -->
     <string name="startup_route_engine_id_unclaimed">Route engine %1$s is unknown — the default was used.</string>
+    <!-- D9: the fine-tile store hit its disk ceiling, reclaimed its oldest entries, and says so once. -->
+    <string name="startup_fine_tile_reclaimed">Route tile cache hit its size limit — the oldest tiles were reclaimed.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->

@@ -243,6 +243,15 @@ object AppConfig {
     /** Highest walk ceiling the load accepts — the point past which the guard could not save the heap anyway. */
     const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
 
+    /**
+     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 16 MiB
+     * (16 777 216). Past it the store reclaims its oldest entries, so a boat extending the cache across
+     * seasons cannot grow the directory without bound. It is the app edge that hands this to
+     * [`DirectoryFineTileStore`]; the in-memory map's own ceiling is a separate, smaller sibling.
+     */
+    var routeFineTileMaxBytes: Long = 16L * 1024L * 1024L
+        private set
+
 
     /** Clearance (m) the avoid route keeps off land, islands and hazard rings — `route.avoid.obstacle.marginM`, default 50. */
     var routeAvoidObstacleMarginM: Double = 50.0
@@ -2166,6 +2175,8 @@ object AppConfig {
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
+            props.getProperty("route.fineTile.maxBytes")?.toLongOrNull()
+                ?.let { routeFineTileMaxBytes = it.coerceAtLeast(1L) }
             // ── The followed route's loss toggle and arrival cue (R99) ──
             props.getProperty("route.follow.swap.lossSec")?.toDoubleOrNull()
                 ?.let { routeFollowSwapLossSec = it.coerceIn(0.0, 600.0) }

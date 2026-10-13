@@ -30,7 +30,7 @@ class FineTileMapTest {
         bandExtraM = 25.0, bandEnabled = true, pricesDepthBand = true,
         zoneOutsideMarginM = 100.0, zonesEnabled = true,
         coastBandsM = listOf(0.0..100.0), zoneRimM = 100.0, depthCollarM = 100.0, depthStepM = 20.0,
-        paceKn = 25.0, excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
+        excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
         zoneRings = listOf(ZoneRing(listOf(LatLng(43.51, 7.02), LatLng(43.51, 7.03)), emptyList(), 4.0)),
         markers = emptyList(), markerStrength = 1.0, markerPriceEnabled = true
     )
@@ -39,8 +39,8 @@ class FineTileMapTest {
     private fun tile(members: Int) = FineTile(
         tileRow = 0, tileCol = 0, tileCells = FINE_TILE_CELLS, rows = 1, cols = members,
         latSouth = 43.0, lonWest = 6.7, cellSizeDegLat = 1.8e-4, cellSizeDegLon = 2.5e-4,
-        cellM = 20.0, baseCostSec = 1.0,
-        state = ByteArray(members), sourceCostSec = DoubleArray(members),
+        cellM = 20.0,
+        state = ByteArray(members), sourceCostFactor = DoubleArray(members),
         zoneLimitKn = DoubleArray(members), collarLimitKn = DoubleArray(members),
         bandLimitKn = DoubleArray(members), bandCollarLimitKn = DoubleArray(members),
         depthPriceCoef = DoubleArray(members), localIndex = IntArray(members) { it }

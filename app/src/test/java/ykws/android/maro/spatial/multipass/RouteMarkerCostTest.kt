@@ -97,15 +97,58 @@ class RouteMarkerCostTest {
     /** The metres east of [center] the point [b] stands at, so the cap offsets land beyond it. */
     private fun corridorEastOf(b: LatLng): Double = (b.longitude - 7.0) * (111_320.0 * 0.7254)
 
+    /** **The one price law** — a single multiply, `base × factor`, never an addition to re-spell (D2). */
     @Test
-    fun thePriceIsLinearInItsFactorAndNeverNegative() {
-        assertEquals("a zero step pays nothing", 0.0, markerPriceSec(10.0, 0, 1.0, 1.0), 1e-9)
-        assertEquals("base × step × strength × factor", 30.0, markerPriceSec(10.0, 3, 1.0, 1.0), 1e-9)
-        assertEquals("the strength scales it", 15.0, markerPriceSec(10.0, 3, 0.5, 1.0), 1e-9)
-        assertEquals("the well's factor scales it", 7.5, markerPriceSec(10.0, 3, 1.0, 0.25), 1e-9)
-        assertEquals("the factor is floored at zero", 0.0, markerPriceSec(10.0, 3, 1.0, -1.0), 1e-9)
-        assertEquals("and capped at one", 30.0, markerPriceSec(10.0, 3, 1.0, 2.0), 1e-9)
-        assertTrue("the top step over a positive base is positive", markerPriceSec(10.0, 9, 5.0, 1.0) > 0.0)
+    fun thePriceIsTheBaseTimesTheFactor() {
+        assertEquals("a zero factor pays nothing", 0.0, markerPriceSec(10.0, 0.0), 1e-9)
+        assertEquals("base × factor", 30.0, markerPriceSec(10.0, 3.0), 1e-9)
+        assertEquals("a fractional factor scales it", 2.5, markerPriceSec(10.0, 0.25), 1e-9)
+        assertTrue("the top step over a positive base is positive", markerPriceSec(10.0, 45.0) > 0.0)
+    }
+
+    /**
+     * **The one factor law** — the pace-free `m` [`markerFactorAt`] sums, one `step × strength ×
+     * wellFactor` a priced marker, the wall never counted and the switch standing the price down.
+     */
+    @Test
+    fun theFactorSumsEachPricedMarkersStepScale() {
+        val marker = RouteMarker(
+            "m1", RouteMarkerGeometry.Circle(center, 1000.0, 500.0), step = 3, isWall = false
+        )
+        assertEquals(
+            "inside the body one marker's factor is its step × strength",
+            3.0, markerFactorAt(listOf(marker), strength = 1.0, enabled = true, p = center), 1e-9
+        )
+        assertEquals(
+            "the strength scales the factor",
+            1.5, markerFactorAt(listOf(marker), strength = 0.5, enabled = true, p = center), 1e-9
+        )
+        assertEquals(
+            "mid collar the well halves it",
+            1.5, markerFactorAt(listOf(marker), strength = 1.0, enabled = true, p = north(1250.0)),
+            3.0 * factorTol
+        )
+        assertEquals(
+            "the well spends itself at the outer edge",
+            0.0, markerFactorAt(listOf(marker), strength = 1.0, enabled = true, p = north(1600.0)), 1e-9
+        )
+        assertEquals(
+            "the switch stands the price down",
+            0.0, markerFactorAt(listOf(marker), strength = 1.0, enabled = false, p = center), 1e-9
+        )
+        val wall = RouteMarker("w1", RouteMarkerGeometry.Circle(center, 1000.0, 500.0), step = 0, isWall = true)
+        assertEquals(
+            "a wall is never priced",
+            0.0, markerFactorAt(listOf(wall), strength = 1.0, enabled = true, p = center), 1e-9
+        )
+        assertEquals(
+            "two markers sum",
+            6.0,
+            markerFactorAt(
+                listOf(marker, marker.copy(id = "m2")), strength = 1.0, enabled = true, p = center
+            ),
+            1e-9
+        )
     }
 
     @Test
