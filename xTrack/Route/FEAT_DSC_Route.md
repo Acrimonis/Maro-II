@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-11 11:20
+modified: 2026-10-13 14:18
 ---
 
 # Feature: Route
@@ -43,6 +43,8 @@ an ordinary track.
 - **Still in the code and on the removal list** — the refused-end crosshair with its `route.target.*` keys (replaced by the sea-side move above), the route opacity-ladder keys `tracking.transparency.routeFrom` / `routeTo` (the dimming key covers the need), the panel's own pin checkbox [`RoutePinOption`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:504) with its `route_pin_label` key (composed by nothing), and the seam members the current flow does not lean on, which the user will re-evaluate.
 - **Known limits** — the dummy promises nothing about water and no setting moves it; each plan decides its own fine cell in metres: `route.avoid.grid.fineCellM`, `route.evolutive.grid.fineCellM` and `route.selective.grid.fineCellM`; and the progressive-draw plan's build order still names `route.progress.transparencyPct`, retired on 2026-09-28 for the shared `path.line.fade.dimmed`, so the plan's text is the stale one and not the tree.
 - **Two deliberate limits stand** — the `selective` depth price's ramp is **quantized to the fine cell** (its tread and the wall-distance sample step are one value, `DepthBandLaw.stepM`, so a per-metre gradient would re-price every band cell), and the Speed-limits line prints **whole minutes** only, dropping a sub-minute entry so it never prints a zero-minute row.
+
+- **The corner pass rounds a line's bends from what the line gives it** — the fit is a clothoid → arc → clothoid whose reach takes the whole **significant** leg, a kink too flat to be a corner keeping its own point and taking no room, and the corner floor is a **target rather than a refusal**: the room may draw a bend under it, down to the pass's own 1 kn bottom. A close pair of bends turning the **same way** within the tangent a pace-speed curve needs for their summed angle is read as **one turn**, over the crossing of its two outer legs; two bends on one leg **share** it, each weighted by its own angle; and the overlap guard measures bow to bow, a bow taking back the points it has passed so the drawn line never folds back. The coast test is **relative to the corner it replaces** — a bow may not come closer to the shore than the corner itself, the shallow wall staying absolute — and every bend's answer, its room, its share, the limit in force at it and whether it stands in the band are named by the `CORNERS` and `CORNER` lines the pass prints on the `MaroRoute` trace. Design, measurements and the device evidence live in [`261013_FEAT_PLN_Route_corner-pass-fixes.md`](261013_FEAT_PLN_Route_corner-pass-fixes.md); [`RouteCornerPassTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/RouteCornerPassTest.kt) pins each rule.
 
 ### Placement and the three seams
 
@@ -164,7 +166,6 @@ The live numbered requirements — added after the master book was retired; the 
 ## Todos
 
 - [ ] **Algorithm review, point 1 — a priced band beyond the depth gate's margin** (discuss, then settle) — the gate is a wall today and the margin a standoff; the ask is a soft depth preference so a line sits wider where the water allows. Feasibility turns on the priced walk's group proof, which needs a declared clearance a depth-valued price cannot give. **Scope narrowed**: the preference rides `selective` alone, settled as a per-metre gradient beside the wall → [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md)
-- [ ] **Algorithm review, point 3 — the turns' reach and symmetry** (discuss, then settle) — the per-corner fit is capped by the shorter half-segment and `reachFraction` already stands at 1.0, so a lower lateral acceleration has nowhere to go; the artifact must be reproduced and told apart from the profile's own asymmetry → [`261007_FEAT_PLN_Route_turn-impact-and-symmetry.md`](261007_FEAT_PLN_Route_turn-impact-and-symmetry.md)
 - [ ] **Algorithm review, point 4 — the coastal leg's optimistic clock, and a third engine** (discuss, then settle) — the third engine has landed as `selective` (Phases 1–6 of the plan, its record refreshed), so what remains is the coastal clock's own reading, which still owes one device pass before that leg is settled → [`261007_FEAT_PLN_Route_selective-engine.md`](261007_FEAT_PLN_Route_selective-engine.md)
 
 - [ ] **The depth price's magnitude may be under what a line can feel** — the law is wired on every reader (the λ-free coefficient, the search's read-time λ scaling, the pull's `withDepthBand` guard) and the reading rule now makes it unbypassable, but at the shipped `route.selective.depth.priceSecPerM=0.05` over the 45 m band a crossing costs roughly one second and the ramp falls to zero at the band's outer edge, so a real route can still keep its line; the levers are that key's value and the band's reach beyond the gate margin, and only the owed coastal device pass can price them.

@@ -110,7 +110,7 @@ bounds.
 
 A post-search stage that turns the grid path into a navigable trajectory — spiral → arc → spiral, the
 radius the largest that clears the walls capped by the pace's own radius, the corner speed
-`min(cap, max(decelFloor, minSpeedKn))`, the clearing radius found by **24-step bisection**. The
+`min(cap, max(decelFloor, minSpeedKn))`, both the fit radius and the clearing radius found by **24-step bisection**. The
 route's figures are the **pre-fairing base plus the bends' caps' delta** — the geometry is never
 re-costed. The forced-crossing probe reads the pre-fairing line.
 

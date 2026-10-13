@@ -33,6 +33,8 @@ import ykws.android.maro.spatial.multipass.GridContext
 import ykws.android.maro.spatial.multipass.GridWalk
 import ykws.android.maro.spatial.multipass.PassReading
 import ykws.android.maro.spatial.multipass.RouteCornerPass
+import ykws.android.maro.spatial.multipass.RouteCornerPass.CornerOutcome
+import ykws.android.maro.spatial.multipass.RouteCornerPass.CornerVerdict
 import ykws.android.maro.spatial.multipass.RouteCostField
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridBuilder
@@ -503,6 +505,52 @@ class RouteAvoidEngine(
     }
 
     /**
+     * **The corner tally** — one `CORNERS` summary and one `CORNER` detail naming what the pass did at a
+     * bend, so a device run answers instead of leaving it to be read off the drawn line. Report only: the
+     * drawn points and the clock come from the pass either way, and nothing here decides anything.
+     *
+     * `ask` is the reach the policy wanted, `emitted` what the previous bow had already spent of it, and
+     * `shared` the share of the leg another bend on that leg leaves it, so a bend short of room shows
+     * **which** of the three bound it, while `why` names the wall where a bow fouled — coast, depth or a
+     * speed zone the corner itself stands outside.
+     *
+     * **Two readings say where a slow stretch comes from, and neither is the pass's own.** `limit` is the
+     * speed limit in force at the bend, `-` where the water carries none, and `band` says whether it stands
+     * inside the 300 m band — so a corner's own ceiling, a zone's limit and the band's slow water are told
+     * apart at a glance. Both are read from the caller's own context: this reads the water, it never prices
+     * it.
+     *
+     * A bend left **standing** always reports, and a **curved** one reports where it carries a real
+     * slowdown or takes a `shared` part of its leg; a curve taken at the pace with no share is the line
+     * behaving and has nothing to say.
+     */
+    private fun traceCornerVerdicts(
+        verdicts: List<CornerVerdict>,
+        paceKn: Double,
+        limitAt: (LatLng) -> Double?,
+        inBand: (LatLng) -> Boolean
+    ) {
+        if (verdicts.isEmpty()) return
+        val tally = verdicts.groupingBy { it.outcome }.eachCount()
+            .entries.joinToString(" ") { "${it.key}=${it.value}" }
+        val slowed = verdicts.count { it.outcome == CornerOutcome.ROUNDED && it.speedKn < paceKn - 1e-9 }
+        trace { "CORNERS total=${verdicts.size} pace=${fmt(paceKn)}kn slowed=$slowed $tally" }
+        for (v in verdicts) {
+            val curved = v.outcome == CornerOutcome.ROUNDED
+            if (curved && v.sharedM == null && v.speedKn >= paceKn - 1e-9) continue
+            val limit = limitAt(v.at)
+            trace {
+                "CORNER idx=${v.index} at=${fmt(v.at.latitude, 5)},${fmt(v.at.longitude, 5)} " +
+                    "why=${v.outcome} turn=${fmt(v.turnDeg)}deg in=${fmt(v.legInM)}m out=${fmt(v.legOutM)}m " +
+                    "ask=${fmt(v.reachAskM)}m emitted=${fmt(v.emittedInM)}m " +
+                    "shared=${v.sharedM?.let { "${fmt(it)}m" } ?: "-"} room=${fmt(v.roomM)}m " +
+                    "speed=${fmt(v.speedKn, 2)}kn limit=${limit?.let { fmt(it, 1) } ?: "-"} " +
+                    "band=${inBand(v.at)} inZone=${v.cornerInZone}"
+            }
+        }
+    }
+
+    /**
      * **One rung's fixed-λ solve** — the A* pass, the taut pull and the corner snap at [lambda], then
      * the fine pass, the forced-crossing probe and the answer. No budget loop: a rung is computed at
      * its own λ and never corrected, so the slow-water budget stays demoted.
@@ -555,12 +603,17 @@ class RouteAvoidEngine(
         // repeated here — the sink must see every reading, and the device behaviour is unmoved.
         instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
         // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
-        // an outward-bulging curve — clear by construction, slowed where the bulge would foul — then the
+        // a curve that cuts the inside of the turn — clear where it fits, shrunk where the bow would
+        // foul, left standing only where even the 1 kn bottom's radius overshoots the room — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
         // limit stays the hard ceiling throughout.
         val rounded = RouteCornerPass.round(
             refined, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
         )
+        // **The corner tally**: what the pass did at each bend, with the speed limit in force there and
+        // whether it stands in the 300 m band — the two readings that tell a corner's own speed from the
+        // water's.
+        traceCornerVerdicts(rounded.verdicts, ctx.pace, ctx.limitAt, inBand(ctx.world))
         val timedLine = timeLineWithProfile(
             rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt,
             clockSampleM(ctx.cellM, ctx.fineCellM)
