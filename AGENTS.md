@@ -192,9 +192,9 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 
 | #cmd | Action |
 |------|--------|
-| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc. Alias: `#features` |
+| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries blocks — each name, status, created and modified with its bullets, sorted by Modified desc. Shape in `docs/xtrack-templates.md`. Alias: `#features` |
 | `#focus [name]` | Pivot active feature (push Focus History entry); bare=prompt pick. Optional `#focus [name] [section]` hydrates only that section; prints the command delta |
-| `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows; prints the command delta |
+| `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing entry and the feature's `## Feature Summaries` block — shape in `docs/xtrack-templates.md`; prints the command delta |
 | `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, the top Focus History entry rewritten to what shipped, prune Focus History > 10. Fires only on explicit invocation |
 | `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature (`target`: feature, section, parent, global) |
 | `#rule` | Bare = print the tier legend. `[tier]` (name or glyph, matched exactly — the fuzzy cascade does not apply) = reload that tier's rules and print a fingerprint line — tier, rule count, short hash. `all` = read the whole file and report whether the copy this session holds is stale, naming the sections that moved — the read is itself the reload. Explicit invocation only |
