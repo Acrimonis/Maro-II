@@ -19,9 +19,9 @@ import java.util.Locale
  * - `regulatedZone.speedOverride.<key>=<kn>` — replaces the zone's speed limit;
  *   setting a value on a zone that carries none turns it into a speed zone at
  *   that value;
- * - `regulatedZone.speedRoute.<key>=<kn>` — a routing-only speed: the route engine
- *   prices the zone at this value while every other surface keeps the limit above;
- *   blank for none;
+ * - `regulatedZone.speedRoute.<key>=<kn>` — a **search-only price**: the route engine
+ *   prices the zone at this value so the search may take the zone as an advantage,
+ *   while every timer and every display keeps the limit above; blank for none;
  * - `regulatedZone.ignore.<key>=true` — drops the zone from the set, so it is
  *   never drawn, listed or priced.
  *
@@ -448,9 +448,10 @@ object RegulationSpeedOverrides {
         #   regulatedZone.speedOverride.<key>=<kn>   replace the limit;
         #     a value on a zone with none makes it a speed zone.
         #     Leave it blank for no override.
-        #   regulatedZone.speedRoute.<key>=<kn>      routing-only speed;
-        #     the route engine prices the zone at this value, every
-        #     other surface keeps the limit above. Blank = none.
+        #   regulatedZone.speedRoute.<key>=<kn>      search-only speed;
+        #     the route engine PRICES the zone at this value so the
+        #     search may take it as an advantage, while every timer
+        #     and every display keeps the limit above. Blank = none.
         #   regulatedZone.ignore.<key>=true|false    drop the zone.
         # <key> chain: SHOM inspireid, else decree ref, else name +
         #   centroid slug; every string folded to ASCII (e -> e,

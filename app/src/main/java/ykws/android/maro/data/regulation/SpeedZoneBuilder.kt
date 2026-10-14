@@ -35,7 +35,8 @@ object SpeedZoneBuilder {
                         .takeIf { it != "null" && it.isNotBlank() }
                         ?: "Zone ${"%.0f".format(effectiveKn)} kn",
                     speedLimitKn = effectiveKn,
-                    // The route engine reads this; the routing-only override wins when set.
+                    // The **search** reads this and the routing-only override wins when set: it is a
+                    // price, so the clock and every displayed figure keep `speedLimitKn` above.
                     routeLimitKn = zone.speedRouteKn ?: effectiveKn,
                     outerRing = zone.outerRing,
                     holes = zone.holes,

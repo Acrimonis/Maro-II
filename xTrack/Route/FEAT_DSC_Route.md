@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-13 20:13
+modified: 2026-10-14 12:31
 ---
 
 # Feature: Route
@@ -167,6 +167,8 @@ The live numbered requirements — added after the master book was retired; the 
 - Retired plans and docs live in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Todos
+
+- [ ] **The zone clock's law and the ranking's own read** — the `speedRoute` split landed 2026-10-14 ([`261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md`](../RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md)): the search prices a zone at `routeLimitKn` while every reported figure — the clock, the attribution and the line's colour — times it at the displayed `speedLimitKn`. Two readers were deliberately left alone and are the open decision: `RoutePassRanking`'s Best gate and Fun objective move with the clock, so they now judge an overridden zone on the limit the routing never obeyed, and `forcedCrossingNames` still filters on the price, so a zone its `speedRoute` prices to nothing is never named as a forced crossing.
 
 - [ ] **Algorithm review, point 1 — a priced band beyond the depth gate's margin** (discuss, then settle) — the gate is a wall today and the margin a standoff; the ask is a soft depth preference so a line sits wider where the water allows. Feasibility turns on the priced walk's group proof, which needs a declared clearance a depth-valued price cannot give. **Scope narrowed**: the preference rides `selective` alone, settled as a per-metre gradient beside the wall → [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md)
 - [ ] **Algorithm review, point 4 — the coastal leg's optimistic clock, and a third engine** (discuss, then settle) — the third engine has landed as `selective` (Phases 1–6 of the plan, its record refreshed), so what remains is the coastal clock's own reading, which still owes one device pass before that leg is settled → [`261007_FEAT_PLN_Route_selective-engine.md`](261007_FEAT_PLN_Route_selective-engine.md)

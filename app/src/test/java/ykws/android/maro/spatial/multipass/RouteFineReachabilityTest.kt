@@ -82,6 +82,8 @@ class RouteFineReachabilityTest {
         override fun speedZonesIn(box: BBox): List<SpeedZone> = speedZonesInBox(zones, box, emptySet())
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(zones, emptySet(), latitude, longitude)
+        override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
+            strictestDisplayLimitKnAt(zones, emptySet(), latitude, longitude)
     }
 
     /** A closed rectangle ring over `[latSouth, latNorth]` × `[lonWest, lonEast]`. */

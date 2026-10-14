@@ -12,9 +12,13 @@ import ykws.android.maro.data.model.LatLng
  *
  * @property id          Source reference ID (e.g. SHOM sourceRef).
  * @property name        Display name (e.g. "Cap d'Antibes").
- * @property speedLimitKn Speed limit in knots — the display/dashboard value (always non-null).
- * @property routeLimitKn Speed the route engine prices the zone at: the routing-only override
- *                        when one is set, else [speedLimitKn].
+ * @property speedLimitKn Speed limit in knots — the **displayed** value, and the one every reported
+ *                        figure obeys: the dashboard and warning strip, and the route's own clock,
+ *                        line colouring and slow-limit attribution (always non-null).
+ * @property routeLimitKn **The search's own price** — the routing-only `speedRoute` override when one is
+ *                        set, else [speedLimitKn]. It buys the search an advantage over water still
+ *                        signed at [speedLimitKn], so it never reaches a clock or a display: the clock
+ *                        reads its own law, [ykws.android.maro.spatial.multipass.strictestDisplayLimitKnAt].
  * @property outerRing   Polygon outer boundary as a closed LatLng ring.
  * @property holes       Zero or more interior holes (islands exempt).
  * @property source      Data source identifier ("SHOM", "SEED", etc.).

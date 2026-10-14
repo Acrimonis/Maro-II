@@ -1016,6 +1016,8 @@ class AvoidPriceWalkTest {
         override fun speedZonesIn(box: BBox): List<SpeedZone> = zones
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(zones, emptySet(), latitude, longitude)
+        override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
+            strictestDisplayLimitKnAt(zones, emptySet(), latitude, longitude)
     }
 
     private companion object {
