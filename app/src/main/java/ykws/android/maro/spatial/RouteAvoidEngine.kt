@@ -87,7 +87,7 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * costs that limit's time excess over the pace, scaled by the pass's λ, so a 5 kn band cell and a
  * 5 kn ring cell cost the same by construction. The band's limit is written onto the grid's own band
  * cells — the width in full, the outside margin at the band's fraction — so the A\* prices it per
- * expansion and the band's price **follows the corrected λ exactly as a ring's does**, the strictest
+ * expansion and the band's price **follows the solving rung's λ exactly as a ring's does**, the strictest
  * limit winning where the band and a ring overlap. The pull's guard prices the same law off the point
  * geometry and refuses a chord whose own price exceeds the cell path's over the span it would replace.
  * A start or aim already inside the band is accepted, so a berth in a marina basin is priced rather

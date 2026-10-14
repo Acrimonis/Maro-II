@@ -55,11 +55,15 @@ is one row there plus one class implementing `RouteEngine`.
 
 ## The ladder
 
-One arming declares **three rungs**, each a full solve at its own fixed λ over **one shared grid**: `around`
-(λ = 5), `best` (λ = 2.5) and `fast` (λ = 0) — the three stops of [`RoutePreference`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt),
-the ladder's one home for its λ values, its indices and its words. The first is the **main** and the only one
-that narrates the stage line; every other rung publishes its terminal update alone, plus the provisional pair
-it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and never corrected.
+One arming declares **three rungs**, each a full solve at its own fixed λ over **one shared grid**: `around`,
+`best` and `fast` — the three stops of [`RoutePreference`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt),
+which maps a stop's index and its word onto the λ its rung is solved at. **The three values are keys of their
+own** — `route.avoid.ladder.around|best|fast.lambda` in `maro.properties`, read through `AppConfig` — because
+they are the ladder's one lever and the file is where every value lives. The first rung is the **main** and the
+only one that narrates the stage line; every other rung publishes its terminal update alone, plus the
+provisional pair it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and
+never corrected, so the aversion the user sets (`route.avoid.speedZone.softCostAversion`) does nothing but name
+which of the three the ranking leads on.
 
 **The rungs are ranked, and the winner rides the terminal.** At every rung's terminal the engine folds the
 settled costs of the rungs that have landed through [`RoutePassRanking`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt)
