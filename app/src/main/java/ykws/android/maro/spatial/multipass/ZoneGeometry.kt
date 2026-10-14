@@ -61,7 +61,13 @@ fun SpeedZone.contains(latitude: Double, longitude: Double): Boolean {
 fun speedZonesInBox(zones: List<SpeedZone>, box: BBox, excludedIds: Set<String>): List<SpeedZone> =
     zones.filter { it.id !in excludedIds && it.bbox().overlaps(box) }
 
-/** The strictest limit among the non-excluded zones containing the point, or `null` outside all. */
+/**
+ * **The strictest price among the non-excluded zones containing the point, or `null` outside all** —
+ * the routing-only `speedRoute` override where one is set, else the displayed limit. It is the **price
+ * law**: the guard's live interior read, the same value the grid stores in a `ZoneRing`. It is **not**
+ * the clock's read — a reported figure obeys the limit the user is shown, which is
+ * [strictestDisplayLimitKnAt]'s own answer.
+ */
 fun strictestLimitKnAt(
     zones: List<SpeedZone>,
     excludedIds: Set<String>,
@@ -71,6 +77,27 @@ fun strictestLimitKnAt(
     .filter { it.id !in excludedIds }
     .filter { it.contains(latitude, longitude) }
     .minOfOrNull { it.routeLimitKn }
+
+/**
+ * **The strictest displayed limit among the non-excluded zones containing the point, or `null` outside
+ * all** — the **clock's own read**, beside the price law above and deliberately apart from it.
+ *
+ * A zone may carry a routing-only `speedRoute` override, which buys the search an advantage by lowering
+ * its price while the water is still signed at the displayed limit. Every figure a navigator reads —
+ * the leg speed, the trip's clock, the line's colour and the slow-limit attribution — must answer the
+ * limit in force **on the water**, never the price the search negotiated, or the app would report a
+ * speed the chart does not permit. One home for that law, so the clock and the map's own surfaces
+ * ([`SpeedZoneIndex`](../../../spatial/SpeedZoneIndex.kt)) agree about what the limit is.
+ */
+fun strictestDisplayLimitKnAt(
+    zones: List<SpeedZone>,
+    excludedIds: Set<String>,
+    latitude: Double,
+    longitude: Double
+): Double? = zones
+    .filter { it.id !in excludedIds }
+    .filter { it.contains(latitude, longitude) }
+    .minOfOrNull { it.speedLimitKn }
 
 /**
  * The strictest limit among the non-excluded zones whose **outer ring** lies within [marginM] of the

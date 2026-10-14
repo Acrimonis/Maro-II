@@ -114,8 +114,11 @@ data class RegulatedZone(
     /** Every SHOM S-57 RESTRN code on this zone — a single zone may carry several, e.g. [3, 11]. */
     @ProtoNumber(15) val restrictionCodes: List<Int> = emptyList(),
     /**
-     * Routing-only speed override (kn) from `regulatedZone.speedRoute.<key>`: when set, the route
-     * engine prices this zone at this value while every other surface keeps [speedLimitKn].
+     * **Search-only price** (kn) from `regulatedZone.speedRoute.<key>`: when set, the route engine
+     * **prices** this zone at this value — the A\*'s stored zone limits, the guard's own point read and
+     * the fine crossing price — so the search may take the zone as an advantage. **Nothing is timed or
+     * shown at it:** every reported figure (the leg speed, the trip's clock, the line's colour and the
+     * slow-limit attribution) keeps [speedLimitKn], which is also every display surface's value.
      */
     @ProtoNumber(16) val speedRouteKn: Double? = null
 ) {

@@ -224,12 +224,18 @@ internal fun bandLaw(world: MultipassWorld): BandLaw? =
  * distance read — so the search and the clock can never disagree about which water is the band.
  * Both reads stand whatever their `enabled` switch says: a switch prices the search, it never
  * suspends the limit.
+ *
+ * **The zone read is the displayed limit, never the routed price** ([MultipassWorld.zoneDisplayLimitKnAt]).
+ * A zone may carry a routing-only `speedRoute` override that lowers what the search pays while the water
+ * stays signed at the limit the user is shown; a clock reading the price would report a speed the chart
+ * does not permit. The **price law lives elsewhere** — the grid's stored `ZoneRing` limits and the guard's
+ * own [`strictestLimitKnAt`] — so this lambda's zone arm can move without the search moving with it.
  */
 internal fun limitAtFor(world: MultipassWorld): (LatLng) -> Double? {
     val bandM = world.bandWidthM
     val bandLimitKn = AppConfig.routeAvoidZone300LimitKn
     return { p ->
-        val zoneLimit = world.zoneLimitKnAt(p.latitude, p.longitude)
+        val zoneLimit = world.zoneDisplayLimitKnAt(p.latitude, p.longitude)
         val bandLimit =
             if (bandM > 0.0 &&
                 insideBandWidthM(world.distanceToCoastM(p.latitude, p.longitude), bandM)

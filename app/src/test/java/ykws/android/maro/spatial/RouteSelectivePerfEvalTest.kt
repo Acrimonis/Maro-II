@@ -31,6 +31,7 @@ import ykws.android.maro.spatial.multipass.SelectiveGridPlan
 import ykws.android.maro.spatial.multipass.SelectiveMaskCache
 import ykws.android.maro.spatial.multipass.depthBlockedAtOf
 import ykws.android.maro.spatial.multipass.speedZonesInBox
+import ykws.android.maro.spatial.multipass.strictestDisplayLimitKnAt
 import ykws.android.maro.spatial.multipass.strictestLimitKnAt
 import java.io.File
 import java.lang.reflect.Field
@@ -677,6 +678,9 @@ class RouteSelectivePerfEvalTest {
 
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(listOf(zone), emptySet(), latitude, longitude)
+
+        override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
+            strictestDisplayLimitKnAt(listOf(zone), emptySet(), latitude, longitude)
     }
 
     /** A closed square of half-side [halfM] (m) centred on [centre], the speed zone's own ring. */

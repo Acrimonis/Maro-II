@@ -46,6 +46,7 @@ import ykws.android.maro.spatial.multipass.RoutePassRanking
 import ykws.android.maro.spatial.multipass.UniformGridPlan
 import ykws.android.maro.spatial.multipass.insideBandWidthM
 import ykws.android.maro.spatial.multipass.speedZonesInBox
+import ykws.android.maro.spatial.multipass.strictestDisplayLimitKnAt
 import ykws.android.maro.spatial.multipass.strictestLimitKnAt
 import ykws.android.maro.spatial.multipass.TimedLine
 import ykws.android.maro.spatial.multipass.ZoneRing
@@ -1180,6 +1181,9 @@ class RouteAvoidEngineTest {
 
         override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
             strictestLimitKnAt(zones, emptySet(), latitude, longitude)
+
+        override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
+            strictestDisplayLimitKnAt(zones, emptySet(), latitude, longitude)
 
         override fun isWater(latitude: Double, longitude: Double): Boolean = water(latitude, longitude)
 

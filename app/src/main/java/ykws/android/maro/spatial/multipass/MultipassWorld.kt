@@ -120,10 +120,28 @@ interface MultipassWorld {
     fun speedZonesIn(box: BBox): List<SpeedZone> = emptyList()
 
     /**
-     * The strictest limit (lowest kn) in force at a point across the non-excluded zones containing it,
-     * or `null` outside all of them — the ETA's point read, taken along the emitted line.
+     * The strictest **route limit** (lowest kn) in force at a point across the non-excluded zones
+     * containing it, or `null` outside all of them — the routing-only `speedRoute` override where one is
+     * set, else the displayed limit. It is the **price law's** own door: the corner pass's containment
+     * test stands on it. It is **never** the clock's read — a reported figure obeys the water's signed
+     * limit, which is [zoneDisplayLimitKnAt]'s own answer.
      */
     fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? = null
+
+    /**
+     * **The clock's own zone read** — the strictest **displayed** limit (lowest kn) in force at a point
+     * across the non-excluded zones containing it, or `null` outside all of them: [`SpeedZone.speedLimitKn`],
+     * never a `speedRoute` override.
+     *
+     * A routing-only override buys the search an advantage while the water stays signed at the displayed
+     * limit, so every figure a navigator reads — the leg speed, the trip's clock, the line's colour and
+     * the slow-limit attribution — is timed off this read rather than the price the search negotiated.
+     *
+     * The default is `null`, and deliberately: a world that has not answered the display law reports **no
+     * zone limit at all**, so a test that only implements [zoneLimitKnAt] fails loudly instead of quietly
+     * timing the price law and reporting a speed the chart does not permit.
+     */
+    fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? = null
 
     /**
      * **Every marker that prices or walls the route** — the costed markers in this feature's own
@@ -251,6 +269,10 @@ class LiveMultipassWorld(
 
     override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
+
+    /** The clock's own read: the displayed limit, the `speedRoute` override stood apart from it. */
+    override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
+        strictestDisplayLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
 
     /**
      * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
