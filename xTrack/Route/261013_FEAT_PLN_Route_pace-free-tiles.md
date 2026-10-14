@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-13 · **Status:** implemented · **Feature:** Route · **Order:** continues the fine-tile work, whose store already exists (canonical `TileKey` encoding, `FineTileCodec`, the pure [`TileStore`](../../app/src/main/java/ykws/android/maro/spatial/multipass/TileStore.kt) seam, [`FineTileMap`](../../app/src/main/java/ykws/android/maro/spatial/multipass/FineTileMap.kt) write-back, the process-level [`FineTileCache`](../../app/src/main/java/ykws/android/maro/spatial/multipass/FineTileCache.kt) holder and [`DirectoryFineTileStore`](../../app/src/main/java/ykws/android/maro/spatial/DirectoryFineTileStore.kt)).
 
-**Out of scope, stated:** the background pre-warm is its own later task. No second invalidation mechanism is added — the key plus the entry's version number are the guard. No new dependency.
+**Out of scope, stated:** the background pre-warm was its own later task — **and it has since landed** (see §11, and the pre-warm bullet in `FEAT_DSC_Route.md`). This plan's own change adds no second invalidation mechanism — the key plus the entry's version number are the guard. No new dependency.
 
 ## 1 — The finding, grounded
 
@@ -143,3 +143,25 @@ flowchart TD
 - [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) tile bullet — the pace-free factor and the versioned store.
 - [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) — the fine-layer tiles bullet.
 - [`FEAT_HYD_Route.md`](FEAT_HYD_Route.md) — the state line and the next step.
+
+## 11 — The deferred pre-warm, landed
+
+The background pre-warm this plan deferred now ships, and the pace-free tile is exactly what made it worth
+building — one tile serves every speed, so a tile a startup pass marks is reused by any arm over that water.
+
+- **The box is one home**, `route.prewarm.box` in `maro.properties` (the Cagnes-sur-Mer → Cannes coast
+  carrying 2 km of margin west, east and south), read through `AppConfig.routePrewarmBox`. It
+  sits inside the `nice-menton` region (fetch corridor lat 43.30–43.80, lon 6.70–7.55 from `gradle.properties`
+  and `CoastlineGenerator`), and the pass re-checks it against the world's own bounds and reports an overflow
+  rather than shrinking it.
+- **The two caps** are `route.prewarm.maxTiles` (400) and `route.prewarm.maxMs` (120 000), read through
+  `AppConfig`.
+- **The tiles are the arm's own** — `RouteGridBuilder.fineTilesOver` enumerates the box's fine tiles through
+  the builder's `fineTileKey` and `buildFineTile`, so no second derivation exists; the pass is store-first,
+  ordered own-ship outward, and paused (never stopped) on an arming.
+- **The dot holds the pass** — `FineTileCache.beginPrewarm` / `endPrewarm` hold the store's `busy` window for
+  the whole pass (one `busy on` / `busy off`), chosen over extending the 400 ms grace because the grace's own
+  job is merging an arm's tiles and the pre-warm states its window explicitly instead.
+- **Green**: `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug` → BUILD SUCCESSFUL, with
+  [`FineTilePrewarmTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FineTilePrewarmTest.kt)
+  pinning the gate, the two caps, own-ship ordering, the skip-when-warm and the pause-at-the-gate.

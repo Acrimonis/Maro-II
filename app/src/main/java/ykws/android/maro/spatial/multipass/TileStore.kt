@@ -12,6 +12,10 @@ package ykws.android.maro.spatial.multipass
  * by another format version, or one whose stored key does not match — never a wrong tile — so a broken
  * store degrades to the build. [save] is **best-effort**: a store that cannot write must never fail a
  * lookup, and [FineTileMap] swallows its failures.
+ *
+ * **The store's work is signalled through its holder, not here.** [`FineTileCache.busy`] is the one
+ * debounced window the routing square's dot reads, fed by each store-facing lookup the map runs; this
+ * seam stays a pure read/write and carries no signal of its own.
  */
 internal interface TileStore {
 

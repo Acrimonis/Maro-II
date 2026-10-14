@@ -440,6 +440,85 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
     }
 
     /**
+     * **The fine tiles the plan's own water covers over [box], each with the closure that builds it** — the
+     * pre-warm's whole input, derived through the builder's own key ([fineTileKey]) and its own build
+     * ([buildFineTile]) so a tile made from one of these requests is the very tile an arm over this water
+     * asks for. It is the fine slice of [buildLayeredGrid]: the plan's two cells, the world's fixed anchor,
+     * the priced zones in [box], the band law, the depth gate and the plan's own fine water — never an
+     * invented context, because the key carries all of it and a second derivation would key a tile no arm
+     * could ever reach.
+     *
+     * A tile's own [FineTileRequest.center] lets the caller order them own-ship outward. A single-grid plan
+     * (`avoid`) has no fine layer and answers an empty list; so does a box whose plan keeps no fine water.
+     */
+    internal fun fineTilesOver(
+        world: MultipassWorld,
+        box: BBox,
+        markerStrength: Double
+    ): List<FineTileRequest> {
+        val planTiles = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM)
+        if (planTiles.size <= 1) return emptyList()
+        val cellM = planTiles.maxByOrNull { it.cellM }?.cellM ?: return emptyList()
+        val fineCellM = planTiles.minByOrNull { it.cellM }?.cellM ?: return emptyList()
+        val anchor = world.latticeAnchor ?: LatticeAnchor.wholeDegree(box)
+        val family = LatticeFamily.of(anchor, cellM, fineCellM)
+        val fine = family.fine
+        val edges = world.segmentsIn(box)
+        val openCoast = world.openCoastIn(box)
+        val marginM = AppConfig.routeAvoidObstacleMarginM
+        val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
+        val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
+        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
+        val bandSpec = bandLaw(world)
+        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val minDepthM = AppConfig.routeAvoidDepthGateMinM
+        val depthBlockedAt = if (depthGateActive) depthBlockedAtOf(world, minDepthM) else null
+        val fineWater = plan.fineWater(
+            FineWaterQuery(
+                world = world, box = box, edges = edges, openCoast = openCoast,
+                marginM = marginM, baseCellM = cellM
+            )
+        )
+        if (fineWater.isEmpty) return emptyList()
+        val fineBoxes = fineWindowBoxes(fine, box, edges, openCoast, fineWater, depthBlockedAt, zones)
+        val fineMask = fineWater.toMask(depthBlockedAt, DepthBandLaw.stepM(fineCellM))
+        val depthBand = if (plan.pricesDepthBand) depthBandOf(world, minDepthM, fineCellM) else null
+        val haloCells = fineTileHaloCells(fine, fineMask, depthBand)
+        val requests = LinkedHashMap<TileKey, FineTileRequest>()
+        for (fineBox in fineBoxes) {
+            val rows = ceil((fineBox.latNorth - fineBox.latSouth) / fine.cellSizeDegLat).toInt().coerceAtLeast(1)
+            val cols = ceil((fineBox.lonEast - fineBox.lonWest) / fine.cellSizeDegLon).toInt().coerceAtLeast(1)
+            val windowRow = fine.rowOf(fineBox.latSouth)
+            val windowCol = fine.colOf(fineBox.lonWest)
+            val firstTileRow = Math.floorDiv(windowRow, FINE_TILE_CELLS)
+            val lastTileRow = Math.floorDiv(windowRow + rows - 1, FINE_TILE_CELLS)
+            val firstTileCol = Math.floorDiv(windowCol, FINE_TILE_CELLS)
+            val lastTileCol = Math.floorDiv(windowCol + cols - 1, FINE_TILE_CELLS)
+            for (tileRow in firstTileRow..lastTileRow) {
+                for (tileCol in firstTileCol..lastTileCol) {
+                    val key = fineTileKey(
+                        world, anchor, fine, tileRow, tileCol, haloCells, marginM, zoneOutsideMarginM,
+                        bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive, markerStrength
+                    )
+                    if (requests.containsKey(key)) continue
+                    val inner = fineTileBox(fine, tileRow, tileCol)
+                    val center = LatLng(
+                        (inner.latSouth + inner.latNorth) / 2.0,
+                        (inner.lonWest + inner.lonEast) / 2.0
+                    )
+                    requests[key] = FineTileRequest(key, center) {
+                        buildFineTile(
+                            world, fine, tileRow, tileCol, haloCells, marginM, zoneOutsideMarginM,
+                            priced, bandSpec, fineMask, depthBand, edges, openCoast, markerStrength
+                        )
+                    }
+                }
+            }
+        }
+        return requests.values.toList()
+    }
+
+    /**
      * Rasterises one fixed tile block on the fine lattice — the marking the tile map caches.
      *
      * The block is rasterised inside a **[halo]** at least the depth collar's own reach wide, and only

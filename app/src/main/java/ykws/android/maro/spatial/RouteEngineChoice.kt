@@ -2,7 +2,11 @@ package ykws.android.maro.spatial
 
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.MultipassWorld
+import ykws.android.maro.spatial.multipass.RouteGridPlan
+import ykws.android.maro.spatial.multipass.SelectiveGridPlan
+import ykws.android.maro.spatial.multipass.UniformGridPlan
 
 /**
  * **One algorithm of the route harness: a stable id, a `labelResId` and the factory that builds
@@ -23,6 +27,12 @@ import ykws.android.maro.spatial.multipass.MultipassWorld
 data class RouteEngineChoice(
     val id: String,
     val labelResId: Int,
+    /**
+     * **The plan this row's engine walks** — the one thing that separates one algorithm from another. It is
+     * stated here so a reader of the row (the pre-warm's own host) can name the walk the row runs without
+     * constructing an engine; the engine's own default is the same plan, so the row and the engine agree.
+     */
+    val plan: RouteGridPlan,
     val factory: (
         paceKn: () -> Double,
         aversionKn: () -> Double,
@@ -38,27 +48,31 @@ data class RouteEngineChoice(
             RouteEngineChoice(
                 id = "dummy",
                 labelResId = R.string.route_engine_dummy,
+                plan = UniformGridPlan,
                 factory = { _, _, _, _, _ -> RouteDummyEngine() }
             ),
             RouteEngineChoice(
                 id = "avoid",
                 labelResId = R.string.route_engine_avoid,
+                plan = UniformGridPlan,
                 factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
-                    RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, markerStrength)
+                    RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, markerStrength, UniformGridPlan)
                 }
             ),
             RouteEngineChoice(
                 id = "evolutive",
                 labelResId = R.string.route_engine_evolutive,
+                plan = EvolutiveGridPlan,
                 factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
-                    RouteEvolutiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength)
+                    RouteEvolutiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength, EvolutiveGridPlan)
                 }
             ),
             RouteEngineChoice(
                 id = "selective",
                 labelResId = R.string.route_engine_selective,
+                plan = SelectiveGridPlan,
                 factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
-                    RouteSelectiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength)
+                    RouteSelectiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength, SelectiveGridPlan)
                 }
             )
         )

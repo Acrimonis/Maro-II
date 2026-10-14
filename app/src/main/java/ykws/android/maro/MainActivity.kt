@@ -102,6 +102,9 @@ class MainActivity : ComponentActivity() {
                 trace = { line -> android.util.Log.i("MaroRoute", line) }
             )
         )
+        // The busy window's two edges print one `busy on` / `busy off` line each on the same route tag,
+        // so a device pass reads the fine layer's building window rather than eyeballing the dot.
+        FineTileCache.traceTo { line -> android.util.Log.i("MaroRoute", line) }
 
         // R42's report: the build could not read one of the app's #AARRGGBB colour keys and fell back
         // to its sibling's default, so the app says so at start rather than leaving the fallback silent.

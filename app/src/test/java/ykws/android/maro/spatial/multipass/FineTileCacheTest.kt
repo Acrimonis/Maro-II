@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -38,5 +39,18 @@ class FineTileCacheTest {
         val first = FineTileCache.shared
         FineTileCache.install(TileStore.NoOp)
         assertNotSame("a fresh install drops the in-memory tiles", first, FineTileCache.shared)
+    }
+
+    /**
+     * **The busy window is the holder's own, exposed for the app edge to collect.** It is idle before any
+     * arm reaches the store, and an install leaves it so — the map's `onBusy` sink has signalled nothing
+     * yet. This is the signal the routing square's dot reads instead of the zone-load flag.
+     */
+    @Test
+    fun theBusyWindowIsExposedAndStartsIdle() {
+        FineTileCache.reset()
+        assertFalse("nothing is running before an install", FineTileCache.busy.value)
+        FineTileCache.install(TileStore.NoOp)
+        assertFalse("an install leaves the window idle until work reaches the store", FineTileCache.busy.value)
     }
 }

@@ -135,8 +135,10 @@ class NavigationViewModel(
         }
 
         repository.setCacheDir(context)
-        // Also load regulated zones (best-effort — gracefully degrades if no asset)
-        regulatedZonesRepository.load(context)
+        // Also load regulated zones off the main thread (best-effort — gracefully degrades if no
+        // asset). The load is `suspend` and does its own IO, so it runs in its own coroutine and the
+        // zone flows below read whatever it publishes.
+        viewModelScope.launch { regulatedZonesRepository.load(context) }
         viewModelScope.launch {
             repository.loadCoastline()
 

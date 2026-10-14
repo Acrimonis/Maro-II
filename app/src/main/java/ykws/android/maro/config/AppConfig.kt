@@ -3,6 +3,7 @@ package ykws.android.maro.config
 import android.content.Context
 import android.graphics.Color
 import ykws.android.maro.data.model.DepthSource
+import ykws.android.maro.data.model.markers.BBox
 import java.util.Properties
 
 /**
@@ -250,6 +251,28 @@ object AppConfig {
      * [`DirectoryFineTileStore`]; the in-memory map's own ceiling is a separate, smaller sibling.
      */
     var routeFineTileMaxBytes: Long = 16L * 1024L * 1024L
+        private set
+
+    /**
+     * **The box the startup pre-warm walks** — `route.prewarm.box`, written `south,west,north,east` in
+     * degrees (default `43.513,7.013,43.664,7.148`, the Cagnes-sur-Mer → Cannes coast to 100 m south of
+     * the Lérins). `null` where the key is absent or unreadable, so a boat with no box pre-warms nothing
+     * rather than a guessed one. A fine tile can exist only where the baked depth and coast do, so the
+     * pass checks this against the world's own region bounds and reports a box that falls outside.
+     */
+    var routePrewarmBox: BBox? = null
+        private set
+
+    /**
+     * **The pre-warm pass's tile budget** — `route.prewarm.maxTiles`, default 400: the most fine tiles one
+     * pass may build, so a boat left on the bridge cannot be pre-warmed forever. A tile already warm is
+     * skipped before the cap is reached, so it bounds building alone.
+     */
+    var routePrewarmMaxTiles: Int = 400
+        private set
+
+    /** **The pre-warm pass's time budget (ms)** — `route.prewarm.maxMs`, default 120 000. A second cap. */
+    var routePrewarmMaxMs: Long = 120_000L
         private set
 
 
@@ -701,6 +724,21 @@ object AppConfig {
      */
     var uiMapPulseDotRingWidth: Float = 1f
         private set
+
+    /**
+     * The colour of the shared pulsing mark while the fine-tile store is working — the routing square's
+     * dot turns this white ([`MapToggleFace.routeFace`]'s loading arm) for the beat the store's pass
+     * runs. Default `#FFFFFFFF`. Set via `ui.map.pulse.dot.loading`.
+     */
+    var uiMapPulseDotLoading: Int = 0xFFFFFFFF.toInt()
+        private set
+
+    /**
+     * The loading mark's own beat (ms) — **derived, never a second key**: half of [uiMapPulseDotMs], so
+     * retuning the regular beat moves the loading one with it and the two can never drift. At the
+     * shipped 666 ms this is 333 ms.
+     */
+    val uiMapPulseDotLoadingMs: Int get() = (uiMapPulseDotMs / 2).coerceAtLeast(1)
 
     /** Side (dp) of one square in the row. Default 44. Set via `ui.map.toggle.square`. */
     var uiMapToggleSquare: Float = 44f
@@ -1636,6 +1674,22 @@ object AppConfig {
     private fun parseIgnoredPrefixes(raw: String): List<String> =
         raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
+    /**
+     * The pre-warm box, parsed from `south,west,north,east`: four readable doubles in order, with the
+     * south below the north and the west below the east. Any other shape — a missing or extra value, an
+     * unreadable one, an inverted box — answers `null`, so a malformed key pre-warms nothing.
+     */
+    private fun parsePrewarmBox(raw: String): BBox? {
+        val parts = raw.split(',').map { it.trim() }
+        if (parts.size != 4) return null
+        val south = parts[0].toDoubleOrNull() ?: return null
+        val west = parts[1].toDoubleOrNull() ?: return null
+        val north = parts[2].toDoubleOrNull() ?: return null
+        val east = parts[3].toDoubleOrNull() ?: return null
+        if (south >= north || west >= east) return null
+        return BBox(south, north, west, east)
+    }
+
     /** Per-source extra stroke width (px) added on top of the major/minor base; default 0. */
     private val isobarWidthBonuses = hashMapOf(
         DepthSource.LITTO3D to 1f,  // Litto3D (precise nearshore) reads a touch bolder
@@ -1963,6 +2017,7 @@ object AppConfig {
             props.getProperty("ui.map.pulse.dot.floor")?.toFloatOrNull()?.let { uiMapPulseDotFloor = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.pulse.dot.ms")?.toIntOrNull()?.let { uiMapPulseDotMs = it }
             props.getProperty("ui.map.pulse.dot.ring.width")?.toFloatOrNull()?.let { uiMapPulseDotRingWidth = it }
+            props.getProperty("ui.map.pulse.dot.loading")?.let { parseColorOrNull(it) }?.let { uiMapPulseDotLoading = it }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
@@ -2178,6 +2233,12 @@ object AppConfig {
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             props.getProperty("route.fineTile.maxBytes")?.toLongOrNull()
                 ?.let { routeFineTileMaxBytes = it.coerceAtLeast(1L) }
+            // The pre-warm's own box and its two caps (read here, beside the store's ceiling).
+            props.getProperty("route.prewarm.box")?.let { parsePrewarmBox(it) }?.let { routePrewarmBox = it }
+            props.getProperty("route.prewarm.maxTiles")?.toIntOrNull()
+                ?.let { routePrewarmMaxTiles = it.coerceIn(1, 100_000) }
+            props.getProperty("route.prewarm.maxMs")?.toLongOrNull()
+                ?.let { routePrewarmMaxMs = it.coerceAtLeast(1_000L) }
             // ── The followed route's loss toggle and arrival cue (R99) ──
             props.getProperty("route.follow.swap.lossSec")?.toDoubleOrNull()
                 ?.let { routeFollowSwapLossSec = it.coerceIn(0.0, 600.0) }

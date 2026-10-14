@@ -6,6 +6,7 @@ import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.model.ImportMode
 import ykws.android.maro.spatial.RouteEngineChoice
+import ykws.android.maro.spatial.multipass.FineTileCache
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.LiveMultipassWorld
 
@@ -1134,6 +1135,19 @@ fun MapScreen(
     val navigationState by viewModel.navigationState.collectAsState()
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val gpsStale by viewModel.gpsStale.collectAsState()
+    // ── The pre-warm's own host (`route.prewarm.box`) ─────────────────────
+    // The startup pass that builds the fine layer's tiles over the box before an arm asks for them —
+    // idle only, off battery-saver, paused while a route is armed and resumed after it ends. The plan is
+    // the selected engine's own, so the tiles it builds are the ones that engine's arm will ask for.
+    val routePrewarmIdle by viewModel.isStopped.collectAsState()
+    MapRoutePrewarmEffect(
+        plan = RouteEngineChoice.resolve(appSettings.routeEngineId).plan,
+        boatIdle = routePrewarmIdle,
+        routeArmed = routeArmed,
+        position = gpsPosition,
+        avoidWorldProvider = avoidWorldProvider,
+        markerStrength = { appSettings.routeMarkerStrength.toDouble() }
+    )
     /**
      * The position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — and
      * therefore the route's start. It is deliberately not the map centre: that is the aim, and a
@@ -1480,7 +1494,12 @@ fun MapScreen(
     )
 
     // ── Regulated zones overlay: load prebaked asset (extracted) ──
-    val regulatedZones = MapRegulatedZonesLoader(context)
+    // The repository is hoisted here so its one instance serves the zone reader.
+    val regulatedZonesRepository = remember { RegulatedZonesRepository() }
+    val regulatedZones = MapRegulatedZonesLoader(context, regulatedZonesRepository)
+    // The routing square's loading dot follows the fine-tile store's own work, not this load: an
+    // app-cache clear leaves the zone asset untouched (it ships in the APK) but empties the tile store.
+    val fineTilesBusy by FineTileCache.busy.collectAsState()
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
@@ -3058,6 +3077,7 @@ fun MapScreen(
                 distanceToShore = distanceToShore,
                 showCrosshair = showCrosshair,
                 regulatedZones = regulatedZones,
+                fineTilesBusy = fineTilesBusy,
                 tagRegulatedZones = tagRegulatedZones,
                 bandTagsDrawn = bandTagsDrawn,
                 zone300 = zone300,
@@ -4697,6 +4717,8 @@ private fun MapContent(
     zoomLevel: Double,
     distanceToShore: Double?,
     regulatedZones: RegulatedZoneSet?,
+    /** True while the fine-tile store is working — drives the routing square's loading dot. */
+    fineTilesBusy: Boolean = false,
     /** The bottom-left tag stack's own set — the raw zones filtered by the boat size and the
      *  per-category visibility. Hoisted to the caller, which needs the same tag answer for the
      *  locked-screen banner it draws outside this composable. */
@@ -4987,6 +5009,7 @@ private fun MapContent(
                                 armed = routeArmed,
                                 following = routeFollowing,
                                 searching = routeSearching,
+                                tileStoreBusy = fineTilesBusy,
                                 onToggle = onToggleRoute
                             )
                             TopToggleControl.LOCK -> LockScreenButton(

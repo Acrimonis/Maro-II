@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-10-12 16:32
+modified: 2026-10-13 19:47
 ---
 
 # Feature: RegulatedZones
@@ -83,6 +83,8 @@ OBSTRN (obstructions), WRECKS and SBDARE (seabed areas) are hazard/hydrography l
 - The regulation bake covers regulatory layers only; hazards stay out of scope until a keyed or paid source is chosen
 
 ## Implemented
+
+- **off-main-thread zone load (2026-10-13)** — [`RegulatedZonesRepository.load`](app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt:44) is now `suspend` and wraps its whole body in `withContext(Dispatchers.IO)`, so the baked `.bin` is read, parsed and override-applied off the main thread; the two call sites are [`MapRegulatedZonesLoader`](app/src/main/java/ykws/android/maro/ui/map/MapDepthRasterEffects.kt:174) and [`NavigationViewModel.initCache`](app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:139) (its own `viewModelScope.launch`), and neither reads the zone set synchronously after the call — the set arrives later, and a null still reads as "absent" so the overlay is simply missing. The load's body is reachable off the device through an injected asset opener (`loadFrom`), which is what [`RegulatedZonesRepositoryTest`](app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonesRepositoryTest.kt:19) drives for the round-trip and the missing/corrupt cases. **No loading flag lives here:** the repository carries no `isLoading` — its only would-be reader, the routing square's dot, now reports the fine-tile store's own busy window instead, so no flag is kept → `xTrack/UI_Map/FEAT_DSC_UI_Map.md`.
 
 - **shom-name-ws (2026-10-12, `feature/shom`)** — every seeded block gained `# nameWs`, the name the WFS itself gave (`objnam`/`nobjnm` via the model's `name`), kept independent of the preserved `# name` label and written `-` when the WFS gave none, so a manual renaming and the source name are both readable.
 

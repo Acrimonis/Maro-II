@@ -602,16 +602,21 @@ internal fun routeSpanText(seconds: Double): String {
  * the search has not answered, the nominal blue once the line is followed — and the square reads the
  * user's **line colour no longer**: that colour stays on the line alone, and the tile and the mark carry
  * the mode's own state.
+ *
+ * [tileStoreBusy] is the fine-tile store's own busy window: while the fine layer is reading or writing
+ * the store, the mark turns white at half the beat — a loading tell for the store's work, carried by the
+ * face and held a grace after the last tile so one pass reads as one window.
  */
 @Composable
 internal fun RouteToggleButton(
     armed: Boolean,
     following: Boolean,
     searching: Boolean,
+    tileStoreBusy: Boolean = false,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val face = routeFace(armed, following, searching)
+    val face = routeFace(armed, following, searching, tileStoreBusy)
     val description = stringResource(R.string.cd_route_toggle)
     MapToggleSquare(
         face = face.toSurfaceFace(),
