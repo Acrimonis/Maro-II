@@ -1,27 +1,26 @@
 # Context Hydration — Route — 2026-10-14
 
-**Last Bake:** 2026-10-14 12:31 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-14 14:17 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Since the last bake (2026-10-13 20:13 UTC) the session opened as an independent review the user ordered — read the sources yourself, my summary is a claim — and the findings were then implemented on the user's own `#impl`, which ran the pipeline Code (implement + build) → Ask (the coverage pass that found the unguarded-override clock) → Architect (the report). No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was never touched by the agent, and every claim about the code follows a file read.
+**Directive trace:** Since the last bake (2026-10-14 12:31 UTC) the session ran on the user's own `#impl` — the `#implement` pipeline's Code hop, its build, its Ask pass and the Architect report. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was never touched by the agent, and every claim about the code follows a file read.
 
 ## State
 
-**A zone's price and its clock are now separate laws.** `regulatedZone.speedRoute.<key>` is a **price only**: the search prices a zone at `routeLimitKn` — the grid's stored `ZoneRing` limits, the guard's point read and the fine crossing price, all untouched — while every **reported** figure times the **displayed** limit. The new [`strictestDisplayLimitKnAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/ZoneGeometry.kt:92) stands beside [`strictestLimitKnAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/ZoneGeometry.kt:71), reached through [`MultipassWorld.zoneDisplayLimitKnAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt:144), whose `null` default makes an unwired world fail loudly rather than time the price law. Both laws filter and test containment identically, so they can never disagree about **whether** a limit is in force — only about its value.
+**The store's first reclamation now says itself twice.** `reportFineTileReclaimed()` raises its toast and then `postFineTileReclaimNotification()`: the app's **single** channel — `TrackRecordingService.CHANNEL_ID`, made `internal` so the id keeps one literal — its own id 1002 beside the banner's 1001, silent, auto-cancelling, a tap opening `MainActivity`, and posted only while `areNotificationsEnabled()` so a denial degrades to the toast alone. Both surfaces ride the store's own once-guard, and neither locale gained a string: `app_name` and `startup_fine_tile_reclaimed` carry them.
 
-**One lambda moved.** [`limitAtFor`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassPrimitives.kt:234) is the only re-pointed read, so the provisional pair, the settled profile clock, the slow-limit attribution and the corner tally follow together while the search does not; the line colour derives from `legTimesSec` and the saved track's speeds from its own durations, so both follow with no change of their own. [`ZoneClockLawTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/ZoneClockLawTest.kt:1) pins the split in six cases, the six existing world fakes were wired to the new accessor, and the six scoped suites plus `assembleDebug` are green. The four statements were rewritten at their homes — `RegulatedZone.speedRouteKn`, `SpeedZone.routeLimitKn`, `SpeedZoneBuilder` and the `RegulationSpeedOverrides` KDoc plus its generated header, which the `zones.properties` asset is produced from.
+**One permission ask, at startup.** `requestNotificationPermission` is bound at construction and launched from a `LaunchedEffect(Unit)` at the head of the composition, on API 33+ only and only while the grant is missing, so a granted app is never asked again.
 
-**Two readers stay deliberately apart, and open.** [`forcedCrossingNames`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:792) still filters on the price, so a zone its `speedRoute` prices to nothing is never named as a forced crossing and the doubled-corridor retry keyed on that list never fires for it; and [`RoutePassRanking`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt:1)'s Best gate and Fun objective move with the clock, so they judge such a zone on the limit the routing never obeyed. The feature file carries this as one cross-listed todo.
-
-**One defect is found and not fixed.** A hand-edited `regulatedZone.speedOverride.<key>=0` or a negative value passes `toDoubleOrNull` with no positivity guard, and the clock — unlike the price path, which guards `interiorLimitKn > 0.0` — divides by it, so [`timeLineWithLimits`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt:87) would yield an infinite leg time. The split made that value reachable to the clock, which a set `speedRoute` used to shield. Carried forward from the last bake: the tile key carries the corridor's priced-zone set, so a pre-warm box whose zones differ from an arm's corridor keys a different tile — a rebuild, never a wrong tile.
+**The ceiling is 48 MiB, three homes in step.** `route.fineTile.maxBytes=50331648` in `maro.properties`, with `AppConfig.routeFineTileMaxBytes` and `DirectoryFineTileStore.DEFAULT_MAX_BYTES` mirrored in the same write and `FineTileStoreCeilingPropertiesTest` holding all three to it; `FineTileMap.DEFAULT_MAX_BYTES`, the in-memory 8 MiB, is untouched. `assembleDebug` and the scoped suites are green, the plan closed with its `## Implemented`, and its `(implemented)` row sits in the feature file's `## Docs`.
 
 ## Target Files
 
-- `spatial/multipass/ZoneGeometry.kt`, `MultipassWorld.kt`, `RoutePassPrimitives.kt` — the two laws and the one lambda
-- `data/regulation/RegulatedZone.kt`, `SpeedZone.kt`, `SpeedZoneBuilder.kt`, `RegulationSpeedOverrides.kt`, `assets/zones.properties` — the statements, rewritten at their homes
-- `app/src/test/java/ykws/android/maro/spatial/multipass/ZoneClockLawTest.kt` — the pin, beside the six world fakes wired
-- `xTrack/RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md` — the plan of record
-- `xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md`, `xTrack/Route/FEAT_DSC_Route.md` — the landed records
+- `app/src/main/java/ykws/android/maro/MainActivity.kt` — the alert beside the toast, and the one permission ask
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — `CHANNEL_ID`, the app's single channel, now readable
+- `app/src/main/assets/maro.properties`, `config/AppConfig.kt`, `spatial/DirectoryFineTileStore.kt` — the 48 MiB ceiling, its one home and its two mirrors
+- `app/src/test/java/ykws/android/maro/config/FineTileStoreCeilingPropertiesTest.kt` — the pin over all three
+- `xTrack/Route/261014_FEAT_PLN_Route_reclaim-alert-cache-ceiling.md` — the plan of record, closed
+- `xTrack/Route/FEAT_DSC_Route.md` — the landed record: the store bullet and the `## Docs` pointer
 
 ## Next Step
 
-No code task is open on the feature. The one decision the cross-listed todo names — whether the forced-crossing list and the rung ranking should follow the clock as the rest of the reporting now does — is the user's own.
+No code task is open on the feature. The alert's device pass (R97) is the user's own — the grant taken on the prompt, the notification read in the shade on a reclaim forced with a temporary small ceiling, and the new bound watched across a pre-warm — and it gates nothing. The feature's own open items are unchanged: the forced-crossing list and the rung ranking still read apart from the clock, the corner pass keeps its one item about the 50 m coast margin, and the fine-tail and `selective` device passes stay owed.

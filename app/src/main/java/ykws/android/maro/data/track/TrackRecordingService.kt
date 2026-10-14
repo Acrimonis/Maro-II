@@ -441,7 +441,13 @@ class TrackRecordingService : Service() {
     // ── Constants ──────────────────────────────────────────────────────────
 
     companion object {
-        private const val CHANNEL_ID = "maro_persistent"
+        /**
+         * The app's **single** notification channel — the recording banner and the fine-tile reclaim
+         * alert (D9) alike read it from here, so this is the id's one home and no second literal of it
+         * exists anywhere.
+         */
+        internal const val CHANNEL_ID = "maro_persistent"
+
         private const val CHANNEL_NAME = "Maro II"
         private const val NOTIFICATION_ID = 1001
 

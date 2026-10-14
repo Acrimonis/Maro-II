@@ -1,12 +1,16 @@
 package ykws.android.maro
 
+import android.Manifest
+import android.app.PendingIntent
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.MotionEvent
@@ -15,6 +19,10 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
@@ -53,6 +61,9 @@ import ykws.android.maro.spatial.RouteEngineChoice
 import ykws.android.maro.spatial.multipass.FineTileCache
 import java.io.File
 
+/** The fine-tile reclaim alert's own notification id — distinct from the recording banner's 1001 (D9). */
+private const val FINE_TILE_RECLAIM_NOTIFICATION_ID = 1002
+
 class MainActivity : ComponentActivity() {
 
     /**
@@ -61,6 +72,16 @@ class MainActivity : ComponentActivity() {
      * always has an instance. See `xTrack/Performance/FEAT_DSC_Performance.md`.
      */
     private val powerKeeper: PowerKeeper by lazy { PowerKeeper(applicationContext) }
+
+    /**
+     * The one `POST_NOTIFICATIONS` ask (D1). Registered as a property so it is bound at construction —
+     * legal before `onStart`, unlike a call from `onCreate` — and launched from the composition's head
+     * only on Android 13+ and only while the grant is missing. The result needs no reader: a denial is
+     * covered by the alert's own `areNotificationsEnabled()` guard, which leaves the toast alone.
+     */
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,6 +133,22 @@ class MainActivity : ComponentActivity() {
         reportUnreadableColourKeys()
 
         setContent {
+            // D1's one ask: the alert rides the app's single channel, but POST_NOTIFICATIONS is declared
+            // and never requested, so a posted notification stays invisible on Android 13+ without it.
+            // Fired at the head of the composition — over a drawn window rather than a blank one — and
+            // only while the grant is missing, so a granted app is never asked again. A denial needs no
+            // handling: the alert's own guard degrades it to the toast.
+            LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+
             // Use a factory because NavigationViewModel now extends AndroidViewModel
             // with a multi-param constructor that AndroidViewModelFactory can't match.
             val viewModel: NavigationViewModel = viewModel(
@@ -275,7 +312,9 @@ class MainActivity : ComponentActivity() {
     /**
      * Reports the fine-tile store's **first reclamation** (D9) — the disk ceiling evicted the oldest
      * tiles. Raised mid-arm by the store's own `onReclaim`, already hopped to the UI thread there, and
-     * once-guarded in the store, so a long session says it at most once.
+     * once-guarded in the store, so a long session says it at most once. The toast is seen at once and
+     * the notification survives the shade, so the event says itself both ways and neither replaces the
+     * other.
      */
     private fun reportFineTileReclaimed() {
         Toast.makeText(
@@ -283,6 +322,37 @@ class MainActivity : ComponentActivity() {
             getString(R.string.startup_fine_tile_reclaimed),
             Toast.LENGTH_LONG
         ).show()
+        postFineTileReclaimNotification()
+    }
+
+    /**
+     * Pushes the reclamation as a notification beside the toast (D9). It rides the app's one channel —
+     * [TrackRecordingService.CHANNEL_ID], already silent — so no second entry appears in Android's
+     * notification settings; it is auto-cancelling and non-ongoing, and it opens the app on the same
+     * intent the recording banner uses. Posted only while notifications are enabled, so a denied or
+     * revoked grant degrades to the toast alone rather than a silent refusal.
+     */
+    private fun postFineTileReclaimNotification() {
+        val manager = NotificationManagerCompat.from(this)
+        if (!manager.areNotificationsEnabled()) return
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            0,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, TrackRecordingService.CHANNEL_ID)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.startup_fine_tile_reclaimed))
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        manager.notify(FINE_TILE_RECLAIM_NOTIFICATION_ID, notification)
     }
 
     /**
