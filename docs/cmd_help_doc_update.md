@@ -21,7 +21,7 @@ Refresh the active feature's documentation to match current implementation reali
 
 8. **Strip empty sections** — Remove `#### Rules`, `#### Key Files`, `#### Docs` that have no content.
 
-9. **Bake** — Update hydration file, bump modified date in front-matter, update GLOBAL_CONTEXT.md Feature Summaries row.
+9. **Bake** — Update hydration file, bump modified date in front-matter, update GLOBAL_CONTEXT.md Feature Summaries block.
 
 ### Target
 - ~60% line reduction on the feature doc

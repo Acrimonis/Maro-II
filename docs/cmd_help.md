@@ -1,11 +1,11 @@
 <!-- scope: reference -->
 <!-- derived from AGENTS.md §7b — regenerate from it; do not hand-edit -->
 View:     #now                 current context: active feature + working path (top Focus History entry) [alias #context #here #feat #feature]
-          #list                compact feature table with Modified column, sorted by Modified desc (from GLOBAL_CONTEXT.md summaries) [alias #features]
+          #list                compact feature dashboard with Modified column, sorted by Modified desc (from GLOBAL_CONTEXT.md Feature Summaries blocks) [alias #features]
           #status              feature details (active = top Focus History entry)
           #status [name]       feature details (named)
           #status diff [name]  changes since last #bake (active/named)
-Manage:   #track [name]        create feature (xTrack/[name]/FEAT_DSC_, YAML front-matter + summaries row; prints the command delta)
+Manage:   #track [name]        create feature (xTrack/[name]/FEAT_DSC_, YAML front-matter + routing entry + Feature Summaries block; shape docs/xtrack-templates.md; prints the command delta)
           #focus [name]        switch to feature (push Focus History entry; prints the command delta)
           #focus [name] [sec]  hydrate only that section (transient, no state)
 Track:    #todo                list todos (scope-aware)
@@ -20,7 +20,7 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc detach [name]   unlink doc (bare = prompt)
           #doc update          refresh feature docs to implementation (decisions doc, ## Implemented rewrite, prune completed todos, bump dates, #bake)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
-Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, the top Focus History entry rewritten to what shipped, prune Focus History > 10)
+Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, Feature Summaries blocks, FEAT_HYD_, the top Focus History entry rewritten to what shipped, prune Focus History > 10)
           #help                this list
           #archive             retire a feature-scoped plan or doc into xxArchive/ (explicit invocation only)
           #review              review the cascade-resolved target — walk item → plan in design → last #implement run → live proposal (challenge); also sweeps the five covered action classes that ran without a verdict line

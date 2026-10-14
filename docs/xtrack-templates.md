@@ -32,9 +32,12 @@ on first `#bake` of a feature.
 
 ## Feature Summaries
 
-| Feature | One-Liner | Created | Modified | Status |
-|---------|-----------|---------|----------|--------|
-| [Name] | [One sentence purpose] | [YYYY-MM-DD HH:mm] | [YYYY-MM-DD HH:mm] | active |
+**[Name]** · **status:** active · **created:** [YYYY-MM-DD HH:mm] · **modified:** [YYYY-MM-DD HH:mm]
+- [one sentence: only what the next reader would otherwise have to go and find]
+- [one sentence]
+
+**[Name]** · **status:** active · **created:** [YYYY-MM-DD HH:mm] · **modified:** [YYYY-MM-DD HH:mm]
+- [one sentence]
 
 ## Global Todos
 
@@ -48,13 +51,20 @@ Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches t
 | `[doc-name].md` | [Feature] | [one-liner] |
 ```
 
+The `## Feature Summaries` block — a metadata line then one-sentence bullets — is this file's shape and its
+only statement: `#bake` step 3, `#list` and `AGENTS.md` §7a/§7b point here rather than restating it. The
+metadata line carries name, status, created and modified so a bake moves a date without touching prose, and
+the discipline is **relevance, not a count** — a bullet is kept only while it changes what the next reader
+does, tested when the card is rewritten and applied to what is already there, with no bullet budget and no
+padding for a feature that has little to say.
+
 ---
 
 ## `xTrack/[Feature]/FEAT_DSC_[Name].md`
 
 A YAML front-matter header (machine-readable: status, dates) followed by
 the prose body. The `one_liner` lives in the
-`## Feature Summaries` table in `GLOBAL_CONTEXT.md`.
+`## Feature Summaries` block in `GLOBAL_CONTEXT.md`.
 
 ```markdown
 ---
@@ -115,8 +125,8 @@ trimmed, kept while any level is open — the fold and `#archive`'s retirement b
 - [planless one-liner, no pointer]
 ```
 
-`#bake` updates the `## Feature Summaries` table in `GLOBAL_CONTEXT.md`
-from each feature's sections and `## Implemented`.
+`#bake` rewrites each feature's `## Feature Summaries` block in `GLOBAL_CONTEXT.md`
+from that feature's sections and `## Implemented`, applying the relevance test above when it does.
 `## Docs` holds attached documentation (managed by `#doc attach`/`detach`);
 `## Key Files` holds source file paths.
 
