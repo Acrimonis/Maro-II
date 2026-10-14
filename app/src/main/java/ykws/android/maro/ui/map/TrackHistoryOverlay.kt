@@ -283,7 +283,10 @@ internal fun TrackHistoryOverlay(
 
         // The recorded tracks (tracks scope): bounded by the recorded count, greyed beyond it.
         val historySummaries = trackSummaries.filter { !it.pinned && !it.route }.sortedByDescending { it.startTimeMs }
-        val renderCount = trackingRenderNb.coerceIn(0, 20)
+        // Under All the count resolves to the drawn not-pinned set's own size, so nothing greys and the
+        // preview's fade denominator spans the set exactly as the map's does (2026-10-14).
+        val renderCount = if (trackingRenderNb == AppConfig.PATH_COUNT_ALL) historySummaries.size
+        else trackingRenderNb.coerceIn(0, AppConfig.PATH_COUNT_MAX)
         for ((index, summary) in historySummaries.withIndex()) {
             map[summary.id] = if (index < renderCount) {
                 accentOf(
@@ -301,8 +304,11 @@ internal fun TrackHistoryOverlay(
 
         // The unpinned routes (routes scope): bounded by the route count, greyed beyond it. The pinned
         // routes were written above and keep the pinned-route pair (R34, R35).
-        val routeCount = routeRenderNb.coerceIn(0, 20)
         val openRouteSummaries = trackSummaries.filter { it.route && !it.pinned }.sortedByDescending { it.startTimeMs }
+        // The same All rule as the recorded half: resolve the sentinel against the drawn set, clamp the
+        // rest into the countable band.
+        val routeCount = if (routeRenderNb == AppConfig.PATH_COUNT_ALL) openRouteSummaries.size
+        else routeRenderNb.coerceIn(0, AppConfig.PATH_COUNT_MAX)
         val drawnRoutes = openRouteSummaries.take(routeCount)
         for ((index, summary) in drawnRoutes.withIndex()) {
             map[summary.id] = accentOf(

@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-11 19:16
+modified: 2026-10-14 08:54
 ---
 
 # Feature: Tracks
@@ -95,6 +95,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/Tracks/260618_FEAT_PLN_Tracks_TrackList_Design.md` — track list UI requirements
 - `xTrack/Tracks/FEAT_DOC_Tracks_decisions.md` — comprehensive decisions record (7 categories, 40+ decisions); its §2.5 carries the process-death recovery dialog's three doors, wording and dismiss-still-saves rule
 - `xTrack/ColorManagement/260916_FEAT_PLN_ColorManagement_map-surface-normalization.md` — owned by ColorManagement: one painting path and one property block for every map surface, the legend card and the collapsed square included (D1–D6)
+- `xTrack/Tracks/261014_FEAT_PLN_Tracks_render-count-30-all.md` — the render count's band: 0..30 plus the All sentinel, the bound's one home and the fade denominator the drawn set supplies (shipped 2026-10-14)
 - `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md` — owned by TracksImport: the map filter against the render focus, which is why tracks kept drawing under an active position filter (shipped 2026-09-21)
 
 ## Walk
@@ -334,6 +335,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **render-count-30-all (2026-10-14, `feature/tracks`)** — the map's render count of either kind went from 0..20 to **0..30 plus one All value** that drops the cap, so every not-pinned track or route is drawn while a pinned one still escapes it. `AppConfig` holds the band's one home — `PATH_COUNT_MAX = 30`, the `PATH_COUNT_ALL = 31` sentinel and the pure `pathRenderCap()` (All → `Int.MAX_VALUE`, else `coerceIn(0, 30)`) — read by the `path.count` load clamp, `SettingsManager`'s two, both `MapScreenSettingsOverlay` sliders (`valueRange = 0f..31f`, `steps = 30` for 32 integer stops, the value label reading `settings_count_all` at the sentinel), the map pass's `nbToRender`/`routeNb` and `storedTrackSelection`'s two `cap =` arguments, and `TrackHistoryOverlay`'s `renderCount`/`routeCount`. The recorded fade's denominator became `historyList.size` so the ladder spans the **drawn not-pinned set** under All and whenever fewer items exist than the count asks — the route pass already read its own set, and a raw uncapped denominator would have flattened every line to the newest look. Both descs read 0-30 and `settings_count_all` (All / Tous) joined both locales; `MapSelectionPolicyTest` gained the uncapped case and `PathRenderCapTest` the helper's four, the scoped `ui.map` + `config` run and `assembleDebug` are green, and the device pass is owed → [`261014_FEAT_PLN_Tracks_render-count-30-all.md`](261014_FEAT_PLN_Tracks_render-count-30-all.md)
 
 - **origin-and-home-port naming (2026-10-11, `feature/troute-naming`)** — a route and a recorded trip now name their origin and never their home port. [`TrackNaming`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) composes the name as a chain — origin, then the ranked body, then the destination — each empty segment dropped, so a bodyless pair reads `<origin> to <destination>`; `select` now carries the origin out of the body into the name, and the new `namesHomePort` refuses an end inside the Port Salis geofence or one whose label carries `salis`. [`composeTripName`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) shows an identified origin and blanks a home-port end while still dropping its id from the body, and [`routeEndName`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) applies the same exclusion to a saved route. `apk-build.bat` SUCCESSFUL and the full suite green at **1142 tests**, 0 failures, 11 ignored; the device pass stays owed → [`261010_FEAT_PLN_Tracks_marker-zone-naming.md`](261010_FEAT_PLN_Tracks_marker-zone-naming.md)
 

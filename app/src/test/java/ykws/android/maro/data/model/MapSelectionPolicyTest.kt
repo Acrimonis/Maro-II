@@ -71,6 +71,22 @@ class MapSelectionPolicyTest {
         assertEquals(listOf("newest", "tieHigh"), selected.map { it.id })
     }
 
+    @Test
+    fun uncappedCap_drawsEveryEligibleTrack() {
+        // The All count (2026-10-14): the cap resolves to Int.MAX_VALUE, so `take(cap)` draws every
+        // eligible not-pinned track — the widening's whole point. Eligibility is untouched (the pinned
+        // one still stays out) and the ranking still leads with the newest.
+        val items = (1..40).map { i -> summary("t$i", startTimeMs = today - i * dayMs) } +
+            summary("pinned", startTimeMs = today, pinned = true)
+        val selected = trackPolicy.select(
+            items, ListFilter(), cap = Int.MAX_VALUE, focus = MapRenderFocus(), todayMidnightMs = today
+        )
+        assertEquals(40, selected.size)
+        assertEquals("t1", selected.first().id)
+        assertEquals("t40", selected.last().id)
+        assertFalse(selected.any { it.id == "pinned" })
+    }
+
     // ── Resume-backup twin ordering (1 ms nudge) ──────────────────────────
 
     /**

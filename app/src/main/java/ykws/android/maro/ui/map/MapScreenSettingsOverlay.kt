@@ -89,6 +89,15 @@ import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 
+/**
+ * The two render-count sliders' shared value label: the All word at the sentinel, the plain count
+ * otherwise. One home, so the Tracks and Routes rows cannot drift apart.
+ */
+@Composable
+private fun countValueLabel(count: Int): String =
+    if (count == AppConfig.PATH_COUNT_ALL) stringResource(R.string.settings_count_all)
+    else "%d".format(count)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsOverlay(
@@ -332,7 +341,7 @@ private fun LayersSettings(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "%d".format(settings.trackingRenderNb),
+                            text = countValueLabel(settings.trackingRenderNb),
                             color = ComposeColor(AppConfig.uiValueText),
                             fontSize = AppConfig.uiFontValueSize.sp,
                             fontWeight = FontWeight.Bold
@@ -341,10 +350,12 @@ private fun LayersSettings(
                     Slider(
                         value = settings.trackingRenderNb.toFloat(),
                         onValueChange = { v ->
-                            onUpdateSettings { it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, 20)) }
+                            onUpdateSettings {
+                                it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, AppConfig.PATH_COUNT_ALL))
+                            }
                         },
-                        valueRange = 0f..20f,
-                        steps = 20,
+                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
+                        steps = AppConfig.PATH_COUNT_MAX,
                         colors = SliderDefaults.colors(
                             thumbColor = ComposeColor(AppConfig.uiAccent),
                             activeTrackColor = ComposeColor(AppConfig.uiAccent),
@@ -478,7 +489,7 @@ private fun LayersSettings(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "%d".format(settings.routeRenderNb),
+                            text = countValueLabel(settings.routeRenderNb),
                             color = ComposeColor(AppConfig.uiValueText),
                             fontSize = AppConfig.uiFontValueSize.sp,
                             fontWeight = FontWeight.Bold
@@ -487,10 +498,12 @@ private fun LayersSettings(
                     Slider(
                         value = settings.routeRenderNb.toFloat(),
                         onValueChange = { v ->
-                            onUpdateSettings { it.copy(routeRenderNb = v.roundToInt().coerceIn(0, 20)) }
+                            onUpdateSettings {
+                                it.copy(routeRenderNb = v.roundToInt().coerceIn(0, AppConfig.PATH_COUNT_ALL))
+                            }
                         },
-                        valueRange = 0f..20f,
-                        steps = 20,
+                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
+                        steps = AppConfig.PATH_COUNT_MAX,
                         colors = SliderDefaults.colors(
                             thumbColor = ComposeColor(AppConfig.uiAccent),
                             activeTrackColor = ComposeColor(AppConfig.uiAccent),
