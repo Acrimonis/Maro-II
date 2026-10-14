@@ -470,14 +470,15 @@ object AppConfig {
 
     /**
      * The aversion dial's seed — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
-     * 0.0..5.0 — a clamp on the configured value only: the loop's one correction re-derives λ from the
-     * measured share and is not clamped. **One cursor for slow water**: it multiplies the limit-keyed
-     * time excess of a speed zone and of the 300 m band alike, so the band's own multiplier
-     * (`route.avoid.zone300.softCostAversion`) is retired. A slow cell costs its base plus
-     * `(pace/limit − 1) × K` of that cell, so at 1.0 it costs its true travel time and the search
-     * minimises real time — bending around a slow zone when the way around is faster — while at 0.0 the
-     * water is priced as open water, reproducing the pre-phase-4 no-zone line, and a value above 1.0
-     * bends harder. The cursor chooses the line and never touches the ETA — the clock stays physics.
+     * 0.0..5.0 through [ROUTE_SLOW_WATER_AVERSION_MIN] / [ROUTE_SLOW_WATER_AVERSION_MAX].
+     *
+     * **The Driving preference, and the ladder's own seat**: the dial's one act is to name which of the
+     * three rungs the ranking leads on — `RoutePreference.of` snaps the stored value onto a stop, and the
+     * thresholds between stops are code constants written around the shipped ladder. It does **not** price
+     * the search: every slow cell is priced by the λ of the rung being solved
+     * (`route.avoid.ladder.around|best|fast.lambda`), so this value chooses between the three acquisitions
+     * of one arming rather than bending any of them. Nor does it touch the ETA: the clock reads the limit
+     * in force and stays physics.
      */
     var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
         private set
@@ -495,6 +496,29 @@ object AppConfig {
      * full excess. The margin is a price band, never a clearance: the old hard standoff is gone.
      */
     var routeAvoidSpeedZoneOutsideMarginM: Double = 50.0
+        private set
+
+    /**
+     * The three rungs' own aversion (λ) — `route.avoid.ladder.around.lambda` (5.0),
+     * `route.avoid.ladder.best.lambda` (2.5) and `route.avoid.ladder.fast.lambda` (0.0), each clamped
+     * 0.0..5.0 through the dial's own ends.
+     *
+     * **The one lever of the three acquisitions**: one arming solves three rungs over one shared grid, and
+     * these three values are the whole of what separates them — `around` spends detours to shun slow water,
+     * `best` keeps the shortest clock whose zone share stays under the budget, `fast` takes the clock
+     * whatever water it crosses. `RoutePreference` maps a rung's index and its word onto them, and no rung
+     * is ever corrected: a rung is solved at its own λ and left alone. The defaults are the shipped ladder,
+     * so a missing key never reshapes it.
+     */
+    var routeAvoidLadderAroundLambda: Double = 5.0
+        private set
+
+    /** The `best` rung's aversion — the second of the three values above, on its own key. */
+    var routeAvoidLadderBestLambda: Double = 2.5
+        private set
+
+    /** The `fast` rung's aversion — the third of the three values above, on its own key. */
+    var routeAvoidLadderFastLambda: Double = 0.0
         private set
 
     /**
@@ -2356,6 +2380,18 @@ object AppConfig {
             }
             props.getProperty("route.avoid.speedZone.outsideMarginM")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.ladder.around.lambda")?.toDoubleOrNull()?.let {
+                routeAvoidLadderAroundLambda =
+                    it.coerceIn(ROUTE_SLOW_WATER_AVERSION_MIN, ROUTE_SLOW_WATER_AVERSION_MAX)
+            }
+            props.getProperty("route.avoid.ladder.best.lambda")?.toDoubleOrNull()?.let {
+                routeAvoidLadderBestLambda =
+                    it.coerceIn(ROUTE_SLOW_WATER_AVERSION_MIN, ROUTE_SLOW_WATER_AVERSION_MAX)
+            }
+            props.getProperty("route.avoid.ladder.fast.lambda")?.toDoubleOrNull()?.let {
+                routeAvoidLadderFastLambda =
+                    it.coerceIn(ROUTE_SLOW_WATER_AVERSION_MIN, ROUTE_SLOW_WATER_AVERSION_MAX)
             }
             props.getProperty("route.avoid.ladder.collapse.toleranceM")?.toDoubleOrNull()?.let {
                 routeAvoidLadderCollapseToleranceM = it.coerceIn(0.0, 500.0)

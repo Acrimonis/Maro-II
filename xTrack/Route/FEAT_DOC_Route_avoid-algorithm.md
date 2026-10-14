@@ -28,8 +28,8 @@ One solve in [`RouteAvoidEngine.searchOnce`](../../app/src/main/java/ykws/androi
 7. **Corner snap** — each pulled bend moves onto its nearest tangent corner only while both neighbouring
    legs stay clear, then the line is pulled again.
 
-The pipeline runs on `Dispatchers.Default`. Post-search stages — the λ loop, the fine pass, the
-fairing and the forced-crossing probe — spend none of the A\*'s budget.
+The pipeline runs on `Dispatchers.Default`. Post-search stages — the fine pass, the fairing and the
+forced-crossing probe — spend none of the A\*'s budget.
 
 ## The one architecture move — a unified cost field
 
@@ -51,10 +51,10 @@ consumers. Every source **adds** to a base; none may lower it, so no passable ce
   it is a coarse guard, not a fine sounding. The fairing keeps `route.avoid.depthGate.marginM` off it.
 - **300 m band** — a price, never a wall: a start already inside is priced, not refused. It carries its
   own absolute limit (`route.avoid.zone300.limitKn`) and is priced by the **same law as a speed zone** —
-  that limit's time excess under the price cursor, so a 5 kn band cell and a 5 kn ring cell cost the
+  that limit's time excess under the solved rung's λ, so a 5 kn band cell and a 5 kn ring cell cost the
   same — the width in full and its outside margin at the configured fraction. Its **limit lives on the
-  grid**, priced per expansion by the A\* exactly as a ring's, so the band's price follows the corrected
-  λ and the strictest limit wins where the band and a ring overlap; `route.avoid.zone300.enabled`
+  grid**, priced per expansion by the A\* exactly as a ring's, so the band's price follows that rung's λ
+  and the strictest limit wins where the band and a ring overlap; `route.avoid.zone300.enabled`
   switches that price. The limit is read by the clock **whatever that switch says**, a limit being law
   and the switch only pricing water.
 - **Speed zones** — a soft source priced per read; the grid stores the **limit** per cell, never a
@@ -63,17 +63,24 @@ consumers. Every source **adds** to a base; none may lower it, so no passable ce
 - **Marker weights (phase 5)** — parked; avoid-only `w ∈ [0, +10]`, a marker can only make the sea
   dearer, never cheaper (a negative price breaks the closed-set A\*).
 
-## The λ loop and the budget
+## The λ and the budget
 
 One solve builds its grid **once** and stores the band's and the rings' **limits** on it, priced at read
-time. Pass one seeds λ from `route.avoid.speedZone.softCostAversion`; the line's own clock gives its slow
-time split three ways — the **zone share** inside a ring, the band share inside the band's width, and the
-ramp share on the approach ramps standing outside both — and the zone share alone is corrected: outside
-the ±20 % band of `route.avoid.speedZone.timeBudgetPct` one correction `λ₁ = λ₀ × (zone share / budget)`
-runs, then a second solve, then stop (**two passes cap**). The **better of the two passes is kept** — lower
-zone share first, then fewer metres inside a zone, then the shorter clock — so a correction that answers
-worse cannot replace the line pass one found, and only the kept pass's λ reaches what follows it. A share
-still out is **reported** (`budgetUnmetZoneShare`, the zone share), never chased and never refused.
+time. **One arming solves three rungs over that grid, and the λ of each is the whole of what separates
+them** — `around`, `best` and `fast`, their values read from `route.avoid.ladder.around|best|fast.lambda`
+through [`RoutePreference`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt:20).
+A rung is computed at its own λ and **never corrected**: there is no correction pass, no second solve, and
+nothing reads a share in order to move a price. `route.avoid.speedZone.softCostAversion` is the **Driving
+preference** and no longer a cursor: it names which of the three rungs the ranking leads on.
+
+`route.avoid.speedZone.timeBudgetPct` is therefore a **ranking rule, not a search instruction** — **Best's
+gate**, the zone share a rung must stay under to be led on the clock. The line's own clock still yields its
+slow split ([`RouteEta.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt): the
+zone share inside a ring, the band share and the approach ramps' beside it), but the shares are read for the
+ranking and the report alone. The verdict the correction used to publish is **inert**: the engine's one
+answer passes `budgetUnmetZoneShare = null`
+([`RouteAvoidEngine.kt:651`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:651)), and
+the two band predicates it was built with are unread.
 
 ## The standoff, and its retirement
 
@@ -96,13 +103,13 @@ order, the tangent corners own the exact points.
 The coarse cell closes any passage narrower than roughly two cells. The fine pass re-rasterizes a swath
 around the settled line at `route.avoid.grid.fineCellM` (33.3 m) and keeps the fine line
 **only where it is strictly faster and no worse in slow share** — the clock alone would let the tail undo
-the λ loop's own choice; the crossing's local A\* re-solves a zone the line enters, inside the zone's own
-box, spliced only where it answers, and its price is the loop's own λ, so that splice is price-driven
+the rung's own λ choice; the crossing's local A\* re-solves a zone the line enters, inside the zone's own
+box, spliced only where it answers, and its price is that rung's own λ, so that splice is price-driven
 rather than clock-driven.
 
 ## The corridor growth
 
-`search()` retries once with the reach doubled on **no-path, budget or crossing**, keeps the wider
+`search()` retries once with the reach doubled on **no-path or crossing**, keeps the wider
 answer only where it does better, and refuses any growth once the first box already equals the region's
 bounds.
 
@@ -114,7 +121,7 @@ radius the largest that clears the walls capped by the pace's own radius, the co
 route's figures are the **pre-fairing base plus the bends' caps' delta** — the geometry is never
 re-costed. The forced-crossing probe reads the pre-fairing line.
 
-## The evidence and the budget
+## The evidence
 
 - Stage 1 on the Lérins-to-Salis corridor: **~120–250 ms realistic, ~350–450 ms pessimistic** against
   the 500 ms wall; the swing term is the rasterizer's island-adjacent water confirmation.

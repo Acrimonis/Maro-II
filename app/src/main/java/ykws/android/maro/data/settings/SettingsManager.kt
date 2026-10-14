@@ -151,18 +151,20 @@ data class AppSettings(
      */
     val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
     /**
-     * The **aversion λ** (0–5) the route search bends around slow water at, seeded from
-     * `route.avoid.speedZone.softCostAversion`, so the property stays the value's one home and the
-     * shipped 4 is the day-one value until the user moves the dial. The user-facing preference of the
-     * slow-water model — 0 prices slow water as open water, 1 minimises real time, and 5 stays out.
+     * The **Driving preference** (0–5), seeded from `route.avoid.speedZone.softCostAversion`, so the
+     * property stays the value's one home and the shipped 4 is the day-one value until the user moves the
+     * dial. It is the ladder's **seat**, not its lever: the dial names which of the three rungs the ranking
+     * leads on, while every rung is solved at its own λ (`route.avoid.ladder.*.lambda`) — so the value
+     * chooses between the three acquisitions of one arming and prices no cell of any of them.
      */
     val routeSlowWaterAversion: Float =
         ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneSoftCostAversion.toFloat(),
     /**
-     * The **slow-water budget** (per cent of a trip, 0–100) the λ loop aims at, seeded from
-     * `route.avoid.speedZone.timeBudgetPct`, so the property stays the value's one home. How much
-     * slow water a trip may use is a preference rather than a tuning constant — the pace's own
-     * counterpart, and the reason it carries a Settings row of its own.
+     * The **slow-water budget** (per cent of a trip, 0–100) — **Best's gate**, seeded from
+     * `route.avoid.speedZone.timeBudgetPct`, so the property stays the value's one home. A rung whose zone
+     * share stays under it is led on the clock; one over it is beaten by the smaller share. Nothing
+     * re-solves toward it, and how much slow water a trip may use being a preference rather than a tuning
+     * constant is why it carries a Settings row of its own.
      */
     val routeSlowWaterBudgetPct: Int =
         ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
@@ -1065,7 +1067,7 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
         private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
-        /** The persisted aversion λ (0–5), seeded from `route.avoid.speedZone.softCostAversion`. */
+        /** The persisted Driving preference (0–5), seeded from `route.avoid.speedZone.softCostAversion`. */
         private const val KEY_ROUTE_SLOW_WATER_AVERSION = "route_slow_water_aversion"
         /** The persisted slow-water budget (per cent), seeded from `route.avoid.speedZone.timeBudgetPct`. */
         private const val KEY_ROUTE_SLOW_WATER_BUDGET_PCT = "route_slow_water_budget_pct"
