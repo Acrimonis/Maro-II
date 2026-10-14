@@ -345,10 +345,10 @@ data class AppSettings(
     val trackDirectionMinSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp,
     /** Maximum on-screen spacing (dp) between direction arrows. */
     val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
-    /** Number of historical tracks to render on the map (0-20) — seeded from `path.count`. */
+    /** Number of historical tracks to render on the map (0-30, plus All) — seeded from `path.count`. */
     val trackingRenderNb: Int = ykws.android.maro.config.AppConfig.pathCount,
     /**
-     * Number of routes to render, non-pinned ones alone (0-20): a pinned route is drawn
+     * Number of routes to render, non-pinned ones alone (0-30, plus All): a pinned route is drawn
      * whatever this says, the pin being what marks a route already saved. Its own count rather than
      * [trackingRenderNb]'s, which goes on counting recorded tracks alone.
      */
@@ -752,8 +752,10 @@ class SettingsManager(
         trackDirectionSpeedCeilingKn = prefs.getFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, ykws.android.maro.config.AppConfig.trackDirectionSpeedCeilingKn),
         trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
         trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
-        trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, ykws.android.maro.config.AppConfig.pathCount).coerceIn(0, 20),
-        routeRenderNb = prefs.getInt(KEY_TRACKING_ROUTE_RENDER_NB, ykws.android.maro.config.AppConfig.pathCount).coerceIn(0, 20),
+        trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, ykws.android.maro.config.AppConfig.pathCount)
+            .coerceIn(0, ykws.android.maro.config.AppConfig.PATH_COUNT_ALL),
+        routeRenderNb = prefs.getInt(KEY_TRACKING_ROUTE_RENDER_NB, ykws.android.maro.config.AppConfig.pathCount)
+            .coerceIn(0, ykws.android.maro.config.AppConfig.PATH_COUNT_ALL),
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, ykws.android.maro.config.AppConfig.trackColourActive),
         trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, ykws.android.maro.config.AppConfig.trackColourFrom),
         trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, ykws.android.maro.config.AppConfig.trackColourTo),

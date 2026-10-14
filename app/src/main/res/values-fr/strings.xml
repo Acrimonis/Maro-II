@@ -414,10 +414,11 @@
     <string name="settings_tracks_direction_speed_range_desc">Sous la vitesse gauche : écart minimum · au-dessus de la droite : écart maximum</string>
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
-    <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
+    <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-30). Les épinglées s\'affichent toujours.</string>
     <string name="settings_track_appearance_desc">Comment les traces enregistrées sont dessinées sur la carte</string>
     <string name="settings_routes_count_label">Itinéraires non épinglés à afficher</string>
-    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-20). Les épinglés s\'affichent toujours.</string>
+    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-30). Les épinglés s\'affichent toujours.</string>
+    <string name="settings_count_all">Tous</string>
     <string name="settings_transparency_label">Transparence des traces non épinglées</string>
     <string name="settings_transparency_desc" formatted="false">Dégradé sur les traces non épinglées, du plus récent au plus ancien. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>

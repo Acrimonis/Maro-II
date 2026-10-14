@@ -986,9 +986,32 @@ object AppConfig {
      *  over the Colours chip. Default true. */
     var pathHeatmapEnabled: Boolean = true
         private set
-    /** How many items of one kind are drawn (0-20) — `path.count`. Seeds both Settings counts. */
+    /** How many items of one kind are drawn (0-30, plus [PATH_COUNT_ALL]) — `path.count`. Seeds both
+     *  Settings counts. */
     var pathCount: Int = 5
         private set
+
+    /**
+     * The largest **countable** render count — the top of the 0..[PATH_COUNT_MAX] band, above which
+     * [PATH_COUNT_ALL] begins. Also the sliders' interior step count: 32 positions need 30 steps.
+     */
+    const val PATH_COUNT_MAX: Int = 30
+
+    /**
+     * The render count's **All** sentinel: the one value past the countable band that **removes the
+     * cap**, so every not-pinned item is drawn. It is also the sliders' top position, so a value of
+     * 0..[PATH_COUNT_MAX] is a count and nothing else is.
+     */
+    const val PATH_COUNT_ALL: Int = 31
+
+    /**
+     * The one home for "what a configured count means to the renderer": [PATH_COUNT_ALL] resolves to an
+     * uncapped [Int.MAX_VALUE], every other value to itself clamped into 0..[PATH_COUNT_MAX]. A caller
+     * needing a fade denominator under All resolves the sentinel against the set it actually draws
+     * instead — this helper answers the cap alone.
+     */
+    fun pathRenderCap(count: Int): Int =
+        if (count == PATH_COUNT_ALL) Int.MAX_VALUE else count.coerceIn(0, PATH_COUNT_MAX)
 
     /** The active recording line's colour seed — no file key; the Settings row's own default. */
     var trackColourActive: Int = 0xFF1565C0.toInt()
@@ -2208,7 +2231,7 @@ object AppConfig {
                 pathInt(PathKind.ROUTE, "line", "fade", "from", PathClass.PINNED, routePinnedFadeFrom).coerceIn(0, 100)
             routePinnedFadeTo =
                 pathInt(PathKind.ROUTE, "line", "fade", "to", PathClass.PINNED, routePinnedFadeTo).coerceIn(0, 100)
-            pathCount = pathInt(PathKind.TRACK, "", "count", default = pathCount).coerceIn(0, 20)
+            pathCount = pathInt(PathKind.TRACK, "", "count", default = pathCount).coerceIn(0, PATH_COUNT_ALL)
             // The two axes' seeds (2026-10-07): one global leaf per axis, each kind's own leaf over it.
             // These feed the persisted settings; the class leaf is read at runtime instead — see
             // [pathArrowEnabled] / [pathHeatmapEnabled] — so it is never resolved here.

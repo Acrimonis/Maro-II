@@ -360,7 +360,7 @@ switch; filters only apply when the layer is ON.
 | Concern | Mechanism | Location |
 |---------|-----------|----------|
 | **What** items appear | `ListFilter` (date, pinned, geometry, origin) | Shared state → list + map |
-| **How many** appear | `trackingRenderNb` | SettingsManager → map only |
+| **How many** appear | `trackingRenderNb` (tracks) / `routeRenderNb` (routes) — the band and its All value resolve through `AppConfig.pathRenderCap` | SettingsManager → map + drawer preview |
 | **How they look** | Colors, transparency, order | SettingsManager → map only |
 | **Sort order** | `ListSortState` | List overlay only (no map impact) |
 
@@ -371,7 +371,7 @@ switch; filters only apply when the layer is ON.
 **Refresh icon:** Always visible, dimmed when inactive (`inactiveAlpha`). No layout shift.
 
 **Map rendering:**
-- Tracks: `LaunchedEffect` keyed on `trackListFilter` — filters `trackSummaries` via `TrackSummary.matchesFilter()` before `trackingRenderNb` cap and pinned/non-pinned split.
+- Tracks: `LaunchedEffect` keyed on `trackListFilter` — filters `trackSummaries` via `TrackSummary.matchesFilter()` before the `trackingRenderNb` cap (0..30, or All for no cap, through `AppConfig.pathRenderCap`) and the pinned/non-pinned split. A route renders under `routeRenderNb` on the same rule, and the newest→oldest fade spans the not-pinned set actually drawn.
 - Markers: inline `userMarkers.filter { it.matchesFilter(markerListFilter) }` in composable.
 
 **Live track exemption:** Live tracks bypass `dateRange` filter only (always visible regardless of date).

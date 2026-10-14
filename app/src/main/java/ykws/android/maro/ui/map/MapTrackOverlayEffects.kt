@@ -183,10 +183,12 @@ internal fun MapTrackOverlayHistoryDiff(
         // A card's deferred delete is excluded through the same one home, so its item leaves the map
         // while it waits and returns when the entry is removed (2026-10-10).
         val storedSummaries = visibleStoredSummaries(allTrackSummaries, hiddenTrackIds)
-        val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
+        // Both counts clamp to the **All sentinel** rather than to a number (2026-10-14): the sentinel
+        // is itself a legal value, and `pathRenderCap` is what turns it into an uncapped limit.
+        val nbToRender = appSettings.trackingRenderNb.coerceIn(0, AppConfig.PATH_COUNT_ALL)
         // The route role's own count, bounding the route set alone (R35): the not-pinned count above
         // goes on limiting recorded tracks.
-        val routeNb = appSettings.routeRenderNb.coerceIn(0, 20)
+        val routeNb = appSettings.routeRenderNb.coerceIn(0, AppConfig.PATH_COUNT_ALL)
         focus.highlight(highlightedTrackId)
         // The three sets one pass draws — the recorded half, the route half and the pinned escape — from
         // one entry point, so the two counts and the pin's exemption cannot drift (see
@@ -216,7 +218,11 @@ internal fun MapTrackOverlayHistoryDiff(
         }
         mv.overlays.removeAll(toRemove)
 
-        val total = nbToRender
+        // The recorded fade's denominator is the drawn not-pinned set itself, never the configured cap
+        // (2026-10-14, settled): under All the ladder must span everything drawn, and the same span is
+        // wanted whenever fewer items exist than the count asks for. A raw uncapped denominator would
+        // collapse every line to the newest look, so the size of what was drawn is the only home.
+        val total = historyList.size
 
         val historyOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
         // The ranking above puts the focused track first, so position 0 is whoever the user selected
@@ -561,7 +567,8 @@ internal fun kindLayerOn(masterVisible: Boolean, kindVisible: Boolean): Boolean 
  * never the filter, so the recorded decision that no opened item rides past the map filter stands.
  *
  * Membership is [storedTrackSets]' decision; this one only decides what each half is asked for. The
- * two caps are taken here rather than at the call site, so a test can hold the count's home.
+ * two caps are taken here rather than at the call site, so a test can hold the count's home, and each
+ * goes through `AppConfig.pathRenderCap` so the All sentinel resolves to an uncapped limit.
  */
 internal fun storedTrackSelection(
     summaries: List<TrackSummary>,
@@ -582,14 +589,14 @@ internal fun storedTrackSelection(
         recorded = if (tracksVisible) policy.select(
             items = sets.recorded,
             filter = trackFilter,
-            cap = recordingNb.coerceIn(0, 20),
+            cap = AppConfig.pathRenderCap(recordingNb),
             focus = focus,
             todayMidnightMs = todayMidnightMs
         ) else listOfNotNull(selected?.takeIf { !it.route }),
         routes = if (routesVisible) policy.select(
             items = sets.routes,
             filter = routeFilter,
-            cap = routeNb.coerceIn(0, 20),
+            cap = AppConfig.pathRenderCap(routeNb),
             focus = focus,
             todayMidnightMs = todayMidnightMs
         ) else listOfNotNull(selected?.takeIf { it.route }),
