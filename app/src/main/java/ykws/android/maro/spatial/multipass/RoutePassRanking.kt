@@ -22,11 +22,11 @@ import kotlin.math.abs
 internal object RoutePassRanking {
 
     /**
-     * **The λ loop's shared tail** — one pass against another, in a **stated order**: the **smaller
-     * zone share** first, because that is the quantity the loop's λ is there to buy down; then the
-     * **fewer metres inside a zone**, the same objective read in metres rather than in seconds; and only
-     * then the **shorter clock**, so a corrective pass keeps a longer line wherever it is no worse on
-     * the zone. Pure and total, so a pair of passes ranks with no grid, world or trace in hand.
+     * **The ladder's shared tail** — one rung against another, in a **stated order**: the **smaller zone
+     * share** first, because that is the quantity a dearer λ is there to buy down; then the **fewer metres
+     * inside a zone**, the same objective read in metres rather than in seconds; and only then the
+     * **shorter clock**, so the rung carrying the cleaner water keeps its longer line. Pure and total, so a
+     * pair of rungs ranks with no grid, world or trace in hand.
      */
     internal fun betterPass(candidate: PassCost, incumbent: PassCost): Boolean {
         if (candidate.zoneShare != incumbent.zoneShare) return candidate.zoneShare < incumbent.zoneShare

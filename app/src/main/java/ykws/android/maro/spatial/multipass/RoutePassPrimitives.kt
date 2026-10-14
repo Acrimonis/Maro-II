@@ -296,8 +296,8 @@ internal fun snapToCorners(
 }
 
 /**
- * The metres of a line whose own middle stands inside a priced zone's **interior** — the λ loop's
- * second figure, its share's own objective read in metres rather than in seconds. The test is the
+ * The metres of a line whose own middle stands inside a priced zone's **interior** — the ranking's
+ * second figure, the zone share's own objective read in metres rather than in seconds. The test is the
  * world's own interior read, so the outside margin is a price and never a metre counted here.
  */
 internal fun zoneMetres(zones: List<SpeedZone>, points: List<LatLng>): Double {

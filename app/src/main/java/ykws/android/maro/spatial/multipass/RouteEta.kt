@@ -14,8 +14,8 @@ import kotlin.math.sqrt
  *
  * [timeLineWithLimits] is the **enforced per-point ETA** — the line re-vertexed where the limit in
  * force changes and timed leg by leg at that limit, capped by the pace. No ramp, no anticipation, no
- * corner-speed cap; a leg's made-good speed **is** the enforced limit. The λ loop and the fine-splice
- * comparison read this one.
+ * corner-speed cap; a leg's made-good speed **is** the enforced limit. The ranking's shares and the
+ * fine-splice comparison read this one.
  *
  * [timeLineWithProfile] is the **smooth profile** the final answer carries — the same enforced limit as
  * a hard ceiling, with the corner pass's curvature ceiling beside it and a comfortable acceleration
@@ -350,14 +350,14 @@ private fun bisectMembership(
 /** The limit key rounded to the nearest half knot, so float noise never splits one bucket in two. */
 private fun roundHalfKn(limitKn: Double): Double = kotlin.math.round(limitKn * 2.0) / 2.0
 
-/** The band the budget loop stops inside: a share this close to the budget is left alone (±20 %). */
+/** The band the slow-water budget is read with: the tolerance a share sits inside, ±20 %. */
 const val ZONE_BUDGET_BAND = 0.20
 
 /**
- * True when [share] sits inside the budget's ±[ZONE_BUDGET_BAND] band — the loop's own **exit**.
+ * True when [share] sits inside the budget's ±[ZONE_BUDGET_BAND] band.
  *
- * It is a predicate rather than a condition inside the loop so the exit can be read, and reverted,
- * on its own: outside the band the loop corrects λ once and solves again, and inside it it stops.
+ * **Unread on any shipped path**: it was the correction loop's own exit, and the loop is gone — a rung is
+ * solved at its own λ and never corrected, so the band is a reading and no longer a decision.
  */
 fun withinBudgetBand(share: Double, budgetPct: Double): Boolean {
     val budget = budgetPct / 100.0
@@ -365,16 +365,12 @@ fun withinBudgetBand(share: Double, budgetPct: Double): Boolean {
 }
 
 /**
- * True when the budget is **met** — [share] stands inside the band or **below** it, so no correction
- * is owed and the loop stops.
+ * True when the budget is **met** — [share] stands inside the band or **below** it.
  *
- * The loop's own exit, and the reason it is not the band alone: the correction raises λ to buy slow
- * water *out* of a line, so a share under the budget — a route already spending less slow water than
- * it may — is a line to keep, never one to chase. Chasing it would lower λ until the only way to
- * spend more slow water is to cross a zone the search had rounded, which is the opposite of what the
- * route is for. So the loop corrects only above the band's top edge, and the band's own reading stays
- * [withinBudgetBand] — this predicate is that one widened by the under-budget case, its single
- * reader.
+ * **Unread on any shipped path**, like [withinBudgetBand] beside it: it was the correction loop's exit,
+ * widened by the under-budget case so a route already spending less slow water than it may was kept
+ * rather than chased. The loop is gone — each rung is solved at its own λ — so the budget stands as Best's
+ * ranking gate alone.
  */
 fun budgetMet(share: Double, budgetPct: Double): Boolean =
     withinBudgetBand(share, budgetPct) || share < (budgetPct / 100.0) * (1.0 - ZONE_BUDGET_BAND)

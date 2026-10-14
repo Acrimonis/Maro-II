@@ -90,8 +90,8 @@ internal data class GridContext(
 
 /**
  * One pass's own readings, returned rather than logged inside it: the caller that owns the decision
- * the pass leads to — the λ loop's correction, the offers' keep-or-drop — emits the pass's one line
- * where that decision is made, so the line carries the correction beside the pass that needed it.
+ * the pass leads to — the ladder's rank fold — emits the pass's one line where that decision is made,
+ * so the line carries the pass beside the rung it decided.
  */
 internal data class PassReading(
     /** The A\*'s own outcome: the path, or the exhaustion reading that says why there is none. */
@@ -105,8 +105,8 @@ internal data class PassReading(
     /** That same line already timed under the limits in force, or `null` where the A\* answered nothing. */
     val timed: TimedLine?,
     /**
-     * The line's slow time split by what slowed it; the **zone** share is the λ loop's own quantity,
-     * the band's and the ramps' read beside it so neither can drive a ring's correction. Zeroes on a
+     * The line's slow time split by what slowed it; the **zone** share is the ranking's own quantity —
+     * Best's gate — the band's and the ramps' read beside it so neither can decide the winner. Zeroes on a
      * failing pass.
      */
     val shares: SlowShares,
