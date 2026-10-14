@@ -245,12 +245,12 @@ object AppConfig {
     const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
 
     /**
-     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 16 MiB
-     * (16 777 216). Past it the store reclaims its oldest entries, so a boat extending the cache across
+     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 48 MiB
+     * (50 331 648). Past it the store reclaims its oldest entries, so a boat extending the cache across
      * seasons cannot grow the directory without bound. It is the app edge that hands this to
      * [`DirectoryFineTileStore`]; the in-memory map's own ceiling is a separate, smaller sibling.
      */
-    var routeFineTileMaxBytes: Long = 16L * 1024L * 1024L
+    var routeFineTileMaxBytes: Long = 48L * 1024L * 1024L
         private set
 
     /**

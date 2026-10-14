@@ -176,9 +176,9 @@ internal class DirectoryFineTileStore(
         const val DIR_NAME = "fine_tiles"
 
         /**
-         * The default disk ceiling (16 MiB), mirroring `route.fineTile.maxBytes`. That property key is the
+         * The default disk ceiling (48 MiB), mirroring `route.fineTile.maxBytes`. That property key is the
          * value's one home, read at the app edge; this default stands for a caller that names none (a test).
          */
-        const val DEFAULT_MAX_BYTES: Long = 16L * 1024L * 1024L
+        const val DEFAULT_MAX_BYTES: Long = 48L * 1024L * 1024L
     }
 }

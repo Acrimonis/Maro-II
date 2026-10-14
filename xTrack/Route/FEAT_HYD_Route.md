@@ -1,14 +1,20 @@
 # Context Hydration — Route — 2026-10-14
 
-**Last Bake:** 2026-10-14 12:31 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-14 14:17 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** Two sessions meet in this file, the rebase having replayed the second onto the first. The earlier one ran an independent review the user ordered — *read the sources yourself, my summary is a claim* — and implemented its findings on `#impl` through the pipeline Code → Ask → Architect: the zone price/clock split. This one ran on *"in route aquisition, clarify the lever of each of the 3 aquisitions"*, opened with *"swtch to ocde for #new route-aqu-x3"*, its scope pinned by two questions and no guessing — the ladder's three rungs with the aversion setting only seating one, then where those values should live — and closed on `#bake`, `#commit` and `#merge`. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was never touched, and every claim about the code follows a file read.
+**Directive trace:** Since the last bake (2026-10-14 12:31 UTC) the session ran on the user's own `#impl` — the `#implement` pipeline's Code hop, its build, its Ask pass and the Architect report. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was never touched by the agent, and every claim about the code follows a file read.
+
+**Directive trace — the session merged in from `origin/develop`:** It ran on *"in route aquisition, clarify the lever of each of the 3 aquisitions"*, opened with *"swtch to ocde for #new route-aqu-x3"*, its scope pinned by two questions and no guessing — the ladder's three rungs with the aversion setting only seating one, then where those values should live — and closed on `#bake`, `#commit` and `#merge`. No dependency was added, no machine-shaped data file was opened, no work was started without an order, the device was never touched, and every claim about the code follows a file read.
 
 ## State
 
-**The branch.** `feature/route-aqu-x3`, cut from `origin/develop` by the user's own `#new`, carrying no upstream. One commit — *each rung's lambda becomes its own route.avoid.ladder key* — rebased onto `origin/develop` on the user's `#merge`, which is how the display-limit split below arrived here.
+**The store's first reclamation now says itself twice.** `reportFineTileReclaimed()` raises its toast and then `postFineTileReclaimNotification()`: the app's **single** channel — `TrackRecordingService.CHANNEL_ID`, made `internal` so the id keeps one literal — its own id 1002 beside the banner's 1001, silent, auto-cancelling, a tap opening `MainActivity`, and posted only while `areNotificationsEnabled()` so a denial degrades to the toast alone. Both surfaces ride the store's own once-guard, and neither locale gained a string: `app_name` and `startup_fine_tile_reclaimed` carry them.
 
-**The lever of each acquisition is named, and it now lives in the file.** The three rungs' λ became three keys — `route.avoid.ladder.around.lambda=5`, `.best.lambda=2.5`, `.fast.lambda=0` — read by three `AppConfig` accessors clamped 0.0..5.0 through the dial's own ends, with the shipped ladder as the code fallback so a missing key cannot reshape it. `RoutePreference.lambda` became a per-entry getter over its own key, so every reader (`RouteAvoidEngine`'s `Computation.lambda`, `routeRungLambda`, both sliders and the drawer's quick access) kept its shape while the enum stopped holding a number.
+**One permission ask, at startup.** `requestNotificationPermission` is bound at construction and launched from a `LaunchedEffect(Unit)` at the head of the composition, on API 33+ only and only while the grant is missing, so a granted app is never asked again.
+
+**The ceiling is 48 MiB, three homes in step.** `route.fineTile.maxBytes=50331648` in `maro.properties`, with `AppConfig.routeFineTileMaxBytes` and `DirectoryFineTileStore.DEFAULT_MAX_BYTES` mirrored in the same write and `FineTileStoreCeilingPropertiesTest` holding all three to it; `FineTileMap.DEFAULT_MAX_BYTES`, the in-memory 8 MiB, is untouched. `assembleDebug` and the scoped suites are green, the plan closed with its `## Implemented`, and its `(implemented)` row sits in the feature file's `## Docs`.
+
+**The lever of each acquisition is named, and it now lives in the file.** The three rungs' λ became three keys — `route.avoid.ladder.around.lambda=5`, `.best.lambda=2`, `.fast.lambda=0` — read by three `AppConfig` accessors clamped 0.0..5.0 through the dial's own ends, with the shipped ladder as the code fallback so a missing key cannot reshape it. `RoutePreference.lambda` became a per-entry getter over its own key, so every reader (`RouteAvoidEngine`'s `Computation.lambda`, `routeRungLambda`, both sliders and the drawer's quick access) kept its shape while the enum stopped holding a number. The branch `feature/route-aqu-x3` was cut from `origin/develop` by the user's own `#new`, carrying one commit — *each rung's lambda becomes its own route.avoid.ladder key* — rebased onto `origin/develop` on the user's `#merge`.
 
 **The dial's role is stated where it is read.** `route.avoid.speedZone.softCostAversion` is the **Driving preference and the ladder's seat**: its one act is to name which of the three rungs the ranking leads on, and it prices no cell. `route.avoid.speedZone.timeBudgetPct` is **Best's gate**, a ranking rule and never a search instruction. The rewritten sites are the properties' aversion, ladder and budget blocks, `AppConfig`'s aversion KDoc, `SettingsManager`'s two field KDocs and one key KDoc, the avoid-algorithm doc's §The λ and the budget (its pipeline line, its fine-pass line, its growth reason and its heading), and four code comments (`RouteEta`, `RoutePassModels` ×2, `RoutePassRanking`, `RoutePassPrimitives`).
 
@@ -20,23 +26,28 @@
 
 **One defect is found and not fixed.** A hand-edited `regulatedZone.speedOverride.<key>=0` or a negative value passes `toDoubleOrNull` with no positivity guard, and the clock — unlike the price path, which guards `interiorLimitKn > 0.0` — divides by it, so [`timeLineWithLimits`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt:87) would yield an infinite leg time; the split made that value reachable to the clock. Carried as well: the tile key carries the corridor's priced-zone set, so a pre-warm box whose zones differ from an arm's corridor keys a different tile — a rebuild, never a wrong tile.
 
-**Gates.** `:app:compileDebugKotlin` and the whole `:app:testDebugUnitTest` suite are BUILD SUCCESSFUL, `RoutePassRankingTest`'s λ assertions (0.0 / 2.5 / 5.0) passing unchanged. The merged tree is rebuilt once more by the `#merge` itself, since the display-limit split arrived with it. **No device pass is owed on the λ-key change**: the shipped values are identical, so no line, clock or ranking moves.
+**Gates.** `:app:compileDebugKotlin` and the whole `:app:testDebugUnitTest` suite are BUILD SUCCESSFUL, `RoutePassRankingTest`'s λ assertions (0.0 / 2.5 / 5.0) passing unchanged; the reclaim-alert/ceiling session's `assembleDebug` and scoped suites are green too. The merged tree is rebuilt once more by the `#merge` itself, since the λ keys and the display-limit split arrived with it. **No device pass is owed on the λ-key change**: the shipped values are identical, so no line, clock or ranking moves.
 
-**The plans of record.** [`261014_FEAT_PLN_Route_ladder-lambda-keys.md`](261014_FEAT_PLN_Route_ladder-lambda-keys.md:1), listed in the epic's `## Docs` as implemented — the epic keeps no `## Implemented` log by its own statement of 2026-10-07 — and [`xTrack/RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md`](../RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md:1) for the split.
+**The plans of record.** [`261014_FEAT_PLN_Route_ladder-lambda-keys.md`](261014_FEAT_PLN_Route_ladder-lambda-keys.md:1), listed in the epic's `## Docs` as implemented — the epic keeps no `## Implemented` log by its own statement of 2026-10-07 — [`xTrack/RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md`](../RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md:1) for the split, and [`261014_FEAT_PLN_Route_reclaim-alert-cache-ceiling.md`](261014_FEAT_PLN_Route_reclaim-alert-cache-ceiling.md:1), closed with its `## Implemented`.
 
 ## Target Files
 
-- `app/src/main/assets/maro.properties` — the three ladder key blocks, the aversion block and the budget block
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the three accessors, their load reads, and the aversion KDoc
+- `app/src/main/java/ykws/android/maro/MainActivity.kt` — the alert beside the toast, and the one permission ask
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — `CHANNEL_ID`, the app's single channel, now readable
+- `app/src/main/assets/maro.properties` — the 48 MiB ceiling's one home, and develop's three ladder key blocks, aversion block and budget block
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the 48 MiB mirror and its load read, the three ladder accessors, their load reads, and the aversion KDoc
+- `app/src/main/java/ykws/android/maro/spatial/DirectoryFineTileStore.kt` — the ceiling's second mirror
+- `app/src/test/java/ykws/android/maro/config/FineTileStoreCeilingPropertiesTest.kt` — the pin over all three
 - `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt` — the per-entry λ read
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the two field KDocs and the key constant
 - `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt`, `RoutePassModels.kt`, `RoutePassRanking.kt`, `RoutePassPrimitives.kt` and `spatial/RouteAvoidEngine.kt` — the comments that outlived the λ loop
 - `spatial/multipass/ZoneGeometry.kt`, `MultipassWorld.kt` — the two laws and the one lambda, from the split
+- `xTrack/Route/261014_FEAT_PLN_Route_reclaim-alert-cache-ceiling.md` — the plan of record, closed
 - `xTrack/Route/FEAT_DOC_Route_avoid-algorithm.md`, `FEAT_DOC_Route_engines.md`, `FEAT_DSC_Route.md` — the corpus
 
 ## Next Step
 
-No code task is open on the feature. Two items are the user's own: the cross-listed decision on whether the forced-crossing list and the rung ranking should follow the clock as the rest of the reporting now does, and the feature's owed device passes — the fine-tail and `selective` ones — untouched by either session.
+No code task is open on the feature. Two items are the user's own and gate nothing: the alert's device pass (R97) — the grant taken on the prompt, the notification read in the shade on a reclaim forced with a temporary small ceiling, and the new bound watched across a pre-warm — and the cross-listed decision on whether the forced-crossing list and the rung ranking should follow the clock as the rest of the reporting now does. The feature's own open items are unchanged: the corner pass keeps its one item about the 50 m coast margin, and the fine-tail and `selective` device passes stay owed, untouched by either session.
 
 ## Retirement candidates reported, not moved
 
