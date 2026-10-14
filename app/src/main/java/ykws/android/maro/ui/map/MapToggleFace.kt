@@ -23,19 +23,22 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * One resolved square of the row — the two channels the normalization separates.
+ * One resolved square of the row — the state colour the normalization separates, plus the mark's beat.
  *
  * [fill] is the state colour the square's tile lays over the family's own white base
  * (`ui.map.surface.inactive`), or null when the square is off and so wears that base alone with its
  * glyph dimmed. [dot] is the colour of the square's pulse mark, or null when it wears none — the off
- * square, the recenter action and the land/water reading.
+ * square, the recenter action and the land/water reading. [dotPulseMs] is the mark's own period, or
+ * null for the shared default beat; the loading arm is its only writer, so one square can beat faster
+ * than the rest without a second key.
  *
- * Both are ARGB ints rather than Compose colours, which is what keeps every resolver here pure and
+ * All are plain ints rather than Compose colours, which is what keeps every resolver here pure and
  * JVM-testable.
  */
 internal data class TopToggleFace(
     val fill: Int?,
-    val dot: Int?
+    val dot: Int?,
+    val dotPulseMs: Int? = null
 ) {
     companion object {
         /** The off square: the shared pale base alone, its glyph dimmed, no mark. */
@@ -100,13 +103,33 @@ internal fun inspectFace(armed: Boolean): TopToggleFace =
  * Route — off, then the acquiring amber while the search has not answered (its mark amber, a
  * provisional line being partial) and the nominal blue once the line is followed (its mark green, the
  * data complete). The square never reads the user's line colour, which stays on the line alone.
+ *
+ * **The loading arm.** While the fine-tile store is working ([tileStoreBusy], the holder's own busy
+ * window), the square's mark turns white ([`AppConfig.uiMapPulseDotLoading`]) and beats at half the
+ * regular period ([`AppConfig.uiMapPulseDotLoadingMs`]) — a loading tell for the fine layer the route
+ * engine is building, held a grace after its last tile so one pass reads as a steady window rather than
+ * a flicker tile to tile. It touches the mark's colour and beat only: the fill is resolved exactly as the
+ * arms below, so the square still says what the mode is doing, and the mark appears on an otherwise-off
+ * square because the tell is about the data arriving, not about the mode being on.
  */
-internal fun routeFace(armed: Boolean, following: Boolean, searching: Boolean): TopToggleFace = when {
-    !armed -> TopToggleFace.OFF
-    following -> TopToggleFace(AppConfig.routeNavigateColor, AppConfig.semanticCompliant)
-    else -> TopToggleFace(
-        fill = AppConfig.semanticCaution,
-        dot = if (searching) AppConfig.semanticCaution else AppConfig.semanticCompliant
+internal fun routeFace(
+    armed: Boolean,
+    following: Boolean,
+    searching: Boolean,
+    tileStoreBusy: Boolean = false
+): TopToggleFace {
+    val face = when {
+        !armed -> TopToggleFace.OFF
+        following -> TopToggleFace(AppConfig.routeNavigateColor, AppConfig.semanticCompliant)
+        else -> TopToggleFace(
+            fill = AppConfig.semanticCaution,
+            dot = if (searching) AppConfig.semanticCaution else AppConfig.semanticCompliant
+        )
+    }
+    if (!tileStoreBusy) return face
+    return face.copy(
+        dot = AppConfig.uiMapPulseDotLoading,
+        dotPulseMs = AppConfig.uiMapPulseDotLoadingMs
     )
 }
 

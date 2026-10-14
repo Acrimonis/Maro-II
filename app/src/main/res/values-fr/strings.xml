@@ -611,6 +611,8 @@
     <string name="startup_colour_value_unreadable">Valeur de couleur illisible dans maro.properties (%1$s) — la couleur par défaut a été utilisée.</string>
     <!-- D4 : un identifiant de moteur de route qu\'aucune ligne ne revendique est retombé sur le défaut. -->
     <string name="startup_route_engine_id_unclaimed">Moteur de route %1$s inconnu — le moteur par défaut a été utilisé.</string>
+    <!-- D9 : le cache de tuiles de route a atteint sa limite disque, a récupéré ses plus anciennes tuiles, et le dit une fois. -->
+    <string name="startup_fine_tile_reclaimed">Le cache de tuiles de route a atteint sa limite de taille — les plus anciennes tuiles ont été récupérées.</string>
     <string name="settings_language_french">Français</string>
 
     <!-- Misc -->

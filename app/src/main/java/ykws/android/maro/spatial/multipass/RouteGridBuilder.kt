@@ -36,12 +36,15 @@ private const val HALO_MARGIN_CELLS = DEPTH_WALL_SCAN_MARGIN_CELLS + 2
 internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPlan) {
 
     /**
-     * **The arm's tile map, owned for the builder's life.** The builder lives as long as the engine, so a
-     * second arming on the same pair takes the tiles the first one already built: only the tiles a farther
-     * route newly needs are rastered. It is keyed on everything a tile's contents move with
-     * ([`TileKey`]), so a rebuilt asset or a moved collar is a different tile rather than a stale one.
+     * **The builder's own tile map, used when no process-level store is installed.** The builder lives as
+     * long as the engine, so a second arming on the same pair takes the tiles the first one already built:
+     * only the tiles a farther route newly needs are rastered. It is keyed on everything a tile's contents
+     * move with ([`TileKey`]), so a rebuilt asset or a moved collar is a different tile rather than a
+     * stale one. Once the app edge installs a store ([`FineTileCache.install`]) every builder prefers that
+     * one shared map instead, so an engine switch keeps the cache and the store has one reader and writer;
+     * absent an install — a JVM test — each builder keeps this one, and no two fixtures share a tile.
      */
-    private val fineTiles = FineTileMap()
+    private val ownTiles = FineTileMap()
 
     /**
      * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' berth carve →
@@ -289,7 +292,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             // the marking is paid once per tile and a second arming pays only the tiles it newly needs.
             val bandGrid = fineWindowGrid(
                 world, anchor, family.fine, fineBox, pace, marginM, zoneOutsideMarginM,
-                gridField, priced, bandSpec, fineMask, depthBand, edges, openCoast,
+                priced, bandSpec, fineMask, depthBand, edges, openCoast,
                 minDepthM, depthGateActive, fineWater, markerStrength, trace
             )
             fineCells += bandGrid.rows * bandGrid.cols
@@ -385,7 +388,6 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         pace: Double,
         marginM: Double,
         zoneOutsideMarginM: Double,
-        gridField: RouteCostField,
         priced: List<ZoneRing>,
         bandSpec: BandLaw?,
         fineMask: FineMask?,
@@ -413,10 +415,13 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val firstTileCol = Math.floorDiv(windowCol, FINE_TILE_CELLS)
         val lastTileCol = Math.floorDiv(windowCol + cols - 1, FINE_TILE_CELLS)
         val haloCells = fineTileHaloCells(fine, fineMask, depthBand)
+        // The process-level map once the app edge installed a store, else this builder's own — so an
+        // engine switch keeps the cache while a storeless JVM test stays isolated (see `ownTiles`).
+        val fineTiles = FineTileCache.shared ?: ownTiles
         for (tileRow in firstTileRow..lastTileRow) {
             for (tileCol in firstTileCol..lastTileCol) {
                 val key = fineTileKey(
-                    world, anchor, fine, tileRow, tileCol, haloCells, pace, marginM, zoneOutsideMarginM,
+                    world, anchor, fine, tileRow, tileCol, haloCells, marginM, zoneOutsideMarginM,
                     bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive, markerStrength
                 )
                 val tile = fineTiles.get(key) {
@@ -424,14 +429,93 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                     // builds — the signal that a second arming reuses tiles rather than re-marking (D54).
                     trace { "TILE built row=$tileRow col=$tileCol halo=$haloCells" }
                     buildFineTile(
-                        world, fine, tileRow, tileCol, haloCells, pace, marginM, zoneOutsideMarginM,
-                        gridField, priced, bandSpec, fineMask, depthBand, edges, openCoast
+                        world, fine, tileRow, tileCol, haloCells, marginM, zoneOutsideMarginM,
+                        priced, bandSpec, fineMask, depthBand, edges, openCoast, markerStrength
                     )
                 }
                 tile.writeInto(grid, windowRow, windowCol)
             }
         }
         return grid
+    }
+
+    /**
+     * **The fine tiles the plan's own water covers over [box], each with the closure that builds it** — the
+     * pre-warm's whole input, derived through the builder's own key ([fineTileKey]) and its own build
+     * ([buildFineTile]) so a tile made from one of these requests is the very tile an arm over this water
+     * asks for. It is the fine slice of [buildLayeredGrid]: the plan's two cells, the world's fixed anchor,
+     * the priced zones in [box], the band law, the depth gate and the plan's own fine water — never an
+     * invented context, because the key carries all of it and a second derivation would key a tile no arm
+     * could ever reach.
+     *
+     * A tile's own [FineTileRequest.center] lets the caller order them own-ship outward. A single-grid plan
+     * (`avoid`) has no fine layer and answers an empty list; so does a box whose plan keeps no fine water.
+     */
+    internal fun fineTilesOver(
+        world: MultipassWorld,
+        box: BBox,
+        markerStrength: Double
+    ): List<FineTileRequest> {
+        val planTiles = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM)
+        if (planTiles.size <= 1) return emptyList()
+        val cellM = planTiles.maxByOrNull { it.cellM }?.cellM ?: return emptyList()
+        val fineCellM = planTiles.minByOrNull { it.cellM }?.cellM ?: return emptyList()
+        val anchor = world.latticeAnchor ?: LatticeAnchor.wholeDegree(box)
+        val family = LatticeFamily.of(anchor, cellM, fineCellM)
+        val fine = family.fine
+        val edges = world.segmentsIn(box)
+        val openCoast = world.openCoastIn(box)
+        val marginM = AppConfig.routeAvoidObstacleMarginM
+        val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
+        val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
+        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
+        val bandSpec = bandLaw(world)
+        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val minDepthM = AppConfig.routeAvoidDepthGateMinM
+        val depthBlockedAt = if (depthGateActive) depthBlockedAtOf(world, minDepthM) else null
+        val fineWater = plan.fineWater(
+            FineWaterQuery(
+                world = world, box = box, edges = edges, openCoast = openCoast,
+                marginM = marginM, baseCellM = cellM
+            )
+        )
+        if (fineWater.isEmpty) return emptyList()
+        val fineBoxes = fineWindowBoxes(fine, box, edges, openCoast, fineWater, depthBlockedAt, zones)
+        val fineMask = fineWater.toMask(depthBlockedAt, DepthBandLaw.stepM(fineCellM))
+        val depthBand = if (plan.pricesDepthBand) depthBandOf(world, minDepthM, fineCellM) else null
+        val haloCells = fineTileHaloCells(fine, fineMask, depthBand)
+        val requests = LinkedHashMap<TileKey, FineTileRequest>()
+        for (fineBox in fineBoxes) {
+            val rows = ceil((fineBox.latNorth - fineBox.latSouth) / fine.cellSizeDegLat).toInt().coerceAtLeast(1)
+            val cols = ceil((fineBox.lonEast - fineBox.lonWest) / fine.cellSizeDegLon).toInt().coerceAtLeast(1)
+            val windowRow = fine.rowOf(fineBox.latSouth)
+            val windowCol = fine.colOf(fineBox.lonWest)
+            val firstTileRow = Math.floorDiv(windowRow, FINE_TILE_CELLS)
+            val lastTileRow = Math.floorDiv(windowRow + rows - 1, FINE_TILE_CELLS)
+            val firstTileCol = Math.floorDiv(windowCol, FINE_TILE_CELLS)
+            val lastTileCol = Math.floorDiv(windowCol + cols - 1, FINE_TILE_CELLS)
+            for (tileRow in firstTileRow..lastTileRow) {
+                for (tileCol in firstTileCol..lastTileCol) {
+                    val key = fineTileKey(
+                        world, anchor, fine, tileRow, tileCol, haloCells, marginM, zoneOutsideMarginM,
+                        bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive, markerStrength
+                    )
+                    if (requests.containsKey(key)) continue
+                    val inner = fineTileBox(fine, tileRow, tileCol)
+                    val center = LatLng(
+                        (inner.latSouth + inner.latNorth) / 2.0,
+                        (inner.lonWest + inner.lonEast) / 2.0
+                    )
+                    requests[key] = FineTileRequest(key, center) {
+                        buildFineTile(
+                            world, fine, tileRow, tileCol, haloCells, marginM, zoneOutsideMarginM,
+                            priced, bandSpec, fineMask, depthBand, edges, openCoast, markerStrength
+                        )
+                    }
+                }
+            }
+        }
+        return requests.values.toList()
     }
 
     /**
@@ -456,22 +540,29 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         tileRow: Int,
         tileCol: Int,
         haloCells: Int,
-        pace: Double,
         marginM: Double,
         zoneOutsideMarginM: Double,
-        gridField: RouteCostField,
         priced: List<ZoneRing>,
         bandSpec: BandLaw?,
         fineMask: FineMask?,
         depthBand: DepthBand?,
         edges: List<MultipassEdge>,
-        openCoast: List<List<LatLng>>
+        openCoast: List<List<LatLng>>,
+        markerStrength: Double
     ): FineTile {
         val box = fineTileOuterBox(fine, tileRow, tileCol, haloCells)
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
+        // **The unit base (D4).** The tile's own field prices its markers at `1.0 × factor` and the grid
+        // opens at `1.0`, so the raster's own source cost *is* the pace-free factor `extract` reads, and the
+        // pace reaches no stored byte. The field is the tile's own (D5) — the depth gate's wall and the
+        // marker price at the unit base — so one base governs a member's cost at this cell size. `paceKn` is
+        // deliberately inert here: the base is overridden, so the frame never derives it.
+        val tileField = tileCostField(world, baseCostSec = 1.0, markerStrength)
         val raster = rasterizeWindow(
-            box, fine, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
-            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec, fineMask = fineMask, depthBand = depthBand
+            box, fine, paceKn = 0.0, marginM = marginM, edges = edges, openCoast = openCoast,
+            capLatNorth = capLatNorth, field = tileField, zones = priced,
+            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec, fineMask = fineMask,
+            depthBand = depthBand, baseCostSecOverride = 1.0
         )
         return FineTile.extract(raster, tileRow, tileCol, FINE_TILE_CELLS, haloCells)
     }
@@ -512,7 +603,6 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         tileRow: Int,
         tileCol: Int,
         haloCells: Int,
-        pace: Double,
         marginM: Double,
         zoneOutsideMarginM: Double,
         bandSpec: BandLaw?,
@@ -551,7 +641,6 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         zoneRimM = fineWater.zoneRimM,
         depthCollarM = fineWater.depthCollarM,
         depthStepM = fineMask?.depthStepM ?: 0.0,
-        paceKn = pace,
         excludedZoneIdSet = world.excludedZoneIdSet,
         zoneGenerationStamp = world.zoneGenerationStamp,
         zoneRings = priced,

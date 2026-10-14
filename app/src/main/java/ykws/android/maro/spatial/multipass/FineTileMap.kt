@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,8 +21,27 @@ import kotlinx.coroutines.sync.withLock
  * while its [`CompletableDeferred`] is unfinished. There is no separate pin mechanism — that protection
  * *is* the entry's in-flight count. A [hitRate] rides beside the ceiling, so the tile edge is tuned on a
  * number rather than a guess, counting only requests **served from a completed cache entry**.
+ *
+ * **A miss consults the [store] before it builds, and a built tile is written back.** That is the one
+ * addition the seam makes: the single-flight, the ceiling and the LRU are unmoved, and a storeless map
+ * (the default [TileStore.NoOp]) behaves exactly as before the seam existed. The store is best-effort —
+ * a load or a save that fails degrades to a build, never to a failed lookup.
+ *
+ * **A store-facing lookup reports itself to [onBusy].** The socket the process-level holder
+ * ([`FineTileCache`]) installs its busy window into, so the routing square's dot follows the store's own
+ * work. An in-memory hit touches no store and signals nothing; a map built without a sink (a JVM test's
+ * own, a builder's fallback) stays silent.
  */
-internal class FineTileMap(private val maxBytes: Long = DEFAULT_MAX_BYTES) {
+internal class FineTileMap(
+    private val maxBytes: Long = DEFAULT_MAX_BYTES,
+    private val store: TileStore = TileStore.NoOp,
+    /**
+     * Reports a **store-facing lookup**: `true` when a key reaches the store and its tile is loaded or
+     * built, `false` when the lookup resolves. Inert by default, in the spirit of `DirectoryFineTileStore`'s
+     * own `trace` and `onReclaim` sinks.
+     */
+    private val onBusy: (Boolean) -> Unit = {}
+) {
 
     /** One key's slot: the shared build and the callers holding it. */
     private class Entry {
@@ -48,7 +68,7 @@ internal class FineTileMap(private val maxBytes: Long = DEFAULT_MAX_BYTES) {
     @Volatile
     private var bytes: Long = 0L
 
-    /** How many requests were served from a tile already built and cached — advisory, read unlocked. */
+    /** How many requests were served without a build — cached, or from the store — advisory, unlocked. */
     @Volatile
     var hits: Long = 0L
         private set
@@ -69,11 +89,33 @@ internal class FineTileMap(private val maxBytes: Long = DEFAULT_MAX_BYTES) {
     val heldBytes: Long get() = bytes
 
     /**
+     * **Whether a tile for [key] already stands, completed, in memory.** The tidy read the pre-warm asks
+     * before it builds, so a warm in-memory cache is skipped without even a store round-trip. A tile still
+     * building is not "held" — it is not yet reusable — so only a completed entry answers `true`.
+     */
+    suspend fun holds(key: TileKey): Boolean = lock.withLock { entries[key]?.done?.isCompleted == true }
+
+    /**
+     * **The entry names the [store] holds right now.** The pre-warm's cheap "ask the store first": a name
+     * match skips a tile without building or decoding it, so a warm cache costs a listing rather than a
+     * rebuild. Best-effort like the store's other reads — a store that cannot list answers nothing, and the
+     * pass then relies on the map's own store-first [get] rather than failing.
+     */
+    suspend fun storedNames(): Set<String> = try {
+        store.list().toSet()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (failure: Exception) {
+        emptySet()
+    }
+
+    /**
      * **The tile for [key], built on [build] at most once.** The first caller for a key becomes the
      * builder and runs [build] outside the lock; every later caller awaits the one deferred. A caller
      * that finds a **completed** entry is a hit; a caller that finds one still building is a miss, because
-     * it waits on the build rather than reusing it — so [hitRate] counts only served-from-cache. [build]
-     * may suspend, so a test can hold a build open to observe the single-flight.
+     * it waits on the build rather than reusing it. The builder's own request is a hit too when the
+     * [store] served it without a build (D10), so [hitRate] counts every request served without a build.
+     * [build] may suspend, so a test can hold a build open to observe the single-flight.
      */
     suspend fun get(key: TileKey, build: suspend () -> FineTile): FineTile {
         val (entry, builder) = lock.withLock {
@@ -95,13 +137,17 @@ internal class FineTileMap(private val maxBytes: Long = DEFAULT_MAX_BYTES) {
         }
         try {
             if (!builder) return entry.done.await()
-            val tile = try {
-                build()
+            val served = try {
+                loadOrBuild(key, build)
             } catch (failure: Throwable) {
                 lock.withLock { entries.remove(key) }
                 entry.done.completeExceptionally(failure)
                 throw failure
             }
+            val tile = served.tile
+            // A store-served lookup is a **hit**, not the miss the builder's fresh slot was counted as:
+            // no build ran, so the request was reused rather than computed (D10).
+            if (served.fromStore) lock.withLock { misses--; hits++ }
             entry.bytes = tile.byteSize
             entry.done.complete(tile)
             lock.withLock {
@@ -113,6 +159,41 @@ internal class FineTileMap(private val maxBytes: Long = DEFAULT_MAX_BYTES) {
             lock.withLock { entry.inFlight-- }
         }
     }
+
+    /**
+     * **The builder's one lookup-and-build.** A tile the [store] already holds is served without building
+     * — the point of the seam — and only a **miss** runs [build] and, once the tile lands, writes it back.
+     * A failing store never fails the lookup: a load that throws is a miss and a save that throws is
+     * discarded, while a cancellation is rethrown untouched so a cancelled arm stays cancelled. The
+     * outcome says whether the store served it, so the caller counts the served request a **hit**.
+     */
+    private suspend fun loadOrBuild(key: TileKey, build: suspend () -> FineTile): Served {
+        onBusy(true)
+        try {
+            val stored = try {
+                store.load(key)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                null
+            }
+            if (stored != null) return Served(stored, fromStore = true)
+            val built = build()
+            try {
+                store.save(key, built)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // Best-effort: a store that cannot write must not fail the lookup.
+            }
+            return Served(built, fromStore = false)
+        } finally {
+            onBusy(false)
+        }
+    }
+
+    /** One lookup's outcome — the tile, and whether the [store] served it rather than a build running. */
+    private class Served(val tile: FineTile, val fromStore: Boolean)
 
     /** Drops completed tiles no caller holds from the LRU end until the ceiling holds. */
     private fun evictToBudget() {

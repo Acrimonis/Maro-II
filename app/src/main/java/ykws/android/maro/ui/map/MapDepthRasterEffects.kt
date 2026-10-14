@@ -165,13 +165,19 @@ internal fun MapDepthRasterEffects(
 
 /**
  * Regulated zones overlay: load prebaked asset on first composition (extracted from MapScreen).
+ *
+ * The repository is **hoisted to the caller** and handed in, so the one instance that loads the
+ * asset is the one its readers watch — no second instance's state is ever watched. The load itself
+ * is `suspend` and runs off the main thread inside the repository; this effect only starts it once.
  */
 @Composable
-internal fun MapRegulatedZonesLoader(context: Context): RegulatedZoneSet? {
-    val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null) {
-        val repo = RegulatedZonesRepository()
-        repo.load(context)
-        value = repo.zoneSet.value
+internal fun MapRegulatedZonesLoader(
+    context: Context,
+    repository: RegulatedZonesRepository
+): RegulatedZoneSet? {
+    val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null, repository) {
+        repository.load(context)
+        value = repository.zoneSet.value
     }
     return regulatedZones
 }

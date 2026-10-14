@@ -1,5 +1,9 @@
 package ykws.android.maro.spatial.multipass
 
+import ykws.android.maro.data.model.LatLng
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
+
 /**
  * **The identity of one fine tile — everything [`rasterizeWindow`] reads, and nothing else.**
  *
@@ -14,9 +18,10 @@ package ykws.android.maro.spatial.multipass
  *   [zoneGenerationStamp]: a re-baked asset, a moved cutoff or a rebuilt zone list must not leave
  *   coefficients cached.
  * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the band's
- *   [bandWidthM], [bandLimitKn] and [bandOutsideMarginM], the [bandExtraM], [zoneOutsideMarginM], the
- *   plan's fine-mask widths ([coastBandsM], [zoneRimM], [depthCollarM], [depthStepM]) and the [paceKn],
- *   because the base cost is `baseCostSec(cellM, paceKn)`.
+ *   [bandWidthM], [bandLimitKn] and [bandOutsideMarginM], the [bandExtraM], [zoneOutsideMarginM] and the
+ *   plan's fine-mask widths ([coastBandsM], [zoneRimM], [depthCollarM], [depthStepM]). The **pace is
+ *   deliberately absent**: the tile stores a pace-free factor and the base is re-applied from the target
+ *   grid, so one tile serves every speed.
  * - **The switches** — [bandEnabled], [zonesEnabled], [depthGateEnabled] and [pricesDepthBand], plus
  *   the [excludedZoneIdSet], because the rasterizer reads all five.
  * - **The zone set** — [zoneRings], the exact ring set the fill even-odd-fills, and [capLatNorth], the
@@ -83,8 +88,6 @@ internal data class TileKey(
     val depthCollarM: Double,
     /** The depth scan's own step (m). */
     val depthStepM: Double,
-    /** The pace (kn) the base cost is computed at. */
-    val paceKn: Double,
     /** The ids of the speed zones the user has excluded. */
     val excludedZoneIdSet: Set<String>,
     /** The speed-zone list's content stamp. */
@@ -99,9 +102,9 @@ internal data class TileKey(
      */
     val markers: List<RouteMarker>,
     /**
-     * **The marker price's strength** — the live `base × step × strength` factor of [`markerPriceSec`].
-     * It is not a marker's own value, so it is keyed **here**: the rasterizer writes the scaled price into
-     * a cell, and a slider move that left the key standing would serve the old price from a cached tile.
+     * **The marker price's strength** — the live `step × strength` factor [`markerFactorAt`] sums. It is
+     * not a marker's own value, so it is keyed **here**: the rasterizer writes the scaled factor into a
+     * cell, and a slider move that left the key standing would serve the old price from a cached tile.
      */
     val markerStrength: Double,
     /**
@@ -109,4 +112,119 @@ internal data class TileKey(
      * toggled switch must move the key; the wall never reads it and stands either way.
      */
     val markerPriceEnabled: Boolean
-)
+) {
+
+    /**
+     * **The key's canonical, identity-free encoding — the byte string the store names an entry by and
+     * verifies it with.** Every declared field is written, in declaration order, through a fixed
+     * [DataOutputStream] shape, so two runs agreeing on the key's values produce identical bytes and no
+     * `hashCode` — which could fold an *identity* hash into a component — can ever reach a file name.
+     *
+     * **The one component whose Kotlin order is not pinned is [excludedZoneIdSet]** (a `Set`, whose
+     * iteration order is unspecified), so it is **sorted** here. Every other field is a primitive, an
+     * ordered `List`, or a data class over ordered values, so no other component reaches an identity hash;
+     * the nested [zoneRings] (holes included), the [coastBandsM] ranges and every [markers] geometry are
+     * written field by field, because a key that omitted one would name a different tile than the
+     * rasteriser built.
+     *
+     * It is the store's correctness floor: the entry carries these bytes and a load compares them, so a
+     * name collision or a drift can only ever produce a **miss**, never a wrong tile. Pinned by
+     * `TileKeyCanonicalTest`, which flips each field and asserts the bytes move.
+     */
+    fun canonicalBytes(): ByteArray {
+        val buffer = ByteArrayOutputStream(512)
+        val out = DataOutputStream(buffer)
+        out.writeDouble(anchorLatSouth)
+        out.writeDouble(anchorLonWest)
+        out.writeDouble(referenceLat)
+        out.writeDouble(fineCellM)
+        out.writeInt(tileRow)
+        out.writeInt(tileCol)
+        out.writeInt(tileCells)
+        out.writeDouble(capLatNorth)
+        out.writeLong(depthGenerationStamp)
+        out.writeLong(coastlineGenerationStamp)
+        out.writeFloat(emodnetCutoffM)
+        out.writeDouble(obstacleMarginM)
+        out.writeDouble(gateMinDepthM)
+        out.writeDouble(gateMarginM)
+        out.writeBoolean(depthGateEnabled)
+        out.writeDouble(bandWidthM)
+        out.writeDouble(bandLimitKn)
+        out.writeDouble(bandOutsideMarginM)
+        out.writeDouble(bandExtraM)
+        out.writeBoolean(bandEnabled)
+        out.writeBoolean(pricesDepthBand)
+        out.writeDouble(zoneOutsideMarginM)
+        out.writeBoolean(zonesEnabled)
+        out.writeInt(coastBandsM.size)
+        for (band in coastBandsM) {
+            out.writeDouble(band.start)
+            out.writeDouble(band.endInclusive)
+        }
+        out.writeDouble(zoneRimM)
+        out.writeDouble(depthCollarM)
+        out.writeDouble(depthStepM)
+        val excluded = excludedZoneIdSet.sorted()
+        out.writeInt(excluded.size)
+        for (id in excluded) out.writeUtf(id)
+        out.writeLong(zoneGenerationStamp)
+        out.writeInt(zoneRings.size)
+        for (ring in zoneRings) out.writeZoneRing(ring)
+        out.writeInt(markers.size)
+        for (marker in markers) out.writeMarker(marker)
+        out.writeDouble(markerStrength)
+        out.writeBoolean(markerPriceEnabled)
+        out.flush()
+        return buffer.toByteArray()
+    }
+}
+
+/** The marker geometry tags the canonical encoding writes — a variant a reader can switch on. */
+private const val GEOMETRY_CIRCLE: Int = 1
+private const val GEOMETRY_CORRIDOR: Int = 2
+
+/** A length-prefixed UTF-8 string, so a name of any length round-trips without `writeUTF`'s 64 KiB cap. */
+private fun DataOutputStream.writeUtf(value: String) {
+    val bytes = value.toByteArray(Charsets.UTF_8)
+    writeInt(bytes.size)
+    write(bytes)
+}
+
+private fun DataOutputStream.writeLatLng(p: LatLng) {
+    writeDouble(p.latitude)
+    writeDouble(p.longitude)
+}
+
+private fun DataOutputStream.writeRing(ring: List<LatLng>) {
+    writeInt(ring.size)
+    for (p in ring) writeLatLng(p)
+}
+
+private fun DataOutputStream.writeZoneRing(ring: ZoneRing) {
+    writeRing(ring.outerRing)
+    writeInt(ring.holes.size)
+    for (hole in ring.holes) writeRing(hole)
+    writeDouble(ring.limitKn)
+}
+
+private fun DataOutputStream.writeMarker(marker: RouteMarker) {
+    writeUtf(marker.id)
+    when (val geometry = marker.geometry) {
+        is RouteMarkerGeometry.Circle -> {
+            writeByte(GEOMETRY_CIRCLE)
+            writeLatLng(geometry.center)
+            writeDouble(geometry.radiusM)
+            writeDouble(geometry.proximityM)
+        }
+        is RouteMarkerGeometry.Corridor -> {
+            writeByte(GEOMETRY_CORRIDOR)
+            writeLatLng(geometry.p1)
+            writeLatLng(geometry.p2)
+            writeDouble(geometry.widthM)
+            writeDouble(geometry.proximityM)
+        }
+    }
+    writeInt(marker.step)
+    writeBoolean(marker.isWall)
+}

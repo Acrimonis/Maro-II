@@ -22,18 +22,20 @@ import ykws.android.maro.config.AppConfig
 
 /**
  * One resolved surface face: the fill a surface paints, the weight its content carries, and the mark it
- * wears.
+ * wears — its colour and, when a state asks for it, its own beat.
  *
  * The face is what keeps the state logic where it was — each control decides its own fill, hands it over,
  * and a mode square's data mark rides with it as [dot] — so this file only paints. Nothing here reads a
  * status colour: the GPS table, the tracking dot and the water/land reading stay the controls' own
  * business. [dot] is non-null only for the mode squares that wear a mark; the off square, the recenter
- * action, the reading squares and every overlay card carry none.
+ * action, the reading squares and every overlay card carry none. [dotPulseMs] is the mark's own period,
+ * null for the shared default beat — only the routing square's loading arm sets it.
  */
 internal data class MapSurfaceFace(
     val fill: Color,
     val contentAlpha: Float,
-    val dot: Color?
+    val dot: Color?,
+    val dotPulseMs: Int? = null
 )
 
 /**
@@ -71,11 +73,12 @@ internal fun mapSurfaceFaceActive(color: Color): MapSurfaceFace =
 /**
  * The tile a resolved [TopToggleFace] paints, and the mark it wears: the surface's active face when the
  * square is on, the shared inactive face — the base alone, glyph dimmed — when it is off, with the
- * face's own dot carried onto the surface so [MapToggleSquare] can paint the mark from the square itself.
+ * face's own dot and beat carried onto the surface so [MapToggleSquare] can paint the mark from the square
+ * itself.
  */
 internal fun TopToggleFace.toSurfaceFace(): MapSurfaceFace =
     (fill?.let { mapSurfaceFaceActive(Color(it)) } ?: mapSurfaceFaceInactive())
-        .copy(dot = dot?.let { Color(it) })
+        .copy(dot = dot?.let { Color(it) }, dotPulseMs = dotPulseMs)
 
 /**
  * The surface family's one background-painting path: it paints the family's white base, clips the shared
@@ -190,6 +193,9 @@ internal fun MapToggleSquare(
         face.dot?.let { dotColor ->
             MapPulseDot(
                 color = dotColor,
+                // The face's own beat when it carries one (the routing square's loading arm), the shared
+                // default otherwise — so a loading mark beats faster without a second call site branch.
+                pulseMs = face.dotPulseMs ?: MAP_PULSE_DEFAULT_MS,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(MAP_PULSE_DOT_INSET)

@@ -110,14 +110,39 @@ private fun collarFactor(distanceM: Double, coreM: Double, proximityM: Double): 
 }
 
 /**
- * **The one marker price law.** A cell inside a priced marker adds the **base per-metre cost** scaled by
- * the marker's step, the user's [strength] and the geometry's own [factor] — its position in the well.
- * It is **linear** and **λ-free** — a marker is a rule, not a Driving preference, so all three rungs price
- * it alike — and it only ever **adds**, so no passable cell drops below the base and the A\*'s closed set
- * stays valid (the field's own invariant).
+ * **The one marker price law** — a cell costs its base times the marker's own pace-free factor, the
+ * `1 + m` the well's summed step-scale reads. It is a **single multiply**, never an addition to re-spell:
+ * the base is the target grid's own, and the factor is [markerFactorAt]'s summed `step × strength ×
+ * wellFactor`, so the fine layer and the coarse interior price off one home.
  */
-internal fun markerPriceSec(baseCostSec: Double, step: Int, strength: Double, factor: Double): Double =
-    baseCostSec * step * strength * factor.coerceIn(0.0, 1.0)
+internal fun markerPriceSec(baseCostSec: Double, factor: Double): Double = baseCostSec * factor
+
+/**
+ * **The one marker factor law** — the pace-free `m` a point's priced markers sum to: each priced
+ * marker's `step × strength × wellFactor`, its body-and-collar shape scaled by the step and the user's
+ * [strength]. It is **linear**, **λ-free** — a marker is a rule, not a Driving preference, so all three
+ * rungs price it alike — and it only ever **adds**, so no point's factor drops below zero and the A\*'s
+ * closed set stays valid (the field's own invariant). The wall is never priced: a wall is law and stands
+ * whatever [enabled] says.
+ *
+ * The rasterizer and the tile's own unit-base build read this one law, so the factor the field priced
+ * with and the factor a tile stores cannot disagree.
+ */
+internal fun markerFactorAt(
+    markers: List<RouteMarker>,
+    strength: Double,
+    enabled: Boolean,
+    p: LatLng
+): Double {
+    if (!enabled || markers.isEmpty()) return 0.0
+    var sum = 0.0
+    for (m in markers) {
+        if (m.isWall) continue
+        val factor = m.geometry.wellFactor(p).coerceIn(0.0, 1.0)
+        if (factor > 0.0) sum += m.step * strength * factor
+    }
+    return sum
+}
 
 /**
  * **The marker sources for one field** — a soft price source for the priced markers (1–9) and a rastered
@@ -146,14 +171,7 @@ internal fun markerSources(
     if (priced.isNotEmpty()) {
         sources.add(
             RouteCostSource.Soft(
-                priceSec = { p ->
-                    var sec = 0.0
-                    for (m in priced) {
-                        val factor = m.geometry.wellFactor(p)
-                        if (factor > 0.0) sec += markerPriceSec(baseCostSec, m.step, strength, factor)
-                    }
-                    sec
-                },
+                priceSec = { p -> markerPriceSec(baseCostSec, markerFactorAt(markers, strength, priceEnabled, p)) },
                 tag = MultipassCellState.ZONE,
                 clearanceAt = { p ->
                     var nearest = Double.MAX_VALUE

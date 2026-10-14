@@ -39,9 +39,9 @@ class FineTileShapeTest {
         val fields = FineTile::class.java.declaredFields.associateBy { it.name }
         assertEquals("the tag is one byte a member", ByteArray::class.java, fields.getValue("state").type)
         assertEquals(
-            "the source cost is one double a member",
+            "the source-cost factor is one double a member",
             DoubleArray::class.java,
-            fields.getValue("sourceCostSec").type
+            fields.getValue("sourceCostFactor").type
         )
         assertEquals(
             "the local index is one int a member",

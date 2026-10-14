@@ -2,9 +2,12 @@ package ykws.android.maro.data.regulation
 
 import ykws.android.maro.BuildConfig
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.io.InputStream
 
 /**
  * Loads the prebaked [RegulatedZoneSet] from the bundled APK asset.
@@ -17,8 +20,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * If no baked asset exists (never baked), [zoneSet] stays `null` — the app simply
  * draws no regulated zones overlay (graceful degradation).
  *
- * Call [load] once at startup (e.g. from [CoastlineViewModel.initCache] or inside
- * a `LaunchedEffect` in the composable).
+ * The load does its file IO and parsing off the main thread ([loadFrom] wraps the whole body in
+ * [Dispatchers.IO]), so a cold start never blocks the composition.
+ *
+ * Call [load] once at startup, from a coroutine (the map's loader `LaunchedEffect` or a
+ * `viewModelScope.launch`); the call is `suspend` and returns once the set has been published.
  */
 class RegulatedZonesRepository(
     private val regionId: String = BuildConfig.REGION_ID
@@ -30,17 +36,24 @@ class RegulatedZonesRepository(
     private fun assetPath(): String = "regulated-zones/$regionId.bin"
 
     /**
-     * Load the prebaked asset from the APK bundle.
+     * Load the prebaked asset from the APK bundle, off the main thread.
      *
-     * Best-effort: if the asset is missing, unreadable, or malformed, [zoneSet]
-     * stays `null` and no regulated zones overlay is drawn.
+     * Best-effort: if the asset is missing, unreadable, or malformed, [zoneSet] stays `null` and no
+     * regulated zones overlay is drawn.
      */
-    fun load(context: Context) {
+    suspend fun load(context: Context) = loadFrom { path -> context.assets.open(path) }
+
+    /**
+     * The load's own body over an injected asset opener — the seam a JVM test stands in for, since
+     * `Context.assets` is unreachable without a device. A missing, empty or corrupt asset leaves
+     * [zoneSet] `null` as much as a clean read leaves it set.
+     */
+    internal suspend fun loadFrom(openAsset: (String) -> InputStream) = withContext(Dispatchers.IO) {
         try {
-            context.assets.open(assetPath()).use { stream ->
+            openAsset(assetPath()).use { stream ->
                 val bytes = stream.readBytes()
                 val parsed = RegulatedZoneSerializer.deserialize(bytes)
-                val overrides = readOverrides(context)
+                val overrides = readOverrides(openAsset)
                 val applied = RegulationSpeedOverrides.apply(parsed.zones, overrides)
                 _zoneSet.value = parsed.copy(
                     zones = applied,
@@ -59,8 +72,8 @@ class RegulatedZonesRepository(
      * [RegulationSpeedOverrides]). Best-effort: a missing or unreadable file
      * yields no overrides, so the raw baked set is used as-is.
      */
-    private fun readOverrides(context: Context): RegulationSpeedOverrides.Overrides = try {
-        context.assets.open(RegulationSpeedOverrides.FILE_NAME).use {
+    private fun readOverrides(openAsset: (String) -> InputStream): RegulationSpeedOverrides.Overrides = try {
+        openAsset(RegulationSpeedOverrides.FILE_NAME).use {
             RegulationSpeedOverrides.load(it)
         }
     } catch (_: Exception) {

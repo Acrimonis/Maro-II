@@ -48,7 +48,10 @@ import ykws.android.maro.ui.map.NavigationViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.spatial.DirectoryFineTileStore
 import ykws.android.maro.spatial.RouteEngineChoice
+import ykws.android.maro.spatial.multipass.FineTileCache
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -83,6 +86,25 @@ class MainActivity : ComponentActivity() {
 
         // Load zone gradient tunables from zone.properties before the UI composes.
         AppConfig.init(this)
+
+        // The fine-tile store: the route engine's fine layer persisted beside the depth raster's own
+        // cache, so the first arm after a cold start reuses the tiles a previous run already marked
+        // rather than building them again. Installed once, here, before the UI composes and any engine
+        // can arm; the holder is the store's one reader and writer and keeps the cache across an engine
+        // switch. The pre-warm is deliberately out of scope — the first arm still pays for its misses.
+        // The disk ceiling's one home is `route.fineTile.maxBytes` (D8); the first reclamation says so
+        // once (D9), hopped to the UI thread here; each load and save prints one `STORE` line on the tag.
+        FineTileCache.install(
+            DirectoryFineTileStore(
+                dir = File(cacheDir, DirectoryFineTileStore.DIR_NAME),
+                maxBytes = AppConfig.routeFineTileMaxBytes,
+                onReclaim = { runOnUiThread { reportFineTileReclaimed() } },
+                trace = { line -> android.util.Log.i("MaroRoute", line) }
+            )
+        )
+        // The busy window's two edges print one `busy on` / `busy off` line each on the same route tag,
+        // so a device pass reads the fine layer's building window rather than eyeballing the dot.
+        FineTileCache.traceTo { line -> android.util.Log.i("MaroRoute", line) }
 
         // R42's report: the build could not read one of the app's #AARRGGBB colour keys and fell back
         // to its sibling's default, so the app says so at start rather than leaving the fallback silent.
@@ -246,6 +268,19 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(
             this,
             getString(R.string.startup_route_engine_id_unclaimed, id),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    /**
+     * Reports the fine-tile store's **first reclamation** (D9) — the disk ceiling evicted the oldest
+     * tiles. Raised mid-arm by the store's own `onReclaim`, already hopped to the UI thread there, and
+     * once-guarded in the store, so a long session says it at most once.
+     */
+    private fun reportFineTileReclaimed() {
+        Toast.makeText(
+            this,
+            getString(R.string.startup_fine_tile_reclaimed),
             Toast.LENGTH_LONG
         ).show()
     }

@@ -102,6 +102,14 @@ data class RouteCostAtPoint(
 fun baseCostSec(cellM: Double, paceKn: Double): Double = cellM / Units.knotsToMps(paceKn)
 
 /**
+ * **The one member cost law** — a fine tile's stored **pace-free factor** re-applied to a target grid's
+ * own base: `base × factor`. It is the single home the tile's materialisation reads, so the factor a tile
+ * carries becomes seconds **exactly once**, from the base the arm's grid opens at, and a tile can be
+ * shared across paces.
+ */
+fun memberCostAtBase(baseCostSec: Double, factor: Double): Double = baseCostSec * factor
+
+/**
  * **Whether a point [distanceM] off the coast stands inside the band's own width** — the water the
  * band's limit governs, and the water the band's price charges in full. One home for that boundary:
  * the band's price asks it for its full-price arm and the clock asks it for the band's limit in

@@ -30,7 +30,7 @@ class FineTileMapTest {
         bandExtraM = 25.0, bandEnabled = true, pricesDepthBand = true,
         zoneOutsideMarginM = 100.0, zonesEnabled = true,
         coastBandsM = listOf(0.0..100.0), zoneRimM = 100.0, depthCollarM = 100.0, depthStepM = 20.0,
-        paceKn = 25.0, excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
+        excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
         zoneRings = listOf(ZoneRing(listOf(LatLng(43.51, 7.02), LatLng(43.51, 7.03)), emptyList(), 4.0)),
         markers = emptyList(), markerStrength = 1.0, markerPriceEnabled = true
     )
@@ -39,8 +39,8 @@ class FineTileMapTest {
     private fun tile(members: Int) = FineTile(
         tileRow = 0, tileCol = 0, tileCells = FINE_TILE_CELLS, rows = 1, cols = members,
         latSouth = 43.0, lonWest = 6.7, cellSizeDegLat = 1.8e-4, cellSizeDegLon = 2.5e-4,
-        cellM = 20.0, baseCostSec = 1.0,
-        state = ByteArray(members), sourceCostSec = DoubleArray(members),
+        cellM = 20.0,
+        state = ByteArray(members), sourceCostFactor = DoubleArray(members),
         zoneLimitKn = DoubleArray(members), collarLimitKn = DoubleArray(members),
         bandLimitKn = DoubleArray(members), bandCollarLimitKn = DoubleArray(members),
         depthPriceCoef = DoubleArray(members), localIndex = IntArray(members) { it }
@@ -106,5 +106,24 @@ class FineTileMapTest {
         assertEquals("the tile a live caller held was never evicted, so asking again builds nothing", before, builds.get())
         assertTrue("the ceiling holds", map.heldBytes <= map.size.toLong() * bytesPerTile)
         assertTrue("a hit rate is reported", map.hitRate > 0.0)
+    }
+
+    /**
+     * **The busy sink brackets each store-facing lookup and stays silent on an in-memory hit.** It is the
+     * socket the process-level holder installs its window into, so this pins that the dot follows the
+     * store's own work — and never a tile the map already holds.
+     */
+    @Test
+    fun theBusySinkBracketsEachStoreFacingLookup() = runBlocking {
+        val events = mutableListOf<Boolean>()
+        val map = FineTileMap(store = TileStore.NoOp, onBusy = { events += it })
+
+        map.get(key(0)) { tile(10) }
+        assertEquals("one lookup reports a begin and an end", listOf(true, false), events)
+
+        // A second get is served from the in-memory cache — no store work, so the window never moves.
+        events.clear()
+        map.get(key(0)) { tile(10) }
+        assertTrue("an in-memory hit touches no store and signals nothing", events.isEmpty())
     }
 }
