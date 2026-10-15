@@ -145,12 +145,13 @@ class MapToggleFaceTest {
     }
 
     @Test
-    fun routeLoadingWearsTheWhiteMarkAtHalfTheBeat() {
+    fun routeLoadingWearsTheWhiteMarkAtTheSharedBeat() {
         val face = routeFace(armed = false, following = false, searching = false, tileStoreBusy = true)
         assertEquals(AppConfig.uiMapPulseDotLoading, face.dot)
-        assertEquals(AppConfig.uiMapPulseDotLoadingMs, face.dotPulseMs)
-        // The loading beat is derived, never a second key: half the regular one.
-        assertEquals(AppConfig.uiMapPulseDotMs / 2, AppConfig.uiMapPulseDotLoadingMs)
+        // The loading mark beats at the app's one pulse home — the same period every other pulse reads,
+        // never a beat of its own.
+        assertEquals(MAP_PULSE_DEFAULT_MS, face.dotPulseMs)
+        assertEquals(AppConfig.uiMapPulseDotMs, face.dotPulseMs)
     }
 
     @Test
@@ -162,7 +163,7 @@ class MapToggleFaceTest {
             AppConfig.semanticCaution,
             routeFace(armed = true, following = false, searching = true, tileStoreBusy = true).fill
         )
-        // An unset flag carries neither the loading colour nor the halved beat.
+        // An unset flag carries neither the loading colour nor a beat of its own.
         val settled = routeFace(armed = true, following = false, searching = false)
         assertEquals(AppConfig.semanticCompliant, settled.dot)
         assertNull(settled.dotPulseMs)

@@ -255,24 +255,73 @@ object AppConfig {
 
     /**
      * **The box the startup pre-warm walks** — `route.prewarm.box`, written `south,west,north,east` in
-     * degrees (default `43.513,7.013,43.664,7.148`, the Cagnes-sur-Mer → Cannes coast to 100 m south of
-     * the Lérins). `null` where the key is absent or unreadable, so a boat with no box pre-warms nothing
-     * rather than a guessed one. A fine tile can exist only where the baked depth and coast do, so the
-     * pass checks this against the world's own region bounds and reports a box that falls outside.
+     * degrees. The shipped value is that key's own and lives in `maro.properties` alone (the
+     * Cagnes-sur-Mer → Cannes coast carrying 2 km of margin west, east and south); this field's default is
+     * `null`, so a boat whose file names no box pre-warms nothing rather than a guessed one. A fine tile can
+     * exist only where the baked depth and coast do, so the pass checks this against the world's own region
+     * bounds and reports a box that falls outside.
      */
     var routePrewarmBox: BBox? = null
         private set
 
     /**
-     * **The pre-warm pass's tile budget** — `route.prewarm.maxTiles`, default 400: the most fine tiles one
-     * pass may build, so a boat left on the bridge cannot be pre-warmed forever. A tile already warm is
-     * skipped before the cap is reached, so it bounds building alone.
+     * **The pre-warm pass's tile budget** — `route.prewarm.maxTiles`, default 400, clamped
+     * [ROUTE_PREWARM_MAX_TILES_MIN]..[ROUTE_PREWARM_MAX_TILES_MAX]: the most fine tiles one pass may
+     * build, so a boat left on the bridge cannot be pre-warmed forever. A tile already warm is skipped
+     * before the cap is reached, so it bounds building alone. It is **also the outward walk's ring bound**
+     * (D2): a world that names no baked region could otherwise grow for ever, so a walk may not take more
+     * rings than this budget.
      */
     var routePrewarmMaxTiles: Int = 400
         private set
 
-    /** **The pre-warm pass's time budget (ms)** — `route.prewarm.maxMs`, default 120 000. A second cap. */
+    /**
+     * **The pre-warm pass's time budget (ms)** — `route.prewarm.maxMs`, default 120 000, clamped at least
+     * [ROUTE_PREWARM_MAX_MS_MIN]. A second cap beside the tile count, so one slow build cannot hold a pass
+     * open.
+     */
     var routePrewarmMaxMs: Long = 120_000L
+        private set
+
+    /**
+     * **How many fine tiles one growth step of the warm area adds to each edge** —
+     * `route.prewarm.growthStepTiles`, default 1, clamped
+     * [ROUTE_PREWARM_GROWTH_STEP_MIN]..[ROUTE_PREWARM_GROWTH_STEP_MAX]. The area is the seed box
+     * ([routePrewarmBox]) and grows outward by whole tiles of the plan's own lattice ([`WarmArea`]),
+     * so this is the one dial growth has: there is **no radius** to tune, the store's own ceiling and
+     * the baked region's bounds being the stops (D3).
+     */
+    var routePrewarmGrowthStepTiles: Int = 1
+        private set
+
+    /** Lowest tile budget the load accepts — a pass allowed no tile at all would warm nothing. */
+    const val ROUTE_PREWARM_MAX_TILES_MIN = 1
+
+    /** Highest tile budget the load accepts — past it the pass is a survey of the coast, not a warm-up. */
+    const val ROUTE_PREWARM_MAX_TILES_MAX = 100_000
+
+    /** Lowest time budget (ms) the load accepts — below it a pass would stop before its first tile lands. */
+    const val ROUTE_PREWARM_MAX_MS_MIN = 1_000L
+
+    /** Lowest growth step the load accepts — a step of no tiles would grow nothing. */
+    const val ROUTE_PREWARM_GROWTH_STEP_MIN = 1
+
+    /** Highest growth step the load accepts — past it the area would leap the whole baked region at once. */
+    const val ROUTE_PREWARM_GROWTH_STEP_MAX = 64
+
+    /** Lowest worker count the load accepts — a dispatcher must carry at least one worker. */
+    const val ROUTE_PREWARM_THREADS_MIN = 1
+
+    /** Highest worker count the load accepts — the warm-up must never take the whole phone's cores. */
+    const val ROUTE_PREWARM_THREADS_MAX = 4
+
+    /**
+     * **How many workers the warm-up's own dispatcher may run** — `route.prewarm.threads`, default 2,
+     * clamped [ROUTE_PREWARM_THREADS_MIN]..[ROUTE_PREWARM_THREADS_MAX]. The pass is not the app's work:
+     * it runs on a dedicated dispatcher whose threads carry a background CPU priority, and this bounds its
+     * parallelism, so a prepared water costs the app neither its thread nor its cores (D5).
+     */
+    var routePrewarmThreads: Int = 2
         private set
 
 
@@ -730,13 +779,13 @@ object AppConfig {
 
     /**
      * The beat's floor for the toggle mark's body (0.0–1.0): how far the mark fades before its
-     * full-strength ring holds the state readable. Default 0.33. Set via `ui.map.pulse.dot.floor`.
+     * full-strength ring holds the state readable. Default 0.25. Set via `ui.map.pulse.dot.floor`.
      */
     var uiMapPulseDotFloor: Float = 0.25f
         private set
 
     /**
-     * How long the shared pulsing mark's one 1 → floor → 1 cycle takes (ms). Default 555.
+     * How long the shared pulsing mark's one 1 → floor → 1 cycle takes (ms). Default 666.
      * Set via `ui.map.pulse.dot.ms`.
      */
     var uiMapPulseDotMs: Int = 666
@@ -750,19 +799,13 @@ object AppConfig {
         private set
 
     /**
-     * The colour of the shared pulsing mark while the fine-tile store is working — the routing square's
-     * dot turns this white ([`MapToggleFace.routeFace`]'s loading arm) for the beat the store's pass
-     * runs. Default `#FFFFFFFF`. Set via `ui.map.pulse.dot.loading`.
+     * The colour of the shared pulsing mark while the warm-up is building tiles — the routing square's
+     * dot turns this white ([`MapToggleFace.routeFace`]'s loading arm) for the walk's own building. The
+     * loading mark beats at the app's one pulse home ([uiMapPulseDotMs]), never at a rate of its own.
+     * Default `#FFFFFFFF`. Set via `ui.map.pulse.dot.loading`.
      */
     var uiMapPulseDotLoading: Int = 0xFFFFFFFF.toInt()
         private set
-
-    /**
-     * The loading mark's own beat (ms) — **derived, never a second key**: half of [uiMapPulseDotMs], so
-     * retuning the regular beat moves the loading one with it and the two can never drift. At the
-     * shipped 666 ms this is 333 ms.
-     */
-    val uiMapPulseDotLoadingMs: Int get() = (uiMapPulseDotMs / 2).coerceAtLeast(1)
 
     /** Side (dp) of one square in the row. Default 44. Set via `ui.map.toggle.square`. */
     var uiMapToggleSquare: Float = 44f
@@ -2280,12 +2323,18 @@ object AppConfig {
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             props.getProperty("route.fineTile.maxBytes")?.toLongOrNull()
                 ?.let { routeFineTileMaxBytes = it.coerceAtLeast(1L) }
-            // The pre-warm's own box and its two caps (read here, beside the store's ceiling).
+            // The pre-warm's own box and its two caps (read here, beside the store's ceiling). Every clamp
+            // reads a named bound, so no bound is spelled a second time at its use.
             props.getProperty("route.prewarm.box")?.let { parsePrewarmBox(it) }?.let { routePrewarmBox = it }
             props.getProperty("route.prewarm.maxTiles")?.toIntOrNull()
-                ?.let { routePrewarmMaxTiles = it.coerceIn(1, 100_000) }
+                ?.let { routePrewarmMaxTiles = it.coerceIn(ROUTE_PREWARM_MAX_TILES_MIN, ROUTE_PREWARM_MAX_TILES_MAX) }
             props.getProperty("route.prewarm.maxMs")?.toLongOrNull()
-                ?.let { routePrewarmMaxMs = it.coerceAtLeast(1_000L) }
+                ?.let { routePrewarmMaxMs = it.coerceAtLeast(ROUTE_PREWARM_MAX_MS_MIN) }
+            // The warm area's growth and the warm-up's own parallelism — D3's step and D5's bound.
+            props.getProperty("route.prewarm.growthStepTiles")?.toIntOrNull()
+                ?.let { routePrewarmGrowthStepTiles = it.coerceIn(ROUTE_PREWARM_GROWTH_STEP_MIN, ROUTE_PREWARM_GROWTH_STEP_MAX) }
+            props.getProperty("route.prewarm.threads")?.toIntOrNull()
+                ?.let { routePrewarmThreads = it.coerceIn(ROUTE_PREWARM_THREADS_MIN, ROUTE_PREWARM_THREADS_MAX) }
             // ── The followed route's loss toggle and arrival cue (R99) ──
             props.getProperty("route.follow.swap.lossSec")?.toDoubleOrNull()
                 ?.let { routeFollowSwapLossSec = it.coerceIn(0.0, 600.0) }

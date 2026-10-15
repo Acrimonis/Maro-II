@@ -29,8 +29,8 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * (`ui.map.surface.inactive`), or null when the square is off and so wears that base alone with its
  * glyph dimmed. [dot] is the colour of the square's pulse mark, or null when it wears none — the off
  * square, the recenter action and the land/water reading. [dotPulseMs] is the mark's own period, or
- * null for the shared default beat; the loading arm is its only writer, so one square can beat faster
- * than the rest without a second key.
+ * null for the shared default beat; the loading arm is its only writer, and it names that shared beat
+ * rather than a second one, so every pulse in the app beats as one.
  *
  * All are plain ints rather than Compose colours, which is what keeps every resolver here pure and
  * JVM-testable.
@@ -104,13 +104,14 @@ internal fun inspectFace(armed: Boolean): TopToggleFace =
  * provisional line being partial) and the nominal blue once the line is followed (its mark green, the
  * data complete). The square never reads the user's line colour, which stays on the line alone.
  *
- * **The loading arm.** While the fine-tile store is working ([tileStoreBusy], the holder's own busy
- * window), the square's mark turns white ([`AppConfig.uiMapPulseDotLoading`]) and beats at half the
- * regular period ([`AppConfig.uiMapPulseDotLoadingMs`]) — a loading tell for the fine layer the route
- * engine is building, held a grace after its last tile so one pass reads as a steady window rather than
- * a flicker tile to tile. It touches the mark's colour and beat only: the fill is resolved exactly as the
- * arms below, so the square still says what the mode is doing, and the mark appears on an otherwise-off
- * square because the tell is about the data arriving, not about the mode being on.
+ * **The loading arm.** While the background warm-up is building tiles ([tileStoreBusy], the holder's own
+ * busy window), the square's mark turns white ([`AppConfig.uiMapPulseDotLoading`]) and beats at the
+ * app's one shared period ([`MAP_PULSE_DEFAULT_MS`]) — a loading tell for the warm-up's own work, held a
+ * grace after its last tile so successive tiles read as a steady window rather than a flicker. The mark
+ * is dark while the walk waits at its gate, and a route computing over the store never lights it. It
+ * touches the mark's colour and beat only: the fill is resolved exactly as the arms below, so the square
+ * still says what the mode is doing, and the mark appears on an otherwise-off square because the tell is
+ * about the warm-up running, not about the mode being on.
  */
 internal fun routeFace(
     armed: Boolean,
@@ -129,7 +130,7 @@ internal fun routeFace(
     if (!tileStoreBusy) return face
     return face.copy(
         dot = AppConfig.uiMapPulseDotLoading,
-        dotPulseMs = AppConfig.uiMapPulseDotLoadingMs
+        dotPulseMs = MAP_PULSE_DEFAULT_MS
     )
 }
 

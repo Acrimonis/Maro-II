@@ -9,10 +9,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * **The tile store's busy window — it rises on the first work and falls only a grace after the last.**
+ * **The warm-up's busy window — it rises on the first tile and falls only a grace after the last.**
  *
- * The map reaches the store a tile at a time, so the window must not fall in the gap between two tiles:
- * a `begin`/`end` pair raises it and holds it through the grace, and only the grace after the **last**
+ * The walk builds a tile at a time, so the window must not fall in the gap between two tiles: a
+ * `begin`/`end` pair raises it and holds it through the grace, and only the grace after the **last**
  * end clears it. The virtual clock pins the rise, the hold across a tile gap and the debounce that
  * merges two bursts into one window.
  */

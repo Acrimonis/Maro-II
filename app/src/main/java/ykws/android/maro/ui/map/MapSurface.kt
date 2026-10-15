@@ -29,7 +29,8 @@ import ykws.android.maro.config.AppConfig
  * status colour: the GPS table, the tracking dot and the water/land reading stay the controls' own
  * business. [dot] is non-null only for the mode squares that wear a mark; the off square, the recenter
  * action, the reading squares and every overlay card carry none. [dotPulseMs] is the mark's own period,
- * null for the shared default beat — only the routing square's loading arm sets it.
+ * null for the shared default beat — only the routing square's loading arm sets it, and it names that
+ * same shared beat.
  */
 internal data class MapSurfaceFace(
     val fill: Color,
@@ -193,8 +194,8 @@ internal fun MapToggleSquare(
         face.dot?.let { dotColor ->
             MapPulseDot(
                 color = dotColor,
-                // The face's own beat when it carries one (the routing square's loading arm), the shared
-                // default otherwise — so a loading mark beats faster without a second call site branch.
+                // The face's own beat when it carries one, the shared default otherwise — one call site
+                // rather than a second branch for a beat that did not change.
                 pulseMs = face.dotPulseMs ?: MAP_PULSE_DEFAULT_MS,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
