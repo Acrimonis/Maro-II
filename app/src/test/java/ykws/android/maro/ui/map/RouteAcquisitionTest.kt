@@ -130,7 +130,11 @@ class RouteAcquisitionTest {
         )
     }
 
-    /** Two rungs whose lines sit within the collapse tolerance fold into one, marked as the collapse's own. */
+    /**
+     * Two rungs whose lines sit within the collapse tolerance fold into one, marked as the collapse's own:
+     * the offset rung's line never gets farther than ~150 m from the aim line, inside the tolerance's 200,
+     * so a tolerance below that reads three pages here and the pin goes red.
+     */
     @Test
     fun rungsWithinTheToleranceCollapseIntoOneMarkedRoute() = runTest {
         val engine = CountingEngine(computations = 3)
@@ -139,44 +143,21 @@ class RouteAcquisitionTest {
         val ids = viewModel.pages.value.map { it.lookupId!! }
 
         engine.publish(ids[0], line(start, aim))
-        engine.publish(ids[1], line(start, RoutePoint(43.5201, 7.0101)))
+        engine.publish(ids[1], line(start, RoutePoint(43.5211, 7.0111)))
 
-        assertEquals("a near-identical rung folds rather than staying", 2, viewModel.pages.value.size)
+        assertEquals("a rung inside the tolerance folds rather than staying", 2, viewModel.pages.value.size)
         assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
     }
 
-    /**
-     * A 3→2 collapse whose folded rung is the landed preference seats the survivor, never the third
-     * rung's shifted slot (D15): the main lands, a distinct far rung lands, then the preferred third
-     * rung lands within the main's collapse tolerance and folds into it.
-     */
-    @Test
-    fun aCollapsedLandedPreferenceSeatsTheSurvivor() = runTest {
-        val engine = CountingEngine(computations = 3)
-        val viewModel = RouteViewModel(MutableStateFlow(engine))
-        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
-        val ids = viewModel.pages.value.map { it.lookupId!! }
-
-        engine.publish(ids[0], line(start, aim))
-        engine.publish(ids[1], line(start, shortcut))
-        assertEquals("the two settled rungs stand apart", 3, viewModel.pages.value.size)
-
-        engine.publish(ids[2], line(start, RoutePoint(43.5201, 7.0101)))
-
-        assertEquals("the folded rung drops the set to two pages", 2, viewModel.pages.value.size)
-        assertTrue("the survivor is marked as the collapse's own", viewModel.pages.value[0].collapsed)
-        assertEquals("the seat parks on the survivor, not the shifted third rung", 0, viewModel.selectedIndex.value)
-    }
-
-    /** The dispersion reading: a line against itself is zero, a small shift is a small gap, a far line stays apart. */
+    /** The dispersion reading: a line against itself is zero, a shifted line a small gap, a far line stays apart. */
     @Test
     fun routeDispersionMeasuresTheWidestGap() {
         val a = listOf(start, aim)
-        val near = listOf(start, RoutePoint(43.5201, 7.0101))
+        val near = listOf(start, RoutePoint(43.5211, 7.0111))
         val far = listOf(start, shortcut)
 
         assertEquals("a line against itself has no dispersion", 0.0, routeDispersionM(a, a), 1e-6)
-        assertTrue("a shifted line reads below the tolerance", routeDispersionM(a, near) < 25.0)
+        assertTrue("a shifted line reads below the tolerance", routeDispersionM(a, near) < 200.0)
         assertTrue("a route hundreds of metres away reads far", routeDispersionM(a, far) > 100.0)
     }
 
@@ -463,7 +444,7 @@ class RouteAcquisitionTest {
     }
 
     /**
-     * **The preference seats an untouched acquisition; a hand touch freezes it for good** (2026-10-07):
+     * **Every landing re-seats an untouched acquisition; a hand touch freezes it for good** (2026-10-07):
      * while the reader has not taken over, the seat re-reads on every landing; from the first row tap or
      * swipe, no landing may move it any more.
      */
@@ -488,26 +469,34 @@ class RouteAcquisitionTest {
         )
     }
 
-    /** The preference names the initial seat, and every landing re-applies it (D12 rework). */
+    /**
+     * **No dial stop names a page, and every landing reapplies the seat's own rule (D12 rework, P3).** The
+     * verdict dial is a weight over the finished lines, so the seat stands on the main until the ranking
+     * names a winner and a pending row steps aside for the landed ones.
+     */
     @Test
-    fun thePreferenceNamesTheSeatAndEveryLandingReappliesIt() = runTest {
+    fun theSeatStandsOnTheMainAndEveryLandingReappliesTheRule() = runTest {
         val engine = CountingEngine(computations = 3)
         val viewModel = RouteViewModel(MutableStateFlow(engine))
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
         val ids = viewModel.pages.value.map { it.lookupId!! }
 
-        assertEquals("while nothing has landed the preference stays highlighted", 2, viewModel.selectedIndex.value)
+        assertEquals("nothing landed: the seat stands on the main", 0, viewModel.selectedIndex.value)
 
         engine.publish(ids[0], line(start, aim))
-        assertEquals("a pending preference steps aside to the nearest landed rung", 0, viewModel.selectedIndex.value)
+        assertEquals("the main's landing keeps the seat on it", 0, viewModel.selectedIndex.value)
 
         engine.publish(ids[2], line(start, shortcut))
-        assertEquals("the landed preference re-seats itself", 2, viewModel.selectedIndex.value)
+        assertEquals(
+            "and a later landing leaves it there, no dial stop naming a rung to move it to",
+            0,
+            viewModel.selectedIndex.value
+        )
     }
 
     /**
      * **The auto-pick's readiness keys on the main's landing, never on where the seat stands** (R80):
-     * the seat may already stand on the preference's candidate while the main is still pending, yet the
+     * the seat may already stand on the only landed page while the main is still pending, yet the
      * acquisition's plan stays null — the settled answer is index 0's alone — and the main's landing is
      * what settles it.
      */
@@ -520,7 +509,7 @@ class RouteAcquisitionTest {
 
         engine.publish(ids[2], line(start, shortcut))
         assertEquals(
-            "the seat stands on the preference's rung while the main is still pending",
+            "the seat stands on the only landed page while the main is still pending",
             2,
             viewModel.selectedIndex.value
         )
@@ -566,10 +555,10 @@ class RouteAcquisitionTest {
     }
 
     /**
-     * **The panel's `Select` takes the seat, never the main** — the manual door's own guard: with a
-     * candidate landed first the seat stands on it, and the panel's entry point must follow the seat.
-     * Only the auto child names the main (R80, R94), so a regression that sends the manual door to
-     * index 0 fails here.
+     * **The panel's `Select` takes the seat, never the main** — the manual door's own guard: the seat
+     * stands where the ranking put it, which is a candidate here, and the panel's entry point must follow
+     * the seat. Only the auto child names the main (R80, R94), so a regression that sends the manual door
+     * to index 0 fails here.
      */
     @Test
     fun thePanelSelectTakesTheSeatNotTheMain() = runTest {
@@ -578,9 +567,9 @@ class RouteAcquisitionTest {
         viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
         val ids = viewModel.pages.value.map { it.lookupId!! }
 
-        engine.publish(ids[2], line(start, shortcut))
-        engine.publish(ids[0], line(start, aim))
-        assertEquals("the seat stands on the candidate", 2, viewModel.selectedIndex.value)
+        engine.publish(ids[2], line(start, shortcut), runningBest = ids[2])
+        engine.publish(ids[0], line(start, aim), runningBest = ids[2])
+        assertEquals("the seat stands on the candidate the ranking names", 2, viewModel.selectedIndex.value)
 
         viewModel.selectRoute()
 

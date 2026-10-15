@@ -1,47 +1,40 @@
 package ykws.android.maro.spatial.multipass
 
-import androidx.annotation.StringRes
-import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 
 /**
- * **The acquisition's driving preference — the ladder's three stops, their word and the λ each is solved at.**
+ * **The acquisition's three rungs — their word and the λ each is solved at.**
  *
- * One home for the ladder's shape: its three stops, their indices, their λ and the thresholds between them,
- * so the Settings slider, the drawer's quick access and the engine's own ranking all read this, and no
- * surface can name a stop the engine does not seat. The three stops are listed most-averse first, in the
- * ladder's own index order — `around`, `best` and `fast` — which is the order the acquisition's first
- * column lists its rungs in.
+ * One home for the ladder's shape: its three stops and their λ, so the engine's own declaration and the
+ * panel that names its rows read this, and no surface can name a stop the engine does not seat. The three
+ * stops are listed most-averse first, in the ladder's own index order — `around`, `best` and `fast` —
+ * which is the order the acquisition's first column lists its rungs in.
  *
- * **Each stop's λ is a key of its own** — `route.avoid.ladder.around|best|fast.lambda` in `maro.properties`,
- * read through [AppConfig] — because the three values are the ladder's one lever and the properties file is
- * where every value lives; this enum is what maps an index and a word onto them, and no subclass below
- * holds a number.
+ * **Each stop's λ is a key of its own** — `route.avoid.ladder.around|best|fast.lambda` in
+ * `maro.properties`, read through [AppConfig] — because the three values are the ladder's one lever and
+ * the properties file is where every value lives; this enum is what maps each rung onto its own, and no
+ * subclass below holds a number. The word a user reads for a rung is the acquisition's own vocabulary
+ * (`route_rung_*`), held by the engine's own declaration and never by this file.
  *
- * The word each stop carries is the **preference family's** own string (`route_computation_*`), the one a
- * user reads as an intent, and it is deliberately kept apart from the acquisition row's own rung vocabulary
- * (`route_rung_*`), which names where the line goes rather than what the user wants. Being a `@StringRes`
- * id, no engine and no pure rule holds user-facing text, and both locales carry every key.
+ * **The ladder's stops and the verdict's dial are two scales.** This enum holds the **drawings'** rates
+ * alone: the crown the user reads on the card is decided by the verdict's own weight ([VerdictDial],
+ * `route.avoid.slowWater.weight`), so a hand-set ladder moves which line each rung name drew and never
+ * the weighting the crown reads.
  */
-internal enum class RoutePreference(
-    /** The ladder index this stop's rung sits at — 0 around, 1 best, 2 fast. */
-    val index: Int,
-    /** The id of the word a user reads for this stop — the preference family's own line. */
-    @StringRes val labelResId: Int
-) {
+internal enum class RoutePreference {
 
-    /** λ `route.avoid.ladder.around.lambda` — the least time slowed by zones, around them where it can. */
-    AROUND(0, R.string.route_computation_around) {
+    /** λ `route.avoid.ladder.around.lambda` — the most aversion: detours to shun slow water where it can. */
+    AROUND {
         override val lambda: Double get() = AppConfig.routeAvoidLadderAroundLambda
     },
 
-    /** λ `route.avoid.ladder.best.lambda` — the shortest clock that keeps its slow water under the budget. */
-    BEST(1, R.string.route_computation_balanced) {
+    /** λ `route.avoid.ladder.best.lambda` — the middle stop, between the two. */
+    BEST {
         override val lambda: Double get() = AppConfig.routeAvoidLadderBestLambda
     },
 
-    /** λ `route.avoid.ladder.fast.lambda` — the shortest clock, whatever water it crosses. */
-    FAST(2, R.string.route_computation_through) {
+    /** λ `route.avoid.ladder.fast.lambda` — the least aversion: the shortest clock, whatever water it crosses. */
+    FAST {
         override val lambda: Double get() = AppConfig.routeAvoidLadderFastLambda
     };
 
@@ -51,26 +44,4 @@ internal enum class RoutePreference(
      * this value is the whole of what separates one acquisition of an arming from its siblings.
      */
     abstract val lambda: Double
-
-    companion object {
-
-        /**
-         * The stop a stored aversion snaps to — the midpoints between the rungs, kept as **code constants**
-         * because the dial is a preference rather than a value of the ladder. They assume the shipped
-         * 5 / 2.5 / 0 spacing, so a ladder edited to uneven values leaves this mapping measuring the old
-         * gaps.
-         */
-        fun of(aversionKn: Double): RoutePreference = when {
-            aversionKn <= 1.25 -> FAST
-            aversionKn <= 3.75 -> BEST
-            else -> AROUND
-        }
-
-        /** The stop at a ladder [index], clamped to the ladder's own bounds. */
-        fun ofIndex(index: Int): RoutePreference = when (index) {
-            0 -> AROUND
-            2 -> FAST
-            else -> BEST
-        }
-    }
 }

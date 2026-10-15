@@ -59,7 +59,7 @@ import ykws.android.maro.spatial.multipass.slowTimeByLimit
 import ykws.android.maro.spatial.multipass.timeLineWithLimits
 import ykws.android.maro.spatial.multipass.timeLineWithProfile
 import ykws.android.maro.spatial.multipass.polylineLengthM
-import ykws.android.maro.spatial.multipass.zoneMetres
+import ykws.android.maro.spatial.multipass.rampSlowSeconds
 import ykws.android.maro.spatial.multipass.zonePriceSec
 import ykws.android.maro.spatial.multipass.zoneSlowShare
 
@@ -117,15 +117,16 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * cell at its own aversion without a second rasterise. The forced-crossing growth and the fine pass (§5)
  * still run — the wider corridor kept only when it forces fewer crossings, and the fine pass on the
  * settled line where a restrictive zone the coarse grid could not see around gets a local A* at
- * `route.avoid.grid.fineCellM`. There is no budget loop: the slow-water budget is demoted, so a rung is
- * computed at its own λ and never corrected.
+ * `route.avoid.grid.fineCellM`. There is no budget loop and no budget: a rung is computed at its own λ
+ * and never corrected.
  *
  * **The ranking.** The engine folds its own rungs: at every rung's terminal the settled costs of the
- * rungs that have landed are ranked through [RoutePassRanking] under the preference in force, and the
- * winner rides that terminal as [RouteRunningBest] — a **running best**, so a surface can read *so far,
- * the winner is…*. The two inputs the ranking reads are the engine's own providers, `aversionKn` (the
- * preference) and `slowWaterBudgetPct` (Best's gate); the answer carries no instrumentation vocabulary,
- * which is why the ranking lives here and never on an emitted line.
+ * rungs that have landed are ranked through [RoutePassRanking] under the one sum that decides the crown —
+ * `trip time + weight × slow-water seconds` — and the winner rides that terminal as [RouteRunningBest], a
+ * **running best**, so a surface can read *so far, the winner is…*. The two inputs the ranking reads are
+ * the engine's own, the **weight the verdict's dial stands at** (asked through [verdictWeight], `null` on
+ * its *Ignore time* stop) and [AppConfig.routeAvoidLadderTieToleranceSec]; the answer carries no
+ * instrumentation vocabulary, which is why the ranking lives here and never on an emitted line.
  *
  * Coroutines and `Flow` only: no thread of its own, and the search checks the calling job between its
  * expansions so a flung map never queues behind a computation nobody wants any more.
@@ -134,19 +135,13 @@ class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
     private val paceKn: () -> Double,
     /**
-     * The **aversion λ** (0–5) the user's Driving preference stands at, asked fresh like the pace so a
-     * slider move reaches the next line. It no longer prices the search — the three rungs carry their
-     * own fixed λ — but it **names the stop the ranking measures against** ([RoutePreference]): the
-     * preference states an intent, and the ranking answers which settled rung delivers it.
+     * **The verdict's own weight** — the dial's stop read as the number the crown weighs by, `null` on
+     * its *Ignore time* stop, which carries no weight at all. Asked fresh like the pace, so a dial move
+     * reaches the next rung that lands. It never prices the search: the three rungs carry their own
+     * fixed λ ([RoutePreference]), so the weight weighs the lines already drawn and bends no cell of any
+     * of them.
      */
-    private val aversionKn: () -> Double,
-    /**
-     * The **slow-water budget** (per cent of a trip, 0–100), asked fresh like the pace so a slider move
-     * reaches the next line: it is **Best's gate** in the ranking, the ratio a rung's zone share must
-     * stay within to be led on the clock. 0 leaves only a zero-zone line qualifying, 100 qualifies every
-     * line, and a share above it is beaten by the smaller share rather than reported here.
-     */
-    private val slowWaterBudgetPct: () -> Int,
+    private val verdictWeight: () -> Double?,
     /** The world provider — the map always holds the layers it wraps, so it answers a live world. */
     private val worldProvider: () -> MultipassWorld,
     /**
@@ -400,7 +395,7 @@ class RouteAvoidEngine(
                 // best reported beside a rival's landing must see it whole or not at all.
                 val landed = rung
                 best = rankingLock.withLock {
-                    if (landed != null) landedRungs += LandedRung(lookupId, computation.rungIndex, landed.cost)
+                    if (landed != null) landedRungs += LandedRung(lookupId, landed.cost)
                     runningBest()
                 }
             } catch (cancelled: CancellationException) {
@@ -460,22 +455,21 @@ class RouteAvoidEngine(
     }
 
     /**
-     * **The ladder's running best right now** — the landed rungs folded through the preference's own
-     * rule ([RoutePassRanking]), with the budget in force as Best's gate. Called under [rankingLock],
-     * so the read is never half a landing; a rung that found no path never enters [landedRungs] and is
-     * no candidate, so a set that has all failed ranks nothing.
+     * **The ladder's running best right now** — the landed rungs folded through the verdict's own rule
+     * ([RoutePassRanking]): one sum each, `trip time + weight × slow-water seconds`, the lowest winning
+     * where it leads the crown by more than the stored tie tolerance. Called under [rankingLock], so the
+     * read is never half a landing; a rung that found no path never enters [landedRungs] and is no
+     * candidate, so a set that has all failed ranks nothing.
      */
     private fun runningBest(): RouteRunningBest? {
         if (landedRungs.isEmpty()) return null
-        val ranked = landedRungs.map { RoutePassRanking.RungCost(it.ladderIndex, it.cost) }
-        val winner = RoutePassRanking.bestRungIndex(
-            RoutePreference.of(aversionKn()),
-            slowWaterBudgetPct().coerceIn(
-                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN,
-                AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
-            ),
-            ranked
-        ) ?: return null
+        val weight = verdictWeight()
+        val toleranceSec = AppConfig.routeAvoidLadderTieToleranceSec.coerceIn(
+            AppConfig.ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN,
+            AppConfig.ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX
+        )
+        val winner = RoutePassRanking.bestRungIndex(weight, toleranceSec, landedRungs.map { it.cost })
+            ?: return null
         return RouteRunningBest(landedRungs[winner].lookupId, landedRungs.size)
     }
 
@@ -553,7 +547,7 @@ class RouteAvoidEngine(
     /**
      * **One rung's fixed-λ solve** — the A* pass, the taut pull and the corner snap at [lambda], then
      * the fine pass, the forced-crossing probe and the answer. No budget loop: a rung is computed at
-     * its own λ and never corrected, so the slow-water budget stays demoted.
+     * its own λ and never corrected.
      */
     private suspend fun solveAtLambda(
         ctx: GridContext,
@@ -619,11 +613,6 @@ class RouteAvoidEngine(
             clockSampleM(ctx.cellM, ctx.fineCellM)
         )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
-        // The report's own reading: the seconds each limit's own water slowed, the band apart.
-        val slowLimits = slowTimeByLimit(
-            timedLine, ctx.pace, ctx.limitAt, inZone(ctx.zones), inBand(ctx.world),
-            AppConfig.routeAvoidZone300LimitKn
-        )
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
             ctx.startCell, ctx.aimCell, refined
@@ -641,14 +630,25 @@ class RouteAvoidEngine(
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
                 "forced=[${forced.joinToString(", ")}]"
         }
-        // The rung's own cost, exactly the figures the ranking reads: the zone share the answer already
-        // carries, the metres standing inside a priced zone's interior, and the settled clock.
-        val cost = RoutePassRanking.PassCost(
-            zoneShare = finalShares.zone,
-            zoneMetresM = zoneMetres(ctx.zones, timedLine.points),
-            durationSec = timedLine.durationSec
+        // The rung's own cost, exactly the figures the ranking reads: the seconds the line spends under a
+        // regulated limit and the settled clock. Both come from [rungSlowWater], the one expression that
+        // feeds the per-limit table the panel reads and the ramps that serve a limit into the slow-water
+        // seconds — the boat's own cornering floor standing outside both — so the wiring has one home and
+        // one fixture. The zone share and the zone metres are still settled for the report and are no
+        // longer ranking inputs.
+        val slowWater = rungSlowWater(
+            timed = timedLine,
+            paceKn = ctx.pace,
+            limitAt = ctx.limitAt,
+            inZone = inZone(ctx.zones),
+            inBand = inBand(ctx.world),
+            bandLimitKn = AppConfig.routeAvoidZone300LimitKn,
+            ceilingKnAt = rounded.ceilingKnAt
         )
-        return Rung(success(timedLine, forced, null, slowLimitSeconds = slowLimits), cost)
+        return Rung(
+            success(timedLine, forced, slowLimitSeconds = slowWater.byLimit),
+            slowWater.cost
+        )
     }
 
     /**
@@ -814,13 +814,12 @@ class RouteAvoidEngine(
 
     /**
      * The answer: the line the loop settled, **already timed** under the limits in force — one clock
-     * read serves the leg times, the per-leg speeds, the duration and the budget's own share, so none
-     * of them can disagree — plus the budget's verdict, set only where the **zone share** was missed.
+     * read serves the leg times, the per-leg speeds and the duration, so none of them can disagree — and
+     * the reading the cost site settled: the per-limit slow seconds the panel's Speed limits line reads.
      */
     private fun success(
         timed: TimedLine,
         forcedCrossingZoneNames: List<String>,
-        budgetUnmetZoneShare: Double?,
         distanceM: Double = lineLengthM(timed.points),
         durationSec: Double = timed.durationSec,
         slowLimitSeconds: List<RouteSlowLimit> = emptyList()
@@ -833,7 +832,6 @@ class RouteAvoidEngine(
         // The emitted polyline ends at the raw aim, never a resolved node: the pin stands where the
         // user dragged, and the snapped cell is only the search's anchor.
         destinationMoved = false,
-        budgetUnmetZoneShare = budgetUnmetZoneShare,
         forcedCrossingZoneNames = forcedCrossingZoneNames,
         slowLimitSeconds = slowLimitSeconds
     )
@@ -938,7 +936,7 @@ class RouteAvoidEngine(
         return total
     }
 
-    /** The metres of a timed line it runs slower than the pace over — the budget's own quantity, in metres. */
+    /** The metres of a timed line it runs slower than the pace over. */
     private fun slowMetres(timed: TimedLine, paceKn: Double): Double {
         val paceMps = Units.knotsToMps(paceKn)
         var total = 0.0
@@ -958,15 +956,15 @@ private data class Computation(
 ) {
     /** The λ this rung is solved at — the stop's own fixed value. */
     val lambda: Double get() = preference.lambda
-
-    /** This rung's ladder index — where a total tie falls back to. */
-    val rungIndex: Int get() = preference.index
 }
 
-/** One landed rung this arm: the lookup that owns its line, its ladder index and its own cost. */
+/**
+ * One landed rung this arm: the lookup that owns its line and its own cost. The rung's ladder index is
+ * no longer carried — it existed to settle a total tie in the rung nearest the preference, and the one
+ * sum decides the crown alone.
+ */
 private data class LandedRung(
     val lookupId: RouteId,
-    val ladderIndex: Int,
     val cost: RoutePassRanking.PassCost
 )
 
@@ -1004,6 +1002,44 @@ private class LadderGridHolder {
     val inFlight = AtomicInteger(0)
 }
 
+
+/**
+ * **One rung's slow-water reading, as the engine's own cost site settles it** — the per-limit table the
+ * panel reads ([slowTimeByLimit]: a ring's interior and the 300 m band, each leg charged the part of its
+ * own time that lies on that water) **plus** the ramps that serve a limit ([rampSlowSeconds], which that
+ * table charges to no entry at all), with the boat's own cornering floor standing outside both.
+ * [RungSlowWater.byLimit] is the table the answer publishes and [RungSlowWater.cost] the ranking's own
+ * figure, so the two can never be read off two different sums.
+ *
+ * This is the one expression the cost site uses, named so a fixture can pin **the engine's wiring** —
+ * that the table and the ramps really reach the weight the crown is read with — rather than re-deriving
+ * the sum beside it.
+ */
+internal fun rungSlowWater(
+    timed: TimedLine,
+    paceKn: Double,
+    limitAt: (LatLng) -> Double?,
+    inZone: (LatLng) -> Boolean,
+    inBand: (LatLng) -> Boolean,
+    bandLimitKn: Double,
+    ceilingKnAt: (LatLng) -> Double?
+): RungSlowWater {
+    val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn)
+    val ramps = rampSlowSeconds(timed, paceKn, inZone, inBand, ceilingKnAt)
+    return RungSlowWater(
+        byLimit = byLimit,
+        cost = RoutePassRanking.PassCost(
+            slowWaterSec = byLimit.sumOf { it.seconds } + ramps,
+            durationSec = timed.durationSec
+        )
+    )
+}
+
+/** One rung's slow-water reading: the per-limit table the panel reads, and the ranking's own cost. */
+internal data class RungSlowWater(
+    val byLimit: List<RouteSlowLimit>,
+    val cost: RoutePassRanking.PassCost
+)
 
 /** The repair's ring step (m) — a constant of the algorithm, not a key. */
 private const val REPAIR_STEP_M = 25.0

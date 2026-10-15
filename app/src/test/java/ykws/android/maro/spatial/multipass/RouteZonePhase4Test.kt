@@ -325,8 +325,7 @@ class RouteZonePhase4Test {
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(
             paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 33 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { world }
         )
 
@@ -344,8 +343,7 @@ class RouteZonePhase4Test {
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(
             paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 33 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { world }
         )
 
@@ -564,53 +562,6 @@ class RouteZonePhase4Test {
         LatLng(latNorth, lonWest),
         LatLng(latSouth, lonWest)
     )
-
-    // ── The budget ────────────────────────────────────────────────────────────
-
-    /**
-     * The loop's own exit, read where it is decided. A share **under** the band is met — a route
-     * already spending less slow water than it may — so the correction, which only ever raises λ,
-     * has nothing to chase; the band's top edge is still met; and above it the budget is missed.
-     */
-    @Test
-    fun theBudgetIsMetUnderItsBandAndMissedOnlyAboveIt() {
-        assertTrue("a share under the budget is met, and never chased", budgetMet(0.05, 33.0))
-        assertTrue("an overrun inside the band is met", budgetMet(0.33, 33.0))
-        assertTrue("the band's own predicate answers one reading of it", withinBudgetBand(0.30, 33.0))
-        assertTrue("a share just inside the band's top edge is met", budgetMet(0.39, 33.0))
-        assertFalse("above the band the budget is missed", budgetMet(0.40, 33.0))
-        assertFalse("a zero budget is missed by any slow water at all", budgetMet(0.01, 0.0))
-        assertTrue("and met by a line that spends none", budgetMet(0.0, 0.0))
-    }
-
-    /**
-     * The budget is demoted to an internal auto-pick criterion, so no rung ever reports a missed share
-     * on its answer — whatever the stored budget, the verdict field stays absent.
-     */
-    @Test
-    fun theDemotedBudgetReportsNoVerdict() = runBlocking {
-        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
-
-        val zeroBudget = RouteAvoidEngine(
-            paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 0 },
-            worldProvider = { ZoneWorld(listOf(zone)) }
-        )
-        val unmet = solve(zeroBudget, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)!!
-
-        val fullBudget = RouteAvoidEngine(
-            paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 100 },
-            worldProvider = { ZoneWorld(listOf(zone)) }
-        )
-        val met = solve(fullBudget, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)!!
-
-        assertNull("the demoted budget reports nothing under a zero budget", unmet.budgetUnmetZoneShare)
-        assertNull("and nothing under a full budget either", met.budgetUnmetZoneShare)
-    }
 
     /**
      * The probe's own mechanism, which §8's fix took off the second raster sweep: the copy that

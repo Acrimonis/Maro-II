@@ -222,9 +222,11 @@ class RouteSelectivePerfEvalTest {
      * family (P4.1) draws both layers from the fixture's **fixed depth-raster anchor** ([`LatticeAnchor`])
      * instead of the corridor's south-west corner, so every cell centre shifts by up to half a fine cell and
      * the shoreline and the shallow belt re-sample. The three counts below therefore moved **deliberately** —
-     * `priceReads` **7916 → 3135**, `marks` **7925 → 3141**, `expansions` **2650 → 2820** — and this is the
+     * `priceReads` **7916 → 3135**, `marks` **7925 → 3141**, `expansions` **2650 → 4074** — and this is the
      * one phase whose re-sampling may legitimately move them, so the pin is re-baselined rather than
-     * loosened.
+     * loosened. The `expansions` anchor carries a later move of its own: the shipped ladder λ (`best` 3.0,
+     * `fast` 1.0) now price the fast and best rungs, so the search expands more cells (`2820 → 4074`) while
+     * the line-driven `priceReads` and `marks` stay put.
      *
      * **The before-figure is the reproduced corridor anchor, not the recorded one.** `7916 / 7925 / 2650` is
      * what a corridor-anchor build reads on this fixture now — reproduced byte-for-byte on two runs, and the
@@ -236,7 +238,7 @@ class RouteSelectivePerfEvalTest {
      * **The pin is a tight band, not an exact value (D23).** The counts reproduce across runs on this
      * machine, but they ride three concurrent rungs behind a process-static [`SelectiveMaskCache`], so a
      * different JVM, worker count or cell ordering may legitimately move them by a cell. Each is therefore
-     * asserted within **±1 %** of its anchored value — `priceReads 3135`, `marks 3141`, `expansions 2820`
+     * asserted within **±1 %** of its anchored value — `priceReads 3135`, `marks 3141`, `expansions 4074`
      * — loose enough that a cross-environment run cannot redden. The band's teeth are `priceReads` and
      * `expansions`, which move with the walk and the search, so a real regression there still fails (D27);
      * `marks` is line-driven and shared by both plans, so a mask regression that cannot bend the straight
@@ -323,7 +325,7 @@ class RouteSelectivePerfEvalTest {
         )
         assertWithinOnePercent(
             "nor an expansion — the search is unmoved (corridor anchor read 2650)",
-            2820L,
+            4074L,
             selective.expansions.toLong()
         )
 
@@ -410,8 +412,7 @@ class RouteSelectivePerfEvalTest {
         val captured = Collections.synchronizedList(ArrayList<String>())
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { BeltWorld() },
             plan = plan,
             traceSink = { line -> captured += line }
@@ -477,7 +478,7 @@ class RouteSelectivePerfEvalTest {
         val pullPriceMs: Double,
         val pullMs: Double,
         val expansions: Int,
-        /** The published line's own length (m) — the shortest-clock rung, the one the preference keeps. */
+        /** The published line's own length (m) — read here as the shortest clocked `LINE`. */
         val lineDistanceM: Double,
         /** That same line's clocked duration (s). */
         val lineDurationSec: Double,
@@ -506,8 +507,8 @@ class RouteSelectivePerfEvalTest {
         val tileLines = lines.filter { it.startsWith("TILE built") }
         val pullLines = lines.filter { it.startsWith("PULL ") || it.startsWith("FINAL ") }
         val deviceLines = lines.filter { it.startsWith("DEVICE PASS") }
-        // Each rung emits its own settled `LINE`; the published answer is the rung the preference keeps,
-        // the FAST default's own choice — the shortest clocked line — read here without touching the flow.
+        // Each rung emits its own settled `LINE`; this harness reads the shortest clocked one as its
+        // stand-in for the ranking's winner, without touching the flow.
         val lineLines = lines.filter { it.startsWith("LINE ") }
         val published = lineLines.minByOrNull { metric(it)["duration"] ?: Double.MAX_VALUE }
         val record = lines.filter {

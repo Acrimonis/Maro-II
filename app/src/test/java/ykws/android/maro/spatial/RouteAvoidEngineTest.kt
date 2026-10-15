@@ -42,7 +42,6 @@ import ykws.android.maro.spatial.multipass.FineWaterQuery
 import ykws.android.maro.spatial.multipass.GridTile
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridPlan
-import ykws.android.maro.spatial.multipass.RoutePassRanking
 import ykws.android.maro.spatial.multipass.UniformGridPlan
 import ykws.android.maro.spatial.multipass.insideBandWidthM
 import ykws.android.maro.spatial.multipass.speedZonesInBox
@@ -75,12 +74,10 @@ class RouteAvoidEngineTest {
     private val marginM = AppConfig.routeAvoidObstacleMarginM
 
     private fun newEngine(
-        budgetPct: Int = AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
         world: () -> MultipassWorld = { FakeWorld() }
     ) = RouteAvoidEngine(
         paceKn = { paceKn },
-        aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-        slowWaterBudgetPct = { budgetPct },
+        verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
         worldProvider = world
     )
 
@@ -270,7 +267,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.45, 43.55, 7.015, 7.045))
         val world = FakeWorld(zones = listOf(zone))
-        val route = success(solve(newEngine(budgetPct = 100) { world }, origin, aim, rungIndex = 0))
+        val route = success(solve(newEngine { world }, origin, aim, rungIndex = 0))
 
         assertEquals("the forced crossing earns the doubled reach", 2, world.boxes.size)
         assertTrue("the grown answer's way around is kept", route.forcedCrossingZoneNames.isEmpty())
@@ -612,8 +609,8 @@ class RouteAvoidEngineTest {
      * clock's own arithmetic is the expectation: one boundary split, one cruise at the limit.
      *
      * **Its slow time is the band's, not a zone's.** All of the line's slowness lies in the band's width,
-     * so the **zone** share — the quantity the budget is keyed on — is zero, and the answer reports no
-     * unmet budget however slow the clock has become. The band's share lives on the trace instead.
+     * so the answer publishes the band's own entry alone — the band's limit and the seconds it cost,
+     * with no ring's among them — however slow the clock has become.
      */
     @Test
     fun theBandLimitSlowsTheClockWhateverThePriceSwitchSays() = runBlocking {
@@ -635,10 +632,15 @@ class RouteAvoidEngineTest {
 
         assertEquals("the price off, the line is the straight one", listOf(start, aim), off.points)
         assertEquals("and the clock still pays the band's own limit", bandSec, off.durationSec, 1e-6)
-        assertNull(
-            "a line whose slowness is all band reports zone share 0, so the budget is not unmet",
-            off.budgetUnmetZoneShare
+        assertEquals(
+            "the answer publishes one slow entry, the band's own",
+            1,
+            off.slowLimitSeconds.size
         )
+        val bandEntry = off.slowLimitSeconds.single()
+        assertTrue("and it stands for the band, at the band's own limit", bandEntry.isBand)
+        assertEquals("at the limit in force", bandLimitKn, bandEntry.limitKn, 1e-9)
+        assertEquals("for the band's own seconds", bandSec, bandEntry.seconds, 1e-6)
     }
 
     // ── The avoid fine cell, shipped in metres ──────────────────────────────────
@@ -790,8 +792,7 @@ class RouteAvoidEngineTest {
         val plan = CountingPlan()
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { FakeWorld() },
             plan = plan
         )
@@ -842,8 +843,7 @@ class RouteAvoidEngineTest {
         val cancelDelivered = CountDownLatch(1)
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { world },
             plan = EvolutiveGridPlan,
             traceSink = { line ->
@@ -947,8 +947,7 @@ class RouteAvoidEngineTest {
     fun aFailedBuildAnswersEveryAwaitingRungWithNoPath() = runBlocking {
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { FakeWorld() },
             traceSink = { line ->
                 if (line.startsWith("HARVEST")) throw IllegalStateException("injected build failure")
@@ -1012,8 +1011,7 @@ class RouteAvoidEngineTest {
         val terminals = Collections.synchronizedList(ArrayList<RouteUpdate>())
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { AppConfig.routeAvoidSpeedZoneTimeBudgetPct },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { FakeWorld() },
             traceSink = { line ->
                 captured += line
@@ -1064,37 +1062,8 @@ class RouteAvoidEngineTest {
         private const val SINK_FAILURE_MESSAGE = "injected healthy-terminal sink failure"
     }
 
-    // ── The λ loop's keep rule (Phase 3) ───────────────────────────────────────
-
-    /**
-     * The comparator's stated order, both outcomes and the tie-breaks: the smaller **zone share** wins
-     * even when the clock is worse, a pass that is faster but spends more time in a zone loses, and at
-     * an equal share the fewer in-zone metres win before the clock does.
-     */
-    @Test
-    fun theLoopKeepsTheBetterPassAndNeverTheLastOne() {
-        assertTrue(
-            "a corrective pass with a smaller zone share wins although it is slower on the clock",
-            RoutePassRanking.betterPass(
-                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0),
-                RoutePassRanking.PassCost(zoneShare = 0.40, zoneMetresM = 600.0, durationSec = 900.0)
-            )
-        )
-        assertFalse(
-            "a corrective pass that is faster but spends more time in a zone loses to the incumbent",
-            RoutePassRanking.betterPass(
-                RoutePassRanking.PassCost(zoneShare = 0.28, zoneMetresM = 850.0, durationSec = 900.0),
-                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 960.0)
-            )
-        )
-        assertTrue(
-            "at an equal share the fewer in-zone metres win, before the clock",
-            RoutePassRanking.betterPass(
-                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 700.0, durationSec = 990.0),
-                RoutePassRanking.PassCost(zoneShare = 0.25, zoneMetresM = 800.0, durationSec = 900.0)
-            )
-        )
-    }
+    // The λ loop's keep rule is gone with the budget gate it served: the crown is one sum now, decided in
+    // `RoutePassRanking` and pinned there, while this suite keeps the pipeline's own behaviour.
 
     // ── The crossing's line-end re-solve (D3) ──────────────────────────────────
 

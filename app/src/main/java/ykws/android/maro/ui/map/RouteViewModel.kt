@@ -69,11 +69,6 @@ data class RoutePlan(
     val distanceM: Double,
     val durationSec: Double,
     /**
-     * The **zone share** of the trip's own time, set only where the slow-water budget was missed —
-     * `null` means the line is inside the budget. Reported, never refused.
-     */
-    val budgetUnmetZoneShare: Double? = null,
-    /**
      * The priced speed zones the route had to enter, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
@@ -167,8 +162,8 @@ data class RoutePlan(
      * **The plan mirrored in place** (R99) — the *loss* mirror's transform: the same water read the
      * other way. [points] and [legTimesSec] reverse and the two ends exchange, while every settled
      * total rides unchanged — [distanceM], [durationSec], [destinationMoved], [computedAtMs],
-     * [budgetUnmetZoneShare], [forcedCrossingZoneNames] and [slowLimitSeconds] describe the line and
-     * not a read direction. Nothing is re-priced, so the drawn geometry and the route's clock stay
+     * [forcedCrossingZoneNames] and [slowLimitSeconds] describe the line and not a read direction.
+     * Nothing is re-priced, so the drawn geometry and the route's clock stay
      * exactly the bytes the engine answered.
      *
      * It is the plan's own single home for the transform, so no caller reverses a polyline itself and
@@ -193,7 +188,6 @@ data class RoutePlan(
                 legTimesSec = result.legTimesSec,
                 distanceM = result.distanceM,
                 durationSec = result.durationSec,
-                budgetUnmetZoneShare = result.budgetUnmetZoneShare,
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
                 computedAtMs = nowMs,
                 slowLimitSeconds = result.slowLimitSeconds
@@ -463,15 +457,10 @@ class RouteViewModel(
                         descriptionResId = computation.descriptionResId
                     )
                 }
-                // The Driving-preference names the ladder's initial rung — meaningful for its three
-                // pages alone; any other computation count keeps the main. The seat resolves through
-                // the ETA view, so while nothing has landed the preference's row stays highlighted as
-                // computing.
-                preferredRungIndex = if (_pages.value.size == ROUTE_LADDER_RUNG_COUNT) {
-                    routeRungIndex(settings.value.routeSlowWaterAversion.toDouble())
-                } else {
-                    MAIN_INDEX
-                }
+                // The seat stands on the main until the ranking names a winner: the verdict's dial is a
+                // weight over the finished lines and names no ladder rung (2026-10-15), so nothing else
+                // seeds it and the seat resolves through the ETA view while the rungs land.
+                preferredRungIndex = MAIN_INDEX
                 _selectedIndex.value = routeEtaSeatedIndex(_pages.value, preferredRungIndex)
                 _state.value = RouteState.Choosing(
                     start = start, plan = null, searching = true, asked = true, refusal = null
@@ -553,7 +542,7 @@ class RouteViewModel(
                 }
             }
             // The seat re-reads on every landing: the running best while the ranking has one, else the
-            // preference's rung — and never after a hand touch, which freezes it for good.
+            // main's slot — and never after a hand touch, which freezes it for good.
             if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
             syncChoosing(newPages)
             // Early select: once the committed main line lands, the mode follows it. A refusal
@@ -630,9 +619,8 @@ class RouteViewModel(
      */
     /**
      * **Where the seat belongs right now** — the running best's page when the engine has named one,
-     * otherwise the preference's rung through the ETA view. Read through `lookupPages`, so a winner
-     * whose page was folded away falls back to the preference's resolution and never parks on a
-     * missing page.
+     * otherwise the main's slot through the ETA view. Read through `lookupPages`, so a winner whose
+     * page was folded away falls back to the seat's own resolution and never parks on a missing page.
      */
     private fun seatTo(pages: List<RoutePage>): Int {
         val bestIndex = _runningBest.value?.let { lookupPages[it] }
@@ -679,7 +667,7 @@ class RouteViewModel(
 
     /**
      * **The fan's *Route auto* child** (R80) — **the final best**: the running best's live page, or the
-     * preference's seat where the winner's page was folded away. The one-shot waits for the settled
+     * seat's own resolution where the winner's page was folded away. The one-shot waits for the settled
      * set, so the winner it takes is the ranking's own rather than index 0 by construction.
      */
     fun selectBestRoute() {

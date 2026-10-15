@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
@@ -773,8 +774,7 @@ fun MapScreen(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
                     { viewModel.settings.value.routeFreeWaterPaceKn.toDouble() },
-                    { viewModel.settings.value.routeSlowWaterAversion.toDouble() },
-                    { viewModel.settings.value.routeSlowWaterBudgetPct },
+                    { viewModel.settings.value.verdictWeight },
                     avoidWorldProvider,
                     { viewModel.settings.value.routeMarkerStrength.toDouble() }
                 )
@@ -3278,10 +3278,10 @@ fun MapScreen(
                 routeTripFigure(
                     plan = following.plan,
                     from = routeBoatPosition,
-                    // The **configured** preference and the **set** pace — what the user chose, read
-                    // as the id and the figure the card prints rather than the literal.
-                    preferenceLabelResId = routeRungLabelRes(
-                        routeRungIndex(appSettings.routeSlowWaterAversion.toDouble())
+                    // The **configured** dial's own word and the **set** pace — what the user chose,
+                    // read as the word and the figure the card prints rather than the literal.
+                    preferenceLabel = verdictDialLabel(
+                        VerdictDial.ofIndex(appSettings.routeSlowWaterStop)
                     ),
                     paceKn = appSettings.routeFreeWaterPaceKn.toDouble()
                 )
@@ -3954,9 +3954,9 @@ fun MapScreen(
                 // settings — a second door onto them, never a second home.
                 paceKn = appSettings.routeFreeWaterPaceKn,
                 onPaceSelect = { kn -> viewModel.updateSettings { it.copy(routeFreeWaterPaceKn = kn) } },
-                preference = routeRungLambda(appSettings.routeSlowWaterAversion.toDouble()).toFloat(),
-                onPreferenceSelect = { lambda ->
-                    viewModel.updateSettings { it.copy(routeSlowWaterAversion = lambda) }
+                slowWaterStop = appSettings.routeSlowWaterStop.toFloat(),
+                onSlowWaterStopSelect = { stop ->
+                    viewModel.updateSettings { it.copy(routeSlowWaterStop = stop.roundToInt()) }
                 },
                 searching = routeSearching,
                 stageRes = routeStage?.labelResId,

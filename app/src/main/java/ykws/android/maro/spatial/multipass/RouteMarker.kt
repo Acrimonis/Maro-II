@@ -120,7 +120,7 @@ internal fun markerPriceSec(baseCostSec: Double, factor: Double): Double = baseC
 /**
  * **The one marker factor law** — the pace-free `m` a point's priced markers sum to: each priced
  * marker's `step × strength × wellFactor`, its body-and-collar shape scaled by the step and the user's
- * [strength]. It is **linear**, **λ-free** — a marker is a rule, not a Driving preference, so all three
+ * [strength]. It is **linear**, **λ-free** — a marker is a rule, not a rung's aversion, so all three
  * rungs price it alike — and it only ever **adds**, so no point's factor drops below zero and the A\*'s
  * closed set stays valid (the field's own invariant). The wall is never priced: a wall is law and stands
  * whatever [enabled] says.

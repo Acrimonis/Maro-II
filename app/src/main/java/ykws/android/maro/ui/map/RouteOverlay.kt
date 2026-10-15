@@ -1,6 +1,5 @@
 package ykws.android.maro.ui.map
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -9,8 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import kotlin.math.roundToInt
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.Track
 import ykws.android.maro.spatial.RouteId
@@ -18,7 +19,6 @@ import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
-import ykws.android.maro.spatial.multipass.RoutePreference
 import ykws.android.maro.ui.components.OptionRow
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,26 +347,20 @@ internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState, anyLanded:
 internal const val ROUTE_LADDER_RUNG_COUNT = 3
 
 /**
- * **The ladder's rung for a configured aversion** (D12) — the UI's half of a mapping the engine shares.
- * The thresholds and the three λ values live once, in [RoutePreference], so the Settings slider, the
- * drawer's quick access and the engine's own ranking cannot disagree about where a stop sits.
+ * **The verdict's dial read as its own word** — the chip the Settings row, the drawer's quick access and
+ * the followed trip line all print: `Fastest` at the weight 0 end, `1x … 4x` through the middle and
+ * `Ignore time` at the top. Every word is a `@StringRes` id read here, so both locales carry it and no
+ * model holds a literal — and the three surfaces cannot name the same stop differently.
  */
-internal fun routeRungIndex(aversionKn: Double): Int = RoutePreference.of(aversionKn).index
-
-/** **The λ a rung index carries** — read off [RoutePreference], the ladder's one home. */
-internal fun routeRungLambdaOf(index: Int): Double = RoutePreference.ofIndex(index).lambda
-
-/** The rung λ a configured aversion snaps to — [routeRungIndex] then [routeRungLambdaOf]. */
-internal fun routeRungLambda(aversionKn: Double): Double = RoutePreference.of(aversionKn).lambda
-
-/**
- * **The word a rung is read by** — `Fun` at the λ 5 end, `Best` at 2.5 and `Fast` at 0, read off
- * [RoutePreference] so the Settings page's slider and the drawer's quick access name a rung the same way.
- * It is the **preference family's** word (`route_computation_*`), naming an intent, and never the
- * acquisition row's own rung vocabulary (`route_rung_*`), which names where the line goes.
- */
-@StringRes
-internal fun routeRungLabelRes(index: Int): Int = RoutePreference.ofIndex(index).labelResId
+@Composable
+internal fun verdictDialLabel(stop: VerdictDial): String = when (stop) {
+    VerdictDial.FASTEST -> stringResource(R.string.settings_route_slow_water_fastest)
+    VerdictDial.IGNORE_TIME -> stringResource(R.string.settings_route_slow_water_ignore_time)
+    else -> stringResource(
+        R.string.settings_route_slow_water_value_fmt,
+        stop.weight!!.roundToInt().toString()
+    )
+}
 
 /**
  * **The page the seat stands on** — the preferred page when it holds a plan, otherwise the page
@@ -456,10 +450,11 @@ data class RouteTripFigure(
     val distanceNm: Double,
     val etaSeconds: Double,
     /**
-     * The **Driving preference's own word** as a `@StringRes` id — the ladder rung in force, carried as
-     * the id the card resolves rather than a literal. @see routeRungLabelRes
+     * The **verdict dial's own word** in force, already resolved — the stop the crown was weighed by,
+     * read through [verdictDialLabel] so the card prints the very chip the Settings row carries. @see
+     * verdictDialLabel
      */
-    val preferenceLabelResId: Int,
+    val preferenceLabel: String,
     /** The **cruising pace in force**, in knots — the set pace the plan was read at. */
     val paceKn: Double,
     /** When the plan the figure is read from was computed. */
@@ -477,14 +472,14 @@ data class RouteTripFigure(
 internal fun routeTripFigure(
     plan: RoutePlan,
     from: RoutePoint,
-    preferenceLabelResId: Int,
+    preferenceLabel: String,
     paceKn: Double
 ): RouteTripFigure {
     val remaining = plan.remainingFrom(from)
     return RouteTripFigure(
         distanceNm = Units.metresToNauticalMiles(remaining.distanceM),
         etaSeconds = remaining.durationSec,
-        preferenceLabelResId = preferenceLabelResId,
+        preferenceLabel = preferenceLabel,
         paceKn = paceKn,
         computedAtMs = plan.computedAtMs
     )

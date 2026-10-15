@@ -53,8 +53,7 @@ internal fun MapRouteEngineEffect(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
                     { settingsProvider().routeFreeWaterPaceKn.toDouble() },
-                    { settingsProvider().routeSlowWaterAversion.toDouble() },
-                    { settingsProvider().routeSlowWaterBudgetPct },
+                    { settingsProvider().verdictWeight },
                     avoidWorldProvider,
                     { settingsProvider().routeMarkerStrength.toDouble() }
                 )

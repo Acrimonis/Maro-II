@@ -125,3 +125,14 @@ than the whole engine:
 - Note for the next bake: `261008_FEAT_PLN_Route_anchored-tiles.md` was retired with **no closure section
   of its own** (neither `## Implemented` nor `## Outcome`), its floor being the feature's tile paragraph
   and `FEAT_DOC_Route_engines.md`.
+
+## Outcome
+
+Shipped as the plan's law, and its floor is the epic's own state: the well's core-to-collar fall-off with one
+`collarFactor` home and `boundaryDistanceM` measuring to the **outer** priced edge so the pull's group proof
+stays sound, a Pin projecting as a zero-radius body capped at the top price and never a wall,
+`markerStrength` and `markerPriceEnabled` made tile-key material, `markerProximityRangeM` the per-type
+proximity fallback's one home, and the wizard's cost step open for every type with `formCostForSave` the
+save's own rule. The owed engine-level fixture landed 2026-10-11 as `AvoidMarkerCostTest` and
+`RouteMarkerCostTest` was rewritten for the well. **Not settled here:** the device pass (R97), listed in the
+epic's owed passes.

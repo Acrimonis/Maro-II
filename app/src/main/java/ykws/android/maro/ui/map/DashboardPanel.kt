@@ -431,8 +431,8 @@ private fun distanceText(distanceM: Double): String {
  *
  * The remaining time is the tile's **main figure** — the bare ETA with its unit, read through
  * [routeEtaText] so the app keeps one ETA home rather than printing a second form here — standing over
- * one bottom line that carries the distance left, the Driving preference's own word and the cruising
- * pace in force (`R.string.route_trip_line_fmt`).
+ * one bottom line that carries the distance left, the verdict dial's own word and the cruising pace in
+ * force (`R.string.route_trip_line_fmt`).
  *
  * **There is no stale reading and no recompute here** (R13, R12): the standing line keeps its place and
  * is not marked, because stale means *replaced*, and the one door onto a recompute is the route panel's
@@ -449,7 +449,7 @@ private fun RouteTripCard(
     val subtitle = stringResource(
         R.string.route_trip_line_fmt,
         stringResource(R.string.route_trip_distance_nm, trip.distanceNm),
-        stringResource(trip.preferenceLabelResId),
+        trip.preferenceLabel,
         stringResource(R.string.settings_route_pace_value_fmt, trip.paceKn)
     )
 

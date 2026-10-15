@@ -5,6 +5,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.markers.UserMarker
@@ -215,12 +216,12 @@ data class RouteSummaryData(
     /** Writes a pace: the same value, on the same setting, as the Settings page's slider. */
     val onPaceSelect: (Float) -> Unit = {},
     /**
-     * The preference the quick access stands on, as its rung's λ, resolved the way the Settings page
-     * resolves it — so a stored value sitting between two rungs still lands the box on a rung.
+     * The verdict dial's own stop the quick access stands on — the weight the crown is weighed by, as its
+     * position on the dial's track, so the box shows the very stop the Settings row shows.
      */
-    val preference: Float = routeRungLambda(AppConfig.routeAvoidSpeedZoneSoftCostAversion).toFloat(),
-    /** Writes a preference rung's λ: the same value, on the same setting, as the Settings page's slider. */
-    val onPreferenceSelect: (Float) -> Unit = {},
+    val slowWaterStop: Float = VerdictDial.ofWeight(AppConfig.routeAvoidSlowWaterWeight).index.toFloat(),
+    /** Writes the dial's stop: the same value, on the same setting, as the Settings page's row. */
+    val onSlowWaterStopSelect: (Float) -> Unit = {},
 
     // ── The summary kept beside it (R67) ─────────────────────────────────────
     /** True while a search is in flight — the acquiring word's own gate, and the stage's. */

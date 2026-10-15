@@ -176,7 +176,7 @@ data class SlowShares(val zone: Double, val band: Double, val ramp: Double)
  * The read is taken off the **timed legs** and never off the rings, which is what makes a leg on the
  * way into a zone count too: any metre run below the pace is slow water, whether it lies inside a ring
  * or on the approach to one. It is the **total**; [slowShares] splits it by the water that slowed the
- * line, which is the reading the zone budget is keyed on.
+ * line.
  */
 fun zoneSlowShare(timed: TimedLine, paceKn: Double): Double {
     val total = timed.durationSec
@@ -199,8 +199,8 @@ fun zoneSlowShare(timed: TimedLine, paceKn: Double): Double {
  * The walk is the one [zoneSlowShare] makes, per timed leg: a leg's seconds beyond its own distance at
  * [paceKn] are charged to the water standing at the leg's **midpoint** — [inZone] or [inBand], the
  * caller's own reads of the ring interior and the band's width — and every other slow leg is a ramp.
- * The band's own slow time therefore no longer drives the zone budget, and a ramp is told apart from
- * the slow water it leads into.
+ * The band's own slow time is split from the ring's, and a ramp is told apart from the slow water it
+ * leads into.
  */
 fun slowShares(
     timed: TimedLine,
@@ -296,6 +296,52 @@ fun slowTimeByLimit(
 }
 
 /**
+ * **The seconds a line spends on the ramps that serve a limit** — the slow legs standing outside both a
+ * ring's interior and the band's own width, which [slowTimeByLimit] charges to **no** entry at all (a ramp
+ * is no limit's water), read apart so the verdict can count them while that table keeps reporting a
+ * limit's own water alone.
+ *
+ * A leg counts where the boat is slowed by a limit it is meeting and **not** by its own cornering: the
+ * boat's own floor is the corner pass's curvature ceiling — the very [ceilingKnAt] the profile is timed
+ * under — so a slow leg capped below the pace at either of its own ends is the boat's water and is left
+ * out, while a leg with no such cap is the ease down to, or the climb back from, a limit ahead or behind.
+ *
+ * A counted leg is charged **its own seconds**, [slowTimeByLimit]'s own *spent, not lost* reading, so the
+ * two figures the verdict adds are one currency and a ramp can never outweigh the water it serves. The
+ * walk is the one [slowShares] makes — per timed leg, its seconds beyond its own distance at [paceKn],
+ * with the leg's midpoint naming the water — so the three readings can never disagree about which leg is
+ * slow.
+ */
+internal fun rampSlowSeconds(
+    timed: TimedLine,
+    paceKn: Double,
+    inZone: (LatLng) -> Boolean,
+    inBand: (LatLng) -> Boolean,
+    ceilingKnAt: (LatLng) -> Double?
+): Double {
+    val legs = timed.legTimesSec.size
+    if (legs == 0 || paceKn <= 0.0) return 0.0
+    val paceMps = Units.knotsToMps(paceKn)
+    var total = 0.0
+    for (i in 0 until legs) {
+        val a = timed.points[i]
+        val b = timed.points[i + 1]
+        val dist = SpatialOperations.haversine(a, b)
+        if (timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
+        val mid = midpoint(a, b)
+        // The ring and the band are the table's own entries; charging them here would double-count them.
+        if (inZone(mid) || inBand(mid)) continue
+        if (cappedByTheBoat(ceilingKnAt, a, paceKn) || cappedByTheBoat(ceilingKnAt, b, paceKn)) continue
+        total += timed.legTimesSec[i]
+    }
+    return total
+}
+
+/** Whether the corner pass's own curvature ceiling on [p] stands below [paceKn] — the boat's own cap. */
+private fun cappedByTheBoat(ceilingKnAt: (LatLng) -> Double?, p: LatLng, paceKn: Double): Boolean =
+    readLimit(ceilingKnAt, p)?.let { it < paceKn } ?: false
+
+/**
  * The seconds of a leg `[a, b]` that lie inside [inside] — the leg's own [legSeconds] scaled by the
  * fraction of its [lengthM] the predicate holds over. The leg is walked in eight intervals; an interval
  * whose ends agree pays in full or not at all, and a crossing interval is bisected to the boundary so a
@@ -349,31 +395,6 @@ private fun bisectMembership(
 
 /** The limit key rounded to the nearest half knot, so float noise never splits one bucket in two. */
 private fun roundHalfKn(limitKn: Double): Double = kotlin.math.round(limitKn * 2.0) / 2.0
-
-/** The band the slow-water budget is read with: the tolerance a share sits inside, ±20 %. */
-const val ZONE_BUDGET_BAND = 0.20
-
-/**
- * True when [share] sits inside the budget's ±[ZONE_BUDGET_BAND] band.
- *
- * **Unread on any shipped path**: it was the correction loop's own exit, and the loop is gone — a rung is
- * solved at its own λ and never corrected, so the band is a reading and no longer a decision.
- */
-fun withinBudgetBand(share: Double, budgetPct: Double): Boolean {
-    val budget = budgetPct / 100.0
-    return share in (budget * (1.0 - ZONE_BUDGET_BAND))..(budget * (1.0 + ZONE_BUDGET_BAND))
-}
-
-/**
- * True when the budget is **met** — [share] stands inside the band or **below** it.
- *
- * **Unread on any shipped path**, like [withinBudgetBand] beside it: it was the correction loop's exit,
- * widened by the under-budget case so a route already spending less slow water than it may was kept
- * rather than chased. The loop is gone — each rung is solved at its own λ — so the budget stands as Best's
- * ranking gate alone.
- */
-fun budgetMet(share: Double, budgetPct: Double): Boolean =
-    withinBudgetBand(share, budgetPct) || share < (budgetPct / 100.0) * (1.0 - ZONE_BUDGET_BAND)
 
 /**
  * The **smooth speed profile** — [waypoints] re-vertexed at limit changes, then solved point by point

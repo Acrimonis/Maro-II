@@ -35,7 +35,7 @@ The types on the seam, all in the same file:
 - `RouteStepReading(stage, labelResId, value, unitResId)` — one figure a stage reports about **its own** work.
 
 **The registry** is [`RouteEngineChoice`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt):
-one row per algorithm (`id`, `labelResId`, a factory taking the pace, aversion, budget and world providers),
+one row per algorithm (`id`, `labelResId`, a factory taking the pace, the verdict's weight, the marker strength and the world providers),
 `all` in menu order, and `resolve(id)` answering the shipped default for an id nothing claims. A new algorithm
 is one row there plus one class implementing `RouteEngine`.
 
@@ -62,16 +62,18 @@ own** — `route.avoid.ladder.around|best|fast.lambda` in `maro.properties`, rea
 they are the ladder's one lever and the file is where every value lives. The first rung is the **main** and the
 only one that narrates the stage line; every other rung publishes its terminal update alone, plus the
 provisional pair it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and
-never corrected, so the aversion the user sets (`route.avoid.speedZone.softCostAversion`) does nothing but name
-which of the three the ranking leads on.
+never corrected, so the λ decide which line each rung drew and the crown is decided apart, by the verdict's
+own weight below.
 
 **The rungs are ranked, and the winner rides the terminal.** At every rung's terminal the engine folds the
 settled costs of the rungs that have landed through [`RoutePassRanking`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt)
-under the Driving preference: **Fast** leads on the trip's total time, **Best** on the total time provided the
-zone share stays within `route.avoid.speedZone.timeBudgetPct`, and **Fun** on the absolute zone seconds — the
-clock entering only as the last resort. One shared tail settles a lead tie, and a total tie falls to the rung
-nearest the preference. The result travels as `RouteRunningBest` on the terminal update: a **running best**,
-not a verdict, so a surface reads *so far, the winner is…* until the last rung lands.
+under the **verdict's own weight** — the user's stop on the dial
+([`VerdictDial`](../../app/src/main/java/ykws/android/maro/config/VerdictDial.kt), `route.avoid.slowWater.weight`):
+the crown is one sum, `trip time + weight × slow-water seconds`, the lowest winning, its *Ignore time* stop
+weighing the slow seconds alone and a tie tolerance (`route.avoid.ladder.tieToleranceSec`) guarding the flip.
+The λ name which line each rung drew, never which rung leads. The result travels as `RouteRunningBest` on the
+terminal update: a **running best**, not a verdict, so a surface reads *so far, the winner is…* until the last
+rung lands.
 
 ## The pipeline
 
@@ -183,7 +185,7 @@ starts under the family that owns it:
 | `route.avoid.obstacle.marginM` | The clearance margin around every edge |
 | `route.avoid.depthGate.*` | The gate's switch and its minimum depth |
 | `route.avoid.zone300.*` | The band's width, limit, outside margin, price fraction and switch |
-| `route.avoid.speedZone.*` | The zones' switch, outside margin, price fraction, aversion and budget |
+| `route.avoid.speedZone.*` | The zones' switch, outside margin and price fraction |
 | `route.evolutive.grid.cellM`, `route.evolutive.grid.fineCellM` | `evolutive`'s two layers |
 | `route.selective.grid.cellM`, `route.selective.grid.fineCellM` | `selective`'s two layers |
 | `route.selective.shore.collarM`, `route.selective.band.collarM`, `route.selective.zone.rimM`, `route.selective.depth.collarM` | The four selective collars, one width each |
@@ -198,7 +200,6 @@ starts under the family that owns it:
 
 Current state, not history — these are the open facts a reader should not be surprised by:
 
-- The engine's `aversionKn` and `slowWaterBudgetPct` providers are **live**: the first names the ranking's stop, the second is Best's gate. Those are their only readers, and the ranking's tail (`betterPass`) has its one caller.
 - **The fine layer's marker base is the fine lattice's own** — the tile's field prices its markers at the unit base and `writeInto` re-applies the fine base, where the per-arm coarse field priced them at the coarse base. On a world **with priced markers** the drawn line can therefore move where the fine layer decides; **on marker-free water nothing moves** (the harness's line is unmoved). The device pass is owed to see a marker-priced fine line.
 - `FineTileMap.hitRate` still has **no production reader**: the `STORE` lines are the reading a pass has today, and an arm-end cache line (`hits`/`misses`/`rate`/`bytes`) would close the older finding.
 - `LineDeviation.kt` and the `route.evolutive.fine.corridorHalfWidthM` key are **unread** by any shipped path.

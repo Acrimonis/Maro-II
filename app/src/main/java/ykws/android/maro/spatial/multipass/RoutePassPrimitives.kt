@@ -122,7 +122,35 @@ internal fun costField(
                     max(bandPrice, zonePrice)
                 },
                 // The guard reads a price, never a cell's tag, so one arm's tag stands for both.
-                tag = MultipassCellState.ZONE
+                tag = MultipassCellState.ZONE,
+                // **The arm a report names.** The source's own price is the two arms' `max`, so it
+                // answers the **winner** alone: reporting both would make the arms sum past the price
+                // they decompose. The tie goes to the band, exactly as the price's own `max` does.
+                armAt = { p ->
+                    val bandPrice =
+                        if (bandPriced && bandSec > 0.0) {
+                            bandPriceAt(
+                                bandM, bandOutsideMarginM, bandSec, bandFraction,
+                                world.distanceToCoastM(p.latitude, p.longitude)
+                            )
+                        } else {
+                            0.0
+                        }
+                    val zonePrice =
+                        if (zonesPriced) {
+                            val interiorLimit =
+                                strictestLimitKnAt(scopedZones, emptySet(), p.latitude, p.longitude)
+                            val collarLimit = speedZoneCollarLimitKnAt(
+                                scopedZones, emptySet(), p.latitude, p.longitude, zoneOutsideMarginM
+                            )
+                            zonePriceAtLimits(
+                                cellM, pace, interiorLimit ?: 0.0, collarLimit ?: 0.0, lambda, zoneFraction
+                            )
+                        } else {
+                            0.0
+                        }
+                    if (bandPrice >= zonePrice) PriceArm.BAND to bandPrice else PriceArm.ZONE to zonePrice
+                }
             )
         )
     }
@@ -140,7 +168,11 @@ internal fun costField(
                     DepthBandLaw.priceSec(cellM, coef, lambda)
                 },
                 tag = MultipassCellState.BAND,
-                clearanceAt = { 0.0 }
+                clearanceAt = { 0.0 },
+                armAt = { p ->
+                    val coef = DepthBandLaw.coefAt(p, depthBand.blockedAt, depthBand.stepM, depthBand.bandM)
+                    PriceArm.DEPTH to DepthBandLaw.priceSec(cellM, coef, lambda)
+                }
             )
         )
     }
@@ -155,7 +187,7 @@ internal fun costField(
             AppConfig.routeMarkerEnabled
         )
     )
-    return RouteCostField(sources)
+    return RouteCostField(sources, cellM)
 }
 
 /**

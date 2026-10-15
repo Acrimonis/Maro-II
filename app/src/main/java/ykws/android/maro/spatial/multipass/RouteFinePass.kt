@@ -101,14 +101,21 @@ internal class RouteFinePass {
         }
         val snapped = snapToCorners(setup, sets, pulled)
         val finalTiming = PullTiming()
-        val settled = MultipassPull.pull(setup, snapped, refusals, finalTiming)
+        // The settled walk's own memo, held here so the sweep below shares it and answers a retraced mark
+        // rather than paying it again — the walk's context and memo, reused unchanged.
+        val settledMemo = MarkMemo()
+        val settled = MultipassPull.pull(setup, snapped, refusals, finalTiming, settledMemo)
+        // The settled line then carries its own lookback: the removable-vertex sweep drops every bend the
+        // pull's own two proofs clear, gated on the line's own refusals, so the corner pass consumes the
+        // genuinely taut line rather than the forward-only greedy's first-refusal keep.
+        val swept = MultipassPull.sweep(setup, settled, refusals, finalTiming, settledMemo, trace)
         trace {
-            "FINE settled points=${settled.size} fineCell=${fmt(fineCellM)}m " +
+            "FINE settled points=${swept.size} fineCell=${fmt(fineCellM)}m " +
                 "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +
                 "memoPriceHits=${finalTiming.memoPriceHits} " +
                 "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
         }
-        return settled
+        return swept
     }
 
     /**

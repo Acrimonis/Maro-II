@@ -736,7 +736,7 @@
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
-    <!-- The followed trip's one bottom line: the distance left, the Driving preference's word and the
+    <!-- The followed trip's one bottom line: the distance left, the verdict dial's word and the
          cruising pace in force, joined by one format so the separators stay localisable. -->
     <string name="route_trip_line_fmt">%1$s · %2$s @ %3$s</string>
     <string name="route_summary_distance_value_fmt">%1$.1f</string>
@@ -756,19 +756,17 @@
     <string name="route_value_pending">--</string>
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
-    <!-- The budget's own verdict: a way around exists and the price could not reach it. Reported,
-         never a refusal — nothing is hidden while it stands. -->
-    <string name="route_budget_unmet">Slow-water budget not met</string>
-    <string name="route_budget_unmet_desc">The route spends more of its time slowed by speed zones than the budget allows.</string>
     <string name="settings_route_pace_label">Cruising speed</string>
     <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
-    <string name="settings_route_preference_label">Driving preference</string>
-    <string name="settings_route_preference_desc">Which route is picked first: around slow water, the quickest line that still stays under the slow-water budget, or straight through it.</string>
-    <!-- Best's gate: the ratio of a trip's own time a speed zone may slow before the cleaner route wins. -->
-    <string name="settings_section_route_budget">Slow-water budget</string>
-    <string name="settings_route_budget_label">Budget</string>
-    <string name="settings_route_budget_desc">The share of the trip Best lets speed zones slow before the cleaner route wins. 0 keeps only zone-free lines; 100 lets the clock decide.</string>
+    <!-- The verdict's dial: how much a second in slow water counts against a second of driving. Its stops
+         are the weight's own chips and the track's two ends, and its top stop is the sentinel that weighs
+         the slow seconds alone — named, never numbered. -->
+    <string name="settings_route_slow_water_label">Slow water</string>
+    <string name="settings_route_slow_water_desc">How much a minute in slow water counts against a minute of driving. Fastest ignores it; Ignore time counts nothing else.</string>
+    <string name="settings_route_slow_water_value_fmt">%1$sx</string>
+    <string name="settings_route_slow_water_fastest">Fastest</string>
+    <string name="settings_route_slow_water_ignore_time">Ignore time</string>
     <string name="settings_section_route_marker">Marker pricing</string>
     <string name="settings_route_marker_strength_label">Marker strength</string>
     <string name="settings_route_marker_strength_desc">How strongly a costed marker pushes the route away from its zone. A blocked marker is a wall and ignores this.</string>
@@ -786,13 +784,8 @@
     <string name="route_reading_pulled_points">Pulled points</string>
     <string name="route_unit_cells">cells</string>
     <string name="route_unit_points">points</string>
-    <!-- The settings' hurry-versus-fun labels for the three ladder rungs — the same three aversions the
-         acquisition's first column names in its own vocabulary. -->
-    <string name="route_computation_through">Fast</string>
-    <string name="route_computation_balanced">Best</string>
-    <string name="route_computation_around">Fun</string>
     <!-- The acquisition's first-column rung labels — the three fixed aversions named short, kept apart
-         from the settings' own hurry-versus-fun words above. -->
+         from the settings' own words for the verdict's dial above. -->
     <string name="route_rung_through">Coastal</string>
     <string name="route_rung_balanced">Balanced</string>
     <string name="route_rung_around">Around</string>

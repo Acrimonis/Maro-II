@@ -1,114 +1,91 @@
 package ykws.android.maro.spatial.multipass
 
-import kotlin.math.abs
-
 /**
- * **The ladder's ranking, pure and total** — the preference-aware rule that tells which of the rungs
- * that have landed delivers the intent the user asked for, lifted out of the pass pipeline so the
- * comparison is a named seat of its own: a set of settled rung costs ranks, with no grid, world or
- * trace in hand.
+ * **The ladder's ranking, one rate and one sum** — the rule that tells which of the rungs that have
+ * landed delivers the intent the user asked for, lifted out of the pass pipeline so the comparison is a
+ * named seat of its own: a set of settled rung costs ranks, with no grid, world or trace in hand.
  *
- * **The preference states an intent, the ranking answers which rung serves it** ([RoutePreference]):
- * - **Fast** leads on the **trip's total time** — the shortest trip wins outright.
- * - **Best** leads on the **total time provided the zone share stays within the budget**; a rung over
- *   the budget is beaten by the smaller share, so the budget is a gate and the clock decides under it.
- * - **Fun** leads on the **absolute zone seconds** — the time slowed by zones, however long the trip
- *   takes — and weighs the clock only as the last resort.
+ * **The crown is one line of arithmetic a reader can do on the card's own figures**:
+ * `score = trip time + weight × slow-water seconds`, the lowest score winning — so the weight states
+ * that one second spent under a regulated limit is worth `1 + weight` ordinary seconds. Both ends fall
+ * out of that one formula: a weight of 0 crowns the genuinely fastest line, and the dial's top stop
+ * carries **no weight at all** — a `null` weight, the dial's own sentinel ([VerdictDial.IGNORE_TIME]) —
+ * and weighs the slow seconds alone.
  *
- * Whatever the lead, a tie walks **one shared tail**: the remaining criteria in [betterPass]'s own
- * order, so the three stops differ only in what leads and never in how a lead tie is settled; and a
- * total tie falls to the rung **nearest the preference**.
+ * **What this seat no longer reads (2026-10-15).** The rule it replaces led on three measures — the total
+ * time, the total time *inside* the slow-water budget, and the absolute zone seconds — and settled a lead
+ * tie on a shared tail, so the ranking read a **ring share**, a **ring metre** count and the **clock**,
+ * and a total tie fell to the rung nearest the preference. The budget is no longer a gate, the share and
+ * the metre figures are no longer ranking inputs, and the nearest-preference tie-break is gone with them:
+ * the share survives as a reading published on the line, and a ring's own slow seconds reach the crown
+ * inside [PassCost.slowWaterSec] alone, weighed exactly like every other limit's.
+ *
+ * **A tolerance, or the crown flaps.** Nearly every line carries some slow seconds, so a rung takes the
+ * crown only where it leads the one holding it by **more** than [bestRungIndex]'s tolerance: a smaller
+ * difference is noise between two lines the boat is driven much the same way, and leaves the crown where
+ * it stands. Both figures arrive as parameters, because both are preferences — where they come from is
+ * the engine's business and never this seat's.
  */
 internal object RoutePassRanking {
 
     /**
-     * **The ladder's shared tail** — one rung against another, in a **stated order**: the **smaller zone
-     * share** first, because that is the quantity a dearer λ is there to buy down; then the **fewer metres
-     * inside a zone**, the same objective read in metres rather than in seconds; and only then the
-     * **shorter clock**, so the rung carrying the cleaner water keeps its longer line. Pure and total, so a
-     * pair of rungs ranks with no grid, world or trace in hand.
-     */
-    internal fun betterPass(candidate: PassCost, incumbent: PassCost): Boolean {
-        if (candidate.zoneShare != incumbent.zoneShare) return candidate.zoneShare < incumbent.zoneShare
-        if (candidate.zoneMetresM != incumbent.zoneMetresM) return candidate.zoneMetresM < incumbent.zoneMetresM
-        return candidate.durationSec < incumbent.durationSec
-    }
-
-    /**
-     * **One pass's own three figures, in [betterPass]'s own order** — the comparator's whole input. The
-     * absolute seconds Fun leads on are derivable from them ([zoneSeconds]) rather than a fourth field,
-     * so the engine needs no extra plumbing to rank by the time a line spends slowed.
+     * **One pass's own two figures** — the comparator's whole input, as the engine settles them: the
+     * seconds the line spends under a regulated limit, and its clock.
      */
     internal data class PassCost(
-        /** The pass line's **zone share** — the share of its own time spent inside a priced zone. */
-        val zoneShare: Double,
-        /** The pass line's own metres standing inside a priced zone's interior. */
-        val zoneMetresM: Double,
+        /**
+         * The seconds the pass line spends under a regulated limit — a ring's interior, the 300 m band,
+         * and the ramps that serve a limit; the boat's own cornering floor is the boat's own water and
+         * stands **outside** the figure. These are **plain seconds read off the timed legs**, never the
+         * physics excess the drawing prices, so the verdict and the drawn line differ on purpose: the
+         * drawing pays what the slow water costs over the pace, the crown counts how long the boat is
+         * under a limit.
+         *
+         * Every limit's **severity stands at 1.0** — this hop reads no severity table — so the weighted
+         * total the score weighs **is** this figure.
+         */
+        val slowWaterSec: Double,
         /** The pass line's own clock, in seconds. */
         val durationSec: Double
-    ) {
-        /** The absolute seconds this line spends slowed by zones — [zoneShare] read in seconds. */
-        val zoneSeconds: Double get() = zoneShare * durationSec
-    }
-
-    /** **One landed rung as the ranking reads it** — its ladder index and its own cost. */
-    internal data class RungCost(val ladderIndex: Int, val cost: PassCost)
+    )
 
     /**
-     * **The winner among the rungs that have landed**, as its position in [rungs] — or `null` where
-     * nothing has landed. The rungs arrive in the order they settled; each carries its own ladder index
-     * so a total tie can fall to the rung nearest [preference] whatever order they landed in.
+     * **The winner among the rungs that have landed**, as its position in [costs] — or `null` where
+     * nothing has landed. The rungs arrive in the order they settled and the fold is one walk: a rung
+     * takes the lead from the one holding it only where it leads by more than [toleranceSec], so the
+     * **first** of two lines the boat is driven the same way keeps the crown. [weight] is the dial's own
+     * stop's weight, its top stop's `null` included.
      */
-    internal fun bestRungIndex(
-        preference: RoutePreference,
-        budgetPct: Int,
-        rungs: List<RungCost>
-    ): Int? {
-        if (rungs.isEmpty()) return null
+    internal fun bestRungIndex(weight: Double?, toleranceSec: Double, costs: List<PassCost>): Int? {
+        if (costs.isEmpty()) return null
         var best = 0
-        for (i in 1 until rungs.size) {
-            if (beats(preference, budgetPct, rungs[i], rungs[best])) best = i
+        for (i in 1 until costs.size) {
+            if (beats(weight, toleranceSec, costs[i], costs[best])) best = i
         }
         return best
     }
 
-    /** Whether [cand] beats [inc] under the preference's lead, then the shared tail, then the tie. */
-    private fun beats(preference: RoutePreference, budgetPct: Int, cand: RungCost, inc: RungCost): Boolean {
-        val lead = leadCompare(preference, budgetPct, cand.cost, inc.cost)
-        if (lead != 0) return lead < 0
-        if (betterPass(cand.cost, inc.cost)) return true
-        if (betterPass(inc.cost, cand.cost)) return false
-        return abs(cand.ladderIndex - preference.index) < abs(inc.ladderIndex - preference.index)
-    }
-
-    /** The preference's own lead criterion, or 0 where the two are level on it. */
-    private fun leadCompare(
-        preference: RoutePreference,
-        budgetPct: Int,
-        cand: PassCost,
-        inc: PassCost
-    ): Int = when (preference) {
-        RoutePreference.FAST -> cmp(cand.durationSec, inc.durationSec)
-        RoutePreference.AROUND -> cmp(cand.zoneSeconds, inc.zoneSeconds)
-        RoutePreference.BEST -> {
-            // The budget is a gate: a rung inside it beats one over it whatever the clock; among rungs
-            // on the same side of the gate the clock decides, and outside it the smaller share does.
-            val gate = budgetPct / 100.0
-            val candIn = cand.zoneShare <= gate
-            val incIn = inc.zoneShare <= gate
-            when {
-                candIn && !incIn -> -1
-                !candIn && incIn -> 1
-                candIn -> cmp(cand.durationSec, inc.durationSec)
-                else -> cmp(cand.zoneShare, inc.zoneShare)
-            }
+    /**
+     * Whether [candidate] takes the crown from [incumbent] under [weight] **and** the [toleranceSec]
+     * that guards the flip: a candidate leading by less than the tolerance leaves the incumbent standing,
+     * whatever measure the stop leads on.
+     *
+     * A `null` [weight] is the dial's **ignore-time** stop, and here it is the comparator's own special
+     * case: the slow-water seconds decide alone, so a candidate ahead of the incumbent by more than the
+     * tolerance takes the crown, one behind it by more than the tolerance does not, and only an **exact**
+     * tie in the slow seconds falls through to the clock — which the other stops' sum never needs, since
+     * its own figure carries the clock already.
+     */
+    private fun beats(weight: Double?, toleranceSec: Double, candidate: PassCost, incumbent: PassCost): Boolean {
+        if (weight == null) {
+            val margin = incumbent.slowWaterSec - candidate.slowWaterSec
+            if (margin > toleranceSec) return true
+            if (margin < -toleranceSec) return false
+            return margin == 0.0 && candidate.durationSec < incumbent.durationSec
         }
+        return incumbent.score(weight) - candidate.score(weight) > toleranceSec
     }
 
-    /** Three-way compare of two figures: -1 where [a] is smaller, 1 where larger, 0 where level. */
-    private fun cmp(a: Double, b: Double): Int = when {
-        a < b -> -1
-        a > b -> 1
-        else -> 0
-    }
+    /** **The one figure the crown is decided on** — the trip time plus the weight times the slow seconds. */
+    private fun PassCost.score(weight: Double): Double = durationSec + weight * slowWaterSec
 }

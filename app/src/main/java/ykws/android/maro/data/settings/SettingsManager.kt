@@ -2,10 +2,12 @@ package ykws.android.maro.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import ykws.android.maro.BuildConfig
+import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.regulation.ZoneDisplayCategory
 
@@ -151,23 +153,16 @@ data class AppSettings(
      */
     val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
     /**
-     * The **Driving preference** (0–5), seeded from `route.avoid.speedZone.softCostAversion`, so the
-     * property stays the value's one home and the shipped 4 is the day-one value until the user moves the
-     * dial. It is the ladder's **seat**, not its lever: the dial names which of the three rungs the ranking
-     * leads on, while every rung is solved at its own λ (`route.avoid.ladder.*.lambda`) — so the value
-     * chooses between the three acquisitions of one arming and prices no cell of any of them.
+     * **The verdict's dial's own stop** — the slow-water weight the crown is weighed by, held as its
+     * position on the dial's own track ([VerdictDial]: 0 *Fastest*, 1x, 2x, 3x, 4x, 5 *Ignore time*). One
+     * stored value, clamped on read like every other bounded slider, and seeded from
+     * `route.avoid.slowWater.weight` — the weight's one home, so a shipped default keeps the crown it
+     * ships with. It is the crown's own preference and prices no cell: every rung is solved at its own λ
+     * (`route.avoid.ladder.*.lambda`), so the weight weighs the lines already drawn.
      */
-    val routeSlowWaterAversion: Float =
-        ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneSoftCostAversion.toFloat(),
-    /**
-     * The **slow-water budget** (per cent of a trip, 0–100) — **Best's gate**, seeded from
-     * `route.avoid.speedZone.timeBudgetPct`, so the property stays the value's one home. A rung whose zone
-     * share stays under it is led on the clock; one over it is beaten by the smaller share. Nothing
-     * re-solves toward it, and how much slow water a trip may use being a preference rather than a tuning
-     * constant is why it carries a Settings row of its own.
-     */
-    val routeSlowWaterBudgetPct: Int =
-        ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct,
+    val routeSlowWaterStop: Int = VerdictDial.ofWeight(
+        ykws.android.maro.config.AppConfig.routeAvoidSlowWaterWeight
+    ).index,
     /**
      * The **marker price's strength** — the linear factor the marker law scales the base per-metre cost
      * by (`base × step × strength`), seeded from `route.marker.costPerStep` so the property stays the
@@ -467,6 +462,13 @@ data class AppSettings(
     /** Boat position from screen bottom at full offset (%). 50=centered, 33=default, 5=extreme forward. */
     val mapOffsetBoatFromBottomPct: Int = 33,
 ) {
+    /**
+     * **The weight the dial's stored stop reads** — the ranking's own input: the stop's own number, or
+     * `null` on the *Ignore time* stop, which carries no weight at all and weighs the slow seconds alone.
+     */
+    val verdictWeight: Double?
+        get() = VerdictDial.ofIndex(routeSlowWaterStop).weight
+
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
         ZoneDisplayCategory.NO_ANCHOR -> showCategoryNoAnchor
@@ -544,6 +546,37 @@ class SettingsManager(
             .apply()
         return legacy
     }
+
+    /**
+     * **The dial's stored stop, clamped on read like every other bounded slider** — and the one place a
+     * store written before the dial existed is understood. A store from the retired **Driving preference**
+     * holds the old aversion cursor (0–5, the retired property's own span) under its own key; it is mapped
+     * onto the new stops through the very bridge the ranking used to read, so an upgrade moves no behaviour
+     * by itself and no migration step is needed — nothing is rewritten, the old key is simply read while it
+     * stands.
+     */
+    private fun resolveSlowWaterStop(): Int {
+        val default =
+            VerdictDial.ofWeight(ykws.android.maro.config.AppConfig.routeAvoidSlowWaterWeight).index
+        if (prefs.contains(KEY_ROUTE_SLOW_WATER_STOP)) {
+            return prefs.getInt(KEY_ROUTE_SLOW_WATER_STOP, default)
+                .coerceIn(0, VerdictDial.stops.lastIndex)
+        }
+        val legacyAversion = prefs.getFloat(KEY_ROUTE_SLOW_WATER_AVERSION_LEGACY, Float.NaN)
+        if (legacyAversion.isNaN()) return default
+        return legacyStopOf(legacyAversion)
+    }
+
+    /**
+     * **The retired bridge, kept for this read alone** — the old cursor spread evenly over the retired
+     * five stops (1x, 2x, 3x, 4x and the sentinel) and shifted one place along the new six-stop track,
+     * whose weight 0 stop the bridge could not reach. A cursor sitting between two retired stops lands on
+     * the same weight it used to read, which is what keeps an upgrade behaviour-neutral.
+     */
+    private fun legacyStopOf(aversion: Float): Int =
+        (aversion / LEGACY_AVERSION_SPAN * LEGACY_VERDICT_LAST_INDEX)
+            .roundToInt()
+            .coerceIn(0, LEGACY_VERDICT_LAST_INDEX) + 1
 
     private fun load(): AppSettings = AppSettings(
         defaultLatitude  = prefs.getFloat(KEY_DEFAULT_LAT, 43.55f).toDouble(),
@@ -630,20 +663,8 @@ class SettingsManager(
             KEY_ROUTE_FREE_WATER_PACE_KN,
             ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn
         ).let { ykws.android.maro.config.AppConfig.snapFreeWaterPaceKn(it) },
-        routeSlowWaterAversion = prefs.getFloat(
-            KEY_ROUTE_SLOW_WATER_AVERSION,
-            ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneSoftCostAversion.toFloat()
-        ).coerceIn(
-            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_AVERSION_MIN.toFloat(),
-            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_AVERSION_MAX.toFloat()
-        ),
-        routeSlowWaterBudgetPct = prefs.getInt(
-            KEY_ROUTE_SLOW_WATER_BUDGET_PCT,
-            ykws.android.maro.config.AppConfig.routeAvoidSpeedZoneTimeBudgetPct
-        ).coerceIn(
-            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MIN,
-            ykws.android.maro.config.AppConfig.ROUTE_SLOW_WATER_BUDGET_PCT_MAX
-        ),
+        // The dial's one stored value, clamped on read — and the one place a pre-dial store is mapped.
+        routeSlowWaterStop = resolveSlowWaterStop(),
         routeMarkerStrength = prefs.getFloat(
             KEY_ROUTE_MARKER_STRENGTH,
             ykws.android.maro.config.AppConfig.routeMarkerCostPerStep.toFloat()
@@ -868,8 +889,7 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
-            .putFloat(KEY_ROUTE_SLOW_WATER_AVERSION, updated.routeSlowWaterAversion)
-            .putInt(KEY_ROUTE_SLOW_WATER_BUDGET_PCT, updated.routeSlowWaterBudgetPct)
+            .putInt(KEY_ROUTE_SLOW_WATER_STOP, updated.routeSlowWaterStop)
             .putFloat(KEY_ROUTE_MARKER_STRENGTH, updated.routeMarkerStrength)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
@@ -1067,10 +1087,17 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
         private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
-        /** The persisted Driving preference (0–5), seeded from `route.avoid.speedZone.softCostAversion`. */
-        private const val KEY_ROUTE_SLOW_WATER_AVERSION = "route_slow_water_aversion"
-        /** The persisted slow-water budget (per cent), seeded from `route.avoid.speedZone.timeBudgetPct`. */
-        private const val KEY_ROUTE_SLOW_WATER_BUDGET_PCT = "route_slow_water_budget_pct"
+        /** The persisted dial stop (0–5), seeded from `route.avoid.slowWater.weight`. */
+        private const val KEY_ROUTE_SLOW_WATER_STOP = "route_slow_water_stop"
+        /**
+         * The **retired** Driving preference's own key — read once while a store still carries it, so an
+         * upgrade lands on the stop the old bridge would have read, and never written again.
+         */
+        private const val KEY_ROUTE_SLOW_WATER_AVERSION_LEGACY = "route_slow_water_aversion"
+        /** The retired cursor's own top — the span the old bridge spread its five stops across. */
+        private const val LEGACY_AVERSION_SPAN = 5f
+        /** The retired stop table's own last index — the sentinel counting as a stop, as it did then. */
+        private const val LEGACY_VERDICT_LAST_INDEX = 4
         /** The persisted marker price strength, seeded from `route.marker.costPerStep`. */
         private const val KEY_ROUTE_MARKER_STRENGTH = "route_marker_strength"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */

@@ -26,7 +26,8 @@ class RouteFineReachabilityTest {
     private val from = RoutePoint(43.5000, 7.0000)
     private val to = RoutePoint(43.5000, 7.0600)
     private val pace = 28.0
-    private val lambda = AppConfig.routeAvoidSpeedZoneSoftCostAversion
+    /** The injected λ the walk prices this zone's excess at, chosen on purpose rather than read from a key. */
+    private val lambda = 4.0
 
     /** The line the fine stage refines: the pair's own straight, crossing the priced zone below. */
     private val line = listOf(from.toLatLng(), to.toLatLng())

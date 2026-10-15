@@ -32,19 +32,19 @@ class RouteEngineChoiceTest {
     fun eachRowBuildsTheEngineItNames() {
         assertTrue(
             "the dummy row builds the dummy, ignoring all providers",
-            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteDummyEngine
+            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) is RouteDummyEngine
         )
         assertTrue(
             "the avoid row builds the avoid engine",
-            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteAvoidEngine
+            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) is RouteAvoidEngine
         )
         assertTrue(
             "the evolutive row builds the evolutive engine",
-            RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteEvolutiveEngine
+            RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) is RouteEvolutiveEngine
         )
         assertTrue(
             "the selective row builds the selective engine",
-            RouteEngineChoice.resolve("selective").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteSelectiveEngine
+            RouteEngineChoice.resolve("selective").factory({ 28.0 }, { null as Double? }, { ChoiceWorld() }, { 1.0 }) is RouteSelectiveEngine
         )
     }
 
