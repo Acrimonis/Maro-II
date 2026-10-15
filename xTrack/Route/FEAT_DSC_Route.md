@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-15 15:19
+modified: 2026-10-15 15:34
 ---
 
 # Feature: Route
@@ -160,7 +160,10 @@ The live numbered requirements — added after the master book was retired; the 
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — the engine interface's spec: the types, the repair, the reason set, the computations and the disposals
 - [`FEAT_DOC_Route_avoid-algorithm.md`](FEAT_DOC_Route_avoid-algorithm.md) — the avoidance algorithm's design of record: the pipeline, the cost field, the λ and the budget, the fairing and the evidence
 - [`FEAT_DOC_Route_decisions.md`](FEAT_DOC_Route_decisions.md) — the feature's decisions of record: the stored-route match removed, and the open-water bends accepted as a known defect
-- [`261015_FEAT_PLN_Route_verdict-exchange-rate.md`](261015_FEAT_PLN_Route_verdict-exchange-rate.md) — **the crown as one exchange rate**: the preference and the budget collapse into the `Slow water` dial's one weight — **Fastest** · 1x–4x · **Ignore time** — whose sum crowns the drawn lines, the comfort term reading the seconds spent under a limit with the band and the ramps that serve one counted and a bend's own floor out, at a 30 s tolerance; the per-limit severity table stayed inert, and the card's own figures are the one phase left (implemented)
+- [`261015_FEAT_PLN_Route_verdict-exchange-rate.md`](261015_FEAT_PLN_Route_verdict-exchange-rate.md) — **the crown as one exchange rate**: the preference and the budget collapse into the `Slow water` dial's one weight — **Fastest** · 1x–4x · **Ignore time** — whose sum crowns the drawn lines, each second weighed by its own limit's linear shortfall, with the band and the ramps that serve one counted, a bend's own floor out and a leg under no limit weighing nothing; the panel ranks the rows `1..n` and checks the crowned one, at a 30 s tolerance (implemented)
+- [`261014_FEAT_PLN_Route_acquisition-perf.md`](261014_FEAT_PLN_Route_acquisition-perf.md) — the acquisition's measured cost: what the readings say, the three levers kept and the ones rejected as low benefit (in design)
+- [`261014_FEAT_PLN_Route_pull-lookback-pass.md`](261014_FEAT_PLN_Route_pull-lookback-pass.md) — the pull's lookback: a fixpoint removability sweep at the fine pass's settled line, with its own findings and device pass (implemented, its prose debts open)
+- [`261015_FEAT_PLN_Route_price-meaning.md`](261015_FEAT_PLN_Route_price-meaning.md) — what a route's price means: the assess, the neutral unit fix and the arm split, with the marker arm still unread (in design)
 - [`261014_FEAT_PLN_Route_ladder-lambda-keys.md`](261014_FEAT_PLN_Route_ladder-lambda-keys.md) — **the lever of each of the three acquisitions, named and moved**: the three rung λ become `route.avoid.ladder.around|best|fast.lambda` keys read through `AppConfig` and published by `RoutePreference`, and every comment that had the aversion dial pricing the search — the properties blocks, the two `AppConfig` KDocs, the two `SettingsManager` KDocs, the avoid-algorithm doc's retired λ loop and four code comments — is rewritten onto the shipped model (implemented)
 - [`261007_FEAT_PLN_Route_review-should-fixes.md`](261007_FEAT_PLN_Route_review-should-fixes.md) — the seventeen-fix batch's review should-fixes: the four behaviour items are sound, and seven KDoc/fixture/record corrections (the band-time approximation, the memo-window attribution, two dead stamps, the engines-doc cache key, the `FineWaterQuery` reason, the memo fixture and the ribbon-mask fixture) are in design (in design)
 - [`261008_FEAT_PLN_Route_heading-away-end-swap.md`](261008_FEAT_PLN_Route_heading-away-end-swap.md) — the followed route's **end-swap**: the heading-away mirror that landed as R99 on 2026-10-08, and its 2026-10-09 redesign to the route's own **time-to-go loss** toggle plus the **arrival cue** — the trigger, the derived look-back, the debounce and the cue's precedence over a reversal all settled (lossSec 30, debounceSec 15, arrival.etaSec 60) (in design)
@@ -170,6 +173,14 @@ The live numbered requirements — added after the master book was retired; the 
 - Retired plans and docs live in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
 ## Todos
+
+One list, newest first: everything the Route feature has planned and **not yet implemented**. The device passes are the user's own and stand in their own section at the end of this file.
+
+- [ ] **The card's figures** — the line's minutes in slow water on the panel, where it does not already print them; the dial's own word in the header landed with P4. → [`261015_FEAT_PLN_Route_verdict-exchange-rate.md`](261015_FEAT_PLN_Route_verdict-exchange-rate.md)
+- [ ] **The ranked page the fold swallows** — a rung whose page the UI's fold collapses drops out of the panel's rank map, the engine still ranking the line inside the survivor. → the same plan
+- [ ] **The panel's marks carry no test** — the checkmark's size and the rank's second-line placement rest on the code alone. → the same plan
+- [ ] **The marker arm still reports as OTHER** — a marker-priced point never lands in a named arm, so the price's own report cannot say which arm charged it. → [`261014_FEAT_PLN_Route_price-meaning.md`](261014_FEAT_PLN_Route_price-meaning.md)
+- [ ] **Four prose debts from the bend sweep** — the sweep's KDoc gate wording, the engines doc's fine-pass step and readings clause, the decisions-doc disambiguation, and a missing finePass wiring tooth. → [`261014_FEAT_PLN_Route_pull-lookback-pass.md`](261014_FEAT_PLN_Route_pull-lookback-pass.md)
 
 - [ ] **The zone clock's law and the ranking's own read** — the `speedRoute` split landed 2026-10-14 ([`261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md`](../RegulatedZones/261014_FEAT_PLN_RegulatedZones_speedroute-clock-split.md)): the search prices a zone at `routeLimitKn` while every reported figure — the clock, the attribution and the line's colour — times it at the displayed `speedLimitKn`. The crown's own sum now times the clock, so the one reader still kept apart is `forcedCrossingNames`, which filters on the price — a zone its `speedRoute` prices to nothing is never named as a forced crossing, and that is the open decision.
 

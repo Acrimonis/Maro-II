@@ -49,7 +49,7 @@
 
 ## Feature Summaries
 
-**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-15 15:19
+**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-15 15:35
 - Set a destination and the app draws the route from the boat to it, then saves that line as an ordinary track.
 - Four engines stand on one `RouteEngine` seam — `dummy` (a straight line), `avoid` (the corridor A\* pipeline), `evolutive` (the two-layer adaptive grid) and `selective` (fine collars plus a per-metre depth price) — each arming a three-rung ladder named **Detour · Balanced · Coastal**, whose λ live in `route.avoid.ladder.around|best|fast.lambda`, while the `Slow water` dial states one weight on the seconds a line spends under a limit — each second weighted by its own limit's shortfall — and the crown is the lowest sum of its trip time and that weight times those weighted seconds, the panel ranking the rows `1..n` and checking the crowned one.
 - A costed marker prices the sea as a well, full inside its body and falling to nothing at its proximity edge, while a Blocked marker is a body-only wall and a Pin is costable and never a wall.

@@ -1,6 +1,6 @@
 # Context Hydration — Route — 2026-10-15
 
-**Last Bake:** 2026-10-15 15:19 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-15 15:35 UTC — written by `#bake`; absence means never baked
 
 **Directive trace:** The session opened on *"clarify the different steps in route acquisition … but first code to `#new rte-algo`"* — the branch cut first, its worktree stashed with `-u`, the one pop conflict in the epic's `## Docs` list resolved on the user's word. It then walked the acquisition end to end: the four dashboard stages against the ten spine steps, what each step reports, the warm cache's saving, the three rungs' concurrency, why the coast is cheaper than the band, and whether the prices could be cached. A device-ordered investigation of **one invalid bend** followed — the pull has no lookback, so a plan and a fixture were built, implemented through `#implement`, instrumented, and carried to three device passes; the arm split named the **band** as the price that keeps the bend, and the price's own unit mislabel was found and fixed. The crown itself came next, from *"what is the best compromise"* to two `#implement` runs that replaced the preference and the budget with **one weight and one sum**, then a consistency sweep clearing every residue its reviews named. The last stretch was the user's own reading of the panel: a visible winner, the rank per row, the names, the tie broken by a chain, and the severity of a slow second settled **linear**. No dependency was added, no machine-shaped data file was opened, no work was started without an order, and the device was never touched — every reading came from a trace the user fetched.
 
@@ -33,6 +33,8 @@
 - `xTrack/Route/FEAT_DOC_Route_avoid-algorithm.md`, `FEAT_DOC_Route_engines.md`, `FEAT_DOC_Route_decisions.md`, `FEAT_DSC_Route.md` — the corpus
 
 ## Next Step
+
+**Where the backlog is read.** The epic's `## Todos` now opens with **one consolidated list** of everything planned and not yet implemented — the crown's residues, the marker arm's `OTHER` reading, the four prose debts from the bend sweep, then the feature's older items — and its `## Docs` list gained the three plans it had been missing; a new session reads that list whole.
 
 No code task is open. One item of the plan's own is owed: the line's minutes in slow water on the card, where the panel does not already print them — the dial's word in the header, the check, the ranks and the chain all landed. Two smaller residues stand beside it: a ranked rung whose page the UI fold collapses drops out of the panel's rank map, and the panel's marks carry no unit test. The device passes are the user's own and gate nothing — the dial's new one (armed at Fastest, 2x and Ignore time) among the feature's older ones.
 
