@@ -3,6 +3,7 @@ package ykws.android.maro.spatial
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -132,6 +133,79 @@ class DirectoryFineTileStoreTest {
         store.save(key, TileTestFixtures.tile(5))
         val drifted = key.copy(depthGenerationStamp = key.depthGenerationStamp + 1)
         assertNull("a stamp change is a different key and therefore a miss", store.load(drifted))
+    }
+
+    /**
+     * **The store's own fullness read** (step 3). An unprimed total answers `null` — the policy's
+     * "unknown", never an empty store — and once a save has primed it the total is served without a
+     * listing, with the ceiling's verdict following the first reclamation.
+     */
+    @Test
+    fun fullnessAnswersUnknownUntilTheTotalIsPrimedAndTheCeilingThenShows() = runBlocking {
+        val dir = newDir()
+        val store = DirectoryFineTileStore(dir, maxBytes = Long.MAX_VALUE)
+
+        assertNull("an unprimed total is unknown, never an empty store", store.fullness())
+
+        store.save(key, TileTestFixtures.tile(20))
+        val primed = store.fullness()
+        assertNotNull("a save primes the total", primed)
+        assertEquals("the total is the file the save wrote", dir.listFiles()!!.single().length(), primed!!.bytesHeld)
+        assertTrue("and the listing that primed it happened once", store.directoryScans <= 1)
+
+        val scansAfterPriming = store.directoryScans
+        store.save(TileTestFixtures.baseKey(row = 1), TileTestFixtures.tile(20, row = 1))
+        assertEquals("a later read pays no listing of its own", scansAfterPriming, store.directoryScans)
+
+        // A store held to one entry's bytes reclaims on the second save, so its own verdict reads full.
+        val boundedDir = newDir()
+        val bounded = DirectoryFineTileStore(boundedDir, maxBytes = Long.MAX_VALUE)
+        val entryBytes = run {
+            bounded.save(key, TileTestFixtures.tile(20))
+            bounded.list()
+            boundedDir.listFiles()!!.single().length()
+        }
+        val tight = DirectoryFineTileStore(boundedDir, maxBytes = entryBytes)
+        var extra = 1
+        while (!(tight.fullness()?.atCeiling ?: false) && extra <= 4) {
+            tight.save(TileTestFixtures.baseKey(row = 10 + extra), TileTestFixtures.tile(20, row = 10 + extra))
+            extra++
+        }
+        assertTrue("past its ceiling the store reports itself full", tight.fullness()!!.atCeiling)
+    }
+
+    /**
+     * **The ceiling verdict is a live reading, never a latch** (the review's defect 3 — the growth the
+     * feature exists for). A save trims the directory back to its ceiling, so `held >= ceiling` is never
+     * observable; the store answers instead whether one more entry of the size just written would fail to
+     * fit. That answer has to **clear** as soon as the directory has room again, which is exactly what a
+     * verdict remembered from the first reclamation could not do — it kept the warm-up dead for the whole
+     * process after a single eviction.
+     */
+    @Test
+    fun theCeilingVerdictIsReadLiveAndCannotLatch() = runBlocking {
+        val dir = newDir()
+        val entryBytes = run {
+            DirectoryFineTileStore(dir, maxBytes = Long.MAX_VALUE).save(key, TileTestFixtures.tile(20))
+            dir.listFiles()!!.single().length()
+        }
+        val rows = (0 until 3).toList()
+        val tight = DirectoryFineTileStore(dir, maxBytes = 2 * entryBytes)
+        for (row in rows) tight.save(TileTestFixtures.baseKey(row = row), TileTestFixtures.tile(20, row = row))
+
+        assertNotNull("a save primes the total", tight.fullness())
+        assertTrue(
+            "a directory with room for no further entry reads as full",
+            tight.fullness()!!.atCeiling
+        )
+
+        for (row in rows) tight.delete(TileTestFixtures.baseKey(row = row))
+        tight.delete(key)
+
+        assertFalse(
+            "room again reads as room again: the verdict was never latched",
+            tight.fullness()!!.atCeiling
+        )
     }
 
     @Test

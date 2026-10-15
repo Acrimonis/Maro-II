@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ykws.android.maro.spatial.multipass.FineTile
 import ykws.android.maro.spatial.multipass.FineTileCodec
+import ykws.android.maro.spatial.multipass.StoreFullness
 import ykws.android.maro.spatial.multipass.TileKey
 import ykws.android.maro.spatial.multipass.TileStore
 import java.io.File
@@ -34,6 +35,14 @@ import java.io.File
  * carried once hundreds of tiles landed. Each load and each save emits one `STORE` line through the
  * injected [trace] sink, and the first reclamation raises [onReclaim] once.
  *
+ * **The total is also what the store answers about itself.** [fullness] hands the running total and this
+ * store's own ceiling verdict ([StoreFullness.atCeiling]) to the warming policy, which stops on it rather
+ * than on a guessed entry count. That verdict is a **live reading, never a latch**: a save trims the
+ * directory back to its ceiling, so what it holds is never *above* it and an inequality on the pair can
+ * never show, while a verdict remembered from a past reclamation would keep the warm-up dead for the rest of
+ * the process even once the directory had room again. The read pays no listing, and an unprimed total
+ * answers `null` rather than zero, so a policy can never mistake "not counted yet" for "nothing stored".
+ *
  * [`FineTileMap`]: ykws.android.maro.spatial.multipass.FineTileMap
  */
 internal class DirectoryFineTileStore(
@@ -47,6 +56,12 @@ internal class DirectoryFineTileStore(
 
     /** The running byte total, primed once by a listing and adjusted per save and delete; `-1` = unprimed. */
     private var dirBytes: Long = -1L
+
+    /**
+     * The bytes the last save wrote — the entry a further save would have to fit beside. `0` before any
+     * save, and the one fact [readFullness] reads its verdict off, so no reclamation has to be remembered.
+     */
+    private var lastEntryBytes: Long = 0L
 
     /** True once a reclamation has been reported, so [onReclaim] fires at most once per store. */
     private var reclaimedReported: Boolean = false
@@ -120,12 +135,36 @@ internal class DirectoryFineTileStore(
     }
 
     /**
-     * **Adjusts the running total for a write.** The first save on a fresh store **primes** it with one
-     * listing (which already counts the file just written); every later save adds its own bytes, so no
-     * save ever re-sums the directory.
+     * **The running total and whether the store has room for another entry.** No listing is paid: the total
+     * is read as it stands, and a total that has never been primed answers `null` — the warming policy's
+     * "unknown", which it must read as anything but an empty store. The verdict is **live and cannot
+     * latch**: it answers whether **one more entry the size of the one just written would not fit**,
+     * recomputed on every read from the total and that entry's bytes, so a directory that has room again
+     * reads as having room again. A verdict taken from a past reclamation would instead have kept the
+     * warm-up dead for the rest of the process, which is exactly what the growth exists to avoid.
+     */
+    override suspend fun fullness(): StoreFullness? = withContext(Dispatchers.IO) { readFullness() }
+
+    /** The total's own read, guarded like every other adjustment of it. `null` while it is unprimed. */
+    @Synchronized
+    private fun readFullness(): StoreFullness? =
+        if (dirBytes < 0L) null
+        else StoreFullness(
+            bytesHeld = dirBytes,
+            ceilingBytes = maxBytes,
+            atCeiling = dirBytes + lastEntryBytes > maxBytes
+        )
+
+    /**
+     * **Adjusts the running total for a write, and keeps the entry's own size.** The first save on a fresh
+     * store **primes** it with one listing (which already counts the file just written); every later save
+     * adds its own bytes, so no save ever re-sums the directory. The size is kept because it is what
+     * [readFullness] measures the next entry against — the one honest reading of "at the ceiling" a store
+     * trimming itself back to that ceiling can give.
      */
     @Synchronized
     private fun recordWrite(bytesWritten: Long) {
+        lastEntryBytes = bytesWritten
         if (dirBytes < 0L) runningTotal() else dirBytes += bytesWritten
     }
 

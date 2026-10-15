@@ -112,7 +112,8 @@ class MainActivity : ComponentActivity() {
         // cache, so the first arm after a cold start reuses the tiles a previous run already marked
         // rather than building them again. Installed once, here, before the UI composes and any engine
         // can arm; the holder is the store's one reader and writer and keeps the cache across an engine
-        // switch. The pre-warm is deliberately out of scope — the first arm still pays for its misses.
+        // switch. The warm-up that fills it is the map's own effect (`MapRoutePrewarmEffect`), which
+        // starts with the app and pauses while a route is armed — this install only gives it the store.
         // The disk ceiling's one home is `route.fineTile.maxBytes` (D8); the first reclamation says so
         // once (D9), hopped to the UI thread here; each load and save prints one `STORE` line on the tag.
         FineTileCache.install(

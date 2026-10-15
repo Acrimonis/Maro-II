@@ -108,22 +108,4 @@ class FineTileMapTest {
         assertTrue("a hit rate is reported", map.hitRate > 0.0)
     }
 
-    /**
-     * **The busy sink brackets each store-facing lookup and stays silent on an in-memory hit.** It is the
-     * socket the process-level holder installs its window into, so this pins that the dot follows the
-     * store's own work — and never a tile the map already holds.
-     */
-    @Test
-    fun theBusySinkBracketsEachStoreFacingLookup() = runBlocking {
-        val events = mutableListOf<Boolean>()
-        val map = FineTileMap(store = TileStore.NoOp, onBusy = { events += it })
-
-        map.get(key(0)) { tile(10) }
-        assertEquals("one lookup reports a begin and an end", listOf(true, false), events)
-
-        // A second get is served from the in-memory cache — no store work, so the window never moves.
-        events.clear()
-        map.get(key(0)) { tile(10) }
-        assertTrue("an in-memory hit touches no store and signals nothing", events.isEmpty())
-    }
 }

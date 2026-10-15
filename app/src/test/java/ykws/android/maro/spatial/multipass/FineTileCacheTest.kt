@@ -1,11 +1,15 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -42,9 +46,9 @@ class FineTileCacheTest {
     }
 
     /**
-     * **The busy window is the holder's own, exposed for the app edge to collect.** It is idle before any
-     * arm reaches the store, and an install leaves it so — the map's `onBusy` sink has signalled nothing
-     * yet. This is the signal the routing square's dot reads instead of the zone-load flag.
+     * **The busy window is the holder's own, exposed for the app edge to collect.** It is idle before the
+     * warm-up builds anything, and an install leaves it so — nothing has marked a tile yet. This is the
+     * signal the routing square's dot reads instead of the zone-load flag, and only the warm-up feeds it.
      */
     @Test
     fun theBusyWindowIsExposedAndStartsIdle() {
@@ -52,5 +56,27 @@ class FineTileCacheTest {
         assertFalse("nothing is running before an install", FineTileCache.busy.value)
         FineTileCache.install(TileStore.NoOp)
         assertFalse("an install leaves the window idle until work reaches the store", FineTileCache.busy.value)
+    }
+
+    /**
+     * **An install never zeroes a live walk's building** (the review's defect 7). The app edge installs the
+     * store from `MainActivity.onCreate`, so a recreation lands beside a walk that is only **cooperatively**
+     * cancelled: the window must stay standing for the tile that walk is still building rather than fall
+     * while it is in flight. Only the walk's own `end` closes it, a grace later.
+     */
+    @Test
+    fun anInstallLeavesALiveWalksBuildingStanding() = runTest {
+        FineTileCache.reset(this)
+        FineTileCache.install(TileStore.NoOp)
+        FineTileCache.beginWarmTile()
+        assertTrue("the tile the walk is building keeps the window up", FineTileCache.busy.value)
+
+        FineTileCache.install(TileStore.NoOp)
+
+        assertTrue("the install did not zero the tile in flight under the walk", FineTileCache.busy.value)
+        FineTileCache.endWarmTile()
+        advanceTimeBy(FineTileCache.BUSY_GRACE_MS + 1)
+        runCurrent()
+        assertFalse("the walk's own end is what closes the window, a grace later", FineTileCache.busy.value)
     }
 }

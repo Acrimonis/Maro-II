@@ -1136,14 +1136,18 @@ fun MapScreen(
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val gpsStale by viewModel.gpsStale.collectAsState()
     // ── The pre-warm's own host (`route.prewarm.box`) ─────────────────────
-    // The startup pass that builds the fine layer's tiles over the box before an arm asks for them —
-    // idle only, off battery-saver, paused while a route is armed and resumed after it ends. The plan is
-    // the selected engine's own, so the tiles it builds are the ones that engine's arm will ask for.
-    val routePrewarmIdle by viewModel.isStopped.collectAsState()
+    // The pass that builds the fine layer's tiles over the box and outward from it before an arm asks for
+    // them. It starts with the app — keyed on both baked layers being able to answer, not on the boat being
+    // idle — stays off battery-saver, and pauses while a route is armed or a raster is being regenerated,
+    // resuming after either ends. The plan is the selected engine's own, so the tiles it builds are the ones
+    // that engine's arm will ask for.
+    val depthState by depthViewModel.state.collectAsState()
+    val depthRasterGenerating by depthViewModel.generatingStep.collectAsState()
     MapRoutePrewarmEffect(
         plan = RouteEngineChoice.resolve(appSettings.routeEngineId).plan,
-        boatIdle = routePrewarmIdle,
+        worldReady = state is CoastlineState.Ready && depthState is DepthState.Ready,
         routeArmed = routeArmed,
+        heavyJob = depthRasterGenerating != null,
         position = gpsPosition,
         avoidWorldProvider = avoidWorldProvider,
         markerStrength = { appSettings.routeMarkerStrength.toDouble() }
@@ -1497,7 +1501,7 @@ fun MapScreen(
     // The repository is hoisted here so its one instance serves the zone reader.
     val regulatedZonesRepository = remember { RegulatedZonesRepository() }
     val regulatedZones = MapRegulatedZonesLoader(context, regulatedZonesRepository)
-    // The routing square's loading dot follows the fine-tile store's own work, not this load: an
+    // The routing square's loading dot follows the background warm-up's own building, not this load: an
     // app-cache clear leaves the zone asset untouched (it ships in the APK) but empties the tile store.
     val fineTilesBusy by FineTileCache.busy.collectAsState()
 
@@ -4717,7 +4721,7 @@ private fun MapContent(
     zoomLevel: Double,
     distanceToShore: Double?,
     regulatedZones: RegulatedZoneSet?,
-    /** True while the fine-tile store is working — drives the routing square's loading dot. */
+    /** True while the background warm-up is building tiles — drives the routing square's loading dot. */
     fineTilesBusy: Boolean = false,
     /** The bottom-left tag stack's own set — the raw zones filtered by the boat size and the
      *  per-category visibility. Hoisted to the caller, which needs the same tag answer for the

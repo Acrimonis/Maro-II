@@ -27,20 +27,13 @@ import kotlinx.coroutines.sync.withLock
  * (the default [TileStore.NoOp]) behaves exactly as before the seam existed. The store is best-effort —
  * a load or a save that fails degrades to a build, never to a failed lookup.
  *
- * **A store-facing lookup reports itself to [onBusy].** The socket the process-level holder
- * ([`FineTileCache`]) installs its busy window into, so the routing square's dot follows the store's own
- * work. An in-memory hit touches no store and signals nothing; a map built without a sink (a JVM test's
- * own, a builder's fallback) stays silent.
+ * **The map signals nothing.** A lookup is a lookup: the routing square's dot stands for the warm-up's
+ * own building alone, so an arm's store reads must never light it. The window is fed by the walk itself
+ * ([`FineTileCache.beginWarmTile`] / [`endWarmTile`]) around the one tile it builds.
  */
 internal class FineTileMap(
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
-    private val store: TileStore = TileStore.NoOp,
-    /**
-     * Reports a **store-facing lookup**: `true` when a key reaches the store and its tile is loaded or
-     * built, `false` when the lookup resolves. Inert by default, in the spirit of `DirectoryFineTileStore`'s
-     * own `trace` and `onReclaim` sinks.
-     */
-    private val onBusy: (Boolean) -> Unit = {}
+    private val store: TileStore = TileStore.NoOp
 ) {
 
     /** One key's slot: the shared build and the callers holding it. */
@@ -168,28 +161,23 @@ internal class FineTileMap(
      * outcome says whether the store served it, so the caller counts the served request a **hit**.
      */
     private suspend fun loadOrBuild(key: TileKey, build: suspend () -> FineTile): Served {
-        onBusy(true)
-        try {
-            val stored = try {
-                store.load(key)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                null
-            }
-            if (stored != null) return Served(stored, fromStore = true)
-            val built = build()
-            try {
-                store.save(key, built)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                // Best-effort: a store that cannot write must not fail the lookup.
-            }
-            return Served(built, fromStore = false)
-        } finally {
-            onBusy(false)
+        val stored = try {
+            store.load(key)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            null
         }
+        if (stored != null) return Served(stored, fromStore = true)
+        val built = build()
+        try {
+            store.save(key, built)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            // Best-effort: a store that cannot write must not fail the lookup.
+        }
+        return Served(built, fromStore = false)
     }
 
     /** One lookup's outcome — the tile, and whether the [store] served it rather than a build running. */

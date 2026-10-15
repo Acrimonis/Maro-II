@@ -1,10 +1,13 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import java.util.concurrent.Executors
 
 /**
  * **The pre-warm's own contracts — the gates, the two caps, own-ship ordering and the skip-when-warm.**
@@ -34,6 +38,7 @@ class FineTilePrewarmTest {
             names -= FineTileCodec.entryName(key)
         }
         override suspend fun list(): List<String> = names.toList()
+        override suspend fun fullness(): StoreFullness? = null
     }
 
     @After
@@ -51,12 +56,20 @@ class FineTilePrewarmTest {
             TileTestFixtures.tile(4, row = k.tileRow, col = k.tileCol)
         }
 
+    /**
+     * **The gate's truth table** (D4, D6): no route armed, off battery-saver, and no competing heavy job.
+     * The idle gate is deliberately absent — the pass starts with the app, so a moving boat no longer keeps
+     * the water cold.
+     */
     @Test
-    fun theGateRunsOnlyWhenIdleUnarmedAndOffBatterySaver() {
-        assertTrue(prewarmGate(idle = true, routeArmed = false, batterySaver = false))
-        assertFalse("a moving boat is no time to warm", prewarmGate(idle = false, routeArmed = false, batterySaver = false))
-        assertFalse("a live arm owns the store", prewarmGate(idle = true, routeArmed = true, batterySaver = false))
-        assertFalse("battery-saver outranks the warm", prewarmGate(idle = true, routeArmed = false, batterySaver = true))
+    fun theGateRunsOnlyUnarmedOffBatterySaverAndWithNoHeavyJob() {
+        assertTrue(prewarmGate(routeArmed = false, batterySaver = false, heavyJob = false))
+        assertFalse("a live arm owns the store", prewarmGate(routeArmed = true, batterySaver = false, heavyJob = false))
+        assertFalse("battery-saver outranks the warm", prewarmGate(routeArmed = false, batterySaver = true, heavyJob = false))
+        assertFalse(
+            "a competing foreground job outranks the warm",
+            prewarmGate(routeArmed = false, batterySaver = false, heavyJob = true)
+        )
     }
 
     @Test
@@ -194,26 +207,64 @@ class FineTilePrewarmTest {
         assertTrue(outcome.stoppedByCaps)
     }
 
+    /**
+     * **One window brackets the pass's tiles, however many there are.** The pass marks each tile it really
+     * builds and the grace merges them: a cold pass of three tiles opens one `busy on` and closes one
+     * `busy off`, never a pair per tile. The virtual clock is what lets the grace be watched elapsing.
+     */
     @Test
-    fun theWindowIsHeldForTheWholePass() = runBlocking {
+    fun theGraceMergesThePassesTilesIntoOneWindow() = runTest {
+        FineTileCache.reset(this)
+        FineTileCache.install(TileStore.NoOp)
         val lines = mutableListOf<String>()
         FineTileCache.traceTo { lines += it }
-        val map = FineTileMap(store = MemoryStore())
+        val map = FineTileCache.shared!!
         val built = mutableListOf<TileKey>()
         val requests = (1..3).map { request(key(1, it), LatLng(43.50, 7.0 + it * 0.001), built) }
         val outcome = FineTilePrewarm(map).run(
             requests = requests,
-            storedNames = map.storedNames(),
+            storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.0),
             maxTiles = 10,
             maxTimeMs = 10_000
         )
         assertEquals(3, outcome.built)
+        assertEquals("three tiles, one window: the grace merges them", listOf(FineTileActivity.BUSY_ON), lines)
+
+        advanceTimeBy(FineTileCache.BUSY_GRACE_MS + 1)
+        runCurrent()
         assertEquals(
-            "one busy on and one busy off bracket the whole pass, not a pair per tile",
+            "and one busy off a grace after the last tile — never a pair per tile",
             listOf(FineTileActivity.BUSY_ON, FineTileActivity.BUSY_OFF),
             lines
         )
+    }
+
+    /**
+     * **The store's own ceiling ends the pass** (D3, step 3): the fullness probe is read before every tile,
+     * and a store that answers it is full stops the pass where it stands — building on would only evict the
+     * water the pass has just prepared.
+     */
+    @Test
+    fun theStoresCeilingEndsThePass() = runBlocking {
+        val map = FineTileMap(store = MemoryStore())
+        val built = mutableListOf<TileKey>()
+        val requests = (1..5).map { request(key(1, it), LatLng(43.50, 7.0 + it * 0.001), built) }
+        var probes = 0
+        val outcome = FineTilePrewarm(map).run(
+            requests = requests,
+            storedNames = map.storedNames(),
+            orderFrom = LatLng(43.50, 7.0),
+            maxTiles = 100,
+            maxTimeMs = 10_000,
+            storeFullness = {
+                probes++
+                if (probes >= 3) StoreFullness(bytesHeld = 1L, ceilingBytes = 1L, atCeiling = true) else null
+            }
+        )
+        assertEquals("the two tiles the store had room for are built, the third is not", 2, outcome.built)
+        assertTrue(outcome.stoppedByCapacity)
+        assertFalse("the ceiling, not a cap, ended it", outcome.stoppedByCaps)
     }
 
     @Test
@@ -229,7 +280,10 @@ class FineTilePrewarmTest {
                 orderFrom = LatLng(43.50, 7.0),
                 maxTiles = 10,
                 maxTimeMs = 10_000,
-                awaitMayProceed = { while (!gateOpen) delay(1) }
+                awaitMayProceed = {
+                    while (!gateOpen) delay(1)
+                    true
+                }
             )
         }
         runCurrent()
@@ -238,4 +292,75 @@ class FineTilePrewarmTest {
         job.join()
         assertEquals("it resumes and fills the holes once free", 3, built.size)
     }
+
+    /**
+     * **A shut gate ends the pass, and opens no window on the way.** The seam is asked before every tile —
+     * and before the window opens — so battery-saver switched on mid-walk stands the pass down rather than
+     * letting it run to its cap, and a pass stopped before its first tile shows no dot at all.
+     */
+    @Test
+    fun aPassToldToStandDownStopsWithoutBuildingOrOpeningTheWindow() = runBlocking {
+        val lines = mutableListOf<String>()
+        FineTileCache.traceTo { lines += it }
+        val map = FineTileMap(store = MemoryStore())
+        val built = mutableListOf<TileKey>()
+        val requests = (1..3).map { request(key(1, it), LatLng(43.50, 7.0 + it * 0.001), built) }
+        val outcome = FineTilePrewarm(map).run(
+            requests = requests,
+            storedNames = map.storedNames(),
+            orderFrom = LatLng(43.50, 7.0),
+            maxTiles = 10,
+            maxTimeMs = 10_000,
+            awaitMayProceed = { false }
+        )
+
+        assertEquals("the shut gate stops the pass before its first tile", 0, outcome.built)
+        assertTrue("the gate, not a cap, ended it", outcome.stoppedByGate)
+        assertFalse(outcome.stoppedByCaps)
+        assertTrue("nothing was built", built.isEmpty())
+        assertTrue("a pass that built nothing opens no window: the dot stays dark", lines.isEmpty())
+    }
+
+    /**
+     * **No build runs on a thread of the fine layer's own choosing.** The pass and the walk add no dispatcher
+     * hop of their own — every build runs on whichever dispatcher its caller handed it — which is what makes
+     * the app edge's one hop the whole of "the fine layer is never rasterised on the screen's thread". The
+     * previous pin read the host's source text, so a rename of the hop passed it; this one asks the running
+     * code, and a hidden `withContext` inside the layer would answer a worker of its own and fail.
+     */
+    @Test
+    fun everyBuildRunsOnTheDispatcherItsCallerHandedIt() = runBlocking {
+        val executor = Executors.newSingleThreadExecutor { task -> Thread(task, WARM_PROBE_THREAD) }
+        try {
+            val threads = mutableListOf<String>()
+            val map = FineTileMap(store = MemoryStore())
+            withContext(executor.asCoroutineDispatcher()) {
+                FineTilePrewarm(map).run(
+                    requests = (1..2).map { i ->
+                        FineTileRequest(key(1, i), LatLng(43.50, 7.0 + i * 0.001)) {
+                            threads += Thread.currentThread().name
+                            TileTestFixtures.tile(2, row = 1, col = i)
+                        }
+                    },
+                    storedNames = map.storedNames(),
+                    orderFrom = LatLng(43.50, 7.0),
+                    maxTiles = 10,
+                    maxTimeMs = 10_000
+                )
+            }
+
+            assertEquals("both tiles were built", 2, threads.size)
+            // The dispatcher appends the coroutine's own id to the thread's name, so the worker is matched
+            // by the name it was created with — a hop inside the layer would answer another worker entirely.
+            assertTrue(
+                "every build ran on the caller's own worker ($threads)",
+                threads.all { it.startsWith(WARM_PROBE_THREAD) }
+            )
+        } finally {
+            executor.shutdown()
+        }
+    }
 }
+
+/** The name the probe's single worker carries, so a build's own thread is readable from the assertion. */
+private const val WARM_PROBE_THREAD = "warm-probe"

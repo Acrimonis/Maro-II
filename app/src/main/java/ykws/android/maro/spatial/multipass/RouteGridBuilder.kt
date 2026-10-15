@@ -24,6 +24,9 @@ import kotlin.math.min
  */
 private const val HALO_MARGIN_CELLS = DEPTH_WALL_SCAN_MARGIN_CELLS + 2
 
+/** One fine tile's own side in degrees, south–north and west–east — the step the warm area grows by. */
+internal data class FineTileSide(val latDeg: Double, val lonDeg: Double)
+
 /**
  * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' berth carve → the
  * corner sets, lifted out of the pass pipeline so the context build and its instrument readers are a
@@ -456,13 +459,11 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         box: BBox,
         markerStrength: Double
     ): List<FineTileRequest> {
-        val planTiles = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM)
-        if (planTiles.size <= 1) return emptyList()
-        val cellM = planTiles.maxByOrNull { it.cellM }?.cellM ?: return emptyList()
-        val fineCellM = planTiles.minByOrNull { it.cellM }?.cellM ?: return emptyList()
-        val anchor = world.latticeAnchor ?: LatticeAnchor.wholeDegree(box)
-        val family = LatticeFamily.of(anchor, cellM, fineCellM)
-        val fine = family.fine
+        val lattice = fineLatticeOf(world, box) ?: return emptyList()
+        val fine = lattice.fine
+        val anchor = lattice.anchor
+        val cellM = lattice.coarseCellM
+        val fineCellM = lattice.fineCellM
         val edges = world.segmentsIn(box)
         val openCoast = world.openCoastIn(box)
         val marginM = AppConfig.routeAvoidObstacleMarginM
@@ -517,6 +518,45 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         }
         return requests.values.toList()
     }
+
+    /**
+     * **One fine tile's own side, in degrees, over [box]** — the sides of the block [`fineTileBox`] lays
+     * each tile out on, or `null` where the plan keeps no fine layer over [box] (a single-grid plan like
+     * `avoid`, whose walk answers one tile).
+     *
+     * It exists so a caller can express growth in **whole tiles of the plan's own lattice** — the warm
+     * area's outward rings ([`WarmArea`]) — by asking the arithmetic's one owner instead of re-deriving
+     * `FINE_TILE_CELLS × the fine lattice's own cell` for itself, which a step change would silently leave
+     * behind. The side is read off [`fineTileBox`] itself, so the two can never disagree about the block a
+     * row and a column name.
+     */
+    internal fun fineTileSideOver(world: MultipassWorld, box: BBox): FineTileSide? {
+        val fine = fineLatticeOf(world, box)?.fine ?: return null
+        val block = fineTileBox(fine, 0, 0)
+        return FineTileSide(block.latNorth - block.latSouth, block.lonEast - block.lonWest)
+    }
+
+    /**
+     * The plan's own fine layer over [box]: the lattice its tiles are drawn on, the anchor it came from, and
+     * the two cells the plan answered — the coarse one the fine water's query is made at, the fine one the
+     * tiles are keyed on. `null` where the plan keeps no fine layer at all.
+     */
+    private fun fineLatticeOf(world: MultipassWorld, box: BBox): FineLattice? {
+        val planTiles = plan.firstWalkGrid(box, AppConfig.routeAvoidGridCellM)
+        if (planTiles.size <= 1) return null
+        val cellM = planTiles.maxByOrNull { it.cellM }?.cellM ?: return null
+        val fineCellM = planTiles.minByOrNull { it.cellM }?.cellM ?: return null
+        val anchor = world.latticeAnchor ?: LatticeAnchor.wholeDegree(box)
+        return FineLattice(LatticeFamily.of(anchor, cellM, fineCellM).fine, anchor, cellM, fineCellM)
+    }
+
+    /** One plan's fine layer over one box — see [`fineLatticeOf`]. */
+    private data class FineLattice(
+        val fine: WalkLattice,
+        val anchor: LatticeAnchor,
+        val coarseCellM: Double,
+        val fineCellM: Double
+    )
 
     /**
      * Rasterises one fixed tile block on the fine lattice — the marking the tile map caches.

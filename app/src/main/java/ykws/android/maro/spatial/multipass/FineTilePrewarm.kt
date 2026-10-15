@@ -29,30 +29,37 @@ internal data class PrewarmOutcome(
     /** How many requests were already warm — in memory or on disk — and skipped before any build. */
     val warm: Int,
     /** Whether a cap (the tile budget or the time budget) ended the pass before every request was met. */
-    val stoppedByCaps: Boolean
+    val stoppedByCaps: Boolean,
+    /** Whether the store's own ceiling ended the pass — the disk is full, so further tiles evict peers. */
+    val stoppedByCapacity: Boolean = false,
+    /** Whether the app's own gate ended the pass — battery-saver, so the pass stood down rather than ran. */
+    val stoppedByGate: Boolean = false
 )
 
 /**
- * **The pre-warm: a startup pass that builds the fine layer's tiles over a fixed box before an arm asks
- * for them, so a later arm over that water reuses them.**
+ * **The pre-warm: a pass that builds the fine layer's tiles over an area before an arm asks for them, so a
+ * later arm over that water reuses them.**
  *
  * It reaches the fine-tile map the arm reaches, one tile at a time, and the map is the same one the store
  * is installed into (`FineTileCache.shared`), so the pass is **store-first** for free: a tile already on
  * disk is a hit and costs neither a build nor a byte. Before it opens its busy window it asks the map and
  * the store's own names, so a **fully warm cache builds nothing and shows no dot** — the correct outcome a
- * boat restarting on warm water sees, not a fault.
+ * boat restarting on warm water sees, not a fault. That filter is [pending], and it is asked twice: here,
+ * before this pass opens its window, and by the walk ([`warmOutward`]) before it opens its own, so no
+ * caller can light the dot for water that will never be built.
  *
- * **The window is the pass, not a tile.** The store's 400 ms grace merges the tiles of one arm, but a pass
- * over a whole box may leave tiles far enough apart that the grace would let the dot fall between them. So
- * the pass **holds** the holder's window for its whole duration ([`FineTileCache.beginPrewarm`]) and
- * releases it at the end: one `busy on` at the first tile and one `busy off` when the pass ends. That is
- * the witness chosen over extending the grace — the grace keeps its own job (an arm's merging) untouched,
- * and the pre-warm states its window explicitly rather than moving a shared constant.
+ * **The window is the tile the pass is really building.** Each tile it builds is bracketed by the holder's
+ * window ([`FineTileCache.beginWarmTile`] / [`endWarmTile`]), and the 400 ms grace merges the tiles that
+ * follow one another — within a ring and across the rings of one walk — so the dot stands for the walk's
+ * real work rather than flickering tile to tile. The moment the walk stops building to wait at its gate,
+ * no further mark arrives and the grace lets the dot fall: the indicator says **working**, never **waiting**.
+======>>>>>>> REPLACE
  *
- * **It is pure Kotlin** — no Android type reaches it. The gating (idle only, off battery-saver, paused on an
- * arming) lives at the app edge; this class owns the arithmetic of the pass: skip-what-is-warm, order
- * own-ship outward, honour the two caps, and pause (not stop) the moment [awaitMayProceed] says a route is
- * armed, resuming afterwards to fill the holes.
+ * **It is pure Kotlin** — no Android type reaches it. This class owns only the arithmetic of one area:
+ * skip-what-is-warm, order own-ship outward, honour the two caps and the store's ceiling, and ask
+ * [awaitMayProceed] before every tile — yielding where the app is busy and resuming afterwards to fill the
+ * holes, standing down where the answer is `false` (battery-saver), so the gate binds for the whole pass.
+ * What decides *when* a pass may start, and *how far* the area reaches, is the app edge and [`warmOutward`].
  */
 internal class FineTilePrewarm(
     /** The fine-tile map to fill — in production the installed `FineTileCache.shared`. */
@@ -62,13 +69,35 @@ internal class FineTilePrewarm(
 ) {
 
     /**
+     * **The requests a pass would actually build** — those neither held by the map nor named by the store.
+     * [run] filters with this call, and [`warmOutward`] asks it before it opens its busy window, so a ring
+     * whose water is warm opens nothing and the dot stays dark: the answer the walk holds its window on and
+     * the answer the pass builds on are one filter rather than two that could drift apart.
+     */
+    suspend fun pending(requests: List<FineTileRequest>, storedNames: Set<String>): List<FineTileRequest> {
+        val missing = ArrayList<FineTileRequest>(requests.size)
+        for (request in requests) {
+            if (map.holds(request.key)) continue
+            if (FineTileCodec.entryName(request.key) in storedNames) continue
+            missing.add(request)
+        }
+        return missing
+    }
+
+    /**
      * **Run one pass over [requests].** The tiles already warm are skipped first (no window opens when none
      * is left); the rest are built nearest-[orderFrom]-first, each bounded by [maxTiles] and [maxTimeMs].
-     * Before every tile [awaitMayProceed] is asked — the app edge suspends it there while a route is armed,
-     * so the pass pauses rather than starving a live arm, and resumes to fill what it left.
+     * [storeFullness] is asked before every tile too: once the store answers that it has no room for
+     * another entry the pass stops, because every further tile it builds costs a tile it already had.
      *
-     * [nowMs] is injected so a test drives the time budget without a clock; [awaitMayProceed] defaults to a
-     * no-op so a test never pauses.
+     * [awaitMayProceed] is asked **before every tile**, and the window is opened only while a tile is
+     * really being built — so a pass told to stand down before its first tile shows no dot at all, and a
+     * pass waiting at its gate shows none either. The seam yields while the app is busy (a route armed, a
+     * raster regenerating) and resumes to fill what it left; an answer of `false` is the app's own gate
+     * closed (battery-saver), which **ends** the pass rather than letting it run to its cap.
+     *
+     * [nowMs] is injected so a test drives the time budget without a clock; [awaitMayProceed] defaults to
+     * `true` so a test never pauses.
      */
     suspend fun run(
         requests: List<FineTileRequest>,
@@ -80,17 +109,15 @@ internal class FineTilePrewarm(
         maxTiles: Int,
         /** The time budget (ms): the longest one pass may run (`route.prewarm.maxMs`). */
         maxTimeMs: Long,
-        awaitMayProceed: suspend () -> Unit = {},
+        /** Whether the pass may go on, or must stand down — asked before every tile. See the KDoc above. */
+        awaitMayProceed: suspend () -> Boolean = { true },
+        /** The store's own fullness, or `null` where it cannot say — probed before every tile (step 3). */
+        storeFullness: suspend () -> StoreFullness? = { null },
         nowMs: () -> Long = { System.currentTimeMillis() }
     ): PrewarmOutcome {
         // Skip what is already there — in memory, then on disk — so a warm cache costs a listing and the
         // pass opens no window at all when nothing is left to build (the dot stays dark, correctly).
-        val missing = ArrayList<FineTileRequest>(requests.size)
-        for (request in requests) {
-            if (map.holds(request.key)) continue
-            if (FineTileCodec.entryName(request.key) in storedNames) continue
-            missing.add(request)
-        }
+        val missing = pending(requests, storedNames)
         val warm = requests.size - missing.size
         if (missing.isEmpty()) {
             trace("PREWARM warm requested=${requests.size} built=0")
@@ -99,42 +126,64 @@ internal class FineTilePrewarm(
         // Own-ship outward: the boat's own water first, so the arm most likely next reuses the tiles it
         // already stands on before the far ones.
         val ordered = missing.sortedBy { distanceM(it.center, orderFrom) }
-        FineTileCache.beginPrewarm()
         var built = 0
         var stoppedByCaps = false
+        var stoppedByCapacity = false
+        var stoppedByGate = false
         val startMs = nowMs()
-        try {
-            for (request in ordered) {
-                if (built >= maxTiles) {
-                    stoppedByCaps = true
-                    break
-                }
-                if (nowMs() - startMs >= maxTimeMs) {
-                    stoppedByCaps = true
-                    break
-                }
-                // Pause (never stop) the moment a route is armed: the pass yields here, the arm runs, and
-                // the pass resumes to build the tiles it had queued.
-                awaitMayProceed()
-                trace("PREWARM tile row=${request.key.tileRow} col=${request.key.tileCol}")
-                map.get(request.key) { request.build() }
-                built++
+        for (request in ordered) {
+            if (built >= maxTiles) {
+                stoppedByCaps = true
+                break
             }
-        } finally {
-            FineTileCache.endPrewarm()
+            if (nowMs() - startMs >= maxTimeMs) {
+                stoppedByCaps = true
+                break
+            }
+            // The store's own ceiling ends the pass: a full store evicts the oldest entry for each new
+            // one, so building past it would retire the water this pass already prepared.
+            val fullness = storeFullness()
+            if (fullness != null && fullness.atCeiling) {
+                stoppedByCapacity = true
+                break
+            }
+            // The gate, asked before every tile. The seam **yields** there while the app is busy (the pass
+            // resumes to build the tiles it had queued) and answers `false` where the pass must not run at
+            // all — battery-saver switched on mid-pass — which stands the pass down here rather than
+            // letting it run to its cap.
+            if (!awaitMayProceed()) {
+                stoppedByGate = true
+                break
+            }
+            trace("PREWARM tile row=${request.key.tileRow} col=${request.key.tileCol}")
+            // The window is opened **only around the tile the walk really builds** — never over a gate wait
+            // or a warm skip — and closed in a `finally`, so a cancelled build cannot latch the dot lit.
+            // The grace merges the tiles that follow one another; a wait at the gate lets it fall.
+            FineTileCache.beginWarmTile()
+            try {
+                map.get(request.key) { request.build() }
+            } finally {
+                FineTileCache.endWarmTile()
+            }
+            built++
         }
         trace("PREWARM done requested=${requests.size} warm=$warm built=$built caps=$stoppedByCaps")
-        return PrewarmOutcome(built = built, warm = warm, stoppedByCaps = stoppedByCaps)
+        return PrewarmOutcome(built, warm, stoppedByCaps, stoppedByCapacity, stoppedByGate)
     }
 }
 
 /**
- * **Whether the pre-warm may start**, from the three gates the user settled: it runs only when the boat is
- * **idle**, when **no route is armed**, and **off battery-saver**. A pure function, so the truth table is
- * pinned without a device; the app edge reads the three facts and hands them here.
+ * **Whether the pre-warm may work**, from the gates the user settled: it runs when **no route is armed**,
+ * **off battery-saver**, and **with no other heavy foreground job** taking the CPU (a depth-raster
+ * regeneration). A pure function, so the truth table is pinned without a device; the app edge reads the
+ * three facts and hands them here — and asks it again before every tile, so a job that starts mid-pass
+ * pauses the pass rather than being raced.
+ *
+ * The idle gate is deliberately gone (D4): the pass starts with the app and keeps its own lifecycle, so a
+ * moving boat is no longer a reason to leave the water cold.
  */
-internal fun prewarmGate(idle: Boolean, routeArmed: Boolean, batterySaver: Boolean): Boolean =
-    idle && !routeArmed && !batterySaver
+internal fun prewarmGate(routeArmed: Boolean, batterySaver: Boolean, heavyJob: Boolean): Boolean =
+    !routeArmed && !batterySaver && !heavyJob
 
 /**
  * **Whether [box] sits inside the baked region [region].** A fine tile can exist only where the baked depth

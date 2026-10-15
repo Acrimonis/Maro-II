@@ -40,6 +40,8 @@ class FineTileStoreFallbackTest {
         override suspend fun delete(key: TileKey) = Unit
 
         override suspend fun list(): List<String> = emptyList()
+
+        override suspend fun fullness(): StoreFullness? = null
     }
 
     @Test

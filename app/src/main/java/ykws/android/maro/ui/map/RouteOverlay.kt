@@ -603,9 +603,9 @@ internal fun routeSpanText(seconds: Double): String {
  * user's **line colour no longer**: that colour stays on the line alone, and the tile and the mark carry
  * the mode's own state.
  *
- * [tileStoreBusy] is the fine-tile store's own busy window: while the fine layer is reading or writing
- * the store, the mark turns white at half the beat — a loading tell for the store's work, carried by the
- * face and held a grace after the last tile so one pass reads as one window.
+ * [tileStoreBusy] is the warm-up's own busy window: while the background walk is really building tiles,
+ * the mark turns white — a loading tell for the warm-up's work, carried by the face and held a grace
+ * after its last tile so a run of them reads as one window. It is dark while the walk waits at its gate.
  */
 @Composable
 internal fun RouteToggleButton(
