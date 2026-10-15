@@ -35,8 +35,10 @@
   slow seconds, and its denominator moves with the band.
 - **D3 — every kind of low-limit water counts.** Ring interiors, the 300 m band, and the decelerations and
   accelerations that serve a limit. The boat's own cornering floor is the boat's water and stays out.
-- **D4 — the limit's severity is a lever, boxed.** Each second is weighted by a per-limit severity, shipped
-  at 1.0 so the table is inert until filled; the physics weighting already lives in the drawing's excess.
+- **D4 — the limit's severity is linear, and it landed.** Each second is weighted by its own limit's shortfall
+  against the pace in force — `(pace − limit) / pace`, floored at zero — so a 5 kn minute counts 0.8 and a
+  20 kn one 0.2 at a 25 kn pace, and nothing at or above the pace weighs anything; a ramp's second rides the
+  limit of the slow run it serves, and a leg meeting no limit weighs nothing.
 - **D5 — the two ends are asymmetric.** A weight of **0** reproduces the fastest line exactly, while the
   cleanest is the limit as the weight grows without bound — so the top stop is a **special case in the
   comparator**: the slow seconds decide alone, the clock breaking a tie, and it is named **ignore time**, never
@@ -98,8 +100,18 @@
   which states the wrong stop.
 - **P3's persistence.** A stored aversion value is read as a stop on the new dial, so an upgrade moves no
   behaviour by itself and no migration is needed.
-- **P4 — the presentation.** The card gains the plain minutes and the per-cent share where it does not already
-  carry them; no figure and no drawn line moves except the crown.
+- **P4 — the panel's marks and its names — shipped 2026-10-15.** The crown wears a **checkmark alone**, inline
+  right after the name and a step larger than the row's own body text, in the route accent; the accent bar that
+  once marked a row's leading edge is gone. The **rank** sits on the row's **second line** — the line the
+  ` so far ` text uses, so the first line reads `Name ✓` and the second `#1` once the set has settled — and the
+  ranks are **distinct**: a tie is broken by a chain, and the **tolerance still governs the crown** as the head
+  of the tied group, so the checkmark always sits on `#1`. A still-provisional row wears no rank.
+- **P4's publication.** The terminal update carries the **settled best** beside the running best it already
+  carries, so the crown's mark never follows the seat and no ranking rule is duplicated in the UI.
+- **P4's names.** The three rungs are renamed to what their lines do — `route_rung_*` becomes **Detour ·
+  Balanced · Coastal** (`Détour · Équilibré · Côtier`), both locales — the words no longer naming a preference.
+- **P4's card figures** still owe the read: the dial's word in the header and the line's minutes in slow water
+  where the panel does not already print them; no figure and no drawn line moves except the crown.
 - **P5 — the record — shipped.** The avoid-algorithm doc's ranking section, the engines doc's retired provider
   rows and its ladder clause, and the decisions doc's entry reversing the 2026-09-30 band exclusion — which had
   itself superseded the 2026-09-26 ruling that the approach ramps count.
@@ -110,8 +122,11 @@
   so the crown and the drawing differ on purpose and the shipped KDoc says so.
 - **Q2 and Q4 — dissolved by the landing.** The dial weighs lines already drawn and asks for no new drawing, so
   there is no free-rate search to pay for and no stop for a requested rate to fall between.
-- **Q3 — what severity is keyed by:** the limit alone, or the limit and the kind of water (a ring against the
-  band), since the two are felt differently.
+- **Q3 — settled and built 2026-10-15.** A minute under a 5 kn limit weighs more than one under a 20 kn limit,
+  **linearly**: `(pace − limit) / pace`, floored at zero, so the weight exists only where a limit sits below the
+  cruising pace — the very quantity the drawing prices. A first attempt was made **without an order** and
+  withdrawn; the user's `#impl` then ordered it, with the one correction that a leg meeting no limit counts for
+  nothing rather than whole.
 - **Q4 — the verdict between stops:** with the dial on a rate no line was drawn at, does the crown fall to the
   line nearest that rate, or to the arithmetic winner among all three as it does today?
 
@@ -138,5 +153,23 @@
   provider rows and the decisions doc's reversal of the 2026-09-30 band exclusion.
 - One reading moved with the λ defaults: the selective perf harness anchors 4074 expansions where the shipped
   λ 0 gave 2820, its KDoc following, because the fast rung now prices at λ 1.
-- P4 remains in design: the card's plain minutes and the per-cent share are to be checked against what the
-  panel already prints rather than assumed missing.
+- **P4 shipped 2026-10-15**: the terminal carries a `RouteVerdict` — the crown and every landed rung's rank,
+  folded once in `RoutePassRanking.ranks()` — and the panel draws it without deriving any rule: a checkmark
+  inline after the crowned row's name, a distinct rank on each settled row's second line, and the dial's own
+  word in the header. The ranks are **1..n, one per row**: the **tolerance** decides what counts as a tie and
+  the crown stays that group's head, while the order inside a group is the chain — the **exact score**, then
+  **fewer seconds under a limit**, then the **shorter trip**, then the row that **landed first**. The ` so far `
+  line stands on the second line while the ladder computes and the rank is gated on the same flag, so one clock
+  governs both. The three rungs are renamed **Detour · Balanced · Coastal** (`Détour · Équilibré · Côtier`), and
+  the seat, the map's paint, the footer's single accent fill and the app's one pulse are unmoved.
+- **The severity law landed 2026-10-15** on the user's `#impl`: a slow second's weight is **linear in its own
+  limit's shortfall** — `(pace − limit) / pace`, floored at zero, 0.8 at 5 kn and 0.2 at 20 kn on a 25 kn pace —
+  defined once in `slowWaterSeverity()` and read by the engine's cost site, where each per-limit bucket takes
+  its own limit's severity and the ramp half rides the limit the slow run serves. A leg meeting **no** limit
+  weighs **nothing**, which is the correction to the withdrawn attempt's "counted whole". The published
+  per-limit table stays **plain seconds**, so the panel's minutes, the drawing, the clock and the dial are
+  unmoved; the crown's figure becomes the line's own excess under its limits — the same quantity in kind as the
+  price the drawing bills.
+- Owed, named and not fixed: a ranked rung whose page the UI's fold collapses drops out of the panel's rank map,
+  the engine still ranking the line inside the survivor; the panel's own marks carry no unit test; and P4's card
+  figures — the line's minutes in slow water where the panel does not already print them — still owe their read.

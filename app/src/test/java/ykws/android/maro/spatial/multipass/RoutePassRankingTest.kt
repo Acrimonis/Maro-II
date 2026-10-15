@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.config.VerdictDial
@@ -10,6 +11,11 @@ import ykws.android.maro.config.VerdictDial
  * **The ladder's ranking, one sum** — which of the landed rungs takes the crown:
  * `trip time + weight × slow-water seconds`, lowest wins, a flip guarded by the tie tolerance, and the
  * dial's top stop weighing the slow seconds alone with the clock breaking an exact tie.
+ *
+ * **The ranks are distinct** (2026-10-15): the tolerance draws the groups it holds level, the chain breaks
+ * the tie inside one — the exact measure, then the fewer slow seconds, then the shorter time, then the
+ * arrival order — and the crown is always the head of its own group, so rank 1 is the crowned rung and no
+ * two settled rungs share a rank.
  *
  * The **4x** stop is the shipped default read arithmetically: `route.avoid.slowWater.weight` ships at 4,
  * so the crown this file pins is the one the app answers with out of the box.
@@ -184,5 +190,108 @@ class RoutePassRankingTest {
             VerdictDial.FOUR,
             VerdictDial.ofWeight(AppConfig.routeAvoidSlowWaterWeight)
         )
+    }
+
+    /**
+     * **The order and the crown are one seat** — [RoutePassRanking.ranks] reads the very sum and tolerance
+     * [RoutePassRanking.bestRungIndex] weighs by, so the crowned rung is always the rank-1 one.
+     */
+    @Test
+    fun theRanksReadTheSameSumAndTheCrownIsAlwaysRankOne() {
+        assertEquals(
+            "at 1x the quickest line leads, then the middle, then the dearest of the three",
+            listOf(3, 2, 1),
+            RoutePassRanking.ranks(1.0, toleranceSec, coastal)
+        )
+        assertEquals(
+            "and the crowned rung is the rank-1 one",
+            1,
+            RoutePassRanking.ranks(1.0, toleranceSec, coastal)[
+                RoutePassRanking.bestRungIndex(1.0, toleranceSec, coastal)!!
+            ]
+        )
+        assertEquals(
+            "at 4x the cleanest line leads and the two level ones take 2 and 3, the chain settling them",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(4.0, toleranceSec, coastal)
+        )
+        assertEquals(
+            "and at ignore time the slow seconds alone rank, the around rung first and the rest on their own",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(VerdictDial.IGNORE_TIME.weight, toleranceSec, coastal)
+        )
+    }
+
+    /**
+     * **A tie inside the tolerance breaks by the chain, and the ranks read `1, 2, 3`** (2026-10-15) — the
+     * first two stand ten score seconds apart, level to the tolerance, so the chain's first step settles
+     * them on the exact measure (940 against 950) while the rung the tolerance clearly leaves behind reads
+     * the last rank.
+     */
+    @Test
+    fun rungsInsideTheToleranceReadRanksOfTheirOwn() {
+        val lines = listOf(
+            line(durationSec = 900.0, slowWaterSec = 40.0),
+            line(durationSec = 905.0, slowWaterSec = 45.0),
+            line(durationSec = 900.0, slowWaterSec = 100.0)
+        )
+        assertEquals(
+            "the chain settles the level pair and the outsider takes the last rank",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(1.0, toleranceSec, lines)
+        )
+        assertEquals(
+            "which is the crown the same set was folded to, rank 1 always",
+            1,
+            RoutePassRanking.ranks(1.0, toleranceSec, lines)[
+                RoutePassRanking.bestRungIndex(1.0, toleranceSec, lines)!!
+            ]
+        )
+    }
+
+    /**
+     * **The tolerance still owns the crown, and the chain reads only behind it** (2026-10-15): a challenger
+     * whose own score is strictly lower — five score seconds under the tolerance — does not take the crown,
+     * and reads rank 2 while the incumbent it failed to unseat reads rank 1, so the mark a surface draws on
+     * rank 1 is the engine's own winner and never the chain's favourite. A lead wider than the tolerance
+     * flips both, the challenger carrying rank 1.
+     */
+    @Test
+    fun theToleranceGovernsTheCrownWhileTheChainRanksBehindIt() {
+        val lines = listOf(
+            line(durationSec = 900.0, slowWaterSec = 25.0),
+            line(durationSec = 900.0, slowWaterSec = 0.0),
+            line(durationSec = 1100.0, slowWaterSec = 25.0)
+        )
+        assertEquals(
+            "the sub-tolerance challenger's lower score leaves the crown where it stands",
+            0,
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, lines)
+        )
+        assertEquals(
+            "yet every settled rung reads a rank of its own, the crown heading its group",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(1.0, toleranceSec, lines)
+        )
+        val flipped = listOf(
+            line(durationSec = 950.0, slowWaterSec = 25.0),
+            line(durationSec = 900.0, slowWaterSec = 0.0)
+        )
+        assertEquals(
+            "a lead over the tolerance does flip it",
+            1,
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, flipped)
+        )
+        assertEquals(
+            "and the challenger carries rank 1 with it, the beaten incumbent second",
+            listOf(2, 1),
+            RoutePassRanking.ranks(1.0, toleranceSec, flipped)
+        )
+    }
+
+    /** Nothing landed ranks nothing. */
+    @Test
+    fun anEmptySetHasNoRanks() {
+        assertTrue(RoutePassRanking.ranks(1.0, toleranceSec, emptyList()).isEmpty())
     }
 }

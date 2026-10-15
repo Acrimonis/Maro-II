@@ -233,6 +233,21 @@ fun slowShares(
 }
 
 /**
+ * **The law of a slow second's weight** — the linear shortfall of [limitKn] against [paceKn]:
+ * `(pace − limit) / pace`, floored at zero, so a limit **at or above the pace weighs nothing at
+ * all**. At a 25 kn pace a second spent under 5 kn weighs 0.8, one under 10 kn weighs 0.6 and one
+ * under 20 kn weighs 0.2.
+ *
+ * The pace is the free-water cruising pace in force where the figure is built — the pace in force
+ * where the water carries no limit — which is what makes the weight **the very quantity the drawing
+ * prices**: the seconds a line spends under a limit, weighed this way, are that water's own **excess
+ * over the pace**, so the crown's figure and the search's price agree in kind. A limit that is not
+ * below the pace leaves no shortfall, and so no weight either.
+ */
+internal fun slowWaterSeverity(paceKn: Double, limitKn: Double): Double =
+    if (paceKn <= 0.0) 0.0 else ((paceKn - limitKn) / paceKn).coerceAtLeast(0.0)
+
+/**
  * **The time a route spends in slow water, summed per speed limit** — the companion of [slowShares],
  * keyed by the limit rather than by the water's kind.
  *
@@ -296,25 +311,29 @@ fun slowTimeByLimit(
 }
 
 /**
- * **The seconds a line spends on the ramps that serve a limit** — the slow legs standing outside both a
- * ring's interior and the band's own width, which [slowTimeByLimit] charges to **no** entry at all (a ramp
- * is no limit's water), read apart so the verdict can count them while that table keeps reporting a
- * limit's own water alone.
+ * **The weighted seconds a line spends on the ramps that serve a limit** — the slow legs standing
+ * outside both a ring's interior and the band's width, which [slowTimeByLimit] charges to **no**
+ * entry at all (a ramp is no limit's water), read apart so the verdict counts them while that table
+ * keeps reporting a limit's own water alone.
  *
  * A leg counts where the boat is slowed by a limit it is meeting and **not** by its own cornering: the
  * boat's own floor is the corner pass's curvature ceiling — the very [ceilingKnAt] the profile is timed
  * under — so a slow leg capped below the pace at either of its own ends is the boat's water and is left
  * out, while a leg with no such cap is the ease down to, or the climb back from, a limit ahead or behind.
  *
- * A counted leg is charged **its own seconds**, [slowTimeByLimit]'s own *spent, not lost* reading, so the
- * two figures the verdict adds are one currency and a ramp can never outweigh the water it serves. The
- * walk is the one [slowShares] makes — per timed leg, its seconds beyond its own distance at [paceKn],
- * with the leg's midpoint naming the water — so the three readings can never disagree about which leg is
- * slow.
+ * **A counted leg rides the limit of the slow run it serves** — read at the leg's own ends
+ * ([limitKnAt], the clock's own read), the stricter where both carry one. Its own seconds,
+ * [slowTimeByLimit]'s *spent, not lost* reading, take that limit's weight under
+ * [slowWaterSeverity]. A leg whose own ends meet **no** limit is no such ramp and is charged
+ * **nothing at all** — no limit, no shortfall, no weight — so no bucket is invented for it: the
+ * boat's own water, exactly as the committed code leaves it. The walk is the one [slowShares] makes
+ * — per timed leg, its seconds beyond its own distance at [paceKn], with the leg's midpoint naming
+ * the water — so the three readings can never disagree about which leg is slow.
  */
 internal fun rampSlowSeconds(
     timed: TimedLine,
     paceKn: Double,
+    limitKnAt: (LatLng) -> Double?,
     inZone: (LatLng) -> Boolean,
     inBand: (LatLng) -> Boolean,
     ceilingKnAt: (LatLng) -> Double?
@@ -332,9 +351,25 @@ internal fun rampSlowSeconds(
         // The ring and the band are the table's own entries; charging them here would double-count them.
         if (inZone(mid) || inBand(mid)) continue
         if (cappedByTheBoat(ceilingKnAt, a, paceKn) || cappedByTheBoat(ceilingKnAt, b, paceKn)) continue
-        total += timed.legTimesSec[i]
+        val servedKn = servedLimitKn(limitKnAt, a, b) ?: continue
+        total += timed.legTimesSec[i] * slowWaterSeverity(paceKn, servedKn)
     }
     return total
+}
+
+/**
+ * **The limit of the slow run a ramp serves** — [limitKnAt], the clock's own read, taken at the
+ * leg's own ends: the **stricter** of the two where both carry one, the one that does where only
+ * one does, and `null` where neither does — a leg that serves no limit, and so rides no weight.
+ */
+private fun servedLimitKn(limitKnAt: (LatLng) -> Double?, a: LatLng, b: LatLng): Double? {
+    val atA = readLimit(limitKnAt, a)
+    val atB = readLimit(limitKnAt, b)
+    return when {
+        atA == null -> atB
+        atB == null -> atA
+        else -> min(atA, atB)
+    }
 }
 
 /** Whether the corner pass's own curvature ceiling on [p] stands below [paceKn] — the boat's own cap. */

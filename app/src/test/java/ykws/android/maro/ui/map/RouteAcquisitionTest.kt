@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -26,9 +27,11 @@ import ykws.android.maro.spatial.RouteDeclarations
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteProvisional
+import ykws.android.maro.spatial.RouteRankedRung
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.RouteRunningBest
 import ykws.android.maro.spatial.RouteUpdate
+import ykws.android.maro.spatial.RouteVerdict
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
@@ -664,6 +667,74 @@ class RouteAcquisitionTest {
         val following = viewModel.state.value as RouteState.Following
         assertEquals("and the plan is mirrored in place", plan.reversed(), following.plan)
     }
+
+    /**
+     * **The settled verdict rides the terminal beside the running best** (2026-10-15): the engine's own
+     * fold is taken whole, so the panel reads the crown and every landed rung's rank off one value and
+     * re-derives no rule. A terminal with no verdict leaves none, and the arm and the end clear it.
+     */
+    @Test
+    fun theSettledVerdictIsPublishedBesideTheRunningBest() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        assertNull("a terminal without a verdict leaves none", viewModel.verdict.value)
+
+        val verdict = RouteVerdict(
+            best = RouteRunningBest(ids[2], compared = 3),
+            order = listOf(
+                RouteRankedRung(ids[2], 1),
+                RouteRankedRung(ids[0], 2),
+                RouteRankedRung(ids[1], 2)
+            )
+        )
+        engine.publish(ids[2], line(start, shortcut), runningBest = ids[2], verdict = verdict)
+
+        assertEquals("the settled verdict is taken whole", verdict, viewModel.verdict.value)
+        assertEquals("and the running best sits beside it", ids[2], viewModel.runningBest.value)
+
+        viewModel.end()
+        assertNull("the end clears the verdict with the running best", viewModel.verdict.value)
+        assertNull("and the running best too", viewModel.runningBest.value)
+    }
+
+    /**
+     * **The crown never follows the seat** (2026-10-15): a hand touch freezes the selection on one row, yet
+     * the verdict still names the ranking's own winner on another, so the panel's crown mark and the
+     * taken-choice face can stand on two different rows at once.
+     */
+    @Test
+    fun theCrownStandsApartFromTheSeat() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        viewModel.selectPage(0)
+        val seatedLookup = viewModel.pages.value[viewModel.selectedIndex.value].lookupId
+
+        val verdict = RouteVerdict(
+            best = RouteRunningBest(ids[2], compared = 3),
+            order = listOf(RouteRankedRung(ids[2], 1), RouteRankedRung(ids[0], 2))
+        )
+        engine.publish(ids[2], line(start, shortcut), runningBest = ids[2], verdict = verdict)
+
+        assertEquals("the frozen seat stands on the main, unmoved by the later landing", ids[0], seatedLookup)
+        assertEquals(
+            "yet the crown is the verdict's own",
+            ids[2],
+            viewModel.verdict.value?.best?.lookupId
+        )
+        assertNotEquals(
+            "so the two stand on different rows",
+            viewModel.pages.value[viewModel.selectedIndex.value].lookupId,
+            viewModel.verdict.value?.best?.lookupId
+        )
+    }
 }
 
 /**
@@ -692,7 +763,12 @@ private class CountingEngine(private val computations: Int = 1) : RouteEngine {
         cancelled += id
     }
 
-    fun publish(id: RouteId, result: RouteResult.Success?, runningBest: RouteId? = null) {
+    fun publish(
+        id: RouteId,
+        result: RouteResult.Success?,
+        runningBest: RouteId? = null,
+        verdict: RouteVerdict? = null
+    ) {
         _updates.tryEmit(
             RouteUpdate(
                 routeId = id,
@@ -701,7 +777,8 @@ private class CountingEngine(private val computations: Int = 1) : RouteEngine {
                 line = result?.points ?: emptyList(),
                 result = result,
                 reason = if (result == null) RouteReason.NO_PATH else null,
-                runningBest = runningBest?.let { RouteRunningBest(it, compared = 1) }
+                runningBest = runningBest?.let { RouteRunningBest(it, compared = 1) },
+                verdict = verdict
             )
         )
     }

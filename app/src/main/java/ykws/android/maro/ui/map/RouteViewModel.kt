@@ -26,6 +26,7 @@ import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteUpdate
+import ykws.android.maro.spatial.RouteVerdict
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
@@ -341,6 +342,15 @@ class RouteViewModel(
     val runningBest: StateFlow<RouteId?> = _runningBest.asStateFlow()
 
     /**
+     * **The settled set's verdict** — the crown and every landed rung's rank, the engine's own fold
+     * reported at each rung's terminal beside the running best. It is **independent of the seat**: the
+     * selection may stand anywhere, and the crown's mark and the ranks read off this value alone, so no
+     * ranking rule is re-derived in the UI. `null` until the first rung lands, and cleared with the arm.
+     */
+    private val _verdict = MutableStateFlow<RouteVerdict?>(null)
+    val verdict: StateFlow<RouteVerdict?> = _verdict.asStateFlow()
+
+    /**
      * **Whether the user has taken the seat over** — a hand selection (a row tap, a swipe) freezes it
      * for good, so no later landing can move a highlight the reader has placed. Reset by [arm] and
      * [end] alone.
@@ -431,6 +441,7 @@ class RouteViewModel(
         lookupPages.clear()
         cancelledLookups.clear()
         _runningBest.value = null
+        _verdict.value = null
         seatFrozen = false
         mirrored = false
         armedStartMarkerId = ends.startMarkerId
@@ -473,9 +484,13 @@ class RouteViewModel(
     private fun onUpdate(update: RouteUpdate) {
         if (update.routeId in cancelledLookups) return
         val index = lookupPages[update.routeId] ?: return
-        // Only a terminal carries the engine's running best; taking it here keeps every branch below
-        // reading one value, so a landed page and a refusal alike seat the same winner.
-        if (update.nextStage == null) _runningBest.value = update.runningBest?.lookupId
+        // Only a terminal carries the engine's running best and its settled verdict; taking them here
+        // keeps every branch below reading one value, so a landed page and a refusal alike seat the same
+        // winner and mark the same crown.
+        if (update.nextStage == null) {
+            _runningBest.value = update.runningBest?.lookupId
+            _verdict.value = update.verdict
+        }
         val current = _pages.value
         if (index !in current.indices) return
         val nowMs = System.currentTimeMillis()
@@ -693,6 +708,7 @@ class RouteViewModel(
             _stage.value = null
             _provisionalLine.value = emptyList()
             _runningBest.value = null
+            _verdict.value = null
             enterFollowing(selected)
             return
         }
@@ -801,6 +817,7 @@ class RouteViewModel(
         armedDestinationMarkerId = null
         preferredRungIndex = MAIN_INDEX
         _runningBest.value = null
+        _verdict.value = null
         seatFrozen = false
         mirrored = false
         etaState = RouteEtaState()

@@ -1065,6 +1065,97 @@ class RouteAvoidEngineTest {
     // The λ loop's keep rule is gone with the budget gate it served: the crown is one sum now, decided in
     // `RoutePassRanking` and pinned there, while this suite keeps the pipeline's own behaviour.
 
+    // ── The engine's own fold: the settled verdict it builds ───────────────────
+
+    /**
+     * **The settled set's verdict is one fold, and its crown is the order's head.**
+     *
+     * The fixtures around this one pin the publication, the tie and the marks apart; none reads what the
+     * engine's own fold *builds* — the crown it names and the order it hands over — so a wrong fold could
+     * ship under green tests. This one arms the whole ladder on a pair whose rungs are **priced apart**: a
+     * regulated zone lies across the straight line, tall enough that the two averse rungs round it while
+     * the fastest crosses it, the price switch armed. The verdict is read off the terminal whose fold has
+     * seen every landed rung — the deepest `compared` is the settled set, a rung still searching being
+     * absent from the order — so the order handed over carries a rank the crown does not share.
+     *
+     * The tooth is the agreement itself. Were the crowned rung and the order's head ever to name two
+     * different lookups, the head's rank to stop being 1, the order to ascend other than by rank, a rank
+     * to be shared or skipped now that **every settled rung reads one of its own** (2026-10-15), or a
+     * landed rung to be ranked twice or not at all, this reddens — which is the failure a wrong fold
+     * ships as, since no panel re-derives the rule to catch it.
+     */
+    @Test
+    fun theSettledVerdictNamesTheCrownTheOrderHeadsWith() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        // A zone the averse rungs can round inside the corridor's reach, yet long enough along the line
+        // that the fastest rung crosses it: the three lines land far enough apart for the order to rank.
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.478, 43.522, 7.020, 7.040))
+        val world = FakeWorld(zones = listOf(zone))
+        val engine = newEngine { world }
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture pair declares its three rungs", declared)
+        val computations = declared!!.computations
+
+        val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
+        val subscribed = CompletableDeferred<Unit>()
+        val armDone = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) {
+                        terminals[update.routeId] = update
+                        if (terminals.size == computations.size) armDone.complete(Unit)
+                    }
+                }
+        }
+        subscribed.await()
+        for (computation in computations) engine.startLookup(computation.id)
+        withTimeout(120_000) { armDone.await() }
+        collector.cancel()
+
+        val settled = terminals.values
+            .mapNotNull { update -> update.verdict?.let { verdict -> update to verdict } }
+            .maxByOrNull { (_, verdict) -> verdict.best.compared }
+        assertNotNull("the arm's own fold carries a verdict", settled)
+        val (terminal, verdict) = settled!!
+        assertTrue("the fold read a non-empty landed set", verdict.order.isNotEmpty())
+        assertEquals("and compared every rung it hands over", verdict.order.size, verdict.best.compared)
+        assertTrue(
+            "the fixture's own set is priced apart, so its order carries a rank the crown does not share",
+            verdict.order.any { it.rank > 1 }
+        )
+        assertEquals(
+            "the crown the fold names is the order's own head",
+            verdict.best.lookupId,
+            verdict.order.first().lookupId
+        )
+        assertEquals("which carries rank 1", 1, verdict.order.first().rank)
+        assertTrue(
+            "the order ascends by rank, the crown first",
+            verdict.order.zipWithNext().all { (a, b) -> a.rank <= b.rank }
+        )
+        assertEquals(
+            "and every rank stands alone, the settled set reading 1..n",
+            (1..verdict.order.size).toList(),
+            verdict.order.map { it.rank }
+        )
+        assertEquals(
+            "every landed rung ranks once",
+            verdict.order.size,
+            verdict.order.map { it.lookupId }.toSet().size
+        )
+        assertEquals(
+            "and the terminal carries that same crown beside its running best",
+            verdict.best.lookupId,
+            terminal.runningBest?.lookupId
+        )
+        assertTrue(
+            "every ranked rung is one the arm declared",
+            verdict.order.all { it.lookupId in computations.map { c -> c.id }.toSet() }
+        )
+    }
+
     // ── The crossing's line-end re-solve (D3) ──────────────────────────────────
 
     @Test

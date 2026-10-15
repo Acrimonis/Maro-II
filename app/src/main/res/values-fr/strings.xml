@@ -786,11 +786,12 @@
     <string name="route_reading_pulled_points">Points tendus</string>
     <string name="route_unit_cells">cellules</string>
     <string name="route_unit_points">points</string>
-    <!-- Les libellés des barreaux de la première colonne de l\'acquisition — les trois aversions fixes
-         nommées court, gardées distinctes des mots du cadran du verdict ci-dessus. -->
+    <!-- Les libellés des barreaux de la première colonne de l\'acquisition — les trois lignes tracées
+         nommées pour ce qu\'elles font (détour, équilibré, côtier), plus une préférence ; gardées
+         distinctes des mots du cadran du verdict ci-dessus. -->
     <string name="route_rung_through">Côtier</string>
     <string name="route_rung_balanced">Équilibré</string>
-    <string name="route_rung_around">Autour</string>
+    <string name="route_rung_around">Détour</string>
     <!-- Le séparateur entre les noms de barreaux d\'une page fusionnée, lu de gauche à droite. -->
     <string name="route_rung_names_sep">" | "</string>
     <!-- La marque qu\'une ligne porte tant que l\'échelle calcule encore : le meilleur provisoire, jamais un verdict. -->

@@ -56,6 +56,7 @@ import ykws.android.maro.spatial.multipass.insideBandWidthM
 import ykws.android.maro.spatial.multipass.msSince
 import ykws.android.maro.spatial.multipass.slowShares
 import ykws.android.maro.spatial.multipass.slowTimeByLimit
+import ykws.android.maro.spatial.multipass.slowWaterSeverity
 import ykws.android.maro.spatial.multipass.timeLineWithLimits
 import ykws.android.maro.spatial.multipass.timeLineWithProfile
 import ykws.android.maro.spatial.multipass.polylineLengthM
@@ -122,8 +123,9 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  *
  * **The ranking.** The engine folds its own rungs: at every rung's terminal the settled costs of the
  * rungs that have landed are ranked through [RoutePassRanking] under the one sum that decides the crown —
- * `trip time + weight × slow-water seconds` — and the winner rides that terminal as [RouteRunningBest], a
- * **running best**, so a surface can read *so far, the winner is…*. The two inputs the ranking reads are
+ * `trip time + weight × slow-water seconds` — and that one fold rides the terminal as both the crown's
+ * **running best** ([RouteRunningBest]) and the settled [RouteVerdict], the crown and the whole landed
+ * order read off one object so the two can never name two different winners. The two inputs it reads are
  * the engine's own, the **weight the verdict's dial stands at** (asked through [verdictWeight], `null` on
  * its *Ignore time* stop) and [AppConfig.routeAvoidLadderTieToleranceSec]; the answer carries no
  * instrumentation vocabulary, which is why the ranking lives here and never on an emitted line.
@@ -384,19 +386,19 @@ class RouteAvoidEngine(
         // the terminal emit below, which reads `lastStage` as its own `stageDone`.
         try {
             var rung: Rung? = null
-            var best: RouteRunningBest? = null
+            var verdict: RouteVerdict? = null
             // The build, the search and the fold — and only these — sit inside the catch.
             try {
                 val grid = sharedGrid(holder, world, from, to).await()
                 rung = grid?.let {
                     searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
                 }
-                // The fold and the read are one critical step: the rungs land concurrently, so a running
-                // best reported beside a rival's landing must see it whole or not at all.
+                // The fold is one critical step: the rungs land concurrently, so a verdict reported beside
+                // a rival's landing must see that landing whole or not at all.
                 val landed = rung
-                best = rankingLock.withLock {
+                verdict = rankingLock.withLock {
                     if (landed != null) landedRungs += LandedRung(lookupId, landed.cost)
-                    runningBest()
+                    settledVerdict()
                 }
             } catch (cancelled: CancellationException) {
                 // A cancel must stay silent — the seam says no update may arrive after one — so it is
@@ -410,12 +412,14 @@ class RouteAvoidEngine(
                 emitTerminal(lookupId, null, RouteReason.NO_PATH)
                 return
             }
-            // The success path's terminal, emitted **outside** the catch.
+            // The success path's terminal, emitted **outside** the catch. The one fold rides it twice — as
+            // the running best and as the settled verdict — so the two can never name two different crowns.
             emitTerminal(
                 lookupId,
                 rung?.result,
                 if (rung == null) RouteReason.NO_PATH else null,
-                best
+                verdict?.best,
+                verdict
             )
         } finally {
             if (narrates) {
@@ -455,22 +459,36 @@ class RouteAvoidEngine(
     }
 
     /**
-     * **The ladder's running best right now** — the landed rungs folded through the verdict's own rule
-     * ([RoutePassRanking]): one sum each, `trip time + weight × slow-water seconds`, the lowest winning
-     * where it leads the crown by more than the stored tie tolerance. Called under [rankingLock], so the
-     * read is never half a landing; a rung that found no path never enters [landedRungs] and is no
-     * candidate, so a set that has all failed ranks nothing.
+     * **The settled set's verdict right now** — the landed rungs folded **once** through the ranking's own
+     * seat ([RoutePassRanking]): [RoutePassRanking.bestRungIndex] names the crown and
+     * [RoutePassRanking.ranks] every landed rung's place, both under the one sum and the one tolerance, and
+     * the two are carried on the one [RouteVerdict] returned — so the crown and the order are read off one
+     * object and can never disagree. Called under [rankingLock], so the read is never half a landing; a rung
+     * that found no path never enters [landedRungs] and is no candidate, so a set that has all failed ranks
+     * nothing.
+     *
+     * The two inputs are the engine's own, exactly as the running best read them: the **weight the verdict's
+     * dial stands at** (asked through [verdictWeight], `null` on its *Ignore time* stop) and
+     * [AppConfig.routeAvoidLadderTieToleranceSec].
      */
-    private fun runningBest(): RouteRunningBest? {
+    private fun settledVerdict(): RouteVerdict? {
         if (landedRungs.isEmpty()) return null
         val weight = verdictWeight()
         val toleranceSec = AppConfig.routeAvoidLadderTieToleranceSec.coerceIn(
             AppConfig.ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN,
             AppConfig.ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX
         )
-        val winner = RoutePassRanking.bestRungIndex(weight, toleranceSec, landedRungs.map { it.cost })
-            ?: return null
-        return RouteRunningBest(landedRungs[winner].lookupId, landedRungs.size)
+        val costs = landedRungs.map { it.cost }
+        val winner = RoutePassRanking.bestRungIndex(weight, toleranceSec, costs) ?: return null
+        val ranks = RoutePassRanking.ranks(weight, toleranceSec, costs)
+        // The order is read off the very ranks the fold just wrote: ascending, crown first, one rank each.
+        val order = landedRungs.indices
+            .sortedBy { ranks[it] }
+            .map { i -> RouteRankedRung(landedRungs[i].lookupId, ranks[i]) }
+        return RouteVerdict(
+            best = RouteRunningBest(landedRungs[winner].lookupId, landedRungs.size),
+            order = order
+        )
     }
 
     /**
@@ -631,11 +649,12 @@ class RouteAvoidEngine(
                 "forced=[${forced.joinToString(", ")}]"
         }
         // The rung's own cost, exactly the figures the ranking reads: the seconds the line spends under a
-        // regulated limit and the settled clock. Both come from [rungSlowWater], the one expression that
-        // feeds the per-limit table the panel reads and the ramps that serve a limit into the slow-water
-        // seconds — the boat's own cornering floor standing outside both — so the wiring has one home and
-        // one fixture. The zone share and the zone metres are still settled for the report and are no
-        // longer ranking inputs.
+        // regulated limit, each bucket weighed by its own limit's shortfall against the pace, plus the
+        // ramps riding the limit of the run they serve, and the settled clock. All of it comes from
+        // [rungSlowWater], the one expression that feeds the per-limit table the panel reads and the
+        // ramps that serve a limit into the slow-water seconds — the boat's own cornering floor standing
+        // outside both — so the wiring has one home and one fixture. The zone share and the zone metres
+        // are still settled for the report and are no longer ranking inputs.
         val slowWater = rungSlowWater(
             timed = timedLine,
             paceKn = ctx.pace,
@@ -747,12 +766,17 @@ class RouteAvoidEngine(
         }
     }
 
-    /** The terminal update: the last stage finished, `nextStage` null, the result or the reason. */
+    /**
+     * The terminal update: the last stage finished, `nextStage` null, the result or the reason. The one
+     * fold rides it twice — [runningBest] as the running best and [verdict] as the settled verdict — so a
+     * surface that follows the seat and one that states the verdict read the same crown.
+     */
     private fun emitTerminal(
         lookupId: RouteId,
         result: RouteResult.Success?,
         reason: RouteReason?,
-        runningBest: RouteRunningBest? = null
+        runningBest: RouteRunningBest? = null,
+        verdict: RouteVerdict? = null
     ) {
         _updates.tryEmit(
             RouteUpdate(
@@ -762,7 +786,8 @@ class RouteAvoidEngine(
                 line = result?.points ?: emptyList(),
                 result = result,
                 reason = reason,
-                runningBest = runningBest
+                runningBest = runningBest,
+                verdict = verdict
             )
         )
         trace {
@@ -1004,16 +1029,25 @@ private class LadderGridHolder {
 
 
 /**
- * **One rung's slow-water reading, as the engine's own cost site settles it** — the per-limit table the
- * panel reads ([slowTimeByLimit]: a ring's interior and the 300 m band, each leg charged the part of its
- * own time that lies on that water) **plus** the ramps that serve a limit ([rampSlowSeconds], which that
- * table charges to no entry at all), with the boat's own cornering floor standing outside both.
- * [RungSlowWater.byLimit] is the table the answer publishes and [RungSlowWater.cost] the ranking's own
- * figure, so the two can never be read off two different sums.
+ * **One rung's slow-water reading, as the engine's own cost site settles it** — the per-limit table
+ * the panel reads ([slowTimeByLimit]: a ring's interior and the 300 m band, each leg charged the
+ * part of its own time that lies on that water) **plus** the ramps that serve a limit
+ * ([rampSlowSeconds], which that table charges to no entry at all), with the boat's own cornering
+ * floor standing outside both. [RungSlowWater.byLimit] is the table the answer publishes and
+ * [RungSlowWater.cost] the ranking's own figure, so the two can never be read off two different sums.
+ *
+ * **The crown's figure is the line's own excess under its limits.** Each bucket's seconds take
+ * **their own limit's** severity against the pace in force ([slowWaterSeverity]: the linear
+ * shortfall of that limit against the pace, floored at zero), and a ramp takes the severity of the
+ * limit of the slow run it serves — so the figure is the same quantity in kind as the price the
+ * drawing bills. A limit that is not below the pace weighs **nothing**; a ramp whose ends meet no
+ * limit is no bucket at all. The table published beside it stays **plain seconds**, so the panel's
+ * minutes, the drawing, the price, the clock, the dial's stops, the stored stop and the weight all
+ * keep reading what they read today.
  *
  * This is the one expression the cost site uses, named so a fixture can pin **the engine's wiring** —
- * that the table and the ramps really reach the weight the crown is read with — rather than re-deriving
- * the sum beside it.
+ * that the table and the ramps really reach the weight the crown is read with — rather than
+ * re-deriving the sum beside it.
  */
 internal fun rungSlowWater(
     timed: TimedLine,
@@ -1025,11 +1059,11 @@ internal fun rungSlowWater(
     ceilingKnAt: (LatLng) -> Double?
 ): RungSlowWater {
     val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn)
-    val ramps = rampSlowSeconds(timed, paceKn, inZone, inBand, ceilingKnAt)
+    val ramps = rampSlowSeconds(timed, paceKn, limitAt, inZone, inBand, ceilingKnAt)
     return RungSlowWater(
         byLimit = byLimit,
         cost = RoutePassRanking.PassCost(
-            slowWaterSec = byLimit.sumOf { it.seconds } + ramps,
+            slowWaterSec = byLimit.sumOf { it.seconds * slowWaterSeverity(paceKn, it.limitKn) } + ramps,
             durationSec = timed.durationSec
         )
     )
