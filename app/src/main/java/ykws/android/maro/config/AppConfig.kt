@@ -245,12 +245,12 @@ object AppConfig {
     const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
 
     /**
-     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 48 MiB
-     * (50 331 648). Past it the store reclaims its oldest entries, so a boat extending the cache across
+     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 72 MiB
+     * (75 497 472). Past it the store reclaims its oldest entries, so a boat extending the cache across
      * seasons cannot grow the directory without bound. It is the app edge that hands this to
      * [`DirectoryFineTileStore`]; the in-memory map's own ceiling is a separate, smaller sibling.
      */
-    var routeFineTileMaxBytes: Long = 48L * 1024L * 1024L
+    var routeFineTileMaxBytes: Long = 72L * 1024L * 1024L
         private set
 
     /**
@@ -315,6 +315,12 @@ object AppConfig {
     /** Highest worker count the load accepts — the warm-up must never take the whole phone's cores. */
     const val ROUTE_PREWARM_THREADS_MAX = 4
 
+    /** Lowest ceiling share the load accepts for the warm area — below it a pass would prepare too little water to be worth its work. */
+    const val ROUTE_PREWARM_TARGET_PCT_MIN = 10
+
+    /** Highest ceiling share the load accepts for the warm area — kept below 100 so the reserve always survives a walk. */
+    const val ROUTE_PREWARM_TARGET_PCT_MAX = 95
+
     /**
      * **How many workers the warm-up's own dispatcher may run** — `route.prewarm.threads`, default 2,
      * clamped [ROUTE_PREWARM_THREADS_MIN]..[ROUTE_PREWARM_THREADS_MAX]. The pass is not the app's work:
@@ -322,6 +328,18 @@ object AppConfig {
      * parallelism, so a prepared water costs the app neither its thread nor its cores (D5).
      */
     var routePrewarmThreads: Int = 2
+        private set
+
+    /**
+     * **The share of the store's ceiling the warm area may fill, in per cent** — `route.prewarm.targetPct`,
+     * default 80, clamped [ROUTE_PREWARM_TARGET_PCT_MIN]..[ROUTE_PREWARM_TARGET_PCT_MAX]. The walk asks the
+     * store whether one more tile of the size it last wrote would still fit **under this share** rather than
+     * under the whole ceiling, so the rest stands as a reserve for water the seed area does not cover: an
+     * occasional off-area spot is written into free space instead of evicting a tile the seed prepared. The
+     * pass's own tile cap and the store's hard ceiling are untouched beside it (D2), and the walk still
+     * never overshoots, because one reading decides both.
+     */
+    var routePrewarmTargetPct: Int = 80
         private set
 
 
@@ -2280,6 +2298,10 @@ object AppConfig {
             // The warm area's growth and the warm-up's own parallelism — D3's step and D5's bound.
             props.getProperty("route.prewarm.growthStepTiles")?.toIntOrNull()
                 ?.let { routePrewarmGrowthStepTiles = it.coerceIn(ROUTE_PREWARM_GROWTH_STEP_MIN, ROUTE_PREWARM_GROWTH_STEP_MAX) }
+            // The growth target the walk stops on: the share of the store's ceiling it may fill, the rest
+            // standing as the reserve water outside the seed area is written into.
+            props.getProperty("route.prewarm.targetPct")?.toIntOrNull()
+                ?.let { routePrewarmTargetPct = it.coerceIn(ROUTE_PREWARM_TARGET_PCT_MIN, ROUTE_PREWARM_TARGET_PCT_MAX) }
             props.getProperty("route.prewarm.threads")?.toIntOrNull()
                 ?.let { routePrewarmThreads = it.coerceIn(ROUTE_PREWARM_THREADS_MIN, ROUTE_PREWARM_THREADS_MAX) }
             // ── The followed route's loss toggle and arrival cue (R99) ──

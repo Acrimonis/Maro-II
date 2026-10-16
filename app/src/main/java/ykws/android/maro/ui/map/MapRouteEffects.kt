@@ -206,6 +206,9 @@ internal fun MapRoutePrewarmEffect(
                 orderFrom = orderFrom,
                 maxTiles = AppConfig.routePrewarmMaxTiles,
                 maxTimeMs = AppConfig.routePrewarmMaxMs,
+                // The share of the store the walk may fill, so the rest stays a reserve for water outside
+                // the seed area (the plan's §11): the walk stops on the store's own room under it.
+                targetPct = AppConfig.routePrewarmTargetPct,
                 storeFullness = { FineTileCache.storeFullness() },
                 // Every gate is read **per tile, here**, never sampled once at launch: the seam waits out an
                 // armed route and a competing job — the pass resumes to fill the holes — and answers `false`

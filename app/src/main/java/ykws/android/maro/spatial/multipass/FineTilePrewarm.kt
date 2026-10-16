@@ -87,8 +87,10 @@ internal class FineTilePrewarm(
     /**
      * **Run one pass over [requests].** The tiles already warm are skipped first (no window opens when none
      * is left); the rest are built nearest-[orderFrom]-first, each bounded by [maxTiles] and [maxTimeMs].
-     * [storeFullness] is asked before every tile too: once the store answers that it has no room for
-     * another entry the pass stops, because every further tile it builds costs a tile it already had.
+     * [storeFullness] is asked before every tile too: once the store answers that it has no room for another
+     * entry **under [targetPct] of its ceiling** the pass stops, because every further tile it builds costs a
+     * tile it already had — and the share left below the ceiling is the reserve the walk keeps for water the
+     * seed area does not cover.
      *
      * [awaitMayProceed] is asked **before every tile**, and the window is opened only while a tile is
      * really being built — so a pass told to stand down before its first tile shows no dot at all, and a
@@ -109,6 +111,12 @@ internal class FineTilePrewarm(
         maxTiles: Int,
         /** The time budget (ms): the longest one pass may run (`route.prewarm.maxMs`). */
         maxTimeMs: Long,
+        /**
+         * The share of the store's ceiling this pass may fill — `route.prewarm.targetPct`, the same value
+         * the outward walk is held to. Required rather than defaulted, so a caller cannot warm past the
+         * reserve by forgetting it.
+         */
+        targetPct: Int,
         /** Whether the pass may go on, or must stand down — asked before every tile. See the KDoc above. */
         awaitMayProceed: suspend () -> Boolean = { true },
         /** The store's own fullness, or `null` where it cannot say — probed before every tile (step 3). */
@@ -140,10 +148,11 @@ internal class FineTilePrewarm(
                 stoppedByCaps = true
                 break
             }
-            // The store's own ceiling ends the pass: a full store evicts the oldest entry for each new
-            // one, so building past it would retire the water this pass already prepared.
+            // The store's own room under the growth target ends the pass: once it can give no more under
+            // that share it evicts its oldest entry for each new one, so building past it would retire the
+            // water this pass already prepared.
             val fullness = storeFullness()
-            if (fullness != null && fullness.atCeiling) {
+            if (fullness != null && !fullness.hasRoomAt(targetPct)) {
                 stoppedByCapacity = true
                 break
             }
