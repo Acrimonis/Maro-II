@@ -613,6 +613,15 @@ internal class WalkWindows private constructor(
         return window.grid.sourceCostSec(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
+    /**
+     * The slot's own **λ-free depth-band price (s)**, read from the window that holds it — the value
+     * the search scales by the pass's own cursor, exactly as it reads [sourceCostSec] and the limits.
+     */
+    fun depthBandSec(slot: Int): Double {
+        val window = windowOf(slot)
+        return window.grid.depthBandSec(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+    }
+
     /** The window a slot stands on — its own grid and its lattice offset. */
     fun windowOf(slot: Int): WalkWindow = windows[tiles?.get(slot) ?: 0]
 

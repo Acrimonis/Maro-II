@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.abs
@@ -54,6 +55,22 @@ import kotlin.math.floor
  * every unproved group keeps today's reads.
  */
 private const val MIN_SAMPLE_STEP_M = 1.0
+
+/**
+ * **The settled lookback's window: the largest span (segments) one chord may replace.** A span of `k`
+ * runs from an anchor over `k` segments, so `k = 2` is today's triple and `k = 3, 4` collapse a run of
+ * two or three flat vertices into one chord. Small on purpose — the shape to try — so the added work is
+ * proportional to the flat, jagged runs rather than to the line. A constant of the algorithm, not a key.
+ */
+private const val SWEEP_WINDOW_MAX_SPAN = 4
+
+/**
+ * **The window's geometry gate, in degrees** — the largest turn an intermediate vertex may carry and
+ * still belong to a run a single longer chord may collapse. A run of flat vertices is what the triple
+ * alone cannot see; a genuinely turned run keeps today's triple. It is tested as a bearing comparison
+ * before any field read, and it is a constant of the algorithm, not a key.
+ */
+private const val SWEEP_WINDOW_MAX_TURN_DEG = 45.0
 
 /**
  * **The marks of one sampled walk, on a fixed step from the chord's own anchor.** A walk's marks stand
@@ -346,6 +363,23 @@ object MultipassPull {
      * swept line can no more stand nearer to land than the margin nor shortcut priced water than the line
      * it came from — the sweep is precision-**improving**, never a licence to bend the route.
      *
+     * **The allowance makes the price proof tolerant of the field's own sampling.** The strict test pins a
+     * vertex on a difference smaller than the water can be read — the log's own `+16 ms` against `7.463 s`,
+     * and a pair equal below the printed precision. The chord now drops while `chordSec <= pathSec ×
+     * (1 + [allowanceShare])`, a **relative** term: where the legs cost nothing the allowance is nothing,
+     * so a priced chord is never cut by it, and it reads no new field value — the same two seconds the
+     * proof already compares. The wall stays absolute: clearance is still read first and short-circuits, so
+     * a chord refused by land pays no price read at all.
+     *
+     * **A window collapses a flat run the triple alone cannot see.** One interior vertex at a time is
+     * invisible to a run of three or more flat vertices — an open-water wiggle, a pocket-boundary
+     * oscillation. From each anchor the sweep tests chords over `k = 2 … [SWEEP_WINDOW_MAX_SPAN]` segments,
+     * but only where every intermediate turn is under [SWEEP_WINDOW_MAX_TURN_DEG] (a bearing comparison,
+     * read before any field read), taking the **longest acceptable** chord and never re-opening a closed
+     * window. `k = 2` is today's triple and is always tried, so a genuinely turned run keeps exactly
+     * today's behaviour, and the window's extra reads scale with the flat runs and are answered from the
+     * pull's own memo.
+     *
      * **One insertion point, gated on the line's own refusals.** The fine pass calls this on its settled
      * line alone: the runner's final pull is never swept, because the coarse line is re-refined here and
      * sweeping it would pay twice for one answer. The sweep is skipped where the line's own pull recorded
@@ -367,8 +401,13 @@ object MultipassPull {
      * summary line carries the in/out point counts, the passes walked and the drops and the two refusals,
      * one line per candidate vertex names its `at=` and the proof that kept or dropped it, and a
      * `skipped=` line stands where the gate or the size guard stopped the sweep before any candidate was
-     * tested. The report decides nothing: the drawn line is the walk's either way.
+     * tested. A `SWEEP window` line names each run a longer chord collapsed — the window's own verdict —
+     * while the summary keeps its shape, a window's vertices counting into its `dropped=` beside the
+     * triple's. The report decides nothing: the drawn line is the walk's either way.
      *
+     * @param allowanceShare the price allowance as a share of the legs' own price —
+     *   `route.avoid.pull.allowanceShare` through [AppConfig] where none is handed, so a caller reading a
+     *   fixture passes its own and the shipped key is the default.
      * @param setup the water the settled walk was handed — the same margin, steps, field, raw ends and
      *   approaches, so the sweep's proofs are the walk's own.
      * @param line the settled line, raw start first and raw aim last, exactly as [`pull`] returned it.
@@ -387,7 +426,8 @@ object MultipassPull {
         refusals: PullRefusals? = null,
         timing: PullTiming? = null,
         memo: MarkMemo? = MarkMemo(),
-        trace: (() -> String) -> Unit = {}
+        trace: (() -> String) -> Unit = {},
+        allowanceShare: Double = AppConfig.routeAvoidPullAllowanceShare
     ): List<LatLng> {
         if (line.size < 3) {
             trace { "SWEEP skipped=short" }
@@ -415,6 +455,25 @@ object MultipassPull {
                 // start and aim the walk must reach are left where they are.
                 val a = work[i - 1]
                 val b = work[i]
+                // ── The window: a flat run may collapse to one longer chord, ahead of today's triple ──
+                // The geometry gate is a bearing comparison, read before any field read, so only a run the
+                // triple cannot see is worth a longer chord; a turned run is left to the triple below.
+                val span = windowSpan(work, i)
+                if (span > 2) {
+                    val collapsed = longestWindowChord(work, i, span, ctx, allowanceShare)
+                    if (collapsed != null) {
+                        trace {
+                            "SWEEP window idx=$i span=$collapsed at=${atText(b)} " +
+                                "turn=${fmt(sweepTurnDeg(a, b, work[i + 1]))}"
+                        }
+                        repeat(collapsed - 1) { work.removeAt(i) }
+                        dropped += collapsed - 1
+                        changed = true
+                        // The collapsed run now sits behind the new anchor `b`, never re-opened.
+                        continue
+                    }
+                }
+                // ── Today's triple, with the allowance on its price proof ──
                 val c = work[i + 1]
                 // **Whether `b` is removable** — the pull's own lookback, read as the two proofs this
                 // sweep drops on: the skipping chord `a → c` is clear and it is not dearer than the two
@@ -431,7 +490,8 @@ object MultipassPull {
                 }
                 val chordSec = softPriceSec(a, c, ctx)
                 val pathSec = softPriceSec(a, b, ctx) + softPriceSec(b, c, ctx)
-                if (chordSec <= pathSec) {
+                // The allowance is relative: a share of the legs' own price, and nothing where they are free.
+                if (chordSec <= pathSec * (1.0 + allowanceShare)) {
                     trace {
                         "SWEEP drop idx=$i at=${atText(b)} turn=${fmt(sweepTurnDeg(a, b, c))}"
                     }
@@ -475,6 +535,55 @@ object MultipassPull {
         val outBearing = SpatialOperations.initialBearing(at, next)
         val delta = ((outBearing - inBearing + 540.0) % 360.0) - 180.0
         return abs(delta)
+    }
+
+    /**
+     * **The longest flat run of interior vertices from the anchor at `i - 1`, in segments** — the largest
+     * span `k` (at most [SWEEP_WINDOW_MAX_SPAN]) whose **every** intermediate vertex turns by less than
+     * [SWEEP_WINDOW_MAX_TURN_DEG] and whose endpoint stands inside the line. `k = 2` is today's triple and
+     * carries no gate, so no turn blocks it; a window of three or more segments opens only where the first
+     * interior is flat **and** each further one is, so a genuinely turned run keeps exactly today's
+     * behaviour. Bearings alone — it reads no field value.
+     */
+    private fun windowSpan(work: List<LatLng>, i: Int): Int {
+        if (sweepTurnDeg(work[i - 1], work[i], work[i + 1]) >= SWEEP_WINDOW_MAX_TURN_DEG) return 2
+        var span = 2
+        while (span < SWEEP_WINDOW_MAX_SPAN) {
+            val at = i + span - 1
+            if (at + 1 >= work.size) break
+            if (sweepTurnDeg(work[at - 1], work[at], work[at + 1]) >= SWEEP_WINDOW_MAX_TURN_DEG) break
+            span++
+        }
+        return span
+    }
+
+    /**
+     * **The longest window chord from the anchor at `i - 1` that both proofs accept, or `null`.** The
+     * chords are tried longest first — `k` from [maxSpan] down to `3`, `k = 2` being the triple the caller
+     * runs beside this — and the first the field clears and the allowance accepts wins. The clearance proof
+     * is read first and short-circuits, so a chord refused by land pays no price read at all, and the legs'
+     * price is the run's own sum, so a span is dearer or not exactly as the triple reads it.
+     */
+    private fun longestWindowChord(
+        work: List<LatLng>,
+        i: Int,
+        maxSpan: Int,
+        ctx: PullContext,
+        allowanceShare: Double
+    ): Int? {
+        var span = maxSpan
+        while (span >= 3) {
+            val a = work[i - 1]
+            val e = work[i - 1 + span]
+            if (legClearCause(a, e, ctx) == null) {
+                val chordSec = softPriceSec(a, e, ctx)
+                var pathSec = 0.0
+                for (j in i - 1 until i - 1 + span) pathSec += softPriceSec(work[j], work[j + 1], ctx)
+                if (chordSec <= pathSec * (1.0 + allowanceShare)) return span
+            }
+            span--
+        }
+        return null
     }
 
     /**

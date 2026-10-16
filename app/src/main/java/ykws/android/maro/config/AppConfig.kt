@@ -396,6 +396,47 @@ object AppConfig {
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
 
     /**
+     * The `evolutive` engine's depth reach (m) above the gate's own minimum —
+     * `route.evolutive.depth.reachM`, default 25, clamped
+     * [ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MIN]..[ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MAX].
+     *
+     * **The reach is metres of depth, never of planimetry.** The band's outer edge is
+     * `route.avoid.depthGate.minM + this`, so the water the price ends at is a depth like the gate's
+     * own and the value works at every resolution: with the shipped 3 m gate and 25 m here the price
+     * ends at 28 m of depth, and the 2026-10-07 order's own arithmetic — *min is 20 m, but make me pay
+     * within 50 m* — is read as its depth twin rather than as a standoff a geometry-free law cannot
+     * express. It is the plan's own answer, so `avoid` stays untouched. `0` makes the band inert: the
+     * outer edge sits on the wall itself, so no passable cell stands inside it.
+     */
+    var routeEvolutiveDepthReachM: Double = 25.0
+        private set
+
+    /**
+     * The depth band's **per-metre gradient** — `route.evolutive.depth.priceSecPerM`, default 0.05,
+     * clamped [ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MIN]..[ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MAX].
+     *
+     * A cell's price is `priceSecPerM × λ × max(0, softDepthM − its own depth)`, in **seconds per
+     * cell**, so a cell on the wall's own edge pays one full band width, the price is zero at and
+     * beyond the band's outer edge, and it grows linearly in between. **No cap exists beside it**: λ
+     * and the law are the whole brake, so a rung that takes shallow water pays for exactly the depth
+     * it took.
+     */
+    var routeEvolutiveDepthPriceSecPerM: Double = 0.05
+        private set
+
+    /** Lowest depth-band reach (m) the load accepts — zero, the band's own off position. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MIN = 0.0
+
+    /** Highest depth-band reach (m) the load accepts — the retired depth band's own ceiling. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MAX = 500.0
+
+    /** Lowest depth-band gradient (s/m) the load accepts — zero, the band's own off position. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MIN = 0.0
+
+    /** Highest depth-band gradient (s/m) the load accepts — the retired depth price's own ceiling. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MAX = 10.0
+
+    /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
      * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
      * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
@@ -562,6 +603,28 @@ object AppConfig {
 
     /** Highest tie tolerance (score seconds) the properties load accepts — one home for that end. */
     const val ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX = 300.0
+
+    /**
+     * The settled lookback's **price allowance** (a share of the legs' own price) —
+     * `route.avoid.pull.allowanceShare`, default 0.02, clamped
+     * [ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN]..[ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX].
+     *
+     * The sweep drops an interior vertex only where the skipping chord is **not dearer** than the two
+     * legs it replaces; that strict test pins a vertex on a difference the field's own sampling cannot
+     * justify. The allowance is **relative** — a vertex drops while `chordSec <= pathSec × (1 + share)` —
+     * so where the legs cost nothing the allowance is nothing and a priced chord is never cut by it, and
+     * it adds no field read of its own: the same two seconds it compares are already paid. A share, so a
+     * share of free legs is free; 0 restores the strict test and the ceiling is a drawing licence at half
+     * the legs' own price. It changes a drawn line and never a control, so no `strings.xml` key is owed.
+     */
+    var routeAvoidPullAllowanceShare: Double = 0.02
+        private set
+
+    /** Lowest allowance share the properties load accepts — the floor that restores the strict test. */
+    const val ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN = 0.0
+
+    /** Highest allowance share the properties load accepts — a drawing licence, capped at half the legs. */
+    const val ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX = 0.5
 
     /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
@@ -2347,6 +2410,20 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
                 ).coerceAtMost(routeEvolutiveGridCellM)
             }
+            // ── The evolutive engine's depth band: the reach above the gate's minimum and the
+            //    per-metre gradient. `avoid` prices none of it ──
+            props.getProperty("route.evolutive.depth.reachM")?.toDoubleOrNull()?.let {
+                routeEvolutiveDepthReachM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MIN,
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MAX
+                )
+            }
+            props.getProperty("route.evolutive.depth.priceSecPerM")?.toDoubleOrNull()?.let {
+                routeEvolutiveDepthPriceSecPerM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MIN,
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MAX
+                )
+            }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
             }
@@ -2391,6 +2468,10 @@ object AppConfig {
             props.getProperty("route.avoid.ladder.tieToleranceSec")?.toDoubleOrNull()?.let {
                 routeAvoidLadderTieToleranceSec =
                     it.coerceIn(ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN, ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX)
+            }
+            props.getProperty("route.avoid.pull.allowanceShare")?.toDoubleOrNull()?.let {
+                routeAvoidPullAllowanceShare =
+                    it.coerceIn(ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN, ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX)
             }
             props.getProperty("route.avoid.speedZone.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginCostFraction = it.coerceIn(0.0, 1.0)

@@ -24,10 +24,12 @@ internal object FineTileCodec {
      * The on-disk format's own version. An entry of another version is discarded, never read — there is
      * **no migration**: a v1 entry is a miss, because v2 carries the pace-free [FineTile.sourceCostFactor]
      * where v1 carried `sourceCostSec` and `baseCostSec`; a v2 entry is likewise a miss, because v3 drops
-     * the retired depth-price coefficient from the stored field list. A key that no longer names a value
-     * its entry carries is **orphaned rather than addressed**, and the disk trim reclaims it by age.
+     * the retired depth-price coefficient from the stored field list; and a v3 entry is a miss too,
+     * because v4 carries the depth band's own λ-free price beside the five doubles a member had. A key
+     * that no longer names a value its entry carries is **orphaned rather than addressed**, and the disk
+     * trim reclaims it by age.
      */
-    const val FORMAT_VERSION: Int = 3
+    const val FORMAT_VERSION: Int = 4
 
     /** Eight bytes that say "a fine-tile entry, this codec's shape" before the version byte. */
     private const val MAGIC: Long = 0x4D41524F54494C45L // "MAROTILE"
@@ -77,6 +79,7 @@ internal object FineTileCodec {
         for (value in tile.collarLimitKn) out.writeDouble(value)
         for (value in tile.bandLimitKn) out.writeDouble(value)
         for (value in tile.bandCollarLimitKn) out.writeDouble(value)
+        for (value in tile.depthBandSec) out.writeDouble(value)
         for (value in tile.localIndex) out.writeInt(value)
         out.flush()
         return buffer.toByteArray()
@@ -133,6 +136,7 @@ internal object FineTileCodec {
             collarLimitKn = input.readDoubles(members),
             bandLimitKn = input.readDoubles(members),
             bandCollarLimitKn = input.readDoubles(members),
+            depthBandSec = input.readDoubles(members),
             localIndex = IntArray(members) { input.readInt() }
         )
     }
