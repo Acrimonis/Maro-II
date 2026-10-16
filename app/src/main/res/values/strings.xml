@@ -777,7 +777,6 @@
     <string name="route_engine_dummy">Straight line</string>
     <string name="route_engine_avoid">Avoidance</string>
     <string name="route_engine_evolutive">Adaptive</string>
-    <string name="route_engine_selective">Selective</string>
     <!-- The step readings a stage reports while a lookup runs — one label per figure and one unit per kind. -->
     <string name="route_reading_expansions">Expansions</string>
     <string name="route_reading_passable_cells">Passable</string>

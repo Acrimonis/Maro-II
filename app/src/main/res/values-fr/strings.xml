@@ -779,7 +779,6 @@
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
     <string name="route_engine_evolutive">Adaptative</string>
-    <string name="route_engine_selective">Sélective</string>
     <!-- Les mesures d'étape qu'un moteur rapporte pendant une recherche — un libellé par chiffre, une unité par sorte. -->
     <string name="route_reading_expansions">Extensions</string>
     <string name="route_reading_passable_cells">Navigables</string>

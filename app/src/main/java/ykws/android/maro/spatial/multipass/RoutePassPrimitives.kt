@@ -35,11 +35,6 @@ internal fun costField(
     zones: List<SpeedZone>,
     lambda: Double,
     /**
-     * The depth band's own door, mirroring `withZones`/`withBand`: `selective` alone turns it on, so the
-     * shallow-wall gradient is priced by the search and the guard together or by neither.
-     */
-    withDepthBand: Boolean = false,
-    /**
      * **The marker price's strength** — the Routing row's own factor, threaded as a live value beside
      * [pace] so a slider move reaches the next arm. The marker law is `base × step × strength`.
      */
@@ -154,28 +149,6 @@ internal fun costField(
             )
         )
     }
-    // **The depth band's arm**, `selective` alone: a per-metre gradient toward the shallow wall over the
-    // gate's own margin plus the plan's extra, read λ-free from the same law the rasterizer writes. Its
-    // clearance is the honest floor — zero — because a per-metre price over a raster distance field can
-    // change at every point, so no group is provable over the wall (the price walk falls back to
-    // per-interval reads there).
-    val depthBand = if (withDepthBand) depthBandOf(world, AppConfig.routeAvoidDepthGateMinM, cellM) else null
-    if (depthBand != null) {
-        sources.add(
-            RouteCostSource.Soft(
-                priceSec = { p ->
-                    val coef = DepthBandLaw.coefAt(p, depthBand.blockedAt, depthBand.stepM, depthBand.bandM)
-                    DepthBandLaw.priceSec(cellM, coef, lambda)
-                },
-                tag = MultipassCellState.BAND,
-                clearanceAt = { 0.0 },
-                armAt = { p ->
-                    val coef = DepthBandLaw.coefAt(p, depthBand.blockedAt, depthBand.stepM, depthBand.bandM)
-                    PriceArm.DEPTH to DepthBandLaw.priceSec(cellM, coef, lambda)
-                }
-            )
-        )
-    }
     // **The costed markers** — a λ-free price for 1–9 and a wall for 10. The price is gated by
     // `route.marker.enabled`; the wall never reads that switch (a wall is law and stands whatever it
     // says). A marker-free world adds nothing, so today's fast path (`hasSoft`/`hasBlocking` false) holds.
@@ -196,9 +169,9 @@ internal fun costField(
  * A fine tile is rasterised at a **unit base** (its grid opens at `1.0`), so its field's marker price is
  * `1.0 × factor` and the raster's own source cost *is* the pace-free multiplier the tile stores. The
  * walls a fine tile needs are the [costField] grid arm's own — the depth gate's rastered wall and (inert
- * for the fill) the coastline's materialised one — because the tile's depth-collar mask keeps a
- * gate-blocked cell's own water unless the wall paints it land. The band, the zones and the depth band
- * are deliberately absent: a fine tile carries none of them.
+ * for the fill) the coastline's materialised one — because the tile's fine-mask keeps a gate-blocked
+ * cell's own water unless the wall paints it land. The band and the zones are deliberately absent: a
+ * fine tile carries none of them.
  *
  * It is [costField]'s grid arm with the base lifted out, so the marker law stays one home
  * ([markerFactorAt]) and a tile's factor and the field's price cannot disagree.

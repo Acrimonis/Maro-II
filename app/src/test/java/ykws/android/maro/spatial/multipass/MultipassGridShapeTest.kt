@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * **The flattened grid proved structurally — P3.2 of the selective-perf plan.**
+ * **The flattened grid proved structurally — the flattened-cell-state change.**
  *
  * No JVM test can size an ART object honestly, so the byte figure belongs to a device pass (R97). What can
  * be pinned is the **stored shape** the flatten produces: the grid's declared instance fields are only

@@ -5,7 +5,6 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.RouteGridPlan
-import ykws.android.maro.spatial.multipass.SelectiveGridPlan
 import ykws.android.maro.spatial.multipass.UniformGridPlan
 
 /**
@@ -65,14 +64,6 @@ data class RouteEngineChoice(
                 plan = EvolutiveGridPlan,
                 factory = { paceKn, verdictWeight, world, markerStrength ->
                     RouteEvolutiveEngine(paceKn, verdictWeight, world, markerStrength, EvolutiveGridPlan)
-                }
-            ),
-            RouteEngineChoice(
-                id = "selective",
-                labelResId = R.string.route_engine_selective,
-                plan = SelectiveGridPlan,
-                factory = { paceKn, verdictWeight, world, markerStrength ->
-                    RouteSelectiveEngine(paceKn, verdictWeight, world, markerStrength, SelectiveGridPlan)
                 }
             )
         )

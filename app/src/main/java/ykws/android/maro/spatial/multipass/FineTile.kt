@@ -12,8 +12,8 @@ internal const val FINE_TILE_CELLS = 64
  * parallel primitive arrays over that member list, never a per-cell box and never a dense box:
  *
  * - a [state] of the stored [`MultipassCellState`] ordinal, one byte a member,
- * - six doubles a member — [sourceCostFactor], [zoneLimitKn], [collarLimitKn], [bandLimitKn],
- *   [bandCollarLimitKn] and [depthPriceCoef],
+ * - five doubles a member — [sourceCostFactor], [zoneLimitKn], [collarLimitKn], [bandLimitKn] and
+ *   [bandCollarLimitKn],
  * - an [localIndex] of each member's **local** cell index within the tile (`row * cols + col`), so a
  *   dense box is never materialised to hold one and the member's position is recovered by arithmetic.
  *
@@ -64,16 +64,14 @@ internal class FineTile(
     val bandLimitKn: DoubleArray,
     /** The 300 m band's outside-margin limit (kn) of each member. */
     val bandCollarLimitKn: DoubleArray,
-    /** The λ-free depth-price coefficient of each member. */
-    val depthPriceCoef: DoubleArray,
     /** Each member's local cell index within the block: `row * cols + col`. */
     val localIndex: IntArray
 ) {
     /** How many members this tile keeps. */
     val memberCount: Int get() = localIndex.size
 
-    /** The tile's own bytes — one byte a tag, six doubles a member and one int a local index. */
-    val byteSize: Long get() = memberCount.toLong() * (1L + 6L * 8L + 4L)
+    /** The tile's own bytes — one byte a tag, five doubles a member and one int a local index. */
+    val byteSize: Long get() = memberCount.toLong() * (1L + 5L * 8L + 4L)
 
     /**
      * **Copies every member that falls inside [target]** — the per-arm materialisation, the one place a
@@ -96,7 +94,7 @@ internal class FineTile(
             if (!target.inBounds(row, col)) continue
             target.writeMember(
                 row, col, state[m], memberCostAtBase(target.baseCostSec, sourceCostFactor[m]),
-                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m], depthPriceCoef[m]
+                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m]
             )
         }
     }
@@ -104,12 +102,12 @@ internal class FineTile(
     companion object {
         /**
          * **Extracts a rasterised tile's water into the sparse form.** The rasteriser ran over [grid] —
-         * the block grown by [haloCells] on every side so its depth bound saw the collar's wall — and
-         * only the **inner** block is kept. Every inner cell the fill left passable is a member, and its
-         * stored tag, its **pace-free source-cost factor** (the unit-base raster's own source cost), its
-         * four limits and its depth coefficient are read straight into the
-         * parallel arrays. The member's local index is its position in the block, `row * tileCells + col`,
-         * so [writeInto] recovers it without a map.
+         * the block grown by [haloCells] on every side, a margin no shipped build asks for any more and
+         * kept as the extractor's own general shape — and only the **inner** block is kept. Every inner
+         * cell the fill left passable is a member, and its stored tag, its **pace-free source-cost
+         * factor** (the unit-base raster's own source cost) and its four limits are read straight into
+         * the parallel arrays. The member's local index is its position in the block,
+         * `row * tileCells + col`, so [writeInto] recovers it without a map.
          *
          * The block is **pinned to exactly [tileCells] × [tileCells] by construction**, never inferred by
          * subtracting the halo from the rasterised box: the rasteriser's `ceil` can round the grown outer
@@ -149,7 +147,6 @@ internal class FineTile(
             val collarLimitKn = DoubleArray(members)
             val bandLimitKn = DoubleArray(members)
             val bandCollarLimitKn = DoubleArray(members)
-            val depthPriceCoef = DoubleArray(members)
             val localIndex = IntArray(members)
             var m = 0
             for (row in haloCells until haloCells + tileCells) {
@@ -161,7 +158,6 @@ internal class FineTile(
                     collarLimitKn[m] = grid.collarLimitKn(row, col)
                     bandLimitKn[m] = grid.bandLimitKn(row, col)
                     bandCollarLimitKn[m] = grid.bandCollarLimitKn(row, col)
-                    depthPriceCoef[m] = grid.depthPriceCoef(row, col)
                     localIndex[m] = (row - haloCells) * tileCells + (col - haloCells)
                     m++
                 }
@@ -175,8 +171,7 @@ internal class FineTile(
                 cellM = grid.cellM,
                 state = state, sourceCostFactor = sourceCostFactor, zoneLimitKn = zoneLimitKn,
                 collarLimitKn = collarLimitKn, bandLimitKn = bandLimitKn,
-                bandCollarLimitKn = bandCollarLimitKn, depthPriceCoef = depthPriceCoef,
-                localIndex = localIndex
+                bandCollarLimitKn = bandCollarLimitKn, localIndex = localIndex
             )
         }
     }

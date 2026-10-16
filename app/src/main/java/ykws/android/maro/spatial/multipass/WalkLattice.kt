@@ -302,7 +302,7 @@ internal class WalkSlotIndex(
  * whose windows carry the same shape reuses the previous arm's index instead of walking every cell again.
  * The contents differ per arm (the berth carve writes each arm's own cells), so the [`WalkWindows`] itself
  * is rebuilt over the caller's own windows; only the index is shared, and it is read-only once built. One
- * entry, newest wins, the [`SelectiveMaskCache`] shape.
+ * entry, newest wins, keyed on the shape alone.
  *
  * **The build runs outside the lock.** Both `shapeOf` and `build` are pure and touch no shared state, so a
  * miss walks its cells without holding anything and takes the lock only to publish the finished index; the
@@ -634,13 +634,6 @@ internal class WalkWindows private constructor(
         val tile = tiles?.get(slot) ?: 0
         val window = windows[tile]
         return window.grid.collarLimitKn(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
-    }
-
-    /** The slot's **λ-free depth-price coefficient**, or 0.0 where the depth band does not stand. */
-    fun depthCoef(slot: Int): Double {
-        val tile = tiles?.get(slot) ?: 0
-        val window = windows[tile]
-        return window.grid.depthPriceCoef(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
     /** The slot's band-outside-margin limit, in knots. */

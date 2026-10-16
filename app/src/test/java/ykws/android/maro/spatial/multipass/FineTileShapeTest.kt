@@ -9,7 +9,7 @@ import org.junit.Test
  *
  * No JVM test can size an ART object honestly, so the byte figure belongs to a device pass. What can be
  * pinned is the **stored shape**: the tile's declared instance fields are only primitives and primitive
- * arrays — a `ByteArray` tag beside six `DoubleArray`s and an `IntArray` of local indices — so no
+ * arrays — a `ByteArray` tag beside five `DoubleArray`s and an `IntArray` of local indices — so no
  * per-cell box and no dense box is materialised to hold a member. A declared-field scan is the
  * assertion, on the same shape as [`MultipassGridShapeTest`].
  *
@@ -49,7 +49,7 @@ class FineTileShapeTest {
             fields.getValue("localIndex").type
         )
         for (name in listOf(
-            "zoneLimitKn", "collarLimitKn", "bandLimitKn", "bandCollarLimitKn", "depthPriceCoef"
+            "zoneLimitKn", "collarLimitKn", "bandLimitKn", "bandCollarLimitKn"
         )) {
             assertEquals("$name is one DoubleArray a member", DoubleArray::class.java, fields.getValue(name).type)
         }

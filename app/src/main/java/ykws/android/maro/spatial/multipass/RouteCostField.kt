@@ -98,12 +98,11 @@ sealed interface RouteCostSource {
  * does not carry.
  *
  * It exists because a cell's own [MultipassCellState] tag cannot serve as one: the band and the rings
- * share a single source whose price is their **max**, tagged `ZONE` for both, and the depth arm's own
- * tag is `BAND`. The tag is what the rasterizer writes for a cell; this is what a reader asking *who
- * charged me* needs. [OTHER] is the honest residue — a source that declares no arm is reported under it
- * rather than guessed at.
+ * share a single source whose price is their **max**, tagged `ZONE` for both. The tag is what the
+ * rasterizer writes for a cell; this is what a reader asking *who charged me* needs. [OTHER] is the
+ * honest residue — a source that declares no arm is reported under it rather than guessed at.
  */
-enum class PriceArm { BAND, ZONE, DEPTH, MARKER, OTHER }
+enum class PriceArm { BAND, ZONE, MARKER, OTHER }
 
 /**
  * What the field answers at one point: the hard block, the summed soft price and the tag the dearest

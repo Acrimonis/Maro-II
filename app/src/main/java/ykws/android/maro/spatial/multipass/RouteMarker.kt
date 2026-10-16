@@ -156,8 +156,8 @@ internal fun markerFactorAt(
  * is the depth gate's own shape: a per-cell step tested at every mark, never a distance the margin stands
  * off, and it blocks the marker's **body** alone — the collar is a price, never a wall.
  *
- * **The priced markers declare their own arm** — reported under [PriceArm.MARKER], beside the ring, band
- * and depth arms the other sources name, so the price's own report can say the marker charged a point
+ * **The priced markers declare their own arm** — reported under [PriceArm.MARKER], beside the ring and
+ * band arms the other sources name, so the price's own report can say the marker charged a point
  * rather than lump it into the residue. One local price lambda feeds both the source's total and its
  * `armAt`, so the arm it reports can never disagree with the seconds it charges. The **wall carries no
  * arm**: it is law, not a price, and never enters the total.
@@ -190,7 +190,7 @@ internal fun markerSources(
                     nearest
                 },
                 // The priced markers' own arm, so the price's report names the marker that charged a
-                // point beside the ring, band and depth arms rather than reporting it as `OTHER`.
+                // point beside the ring and band arms rather than reporting it as `OTHER`.
                 armAt = { p -> PriceArm.MARKER to markerPriceSecAt(p) }
             )
         )

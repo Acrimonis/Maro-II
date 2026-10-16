@@ -1,7 +1,9 @@
 <!-- scope: feature -->
 # Route — a priced band beyond the depth gate's margin
 
-**Date:** 2026-10-07 · **Status:** in design, for discussion (point 1 of four) · **Order:** the user's word
+**Date:** 2026-10-07 · **Status:** in design, for discussion (point 1 of four) — **its subject landed elsewhere and
+is leaving the tree**: the preference was built on `selective` alone, and that engine is being retired
+([`261016_FEAT_PLN_Route_selective-retirement.md`](261016_FEAT_PLN_Route_selective-retirement.md)) · **Order:** the user's word
 of 2026-10-07 — *"Margin is closest allowed. I would like to add an extra range and increase its cost. The
 idea is not to prevent going through but if possible, go wider away from those low depth. For ex, min is
 20 m, but make me pay a bit if I need to go within 50 m. So if it is open, I would steer 50 away. This
@@ -78,3 +80,27 @@ the water allows. Two shapes, and choosing between them is this plan's first que
   already owns?
 - What must **not** happen: a rung choosing a much longer open-water line to shave a few metres of shallow
   water. Is there a cap on the detour the band may buy, or is λ the only brake?
+
+## Update — 2026-10-16: the design landed, and its home is leaving
+
+- **This file's first question was answered by the code, in favour of its second shape** — the price is a
+  **geometric standoff** measured by an 8-bearing radial ring scan on the gate's own predicate
+  ([`DepthBandLaw`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFineWater.kt:120)), charged as
+  a **per-metre gradient** rather than a flat surcharge, so neither the depth-valued reading nor a surcharge holds.
+- **Its keys went to the engine rather than to the gate** — `route.selective.depth.priceSecPerM` (0.05, times λ,
+  per cell) beside `route.selective.depth.bandExtraM` (25 m over the gate's own `route.avoid.depthGate.marginM`),
+  so the band is **45 m** wide and a cell standing on the wall pays one cell's worth at λ 1.
+- **The group proof was the obstacle, as this file said, and it was paid for rather than solved** — the source
+  declares a **zero clearance**, so every priced walk on that engine falls back to per-interval reads; the cost
+  this file put at ~80 % of the pull's was accepted there and nowhere else.
+- **The "both engines, one change" premise did not hold** — `withDepthBand` is a door every engine's `costField`
+  takes, so nothing in the code forbade `avoid` or `evolutive`; the scope was narrowed to the new engine by the
+  2026-10-07 order's own conservatism, `avoid` staying the shipped default and `evolutive` the reference.
+- **And that engine is now retiring** — a measured ~8× dearer fine build on fewer cells, 1.39×–2.12× the adaptive
+  arm's warm cost, and this file's own zero-clearance coupling paid by its walks (the retirement plan above). The
+  band, its collar, its law and its keys leave with the engine, so the ask this file was opened for — *a bit of
+  cost between the margin and 50 m, on `avoid` and `evolutive`* — has **no home in the tree**.
+- **What survives, and what this file holds now** — depth is handled by the **shared wall** (`costField`'s
+  `depthGateSource`) and the **margin** (the corner pass and the berth carve) for every engine that remains, and
+  whether a **soft preference returns on `evolutive`** — the engine the user actually drives — is the one question
+  left standing here, with the reach, the magnitude and the detour brake as its three dials.

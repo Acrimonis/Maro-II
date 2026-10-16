@@ -50,20 +50,13 @@ interface RouteGridPlan {
 
     /**
      * **Where this plan's fine layer may stand, in geographic terms — before any lattice snapping.** The
-     * builder grows the coast's harvested segments by the cut reaches, marks the zone-rim and depth
-     * collars, snaps the union to the corridor's own fine lattice and merges it into windows; the mask
-     * then keeps the answer's own membership bands. `evolutive` answers today's coast ribbon and nothing
-     * else, so its windows are byte-identical to the ones the builder derived for it before the seam
-     * moved here; `avoid`'s plan answers nothing at all, so its walk stays the single coarse grid.
+     * builder grows the coast's harvested segments by the cut reaches, snaps the union to the corridor's
+     * own fine lattice and merges it into windows; the mask then keeps the answer's own membership bands.
+     * `evolutive` answers today's coast ribbon and nothing else, so its windows are byte-identical to the
+     * ones the builder derived for it before the seam moved here; `avoid`'s plan answers nothing at all,
+     * so its walk stays the single coarse grid.
      */
     fun fineWater(query: FineWaterQuery): FineWater
-
-    /**
-     * Whether this plan prices the shallow wall — a per-metre gradient over a band beside the depth
-     * gate's wall, scoped to `selective` alone. `avoid` and `evolutive` answer `false`, so their search,
-     * their guard and their cells are untouched by the depth nudge.
-     */
-    val pricesDepthBand: Boolean get() = false
 }
 
 /**
@@ -126,72 +119,6 @@ object EvolutiveGridPlan : RouteGridPlan {
         return FineWater(
             coastReachesM = listOf(cutReach),
             coastBandsM = listOf(0.0..memberRadius)
-        )
-    }
-}
-
-/**
- * **`selective`'s plan: the same two layers as `evolutive`, but the fine water is a union of thin
- * collars where the decisions are rather than a coastal blanket.**
- *
- * Four collars, one `route.selective.*` width key each, all starting at 100 m and each snapped to the
- * fine cell by the builder: the shoreline (0–100 m off the coast), a collar straddling the 300 m band's
- * outer boundary, a collar around every priced zone's boundary, and the water within 100 m of a cell the
- * depth gate blocks. The coast collars reuse the segment marking; the zone rim and the depth dilation add
- * their own marking passes. The mask keeps the collars' own membership, so a zone rim in open water stays
- * fine water while the interior stays coarse by design.
- *
- * The portable half — the geographic union, before the snap — is cached on the band width and the four
- * collar widths, the only fields it reads; the per-arm snap-and-merge is the cheap half.
- */
-object SelectiveGridPlan : RouteGridPlan {
-
-    override val name: String = "selective"
-
-    override fun firstWalkGrid(corridor: BBox, baseCellM: Double): List<GridTile> = listOf(
-        GridTile(corridor, AppConfig.routeSelectiveGridCellM),
-        GridTile(corridor, AppConfig.routeSelectiveGridFineCellM)
-    )
-
-    override fun fineCellM(baseCellM: Double): Double = AppConfig.routeSelectiveGridFineCellM
-
-    /** The depth nudge is `selective`'s alone — this plan's own declaration. */
-    override val pricesDepthBand: Boolean get() = true
-
-    override fun fineWater(query: FineWaterQuery): FineWater {
-        val key = SelectiveMaskCache.Key(
-            bandWidthM = query.world.bandWidthM,
-            shoreCollarM = AppConfig.routeSelectiveShoreCollarM,
-            bandCollarM = AppConfig.routeSelectiveBandCollarM,
-            zoneRimM = AppConfig.routeSelectiveZoneRimM,
-            depthCollarM = AppConfig.routeSelectiveDepthCollarM
-        )
-        return SelectiveMaskCache.getOrCompute(key) { union(query) }
-    }
-
-    /** The union of the four collars, in geographic terms — the one home of the four widths' reach. */
-    private fun union(query: FineWaterQuery): FineWater {
-        val band = query.world.bandWidthM
-        val shoreM = AppConfig.routeSelectiveShoreCollarM
-        val bandCollarM = AppConfig.routeSelectiveBandCollarM
-        val reaches = ArrayList<Double>(2)
-        val bands = ArrayList<ClosedFloatingPointRange<Double>>(2)
-        // The shoreline collar: the water 0–shoreM off the coast.
-        if (shoreM > 0.0) {
-            reaches.add(shoreM)
-            bands.add(0.0..shoreM)
-        }
-        // The band's outer collar: a strip straddling the band's own outer boundary, on the same read.
-        if (bandCollarM > 0.0 && band > 0.0) {
-            val half = bandCollarM / 2.0
-            reaches.add(band + half)
-            bands.add((band - half).coerceAtLeast(0.0)..(band + half))
-        }
-        return FineWater(
-            coastReachesM = reaches,
-            coastBandsM = bands,
-            zoneRimM = AppConfig.routeSelectiveZoneRimM,
-            depthCollarM = AppConfig.routeSelectiveDepthCollarM
         )
     }
 }
