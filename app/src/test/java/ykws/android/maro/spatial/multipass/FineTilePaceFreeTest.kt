@@ -114,6 +114,6 @@ class FineTilePaceFreeTest {
         sourceCostFactor = doubleArrayOf(factor),
         zoneLimitKn = doubleArrayOf(0.0), collarLimitKn = doubleArrayOf(0.0),
         bandLimitKn = doubleArrayOf(0.0), bandCollarLimitKn = doubleArrayOf(0.0),
-        depthPriceCoef = doubleArrayOf(0.0), localIndex = intArrayOf(0)
+        localIndex = intArrayOf(0)
     )
 }

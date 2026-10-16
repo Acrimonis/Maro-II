@@ -160,6 +160,40 @@ data class RouteRunningBest(
 )
 
 /**
+ * **One landed rung's place in the settled set's ranking** — the lookup that owns the line and its rank,
+ * 1 the crown, every settled rung on a rank of its own: the tolerance's groups are drawn by
+ * [ykws.android.maro.spatial.multipass.RoutePassRanking.ranks] and the tie inside one is broken by that
+ * seat's own chain.
+ */
+data class RouteRankedRung(
+    /** The lookup that owns this rung's line — the page the flow ranks. */
+    val lookupId: RouteId,
+    /** The rung's rank in the settled set — 1 is the crown, and no two rungs share a rank. */
+    val rank: Int
+)
+
+/**
+ * **The settled set's verdict** — the crown and the whole ranking it was read from, folded at every
+ * rung's terminal and carrying **no instrumentation vocabulary**, which is why the ranking lives in the
+ * engine's own seat ([ykws.android.maro.spatial.multipass.RoutePassRanking]) and never on an emitted line.
+ *
+ * **The ranking has one home.** The crown ([best]) and the order ([order]) are the engine's fold under
+ * the dial's weight and the tie tolerance — the very arithmetic that decides the crown — so a surface
+ * reads both straight off this value and duplicates none of the rule: the panel prints the rank each row
+ * carries and marks the crown, never re-deriving the sum. [best] is also the rank-1 rung by
+ * construction, so the mark and the order can never name two different winners.
+ */
+data class RouteVerdict(
+    /**
+     * The settled set's crown — beside the *running* best a terminal also carries, so the crown's mark
+     * stands on its own row however the reader has since moved the seat.
+     */
+    val best: RouteRunningBest,
+    /** Every landed rung's rank, crown first, one rank each and provisional rungs absent. */
+    val order: List<RouteRankedRung>
+)
+
+/**
  * **One update the flow learns about a lookup** — the id, the stage pair, the line so far, the
  * finished result and the reason a lookup cannot be answered.
  *
@@ -200,7 +234,15 @@ data class RouteUpdate(
      * no-path one alike) and is folded afresh each time, so the last terminal carries the final winner
      * and a surface can tell a running best from a settled one by whether anything is still searching.
      */
-    val runningBest: RouteRunningBest? = null
+    val runningBest: RouteRunningBest? = null,
+    /**
+     * **The settled set's verdict at this terminal** — the crown and the whole landed order, or `null`
+     * where the engine ranks nothing. It rides every terminal beside [runningBest], folded afresh over
+     * the landed rungs, so the **last** terminal carries the settled crown and the panel can mark it and
+     * rank the rows without ever re-deriving the rule the ranking already owns. A surface that only
+     * follows the seat reads [runningBest]; one that states the verdict reads this.
+     */
+    val verdict: RouteVerdict? = null
 )
 
 /**

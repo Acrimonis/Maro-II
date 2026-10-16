@@ -296,11 +296,14 @@ class RoutePlanTest {
         val figure = routeTripFigure(
             plan = slow,
             from = p1,
-            // The two readings the card prints beside the time: the preference's own word and the
-            // set pace. They are carried through here, never resolved.
-            preferenceLabelResId = routeRungLabelRes(routeRungIndex(0.0)),
+            // The two readings the card prints beside the time: the verdict dial's own word and the
+            // set pace. They arrive already resolved — the screen reads them through stringResource —
+            // and are carried through here, never resolved.
+            preferenceLabel = "carried",
             paceKn = 25.0
         )
+
+        assertEquals("the dial's word rides the figure untouched", "carried", figure.preferenceLabel)
 
         assertEquals(Units.metresToNauticalMiles(d1), figure.distanceNm, 1e-6)
         assertEquals(
@@ -551,16 +554,16 @@ class RoutePlanTest {
     fun theMirrorCarriesTheRoutesOwnFactsUntouched() {
         val original = plan().copy(
             destinationMoved = true,
-            budgetUnmetZoneShare = 0.4,
             forcedCrossingZoneNames = listOf("Zone A"),
+            crossedSlowZoneNames = listOf("Zone B"),
             slowLimitSeconds = listOf(RouteSlowLimit(limitKn = 5.0, seconds = 90.0, isBand = true))
         )
 
         val mirror = original.reversed()
 
         assertTrue("a moved destination stays reported", mirror.destinationMoved)
-        assertEquals(0.4, mirror.budgetUnmetZoneShare)
         assertEquals(listOf("Zone A"), mirror.forcedCrossingZoneNames)
+        assertEquals("and the water's own fact reads the line, never the direction", listOf("Zone B"), mirror.crossedSlowZoneNames)
         assertEquals(original.slowLimitSeconds, mirror.slowLimitSeconds)
     }
 

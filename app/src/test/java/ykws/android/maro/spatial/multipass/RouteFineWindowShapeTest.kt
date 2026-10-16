@@ -1,9 +1,11 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.LandRingOrientation
@@ -133,6 +135,41 @@ class RouteFineWindowShapeTest {
         assertTrue("no coast, no ribbon, no windows", windows.isEmpty())
     }
 
+    /**
+     * **The window mask keeps `evolutive`'s coast ribbon and nothing else.** The rasterizer's mask is the
+     * plan's own fine water; for `evolutive` that predicate must keep exactly the water within
+     * `marginM + baseCellM` of the coast and paint the water beyond land — or the fine layer and the land
+     * disagree about the coast. It is the byte-identity witness the selective plan used to carry, re-homed
+     * on the one plan that keeps a fine layer.
+     */
+    @Test
+    fun theWindowMaskReproducesTheEvolutiveCoastRibbon() {
+        val marginM = 50.0
+        val baseCellM = 100.0
+        val answer = EvolutiveGridPlan.fineWater(
+            FineWaterQuery(
+                RibbonWorld(bandWidthM = 300.0), corridor, edges, openCoast,
+                marginM = marginM, baseCellM = baseCellM
+            )
+        )
+        val mask = answer.toMask()
+        val grid = rasterizeWindow(
+            corridor, lattice, paceKn = 25.0, marginM = marginM,
+            edges = edges, openCoast = openCoast, capLatNorth = corridor.latNorth,
+            fineMask = mask
+        )
+        // The old bandMask's own radius: the margin plus one coarse cell, measured east into open water.
+        val ribbonM = marginM + baseCellM
+        val anchor = coastPoints[2]
+        val within = SpatialOperations.pointAlongBearing(anchor.latitude, anchor.longitude, 90.0, ribbonM - 20.0)
+        val beyond = SpatialOperations.pointAlongBearing(anchor.latitude, anchor.longitude, 90.0, ribbonM + 200.0)
+        val withinCell = grid.cellOf(within.latitude, within.longitude)
+        val beyondCell = grid.cellOf(beyond.latitude, beyond.longitude)
+
+        assertTrue("water inside the ribbon stays fine", grid.passable(withinCell.row, withinCell.col))
+        assertFalse("water beyond the ribbon is painted land", grid.passable(beyondCell.row, beyondCell.col))
+    }
+
     /** The estimator is the frame's own ceiling: a box's cells, asked before anything is built. */
     @Test
     fun theEstimatorCountsTheCellsTheFrameWouldAllocate() {
@@ -215,4 +252,16 @@ class RouteFineWindowShapeTest {
     /** How many whole tiles [extentDeg] spans at [cellSizeDeg] — a tile being [sideCells] of those cells. */
     private fun tileIndex(extentDeg: Double, cellSizeDeg: Double): Int =
         (extentDeg / (cellSizeDeg * sideCells)).roundToInt().coerceAtLeast(0)
+}
+
+/** A ready world for the plan's own water — the band's width the plan reads, water everywhere else. */
+private class RibbonWorld(override val bandWidthM: Double) : MultipassWorld {
+    override val coastlineReady: Boolean get() = true
+    override val depthReady: Boolean get() = false
+    override val regionBounds: BBox? get() = null
+    override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
+    override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
+    override fun isWater(latitude: Double, longitude: Double): Boolean = true
+    override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+    override fun depthAt(latitude: Double, longitude: Double): DepthSample = DepthSample.NONE
 }

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.route.RouteEndSelection
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -189,11 +190,11 @@ fun MenuDrawerOverlay(
 
             SectionDivider()
 
-            // ── Cruising speed / driving preference — the two settings the mode plans with ──
+            // ── Cruising speed / slow water — the two settings the mode plans with ──
             // Added 2026-10-04 (the user's word): the quick access reads and writes the very settings the
-            // Settings page holds — `routeFreeWaterPaceKn` and `routeSlowWaterAversion` — so it is a second
-            // **door** onto those values and never a second home, and the pace shown is the **set** one
-            // rather than the boat's fitted pace.
+            // Settings page holds — `routeFreeWaterPaceKn` and the verdict dial's own stop
+            // (`routeSlowWaterStop`) — so it is a second **door** onto those values and never a second home,
+            // and the pace shown is the **set** one rather than the boat's fitted pace.
             Text(
                 text = stringResource(R.string.route_comment_quick_access),
                 color = Color(AppConfig.uiTextMuted),
@@ -606,16 +607,16 @@ private fun RouteEndsSection(section: RouteSummaryData) {
 
 /**
  * **The quick access to the mode's two settings** (the user's word, 2026-10-04): the pace the engine plans at
- * and the preference it weighs lines by, side by side in the pair control ([`DropdownPairRow`]) — whose wheel
+ * and the weight it weighs its lines by, side by side in the pair control ([`DropdownPairRow`]) — whose wheel
  * is the ends' own — over the grid the pace setting itself moves on.
  *
- * **The pair is a second door, never a second home**: both boxes write `routeFreeWaterPaceKn` and
- * `routeSlowWaterAversion` through the same callbacks the Settings page's sliders use, so the two surfaces
- * cannot disagree — and the pace box shows the **set** pace, not the boat's own fitted one.
+ * **The pair is a second door, never a second home**: both boxes write `routeFreeWaterPaceKn` and the verdict
+ * dial's own stop (`routeSlowWaterStop`) through the same callbacks the Settings page's rows use, so the two
+ * surfaces cannot disagree — and the pace box shows the **set** pace, not the boat's own fitted one.
  *
  * **The width rule is the control's own capability, and this call site asks for the proportional split**
  * (the user's word, 2026-10-05): each box takes a share of the row matching its own longest word, so the
- * preference's longer labels — `Optimal`, `Rapide` — earn more room than the pace's `35 kn`, where the
+ * dial's longer words — `Ignore time`, `Ignorer le temps` — earn more room than the pace's `35 kn`, where the
  * earlier fixed/elastic split left the pair narrow on the left and roomy on the right.
  */
 @Composable
@@ -624,11 +625,10 @@ private fun RouteQuickAccessSection(section: RouteSummaryData) {
     val paceOptions = AppConfig.ROUTE_FREE_WATER_PACE_STOPS_KN.map {
         it to stringResource(R.string.settings_route_pace_value_fmt, it)
     }
-    // The ladder's own order, most-fun first, which is the order the acquisition's first column lists its
-    // rungs in; the λ comes off the ladder rather than being spelled here, so the wheel writes exactly what
-    // the Settings slider writes.
-    val preferenceOptions = (0 until ROUTE_LADDER_RUNG_COUNT).map { index ->
-        routeRungLambdaOf(index).toFloat() to stringResource(routeRungLabelRes(index))
+    // The dial's own six stops in dial order; each stop's word comes off [verdictDialLabel], the one helper
+    // the Settings row reads too, so the wheel writes exactly what the Settings row writes.
+    val slowWaterOptions = VerdictDial.stops.map { stop ->
+        stop.index.toFloat() to verdictDialLabel(stop)
     }
     DropdownPairRow(
         left = DropdownField(
@@ -638,10 +638,10 @@ private fun RouteQuickAccessSection(section: RouteSummaryData) {
             accessibleName = stringResource(R.string.settings_route_pace_label)
         ),
         right = DropdownField(
-            options = preferenceOptions,
-            selected = section.preference,
-            onSelect = section.onPreferenceSelect,
-            accessibleName = stringResource(R.string.settings_route_preference_label)
+            options = slowWaterOptions,
+            selected = section.slowWaterStop,
+            onSelect = section.onSlowWaterStopSelect,
+            accessibleName = stringResource(R.string.settings_route_slow_water_label)
         ),
         leftWidth = DropdownPairWidth.Proportional,
         rightWidth = DropdownPairWidth.Proportional

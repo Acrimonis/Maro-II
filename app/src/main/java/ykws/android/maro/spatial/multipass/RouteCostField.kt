@@ -68,7 +68,17 @@ sealed interface RouteCostSource {
     class Soft(
         private val priceSec: (LatLng) -> Double,
         val tag: MultipassCellState,
-        private val clearanceAt: (LatLng) -> Double = { Double.MAX_VALUE }
+        private val clearanceAt: (LatLng) -> Double = { Double.MAX_VALUE },
+        /**
+         * **The arm this source's price belongs to, as the money it charges** — `null` where the source
+         * does not decompose, in which case [RouteCostField.armPricesAt] reports it under
+         * [PriceArm.OTHER] rather than guessing.
+         *
+         * A source whose own price is the **max** of several arms (the band against the rings) returns
+         * the winner alone, so the arms a point reports always sum to the price [costSec] answers — a
+         * decomposition that could exceed its own total would be worse than none.
+         */
+        val armAt: ((LatLng) -> Pair<PriceArm, Double>)? = null
     ) : RouteCostSource {
 
         override fun costSec(p: LatLng): Double = priceSec(p)
@@ -82,6 +92,17 @@ sealed interface RouteCostSource {
         fun priceClearanceM(p: LatLng): Double = clearanceAt(p)
     }
 }
+
+/**
+ * **Which arm charged a point** — the identity a price report needs and a [RouteCostSource.Soft] alone
+ * does not carry.
+ *
+ * It exists because a cell's own [MultipassCellState] tag cannot serve as one: the band and the rings
+ * share a single source whose price is their **max**, tagged `ZONE` for both. The tag is what the
+ * rasterizer writes for a cell; this is what a reader asking *who charged me* needs. [OTHER] is the
+ * honest residue — a source that declares no arm is reported under it rather than guessed at.
+ */
+enum class PriceArm { BAND, ZONE, MARKER, OTHER }
 
 /**
  * What the field answers at one point: the hard block, the summed soft price and the tag the dearest
@@ -266,7 +287,14 @@ fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostS
  * the walk's own soundness argument untrue, and nothing here can tell the difference for it.
  */
 class RouteCostField(
-    private val sources: List<RouteCostSource> = emptyList()
+    private val sources: List<RouteCostSource> = emptyList(),
+    /**
+     * **The cell this field's prices were built for** — the size `costField` priced every arm at, and
+     * the divisor that turns a per-cell price into the **seconds per metre** a walk over a length
+     * needs. It defaults to `1.0` so a field built without it prices a metre exactly as it prices a
+     * cell, which is the shape every fixture that never asked for a rate already had.
+     */
+    val cellM: Double = 1.0
 ) {
 
     private val hard: List<RouteCostSource.Hard> = sources.filterIsInstance<RouteCostSource.Hard>()
@@ -304,6 +332,35 @@ class RouteCostField(
      * `blocked` flag stops paying for it, and the two can never disagree about the price.
      */
     fun softPriceSecAt(p: LatLng): Double = priceAt(p).softCostSec
+
+    /**
+     * **The price law as a rate** — [softPriceSecAt] per metre, the cell's own cost divided by
+     * [cellM]. A walk that multiplies a price by a length must read this and never the per-cell value:
+     * seconds times metres is not seconds, and the whole point of the rate is that the same field can
+     * price a cell for the A\* and a stretch of line for a pull.
+     */
+    fun softPriceSecPerMAt(p: LatLng): Double = softPriceSecAt(p) / cellM
+
+    /**
+     * **Which arms charged [p], and how much** — the decomposition of [softPriceSecAt], for a report
+     * that has to name a reason rather than print a number. Each soft source answers its own winner
+     * through [RouteCostSource.Soft.armAt], and a source that declares none is reported under
+     * [PriceArm.OTHER], so the arms' prices always sum to the total the field would charge.
+     */
+    fun armPricesAt(p: LatLng): List<Pair<PriceArm, Double>> {
+        var other = 0.0
+        val arms = ArrayList<Pair<PriceArm, Double>>(soft.size)
+        for (source in soft) {
+            val arm = source.armAt?.invoke(p)
+            if (arm != null) {
+                if (arm.second > 0.0) arms.add(arm)
+            } else {
+                other += source.costSec(p)
+            }
+        }
+        if (other > 0.0) arms.add(PriceArm.OTHER to other)
+        return arms
+    }
 
     /**
      * Distance (m) to the nearest **soft price boundary** — the minimum over the field's soft sources

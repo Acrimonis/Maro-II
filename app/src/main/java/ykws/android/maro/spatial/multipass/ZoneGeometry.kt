@@ -195,9 +195,15 @@ fun lineEntersZone(waypoints: List<LatLng>, zone: SpeedZone, stepM: Double = 25.
     return false
 }
 
+/** The zones [waypoints] enters — the one entry test the report's two facts both stand on. */
+private fun zonesEnteredBy(waypoints: List<LatLng>, zones: List<SpeedZone>): List<SpeedZone> =
+    zones.filter { lineEntersZone(waypoints, it) }
+
 /**
- * The names of the priced zones the line enters, reported only when no avoiding path exists — an
- * ordinary priced crossing with a way around reports nothing.
+ * The names of the **priced** zones the line enters, reported only when no avoiding path exists — an
+ * ordinary priced crossing with a way around reports nothing. A zone the price law charges nothing for
+ * — its `speedRoute` override at or above the pace — is no restrictive zone at the caller and is never
+ * named here: [crossedSlowZoneNames] is the fact that reads the water instead of the price.
  */
 fun forcedCrossingZoneNames(
     waypoints: List<LatLng>,
@@ -205,4 +211,28 @@ fun forcedCrossingZoneNames(
     avoidingPathExists: Boolean
 ): List<String> =
     if (avoidingPathExists) emptyList()
-    else zones.filter { lineEntersZone(waypoints, it) }.map { it.name }
+    else zonesEnteredBy(waypoints, zones).map { it.name }
+
+/**
+ * **The zones the drawn line enters whose own limit in force is below the cruise pace** — what the
+ * water was signed at where the line crossed it, and deliberately **not** what the search was charged
+ * for that water.
+ *
+ * The limit read is the **displayed** one, [`SpeedZone.speedLimitKn`] — the field
+ * [strictestDisplayLimitKnAt] reads and therefore the value the clock, the line's colour and the
+ * slow-limit attribution obey. It is never [`SpeedZone.routeLimitKn`], the routing-only `speedRoute`
+ * override the price law stands on, and never the price itself: a zone the search was allowed to treat
+ * as free keeps slowing the boat, so it is named here while [forcedCrossingZoneNames] names nothing. A
+ * zone whose own limit is **at or above the pace** costs no second and shows in no colour, so it is
+ * named by neither fact.
+ *
+ * The entry test is [forcedCrossingZoneNames]'s own ([zonesEnteredBy]), so the two facts can never
+ * disagree about which water the line entered. Empty where the line enters no water slower than the pace.
+ */
+fun crossedSlowZoneNames(
+    waypoints: List<LatLng>,
+    zones: List<SpeedZone>,
+    paceKn: Double
+): List<String> = zonesEnteredBy(waypoints, zones)
+    .filter { it.speedLimitKn < paceKn }
+    .map { it.name }

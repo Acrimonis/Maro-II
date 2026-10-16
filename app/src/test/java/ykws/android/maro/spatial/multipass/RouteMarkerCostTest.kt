@@ -167,6 +167,50 @@ class RouteMarkerCostTest {
         assertEquals("beyond the collar nothing is", 0.0, field.softPriceSecAt(north(1600.0)), priceTol)
     }
 
+    /**
+     * **The marker's own arm** — a point a priced marker charges reports [PriceArm.MARKER] alone, carrying
+     * that point's own seconds and never the `OTHER` residue, so a price report can say the marker charged
+     * it. The arms it lists sum to what the field charges, and a point beyond every collar reports none.
+     */
+    @Test
+    fun aPricedPointReportsTheMarkerArmAloneAndTheArmsSumToTheTotal() {
+        val marker = RouteMarker(
+            "m1", RouteMarkerGeometry.Circle(center, 1000.0, 500.0), step = 3, isWall = false
+        )
+        val field = RouteCostField(
+            markerSources(listOf(marker), baseCostSec = 10.0, strength = 1.0, priceEnabled = true)
+        )
+        val inside = field.armPricesAt(north(900.0))
+        assertEquals("one arm charges the body", 1, inside.size)
+        assertEquals("and it is the marker", PriceArm.MARKER, inside.single().first)
+        assertEquals("carrying the point's own seconds", 30.0, inside.single().second, priceTol)
+        assertFalse("no `OTHER` residue stands beside it", inside.any { it.first == PriceArm.OTHER })
+        assertEquals(
+            "the arms sum to the price the field charges",
+            30.0, inside.sumOf { it.second }, priceTol
+        )
+        val mid = field.armPricesAt(north(1250.0))
+        assertEquals("mid collar the marker still names itself", PriceArm.MARKER, mid.single().first)
+        assertEquals("the arms still sum to the field's price", 15.0, mid.sumOf { it.second }, priceTol)
+        assertEquals(
+            "and the sum is the field's own answer", field.softPriceSecAt(north(1250.0)),
+            mid.sumOf { it.second }, priceTol
+        )
+        assertTrue("beyond every collar no arm is reported", field.armPricesAt(north(1600.0)).isEmpty())
+    }
+
+    /** **The switch silences the arm with the price** — no source, so no arm and no `OTHER` residue. */
+    @Test
+    fun theMarkerArmIsSilentWhenThePriceIsSwitchedOff() {
+        val marker = RouteMarker(
+            "m1", RouteMarkerGeometry.Circle(center, 1000.0, 500.0), step = 3, isWall = false
+        )
+        val field = RouteCostField(
+            markerSources(listOf(marker), baseCostSec = 10.0, strength = 1.0, priceEnabled = false)
+        )
+        assertTrue("with the price off no arm is reported at all", field.armPricesAt(center).isEmpty())
+    }
+
     @Test
     fun aPinPricesAConeFromItsCentreToItsProximity() {
         // A Pin reaches the field as a body of radius zero, so its whole price is the collar.

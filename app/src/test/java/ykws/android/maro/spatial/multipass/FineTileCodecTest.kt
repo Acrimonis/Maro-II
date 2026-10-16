@@ -42,7 +42,6 @@ class FineTileCodecTest {
         assertArrayEquals(tile.collarLimitKn, restored.collarLimitKn, 0.0)
         assertArrayEquals(tile.bandLimitKn, restored.bandLimitKn, 0.0)
         assertArrayEquals(tile.bandCollarLimitKn, restored.bandCollarLimitKn, 0.0)
-        assertArrayEquals(tile.depthPriceCoef, restored.depthPriceCoef, 0.0)
         assertArrayEquals(tile.localIndex, restored.localIndex)
         assertEquals(tile.byteSize, restored.byteSize)
     }

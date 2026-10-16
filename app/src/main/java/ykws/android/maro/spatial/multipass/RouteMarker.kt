@@ -120,7 +120,7 @@ internal fun markerPriceSec(baseCostSec: Double, factor: Double): Double = baseC
 /**
  * **The one marker factor law** — the pace-free `m` a point's priced markers sum to: each priced
  * marker's `step × strength × wellFactor`, its body-and-collar shape scaled by the step and the user's
- * [strength]. It is **linear**, **λ-free** — a marker is a rule, not a Driving preference, so all three
+ * [strength]. It is **linear**, **λ-free** — a marker is a rule, not a rung's aversion, so all three
  * rungs price it alike — and it only ever **adds**, so no point's factor drops below zero and the A\*'s
  * closed set stays valid (the field's own invariant). The wall is never priced: a wall is law and stands
  * whatever [enabled] says.
@@ -156,6 +156,12 @@ internal fun markerFactorAt(
  * is the depth gate's own shape: a per-cell step tested at every mark, never a distance the margin stands
  * off, and it blocks the marker's **body** alone — the collar is a price, never a wall.
  *
+ * **The priced markers declare their own arm** — reported under [PriceArm.MARKER], beside the ring and
+ * band arms the other sources name, so the price's own report can say the marker charged a point
+ * rather than lump it into the residue. One local price lambda feeds both the source's total and its
+ * `armAt`, so the arm it reports can never disagree with the seconds it charges. The **wall carries no
+ * arm**: it is law, not a price, and never enters the total.
+ *
  * @param priceEnabled the price's own switch (`route.marker.enabled`); the **wall never reads it** — a
  *   wall is law and stands whatever the switch says.
  */
@@ -169,15 +175,23 @@ internal fun markerSources(
     val sources = ArrayList<RouteCostSource>(2)
     val priced = if (priceEnabled) markers.filter { !it.isWall } else emptyList()
     if (priced.isNotEmpty()) {
+        // The price has **one home**: this lambda is both the source's total and the money its own arm
+        // reports, so `armAt` can never claim a figure the summed price disagrees with.
+        val markerPriceSecAt: (LatLng) -> Double = { p ->
+            markerPriceSec(baseCostSec, markerFactorAt(markers, strength, priceEnabled, p))
+        }
         sources.add(
             RouteCostSource.Soft(
-                priceSec = { p -> markerPriceSec(baseCostSec, markerFactorAt(markers, strength, priceEnabled, p)) },
+                priceSec = markerPriceSecAt,
                 tag = MultipassCellState.ZONE,
                 clearanceAt = { p ->
                     var nearest = Double.MAX_VALUE
                     for (m in priced) nearest = minOf(nearest, m.geometry.boundaryDistanceM(p))
                     nearest
-                }
+                },
+                // The priced markers' own arm, so the price's report names the marker that charged a
+                // point beside the ring and band arms rather than reporting it as `OTHER`.
+                armAt = { p -> PriceArm.MARKER to markerPriceSecAt(p) }
             )
         )
     }

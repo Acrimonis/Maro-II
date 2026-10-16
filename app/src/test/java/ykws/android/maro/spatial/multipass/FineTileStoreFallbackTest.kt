@@ -108,7 +108,6 @@ class FineTileStoreFallbackTest {
         assertArrayEquals(built.state, served.state)
         assertArrayEquals(built.sourceCostFactor, served.sourceCostFactor, 0.0)
         assertArrayEquals(built.zoneLimitKn, served.zoneLimitKn, 0.0)
-        assertArrayEquals(built.depthPriceCoef, served.depthPriceCoef, 0.0)
         assertArrayEquals(built.localIndex, served.localIndex)
         assertEquals(built.byteSize, served.byteSize)
     }

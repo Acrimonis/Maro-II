@@ -27,8 +27,7 @@ import ykws.android.maro.spatial.multipass.RouteGridPlan
  */
 class RouteEvolutiveEngine(
     paceKn: () -> Double,
-    aversionKn: () -> Double,
-    budgetPct: () -> Int,
+    verdictWeight: () -> Double?,
     world: () -> MultipassWorld,
     /** The marker price's live strength, forwarded to the shared engine beside the pace. */
     markerStrength: () -> Double = { 1.0 },
@@ -42,7 +41,7 @@ class RouteEvolutiveEngine(
 ) : RouteEngine {
 
     /** The pipeline both engines stand on — replaced, not wrapped, as the adaptive grid lands. */
-    private val delegate = RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, markerStrength, plan)
+    private val delegate = RouteAvoidEngine(paceKn, verdictWeight, world, markerStrength, plan)
 
     override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations =
         delegate.routesToCompute(origin, destination)

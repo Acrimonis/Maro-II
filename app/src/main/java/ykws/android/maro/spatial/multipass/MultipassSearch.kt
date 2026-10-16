@@ -77,10 +77,9 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _, _ -> 0.0 },
-        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
-        depthK: Double = 0.0
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
     ): SearchOutcome =
-        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled, depthK)
+        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled)
 
     /**
      * The same search over **[walk]**, one window or several on one lattice: the cell indices the path
@@ -104,8 +103,7 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _, _ -> 0.0 },
-        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
-        depthK: Double = 0.0
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
     ): SearchOutcome {
         val n = walk.size
         val startIdx = walk.slotOf(start.row, start.col)
@@ -153,7 +151,7 @@ object MultipassSearch {
                 if (nIdx >= 0 && over < 0 && !closed[nIdx]) {
                     relax(
                         walk, idx, nIdx, step.multiplier * walk.cellSizeM(layer),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
                     )
                 }
                 // The superseding fine cell over the same water — the crossing the coarse copy may not
@@ -161,7 +159,7 @@ object MultipassSearch {
                 if (over >= 0 && !closed[over]) {
                     relax(
                         walk, idx, over, SpatialOperations.haversine(here, walk.centerOf(over)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
                     )
                 }
                 // The seam: the other resolution's cells meeting this cell's face or corner, priced from
@@ -172,7 +170,7 @@ object MultipassSearch {
                     if (closed[cIdx]) continue
                     relax(
                         walk, idx, cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
                     )
                 }
             }
@@ -212,8 +210,7 @@ object MultipassSearch {
         open: PriorityQueue<Node>,
         aimCenter: LatLng,
         paceMps: Double,
-        zonePriceSec: (Double, Double, Double, Double) -> Double,
-        depthK: Double
+        zonePriceSec: (Double, Double, Double, Double) -> Double
     ) {
         if (!walk.passable(toIdx)) return
         val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
@@ -224,12 +221,6 @@ object MultipassSearch {
         var cellSec = walk.sourceCostSec(toIdx)
         if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
             cellSec += zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
-        }
-        // The depth band's λ-scaled read: the grid stores the λ-free coefficient, and the pass's own
-        // cursor turns it into seconds — the same law the pull's guard prices at its own λ.
-        if (depthK > 0.0) {
-            val depthCoef = walk.depthCoef(toIdx)
-            if (depthCoef > 0.0) cellSec += DepthBandLaw.priceSec(destCellM, depthCoef, depthK)
         }
         val newG = g[fromIdx] + (cellSec / destCellM) * edgeM
         if (newG < g[toIdx]) {

@@ -35,6 +35,7 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteStage
+import ykws.android.maro.spatial.RouteVerdict
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
@@ -43,6 +44,19 @@ import ykws.android.maro.ui.components.PageDots
 import ykws.android.maro.ui.components.StatCell
 import ykws.android.maro.ui.components.SwipePager
 import ykws.android.maro.ui.components.rememberLabelColumnWidth
+
+/**
+ * The crown's own glyph, the unfilled check (§2.7b), drawn in the route toggle's accent. It is the
+ * crown's **only** mark now — the leading accent bar is gone — and it **closes the row's first line**,
+ * inline immediately after the name's last word, so the check follows the name it crowns.
+ */
+private const val ROUTE_CROWN_GLYPH = "\u2713"
+
+/**
+ * The crown's glyph size — **one step up from the 18 sp this mark stood at** (2026-10-15), so the check
+ * leads the row's first line beside the 13 sp name rather than sitting level with it.
+ */
+private val ROUTE_CROWN_GLYPH_SIZE = 20.sp
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The route acquisition's own dashboard — the panel the slot carries while a route is being acquired
@@ -111,6 +125,19 @@ internal fun RouteConfirmationPanel(
      * the last rung. `null` where the engine ranks nothing.
      */
     runningBestLookupId: RouteId? = null,
+    /**
+     * **The settled set's verdict** — the engine's own fold, carrying the crown and every landed rung's
+     * rank. The panel marks the crown ([RouteVerdict.best]) and prints each row's rank ([RouteVerdict.order])
+     * straight off it, re-deriving no rule: the ranking has one home and the UI duplicates none of it.
+     * `null` where the engine ranks nothing.
+     */
+    verdict: RouteVerdict? = null,
+    /**
+     * **The dial's own word in force** — the stop the crown was weighed by, already resolved
+     * ([verdictDialLabel]), printed in the header beside the stage so each rank is read against the
+     * weight that produced it. `null` where the surface carries no dial.
+     */
+    dialLabel: String? = null,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
     panelMaxHeight: Dp? = null,
     /**
@@ -156,6 +183,13 @@ internal fun RouteConfirmationPanel(
     // The *so far* mark stands only while the ladder still computes (the user's word of 2026-10-07):
     // the winner's row wears it until the last rung lands.
     val soFarLookupId = if (acquiring.searching) runningBestLookupId else null
+    // **The crown's mark and the ranks read one clock.** Both are read straight off the engine's own fold
+    // — the panel re-derives no rule of it — and both wait on the set settling: while the ladder still
+    // computes the row reads ` so far ` under its name and **no rank stands**, because a rank read mid-run
+    // is one that can still move under the reader. A row absent from the settled order wears none.
+    val settledVerdict = if (acquiring.searching) null else verdict
+    val crownLookupId = settledVerdict?.best?.lookupId
+    val landedRanks = settledVerdict?.order?.associate { it.lookupId to it.rank } ?: emptyMap()
 
     // The dashboard's one shape, both orientations (2026-10-07): no rounded corner on a map dash panel,
     // this panel's own landscape right-edge rounding included — it is squared with the marker and track
@@ -177,6 +211,17 @@ internal fun RouteConfirmationPanel(
                 Text(
                     text = it,
                     color = Color(AppConfig.uiTextPrimary),
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            // The dial's own word in force, beside the stage: the weight each rank was read against.
+            dialLabel?.let {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = it,
+                    color = Color(AppConfig.uiTextSecondary),
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -243,7 +288,9 @@ internal fun RouteConfirmationPanel(
                     pages = pages,
                     selectedIndex = clampedIndex,
                     onSelectPage = onSelectPage,
-                    soFarLookupId = soFarLookupId
+                    soFarLookupId = soFarLookupId,
+                    crownLookupId = crownLookupId,
+                    landedRanks = landedRanks
                 )
             }
             selectedPlan?.let { PlanNotes(it) }
@@ -273,7 +320,9 @@ private fun RouteTablePager(
     pages: List<RoutePage>,
     selectedIndex: Int,
     onSelectPage: (Int) -> Unit,
-    soFarLookupId: RouteId?
+    soFarLookupId: RouteId?,
+    crownLookupId: RouteId?,
+    landedRanks: Map<RouteId, Int>
 ) {
     SwipePager(
         pageCount = pages.size,
@@ -284,7 +333,9 @@ private fun RouteTablePager(
             pages = pages,
             selectedIndex = index,
             onSelectPage = onSelectPage,
-            soFarLookupId = soFarLookupId
+            soFarLookupId = soFarLookupId,
+            crownLookupId = crownLookupId,
+            landedRanks = landedRanks
         )
     }
 }
@@ -292,17 +343,34 @@ private fun RouteTablePager(
 /**
  * **The summary table** — one line per route, three columns. Column 1 is the engine's own description;
  * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's delta
- * against the selected route and the forced-crossing note. Columns are fixed weights so the boundaries
- * stay consistent across rows, a hairline separates the columns, and rows are top-aligned and wrap.
+ * against the selected route. Columns are fixed weights so the boundaries stay consistent across rows,
+ * a hairline separates the columns, and rows are top-aligned and wrap.
  * The selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent`
  * edge, white bold text — with corners that adapt to the row's position in the bar.
+ *
+ * **The crown wears its own unfilled mark, never the selection's face** (§2.7b, the mark for a row picked
+ * out of a list): a **check glyph closing the row's first line**, inline immediately after the name's last
+ * word, in the route toggle's own accent ([AppConfig.routeNavigateColor], the followed trip cell's
+ * border's colour) and **one step above the 18 sp it stood at**, so it leads the first line beside the
+ * 13 sp name rather than sitting level with it — the crown's only mark, its leading accent bar gone. It
+ * reads the crown straight off the engine's verdict, so it stands on the ranking's winner however the
+ * reader has moved the selection — the two marks can stand on **different rows** at once.
+ *
+ * **Each landed row prints its rank on the second line** (2026-10-15) — the very line the ` so far ` text
+ * uses, so the two share one slot and one clock: a row reads **name and check** on its first line and
+ * **`#1`** on the second once the set has settled, ` so far ` while the ladder still computes, so no rank
+ * ever stands mid-run. The ranks are the engine's own ([RouteVerdict.order]) and **one per rung** — the
+ * tolerance's groups broken by the ranking's own chain, never shared — while a provisional row absent
+ * from the order wears none. This table re-derives no rule of the order.
  */
 @Composable
 private fun RouteSummaryTable(
     pages: List<RoutePage>,
     selectedIndex: Int,
     onSelectPage: (Int) -> Unit,
-    soFarLookupId: RouteId?
+    soFarLookupId: RouteId?,
+    crownLookupId: RouteId?,
+    landedRanks: Map<RouteId, Int>
 ) {
     val selectedDurationSec = pages.getOrNull(selectedIndex)?.plan?.durationSec
     val radius = AppConfig.uiRadiusCard.dp
@@ -324,6 +392,12 @@ private fun RouteSummaryTable(
             }
             val textColor = if (selected) Color.White else Color(AppConfig.uiTextPrimary)
             val weight = if (selected) FontWeight.Bold else FontWeight.Normal
+            // The row's own place in the settled verdict: the crown (its check glyph) closing the name's
+            // own line and its rank below it, both read straight off the engine — a provisional row is
+            // absent from the order and wears neither. The selection stays a separate fact (§2.7b), so the
+            // crown and the taken choice can stand on two different rows at once.
+            val isCrown = page.lookupId != null && page.lookupId == crownLookupId
+            val rank = page.lookupId?.let { landedRanks[it] }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -341,29 +415,61 @@ private fun RouteSummaryTable(
                     .clickable { onSelectPage(index) },
                 verticalAlignment = Alignment.Top
             ) {
-                // A plain weighted Box on purpose: no `fillMaxWidth`, which under the row's
+                // No leading bar and no leading slot: the name cell opens on the name itself, the crown's
+                // mark **closes its first line** right after it, and the rank reads on the second.
+                // A plain weighted Row on purpose: no `fillMaxWidth`, which under the row's
                 // `IntrinsicSize.Min` would claim the whole row and distort the columns.
-                Box(
+                Row(
                     modifier = Modifier
                         .weight(0.75f)
-                        .padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
+                        .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    // A folded page names every rung it stands for; an unfolded one states its own label.
-                    val label = if (page.foldedDescriptionResIds.isNotEmpty()) {
-                        val names = mutableListOf<String>()
-                        for (id in page.foldedDescriptionResIds) names += stringResource(id)
-                        names.joinToString(stringResource(R.string.route_rung_names_sep))
-                    } else {
-                        page.descriptionResId?.let { stringResource(it) } ?: ""
-                    }
                     Column {
-                        Text(
-                            text = label,
-                            color = textColor,
-                            fontSize = 13.sp,
-                            fontWeight = weight
-                        )
-                        if (page.lookupId != null && page.lookupId == soFarLookupId) {
+                        // A folded page names every rung it stands for; an unfolded one states its own label.
+                        val label = if (page.foldedDescriptionResIds.isNotEmpty()) {
+                            val names = mutableListOf<String>()
+                            for (id in page.foldedDescriptionResIds) names += stringResource(id)
+                            names.joinToString(stringResource(R.string.route_rung_names_sep))
+                        } else {
+                            page.descriptionResId?.let { stringResource(it) } ?: ""
+                        }
+                        // **name · check** on the first line, **rank** on the second: the check follows
+                        // the name's last word, the rank takes the ` so far ` line below it under the same
+                        // settled clock. The name takes the line's own wrap and yields the mark its width
+                        // (`fill = false`), so a long name wraps inside the cell with the check closing its
+                        // last line.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = label,
+                                color = textColor,
+                                fontSize = 13.sp,
+                                fontWeight = weight,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (isCrown) {
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = ROUTE_CROWN_GLYPH,
+                                    color = Color(AppConfig.routeNavigateColor),
+                                    fontSize = ROUTE_CROWN_GLYPH_SIZE,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        // One slot, one clock (2026-10-15): the settled rank, or the running best's own
+                        // word while the ladder still computes — never both, and nothing at all on a row
+                        // the settled order does not carry. The rank sits at **the name's own 13 sp**
+                        // (2026-10-15): it held Bold already, but at 11 sp it read smaller than the name
+                        // beside it and the weight did not register — bold only reads at the name's size.
+                        if (rank != null) {
+                            Text(
+                                text = "#$rank",
+                                color = textColor,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else if (page.lookupId != null && page.lookupId == soFarLookupId) {
                             Text(
                                 text = stringResource(R.string.route_winner_so_far),
                                 color = textColor,
@@ -530,20 +636,6 @@ private fun PlanNotes(plan: RoutePlan) {
         Text(
             text = "(${stringResource(R.string.route_destination_moved)})",
             color = Color(AppConfig.uiTextPrimary),
-            fontSize = 12.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-    if (plan.budgetUnmetZoneShare != null) {
-        Text(
-            text = stringResource(R.string.route_budget_unmet),
-            color = Color(AppConfig.uiDashboardTextPrimary),
-            fontSize = 12.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = stringResource(R.string.route_budget_unmet_desc),
-            color = Color(AppConfig.uiDashboardTextMuted),
             fontSize = 12.sp,
             modifier = Modifier.fillMaxWidth()
         )

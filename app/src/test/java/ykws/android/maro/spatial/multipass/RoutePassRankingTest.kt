@@ -1,94 +1,134 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.VerdictDial
 
 /**
- * **The ladder's ranking** — the preference-aware rule that picks which landed rung delivers the intent
- * the user asked for: Fast the clock, Best the clock under the budget, Fun the zone seconds whatever the
- * clock; one shared tail settles a lead tie and a total tie falls to the rung nearest the preference.
+ * **The ladder's ranking, one sum** — which of the landed rungs takes the crown:
+ * `trip time + weight × slow-water seconds`, lowest wins, a flip guarded by the tie tolerance, and the
+ * dial's top stop weighing the slow seconds alone with the clock breaking an exact tie.
+ *
+ * **The ranks are distinct** (2026-10-15): the tolerance draws the groups it holds level, the chain breaks
+ * the tie inside one — the exact measure, then the fewer slow seconds, then the shorter time, then the
+ * arrival order — and the crown is always the head of its own group, so rank 1 is the crowned rung and no
+ * two settled rungs share a rank.
+ *
+ * The **4x** stop is the shipped default read arithmetically: `route.avoid.slowWater.weight` ships at 4,
+ * so the crown this file pins is the one the app answers with out of the box.
  */
 class RoutePassRankingTest {
 
-    private fun rung(index: Int, share: Double, metres: Double, seconds: Double) =
-        RoutePassRanking.RungCost(index, RoutePassRanking.PassCost(share, metres, seconds))
+    /** The shipped tie tolerance (score seconds) — [AppConfig.routeAvoidLadderTieToleranceSec]'s value. */
+    private val toleranceSec = 30.0
 
-    /** **Fast** leads on the total time, whatever water the line crosses. */
+    private fun line(durationSec: Double, slowWaterSec: Double) =
+        RoutePassRanking.PassCost(slowWaterSec = slowWaterSec, durationSec = durationSec)
+
+    /**
+     * **The three rungs of a coastal leg** — the around rung the longest clock and the least slow water,
+     * the fast rung the shortest clock and the most, and the balanced one between the two. Their order
+     * never changes: a dearer stop is what moves the crown, never the fixture.
+     */
+    private val coastal = listOf(
+        line(durationSec = 1100.0, slowWaterSec = 40.0),
+        line(durationSec = 900.0, slowWaterSec = 120.0),
+        line(durationSec = 800.0, slowWaterSec = 150.0)
+    )
+
+    /** **1x is the clock's own lead** — the quickest line takes the crown, as today's Fast seat does. */
     @Test
-    fun fastPicksTheShortestClock() {
-        val rungs = listOf(
-            rung(RoutePreference.AROUND.index, share = 0.00, metres = 0.0, seconds = 1000.0),
-            rung(RoutePreference.BEST.index, share = 0.30, metres = 900.0, seconds = 800.0),
-            rung(RoutePreference.FAST.index, share = 0.40, metres = 1200.0, seconds = 700.0)
+    fun atOneTimesTheQuickestLineTakesTheCrown() {
+        assertEquals(
+            "the fastest line wins, though it spends the most seconds under a limit",
+            2,
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, coastal)
+        )
+    }
+
+    /** **A dearer stop buys the cleaner line** — at 4x the slow water outweighs the clock's lead. */
+    @Test
+    fun aDearerStopCrownsTheCleanerLine() {
+        assertEquals(
+            "the least slow water wins once each second of it costs four",
+            0,
+            RoutePassRanking.bestRungIndex(4.0, toleranceSec, coastal)
+        )
+    }
+
+    /** **The ignore-time stop reads the slow seconds alone**, the clock deciding nothing. */
+    @Test
+    fun atIgnoreTimeTheFewestSlowSecondsTakeTheCrown() {
+        val lines = listOf(
+            line(durationSec = 1000.0, slowWaterSec = 40.0),
+            line(durationSec = 1100.0, slowWaterSec = 90.0),
+            line(durationSec = 700.0, slowWaterSec = 100.0)
         )
         assertEquals(
-            "the quickest line wins outright, whatever zone it crosses",
+            "4x crowns the quickest line of the three, whose slow water is the dearest",
             2,
-            RoutePassRanking.bestRungIndex(RoutePreference.FAST, 25, rungs)
+            RoutePassRanking.bestRungIndex(4.0, toleranceSec, lines)
+        )
+        assertEquals(
+            "and ignore time crowns the fewest minutes instead, whatever the clock",
+            0,
+            RoutePassRanking.bestRungIndex(VerdictDial.IGNORE_TIME.weight, toleranceSec, lines)
+        )
+    }
+
+    /** **Only a dead heat in the slow seconds lets the clock decide** the ignore-time stop. */
+    @Test
+    fun atIgnoreTimeAnExactTieInSlowSecondsFallsToTheClock() {
+        val lines = listOf(
+            line(durationSec = 900.0, slowWaterSec = 100.0),
+            line(durationSec = 850.0, slowWaterSec = 100.0)
+        )
+        assertEquals(
+            "the shorter clock takes a dead heat in slow water",
+            1,
+            RoutePassRanking.bestRungIndex(VerdictDial.IGNORE_TIME.weight, toleranceSec, lines)
+        )
+        assertEquals(
+            "and it takes it landing first as well, since the longer clock never improves on it",
+            0,
+            RoutePassRanking.bestRungIndex(VerdictDial.IGNORE_TIME.weight, toleranceSec, lines.reversed())
         )
     }
 
     /**
-     * **Best** gates the clock on the budget: among the rungs inside it the quickest leads, and where
-     * none fits the smaller zone share does.
+     * **The tolerance is what stops the crown flapping**: a rung ahead of the incumbent by less than it
+     * leaves the incumbent standing, whether the flip is read on the sum or on the slow seconds alone.
      */
     @Test
-    fun bestGatesTheClockOnTheBudget() {
-        val inside = listOf(
-            rung(RoutePreference.AROUND.index, share = 0.05, metres = 200.0, seconds = 1100.0),
-            rung(RoutePreference.BEST.index, share = 0.20, metres = 600.0, seconds = 900.0),
-            rung(RoutePreference.FAST.index, share = 0.60, metres = 1500.0, seconds = 700.0)
-        )
+    fun aDifferenceUnderTheToleranceDoesNotFlipTheCrown() {
+        val incumbent = line(durationSec = 900.0, slowWaterSec = 40.0)
+        val justBetter = listOf(incumbent, line(durationSec = 900.0, slowWaterSec = 35.0))
         assertEquals(
-            "the quickest rung inside the gate beats the quicker one over it",
-            1,
-            RoutePassRanking.bestRungIndex(RoutePreference.BEST, 25, inside)
-        )
-        val noneInside = listOf(
-            rung(RoutePreference.AROUND.index, share = 0.50, metres = 900.0, seconds = 1000.0),
-            rung(RoutePreference.BEST.index, share = 0.70, metres = 1400.0, seconds = 800.0),
-            rung(RoutePreference.FAST.index, share = 0.60, metres = 1200.0, seconds = 700.0)
-        )
-        assertEquals(
-            "with no rung inside the gate the smaller share leads",
+            "five score seconds is under the tolerance, so the crown does not move",
             0,
-            RoutePassRanking.bestRungIndex(RoutePreference.BEST, 25, noneInside)
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, justBetter)
         )
-    }
-
-    /** **Fun** leads on the **absolute zone seconds**, and the clock never decides it. */
-    @Test
-    fun funPicksTheLeastZoneSecondsWhateverTheClock() {
-        val rungs = listOf(
-            // The smallest *share* is the "around" rung, but its trip is long enough to spend more
-            // absolute seconds slowed than the quick one — which is what Fun leads on.
-            rung(RoutePreference.AROUND.index, share = 0.02, metres = 200.0, seconds = 3000.0),
-            rung(RoutePreference.BEST.index, share = 0.05, metres = 400.0, seconds = 1000.0),
-            rung(RoutePreference.FAST.index, share = 0.04, metres = 300.0, seconds = 900.0)
-        )
+        val clearlyBetter = listOf(incumbent, line(durationSec = 900.0, slowWaterSec = 0.0))
         assertEquals(
-            "the least zone seconds wins, though another rung carries the smaller share",
-            RoutePreference.FAST.index,
-            rungs[RoutePassRanking.bestRungIndex(RoutePreference.AROUND, 25, rungs)!!].ladderIndex
-        )
-    }
-
-    /** A total tie falls to the rung nearest the preference. */
-    @Test
-    fun aTotalTieFallsToTheRungNearestThePreference() {
-        val rungs = listOf(
-            rung(RoutePreference.AROUND.index, share = 0.10, metres = 300.0, seconds = 1000.0),
-            rung(RoutePreference.FAST.index, share = 0.10, metres = 300.0, seconds = 1000.0)
-        )
-        assertEquals(
-            "the preference's own rung takes a dead heat",
-            0,
-            RoutePassRanking.bestRungIndex(RoutePreference.AROUND, 25, rungs)
-        )
-        assertEquals(
-            "and the other stop takes it when it is the preference",
+            "forty score seconds is over it, so it does",
             1,
-            RoutePassRanking.bestRungIndex(RoutePreference.FAST, 25, rungs)
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, clearlyBetter)
+        )
+        val slowIncumbent = line(durationSec = 900.0, slowWaterSec = 100.0)
+        val slowJustBetter = listOf(slowIncumbent, line(durationSec = 900.0, slowWaterSec = 80.0))
+        assertEquals(
+            "and the ignore-time stop reads the same tolerance on its own figure",
+            0,
+            RoutePassRanking.bestRungIndex(VerdictDial.IGNORE_TIME.weight, toleranceSec, slowJustBetter)
+        )
+        val slowClearlyBetter = listOf(slowIncumbent, line(durationSec = 900.0, slowWaterSec = 60.0))
+        assertEquals(
+            "while a wider lead takes the crown there too",
+            1,
+            RoutePassRanking.bestRungIndex(VerdictDial.IGNORE_TIME.weight, toleranceSec, slowClearlyBetter)
         )
     }
 
@@ -98,41 +138,160 @@ class RoutePassRankingTest {
      */
     @Test
     fun theRunningBestWalksForwardAsRungsLand() {
-        val first = listOf(rung(RoutePreference.AROUND.index, 0.0, 0.0, 1000.0))
+        val first = listOf(line(durationSec = 1000.0, slowWaterSec = 40.0))
         assertEquals(
             "one rung is its own best",
             0,
-            RoutePassRanking.bestRungIndex(RoutePreference.FAST, 25, first)
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, first)
         )
-        val second = first + rung(RoutePreference.BEST.index, 0.10, 300.0, 900.0)
+        val second = first + line(durationSec = 800.0, slowWaterSec = 60.0)
         assertEquals(
-            "a later, quicker landing takes the lead",
+            "a later, clearly quicker landing takes the lead",
             1,
-            RoutePassRanking.bestRungIndex(RoutePreference.FAST, 25, second)
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, second)
         )
-        val third = second + rung(RoutePreference.FAST.index, 0.30, 900.0, 950.0)
+        val third = second + line(durationSec = 700.0, slowWaterSec = 160.0)
         assertEquals(
             "and the fold keeps the best of the three, not the last one",
             1,
-            RoutePassRanking.bestRungIndex(RoutePreference.FAST, 25, third)
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, third)
         )
     }
 
-    /** **The λ→stop mapping** — a stored aversion snaps to one stop's index, λ and word. */
+    /** Nothing landed ranks nothing. */
     @Test
-    fun thePreferenceMappingSnapshotsAStoredAversion() {
-        assertEquals(RoutePreference.FAST, RoutePreference.of(0.0))
-        assertEquals(RoutePreference.FAST, RoutePreference.of(1.25))
-        assertEquals(RoutePreference.BEST, RoutePreference.of(2.5))
-        assertEquals(RoutePreference.BEST, RoutePreference.of(3.75))
-        assertEquals(RoutePreference.AROUND, RoutePreference.of(5.0))
+    fun anEmptySetRanksNothing() {
+        assertNull(RoutePassRanking.bestRungIndex(1.0, toleranceSec, emptyList()))
+    }
 
-        assertEquals("the fast stop sits at λ 0", 0.0, RoutePreference.FAST.lambda, 1e-9)
-        assertEquals("the best stop at 2.5", 2.5, RoutePreference.BEST.lambda, 1e-9)
-        assertEquals("and the around stop at 5", 5.0, RoutePreference.AROUND.lambda, 1e-9)
+    /**
+     * **The weight 0 stop crowns the genuinely fastest line, and the dial can reach it.** At 0 the slow
+     * seconds weigh nothing at all, so the quickest clock wins even with the most slow water under it —
+     * the dial's own *Fastest* end, which the retired bridge (its floor at 1x) could not reach.
+     */
+    @Test
+    fun atZeroWeightTheGenuinelyFastestLineTakesTheCrown() {
+        assertEquals(
+            "with no weight at all the clock decides alone, whatever slow water the line crosses",
+            2,
+            RoutePassRanking.bestRungIndex(0.0, toleranceSec, coastal)
+        )
+        assertEquals("and the weight the stop carries is 0", 0.0, VerdictDial.FASTEST.weight!!, 1e-9)
+        assertEquals("the dial's own track offers it as its first stop", 0, VerdictDial.FASTEST.index)
+        assertEquals("which is the index a stored stop reads", VerdictDial.FASTEST, VerdictDial.ofIndex(0))
+    }
 
-        assertEquals("index 0 is the around stop", RoutePreference.AROUND, RoutePreference.ofIndex(0))
-        assertEquals("index 1 is the best stop", RoutePreference.BEST, RoutePreference.ofIndex(1))
-        assertEquals("index 2 is the fast stop", RoutePreference.FAST, RoutePreference.ofIndex(2))
+    /** **The default weight stands at the shipped stop** — the box the crown is answered with unset. */
+    @Test
+    fun theShippedWeightStandsAtItsOwnStop() {
+        assertEquals("the shipped weight is 4", 4.0, AppConfig.routeAvoidSlowWaterWeight, 1e-9)
+        assertEquals(
+            "and reads as the dial's fourth numbered stop",
+            VerdictDial.FOUR,
+            VerdictDial.ofWeight(AppConfig.routeAvoidSlowWaterWeight)
+        )
+    }
+
+    /**
+     * **The order and the crown are one seat** — [RoutePassRanking.ranks] reads the very sum and tolerance
+     * [RoutePassRanking.bestRungIndex] weighs by, so the crowned rung is always the rank-1 one.
+     */
+    @Test
+    fun theRanksReadTheSameSumAndTheCrownIsAlwaysRankOne() {
+        assertEquals(
+            "at 1x the quickest line leads, then the middle, then the dearest of the three",
+            listOf(3, 2, 1),
+            RoutePassRanking.ranks(1.0, toleranceSec, coastal)
+        )
+        assertEquals(
+            "and the crowned rung is the rank-1 one",
+            1,
+            RoutePassRanking.ranks(1.0, toleranceSec, coastal)[
+                RoutePassRanking.bestRungIndex(1.0, toleranceSec, coastal)!!
+            ]
+        )
+        assertEquals(
+            "at 4x the cleanest line leads and the two level ones take 2 and 3, the chain settling them",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(4.0, toleranceSec, coastal)
+        )
+        assertEquals(
+            "and at ignore time the slow seconds alone rank, the around rung first and the rest on their own",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(VerdictDial.IGNORE_TIME.weight, toleranceSec, coastal)
+        )
+    }
+
+    /**
+     * **A tie inside the tolerance breaks by the chain, and the ranks read `1, 2, 3`** (2026-10-15) — the
+     * first two stand ten score seconds apart, level to the tolerance, so the chain's first step settles
+     * them on the exact measure (940 against 950) while the rung the tolerance clearly leaves behind reads
+     * the last rank.
+     */
+    @Test
+    fun rungsInsideTheToleranceReadRanksOfTheirOwn() {
+        val lines = listOf(
+            line(durationSec = 900.0, slowWaterSec = 40.0),
+            line(durationSec = 905.0, slowWaterSec = 45.0),
+            line(durationSec = 900.0, slowWaterSec = 100.0)
+        )
+        assertEquals(
+            "the chain settles the level pair and the outsider takes the last rank",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(1.0, toleranceSec, lines)
+        )
+        assertEquals(
+            "which is the crown the same set was folded to, rank 1 always",
+            1,
+            RoutePassRanking.ranks(1.0, toleranceSec, lines)[
+                RoutePassRanking.bestRungIndex(1.0, toleranceSec, lines)!!
+            ]
+        )
+    }
+
+    /**
+     * **The tolerance still owns the crown, and the chain reads only behind it** (2026-10-15): a challenger
+     * whose own score is strictly lower — five score seconds under the tolerance — does not take the crown,
+     * and reads rank 2 while the incumbent it failed to unseat reads rank 1, so the mark a surface draws on
+     * rank 1 is the engine's own winner and never the chain's favourite. A lead wider than the tolerance
+     * flips both, the challenger carrying rank 1.
+     */
+    @Test
+    fun theToleranceGovernsTheCrownWhileTheChainRanksBehindIt() {
+        val lines = listOf(
+            line(durationSec = 900.0, slowWaterSec = 25.0),
+            line(durationSec = 900.0, slowWaterSec = 0.0),
+            line(durationSec = 1100.0, slowWaterSec = 25.0)
+        )
+        assertEquals(
+            "the sub-tolerance challenger's lower score leaves the crown where it stands",
+            0,
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, lines)
+        )
+        assertEquals(
+            "yet every settled rung reads a rank of its own, the crown heading its group",
+            listOf(1, 2, 3),
+            RoutePassRanking.ranks(1.0, toleranceSec, lines)
+        )
+        val flipped = listOf(
+            line(durationSec = 950.0, slowWaterSec = 25.0),
+            line(durationSec = 900.0, slowWaterSec = 0.0)
+        )
+        assertEquals(
+            "a lead over the tolerance does flip it",
+            1,
+            RoutePassRanking.bestRungIndex(1.0, toleranceSec, flipped)
+        )
+        assertEquals(
+            "and the challenger carries rank 1 with it, the beaten incumbent second",
+            listOf(2, 1),
+            RoutePassRanking.ranks(1.0, toleranceSec, flipped)
+        )
+    }
+
+    /** Nothing landed ranks nothing. */
+    @Test
+    fun anEmptySetHasNoRanks() {
+        assertTrue(RoutePassRanking.ranks(1.0, toleranceSec, emptyList()).isEmpty())
     }
 }

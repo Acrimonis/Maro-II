@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
@@ -773,8 +774,7 @@ fun MapScreen(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
                     { viewModel.settings.value.routeFreeWaterPaceKn.toDouble() },
-                    { viewModel.settings.value.routeSlowWaterAversion.toDouble() },
-                    { viewModel.settings.value.routeSlowWaterBudgetPct },
+                    { viewModel.settings.value.verdictWeight },
                     avoidWorldProvider,
                     { viewModel.settings.value.routeMarkerStrength.toDouble() }
                 )
@@ -834,6 +834,10 @@ fun MapScreen(
     // **The ladder's running best, by the lookup that owns its row** — the winner the seat follows and
     // the panel marks, reported at each rung's terminal.
     val routeRunningBest by routeViewModel.runningBest.collectAsState()
+    // **The settled set's verdict** — the crown beside every landed rung's rank, the engine's own fold
+    // reported beside the running best, so the panel marks the crown and ranks the rows without
+    // re-deriving the rule (2026-10-15).
+    val routeVerdict by routeViewModel.verdict.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
     // first (index 0) — and the one the selection stands on, both in computation order, so the map's
     // pool and the provisional line stay tied to the main (R54, R64).
@@ -3278,14 +3282,17 @@ fun MapScreen(
                 routeTripFigure(
                     plan = following.plan,
                     from = routeBoatPosition,
-                    // The **configured** preference and the **set** pace — what the user chose, read
-                    // as the id and the figure the card prints rather than the literal.
-                    preferenceLabelResId = routeRungLabelRes(
-                        routeRungIndex(appSettings.routeSlowWaterAversion.toDouble())
+                    // The **configured** dial's own word and the **set** pace — what the user chose,
+                    // read as the word and the figure the card prints rather than the literal.
+                    preferenceLabel = verdictDialLabel(
+                        VerdictDial.ofIndex(appSettings.routeSlowWaterStop)
                     ),
                     paceKn = appSettings.routeFreeWaterPaceKn.toDouble()
                 )
             }
+            // The dial's own word in force — the weight each settled row's rank was read against, read
+            // through the one label home so the panel prints the very chip the Settings row carries.
+            val routeDialLabel = verdictDialLabel(VerdictDial.ofIndex(appSettings.routeSlowWaterStop))
             if (isLandscape) {
                 if (routeOwnsSlot) {
                     RouteConfirmationPanel(
@@ -3300,6 +3307,8 @@ fun MapScreen(
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
                         runningBestLookupId = routeRunningBest,
+                        verdict = routeVerdict,
+                        dialLabel = routeDialLabel,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },
                         onSelectRoute = { followRoute() },
                         onSaveTrack = { saveRoute() },
@@ -3346,6 +3355,8 @@ fun MapScreen(
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
                         runningBestLookupId = routeRunningBest,
+                        verdict = routeVerdict,
+                        dialLabel = routeDialLabel,
                         onMeasuredHeight = { dashboardBand.measuredRoute = it; dashboardBand.lastShown = it },
                         panelMaxHeight = bandCeiling,
                         // The card this panel replaced in the slot, if any: a swap into the route panel
@@ -3954,9 +3965,9 @@ fun MapScreen(
                 // settings — a second door onto them, never a second home.
                 paceKn = appSettings.routeFreeWaterPaceKn,
                 onPaceSelect = { kn -> viewModel.updateSettings { it.copy(routeFreeWaterPaceKn = kn) } },
-                preference = routeRungLambda(appSettings.routeSlowWaterAversion.toDouble()).toFloat(),
-                onPreferenceSelect = { lambda ->
-                    viewModel.updateSettings { it.copy(routeSlowWaterAversion = lambda) }
+                slowWaterStop = appSettings.routeSlowWaterStop.toFloat(),
+                onSlowWaterStopSelect = { stop ->
+                    viewModel.updateSettings { it.copy(routeSlowWaterStop = stop.roundToInt()) }
                 },
                 searching = routeSearching,
                 stageRes = routeStage?.labelResId,

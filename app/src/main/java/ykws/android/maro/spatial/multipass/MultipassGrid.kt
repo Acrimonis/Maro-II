@@ -126,14 +126,6 @@ class MultipassGrid(
      */
     private val bandCollarLimitKn = DoubleArray(rows * cols)
 
-    /**
-     * The **λ-free depth-price coefficient** standing on each cell — the per-metre ramp to the shallow
-     * wall, in `0.0..1.0`, written by the rasterizer where the plan prices the depth band. It is a scalar
-     * field, never seconds: the A\* scales it by the pass's own λ at read time, exactly as it prices a
-     * limit, so the grid stays λ-free and the three rungs share it.
-     */
-    private val depthPriceCoef = DoubleArray(rows * cols)
-
     fun index(row: Int, col: Int): Int = row * cols + col
 
     fun inBounds(row: Int, col: Int): Boolean = row in 0 until rows && col in 0 until cols
@@ -149,17 +141,6 @@ class MultipassGrid(
 
     /** The band's outside-margin limit at this cell (kn), or 0.0 where the collar does not reach it. */
     fun bandCollarLimitKn(row: Int, col: Int): Double = bandCollarLimitKn[index(row, col)]
-
-    /** The λ-free depth-price coefficient at this cell, or 0.0 where the depth band does not stand. */
-    fun depthPriceCoef(row: Int, col: Int): Double = depthPriceCoef[index(row, col)]
-
-    /** Writes a cell's depth-price coefficient, keeping the dearest where two passes meet. */
-    fun applyDepthPriceCoef(row: Int, col: Int, coef: Double) {
-        if (coef <= 0.0) return
-        val i = index(row, col)
-        if (cellState[i] == LAND_ORDINAL) return
-        if (coef > depthPriceCoef[i]) depthPriceCoef[i] = coef
-    }
 
     /**
      * **The strictest limit in force at this cell** (kn), or 0.0 where none stands: a ring's own interior
@@ -220,8 +201,7 @@ class MultipassGrid(
         zoneLimitKn: Double,
         collarLimitKn: Double,
         bandLimitKn: Double,
-        bandCollarLimitKn: Double,
-        depthPriceCoef: Double
+        bandCollarLimitKn: Double
     ) {
         val i = index(row, col)
         cellState[i] = stateOrdinal
@@ -230,7 +210,6 @@ class MultipassGrid(
         this.collarLimitKn[i] = collarLimitKn
         this.bandLimitKn[i] = bandLimitKn
         this.bandCollarLimitKn[i] = bandCollarLimitKn
-        this.depthPriceCoef[i] = depthPriceCoef
     }
 
     fun center(row: Int, col: Int): LatLng =
@@ -326,7 +305,6 @@ class MultipassGrid(
         collarLimitKn[i] = 0.0
         bandLimitKn[i] = 0.0
         bandCollarLimitKn[i] = 0.0
-        depthPriceCoef[i] = 0.0
     }
 
     /**
@@ -361,7 +339,6 @@ class MultipassGrid(
         collarLimitKn.copyInto(copy.collarLimitKn)
         bandLimitKn.copyInto(copy.bandLimitKn)
         bandCollarLimitKn.copyInto(copy.bandCollarLimitKn)
-        depthPriceCoef.copyInto(copy.depthPriceCoef)
         for (i in 0 until rows * cols) {
             val limit = zoneLimitKn[i]
             if (cellState[i] != LAND_ORDINAL && limit > 0.0 && limit < paceKn) {
@@ -417,8 +394,7 @@ fun rasterize(
     zones: List<ZoneRing> = emptyList(),
     blockZones: Boolean = false,
     zoneOutsideMarginM: Double = 0.0,
-    band: BandLaw? = null,
-    depthBand: DepthBand? = null
+    band: BandLaw? = null
 ): MultipassGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -426,7 +402,7 @@ fun rasterize(
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, cellM / mPerDegLat, cellM / mPerDegLon, mPerDegLat, mPerDegLon,
         cellM, paceKn, marginM, edges, openCoast, capLatNorth, field, zones, blockZones,
-        zoneOutsideMarginM, band, null, depthBand
+        zoneOutsideMarginM, band
     )
 }
 
@@ -460,14 +436,13 @@ internal fun rasterizeWindow(
     zoneOutsideMarginM: Double = 0.0,
     band: BandLaw? = null,
     fineMask: FineMask? = null,
-    depthBand: DepthBand? = null,
     baseCostSecOverride: Double? = null
 ): MultipassGrid {
     val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, lattice.cellSizeDegLat, lattice.cellSizeDegLon,
         mPerDegLat, mPerDegLon, lattice.cellM, paceKn, marginM, edges, openCoast, capLatNorth, field,
-        zones, blockZones, zoneOutsideMarginM, band, fineMask, depthBand, baseCostSecOverride
+        zones, blockZones, zoneOutsideMarginM, band, fineMask, baseCostSecOverride
     )
 }
 
@@ -492,7 +467,6 @@ private fun rasterizeFrame(
     zoneOutsideMarginM: Double,
     band: BandLaw?,
     fineMask: FineMask? = null,
-    depthBand: DepthBand? = null,
     baseCostSecOverride: Double? = null
 ): MultipassGrid {
     val cols = ceil((box.lonEast - lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
@@ -564,33 +538,11 @@ private fun rasterizeFrame(
         writeBandLaw(grid, edges, openCoast, band, mPerDegLat, mPerDegLon)
     }
 
-    // 7. The layer's own membership, where the plan answered a collar union: a cell outside every collar
-    //    is painted land, so the fine raster keeps the collars and nothing else. The coast bands are the
-    //    margin's own sweep at each band's upper edge, so the collars and the land agree about the coast.
-    //    The depth collar's scan and the band's below share one seat, so a **depth-collar member** — a cell
-    //    the collar itself scanned — pays the radial ring scan once for both passes rather than twice. The
-    //    sharing is the depth-collar members' own: a cell the coast band or the zone rim already kept is
-    //    skipped by the collar, so the band scans such a cell on its own.
-    val depthProbe = fineMask?.depthBlockedAt ?: depthBand?.blockedAt
-    val depthStepM = fineMask?.depthStepM?.takeIf { it > 0.0 } ?: depthBand?.stepM?.takeIf { it > 0.0 }
-    val collarM = if (fineMask != null) fineMask.depthCollarM else 0.0
-    val bandM = depthBand?.bandM ?: 0.0
-    val wallScan = if (depthProbe != null && depthStepM != null && (collarM > 0.0 || bandM > 0.0)) {
-        // The scan runs once per cell at the **widest** radius any pass asks — the collar here outranks
-        // the band — and each reader clamps that one distance to its own narrower width.
-        DepthWallScan(grid, depthProbe, depthStepM, widestDepthRadiusM(collarM, bandM))
-    } else {
-        null
-    }
+    // 7. The layer's own membership, where the plan answered a fine water: a cell outside every coast
+    //    band is painted land, so the fine raster keeps the ribbon and nothing else. The coast bands are
+    //    the margin's own sweep at each band's upper edge, so the mask and the land agree about the coast.
     if (fineMask != null && !fineMask.isTrivial) {
-        applyFineMask(grid, edges, openCoast, zones, fineMask, mPerDegLat, mPerDegLon, wallScan)
-    }
-
-    // 8. The depth price band, where the plan prices the shallow wall: a λ-free coefficient per cell,
-    //    written from the very law the pull's guard reads, so the search and the guard price one point
-    //    identically.
-    if (depthBand != null && depthBand.bandM > 0.0 && wallScan != null) {
-        writeDepthBand(grid, depthBand, wallScan)
+        applyFineMask(grid, edges, openCoast, fineMask, mPerDegLat, mPerDegLon)
     }
 
     return grid
@@ -598,27 +550,17 @@ private fun rasterizeFrame(
 
 /**
  * **The collar membership, laid on the margin's own sweeps** — a passable cell keeps its water where its
- * centre stands inside one of the mask's coast bands, within the zone rim of a priced ring, or within the
- * depth collar of a gate-blocked cell; every other passable cell is painted land. The coast measure is
- * the margin's own (`pointToSegmentDistance`) at each band's own upper edge, so the collars and the land
- * cannot disagree about where the coast is — the agreement the old coast-ribbon mask preserved.
- *
- * The depth collar's ring scan is the build's hot spot, so it is **bounded first**: [DepthWallScan]
- * collects the gate's blocked cells once, and a cell the bound clears as provably beyond the collar —
- * no blocked cell within the collar plus the bound's own margin — answers without a scan, every other
- * cell falling back to [DepthBandLaw.wallDistanceM]. The bound is conservative under a wall at least a
- * fine cell thick, so a cleared cell is one the law would have found unblocked too, and the membership
- * is unmoved on the measured fixture.
+ * centre stands inside one of the mask's coast bands; every other passable cell is painted land. The coast
+ * measure is the margin's own (`pointToSegmentDistance`) at each band's own upper edge, so the mask and the
+ * land cannot disagree about where the coast is — the agreement the old coast-ribbon mask preserved.
  */
 private fun applyFineMask(
     grid: MultipassGrid,
     edges: List<MultipassEdge>,
     openCoast: List<List<LatLng>>,
-    zones: List<ZoneRing>,
     mask: FineMask,
     mPerDegLat: Double,
-    mPerDegLon: Double,
-    wallScan: DepthWallScan?
+    mPerDegLon: Double
 ) {
     val member = BooleanArray(grid.rows * grid.cols)
     // The coast bands: the nearest distance to any harvested segment, then the band test on that read.
@@ -645,37 +587,6 @@ private fun applyFineMask(
             }
         }
     }
-    // The zone rim: within the collar's width of any priced zone's own ring.
-    if (mask.zoneRimM > 0.0 && zones.isNotEmpty()) {
-        for (zone in zones) {
-            for (ring in buildList { add(zone.outerRing); addAll(zone.holes) }) {
-                for (i in 0 until ring.size - 1) {
-                    val edge = MultipassEdge(ring[i], ring[i + 1], LandRingOrientation.CCW_RING)
-                    forEachCellNear(grid, edge, mask.zoneRimM, mPerDegLat, mPerDegLon) { r, c, _ ->
-                        member[grid.index(r, c)] = true
-                    }
-                }
-            }
-        }
-    }
-    // The depth collar: within the collar's width of the gate's wall, on the same law the price reads. The
-    // blocked cells are collected once and a cell the bound puts provably beyond the collar skips the scan.
-    val probe = mask.depthBlockedAt
-    if (mask.depthCollarM > 0.0 && probe != null && mask.depthStepM > 0.0) {
-        // The shared scan is the caller's own: a depth collar is applied only by the build that stood the
-        // scan up for it, so a fallback scan built here at the narrower radius would be dead code. The
-        // `requireNotNull` states that contract rather than hiding a missing scan behind a second one.
-        val wall = requireNotNull(wallScan) { "a depth collar is applied only with its shared wall scan" }
-        for (r in 0 until grid.rows) {
-            for (c in 0 until grid.cols) {
-                val i = grid.index(r, c)
-                if (member[i]) continue
-                if (!wall.nearBlocked(i, mask.depthCollarM)) continue
-                val d = wall.wallDistanceM(i, grid.center(r, c), mask.depthCollarM)
-                if (d <= mask.depthCollarM) member[i] = true
-            }
-        }
-    }
     for (r in 0 until grid.rows) {
         for (c in 0 until grid.cols) {
             if (!grid.passable(r, c)) continue
@@ -683,161 +594,6 @@ private fun applyFineMask(
             grid.markLand(r, c)
         }
     }
-}
-
-/**
- * **The depth price band, written λ-free** — each passable cell's coefficient is the [DepthBandLaw]'s own
- * ramp from the gate's wall, so the search's read and the pull's guard read one law. A cell the fine mask
- * already painted land is skipped, which is why the band rides the shallow collar.
- *
- * Where the collar's mask already scanned the cell, the scan is not paid again: [DepthWallScan] hands the
- * distance the collar found, which is exactly what the band's own [DepthBandLaw.wallDistanceM] would
- * answer whenever the collar's radius covers the band's. A cell the bound puts provably beyond the band
- * answers `0.0` with no scan at all — [DepthBandLaw.coefFor] writing the very value [DepthBandLaw.coefAt]
- * would.
- *
- * The scan is reused **directly**: `fineMask.depthStepM` and `depthBand.stepM` are both
- * [DepthBandLaw.stepM] of the fine cell, so the shared scan's step is always the band's own and there is
- * no fallback of the band's to reach. The reuse also trusts the shared scan's **probe** — it was built
- * from the gate's wall test, the very predicate [DepthBand.blockedAt] carries, so a matching step implies
- * matching answers and the band's reads stay bit-identical. A future caller whose band probe were a
- * **different** wall must stand up its own scan rather than reuse one taken against another.
- */
-private fun writeDepthBand(grid: MultipassGrid, band: DepthBand, wallScan: DepthWallScan) {
-    for (r in 0 until grid.rows) {
-        for (c in 0 until grid.cols) {
-            if (!grid.passable(r, c)) continue
-            val i = grid.index(r, c)
-            if (!wallScan.nearBlocked(i, band.bandM)) continue
-            val distance = wallScan.wallDistanceM(i, grid.center(r, c), band.bandM)
-            val coef = DepthBandLaw.coefFor(distance, band.bandM)
-            if (coef > 0.0) grid.applyDepthPriceCoef(r, c, coef)
-        }
-    }
-}
-
-/**
- * **The depth scan's own bound margin, in fine cells** — the conservative payment [DepthWallScan.nearBlocked]
- * adds to a reader's width before it may skip the scan. It is stated here, shared, because a tile's raster
- * halo must **dominate** it: that halo is derived from this constant in `RouteGridBuilder`, so the two can
- * never drift apart and silently under-size a tile's neighbourhood.
- */
-internal const val DEPTH_WALL_SCAN_MARGIN_CELLS = 2
-
-/**
- * **The widest depth radius any pass asks** — the mask's collar or the price band's width, whichever is
- * wider — the one home for the `max` the shared [DepthWallScan] is built at and a tile's halo is sized on,
- * so the two cannot compute a different width.
- */
-internal fun widestDepthRadiusM(collarM: Double, bandM: Double): Double = max(collarM, bandM)
-
-/**
- * **One window's gate-blocked cells, collected once — the two depth passes' shared wall index.**
- *
- * Both depth passes pay [DepthBandLaw]'s radial ring scan, cell by cell: the mask's collar out to the
- * 100 m collar, the price band out to the 45 m band. This seat collects the gate's **blocked cells** (one
- * centre probe each, folded straight into the Chebyshev field rather than a temporary bitmap) and, from
- * them, the **Chebyshev distance** to the nearest blocked cell — a metric that never exceeds the Euclidean
- * one, so it under-states the true distance to the wall and is safe to bound with. Two things follow, and
- * both keep the law's answer **bit-identical**:
- *
- * - [wallDistanceM] runs the law's own scan **once per cell**, at the widest radius any pass asks, and
- *   clamps that one distance to each reader's own radius: the law's distance where it stands within the
- *   radius, "beyond" otherwise — exactly what a fresh scan at the narrower radius would answer, so the
- *   band's reads ride the collar's scan rather than repeating it. One `DoubleArray` holds it, `NaN` marking
- *   a cell not yet scanned, where P2 needed a radius array beside it.
- * - [nearBlocked] bounds the scan: a cell whose nearest blocked cell stands farther than the width plus
- *   [DEPTH_WALL_SCAN_MARGIN_CELLS] fine cells holds no blocked **sample** the scan's steps could reach, so the scan is
- *   skipped and the cell answers the law's "beyond the width" outright. The margin is the conservative
- *   payment for the blocked set being sampled at cell centres while the law samples points on 8 bearings:
- *   it covers a wall at least one fine cell across, which is the finest a wall the gate can resolve on a
- *   raster may be. Every cell the bound does not clear falls back to the exact scan.
- */
-private class DepthWallScan(
-    private val grid: MultipassGrid,
-    private val probe: (LatLng) -> Boolean,
-    /** The radial scan's own step (m) — the fine cell, the same step both depth passes read. */
-    val stepM: Double,
-    /**
-     * The **widest radius any pass asks**, so the law's scan runs once per cell at the one width that
-     * covers every narrower read: the law's answer at a narrower radius is that distance where it fits the
-     * width and "beyond" otherwise, exactly as a fresh scan at the narrower radius would answer.
-     */
-    private val maxRadiusM: Double
-) {
-    /** The cells whose centre the gate blocks, with the Chebyshev distance (m) to the nearest of them. */
-    private val toBlockedM: DoubleArray = chebyshevToBlocked(grid, probe)
-
-    /**
-     * The law's own scan, run **once per cell** at [maxRadiusM] and clamped to each reader's radius:
-     * `NaN` marks a cell not yet scanned, and a distance beyond the requested radius answers
-     * `Double.MAX_VALUE` exactly as a fresh scan at that radius would.
-     */
-    private val distanceM = DoubleArray(grid.rows * grid.cols) { Double.NaN }
-
-    /** True where the cell may hold a blocked sample within [widthM] — the bound, never the scan. */
-    fun nearBlocked(index: Int, widthM: Double): Boolean =
-        toBlockedM[index] <= widthM + DEPTH_WALL_SCAN_MARGIN_CELLS * grid.cellM
-
-    /**
-     * The law's own [DepthBandLaw.wallDistanceM] at a cell centre, scanned **once** at [maxRadiusM] and
-     * clamped to [radiusM]: the scan's own distance where it stands within the radius, `Double.MAX_VALUE`
-     * beyond it — the very value a fresh scan at [radiusM] would answer.
-     */
-    fun wallDistanceM(index: Int, centre: LatLng, radiusM: Double): Double {
-        // The scan runs once at the one widest radius, so a reader asking wider would get an answer that is
-        // not the fresh-scan one it expects; the value-identity this seat rests on is stated rather than left
-        // to the caller's `maxOf`.
-        require(radiusM <= maxRadiusM + 1e-9) {
-            "a reader asks the shared wall scan no wider than the radius it was built at"
-        }
-        if (distanceM[index].isNaN()) {
-            distanceM[index] = DepthBandLaw.wallDistanceM(centre, probe, stepM, maxRadiusM)
-        }
-        val distance = distanceM[index]
-        return if (distance <= radiusM + 1e-9) distance else Double.MAX_VALUE
-    }
-}
-
-/**
- * The **Chebyshev distance** (m) from every cell centre to the nearest cell the gate [probe] blocks, by a
- * two-pass chamfer of uniform cell steps: `max(|Δrow|, |Δcol|) · cellM`. The probe is read once per cell
- * straight into the field's own seed — no temporary blocked bitmap — and Chebyshev never exceeds the
- * Euclidean distance, so it is a **lower bound** on the true one, the direction a bound that may skip a
- * scan must err in.
- */
-private fun chebyshevToBlocked(grid: MultipassGrid, probe: (LatLng) -> Boolean): DoubleArray {
-    val distance = DoubleArray(grid.rows * grid.cols) {
-        if (probe(grid.center(it / grid.cols, it % grid.cols))) 0.0 else Double.MAX_VALUE
-    }
-    val step = grid.cellM
-    fun relax(target: Int, from: Int) {
-        val candidate = distance[from] + step
-        if (candidate < distance[target]) distance[target] = candidate
-    }
-    for (r in 0 until grid.rows) {
-        for (c in 0 until grid.cols) {
-            val i = grid.index(r, c)
-            if (r > 0) {
-                relax(i, grid.index(r - 1, c))
-                if (c > 0) relax(i, grid.index(r - 1, c - 1))
-                if (c < grid.cols - 1) relax(i, grid.index(r - 1, c + 1))
-            }
-            if (c > 0) relax(i, grid.index(r, c - 1))
-        }
-    }
-    for (r in grid.rows - 1 downTo 0) {
-        for (c in grid.cols - 1 downTo 0) {
-            val i = grid.index(r, c)
-            if (r < grid.rows - 1) {
-                relax(i, grid.index(r + 1, c))
-                if (c > 0) relax(i, grid.index(r + 1, c - 1))
-                if (c < grid.cols - 1) relax(i, grid.index(r + 1, c + 1))
-            }
-            if (c < grid.cols - 1) relax(i, grid.index(r, c + 1))
-        }
-    }
-    return distance
 }
 
 /**

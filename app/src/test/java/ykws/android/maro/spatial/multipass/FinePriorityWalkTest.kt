@@ -23,9 +23,9 @@ import kotlin.math.abs
  * The rule is the walk's own, not the rasterizer's: no grid's content moves, and a single-grid walk
  * (`avoid`) is untouched. What these fixtures pin is the **read**: where a coarse copy and a passable fine
  * cell stand over one water, the fine cell is the one the search walks and the coarse cell is never a node
- * — so a price written into the fine layer (`selective`'s depth band) can no longer be bypassed by the
- * free coarse copy. The essential half is pinned beside it: where the fine grid is **land** at that
- * coordinate, the coarse cell keeps its ordinary role, so a collar's land edge never walls off open water.
+ * — so a price written into the fine layer (the marker price) can no longer be bypassed by the free coarse
+ * copy. The essential half is pinned beside it: where the fine grid is **land** at that coordinate, the
+ * coarse cell keeps its ordinary role, so a collar's land edge never walls off open water.
  */
 class FinePriorityWalkTest {
 
@@ -70,19 +70,27 @@ class FinePriorityWalkTest {
      * **The priced band with a way around it.** [hybridWalk]'s own two layers, but only the collar's middle
      * fine column (lattice column 17, local column 7) is priced — one cell wide, over the collar's middle
      * rows. Its outer two rows stay unpriced, so an unpriced detour exists beside the priced band and the
-     * same walk solved at two cursors tells the price apart from the reading rule.
+     * walk's own steep price tells the price apart from the reading rule.
      */
     private fun pricedBandWithDetourWalk(): WalkWindows {
         val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
         val coarse = windowOn(family.coarse, 0, 0, rows = 3, cols = 10, layer = 0)
         val fine = windowOn(family.fine, 0, 10, rows = 15, cols = 15, layer = 1)
-        for (r in 1 until fine.grid.rows - 1) fine.grid.applyDepthPriceCoef(r, 7, 1.0)
+        // A stored price steep enough that walking around the column (a few fine cells of travel) is
+        // cheaper than paying it on one cell — the same margin the depth fixture's own cursor bought.
+        val markerPrice = baseCostSec(family.fine.cellM, paceKn) * 40.0
+        for (r in 1 until fine.grid.rows - 1) {
+            fine.grid.addSourceCost(r, 7, markerPrice, MultipassCellState.BAND)
+        }
         return WalkWindows.onLattice(family.layers, listOf(coarse, fine))
     }
 
-    /** Whether a path reads a cell the depth band prices — the one reading the pass's own λ moves. */
-    private fun WalkWindows.readsDepthBand(cell: CellIndex): Boolean =
-        depthCoef(rawSlotOf(cell.layer, cell.row, cell.col)) > 0.0
+    /** Whether a path reads the marker-priced fine column — a stored cost, so no cursor moves it. */
+    private fun WalkWindows.readsPricedBand(cell: CellIndex): Boolean {
+        val slot = rawSlotOf(cell.layer, cell.row, cell.col)
+        val ownBase = baseCostSec(cellSizeM(cell.layer), paceKn)
+        return sourceCostSec(slot) > ownBase + 1e-9
+    }
 
     /**
      * The two-layer walk the even-ratio fixture reads: [hybridWalk]'s shape, its fine window over coarse
@@ -97,19 +105,18 @@ class FinePriorityWalkTest {
     }
 
     /**
-     * **The depth price binds.** The collar's water is passable on both layers and priced on the fine one
-     * alone. That the free coarse copy is not read is pinned by the two walks above: the search crosses the
-     * collar on the fine layer, and the coarse-only walk reads the very same water, so the water is there.
+     * **A price on the fine layer binds.** The collar's water is passable on both layers and priced on the
+     * fine one alone. That the free coarse copy is not read is pinned by the two walks above: the search
+     * crosses the collar on the fine layer, and the coarse-only walk reads the very same water, so the water
+     * is there.
      *
-     * The price's own claim cannot rest on two walks — a cheaper priced walk would confound the price with
-     * the supersession — so it is told on **one** walk: [pricedBandWithDetourWalk] prices the collar's middle
-     * column and leaves its outer rows free, an unpriced detour beside the priced band. Solved at cursor 0
-     * the search holds the band and reads the priced cells; solved at the pass's own λ it pays the detour and
-     * reads none of them. Same walk, same ends, only the λ moved.
+     * The price's own claim then rides **one** walk: [pricedBandWithDetourWalk] prices the collar's middle
+     * column and leaves its outer rows free, an unpriced detour beside the priced band. The walk keeps the
+     * detour and reads none of the priced cells — and the free coarse copy over that column is never read
+     * either, which is what the supersession is for.
      */
     @Test
     fun aPassableFineCollarSupersedesTheCoarseCopyAndItsPriceBinds() = runTest {
-        val k = 40.0
         val unpriced = MultipassSearch.searchWalk(hybridWalk(), CellIndex(1, 0), CellIndex(1, 9), paceMps)
         val coarseOnly = MultipassSearch.searchWalk(coarseOnlyWalk(), CellIndex(1, 0), CellIndex(1, 9), paceMps)
 
@@ -125,19 +132,13 @@ class FinePriorityWalkTest {
             coarseOnly.path!!.any { it.layer == 0 && it.col in 2..4 }
         )
 
-        val band = pricedBandWithDetourWalk()
-        val held = MultipassSearch.searchWalk(band, CellIndex(1, 0), CellIndex(1, 9), paceMps, depthK = 0.0)
-        val detour = MultipassSearch.searchWalk(band, CellIndex(1, 0), CellIndex(1, 9), paceMps, depthK = k)
+        val priced = pricedBandWithDetourWalk()
+        val detour = MultipassSearch.searchWalk(priced, CellIndex(1, 0), CellIndex(1, 9), paceMps)
 
-        assertNotNull("the priced band is crossable", held.path)
-        assertNotNull("and so is the detour beside it", detour.path)
+        assertNotNull("the priced band is crossable", detour.path)
         assertTrue(
-            "at cursor 0 the walk holds the band and reads its priced cells",
-            held.path!!.any { band.readsDepthBand(it) }
-        )
-        assertTrue(
-            "at the pass's λ the price pushes the same walk onto the unpriced detour",
-            detour.path!!.none { band.readsDepthBand(it) }
+            "the price on the fine layer pushes the walk onto the unpriced detour",
+            detour.path!!.none { priced.readsPricedBand(it) }
         )
         assertTrue(
             "crossing the priced column on an outer, unpriced row",

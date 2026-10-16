@@ -5,24 +5,24 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.RouteGridPlan
-import ykws.android.maro.spatial.multipass.SelectiveGridPlan
 import ykws.android.maro.spatial.multipass.UniformGridPlan
 
 /**
  * **One algorithm of the route harness: a stable id, a `labelResId` and the factory that builds
- * its engine from a pace provider, a slow-water budget provider and a world provider** — the
+ * its engine from a pace provider, the verdict's weight provider and a world provider** — the
  * `CustomSortField` shape the rulebook names, so no engine holds user-facing text and both locales
  * carry the label.
  *
  * The registry lives beside the seam in `spatial/`, so a new algorithm is one row here plus one
  * class that implements [RouteEngine]; nothing else in the feature changes. The factory receives
- * the pace provider — `() -> Double`, answering the pace in force at answer time — the budget
- * provider — `() -> Int`, the slow-water budget in per cent, asked the same way so a slider move
- * reaches the next line — and the world provider — `() -> MultipassWorld`, the map's live coastline
- * world — so an engine that prices at the app's pace and reads the water asks all three fresh, while
- * one that ignores them stays silent. The id is the persisted value ([AppConfig.routeEngineId]'s
- * default), and [resolve] is the one lookup: it answers the shipped default for an id nothing
- * claims, so a stale stored id falls back rather than leaving the app with no engine to arm.
+ * the pace provider — `() -> Double`, answering the pace in force at answer time — the verdict's
+ * weight provider — `() -> Double?`, the dial's own stop, `null` on its *Ignore time* stop, asked
+ * the same way so a dial move reaches the next rung — and the world provider — `() -> MultipassWorld`,
+ * the map's live coastline world — so an engine that prices at the app's pace and reads the water
+ * asks all three fresh, while one that ignores them stays silent. The id is the persisted value
+ * ([AppConfig.routeEngineId]'s default), and [resolve] is the one lookup: it answers the shipped
+ * default for an id nothing claims, so a stale stored id falls back rather than leaving the app
+ * with no engine to arm.
  */
 data class RouteEngineChoice(
     val id: String,
@@ -35,8 +35,7 @@ data class RouteEngineChoice(
     val plan: RouteGridPlan,
     val factory: (
         paceKn: () -> Double,
-        aversionKn: () -> Double,
-        budgetPct: () -> Int,
+        verdictWeight: () -> Double?,
         world: () -> MultipassWorld,
         markerStrength: () -> Double
     ) -> RouteEngine
@@ -49,30 +48,22 @@ data class RouteEngineChoice(
                 id = "dummy",
                 labelResId = R.string.route_engine_dummy,
                 plan = UniformGridPlan,
-                factory = { _, _, _, _, _ -> RouteDummyEngine() }
+                factory = { _, _, _, _ -> RouteDummyEngine() }
             ),
             RouteEngineChoice(
                 id = "avoid",
                 labelResId = R.string.route_engine_avoid,
                 plan = UniformGridPlan,
-                factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
-                    RouteAvoidEngine(paceKn, aversionKn, budgetPct, world, markerStrength, UniformGridPlan)
+                factory = { paceKn, verdictWeight, world, markerStrength ->
+                    RouteAvoidEngine(paceKn, verdictWeight, world, markerStrength, UniformGridPlan)
                 }
             ),
             RouteEngineChoice(
                 id = "evolutive",
                 labelResId = R.string.route_engine_evolutive,
                 plan = EvolutiveGridPlan,
-                factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
-                    RouteEvolutiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength, EvolutiveGridPlan)
-                }
-            ),
-            RouteEngineChoice(
-                id = "selective",
-                labelResId = R.string.route_engine_selective,
-                plan = SelectiveGridPlan,
-                factory = { paceKn, aversionKn, budgetPct, world, markerStrength ->
-                    RouteSelectiveEngine(paceKn, aversionKn, budgetPct, world, markerStrength, SelectiveGridPlan)
+                factory = { paceKn, verdictWeight, world, markerStrength ->
+                    RouteEvolutiveEngine(paceKn, verdictWeight, world, markerStrength, EvolutiveGridPlan)
                 }
             )
         )

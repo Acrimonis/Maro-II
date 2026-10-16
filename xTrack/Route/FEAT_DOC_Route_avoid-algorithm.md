@@ -63,24 +63,27 @@ consumers. Every source **adds** to a base; none may lower it, so no passable ce
 - **Marker weights (phase 5)** — parked; avoid-only `w ∈ [0, +10]`, a marker can only make the sea
   dearer, never cheaper (a negative price breaks the closed-set A\*).
 
-## The λ and the budget
+## The λ and the crown
 
 One solve builds its grid **once** and stores the band's and the rings' **limits** on it, priced at read
 time. **One arming solves three rungs over that grid, and the λ of each is the whole of what separates
 them** — `around`, `best` and `fast`, their values read from `route.avoid.ladder.around|best|fast.lambda`
 through [`RoutePreference`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt:20).
 A rung is computed at its own λ and **never corrected**: there is no correction pass, no second solve, and
-nothing reads a share in order to move a price. `route.avoid.speedZone.softCostAversion` is the **Driving
-preference** and no longer a cursor: it names which of the three rungs the ranking leads on.
+nothing reads a share in order to move a price. The λ are the **drawings' rates alone** — they no longer
+name which rung the ranking leads on.
 
-`route.avoid.speedZone.timeBudgetPct` is therefore a **ranking rule, not a search instruction** — **Best's
-gate**, the zone share a rung must stay under to be led on the clock. The line's own clock still yields its
-slow split ([`RouteEta.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt): the
-zone share inside a ring, the band share and the approach ramps' beside it), but the shares are read for the
-ranking and the report alone. The verdict the correction used to publish is **inert**: the engine's one
-answer passes `budgetUnmetZoneShare = null`
-([`RouteAvoidEngine.kt:651`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:651)), and
-the two band predicates it was built with are unread.
+**The crown is one sum over the three finished lines**, decided in
+[`RoutePassRanking`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt):
+`score = trip time + weight × slow-water seconds`, the lowest winning. The weight is the user's own stop on
+the verdict's dial ([`VerdictDial`](../../app/src/main/java/ykws/android/maro/config/VerdictDial.kt),
+`route.avoid.slowWater.weight`), so **Fastest** (weight 0) crowns the genuinely fastest line and the top
+stop, **Ignore time**, weighs the slow seconds alone. The slow seconds are the seconds the line spends under
+a limit — a ring's interior, the 300 m band and the ramps that serve a limit, the boat's own cornering floor
+outside — read off the clock and never the drawing's physics excess; a tie tolerance
+(`route.avoid.ladder.tieToleranceSec`) keeps two near-equal lines from flapping the crown. The budget and
+the share-gate it fed are **gone**: no share reaches the ranking, and the shares `RouteEta` still yields
+serve the report alone.
 
 ## The standoff, and its retirement
 

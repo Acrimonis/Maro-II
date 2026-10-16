@@ -71,23 +71,19 @@ internal class RouteFinePass {
         val coarseStepM = fineCellM
         val priceStepM = cellM
         var out = line
-        // The depth band, where the plan prices the shallow wall: the same law the runner's search and
-        // guard read, built once here so the crossing re-solves ride it too.
-        val depthBand =
-            if (ctx.depthBandActive && ctx.depthGateActive) depthBandOf(world, ctx.minDepthM, fineCellM) else null
         for (zone in zones) {
             if (zonePriceSec(cellM, pace, zone.routeLimitKn, lambda) <= 0.0) continue
             if (!lineEntersZone(out, zone)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals, depthBand,
+                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals,
                 ctx.markerStrength, trace
             ) ?: out
         }
         val fineGuard =
             costField(
                 world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-                withDepthBand = ctx.depthBandActive, markerStrength = ctx.markerStrength
+                markerStrength = ctx.markerStrength
             )
         val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
         // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
@@ -101,14 +97,21 @@ internal class RouteFinePass {
         }
         val snapped = snapToCorners(setup, sets, pulled)
         val finalTiming = PullTiming()
-        val settled = MultipassPull.pull(setup, snapped, refusals, finalTiming)
+        // The settled walk's own memo, held here so the sweep below shares it and answers a retraced mark
+        // rather than paying it again — the walk's context and memo, reused unchanged.
+        val settledMemo = MarkMemo()
+        val settled = MultipassPull.pull(setup, snapped, refusals, finalTiming, settledMemo)
+        // The settled line then carries its own lookback: the removable-vertex sweep drops every bend the
+        // pull's own two proofs clear, gated on the line's own refusals, so the corner pass consumes the
+        // genuinely taut line rather than the forward-only greedy's first-refusal keep.
+        val swept = MultipassPull.sweep(setup, settled, refusals, finalTiming, settledMemo, trace)
         trace {
-            "FINE settled points=${settled.size} fineCell=${fmt(fineCellM)}m " +
+            "FINE settled points=${swept.size} fineCell=${fmt(fineCellM)}m " +
                 "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +
                 "memoPriceHits=${finalTiming.memoPriceHits} " +
                 "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
         }
-        return settled
+        return swept
     }
 
     /**
@@ -138,7 +141,6 @@ internal class RouteFinePass {
         sets: List<CornerSet>,
         approaches: EndApproaches,
         refusals: PullRefusals?,
-        depthBand: DepthBand? = null,
         markerStrength: Double = 1.0,
         trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
@@ -172,7 +174,7 @@ internal class RouteFinePass {
         )
         val guard = costField(
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-            withDepthBand = depthBand != null, markerStrength = markerStrength
+            markerStrength = markerStrength
         )
         // This crossing walks one fine grid — clearance at its own cell, price at the coarse one, as in
         // `finePass`. The water is built once here, immediately after the field, and never cached.
@@ -181,7 +183,7 @@ internal class RouteFinePass {
         val setup = PullSetup(marginM, coarseStepM, priceStepM, guard, start, aim, approaches)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
-            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world), depthBand = depthBand
+            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
         )
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
@@ -196,8 +198,7 @@ internal class RouteFinePass {
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
-            },
-            depthK = if (depthBand != null) lambda else 0.0
+            }
         )
         val path = search.path
         if (path == null) {

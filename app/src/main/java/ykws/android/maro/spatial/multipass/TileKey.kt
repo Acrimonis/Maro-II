@@ -18,12 +18,11 @@ import java.io.DataOutputStream
  *   [zoneGenerationStamp]: a re-baked asset, a moved cutoff or a rebuilt zone list must not leave
  *   coefficients cached.
  * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the band's
- *   [bandWidthM], [bandLimitKn] and [bandOutsideMarginM], the [bandExtraM], [zoneOutsideMarginM] and the
- *   plan's fine-mask widths ([coastBandsM], [zoneRimM], [depthCollarM], [depthStepM]). The **pace is
- *   deliberately absent**: the tile stores a pace-free factor and the base is re-applied from the target
- *   grid, so one tile serves every speed.
- * - **The switches** — [bandEnabled], [zonesEnabled], [depthGateEnabled] and [pricesDepthBand], plus
- *   the [excludedZoneIdSet], because the rasterizer reads all five.
+ *   [bandWidthM], [bandLimitKn] and [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's
+ *   fine-mask bands ([coastBandsM]). The **pace is deliberately absent**: the tile stores a pace-free
+ *   factor and the base is re-applied from the target grid, so one tile serves every speed.
+ * - **The switches** — [bandEnabled], [zonesEnabled] and [depthGateEnabled], plus the
+ *   [excludedZoneIdSet], because the rasterizer reads all four.
  * - **The zone set** — [zoneRings], the exact ring set the fill even-odd-fills, and [capLatNorth], the
  *   open-coast closure's own cap.
  * - **The marker price** — [markers], the costed set itself; and the two values that scale and gate it,
@@ -70,24 +69,14 @@ internal data class TileKey(
     val bandLimitKn: Double,
     /** The priced band's outside-margin width (m). */
     val bandOutsideMarginM: Double,
-    /** The depth price band's extra width (m) beyond the gate's margin. */
-    val bandExtraM: Double,
     /** Whether the 300 m band's price is armed. */
     val bandEnabled: Boolean,
-    /** Whether the plan prices the shallow depth wall — the depth-band **write**'s own switch. */
-    val pricesDepthBand: Boolean,
     /** A speed zone's outside-margin width (m). */
     val zoneOutsideMarginM: Double,
     /** Whether the speed-zone price is armed. */
     val zonesEnabled: Boolean,
     /** The coast-distance membership bands (m) the plan's fine mask keeps. */
     val coastBandsM: List<ClosedFloatingPointRange<Double>>,
-    /** The zone-rim collar width (m), 0.0 where disabled. */
-    val zoneRimM: Double,
-    /** The depth-dilation collar width (m), 0.0 where disabled. */
-    val depthCollarM: Double,
-    /** The depth scan's own step (m). */
-    val depthStepM: Double,
     /** The ids of the speed zones the user has excluded. */
     val excludedZoneIdSet: Set<String>,
     /** The speed-zone list's content stamp. */
@@ -152,9 +141,7 @@ internal data class TileKey(
         out.writeDouble(bandWidthM)
         out.writeDouble(bandLimitKn)
         out.writeDouble(bandOutsideMarginM)
-        out.writeDouble(bandExtraM)
         out.writeBoolean(bandEnabled)
-        out.writeBoolean(pricesDepthBand)
         out.writeDouble(zoneOutsideMarginM)
         out.writeBoolean(zonesEnabled)
         out.writeInt(coastBandsM.size)
@@ -162,9 +149,6 @@ internal data class TileKey(
             out.writeDouble(band.start)
             out.writeDouble(band.endInclusive)
         }
-        out.writeDouble(zoneRimM)
-        out.writeDouble(depthCollarM)
-        out.writeDouble(depthStepM)
         val excluded = excludedZoneIdSet.sorted()
         out.writeInt(excluded.size)
         for (id in excluded) out.writeUtf(id)

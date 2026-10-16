@@ -165,3 +165,16 @@ building — one tile serves every speed, so a tile a startup pass marks is reus
 - **Green**: `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug` → BUILD SUCCESSFUL, with
   [`FineTilePrewarmTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/FineTilePrewarmTest.kt)
   pinning the gate, the two caps, own-ship ordering, the skip-when-warm and the pause-at-the-gate.
+
+## Outcome
+
+Shipped as the plan's own design — D1–D10 all landed. A tile stores the pace-free per-member factor with
+`baseCostSec` dropped and `memberCostAtBase` the single re-application home; the marker law moved behind one
+`markerFactorAt`; the fine layer got its **own** marker field at a unit base so `extract` reads the factor
+unchanged; `paceKn` left `TileKey`; `FineTileCodec.FORMAT_VERSION` went 1 → 2 with a mismatch a **miss**,
+never a migration; and the store gained `route.fineTile.maxBytes` (16 MiB), its once-guarded reclaim warning
+in both locales, one `STORE` line per load and save, an age touch on a load and an incremental trim total in
+place of the per-save whole-directory sum. **Settled after the plan:** the fine base's line move on
+marker-priced water was accepted by the user on 2026-10-13 and is promoted to `FEAT_DOC_Route_decisions.md`,
+and the pre-warm the plan deferred has since landed (§11). **Left open:** `hitRate` still has no production
+reader — the `STORE` lines carry the reading instead.

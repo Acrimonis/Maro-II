@@ -318,6 +318,46 @@ class RouteZonePhase4Test {
         assertEquals(emptyList<String>(), forcedCrossingZoneNames(waypoints, listOf(missed), avoidingPathExists = false))
     }
 
+    /**
+     * **Presence and price are two facts about the same water.** The `speedRoute` override is the
+     * search's advantage: stood at the pace it makes the price law charge nothing for water the chart
+     * still signs at 5 kn, so no crossing is forced — while the presence read, taken off the displayed
+     * limit through the price gate's own cursor, names exactly what the clock has to pay. A zone whose
+     * own limit is at or above the pace costs no second and shows in no colour, so it is named by
+     * neither read.
+     */
+    @Test
+    fun presenceNamesTheSlowWaterThePriceCallsFreeAndNothingAtOrAboveThePace() {
+        val waypoints = listOf(LatLng(43.5, 7.00), LatLng(43.5, 7.06))
+        val paceKn = 28.0
+        // The caller's own gate — `restrictive` in `forcedCrossingNames`, made through the price cursor.
+        fun restrictive(zones: List<SpeedZone>): List<SpeedZone> =
+            zones.filter { zonePriceSec(50.0, paceKn, it.routeLimitKn, 5.0) > 0.0 }
+        val overridden = SpeedZone("z", "Cap", 5.0, squareRing(43.5, 7.03, 0.02), routeLimitKn = paceKn)
+        val swift = SpeedZone("s", "Swift", 40.0, squareRing(43.5, 7.03, 0.02))
+
+        assertEquals(
+            "the price law charges nothing for the overridden zone, so nothing is forced",
+            emptyList<String>(),
+            forcedCrossingZoneNames(waypoints, restrictive(listOf(overridden)), avoidingPathExists = false)
+        )
+        assertEquals(
+            "and presence still names the water the clock pays",
+            listOf("Cap"),
+            crossedSlowZoneNames(waypoints, listOf(overridden), paceKn = paceKn)
+        )
+        assertEquals(
+            "a zone at or above the pace is no restrictive zone either",
+            emptyList<SpeedZone>(),
+            restrictive(listOf(swift))
+        )
+        assertEquals(
+            "and presence names it nowhere — it costs no second",
+            emptyList<String>(),
+            crossedSlowZoneNames(waypoints, listOf(swift), paceKn = paceKn)
+        )
+    }
+
     @Test
     fun aZoneBlockingTheWholeCorridorIsReportedAsAForcedCrossing() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
@@ -325,14 +365,18 @@ class RouteZonePhase4Test {
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(
             paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 33 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { world }
         )
 
         val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)
 
         assertEquals(listOf("Cap"), route?.forcedCrossingZoneNames)
+        assertEquals(
+            "and the water's own fact names the same crossing beside it",
+            listOf("Cap"),
+            route?.crossedSlowZoneNames
+        )
     }
 
     // ── The collar ────────────────────────────────────────────────────────────
@@ -344,8 +388,7 @@ class RouteZonePhase4Test {
         val world = ZoneWorld(listOf(zone))
         val engine = RouteAvoidEngine(
             paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 33 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
             worldProvider = { world }
         )
 
@@ -564,53 +607,6 @@ class RouteZonePhase4Test {
         LatLng(latNorth, lonWest),
         LatLng(latSouth, lonWest)
     )
-
-    // ── The budget ────────────────────────────────────────────────────────────
-
-    /**
-     * The loop's own exit, read where it is decided. A share **under** the band is met — a route
-     * already spending less slow water than it may — so the correction, which only ever raises λ,
-     * has nothing to chase; the band's top edge is still met; and above it the budget is missed.
-     */
-    @Test
-    fun theBudgetIsMetUnderItsBandAndMissedOnlyAboveIt() {
-        assertTrue("a share under the budget is met, and never chased", budgetMet(0.05, 33.0))
-        assertTrue("an overrun inside the band is met", budgetMet(0.33, 33.0))
-        assertTrue("the band's own predicate answers one reading of it", withinBudgetBand(0.30, 33.0))
-        assertTrue("a share just inside the band's top edge is met", budgetMet(0.39, 33.0))
-        assertFalse("above the band the budget is missed", budgetMet(0.40, 33.0))
-        assertFalse("a zero budget is missed by any slow water at all", budgetMet(0.01, 0.0))
-        assertTrue("and met by a line that spends none", budgetMet(0.0, 0.0))
-    }
-
-    /**
-     * The budget is demoted to an internal auto-pick criterion, so no rung ever reports a missed share
-     * on its answer — whatever the stored budget, the verdict field stays absent.
-     */
-    @Test
-    fun theDemotedBudgetReportsNoVerdict() = runBlocking {
-        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
-        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
-
-        val zeroBudget = RouteAvoidEngine(
-            paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 0 },
-            worldProvider = { ZoneWorld(listOf(zone)) }
-        )
-        val unmet = solve(zeroBudget, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)!!
-
-        val fullBudget = RouteAvoidEngine(
-            paceKn = { 28.0 },
-            aversionKn = { AppConfig.routeAvoidSpeedZoneSoftCostAversion },
-            slowWaterBudgetPct = { 100 },
-            worldProvider = { ZoneWorld(listOf(zone)) }
-        )
-        val met = solve(fullBudget, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)!!
-
-        assertNull("the demoted budget reports nothing under a zero budget", unmet.budgetUnmetZoneShare)
-        assertNull("and nothing under a full budget either", met.budgetUnmetZoneShare)
-    }
 
     /**
      * The probe's own mechanism, which §8's fix took off the second raster sweep: the copy that

@@ -35,7 +35,7 @@ The types on the seam, all in the same file:
 - `RouteStepReading(stage, labelResId, value, unitResId)` — one figure a stage reports about **its own** work.
 
 **The registry** is [`RouteEngineChoice`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt):
-one row per algorithm (`id`, `labelResId`, a factory taking the pace, aversion, budget and world providers),
+one row per algorithm (`id`, `labelResId`, a factory taking the pace, the verdict's weight, the marker strength and the world providers),
 `all` in menu order, and `resolve(id)` answering the shipped default for an id nothing claims. A new algorithm
 is one row there plus one class implementing `RouteEngine`.
 
@@ -46,12 +46,10 @@ is one row there plus one class implementing `RouteEngine`.
 | `dummy` | [`RouteDummyEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt) | One straight segment, timed at a fixed 15 kn | **No layer at all** |
 | `avoid` | [`RouteAvoidEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) with `UniformGridPlan` | One tile over the whole corridor, at `route.avoid.grid.cellM` | Coastline, depth gate, 300 m band, speed zones |
 | `evolutive` | [`RouteEvolutiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt) with `EvolutiveGridPlan` | Two layers on one lattice family: the coarse interior and the fine coastal band | The same water as `avoid` |
-| `selective` | [`RouteSelectiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteSelectiveEngine.kt) with `SelectiveGridPlan` | Two layers, the fine one a union of thin collars rather than a blanket | The same water as `avoid`, plus the shallow-wall depth preference |
 
 - **`dummy`** declares one computation and emits one update (`stageDone` and `nextStage` null, the straight line as the result). Its repair is a no-op — it has no water test to run one with — and `cancelLookup` has nothing to cancel.
-- **`avoid`** is the shipped default and the engine both second engines delegate to.
-- **`evolutive`** and **`selective`** are compositions, not reimplementations: each holds a private `RouteAvoidEngine` built with its own plan and forwards the seam's three calls, so the pipeline, the clock and the readings are shared and the algorithm differs **by its plan alone**.
-- **`selective`**'s fine layer keeps only the **collars** where a decision is made — the shoreline, the band's outer boundary, the zone rims and the shallow wall — and adds a conservative per-metre depth preference beside the depth gate. `avoid` and `evolutive` are untouched by that preference: `withDepthBand` is on for this engine alone.
+- **`avoid`** is the shipped default and the engine the second row delegates to.
+- **`evolutive`** is a composition, not a reimplementation: it holds a private `RouteAvoidEngine` built with its own plan and forwards the seam's three calls, so the pipeline, the clock and the readings are shared and the algorithm differs **by its plan alone**. A second composition, `selective`, was retired on 2026-10-16 with its collars, its depth price and its keys.
 
 ## The ladder
 
@@ -62,16 +60,18 @@ own** — `route.avoid.ladder.around|best|fast.lambda` in `maro.properties`, rea
 they are the ladder's one lever and the file is where every value lives. The first rung is the **main** and the
 only one that narrates the stage line; every other rung publishes its terminal update alone, plus the
 provisional pair it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and
-never corrected, so the aversion the user sets (`route.avoid.speedZone.softCostAversion`) does nothing but name
-which of the three the ranking leads on.
+never corrected, so the λ decide which line each rung drew and the crown is decided apart, by the verdict's
+own weight below.
 
 **The rungs are ranked, and the winner rides the terminal.** At every rung's terminal the engine folds the
 settled costs of the rungs that have landed through [`RoutePassRanking`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRanking.kt)
-under the Driving preference: **Fast** leads on the trip's total time, **Best** on the total time provided the
-zone share stays within `route.avoid.speedZone.timeBudgetPct`, and **Fun** on the absolute zone seconds — the
-clock entering only as the last resort. One shared tail settles a lead tie, and a total tie falls to the rung
-nearest the preference. The result travels as `RouteRunningBest` on the terminal update: a **running best**,
-not a verdict, so a surface reads *so far, the winner is…* until the last rung lands.
+under the **verdict's own weight** — the user's stop on the dial
+([`VerdictDial`](../../app/src/main/java/ykws/android/maro/config/VerdictDial.kt), `route.avoid.slowWater.weight`):
+the crown is one sum, `trip time + weight × slow-water seconds`, the lowest winning, its *Ignore time* stop
+weighing the slow seconds alone and a tie tolerance (`route.avoid.ladder.tieToleranceSec`) guarding the flip.
+The λ name which line each rung drew, never which rung leads. The result travels as `RouteRunningBest` on the
+terminal update: a **running best**, not a verdict, so a surface reads *so far, the winner is…* until the last
+rung lands.
 
 ## The pipeline
 
@@ -103,38 +103,28 @@ injection point — the one thing that separates one algorithm from another:
 - `name` — the engine name the trace prints, read from the plan rather than special-cased at the caller.
 - `firstWalkGrid(corridor, baseCellM): List<GridTile>` — the rectangles the first walk may use, each at its own cell size.
 - `fineCellM(baseCellM)` — the fine cell, in **metres**, the clock steps at.
-- `fineWater(query): FineWater` — **where the fine layer may stand, in geographic terms before any lattice snap**: the cut reaches the builder grows the coast's segments by, the membership bands a cell's coast distance must fall in, and the zone-rim and depth-dilation collar widths. The builder snaps the union to the corridor's fine lattice and merges it into windows; the window's mask keeps the answer's own membership.
-- `pricesDepthBand` — whether this plan prices the shallow wall (a λ-free coefficient written per cell, §The depth preference below). `selective` alone answers `true`.
+- `fineWater(query): FineWater` — **where the fine layer may stand, in geographic terms before any lattice snap**: the cut reaches the builder grows the coast's segments by, and the membership bands a cell's coast distance must fall in. The builder snaps the answer to the corridor's fine lattice and merges it into windows; the window's mask keeps the answer's own membership.
 
-Three plans ship: **`UniformGridPlan`** (one tile over the whole corridor, an empty fine-water answer, the
-fine cell its own metres key `route.avoid.grid.fineCellM`), **`EvolutiveGridPlan`** (two tiles — the interior at
+Two plans ship: **`UniformGridPlan`** (one tile over the whole corridor, an empty fine-water answer, the
+fine cell its own metres key `route.avoid.grid.fineCellM`) and **`EvolutiveGridPlan`** (two tiles — the interior at
 `route.evolutive.grid.cellM` and the band at `route.evolutive.grid.fineCellM`, coarse first so the family's
-layers index coarse-then-fine — with the fine-water answer reproducing today's coastal ribbon byte for byte),
-and **`SelectiveGridPlan`** (two tiles at `route.selective.grid.cellM` /
-`route.selective.grid.fineCellM` and the collar union). A plan decides **where and at what size** work happens:
-it never prices, never times and never reads a switch.
+layers index coarse-then-fine — with the fine-water answer reproducing today's coastal ribbon byte for byte).
+A plan decides **where and at what size** work happens: it never prices, never times and never reads a switch.
 
-### The depth preference
+### The depth preference — retired with its engine
 
-`selective` alone prices the water beside the shallow wall. The law is one home,
-[`DepthBandLaw`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFineWater.kt): a per-metre
-gradient toward the wall over a band whose width is the gate's own margin plus `route.selective.depth.bandExtraM`,
-scaled by `route.selective.depth.priceSecPerM`. Three readers share it — the rasterizer writes a **λ-free
-coefficient** per fine cell, `MultipassSearch` scales that coefficient by the pass's λ at read time, and the
-pull's `costField(..., withDepthBand = true)` guard prices the same law. The distance to the wall is a **radial
-ring scan** on the gate's own test, because the shallow wall carries no distance index the coastline has. The
-declaration the priced walk reads is the honest floor — **zero**, since a per-metre price over a raster
-distance field changes at every point — so the group proof is weak there by construction.
+`selective` alone priced the water beside the shallow wall, and that engine left the tree on 2026-10-16 with
+its law, its band, its collar and its keys. What the two rows that remain carry is the **wall** — the gate's
+hard source in `costField` and in the fine tiles' own field — and the **margin** the corner pass and the berth
+carve read, so no shipped engine prices depth at all. Whether a soft preference returns on `evolutive` is open,
+and [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md) now holds
+that question.
 
-### The collars and the mask cache
+### The collars and the mask cache — retired with their engine
 
-The four collars are one `route.selective.*` width key each: the shoreline (0-width off the coast), the band's
-outer boundary, the zone rims (polygon distance) and the water within the width of a gate-blocked cell (a
-dilation of the shallow wall). The coast collars reuse the segment marking; the zone rim and the depth
-dilation add their own passes onto the shared tile grid. The **portable half** — the geographic union before
-the snap — is cached in `SelectiveMaskCache` on the depth grid's timestamp, the coastline's stamp, the
-EMODnet cutoff, the switches and the four widths; the per-arm snap-and-merge is the cheap half. The
-excluded-zone set is treated as static.
+The four `route.selective.*` collars and the cache that held their portable union went with the engine, and the
+zone-rim and depth-dilation marking passes left the builder with them. What survives of the fine layer is the
+coastal ribbon the one two-layer plan answers, snapped per arm to the shared tile grid.
 
 ## The shared `multipass` layer
 
@@ -183,11 +173,8 @@ starts under the family that owns it:
 | `route.avoid.obstacle.marginM` | The clearance margin around every edge |
 | `route.avoid.depthGate.*` | The gate's switch and its minimum depth |
 | `route.avoid.zone300.*` | The band's width, limit, outside margin, price fraction and switch |
-| `route.avoid.speedZone.*` | The zones' switch, outside margin, price fraction, aversion and budget |
+| `route.avoid.speedZone.*` | The zones' switch, outside margin and price fraction |
 | `route.evolutive.grid.cellM`, `route.evolutive.grid.fineCellM` | `evolutive`'s two layers |
-| `route.selective.grid.cellM`, `route.selective.grid.fineCellM` | `selective`'s two layers |
-| `route.selective.shore.collarM`, `route.selective.band.collarM`, `route.selective.zone.rimM`, `route.selective.depth.collarM` | The four selective collars, one width each |
-| `route.selective.depth.bandExtraM`, `route.selective.depth.priceSecPerM` | The depth price band's extra width and its per-metre gradient |
 | `route.walk.maxCells` | The ceiling a walk is refused over before it is rastered |
 | `route.fineTile.maxBytes` | The fine-tile store's on-disk ceiling — a sibling of the map's in-memory one, bounding the directory |
 | `route.prewarm.box`, `route.prewarm.maxTiles`, `route.prewarm.maxMs` | The pre-warm's own box (`south,west,north,east`) and its two caps — the tile budget and the time budget |
@@ -198,7 +185,6 @@ starts under the family that owns it:
 
 Current state, not history — these are the open facts a reader should not be surprised by:
 
-- The engine's `aversionKn` and `slowWaterBudgetPct` providers are **live**: the first names the ranking's stop, the second is Best's gate. Those are their only readers, and the ranking's tail (`betterPass`) has its one caller.
 - **The fine layer's marker base is the fine lattice's own** — the tile's field prices its markers at the unit base and `writeInto` re-applies the fine base, where the per-arm coarse field priced them at the coarse base. On a world **with priced markers** the drawn line can therefore move where the fine layer decides; **on marker-free water nothing moves** (the harness's line is unmoved). The device pass is owed to see a marker-priced fine line.
 - `FineTileMap.hitRate` still has **no production reader**: the `STORE` lines are the reading a pass has today, and an arm-end cache line (`hits`/`misses`/`rate`/`bytes`) would close the older finding.
 - `LineDeviation.kt` and the `route.evolutive.fine.corridorHalfWidthM` key are **unread** by any shipped path.

@@ -32,19 +32,34 @@ class RouteEngineChoiceTest {
     fun eachRowBuildsTheEngineItNames() {
         assertTrue(
             "the dummy row builds the dummy, ignoring all providers",
-            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteDummyEngine
+            RouteEngineChoice.resolve("dummy").factory({ 15.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) is RouteDummyEngine
         )
         assertTrue(
             "the avoid row builds the avoid engine",
-            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteAvoidEngine
+            RouteEngineChoice.resolve("avoid").factory({ 28.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) is RouteAvoidEngine
         )
         assertTrue(
             "the evolutive row builds the evolutive engine",
-            RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteEvolutiveEngine
+            RouteEngineChoice.resolve("evolutive").factory({ 28.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) is RouteEvolutiveEngine
+        )
+    }
+
+    /**
+     * **A stored `selective` id resolves through the shipped fallback rather than failing.** The engine's row
+     * is retired, so a device still holding `selective` in `route.engine.id` must arm the shipped default
+     * instead of leaving the app with no engine — no migration write is owed.
+     */
+    @Test
+    fun aStoredSelectiveIdFallsBackToTheShippedDefault() {
+        val resolved = RouteEngineChoice.resolve("selective")
+        assertEquals(
+            "a retired selective id answers the shipped default's row",
+            AppConfig.routeEngineId,
+            resolved.id
         )
         assertTrue(
-            "the selective row builds the selective engine",
-            RouteEngineChoice.resolve("selective").factory({ 28.0 }, { 4.0 }, { 33 }, { ChoiceWorld() }, { 1.0 }) is RouteSelectiveEngine
+            "and no row claims the retired id any more",
+            RouteEngineChoice.all.none { it.id == "selective" }
         )
     }
 

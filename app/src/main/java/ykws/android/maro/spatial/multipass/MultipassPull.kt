@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -330,6 +331,211 @@ object MultipassPull {
         return result
     }
 
+    /**
+     * **The lookback the forward-only walk lacks** — a fixpoint removable-vertex sweep over a settled
+     * line, run on the fine pass's own answer so the line the corner pass consumes is the genuinely taut
+     * one. [`pull`] is a forward-only greedy: it commits a waypoint on the **first** refused chord and
+     * re-anchors there, so a vertex standing over open water between two real corners survives a chord
+     * that would skip it — a keep the walk never re-tests. This sweep re-tests exactly those chords, and
+     * drops a vertex only where the walk's own two proofs clear it.
+     *
+     * **The two proofs, read from the walk's own context.** For each consecutive triple `A, B, C` the
+     * interior `B` drops when the chord `A → C` is **clear** ([legClearCause] answers `null`) **and** it
+     * is **not dearer** than the two segments it replaces (`softPriceSec(A, C)` at most
+     * `softPriceSec(A, B) + softPriceSec(B, C)`). Both are the very tests the pull already trusts, so a
+     * swept line can no more stand nearer to land than the margin nor shortcut priced water than the line
+     * it came from — the sweep is precision-**improving**, never a licence to bend the route.
+     *
+     * **One insertion point, gated on the line's own refusals.** The fine pass calls this on its settled
+     * line alone: the runner's final pull is never swept, because the coarse line is re-refined here and
+     * sweeping it would pay twice for one answer. The sweep is skipped where the line's own pull recorded
+     * no refusal (`refusals.land + refusals.price == 0`), since a line the greedy pulled in one chord
+     * carries no artifact — the common case pays nothing at all. A `null` tally proves nothing of the
+     * line, so the sweep still runs; the gate is a saving, never a verdict.
+     *
+     * **The fixed ends are never candidates.** Only an interior `B` is tested, so the raw [PullSetup.start]
+     * and [PullSetup.aim] the walk must reach are untouched. **The tie-break is deterministic**: a triple
+     * drops on `<=` — not dearer, not merely cheaper — and the sweeps run left to right to a fixed point,
+     * so the same input always yields the same line; every removal shortens the list, so the loop
+     * terminates.
+     *
+     * **It reuses the walk's own context and memo** — the field, the margin, both steps and the carved
+     * approaches — so the end-exemption and the marks the pull already paid apply unchanged, and a shared
+     * [MarkMemo] answers the sweep's retraced marks rather than paying them again.
+     *
+     * **It reports itself through [trace], so a silent sweep is never mistaken for one that ran.** One
+     * summary line carries the in/out point counts, the passes walked and the drops and the two refusals,
+     * one line per candidate vertex names its `at=` and the proof that kept or dropped it, and a
+     * `skipped=` line stands where the gate or the size guard stopped the sweep before any candidate was
+     * tested. The report decides nothing: the drawn line is the walk's either way.
+     *
+     * @param setup the water the settled walk was handed — the same margin, steps, field, raw ends and
+     *   approaches, so the sweep's proofs are the walk's own.
+     * @param line the settled line, raw start first and raw aim last, exactly as [`pull`] returned it.
+     * @param refusals the tally the settled pull counted into; the sweep runs only where it is non-empty,
+     *   and a `null` tally proves nothing so the sweep runs.
+     * @param timing the walk's own tally of what it spent, or `null` where no reader wants it.
+     * @param memo the walk's own read memo, shared with the settled pull so a retraced mark is answered
+     *   from it rather than paid again; a fresh one is made here where none is handed.
+     * @param trace the report's own line channel, carried exactly as [RoutePassRunner.runPass] carries its
+     *   own, so the engine's `MaroRoute` sink reaches it and nothing else is needed; the default sink
+     *   discards every line and the walk is then read exactly as before.
+     */
+    internal fun sweep(
+        setup: PullSetup,
+        line: List<LatLng>,
+        refusals: PullRefusals? = null,
+        timing: PullTiming? = null,
+        memo: MarkMemo? = MarkMemo(),
+        trace: (() -> String) -> Unit = {}
+    ): List<LatLng> {
+        if (line.size < 3) {
+            trace { "SWEEP skipped=short" }
+            return line
+        }
+        // The gate: a line the greedy pulled in one chord has no artifact to remove, so the sweep is
+        // skipped where the settled pull recorded no refusal.
+        if (refusals != null && refusals.land + refusals.price == 0) {
+            trace { "SWEEP skipped=no-refusals" }
+            return line
+        }
+        val ctx = setup.context(refusals, timing, memo)
+        val work = ArrayList(line)
+        var passes = 0
+        var dropped = 0
+        var refusedClear = 0
+        var refusedPrice = 0
+        var changed = true
+        while (changed) {
+            passes++
+            changed = false
+            var i = 1
+            while (i < work.size - 1) {
+                // The fixed ends are never candidates: only an interior `B` at `i` is tested, so the raw
+                // start and aim the walk must reach are left where they are.
+                val a = work[i - 1]
+                val b = work[i]
+                val c = work[i + 1]
+                // **Whether `b` is removable** — the pull's own lookback, read as the two proofs this
+                // sweep drops on: the skipping chord `a → c` is clear and it is not dearer than the two
+                // segments it replaces. The clearance proof is read first and short-circuits exactly as it
+                // always has, so a chord refused by land never pays its price and the sweep's own reads are
+                // unmoved by carrying the report; the price's two sides stay in hand for the keep line.
+                if (legClearCause(a, c, ctx) != null) {
+                    trace {
+                        "SWEEP keep idx=$i at=${atText(b)} turn=${fmt(sweepTurnDeg(a, b, c))} why=LAND"
+                    }
+                    refusedClear++
+                    i++
+                    continue
+                }
+                val chordSec = softPriceSec(a, c, ctx)
+                val pathSec = softPriceSec(a, b, ctx) + softPriceSec(b, c, ctx)
+                if (chordSec <= pathSec) {
+                    trace {
+                        "SWEEP drop idx=$i at=${atText(b)} turn=${fmt(sweepTurnDeg(a, b, c))}"
+                    }
+                    work.removeAt(i)
+                    dropped++
+                    changed = true
+                    continue
+                }
+                trace {
+                    "SWEEP keep idx=$i at=${atText(b)} turn=${fmt(sweepTurnDeg(a, b, c))} " +
+                        "why=PRICE chordSec=${fmt(chordSec, 3)} pathSec=${fmt(pathSec, 3)}"
+                }
+                // Only a kept-by-price vertex is worth the arm split: it is the one case a reader has to
+                // explain, and it is rare enough that the walk can afford to say which arm charged it.
+                traceArms(a, c, ctx, trace, i)
+                refusedPrice++
+                i++
+            }
+        }
+        trace {
+            "SWEEP in=${line.size} out=${work.size} passes=$passes dropped=$dropped " +
+                "refusedClear=$refusedClear refusedPrice=$refusedPrice"
+        }
+        return work
+    }
+
+    /**
+     * The `lat,lon` pair the report writes after `at=` for [p] — the identifier a bend carries across the
+     * rungs, exactly as the `CORNER` lines spell it.
+     */
+    private fun atText(p: LatLng): String = "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
+
+    /**
+     * The turn at [at] between its two legs, in degrees — the size of the heading change from the
+     * incoming leg `prev → at` to the outgoing `at → next`, so a `SWEEP` line names a bend by the figure a
+     * reader reasons about and a straight run reads `0.0`. It is the report's own reading and decides
+     * nothing: the sweep's verdicts are its two proofs, never this angle.
+     */
+    private fun sweepTurnDeg(prev: LatLng, at: LatLng, next: LatLng): Double {
+        val inBearing = SpatialOperations.initialBearing(prev, at)
+        val outBearing = SpatialOperations.initialBearing(at, next)
+        val delta = ((outBearing - inBearing + 540.0) % 360.0) - 180.0
+        return abs(delta)
+    }
+
+    /**
+     * **Which arm charged a kept chord, and where it charged most.** The price's two sides say a chord
+     * is dearer; they do not say *who* charged it, and the arms are invisible in a total — the band, a
+     * ring, the depth ramp and a marker all read as one number. This walks the chord's own lattice, adds
+     * each arm's rate times the interval's width, and remembers the interval whose instantaneous total
+     * was dearest, so one line names the arm that dominates the chord beside the place its charge falls.
+     *
+     * It decides nothing: the sweep's verdicts are its two proofs, and the sum of the arms it reports is
+     * the field's own price at each mark ([RouteCostField.armPricesAt]), never a second law. It runs only
+     * where the sweep is already reporting a kept-by-price vertex, which is the cheapest place the
+     * question can be asked, and its reads are the report's own, counted nowhere.
+     */
+    private fun traceArms(
+        a: LatLng,
+        c: LatLng,
+        ctx: PullContext,
+        trace: (() -> String) -> Unit,
+        idx: Int
+    ) {
+        val marks = MarkLattice(SpatialOperations.haversine(a, c), clearanceStep(ctx.marginM))
+        val sums = LinkedHashMap<PriceArm, Double>()
+        var worstSec = 0.0
+        var worstAt: LatLng? = null
+        for (j in 0 until marks.count) {
+            val p = chordPoint(a, c, marks.markT(j))
+            val arms = ctx.field.armPricesAt(p)
+            if (arms.isEmpty()) continue
+            var here = 0.0
+            var dearest: PriceArm? = null
+            var dearestSec = 0.0
+            for ((arm, cellPrice) in arms) {
+                val sec = cellPrice / ctx.field.cellM * marks.widthM(j)
+                sums[arm] = (sums[arm] ?: 0.0) + sec
+                here += sec
+                if (sec > dearestSec) {
+                    dearestSec = sec
+                    dearest = arm
+                }
+            }
+            // **Every priced mark, not only the dearest** — the geography is the whole point of the
+            // report, so each interval in turn is named where its own charge falls, with the arm that
+            // charged it most. The dearest is kept for the summary line; the marks are the map.
+            trace {
+                "SWEEP mark idx=$idx i=$j at=${atText(p)} arm=${dearest?.name} sec=${fmt(dearestSec, 3)}"
+            }
+            if (here > worstSec) {
+                worstSec = here
+                worstAt = p
+            }
+        }
+        if (sums.isEmpty()) return
+        val worstArm = sums.maxByOrNull { it.value }?.key?.name
+        trace {
+            "SWEEP arms idx=$idx " +
+                sums.entries.joinToString(" ") { "${it.key.name.lowercase()}=${fmt(it.value, 3)}" } +
+                (worstAt?.let { " worst=$worstArm at=${atText(it)}" } ?: "")
+        }
+    }
+
     /** The chord's own verdict: the geometry stands, then the price guard alone decides — the same
      *  short circuit keeps a refused chord from costing a walk of its own price. Its two halves are
      *  timed apart where a [timing] is handed in, so the clearance walk and the price walk are told
@@ -484,8 +690,9 @@ object MultipassPull {
 
     /**
      * The field's prices summed along one straight segment, in **seconds** — the price is the written
-     * law's own quantity, a cell's excess in seconds multiplied by the interval's **metres**, read at
-     * the **midpoint of each interval**. The intervals are a [MarkLattice] on the walk's own sampling
+     * law's own quantity, a cell's own cost **turned into a rate** by the cell that priced it
+     * ([RouteCostField.softPriceSecPerMAt]), multiplied by the interval's **metres**, read at the
+     * **midpoint of each interval**. The intervals are a [MarkLattice] on the walk's own sampling
      * step `clearanceStep(marginM)`, its last interval sized to the chord's remainder, so the whole
      * segment is covered exactly and the midpoints — and every group's own midpoint — stand at the same
      * points for every attempt that shares an anchor. That step is the one home the clearance walk
@@ -577,7 +784,7 @@ object MultipassPull {
         val mid = chordPoint(a, b, marks.spanMidT(i0, i1))
         val clearance = ctx.field.priceClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
-            val price = ctx.field.softPriceSecAt(mid)
+            val price = ctx.field.softPriceSecPerMAt(mid)
             ctx.timing?.addPriceReads(1)
             for (j in i0 until i1) acc[0] += price * marks.widthM(j)
             return
@@ -647,21 +854,26 @@ object MultipassPull {
         ctx.memo?.hardDistance(ctx.field, p) ?: ctx.field.hardDistanceM(p)
 
     /**
-     * The soft price at [p], from the walk's memo where it holds the point and from the field otherwise —
-     * and it is the **one** home that decides whether a price read was paid, incrementing
-     * [PullTiming.priceReads] on a miss alone, so a memo hit lowers the count without touching the sum.
-     * The memo is probed **once**: a held point answers with its own double, a miss reads the field and
-     * stores the answer, so a hit and a miss each cost one lookup and never two.
+     * The soft price **rate** at [p] — seconds per metre, which is what the sums above need: a per-cell
+     * cost multiplied by metres would carry the cell along with it and report seconds times metres. The
+     * rate is the field's own cell price over the cell that priced it, so the walk prices a stretch of
+     * line while the A\* keeps pricing cells, off one law.
+     *
+     * It reads from the walk's memo where that holds the point and from the field otherwise — and it is
+     * the **one** home that decides whether a price read was paid, incrementing [PullTiming.priceReads]
+     * on a miss alone, so a memo hit lowers the count without touching the sum. The memo is probed
+     * **once**: a held point answers with its own double, a miss reads the field and stores the answer,
+     * so a hit and a miss each cost one lookup and never two.
      */
     private fun readPrice(ctx: PullContext, p: LatLng): Double {
         val memo = ctx.memo
         if (memo == null) {
             ctx.timing?.addPriceReads(1)
-            return ctx.field.softPriceSecAt(p)
+            return ctx.field.softPriceSecPerMAt(p)
         }
         val held = memo.priceOrNull(ctx.field, p)
         if (held != null) return held
-        val price = ctx.field.softPriceSecAt(p)
+        val price = ctx.field.softPriceSecPerMAt(p)
         memo.putPrice(ctx.field, p, price)
         ctx.timing?.addPriceReads(1)
         return price

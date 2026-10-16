@@ -378,71 +378,12 @@ object AppConfig {
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
 
     /**
-     * The `selective` engine's own coarse cell (m) — `route.selective.grid.cellM`, default 100, clamped
-     * 10.0..500.0 like the other two. The plan's own answer, so neither `avoid`'s nor `evolutive`'s cell
-     * is touched.
-     */
-    var routeSelectiveGridCellM: Double = 100.0
-        private set
-
-    /**
-     * The `selective` engine's fine cell (m) — `route.selective.grid.fineCellM`, default 20, clamped
-     * 10.0..20.0 on the same 20 m contract as `evolutive` and never coarser than its coarse cell.
-     */
-    var routeSelectiveGridFineCellM: Double = 20.0
-        private set
-
-    /**
-     * The **shoreline collar's** width (m) — `route.selective.shore.collarM`, default 100: the fine water
-     * 0–100 m off the coast, where a berth and an inshore passage are decided.
-     */
-    var routeSelectiveShoreCollarM: Double = 100.0
-        private set
-
-    /**
-     * The **band-outer collar's** width (m) — `route.selective.band.collarM`, default 100: a strip
-     * straddling the 300 m band's own outer boundary, where a route leaves or enters the band.
-     */
-    var routeSelectiveBandCollarM: Double = 100.0
-        private set
-
-    /**
-     * The **zone-rim collar's** width (m) — `route.selective.zone.rimM`, default 100: the water within
-     * 100 m of a priced zone's boundary, where a crossing is decided.
-     */
-    var routeSelectiveZoneRimM: Double = 100.0
-        private set
-
-    /**
-     * The **depth-dilation collar's** width (m) — `route.selective.depth.collarM`, default 100: the water
-     * within 100 m of a cell the depth gate blocks.
-     */
-    var routeSelectiveDepthCollarM: Double = 100.0
-        private set
-
-    /**
-     * The depth price band's **extra width** (m) beyond the gate's own margin —
-     * `route.selective.depth.bandExtraM`, default 25. The band the per-metre gradient prices is the
-     * gate's standoff plus this extra, so the price starts where the standoff ends.
-     */
-    var routeSelectiveDepthBandExtraM: Double = 25.0
-        private set
-
-    /**
-     * The depth price's **per-metre gradient** — `route.selective.depth.priceSecPerM`, default 0.05. A
-     * cell of size `cellM` standing on the shallow wall pays this times `cellM` at the pass's own λ; it
-     * falls linearly to zero at the band's outer edge.
-     */
-    var routeSelectiveDepthPriceSecPerM: Double = 0.05
-        private set
-
-    /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
      * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
      * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
      * grown box's own cost — 30 843 cells, a 1.16 s rasterise and a 3.4 s solve on the phone — is the
      * price this value is argued against. The search may still grow one step (doubled) when the first
-     * answer finds nothing, is over its slow-water budget, or reports a forced crossing.
+     * answer finds nothing or reports a forced crossing.
      */
     var routeAvoidCorridorReachM: Double = 3704.0
         private set
@@ -518,25 +459,25 @@ object AppConfig {
         private set
 
     /**
-     * The aversion dial's seed — `route.avoid.speedZone.softCostAversion`, code fallback 1.0, clamped
-     * 0.0..5.0 through [ROUTE_SLOW_WATER_AVERSION_MIN] / [ROUTE_SLOW_WATER_AVERSION_MAX].
+     * The verdict's **slow-water weight** — `route.avoid.slowWater.weight`, default 4, clamped 0.0..4.0
+     * through [ROUTE_SLOW_WATER_WEIGHT_MIN] / [ROUTE_SLOW_WATER_WEIGHT_MAX].
      *
-     * **The Driving preference, and the ladder's own seat**: the dial's one act is to name which of the
-     * three rungs the ranking leads on — `RoutePreference.of` snaps the stored value onto a stop, and the
-     * thresholds between stops are code constants written around the shipped ladder. It does **not** price
-     * the search: every slow cell is priced by the λ of the rung being solved
-     * (`route.avoid.ladder.around|best|fast.lambda`), so this value chooses between the three acquisitions
-     * of one arming rather than bending any of them. Nor does it touch the ETA: the clock reads the limit
-     * in force and stays physics.
+     * It is the crown's own preference: the ranking weighs each drawn rung
+     * `score = trip time + weight × seconds spent under a limit`, so the value states that one second in
+     * slow water counts as `1 + weight` ordinary seconds. This is the dial's **default** — the shipped 4,
+     * which is `VerdictDial.FOUR` — and a stored stop overrides it, so the two agree on day one. The
+     * dial's top stop, *Ignore time*, carries no weight at all and is therefore not this value's business
+     * ([VerdictDial]); it does not price the search either, since every slow cell is priced by the λ of
+     * the rung being solved (`route.avoid.ladder.around|best|fast.lambda`).
      */
-    var routeAvoidSpeedZoneSoftCostAversion: Double = 1.0
+    var routeAvoidSlowWaterWeight: Double = 4.0
         private set
 
-    /** Lowest aversion (λ) the dial accepts — one home for that end, the visible dial's own floor. */
-    const val ROUTE_SLOW_WATER_AVERSION_MIN = 0.0
+    /** Lowest slow-water weight the properties load accepts — one home for that end. */
+    const val ROUTE_SLOW_WATER_WEIGHT_MIN = 0.0
 
-    /** Highest aversion (λ) the dial accepts — one home for that end, the visible dial's own ceiling. */
-    const val ROUTE_SLOW_WATER_AVERSION_MAX = 5.0
+    /** Highest slow-water weight the properties load accepts — one home for that end, the dial's own top weight. */
+    const val ROUTE_SLOW_WATER_WEIGHT_MAX = 4.0
 
     /**
      * The speed zone's outside margin (m) — `route.avoid.speedZone.outsideMarginM`, default 50,
@@ -549,34 +490,60 @@ object AppConfig {
 
     /**
      * The three rungs' own aversion (λ) — `route.avoid.ladder.around.lambda` (5.0),
-     * `route.avoid.ladder.best.lambda` (2.5) and `route.avoid.ladder.fast.lambda` (0.0), each clamped
-     * 0.0..5.0 through the dial's own ends.
+     * `route.avoid.ladder.best.lambda` (3.0) and `route.avoid.ladder.fast.lambda` (1.0), each clamped
+     * 0.0..5.0 through [ROUTE_LADDER_LAMBDA_MIN] / [ROUTE_LADDER_LAMBDA_MAX] — the λ scale's own ends,
+     * deliberately apart from the verdict weight's 0.0..4.0.
      *
      * **The one lever of the three acquisitions**: one arming solves three rungs over one shared grid, and
      * these three values are the whole of what separates them — `around` spends detours to shun slow water,
-     * `best` keeps the shortest clock whose zone share stays under the budget, `fast` takes the clock
-     * whatever water it crosses. `RoutePreference` maps a rung's index and its word onto them, and no rung
-     * is ever corrected: a rung is solved at its own λ and left alone. The defaults are the shipped ladder,
-     * so a missing key never reshapes it.
+     * `best` sits between the two, `fast` takes the clock whatever water it crosses. [RoutePreference]
+     * names the three, and no rung is ever corrected: a rung is solved at its own λ and left alone. The
+     * defaults are the shipped ladder, so a missing key never reshapes it.
      */
     var routeAvoidLadderAroundLambda: Double = 5.0
         private set
 
     /** The `best` rung's aversion — the second of the three values above, on its own key. */
-    var routeAvoidLadderBestLambda: Double = 2.5
+    var routeAvoidLadderBestLambda: Double = 3.0
         private set
 
     /** The `fast` rung's aversion — the third of the three values above, on its own key. */
-    var routeAvoidLadderFastLambda: Double = 0.0
+    var routeAvoidLadderFastLambda: Double = 1.0
+        private set
+
+    /** Lowest ladder λ the properties load accepts — one home for that end of the drawings' scale. */
+    const val ROUTE_LADDER_LAMBDA_MIN = 0.0
+
+    /** Highest ladder λ the properties load accepts — the other end of the drawings' own scale. */
+    const val ROUTE_LADDER_LAMBDA_MAX = 5.0
+
+    /**
+     * The ladder's collapse tolerance (m) — `route.avoid.ladder.collapse.toleranceM`, default 200, clamped
+     * 0.0..500.0: the shipped value in `maro.properties`, which is the source of truth for every value this
+     * code only falls back to. Two rungs whose lines never get farther apart than this fold into one route:
+     * at or below it the boat is driven the same way, so the second route is noise.
+     */
+    var routeAvoidLadderCollapseToleranceM: Double = 200.0
         private set
 
     /**
-     * The ladder's collapse tolerance (m) — `route.avoid.ladder.collapse.toleranceM`, default 25,
-     * clamped 0.0..500.0. Two rungs whose lines never get farther apart than this fold into one route:
-     * at or below it the boat is driven the same way, so the second route is noise.
+     * The verdict's **tie tolerance** (score seconds) — `route.avoid.ladder.tieToleranceSec`, default 30,
+     * clamped 0.0..300.0.
+     *
+     * A rung takes the crown only where its score is **lower by more** than this. Nearly every line
+     * spends some seconds under a limit, so a difference under the tolerance is two lines the boat is
+     * driven much the same way, and the crown stays where it stands rather than flapping on noise; 0
+     * makes every strict improvement a flip, and the top end is five minutes, past which the weighting a
+     * stop buys is swamped by the tolerance itself.
      */
-    var routeAvoidLadderCollapseToleranceM: Double = 25.0
+    var routeAvoidLadderTieToleranceSec: Double = 30.0
         private set
+
+    /** Lowest tie tolerance (score seconds) the properties load accepts — one home for that end. */
+    const val ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN = 0.0
+
+    /** Highest tie tolerance (score seconds) the properties load accepts — one home for that end. */
+    const val ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX = 300.0
 
     /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
@@ -631,26 +598,6 @@ object AppConfig {
      */
     var routeTurnReachFraction: Double = 1.0
         private set
-
-    /**
-     * The **share of a trip the Best preference lets speed zones slow**, in per cent — the gate the
-     * ranking measures a rung's zone share against. 0–100, default **25**, matching the shipped
-     * `route.avoid.speedZone.timeBudgetPct`: a rung inside the gate is led on the clock, one over it is
-     * beaten by the smaller zone share. How much slow water a trip may use is a preference rather than a
-     * tuning constant, which is why this one is a lever with a Settings row of its own.
-     *
-     * The share it is a fraction of is the **zone share alone** — the line's seconds inside a ring, from
-     * `slowShares`. The band's slow seconds and the approach ramps' are read apart and never enter the
-     * gate, so band-only slowness cannot decide the winner.
-     */
-    var routeAvoidSpeedZoneTimeBudgetPct: Int = 25
-        private set
-
-    /** Lowest slow-water budget (per cent) the properties load accepts — one home for that end. */
-    const val ROUTE_SLOW_WATER_BUDGET_PCT_MIN = 0
-
-    /** Highest slow-water budget (per cent) the properties load accepts — one home for that end. */
-    const val ROUTE_SLOW_WATER_BUDGET_PCT_MAX = 100
 
     /** Lowest marker price strength the Routing row accepts — one home for that end. */
     const val ROUTE_MARKER_STRENGTH_MIN = 0.0
@@ -2378,34 +2325,6 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
                 ).coerceAtMost(routeEvolutiveGridCellM)
             }
-            // ── The selective engine's grid and the four collar widths, on its own namespace ──
-            props.getProperty("route.selective.grid.cellM")?.toDoubleOrNull()?.let {
-                routeSelectiveGridCellM = it.coerceIn(10.0, 500.0)
-            }
-            props.getProperty("route.selective.grid.fineCellM")?.toDoubleOrNull()?.let {
-                routeSelectiveGridFineCellM = it.coerceIn(
-                    ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
-                    ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
-                ).coerceAtMost(routeSelectiveGridCellM)
-            }
-            props.getProperty("route.selective.shore.collarM")?.toDoubleOrNull()?.let {
-                routeSelectiveShoreCollarM = it.coerceIn(0.0, 500.0)
-            }
-            props.getProperty("route.selective.band.collarM")?.toDoubleOrNull()?.let {
-                routeSelectiveBandCollarM = it.coerceIn(0.0, 500.0)
-            }
-            props.getProperty("route.selective.zone.rimM")?.toDoubleOrNull()?.let {
-                routeSelectiveZoneRimM = it.coerceIn(0.0, 500.0)
-            }
-            props.getProperty("route.selective.depth.collarM")?.toDoubleOrNull()?.let {
-                routeSelectiveDepthCollarM = it.coerceIn(0.0, 500.0)
-            }
-            props.getProperty("route.selective.depth.bandExtraM")?.toDoubleOrNull()?.let {
-                routeSelectiveDepthBandExtraM = it.coerceIn(0.0, 500.0)
-            }
-            props.getProperty("route.selective.depth.priceSecPerM")?.toDoubleOrNull()?.let {
-                routeSelectiveDepthPriceSecPerM = it.coerceIn(0.0, 10.0)
-            }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
             }
@@ -2421,29 +2340,35 @@ object AppConfig {
             props.getProperty("route.avoid.zone300.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidZone300Enabled = it
             }
-            props.getProperty("route.avoid.speedZone.softCostAversion")?.toDoubleOrNull()?.let {
-                routeAvoidSpeedZoneSoftCostAversion = it.coerceIn(0.0, 5.0)
-            }
             props.getProperty("route.avoid.speedZone.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidSpeedZoneEnabled = it
             }
             props.getProperty("route.avoid.speedZone.outsideMarginM")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginM = it.coerceIn(0.0, 500.0)
             }
+            // The verdict's own weight — the dial's default, seeded from the key below.
+            props.getProperty("route.avoid.slowWater.weight")?.toDoubleOrNull()?.let {
+                routeAvoidSlowWaterWeight =
+                    it.coerceIn(ROUTE_SLOW_WATER_WEIGHT_MIN, ROUTE_SLOW_WATER_WEIGHT_MAX)
+            }
             props.getProperty("route.avoid.ladder.around.lambda")?.toDoubleOrNull()?.let {
                 routeAvoidLadderAroundLambda =
-                    it.coerceIn(ROUTE_SLOW_WATER_AVERSION_MIN, ROUTE_SLOW_WATER_AVERSION_MAX)
+                    it.coerceIn(ROUTE_LADDER_LAMBDA_MIN, ROUTE_LADDER_LAMBDA_MAX)
             }
             props.getProperty("route.avoid.ladder.best.lambda")?.toDoubleOrNull()?.let {
                 routeAvoidLadderBestLambda =
-                    it.coerceIn(ROUTE_SLOW_WATER_AVERSION_MIN, ROUTE_SLOW_WATER_AVERSION_MAX)
+                    it.coerceIn(ROUTE_LADDER_LAMBDA_MIN, ROUTE_LADDER_LAMBDA_MAX)
             }
             props.getProperty("route.avoid.ladder.fast.lambda")?.toDoubleOrNull()?.let {
                 routeAvoidLadderFastLambda =
-                    it.coerceIn(ROUTE_SLOW_WATER_AVERSION_MIN, ROUTE_SLOW_WATER_AVERSION_MAX)
+                    it.coerceIn(ROUTE_LADDER_LAMBDA_MIN, ROUTE_LADDER_LAMBDA_MAX)
             }
             props.getProperty("route.avoid.ladder.collapse.toleranceM")?.toDoubleOrNull()?.let {
                 routeAvoidLadderCollapseToleranceM = it.coerceIn(0.0, 500.0)
+            }
+            props.getProperty("route.avoid.ladder.tieToleranceSec")?.toDoubleOrNull()?.let {
+                routeAvoidLadderTieToleranceSec =
+                    it.coerceIn(ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN, ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX)
             }
             props.getProperty("route.avoid.speedZone.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
@@ -2462,10 +2387,6 @@ object AppConfig {
             }
             props.getProperty("route.turn.reachFraction")?.toDoubleOrNull()?.let {
                 routeTurnReachFraction = it.coerceIn(0.0, 1.0)
-            }
-            props.getProperty("route.avoid.speedZone.timeBudgetPct")?.toIntOrNull()?.let {
-                routeAvoidSpeedZoneTimeBudgetPct =
-                    it.coerceIn(ROUTE_SLOW_WATER_BUDGET_PCT_MIN, ROUTE_SLOW_WATER_BUDGET_PCT_MAX)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
