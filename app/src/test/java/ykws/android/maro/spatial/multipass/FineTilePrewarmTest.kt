@@ -49,6 +49,9 @@ class FineTilePrewarmTest {
 
     private fun key(row: Int, col: Int) = TileTestFixtures.baseKey(row = row, col = col)
 
+    /** The share of the store's ceiling the fixtures hold the pass to — the shipped `route.prewarm.targetPct`. */
+    private val targetPct = 80
+
     /** A request whose build records the key it built, so the pass's order and skips read off one list. */
     private fun request(k: TileKey, center: LatLng, built: MutableList<TileKey>) =
         FineTileRequest(k, center) {
@@ -97,7 +100,8 @@ class FineTilePrewarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.55, 7.05),
             maxTiles = 10,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
         assertEquals("only the tile the store lacks is built", listOf(coldKey), built)
         assertEquals(1, outcome.built)
@@ -116,7 +120,8 @@ class FineTilePrewarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.55, 7.05),
             maxTiles = 10,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
         assertEquals(0, outcome.built)
         assertTrue("a tile the map already holds is not rebuilt", built.isEmpty())
@@ -137,7 +142,8 @@ class FineTilePrewarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.55, 7.05),
             maxTiles = 10,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
         assertEquals(0, outcome.built)
         assertEquals(2, outcome.warm)
@@ -161,7 +167,8 @@ class FineTilePrewarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.51, 7.01),
             maxTiles = 10,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
         assertEquals(listOf(nearKey, farKey), built)
     }
@@ -176,7 +183,8 @@ class FineTilePrewarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.50, 7.0),
             maxTiles = 2,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
         assertEquals("the tile budget stops the pass at two", 2, outcome.built)
         assertTrue(outcome.stoppedByCaps)
@@ -200,6 +208,7 @@ class FineTilePrewarmTest {
             orderFrom = LatLng(43.50, 7.0),
             maxTiles = 100,
             maxTimeMs = 2_500,
+            targetPct = targetPct,
             nowMs = { clock }
         )
         // start 0; tile1 0<2500 → 1000; tile2 1000<2500 → 2000; tile3 2000<2500 → 3000; tile4 3000≥2500 stops.
@@ -226,7 +235,8 @@ class FineTilePrewarmTest {
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.0),
             maxTiles = 10,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
         assertEquals(3, outcome.built)
         assertEquals("three tiles, one window: the grace merges them", listOf(FineTileActivity.BUSY_ON), lines)
@@ -241,12 +251,12 @@ class FineTilePrewarmTest {
     }
 
     /**
-     * **The store's own ceiling ends the pass** (D3, step 3): the fullness probe is read before every tile,
-     * and a store that answers it is full stops the pass where it stands — building on would only evict the
-     * water the pass has just prepared.
+     * **The store's own reading ends the pass** (D3, step 3, as §11 sharpened it): the fullness probe is
+     * read before every tile, and a store that answers it has no room under the growth target stops the pass
+     * where it stands — building on would only evict the water the pass has just prepared.
      */
     @Test
-    fun theStoresCeilingEndsThePass() = runBlocking {
+    fun theStoresTargetShareEndsThePass() = runBlocking {
         val map = FineTileMap(store = MemoryStore())
         val built = mutableListOf<TileKey>()
         val requests = (1..5).map { request(key(1, it), LatLng(43.50, 7.0 + it * 0.001), built) }
@@ -257,14 +267,15 @@ class FineTilePrewarmTest {
             orderFrom = LatLng(43.50, 7.0),
             maxTiles = 100,
             maxTimeMs = 10_000,
+            targetPct = targetPct,
             storeFullness = {
                 probes++
-                if (probes >= 3) StoreFullness(bytesHeld = 1L, ceilingBytes = 1L, atCeiling = true) else null
+                if (probes >= 3) StoreFullness(bytesHeld = 1L, ceilingBytes = 1L, nextEntryBytes = 1L) else null
             }
         )
         assertEquals("the two tiles the store had room for are built, the third is not", 2, outcome.built)
         assertTrue(outcome.stoppedByCapacity)
-        assertFalse("the ceiling, not a cap, ended it", outcome.stoppedByCaps)
+        assertFalse("the store's share, not a cap, ended it", outcome.stoppedByCaps)
     }
 
     @Test
@@ -280,6 +291,7 @@ class FineTilePrewarmTest {
                 orderFrom = LatLng(43.50, 7.0),
                 maxTiles = 10,
                 maxTimeMs = 10_000,
+                targetPct = targetPct,
                 awaitMayProceed = {
                     while (!gateOpen) delay(1)
                     true
@@ -311,6 +323,7 @@ class FineTilePrewarmTest {
             orderFrom = LatLng(43.50, 7.0),
             maxTiles = 10,
             maxTimeMs = 10_000,
+            targetPct = targetPct,
             awaitMayProceed = { false }
         )
 
@@ -345,7 +358,8 @@ class FineTilePrewarmTest {
                     storedNames = map.storedNames(),
                     orderFrom = LatLng(43.50, 7.0),
                     maxTiles = 10,
-                    maxTimeMs = 10_000
+                    maxTimeMs = 10_000,
+                    targetPct = targetPct
                 )
             }
 
@@ -359,6 +373,32 @@ class FineTilePrewarmTest {
         } finally {
             executor.shutdown()
         }
+    }
+
+    /**
+     * **The growth target, not the ceiling, ends a pass** — §11's reserve: a store with room for many
+     * entries at the whole ceiling may have none under the share the walk is held to, and the pass stops
+     * there rather than spending the water the seed area does not cover.
+     */
+    @Test
+    fun theTargetShareEndsThePassNotTheCeiling() = runBlocking {
+        val map = FineTileMap(store = MemoryStore())
+        val built = mutableListOf<TileKey>()
+        val requests = (1..5).map { request(key(1, it), LatLng(43.50, 7.0 + it * 0.001), built) }
+        val outcome = FineTilePrewarm(map).run(
+            requests = requests,
+            storedNames = map.storedNames(),
+            orderFrom = LatLng(43.50, 7.0),
+            maxTiles = 100,
+            maxTimeMs = 10_000,
+            targetPct = targetPct,
+            // 850 held of a 1 000-byte ceiling with 100-byte entries: room at the ceiling, none at 80 %.
+            storeFullness = { StoreFullness(bytesHeld = 850L, ceilingBytes = 1_000L, nextEntryBytes = 100L) }
+        )
+
+        assertEquals("the pass built nothing: the reserve is not its to spend", 0, outcome.built)
+        assertTrue("the store's share, not a cap, ended it", outcome.stoppedByCapacity)
+        assertFalse(outcome.stoppedByCaps)
     }
 }
 

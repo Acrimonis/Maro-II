@@ -7,13 +7,15 @@ import ykws.android.maro.data.model.markers.BBox
 /**
  * **Why an outward warm-up walk ended** — the fact a device pass reads instead of guessing from a count.
  *
- * [CEILING] and [REGION] are the two stops D3 settled: the store holds its ceiling's worth, or the area has
- * grown to the edges of the baked region and no tile can exist beyond it. [NOTHING_TO_DO] means the seed's
- * own water carries no fine layer at all (a single-grid plan, or a plan whose mask keeps nothing there), so
- * growing outward could only speculate. [CAPS] is the pass's own tile or time budget, and [GATE] is the
- * app's own gate closing under the walk — battery-saver arriving mid-pass, so the walk stood down.
+ * [TARGET] and [REGION] are the two stops D3 settled, the first as §11 of the plan sharpened it: the store
+ * has room for no further entry **under the share of its ceiling the walk is held to** — so the rest stands
+ * as a reserve for water the seed area does not cover — or the area has grown to the edges of the baked
+ * region and no tile can exist beyond it. [NOTHING_TO_DO] means the seed's own water carries no fine layer
+ * at all (a single-grid plan, or a plan whose mask keeps nothing there), so growing outward could only
+ * speculate. [CAPS] is the pass's own tile or time budget, and [GATE] is the app's own gate closing under
+ * the walk — battery-saver arriving mid-pass, so the walk stood down.
  */
-internal enum class WarmStop { CEILING, REGION, NOTHING_TO_DO, CAPS, GATE }
+internal enum class WarmStop { TARGET, REGION, NOTHING_TO_DO, CAPS, GATE }
 
 /** What one outward walk found and did — the reading a device pass or a test asserts against. */
 internal data class WarmOutcome(
@@ -133,10 +135,11 @@ private const val WARM_EDGE_EPS = 1e-9
  * cancelled — still building the tile it had started. A second walk waits for the slot rather than running
  * beside the first, so no tile is built twice and the window is never held twice.
  *
- * The walk ends on the store's ceiling (the app edge's `fullness` probe), on the region's own edges, on the
- * app's own gate closing (battery-saver), on the pass's tile or time budget, or at once where the seed's
- * water carries no fine layer. The tile budget is also the ring bound: a world that names no region can grow
- * forever, and a walk that built nothing must still stop.
+ * The walk ends on the store's own reading that it has no room left under [targetPct] of its ceiling (the
+ * app edge's `fullness` probe), on the region's own edges, on the app's own gate closing (battery-saver), on
+ * the pass's tile or time budget, or at once where the seed's water carries no fine layer. The tile budget
+ * is also the ring bound: a world that names no region can grow forever, and a walk that built nothing must
+ * still stop.
  */
 internal suspend fun warmOutward(
     pass: FineTilePrewarm,
@@ -146,6 +149,13 @@ internal suspend fun warmOutward(
     orderFrom: LatLng,
     maxTiles: Int,
     maxTimeMs: Long,
+    /**
+     * **The share of the store's ceiling the walk may fill** — `route.prewarm.targetPct`. Growth stops once
+     * one more tile of the size the store last wrote would not fit under it, so the rest of the ceiling
+     * stands as a reserve for water the seed area does not cover. Required rather than defaulted: a caller
+     * that forgot it would warm to the ceiling and spend that reserve silently.
+     */
+    targetPct: Int,
     /** The store's own ceiling probe — `FineTileCache.storeFullness` in production. */
     storeFullness: suspend () -> StoreFullness? = { null },
     /**
@@ -183,11 +193,13 @@ internal suspend fun warmOutward(
             stop = WarmStop.GATE
             break
         }
-        // The store's ceiling, asked before the next area is even derived: a full store ends the walk
-        // rather than paying for the derivation of a ring it could not fill.
+        // The store's own room under the growth target, asked before the next area is even derived: a store
+        // with nothing left to give under it ends the walk rather than paying for the derivation of a ring it
+        // could not fill, and the share left below the ceiling is the reserve the walk keeps for water the
+        // seed area does not cover.
         val fullness = storeFullness()
-        if (fullness != null && fullness.atCeiling) {
-            stop = WarmStop.CEILING
+        if (fullness != null && !fullness.hasRoomAt(targetPct)) {
+            stop = WarmStop.TARGET
             break
         }
         val requests = derive(box)
@@ -226,6 +238,7 @@ internal suspend fun warmOutward(
             orderFrom = orderFrom,
             maxTiles = maxTiles - built,
             maxTimeMs = maxTimeMs - (nowMs() - startMs),
+            targetPct = targetPct,
             awaitMayProceed = awaitMayProceed,
             storeFullness = storeFullness,
             nowMs = nowMs
@@ -237,7 +250,7 @@ internal suspend fun warmOutward(
             break
         }
         if (outcome.stoppedByCapacity) {
-            stop = WarmStop.CEILING
+            stop = WarmStop.TARGET
             break
         }
         if (outcome.stoppedByCaps) {

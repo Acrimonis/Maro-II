@@ -35,13 +35,15 @@ import java.io.File
  * carried once hundreds of tiles landed. Each load and each save emits one `STORE` line through the
  * injected [trace] sink, and the first reclamation raises [onReclaim] once.
  *
- * **The total is also what the store answers about itself.** [fullness] hands the running total and this
- * store's own ceiling verdict ([StoreFullness.atCeiling]) to the warming policy, which stops on it rather
- * than on a guessed entry count. That verdict is a **live reading, never a latch**: a save trims the
- * directory back to its ceiling, so what it holds is never *above* it and an inequality on the pair can
- * never show, while a verdict remembered from a past reclamation would keep the warm-up dead for the rest of
- * the process even once the directory had room again. The read pays no listing, and an unprimed total
- * answers `null` rather than zero, so a policy can never mistake "not counted yet" for "nothing stored".
+ * **The total is also what the store answers about itself.** [fullness] hands the running total, this
+ * store's ceiling and **the size of the entry it wrote last** to the warming policy, which asks
+ * [StoreFullness.hasRoomAt] rather than guessing from an entry count — one more entry of that size under the
+ * share of the ceiling the walk is held to, which leaves the rest a reserve. That reading is **live, never a
+ * latch**: a save trims the directory back to its ceiling, so what it holds is never *above* it and an
+ * inequality on the pair can never show, while a verdict remembered from a past reclamation would keep the
+ * warm-up dead for the rest of the process even once the directory had room again. The read pays no listing,
+ * and an unprimed total answers `null` rather than zero, so a policy can never mistake "not counted yet" for
+ * "nothing stored".
  *
  * [`FineTileMap`]: ykws.android.maro.spatial.multipass.FineTileMap
  */
@@ -152,7 +154,7 @@ internal class DirectoryFineTileStore(
         else StoreFullness(
             bytesHeld = dirBytes,
             ceilingBytes = maxBytes,
-            atCeiling = dirBytes + lastEntryBytes > maxBytes
+            nextEntryBytes = lastEntryBytes
         )
 
     /**
@@ -215,9 +217,9 @@ internal class DirectoryFineTileStore(
         const val DIR_NAME = "fine_tiles"
 
         /**
-         * The default disk ceiling (48 MiB), mirroring `route.fineTile.maxBytes`. That property key is the
+         * The default disk ceiling (72 MiB), mirroring `route.fineTile.maxBytes`. That property key is the
          * value's one home, read at the app edge; this default stands for a caller that names none (a test).
          */
-        const val DEFAULT_MAX_BYTES: Long = 48L * 1024L * 1024L
+        const val DEFAULT_MAX_BYTES: Long = 72L * 1024L * 1024L
     }
 }

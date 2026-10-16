@@ -20,8 +20,8 @@ import ykws.android.maro.spatial.DirectoryFineTileStore
  */
 class FineTileStoreCeilingPropertiesTest {
 
-    /** The ceiling shipped today — 48 MiB, the value of 2026-10-14 (D8). */
-    private val expectedBytes = 48L * 1024L * 1024L
+    /** The ceiling shipped today — 72 MiB, raised from 48 MiB on 2026-10-16 (§10 of the warm-area plan). */
+    private val expectedBytes = 72L * 1024L * 1024L
 
     private fun assetFile(relative: String): File = System.getProperty("maro.repoDir")
         ?.let { File(it, "app/src/main/assets/$relative") }
@@ -35,11 +35,11 @@ class FineTileStoreCeilingPropertiesTest {
     }
 
     @Test
-    fun theCeilingKeyShipsAtFortyEightMiBAndItsTwoCodeCopiesMirrorIt() {
+    fun theCeilingKeyShipsAtSeventyTwoMiBAndItsTwoCodeCopiesMirrorIt() {
         val props = shipped("maro.properties")
 
         assertEquals(
-            "route.fineTile.maxBytes must ship at 48 MiB",
+            "route.fineTile.maxBytes must ship at 72 MiB",
             expectedBytes,
             props.getProperty("route.fineTile.maxBytes").trim().toLong()
         )

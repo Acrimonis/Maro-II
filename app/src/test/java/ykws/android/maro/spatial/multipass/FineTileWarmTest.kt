@@ -61,6 +61,9 @@ class FineTileWarmTest {
         tileSideLonDeg = 0.01
     )
 
+    /** The share of the store's ceiling the fixtures hold the walk to — the shipped `route.prewarm.targetPct`. */
+    private val targetPct = 80
+
     /** A derivation that answers one tile a box, keyed and built off the box's own south edge. */
     private fun oneTileABox(built: MutableList<TileKey>, boxes: MutableList<BBox>): (BBox) -> List<FineTileRequest> =
         { box ->
@@ -99,7 +102,8 @@ class FineTileWarmTest {
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
 
         assertEquals("the seed is walked first, then one ring out", 2, boxes.size)
@@ -127,7 +131,8 @@ class FineTileWarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
 
         assertEquals("the seed's tile was already warm, so only the ring beyond it is built", 1, built.size)
@@ -136,7 +141,7 @@ class FineTileWarmTest {
     }
 
     @Test
-    fun theWalkStopsWhereTheStoreAnswersItIsFull() = runBlocking {
+    fun theWalkStopsWhereTheStoreHasNoRoomUnderItsTarget() = runBlocking {
         val map = FineTileMap(store = WarmStore())
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
@@ -149,16 +154,17 @@ class FineTileWarmTest {
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
             maxTimeMs = 10_000,
+            targetPct = targetPct,
             storeFullness = {
                 probes++
-                // The walk's own probe first, the seed ring's tiles next: room for one tile, then full.
-                if (probes > 2) StoreFullness(bytesHeld = 1L, ceilingBytes = 1L, atCeiling = true) else null
+                // The walk's own probe first, the seed ring's tiles next: room for one tile, then none.
+                if (probes > 2) StoreFullness(bytesHeld = 1L, ceilingBytes = 1L, nextEntryBytes = 1L) else null
             }
         )
 
-        assertEquals("the one tile the store had room for lands, the ceiling then ends the walk", 1, outcome.built)
-        assertEquals("the area is not opened out past a full store", 1, boxes.size)
-        assertEquals(WarmStop.CEILING, outcome.stop)
+        assertEquals("the one tile the store had room for lands, the target then ends the walk", 1, outcome.built)
+        assertEquals("the area is not opened out past a spent store", 1, boxes.size)
+        assertEquals(WarmStop.TARGET, outcome.stop)
     }
 
     @Test
@@ -173,7 +179,8 @@ class FineTileWarmTest {
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 4,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
 
         assertEquals("the tile budget is also the ring bound, so the walk cannot spin", 4, outcome.built)
@@ -194,7 +201,8 @@ class FineTileWarmTest {
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
 
         assertEquals("the seed alone is asked for", 1, boxes.size)
@@ -229,7 +237,8 @@ class FineTileWarmTest {
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
 
         assertEquals("nothing was built", 0, outcome.built)
@@ -274,7 +283,8 @@ class FineTileWarmTest {
                 storedNames = emptySet(),
                 orderFrom = LatLng(43.50, 7.00),
                 maxTiles = 2,
-                maxTimeMs = 10_000
+                maxTimeMs = 10_000,
+                targetPct = targetPct
             )
         }
         val first = walk("a", 0)
@@ -308,7 +318,8 @@ class FineTileWarmTest {
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
-            maxTimeMs = 10_000
+            maxTimeMs = 10_000,
+            targetPct = targetPct
         )
 
         assertEquals(2, outcome.built)
@@ -359,6 +370,7 @@ class FineTileWarmTest {
                 orderFrom = LatLng(43.50, 7.00),
                 maxTiles = 100,
                 maxTimeMs = 10_000,
+                targetPct = targetPct,
                 awaitMayProceed = {
                     asks++
                     // The seed's own ring is let through; the second ring's ask waits at the gate.
@@ -381,5 +393,52 @@ class FineTileWarmTest {
         walk.join()
         assertEquals("the walk resumed and built the ring beyond", 2, built.size)
         assertEquals("the window was lit again for the tile it built", listOf(true, true), busyAtBuild)
+    }
+
+    /**
+     * **The store's share is what decides room, and the ceiling is the same question asked in full.** The
+     * warm-up stops under a share of the ceiling so the rest stands as a reserve, so a store that still has
+     * room at the ceiling may have none under the target; at a hundred per cent the two agree exactly, which
+     * is what keeps a policy from inventing an inequality of its own beside the store's.
+     */
+    @Test
+    fun theTargetShareDecidesRoomAndTheCeilingIsTheSameQuestionInFull() {
+        val roomy = StoreFullness(bytesHeld = 850L, ceilingBytes = 1_000L, nextEntryBytes = 100L)
+
+        assertTrue("95 % of 1 000 is 950, which the next entry still fits under", roomy.hasRoomAt(95))
+        assertFalse("94 % of 1 000 is 940, which it does not", roomy.hasRoomAt(94))
+        assertFalse("and this store still has room at its own ceiling", roomy.atCeiling)
+        assertTrue(
+            "a store with none left at the ceiling answers full under both readings",
+            StoreFullness(bytesHeld = 950L, ceilingBytes = 1_000L, nextEntryBytes = 100L).atCeiling
+        )
+    }
+
+    /**
+     * **A store with room at its ceiling but none under the target ends the walk** — §11's reserve, read
+     * where it binds: growth may not spend the share that water outside the seed area is written into.
+     */
+    @Test
+    fun aStoreWithRoomAtItsCeilingButNoneUnderTheTargetEndsTheWalk() = runBlocking {
+        val map = FineTileMap(store = WarmStore())
+        val built = mutableListOf<TileKey>()
+        val boxes = mutableListOf<BBox>()
+        val outcome = warmOutward(
+            pass = FineTilePrewarm(map),
+            area = area(),
+            derive = threeTilesABox(built, boxes),
+            storedNames = emptySet(),
+            orderFrom = LatLng(43.50, 7.00),
+            maxTiles = 100,
+            maxTimeMs = 10_000,
+            targetPct = targetPct,
+            // Room for many entries at the whole 1 000-byte ceiling, none under the 80 % target: 850 held,
+            // 100-byte entries.
+            storeFullness = { StoreFullness(bytesHeld = 850L, ceilingBytes = 1_000L, nextEntryBytes = 100L) }
+        )
+
+        assertEquals("the store's share stopped the walk before the seed was even derived", 0, boxes.size)
+        assertEquals("and nothing was built into the reserve", 0, outcome.built)
+        assertEquals(WarmStop.TARGET, outcome.stop)
     }
 }
