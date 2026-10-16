@@ -396,6 +396,47 @@ object AppConfig {
     const val ROUTE_EVOLUTIVE_FINE_CELL_M_MAX = 20.0
 
     /**
+     * The `evolutive` engine's depth reach (m) above the gate's own minimum —
+     * `route.evolutive.depth.reachM`, default 25, clamped
+     * [ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MIN]..[ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MAX].
+     *
+     * **The reach is metres of depth, never of planimetry.** The band's outer edge is
+     * `route.avoid.depthGate.minM + this`, so the water the price ends at is a depth like the gate's
+     * own and the value works at every resolution: with the shipped 3 m gate and 25 m here the price
+     * ends at 28 m of depth, and the 2026-10-07 order's own arithmetic — *min is 20 m, but make me pay
+     * within 50 m* — is read as its depth twin rather than as a standoff a geometry-free law cannot
+     * express. It is the plan's own answer, so `avoid` stays untouched. `0` makes the band inert: the
+     * outer edge sits on the wall itself, so no passable cell stands inside it.
+     */
+    var routeEvolutiveDepthReachM: Double = 25.0
+        private set
+
+    /**
+     * The depth band's **per-metre gradient** — `route.evolutive.depth.priceSecPerM`, default 0.05,
+     * clamped [ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MIN]..[ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MAX].
+     *
+     * A cell's price is `priceSecPerM × λ × max(0, softDepthM − its own depth)`, in **seconds per
+     * cell**, so a cell on the wall's own edge pays one full band width, the price is zero at and
+     * beyond the band's outer edge, and it grows linearly in between. **No cap exists beside it**: λ
+     * and the law are the whole brake, so a rung that takes shallow water pays for exactly the depth
+     * it took.
+     */
+    var routeEvolutiveDepthPriceSecPerM: Double = 0.05
+        private set
+
+    /** Lowest depth-band reach (m) the load accepts — zero, the band's own off position. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MIN = 0.0
+
+    /** Highest depth-band reach (m) the load accepts — the retired depth band's own ceiling. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MAX = 500.0
+
+    /** Lowest depth-band gradient (s/m) the load accepts — zero, the band's own off position. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MIN = 0.0
+
+    /** Highest depth-band gradient (s/m) the load accepts — the retired depth price's own ceiling. */
+    const val ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MAX = 10.0
+
+    /**
      * How far (m) the corridor box reaches past the start-aim line — `route.avoid.corridor.reachM`,
      * default 3704 (2 NM). The register's argued value, not a blind doubling: the 1852 m (1 NM) box
      * refused the crossing ask with `NO PATH … aimClosed=false` while 3704 m answered clean, and the
@@ -2346,6 +2387,20 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MIN,
                     ROUTE_EVOLUTIVE_FINE_CELL_M_MAX
                 ).coerceAtMost(routeEvolutiveGridCellM)
+            }
+            // ── The evolutive engine's depth band: the reach above the gate's minimum and the
+            //    per-metre gradient. `avoid` prices none of it ──
+            props.getProperty("route.evolutive.depth.reachM")?.toDoubleOrNull()?.let {
+                routeEvolutiveDepthReachM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MIN,
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_EXTRA_M_MAX
+                )
+            }
+            props.getProperty("route.evolutive.depth.priceSecPerM")?.toDoubleOrNull()?.let {
+                routeEvolutiveDepthPriceSecPerM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MIN,
+                    ROUTE_EVOLUTIVE_DEPTH_BAND_SEC_PER_M_MAX
+                )
             }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)

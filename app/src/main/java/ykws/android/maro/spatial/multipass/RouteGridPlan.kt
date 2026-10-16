@@ -57,6 +57,20 @@ interface RouteGridPlan {
      * so its walk stays the single coarse grid.
      */
     fun fineWater(query: FineWaterQuery): FineWater
+
+    /**
+     * **The depth band this plan prices, or `null` where it prices none** — the reach above the gate's
+     * own minimum and the per-metre gradient ([DepthBand]). It rides the plan because the band is a
+     * decision about *this* algorithm's own water rather than a switch any engine may flip: `avoid`
+     * answers `null` and its field, its grid and its line are untouched, while `evolutive` answers the
+     * two `route.evolutive.depth.*` keys behind the depth gate's own switch.
+     *
+     * It is the one thing a plan carries that is a **price**, and it is carried deliberately: the
+     * band's law is the plan's own preference beside the wall, and a door (`withDepthBand`-style) on
+     * every engine's shared field would have offered `avoid` a price it must never pay. A plan still
+     * prices nothing by itself — it answers a law, and the field that reads it turns it into seconds.
+     */
+    fun depthBand(): DepthBand?
 }
 
 /**
@@ -77,6 +91,9 @@ object UniformGridPlan : RouteGridPlan {
 
     /** One tile is no lattice, and no lattice carries no fine layer: `avoid`'s mask is empty. */
     override fun fineWater(query: FineWaterQuery): FineWater = FineWater()
+
+    /** `avoid` prices no depth band: its water, its grid and its line are exactly what they were. */
+    override fun depthBand(): DepthBand? = null
 }
 
 /**
@@ -121,6 +138,24 @@ object EvolutiveGridPlan : RouteGridPlan {
             coastBandsM = listOf(0.0..memberRadius)
         )
     }
+
+    /**
+     * **This engine's depth band: the shallow wall's own neighbourhood, priced.** The outer edge is the
+     * gate's minimum plus the plan's reach, so the reach is read as **metres of depth** like the gate's
+     * own threshold and not as a planimetric standoff a geometry-free law could not express; the
+     * gradient is the plan's per-metre key. The gate's switch governs it: with the gate off there is no
+     * wall for the band to lean against and no depth read to price over, so the plan answers nothing and
+     * the water is exactly `avoid`'s.
+     */
+    override fun depthBand(): DepthBand? =
+        if (!AppConfig.routeAvoidDepthGateEnabled) {
+            null
+        } else {
+            DepthBand(
+                softDepthM = AppConfig.routeAvoidDepthGateMinM + AppConfig.routeEvolutiveDepthReachM,
+                secPerM = AppConfig.routeEvolutiveDepthPriceSecPerM
+            )
+        }
 }
 
 /** [box] grown by [metresM] on every side, in the degrees the box itself is written in. */

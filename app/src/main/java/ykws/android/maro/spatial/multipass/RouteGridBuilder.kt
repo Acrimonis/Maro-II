@@ -108,7 +108,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // rung's own λ with every other slow source.
         val gridField = costField(
             world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0,
-            markerStrength = markerStrength
+            markerStrength = markerStrength, plan = plan
         )
         val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
         val bandSpec = bandLaw(world)
@@ -166,7 +166,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             startCell = startCell, aimCell = aimCell, start = start, aim = aim, sets = sets,
             limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
-            regionSaturated = regionSaturated
+            regionSaturated = regionSaturated, plan = plan
         )
     }
 
@@ -222,7 +222,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val gridField =
             costField(
                 world, cellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = 0.0,
-                markerStrength = markerStrength
+                markerStrength = markerStrength, plan = plan
             )
         val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
         val bandSpec = bandLaw(world)
@@ -356,7 +356,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             startCell = startCell, aimCell = aimCell, start = from.toLatLng(), aim = to.toLatLng(),
             sets = sets, limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
-            regionSaturated = regionSaturated,
+            regionSaturated = regionSaturated, plan = plan,
             windows = walk
         )
     }
@@ -568,10 +568,11 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val capLatNorth = world.regionBounds?.latNorth ?: box.latNorth
         // **The unit base (D4).** The tile's own field prices its markers at `1.0 × factor` and the grid
         // opens at `1.0`, so the raster's own source cost *is* the pace-free factor `extract` reads, and the
-        // pace reaches no stored byte. The field is the tile's own (D5) — the depth gate's wall and the
-        // marker price at the unit base — so one base governs a member's cost at this cell size. `paceKn` is
+        // pace reaches no stored byte. The field is the tile's own (D5) — the depth gate's wall, the marker
+        // price at the unit base and the plan's own depth band — so one base governs a member's cost at this
+        // cell size, and the band a cached tile carries is the one an arm's fresh build writes. `paceKn` is
         // deliberately inert here: the base is overridden, so the frame never derives it.
-        val tileField = tileCostField(world, baseCostSec = 1.0, markerStrength)
+        val tileField = tileCostField(world, baseCostSec = 1.0, markerStrength, plan)
         val raster = rasterizeWindow(
             box, fine, paceKn = 0.0, marginM = marginM, edges = edges, openCoast = openCoast,
             capLatNorth = capLatNorth, field = tileField, zones = priced,
@@ -635,7 +636,9 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         zoneRings = priced,
         markers = world.routeMarkers(),
         markerStrength = markerStrength,
-        markerPriceEnabled = AppConfig.routeMarkerEnabled
+        markerPriceEnabled = AppConfig.routeMarkerEnabled,
+        depthBandSoftDepthM = plan.depthBand()?.softDepthM ?: 0.0,
+        depthBandSecPerM = plan.depthBand()?.secPerM ?: 0.0
     )
 
     /** A corridor box and whether the region's own bounds cut it short — the instrument's own reading. */

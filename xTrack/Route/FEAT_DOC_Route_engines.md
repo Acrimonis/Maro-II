@@ -2,7 +2,7 @@
 # Route — the acquisition engines: current state
 
 **Scope:** the central reference for what the route acquisition engines are and do **today** — the seam, the
-four shipped engines, the ladder, the pipeline, the plan seam, the shared `multipass` layer, the water they
+three shipped engines, the ladder, the pipeline, the plan seam, the shared `multipass` layer, the water they
 price and the readings they publish. Facts only, present tense, **no history**: what a thing used to be is
 not in this file, and a mechanism that no longer exists is named only as an absence. The **values** live in
 [`maro.properties`](../../app/src/main/assets/maro.properties) behind
@@ -45,7 +45,7 @@ is one row there plus one class implementing `RouteEngine`.
 |---|---|---|---|
 | `dummy` | [`RouteDummyEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt) | One straight segment, timed at a fixed 15 kn | **No layer at all** |
 | `avoid` | [`RouteAvoidEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) with `UniformGridPlan` | One tile over the whole corridor, at `route.avoid.grid.cellM` | Coastline, depth gate, 300 m band, speed zones |
-| `evolutive` | [`RouteEvolutiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt) with `EvolutiveGridPlan` | Two layers on one lattice family: the coarse interior and the fine coastal band | The same water as `avoid` |
+| `evolutive` | [`RouteEvolutiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt) with `EvolutiveGridPlan` | Two layers on one lattice family: the coarse interior and the fine coastal band | The same water as `avoid`, plus the depth band its own plan names |
 
 - **`dummy`** declares one computation and emits one update (`stageDone` and `nextStage` null, the straight line as the result). Its repair is a no-op — it has no water test to run one with — and `cancelLookup` has nothing to cancel.
 - **`avoid`** is the shipped default and the engine the second row delegates to.
@@ -82,7 +82,7 @@ runs the after-the-loop refinement. In order:
 
 1. **Corridor** — the start-aim box inflated by `route.avoid.corridor.reachM`, clamped to the region's bounds; a truncated box is accepted.
 2. **Harvest** — `segmentsIn` (ring and basin edges with their orientation) and `openCoastIn` (ordered mainland polylines).
-3. **Rasterize** — one tagged, costed cell per tile: `LAND`/`FREE` plus the band's and the rings' **limits**, never prices, so the grid is λ-free and one rasterise serves all three rungs.
+3. **Rasterize** — one tagged, costed cell per tile: `LAND`/`FREE`, the band's and the rings' **limits**, and the depth band's λ-free seconds, never a priced time, so the grid stays λ-free and one rasterise serves all three rungs.
 4. **Ends** — both end cells force-freed, their discs opened, and the berth carve run at each end's local cell — all on the arm's own assembled grid, never a cached tile.
 5. **A\*** — `MultipassSearch`, eight neighbours, a metres-equivalent g-cost so the haversine heuristic stays admissible, a cancellation check between expansions, over one window or a chain of windows.
 6. **Taut pull** — the two-pointer string pull at the walk's clearance step, with the price walk beside it.
@@ -104,21 +104,29 @@ injection point — the one thing that separates one algorithm from another:
 - `firstWalkGrid(corridor, baseCellM): List<GridTile>` — the rectangles the first walk may use, each at its own cell size.
 - `fineCellM(baseCellM)` — the fine cell, in **metres**, the clock steps at.
 - `fineWater(query): FineWater` — **where the fine layer may stand, in geographic terms before any lattice snap**: the cut reaches the builder grows the coast's segments by, and the membership bands a cell's coast distance must fall in. The builder snaps the answer to the corridor's fine lattice and merges it into windows; the window's mask keeps the answer's own membership.
+- `depthBand(): DepthBand?` — **the depth band this plan's water pays**, or `null` where it prices no depth: the outer depth and the seconds a metre of deficit costs, which the field turns into a per-cell price.
 
 Two plans ship: **`UniformGridPlan`** (one tile over the whole corridor, an empty fine-water answer, the
 fine cell its own metres key `route.avoid.grid.fineCellM`) and **`EvolutiveGridPlan`** (two tiles — the interior at
 `route.evolutive.grid.cellM` and the band at `route.evolutive.grid.fineCellM`, coarse first so the family's
 layers index coarse-then-fine — with the fine-water answer reproducing today's coastal ribbon byte for byte).
-A plan decides **where and at what size** work happens: it never prices, never times and never reads a switch.
+A plan decides **where and at what size** work happens and **which depth band its water pays**: it names the band
+— `null` where it prices no depth — and the field computes the seconds, so a plan never times an answer. It reads
+one switch, the depth gate's own, whose state decides whether a band exists at all.
 
-### The depth preference — retired with its engine
+### The depth preference — `evolutive` prices the water beside the wall
 
-`selective` alone priced the water beside the shallow wall, and that engine left the tree on 2026-10-16 with
-its law, its band, its collar and its keys. What the two rows that remain carry is the **wall** — the gate's
-hard source in `costField` and in the fine tiles' own field — and the **margin** the corner pass and the berth
-carve read, so no shipped engine prices depth at all. Whether a soft preference returns on `evolutive` is open,
-and [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md) now holds
-that question.
+`selective`'s own band left the tree with its engine, and the preference **returned the same day on `evolutive`
+alone**: a cell pays the water's own deficit, `max(0, softDepthM − depth) × secPerM` seconds, where `softDepthM`
+is the gate's minimum depth plus the band's own extra, so the deeper the water under a cell the less it costs and
+the price is written on the grid λ-free, one rasterise serving all three rungs. The reach is read as **metres of
+depth**, so this is a depth price and not the planimetric standoff `selective` measured. Three couplings ride with
+it: a field pricing a band declares a **zero clearance**, so every price group on `evolutive` is proven per
+interval rather than by a span — the coupling the retirement counted against `selective`; the plan answers no band
+at all while the gate's own switch is off, so the band has no switch of its own; and the charge is **per cell**,
+the same seconds over a 100 m interior cell and a 20 m ribbon cell, so the ribbon pays per metre five times what
+the interior pays. Being a price it reaches neither the clock nor the ranking. Its reach, its unit and its width of
+effect are open — [`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md).
 
 ### The collars and the mask cache — retired with their engine
 
@@ -150,6 +158,7 @@ a list of sources that may only **add** to an explicit base:
 
 - **HARD walls** — the coastline, materialized by the rasterizer's geometry sweep, and the depth gate (a bilinear read per cell centre against `route.avoid.depthGate.minM`, ANDed with the coastline's own water, when the gate is enabled and the depth layer is ready). A wall is a cell the route may never cross.
 - **SOFT prices** — the 300 m band and the regulated speed zones, priced by **one law**: a cell's time excess over the pace at the limit in force, scaled by the pass's λ. The band's limit and a ring's are the same quantity through the same function, and two sources over one cell charge it once.
+- **The depth band, a price of the water's own deficit** — on `evolutive` alone, through the plan's own answer: a cell pays `max(0, softDepthM − depth) × secPerM` seconds, zero at and beyond `softDepthM` and growing toward the gate's wall, λ-scaled at read and reported under its own `PriceArm.DEPTH`. It is **not** a `Soft` source — a tile stores a soft source's cost as its pace-free factor, which would scale the band by the pace — so it rides the field as its own λ-free read. A field pricing a band declares a **zero clearance**, so every price group on it is proven per interval rather than by a span.
 - **The limit is written on the grid, the price is not.** The rasterizer stores each slow cell's **limit**, so the A\* prices it per expansion and a λ change costs one multiply. The clock reads that limit **whatever the price switches say** — a switch prices water, it never suspends a limit.
 - **The margin** — the outside margin around a ring or the band is a **price, never a clearance**: the ring around the interior is priced at the configured fraction of the interior's excess.
 
@@ -175,6 +184,7 @@ starts under the family that owns it:
 | `route.avoid.zone300.*` | The band's width, limit, outside margin, price fraction and switch |
 | `route.avoid.speedZone.*` | The zones' switch, outside margin and price fraction |
 | `route.evolutive.grid.cellM`, `route.evolutive.grid.fineCellM` | `evolutive`'s two layers |
+| `route.evolutive.depth.reachM`, `route.evolutive.depth.priceSecPerM` | The depth band: the metres of depth above the gate's own minimum where the price ends, and the seconds a metre of depth deficit costs per cell, before λ |
 | `route.walk.maxCells` | The ceiling a walk is refused over before it is rastered |
 | `route.fineTile.maxBytes` | The fine-tile store's on-disk ceiling — a sibling of the map's in-memory one, bounding the directory |
 | `route.prewarm.box`, `route.prewarm.maxTiles`, `route.prewarm.maxMs` | The pre-warm's own box (`south,west,north,east`) and its two caps — the tile budget and the time budget |

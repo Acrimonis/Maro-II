@@ -78,7 +78,7 @@ internal class RoutePassRunner {
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
-                lambda = lambda, markerStrength = ctx.markerStrength
+                lambda = lambda, markerStrength = ctx.markerStrength, plan = ctx.plan
             )
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
@@ -98,7 +98,10 @@ internal class RoutePassRunner {
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
-            }
+            },
+            // The depth band's own cursor: the grid stores its price λ-free, so the rung's λ is applied
+            // here — the same λ the guard field prices the pull's points at.
+            depthK = lambda
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)

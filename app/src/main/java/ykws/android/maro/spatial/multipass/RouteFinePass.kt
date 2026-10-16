@@ -77,13 +77,13 @@ internal class RouteFinePass {
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
                 lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals,
-                ctx.markerStrength, trace
+                ctx.markerStrength, ctx.plan, trace
             ) ?: out
         }
         val fineGuard =
             costField(
                 world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-                markerStrength = ctx.markerStrength
+                markerStrength = ctx.markerStrength, plan = ctx.plan
             )
         val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
         // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
@@ -142,6 +142,12 @@ internal class RouteFinePass {
         approaches: EndApproaches,
         refusals: PullRefusals?,
         markerStrength: Double = 1.0,
+        /**
+         * **The plan's own depth band** — carried so this local re-solve prices the very water the
+         * coarse answer did: its field writes the band's λ-free price onto the local grid exactly as
+         * the arm's own field did, and its pull prices the band at the pass's λ.
+         */
+        plan: RouteGridPlan = UniformGridPlan,
         trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
         val zoneStartNs = System.nanoTime()
@@ -170,11 +176,11 @@ internal class RouteFinePass {
         val to = if (last == line.size - 1) aim else line[last + 1]
         val base = costField(
             world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda,
-            markerStrength = markerStrength
+            markerStrength = markerStrength, plan = plan
         )
         val guard = costField(
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-            markerStrength = markerStrength
+            markerStrength = markerStrength, plan = plan
         )
         // This crossing walks one fine grid — clearance at its own cell, price at the coarse one, as in
         // `finePass`. The water is built once here, immediately after the field, and never cached.
@@ -198,7 +204,10 @@ internal class RouteFinePass {
                     AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
-            }
+            },
+            // The band's own cursor travels with the field: the local grid carries the same λ-free
+            // price the coarse one did, so this re-solve prices one band exactly as the arm did.
+            depthK = lambda
         )
         val path = search.path
         if (path == null) {

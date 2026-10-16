@@ -99,20 +99,28 @@ sealed interface RouteCostSource {
  *
  * It exists because a cell's own [MultipassCellState] tag cannot serve as one: the band and the rings
  * share a single source whose price is their **max**, tagged `ZONE` for both. The tag is what the
- * rasterizer writes for a cell; this is what a reader asking *who charged me* needs. [OTHER] is the
- * honest residue — a source that declares no arm is reported under it rather than guessed at.
+ * rasterizer writes for a cell; this is what a reader asking *who charged me* needs. [DEPTH] is the
+ * depth-valued band's own arm, so the seconds it charges are never lumped into the residue with
+ * anything else, and [OTHER] is the honest residue — a source that declares no arm is reported under
+ * it rather than guessed at.
  */
-enum class PriceArm { BAND, ZONE, MARKER, OTHER }
+enum class PriceArm { BAND, ZONE, MARKER, DEPTH, OTHER }
 
 /**
  * What the field answers at one point: the hard block, the summed soft price and the tag the dearest
  * price writes. [softCostSec] is **added** to the base cost every cell already carries — never a
  * replacement for it, which is the invariant that keeps the A*'s cost well-posed.
+ *
+ * [depthBandSec] is the depth band's own λ-free price, carried **beside** the soft sum rather than in
+ * it, because the two reach a cell by two different roads: a soft price is seconds the cell's own base
+ * absorbs, while the band's price is an absolute time the grid stores per cell and the pass's λ scales
+ * at read. Summing it here would have charged it twice over the raster's own write.
  */
 data class RouteCostAtPoint(
     val blocked: Boolean,
     val softCostSec: Double,
-    val tag: MultipassCellState
+    val tag: MultipassCellState,
+    val depthBandSec: Double = 0.0
 )
 
 /**
@@ -266,6 +274,40 @@ fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostS
 }
 
 /**
+ * **The depth band's own law, as the field holds it** — where the price ends (m of depth, above the
+ * gate's minimum) and what a metre of shortfall costs (s, before λ). It is a **depth-valued law and
+ * carries no geometry**: there is no distance to the wall in it, no radial scan, and nothing about the
+ * resolution the cell was rastered at, so the same law prices a 100 m interior cell and a 20 m band
+ * cell alike.
+ *
+ * [softDepthM] is the band's outer edge — the gate's own `route.avoid.depthGate.minM` plus the plan's
+ * reach — so a cell standing on the wall's own edge sits one full band width inside the law and pays
+ * every metre of it.
+ */
+data class DepthBand(
+    /** The band's outer edge, in metres of depth: the gate's minimum plus the plan's own reach. */
+    val softDepthM: Double,
+    /** The seconds one metre of depth shortfall costs a cell, before λ. */
+    val secPerM: Double
+)
+
+/**
+ * **The depth band's one price law** — a cell's price in seconds, **λ-free**: its own depth shortfall
+ * below the band's outer edge, times the gradient. Zero at and beyond [DepthBand.softDepthM], rising
+ * linearly toward the wall, and **zero where the depth is unknown** ([depthM] `NaN`), which is what
+ * the gate's own read does with a NoData sample: an unsurveyed cell is not shallow, it is unknown, and
+ * nothing here invents a sounding for it.
+ *
+ * The field's guard and the rasterizer's per-cell write both read this one function, which is what
+ * keeps the search and the pull pricing one point identically.
+ */
+fun depthBandPriceSecAt(band: DepthBand, depthM: Double): Double {
+    if (depthM.isNaN()) return 0.0
+    val shortfallM = band.softDepthM - depthM
+    return if (shortfallM <= 0.0) 0.0 else shortfallM * band.secPerM
+}
+
+/**
  * **The unified cost field: every world source in one list, read through one evaluator.**
  *
  * [evaluate] is that evaluator — the summed soft price at a point and the hard block — and it is what
@@ -285,6 +327,14 @@ fun depthGateSource(minDepthM: Double, depthMAt: (LatLng) -> Double): RouteCostS
  * [hardDistanceM], and that distance is the metric the pull's margin stands on. A third hard source
  * must declare which of the two it is: a wall that is neither a metric distance nor a clean step makes
  * the walk's own soundness argument untrue, and nothing here can tell the difference for it.
+ *
+ * **The depth band is a price like the soft ones and a road of its own like neither.** Its law is
+ * [depthBandPriceSecAt] — a cell's depth shortfall times the plan's gradient — and it reaches a cell
+ * through [depthBandSecAt] rather than through a source, because the grid must store it **λ-free**
+ * beside the base while the pass's own cursor scales it at read ([MultipassSearch]'s `depthK`). The
+ * pull reads it exactly as it reads a soft price, through [softPriceSecPerMAt], so the search and the
+ * guard price one point identically, and [armPricesAt] names it [PriceArm.DEPTH] rather than lumping
+ * its seconds into the residue.
  */
 class RouteCostField(
     private val sources: List<RouteCostSource> = emptyList(),
@@ -294,7 +344,20 @@ class RouteCostField(
      * needs. It defaults to `1.0` so a field built without it prices a metre exactly as it prices a
      * cell, which is the shape every fixture that never asked for a rate already had.
      */
-    val cellM: Double = 1.0
+    val cellM: Double = 1.0,
+    /**
+     * **The depth band's λ-free price read, or `null` where this field prices no band.** It is the
+     * law's own application ([depthBandPriceSecAt]) over whatever depth the world answers, so the
+     * rasterizer writes exactly the value the guard prices a point at, and a field built for `avoid`
+     * answers `null` and writes nothing.
+     */
+    private val depthBandPriceSecAt: ((LatLng) -> Double)? = null,
+    /**
+     * **The pass's cursor for the depth band** — the λ [softPriceSecAt] scales [depthBandSecAt] by, and
+     * `0.0` on a field that prices no band or is only ever rastered (the grid's own field, whose band
+     * reaches a cell through the λ-free write and is scaled by the search instead).
+     */
+    private val depthBandK: Double = 0.0
 ) {
 
     private val hard: List<RouteCostSource.Hard> = sources.filterIsInstance<RouteCostSource.Hard>()
@@ -307,8 +370,14 @@ class RouteCostField(
     /** The materialized walls — the coastline — whose reading is the true distance the margin tests. */
     private val materializedHard: List<RouteCostSource.Hard> = hard.filterNot { it.rastered }
 
-    /** True when a priced source exists — the rasterizer's price pass is skipped when it is not. */
-    val hasSoft: Boolean get() = soft.isNotEmpty()
+    /**
+     * True when a price is in force — the rasterizer's price pass is skipped when it is not. The depth
+     * band counts: a field carrying one prices water even with no soft source beside it.
+     */
+    val hasSoft: Boolean get() = soft.isNotEmpty() || depthBandPriceSecAt != null
+
+    /** True when this field prices the depth band — the rasterizer's own write of it is gated on this. */
+    val hasDepthBand: Boolean get() = depthBandPriceSecAt != null
 
     /** True when a wall is rastered per cell — a field whose walls are all swept writes no block. */
     val hasBlocking: Boolean get() = rasteredHard.isNotEmpty()
@@ -321,17 +390,26 @@ class RouteCostField(
     fun evaluate(p: LatLng): RouteCostAtPoint {
         val price = priceAt(p)
         for (source in sources) {
-            if (source.blocked(p)) return RouteCostAtPoint(true, price.softCostSec, price.tag)
+            if (source.blocked(p)) {
+                return RouteCostAtPoint(true, price.softCostSec, price.tag, price.depthBandSec)
+            }
         }
         return price
     }
 
+    /** **The depth band's λ-free price (s) at [p]** — `0.0` on a field that prices no band. */
+    fun depthBandSecAt(p: LatLng): Double = depthBandPriceSecAt?.invoke(p) ?: 0.0
+
     /**
-     * **The price law read alone** — the summed soft price at [p], no hard source asked. It is the
-     * body of [evaluate] without its hard loop, so a walk that reads the price and discards the
-     * `blocked` flag stops paying for it, and the two can never disagree about the price.
+     * **The price law read alone** — the summed soft price at [p] plus the depth band's own seconds at
+     * this pass's cursor, no hard source asked. It is the body of [evaluate] without its hard loop, so
+     * a walk that reads the price and discards the `blocked` flag stops paying for it, and the two can
+     * never disagree about the price.
      */
-    fun softPriceSecAt(p: LatLng): Double = priceAt(p).softCostSec
+    fun softPriceSecAt(p: LatLng): Double {
+        val price = priceAt(p)
+        return price.softCostSec + depthBandK * price.depthBandSec
+    }
 
     /**
      * **The price law as a rate** — [softPriceSecAt] per metre, the cell's own cost divided by
@@ -349,7 +427,7 @@ class RouteCostField(
      */
     fun armPricesAt(p: LatLng): List<Pair<PriceArm, Double>> {
         var other = 0.0
-        val arms = ArrayList<Pair<PriceArm, Double>>(soft.size)
+        val arms = ArrayList<Pair<PriceArm, Double>>(soft.size + 1)
         for (source in soft) {
             val arm = source.armAt?.invoke(p)
             if (arm != null) {
@@ -358,6 +436,10 @@ class RouteCostField(
                 other += source.costSec(p)
             }
         }
+        // The depth band's own arm, at this pass's cursor — never folded into the residue the marker
+        // work of 2026-10-16 just undid. A field that prices no band, or a cursor of zero, adds none.
+        val depthBandSec = depthBandK * depthBandSecAt(p)
+        if (depthBandSec > 0.0) arms.add(PriceArm.DEPTH to depthBandSec)
         if (other > 0.0) arms.add(PriceArm.OTHER to other)
         return arms
     }
@@ -369,6 +451,12 @@ class RouteCostField(
      * know their own law. `Double.MAX_VALUE` where no source names one, which proves nothing.
      */
     fun priceClearanceM(p: LatLng): Double {
+        // **The depth band's honest declaration is zero, and it settles the whole field's.** Its price
+        // reads the depth under a point, so its arm may change wherever the water does and no span is
+        // provable over it. A field pricing one therefore proves nothing anywhere: the walk falls back
+        // to per-interval reads, which is the coupling the band's own law costs — measured, never
+        // hidden, and never pre-optimised away.
+        if (depthBandPriceSecAt != null) return 0.0
         var nearest = Double.MAX_VALUE
         for (source in soft) {
             val clearance = source.priceClearanceM(p)
@@ -388,7 +476,7 @@ class RouteCostField(
                 if (source.tag.ordinal > tag.ordinal) tag = source.tag
             }
         }
-        return RouteCostAtPoint(false, costSec, tag)
+        return RouteCostAtPoint(false, costSec, tag, depthBandSecAt(p))
     }
 
     /**

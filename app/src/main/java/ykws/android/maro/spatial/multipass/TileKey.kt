@@ -17,10 +17,11 @@ import java.io.DataOutputStream
  * - **The stamps** — [depthGenerationStamp], [coastlineGenerationStamp], [emodnetCutoffM] and
  *   [zoneGenerationStamp]: a re-baked asset, a moved cutoff or a rebuilt zone list must not leave
  *   coefficients cached.
- * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the band's
- *   [bandWidthM], [bandLimitKn] and [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's
- *   fine-mask bands ([coastBandsM]). The **pace is deliberately absent**: the tile stores a pace-free
- *   factor and the base is re-applied from the target grid, so one tile serves every speed.
+ * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the depth band's
+ *   [depthBandSoftDepthM] and [depthBandSecPerM], the band's [bandWidthM], [bandLimitKn] and
+ *   [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's fine-mask bands ([coastBandsM]). The
+ *   **pace is deliberately absent**: the tile stores a pace-free factor and the base is re-applied from
+ *   the target grid, so one tile serves every speed.
  * - **The switches** — [bandEnabled], [zonesEnabled] and [depthGateEnabled], plus the
  *   [excludedZoneIdSet], because the rasterizer reads all four.
  * - **The zone set** — [zoneRings], the exact ring set the fill even-odd-fills, and [capLatNorth], the
@@ -63,6 +64,19 @@ internal data class TileKey(
     val gateMarginM: Double,
     /** Whether the 3 m depth gate is armed for this arm. */
     val depthGateEnabled: Boolean,
+    /**
+     * **The depth band's outer edge (m of depth)** — the plan's own answer, `0.0` where it prices none.
+     * A member's stored depth price is zero outside it, so a plan that prices no band and a plan whose
+     * band reaches nothing produce the same water; keying it keeps that a **miss** rather than a line
+     * drawn against a band the tile never carried.
+     */
+    val depthBandSoftDepthM: Double,
+    /**
+     * **The depth band's per-metre gradient (s/m)** — the plan's own answer, `0.0` where it prices none.
+     * It scales every member's stored depth price, so a moved value must move the key or a cached tile
+     * would price the old gradient.
+     */
+    val depthBandSecPerM: Double,
     /** The priced band's width (m). */
     val bandWidthM: Double,
     /** The 300 m band's own speed limit (kn), or 0.0 where the band is not priced. */
@@ -138,6 +152,8 @@ internal data class TileKey(
         out.writeDouble(gateMinDepthM)
         out.writeDouble(gateMarginM)
         out.writeBoolean(depthGateEnabled)
+        out.writeDouble(depthBandSoftDepthM)
+        out.writeDouble(depthBandSecPerM)
         out.writeDouble(bandWidthM)
         out.writeDouble(bandLimitKn)
         out.writeDouble(bandOutsideMarginM)

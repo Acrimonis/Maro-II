@@ -105,7 +105,7 @@ class FineTilePaceFreeTest {
         )
     }
 
-    /** A one-member tile carrying [factor] as its whole stored water. */
+    /** A one-member tile carrying [factor] as its whole stored water, and no depth band. */
     private fun oneMemberTile(factor: Double) = FineTile(
         tileRow = 0, tileCol = 0, tileCells = FINE_TILE_CELLS, rows = 1, cols = 1,
         latSouth = 43.0, lonWest = 6.7, cellSizeDegLat = 1.8e-4, cellSizeDegLon = 2.5e-4,
@@ -114,6 +114,7 @@ class FineTilePaceFreeTest {
         sourceCostFactor = doubleArrayOf(factor),
         zoneLimitKn = doubleArrayOf(0.0), collarLimitKn = doubleArrayOf(0.0),
         bandLimitKn = doubleArrayOf(0.0), bandCollarLimitKn = doubleArrayOf(0.0),
+        depthBandSec = doubleArrayOf(0.0),
         localIndex = intArrayOf(0)
     )
 }

@@ -77,6 +77,12 @@ internal data class GridContext(
     val minDepthM: Double,
     val regionSaturated: Boolean,
     /**
+     * **The algorithm's own plan** — carried so every field this arm builds reads the one band the plan
+     * prices ([RouteGridPlan.depthBand]) rather than a flag, and so `avoid`'s field, grid and line stay
+     * exactly what they were.
+     */
+    val plan: RouteGridPlan = UniformGridPlan,
+    /**
      * The two-layer first walk's windows, or `null` where the plan answered one tile — the uniform pass's
      * case, whose single grid is its own walk.
      */

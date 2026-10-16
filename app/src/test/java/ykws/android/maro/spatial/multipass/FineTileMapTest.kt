@@ -26,7 +26,8 @@ class FineTileMapTest {
         fineCellM = 20.0, tileRow = row, tileCol = 0, tileCells = FINE_TILE_CELLS,
         capLatNorth = 43.6, depthGenerationStamp = 1L, coastlineGenerationStamp = 2L,
         emodnetCutoffM = 2.0f, obstacleMarginM = 50.0, gateMinDepthM = 3.0, gateMarginM = 20.0,
-        depthGateEnabled = true, bandWidthM = 300.0, bandLimitKn = 5.0, bandOutsideMarginM = 50.0,
+        depthGateEnabled = true, depthBandSoftDepthM = 28.0, depthBandSecPerM = 0.05,
+        bandWidthM = 300.0, bandLimitKn = 5.0, bandOutsideMarginM = 50.0,
         bandEnabled = true, zoneOutsideMarginM = 100.0, zonesEnabled = true,
         coastBandsM = listOf(0.0..100.0),
         excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
@@ -34,7 +35,7 @@ class FineTileMapTest {
         markers = emptyList(), markerStrength = 1.0, markerPriceEnabled = true
     )
 
-    /** A tile of [members] dummies — its byte figure is `members * 45`, what the ceiling counts. */
+    /** A tile of [members] dummies — its byte figure is `members * 53`, what the ceiling counts. */
     private fun tile(members: Int) = FineTile(
         tileRow = 0, tileCol = 0, tileCells = FINE_TILE_CELLS, rows = 1, cols = members,
         latSouth = 43.0, lonWest = 6.7, cellSizeDegLat = 1.8e-4, cellSizeDegLon = 2.5e-4,
@@ -42,6 +43,7 @@ class FineTileMapTest {
         state = ByteArray(members), sourceCostFactor = DoubleArray(members),
         zoneLimitKn = DoubleArray(members), collarLimitKn = DoubleArray(members),
         bandLimitKn = DoubleArray(members), bandCollarLimitKn = DoubleArray(members),
+        depthBandSec = DoubleArray(members),
         localIndex = IntArray(members) { it }
     )
 
@@ -77,7 +79,7 @@ class FineTileMapTest {
 
     @Test
     fun anEvictionNeverDropsATileAnInFlightCallerHolds() = runBlocking {
-        val bytesPerTile = 1000L * 45L
+        val bytesPerTile = 1000L * 53L
         val map = FineTileMap(maxBytes = 3L * bytesPerTile)
         val builds = AtomicInteger(0)
         val inFlightKey = key(0)

@@ -126,6 +126,15 @@ class MultipassGrid(
      */
     private val bandCollarLimitKn = DoubleArray(rows * cols)
 
+    /**
+     * **The depth band's λ-free price (s) standing on each cell**, 0.0 where none does. It is kept
+     * apart from [cellSourceCostSec] because it is **not** a price a cell's base absorbs: it is an
+     * absolute time the pass's own λ scales at read ([MultipassSearch]'s `depthK`), which is what lets
+     * one grid serve all three rungs. The rasterizer writes it from the field's λ-free band read, and
+     * a [FineTile] carries it per member so a cached tile and a fresh build price one band alike.
+     */
+    private val depthBandSec = DoubleArray(rows * cols)
+
     fun index(row: Int, col: Int): Int = row * cols + col
 
     fun inBounds(row: Int, col: Int): Boolean = row in 0 until rows && col in 0 until cols
@@ -141,6 +150,9 @@ class MultipassGrid(
 
     /** The band's outside-margin limit at this cell (kn), or 0.0 where the collar does not reach it. */
     fun bandCollarLimitKn(row: Int, col: Int): Double = bandCollarLimitKn[index(row, col)]
+
+    /** **The depth band's λ-free price (s) at this cell**, or 0.0 where the band does not reach it. */
+    fun depthBandSec(row: Int, col: Int): Double = depthBandSec[index(row, col)]
 
     /**
      * **The strictest limit in force at this cell** (kn), or 0.0 where none stands: a ring's own interior
@@ -201,7 +213,8 @@ class MultipassGrid(
         zoneLimitKn: Double,
         collarLimitKn: Double,
         bandLimitKn: Double,
-        bandCollarLimitKn: Double
+        bandCollarLimitKn: Double,
+        depthBandSec: Double
     ) {
         val i = index(row, col)
         cellState[i] = stateOrdinal
@@ -210,6 +223,7 @@ class MultipassGrid(
         this.collarLimitKn[i] = collarLimitKn
         this.bandLimitKn[i] = bandLimitKn
         this.bandCollarLimitKn[i] = bandCollarLimitKn
+        this.depthBandSec[i] = depthBandSec
     }
 
     fun center(row: Int, col: Int): LatLng =
@@ -274,6 +288,20 @@ class MultipassGrid(
     }
 
     /**
+     * **Writes the depth band's λ-free price (s) onto a passable cell**, keeping the dearest where two
+     * writes would reach one. A cell already [MultipassCellState.LAND] stays land, and a cell nothing
+     * prices keeps its zero. It is the band's own door, deliberately apart from [addSourceCost]: a
+     * source's price is seconds the cell's base absorbs, while this one is a time the pass's cursor
+     * scales, so folding it into the source cost would have the pace scale it too.
+     */
+    fun applyDepthBandSec(row: Int, col: Int, sec: Double) {
+        require(sec >= 0.0) { "the depth band may only ever price water, never pay it back" }
+        val i = index(row, col)
+        if (cellState[i] == LAND_ORDINAL) return
+        if (sec > depthBandSec[i]) depthBandSec[i] = sec
+    }
+
+    /**
      * Adds one source's price (s) to a passable cell and raises its tag to [tag] where that tag is the
      * dearest in force — the **only** way a cost reaches a cell, so a source can add and can never
      * replace the base. A cell already land keeps its state: a wall is not priced.
@@ -305,6 +333,7 @@ class MultipassGrid(
         collarLimitKn[i] = 0.0
         bandLimitKn[i] = 0.0
         bandCollarLimitKn[i] = 0.0
+        depthBandSec[i] = 0.0
     }
 
     /**
@@ -339,6 +368,7 @@ class MultipassGrid(
         collarLimitKn.copyInto(copy.collarLimitKn)
         bandLimitKn.copyInto(copy.bandLimitKn)
         bandCollarLimitKn.copyInto(copy.bandCollarLimitKn)
+        depthBandSec.copyInto(copy.depthBandSec)
         for (i in 0 until rows * cols) {
             val limit = zoneLimitKn[i]
             if (cellState[i] != LAND_ORDINAL && limit > 0.0 && limit < paceKn) {
@@ -506,16 +536,21 @@ private fun rasterizeFrame(
     }
 
     // 4. The field's own sources, once per cell centre. Sources only ever add a block or a price —
-    //    a field with neither a rastered wall nor a price writes nothing and costs a single test.
+    //    a field with neither a rastered wall nor a price writes nothing and costs a single test. The
+    //    depth band is the one price written **apart** from the cell's base: its value is the λ-free
+    //    seconds the pass's own cursor scales, so it lands in the grid's own array and never in
+    //    `cellSourceCostSec`, which the pace owns.
     if (field.hasBlocking || field.hasSoft) {
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {
                 if (!grid.passable(row, col)) continue
                 val at = field.evaluate(grid.center(row, col))
-                when {
-                    at.blocked -> grid.markLand(row, col)
-                    at.softCostSec > 0.0 -> grid.addSourceCost(row, col, at.softCostSec, at.tag)
+                if (at.blocked) {
+                    grid.markLand(row, col)
+                    continue
                 }
+                if (at.softCostSec > 0.0) grid.addSourceCost(row, col, at.softCostSec, at.tag)
+                if (at.depthBandSec > 0.0) grid.applyDepthBandSec(row, col, at.depthBandSec)
             }
         }
     }

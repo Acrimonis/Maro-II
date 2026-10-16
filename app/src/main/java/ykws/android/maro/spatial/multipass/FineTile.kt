@@ -12,15 +12,20 @@ internal const val FINE_TILE_CELLS = 64
  * parallel primitive arrays over that member list, never a per-cell box and never a dense box:
  *
  * - a [state] of the stored [`MultipassCellState`] ordinal, one byte a member,
- * - five doubles a member — [sourceCostFactor], [zoneLimitKn], [collarLimitKn], [bandLimitKn] and
- *   [bandCollarLimitKn],
+ * - six doubles a member — [sourceCostFactor], [zoneLimitKn], [collarLimitKn], [bandLimitKn],
+ *   [bandCollarLimitKn] and [depthBandSec],
  * - an [localIndex] of each member's **local** cell index within the tile (`row * cols + col`), so a
  *   dense box is never materialised to hold one and the member's position is recovered by arithmetic.
  *
- * **The tile is pace-free.** Its one price-bearing double is [sourceCostFactor] — the multiplier `f` a
+ * **The tile is pace-free.** Its pace-bearing double is [sourceCostFactor] — the multiplier `f` a
  * member's cost is `base × f` at — read from the **unit-base** raster the build lays, so a change of pace
  * moves neither the key nor a byte and one tile serves every speed. The base is re-applied once, in one
  * home ([memberCostAtBase]), when [writeInto] materialises the tile into the arm's grid.
+ *
+ * **The depth band is neither paced nor curved.** [depthBandSec] is the plan's band price at the member,
+ * already in seconds and **λ-free**: the pass's own cursor scales it where the search and the pull read
+ * it, so all three rungs share one tile exactly as they share one grid. It is the one member value a
+ * base multiply does **not** touch — an absolute time, never a multiplier of the base.
  *
  * The tile is the same water a per-arm fine window used to carry — its contents come from the existing
  * [`rasterizeWindow`] with the plan's `fineMask` applied — so a shared tile is the marking work done
@@ -64,14 +69,21 @@ internal class FineTile(
     val bandLimitKn: DoubleArray,
     /** The 300 m band's outside-margin limit (kn) of each member. */
     val bandCollarLimitKn: DoubleArray,
+    /**
+     * **The λ-free depth-band price (s) of each member** — `0.0` on water the plan's band does not
+     * reach, on a plan that prices none, and where the depth is unknown. It is stored verbatim from the
+     * unit-base raster and restored verbatim by [writeInto]: unlike [sourceCostFactor] nothing scales
+     * it but the pass's own λ at read.
+     */
+    val depthBandSec: DoubleArray,
     /** Each member's local cell index within the block: `row * cols + col`. */
     val localIndex: IntArray
 ) {
     /** How many members this tile keeps. */
     val memberCount: Int get() = localIndex.size
 
-    /** The tile's own bytes — one byte a tag, five doubles a member and one int a local index. */
-    val byteSize: Long get() = memberCount.toLong() * (1L + 5L * 8L + 4L)
+    /** The tile's own bytes — one byte a tag, six doubles a member and one int a local index. */
+    val byteSize: Long get() = memberCount.toLong() * (1L + 6L * 8L + 4L)
 
     /**
      * **Copies every member that falls inside [target]** — the per-arm materialisation, the one place a
@@ -94,7 +106,7 @@ internal class FineTile(
             if (!target.inBounds(row, col)) continue
             target.writeMember(
                 row, col, state[m], memberCostAtBase(target.baseCostSec, sourceCostFactor[m]),
-                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m]
+                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m], depthBandSec[m]
             )
         }
     }
@@ -105,8 +117,8 @@ internal class FineTile(
          * the block grown by [haloCells] on every side, a margin no shipped build asks for any more and
          * kept as the extractor's own general shape — and only the **inner** block is kept. Every inner
          * cell the fill left passable is a member, and its stored tag, its **pace-free source-cost
-         * factor** (the unit-base raster's own source cost) and its four limits are read straight into
-         * the parallel arrays. The member's local index is its position in the block,
+         * factor** (the unit-base raster's own source cost), its four limits and its λ-free depth-band price
+         * are read straight into the parallel arrays. The member's local index is its position in the block,
          * `row * tileCells + col`, so [writeInto] recovers it without a map.
          *
          * The block is **pinned to exactly [tileCells] × [tileCells] by construction**, never inferred by
@@ -147,6 +159,7 @@ internal class FineTile(
             val collarLimitKn = DoubleArray(members)
             val bandLimitKn = DoubleArray(members)
             val bandCollarLimitKn = DoubleArray(members)
+            val depthBandSec = DoubleArray(members)
             val localIndex = IntArray(members)
             var m = 0
             for (row in haloCells until haloCells + tileCells) {
@@ -158,6 +171,7 @@ internal class FineTile(
                     collarLimitKn[m] = grid.collarLimitKn(row, col)
                     bandLimitKn[m] = grid.bandLimitKn(row, col)
                     bandCollarLimitKn[m] = grid.bandCollarLimitKn(row, col)
+                    depthBandSec[m] = grid.depthBandSec(row, col)
                     localIndex[m] = (row - haloCells) * tileCells + (col - haloCells)
                     m++
                 }
@@ -171,7 +185,8 @@ internal class FineTile(
                 cellM = grid.cellM,
                 state = state, sourceCostFactor = sourceCostFactor, zoneLimitKn = zoneLimitKn,
                 collarLimitKn = collarLimitKn, bandLimitKn = bandLimitKn,
-                bandCollarLimitKn = bandCollarLimitKn, localIndex = localIndex
+                bandCollarLimitKn = bandCollarLimitKn, depthBandSec = depthBandSec,
+                localIndex = localIndex
             )
         }
     }

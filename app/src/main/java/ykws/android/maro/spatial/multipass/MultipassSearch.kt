@@ -69,6 +69,9 @@ object MultipassSearch {
      *   expansion and the search holds no scaling of its own. It is handed the **destination cell's own
      *   size**, so a fine band cell is priced at 20 m and a coarse interior cell at 100 m. A grid with no
      *   limit ever calls it, the default answering nothing.
+     * @param depthK the pass's own λ for the **depth band** — the grid stores that price λ-free, so the
+     *   cursor is what turns a cell's stored seconds into the rung's own. `0.0` reads no band at all,
+     *   which is `avoid`'s case and every field that prices none.
      */
     suspend fun search(
         grid: MultipassGrid,
@@ -77,9 +80,10 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _, _ -> 0.0 },
-        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
+        depthK: Double = 0.0
     ): SearchOutcome =
-        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled)
+        searchWalk(WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled, depthK)
 
     /**
      * The same search over **[walk]**, one window or several on one lattice: the cell indices the path
@@ -103,7 +107,8 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
             { _, _, _, _ -> 0.0 },
-        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() }
+        checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
+        depthK: Double = 0.0
     ): SearchOutcome {
         val n = walk.size
         val startIdx = walk.slotOf(start.row, start.col)
@@ -151,7 +156,7 @@ object MultipassSearch {
                 if (nIdx >= 0 && over < 0 && !closed[nIdx]) {
                     relax(
                         walk, idx, nIdx, step.multiplier * walk.cellSizeM(layer),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
                     )
                 }
                 // The superseding fine cell over the same water — the crossing the coarse copy may not
@@ -159,7 +164,7 @@ object MultipassSearch {
                 if (over >= 0 && !closed[over]) {
                     relax(
                         walk, idx, over, SpatialOperations.haversine(here, walk.centerOf(over)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
                     )
                 }
                 // The seam: the other resolution's cells meeting this cell's face or corner, priced from
@@ -170,7 +175,7 @@ object MultipassSearch {
                     if (closed[cIdx]) continue
                     relax(
                         walk, idx, cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec
+                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec, depthK
                     )
                 }
             }
@@ -210,7 +215,8 @@ object MultipassSearch {
         open: PriorityQueue<Node>,
         aimCenter: LatLng,
         paceMps: Double,
-        zonePriceSec: (Double, Double, Double, Double) -> Double
+        zonePriceSec: (Double, Double, Double, Double) -> Double,
+        depthK: Double
     ) {
         if (!walk.passable(toIdx)) return
         val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
@@ -221,6 +227,12 @@ object MultipassSearch {
         var cellSec = walk.sourceCostSec(toIdx)
         if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
             cellSec += zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
+        }
+        // The depth band's own read: the grid stores its price λ-free, and the pass's cursor turns it
+        // into the rung's seconds — the very law the pull's guard prices a point at.
+        if (depthK > 0.0) {
+            val depthSec = walk.depthBandSec(toIdx)
+            if (depthSec > 0.0) cellSec += depthK * depthSec
         }
         val newG = g[fromIdx] + (cellSec / destCellM) * edgeM
         if (newG < g[toIdx]) {
