@@ -555,6 +555,7 @@ class RoutePlanTest {
         val original = plan().copy(
             destinationMoved = true,
             forcedCrossingZoneNames = listOf("Zone A"),
+            crossedSlowZoneNames = listOf("Zone B"),
             slowLimitSeconds = listOf(RouteSlowLimit(limitKn = 5.0, seconds = 90.0, isBand = true))
         )
 
@@ -562,6 +563,7 @@ class RoutePlanTest {
 
         assertTrue("a moved destination stays reported", mirror.destinationMoved)
         assertEquals(listOf("Zone A"), mirror.forcedCrossingZoneNames)
+        assertEquals("and the water's own fact reads the line, never the direction", listOf("Zone B"), mirror.crossedSlowZoneNames)
         assertEquals(original.slowLimitSeconds, mirror.slowLimitSeconds)
     }
 

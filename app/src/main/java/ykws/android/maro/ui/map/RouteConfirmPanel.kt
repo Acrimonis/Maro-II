@@ -343,8 +343,8 @@ private fun RouteTablePager(
 /**
  * **The summary table** — one line per route, three columns. Column 1 is the engine's own description;
  * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's delta
- * against the selected route and the forced-crossing note. Columns are fixed weights so the boundaries
- * stay consistent across rows, a hairline separates the columns, and rows are top-aligned and wrap.
+ * against the selected route. Columns are fixed weights so the boundaries stay consistent across rows,
+ * a hairline separates the columns, and rows are top-aligned and wrap.
  * The selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent`
  * edge, white bold text — with corners that adapt to the row's position in the bar.
  *

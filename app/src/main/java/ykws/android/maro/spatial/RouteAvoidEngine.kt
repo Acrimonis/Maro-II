@@ -47,6 +47,7 @@ import ykws.android.maro.spatial.multipass.UniformGridPlan
 import ykws.android.maro.spatial.multipass.ZoneRing
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.clockSampleM
+import ykws.android.maro.spatial.multipass.crossedSlowZoneNames
 import ykws.android.maro.spatial.multipass.depthClearsGate
 import ykws.android.maro.spatial.multipass.fmt
 import ykws.android.maro.spatial.multipass.forcedCrossingZoneNames
@@ -635,6 +636,11 @@ class RouteAvoidEngine(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
             ctx.startCell, ctx.aimCell, refined
         )
+        // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
+        // the price. The zones are the world's own, not the grid's switch-gated set, so a crossing the
+        // search was charged nothing for — its `speedRoute` override at or above the pace, or the pricing
+        // switch off — is still named where the clock has to pay the limit the chart signs.
+        val crossed = crossedSlowZoneNames(refined, ctx.world.speedZonesIn(ctx.box), ctx.pace)
         val bandLawM = bandMetres(ctx.world, timedLine.points)
         val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
         val slowM = slowMetres(timedLine, ctx.pace)
@@ -646,7 +652,8 @@ class RouteAvoidEngine(
                 "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(timedLine, ctx.pace), 2)} " +
                 "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
-                "forced=[${forced.joinToString(", ")}]"
+                "forced=[${forced.joinToString(", ")}] " +
+                "crossed=[${crossed.joinToString(", ")}]"
         }
         // The rung's own cost, exactly the figures the ranking reads: the seconds the line spends under a
         // regulated limit, each bucket weighed by its own limit's shortfall against the pace, plus the
@@ -665,7 +672,7 @@ class RouteAvoidEngine(
             ceilingKnAt = rounded.ceilingKnAt
         )
         return Rung(
-            success(timedLine, forced, slowLimitSeconds = slowWater.byLimit),
+            success(timedLine, forced, crossed, slowLimitSeconds = slowWater.byLimit),
             slowWater.cost
         )
     }
@@ -841,10 +848,14 @@ class RouteAvoidEngine(
      * The answer: the line the loop settled, **already timed** under the limits in force — one clock
      * read serves the leg times, the per-leg speeds and the duration, so none of them can disagree — and
      * the reading the cost site settled: the per-limit slow seconds the panel's Speed limits line reads.
+     *
+     * It carries the report's **two** zone facts, each settled by its own read and neither derived from
+     * the other: [forcedCrossingZoneNames], the price's answer, and `crossedSlowZoneNames`, the water's.
      */
     private fun success(
         timed: TimedLine,
         forcedCrossingZoneNames: List<String>,
+        crossedSlowZoneNames: List<String>,
         distanceM: Double = lineLengthM(timed.points),
         durationSec: Double = timed.durationSec,
         slowLimitSeconds: List<RouteSlowLimit> = emptyList()
@@ -858,6 +869,7 @@ class RouteAvoidEngine(
         // user dragged, and the snapped cell is only the search's anchor.
         destinationMoved = false,
         forcedCrossingZoneNames = forcedCrossingZoneNames,
+        crossedSlowZoneNames = crossedSlowZoneNames,
         slowLimitSeconds = slowLimitSeconds
     )
 

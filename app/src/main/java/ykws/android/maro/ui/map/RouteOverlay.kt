@@ -489,8 +489,8 @@ internal fun routeTripFigure(
  * **A saved route read back as a plan** — the inverse of the save, so the track card's follow door
  * has no second arithmetic. Points and per-leg times come from the vertices
  * [`TrackFromCourse.build`] wrote; the acquisition-only facts are absent ([forcedCrossingZoneNames]
- * empty, [destinationMoved] false), and the total duration is the track's own figure rather than a
- * sum of the truncated per-leg milliseconds.
+ * and [crossedSlowZoneNames] empty, [destinationMoved] false), and the total duration is the track's
+ * own figure rather than a sum of the truncated per-leg milliseconds.
  */
 internal fun routePlanOf(track: Track): RoutePlan? {
     val points = track.trackPoints
@@ -508,6 +508,7 @@ internal fun routePlanOf(track: Track): RoutePlan? {
         distanceM = Units.nauticalMilesToMetres(track.distanceNm.toDouble()),
         durationSec = track.navigatingDurationSec.toDouble(),
         forcedCrossingZoneNames = emptyList(),
+        crossedSlowZoneNames = emptyList(),
         computedAtMs = track.startTimeMs
     )
 }
@@ -546,6 +547,7 @@ internal fun partialPlanOf(
         distanceM = distanceM,
         durationSec = 0.0,
         forcedCrossingZoneNames = emptyList(),
+        crossedSlowZoneNames = emptyList(),
         computedAtMs = nowMs
     )
 }

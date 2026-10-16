@@ -581,6 +581,11 @@ class RouteAvoidEngineTest {
         assertTrue("the exit leg climbs back toward the pace", flat.legSpeedsMps[2] < paceMps - 1e-9)
         assertTrue("so the clock is slower than open water", flat.durationSec > straight / paceMps)
         assertTrue("and names no forced crossing", flat.forcedCrossingZoneNames.isEmpty())
+        assertEquals(
+            "yet the presence read names the water the clock times, the switch pricing nothing",
+            listOf("Cap"),
+            flat.crossedSlowZoneNames
+        )
 
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val armed = success(solve(newEngine { FakeWorld(zones = listOf(zone)) }, origin, aim, rungIndex = 0))
@@ -588,6 +593,11 @@ class RouteAvoidEngineTest {
             "the same world armed prices the zone and names the crossing",
             listOf("Cap"),
             armed.forcedCrossingZoneNames
+        )
+        assertEquals(
+            "and the water's own fact names it beside the price",
+            listOf("Cap"),
+            armed.crossedSlowZoneNames
         )
     }
 

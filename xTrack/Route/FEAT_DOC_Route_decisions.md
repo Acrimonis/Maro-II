@@ -4,7 +4,7 @@
 > **Purpose:** the Route feature's decisions of record — choices still in force that no rule in
 > [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) states and no state doc already homes.
 > **Scope:** whether and how the app draws a route from the boat to a destination.
-> **Last updated:** 2026-10-15
+> **Last updated:** 2026-10-16
 > **Promoted by:** the `#archive` sweep of 2026-10-09 that retired the twenty-one 2026-10-03 → 10-06 plans, and the sweep of 2026-10-14 that retired the five landed plans of 2026-10-07 → 10-13.
 
 ---
@@ -36,3 +36,10 @@
 - **Rationale:** the crown is now one arithmetic sum, `trip time + weight × slow seconds`, so the exclusion had no home left. A share-gate could hide a band's cost inside its denominator, but an absolute-seconds sum cannot: every second under a limit is the same second, and a band's seconds are as real as a ring's.
 - **Left standing:** the boat's own cornering floor stays **out** — it is the boat's water, not a limit's — so only the band, the rings and the ramps that serve a limit are counted.
 - **Supersedes:** the 2026-09-30 exclusion of the band from the ranking gate, itself set over the 2026-09-26 ruling on the ramps.
+
+## 5. The report speaks presence beside the price — the forced-crossing reader kept as it is
+
+- **Decision:** `forcedCrossingNames` keeps filtering on the **price** — a zone its `speedRoute` prices to nothing is still never named as a forced crossing, and the probe, the doubled-reach retry and every drawn line are untouched. The report gains a **second, independent fact** instead: `crossedSlowZoneNames` names the zones the drawn line **enters** whose own limit in force is below the cruise pace, read off the **displayed** limit (`SpeedZone.speedLimitKn`, the field `strictestDisplayLimitKnAt` reads and through it `MultipassWorld.zoneDisplayLimitKnAt`), never off `routeLimitKn` and never off the price. The two facts are **records**, not drawn facts: they reach no proto and no surface reads them.
+- **Rationale:** the user's word of 2026-10-16 — the report speaks presence, the search keeps speaking price. A zone the price law calls free (its `speedRoute` override at or above the pace, or `route.avoid.speedZone.enabled` off) still slows the boat and still shows in the line's colour, so a report that named only the priced crossings hid water the clock had to pay. Reading the presence fact off the displayed limit is the same read the clock, the colour and the slow-limit attribution obey, so the two facts cannot disagree about what the water was signed at. A zone at or above the pace costs no second and shows in no colour, so it is named by neither.
+- **Left standing:** the price law, the probe, the retry, the ladder, the ranking and the panel's table; the two facts are carried on the answer and on the plan and are left empty at the two saved-route constructions. **Still open:** no composable prints either fact, and the two words for a surface are the user's own to give — deliberately outside the hop that landed this.
+- **Recorded in:** [`261015_FEAT_PLN_Route_price-meaning.md`](261015_FEAT_PLN_Route_price-meaning.md), and the feature's own todo, "the zone clock's law and the ranking's own read", is closed by it.

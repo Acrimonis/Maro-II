@@ -73,6 +73,13 @@ data class RoutePlan(
      * The priced speed zones the route had to enter, by name — empty on an ordinary route.
      */
     val forcedCrossingZoneNames: List<String> = emptyList(),
+    /**
+     * The slow water the drawn line enters, by name — the zones whose limit in force stands below the
+     * cruise pace, whether or not the search was charged for them
+     * ([`RouteResult.Success.crossedSlowZoneNames`]). A **record of what the water was signed at**,
+     * never a drawn fact; empty on a partial line and on a saved route read back.
+     */
+    val crossedSlowZoneNames: List<String> = emptyList(),
     val computedAtMs: Long,
     /**
      * The time spent per speed limit, the 300 m band standing apart — the panel's Speed limits line.
@@ -163,7 +170,8 @@ data class RoutePlan(
      * **The plan mirrored in place** (R99) — the *loss* mirror's transform: the same water read the
      * other way. [points] and [legTimesSec] reverse and the two ends exchange, while every settled
      * total rides unchanged — [distanceM], [durationSec], [destinationMoved], [computedAtMs],
-     * [forcedCrossingZoneNames] and [slowLimitSeconds] describe the line and not a read direction.
+     * [forcedCrossingZoneNames], [crossedSlowZoneNames] and [slowLimitSeconds] describe the line and
+     * not a read direction.
      * Nothing is re-priced, so the drawn geometry and the route's clock stay
      * exactly the bytes the engine answered.
      *
@@ -190,6 +198,7 @@ data class RoutePlan(
                 distanceM = result.distanceM,
                 durationSec = result.durationSec,
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
+                crossedSlowZoneNames = result.crossedSlowZoneNames,
                 computedAtMs = nowMs,
                 slowLimitSeconds = result.slowLimitSeconds
             )

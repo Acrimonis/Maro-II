@@ -46,8 +46,11 @@ sealed interface RouteResult {
      *                             and taken. Empty on an ordinary route. Deliberately **not** a field
      *                             of any drawn or saved type: `Track.route` is serialized and
      *                             this is not, so nothing here reaches the proto. **Kept** although
-     *                             the dummy never fills it: the dashboard card and the confirmation
-     *                             panel both read it, so it is the shape a real engine fills.
+     *                             the dummy never fills it: the ladder's doubled-reach retry alone
+     *                             reads it, so it is the shape a real engine fills.
+     * @property crossedSlowZoneNames  the slow water the drawn line enters, by name — the presence
+     *                             fact beside the crossing above, read from the water and never from
+     *                             the price. A record, not a drawn fact: it reaches no proto.
      */
     data class Success(
         val points: List<RoutePoint>,
@@ -77,6 +80,22 @@ sealed interface RouteResult {
         val durationSec: Double,
         val destinationMoved: Boolean,
         val forcedCrossingZoneNames: List<String> = emptyList(),
+        /**
+         * **The slow water the drawn line entered, beside [forcedCrossingZoneNames] and answering a
+         * different question** — the zones whose own limit in force stands below the cruise pace,
+         * whether or not the search was charged for them. It is a **record and not a drawn fact**:
+         * nothing on the map, in the clock or in a saved track moves because of it, and it reaches no
+         * proto.
+         *
+         * The two facts are read in two different places by design. [forcedCrossingZoneNames] is the
+         * **price**'s answer — the crossings the search could not avoid; this one is the **water**'s —
+         * what the clock and the line's colour obey. A zone the price law calls free (its `speedRoute`
+         * override at or above the pace, or `route.avoid.speedZone.enabled` off) is named here and
+         * nowhere in [forcedCrossingZoneNames]; a zone at or above the pace is named by neither, since
+         * it costs no second and shows in no colour. Empty on an ordinary route, on a partial line and
+         * on a saved route read back.
+         */
+        val crossedSlowZoneNames: List<String> = emptyList(),
         /**
          * **The time the route spends in slow water, one entry per speed limit** — the seconds its legs
          * take on each regulated limit's own water, a leg charged by its midpoint alone and the 300 m

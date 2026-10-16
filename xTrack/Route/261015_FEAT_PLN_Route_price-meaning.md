@@ -101,4 +101,49 @@ trace is seconds; a kept bend names the arm that kept it; no dependency is added
 
 ## Implemented
 
-—
+- **The marker arm shipped 2026-10-16 — P2, narrowed to the arm that was missing.** A marker-priced point now
+  names itself: the price's own `Soft` source in [`markerSources()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteMarker.kt:168)
+  declares `armAt = { p -> PriceArm.MARKER to markerPriceSecAt(p) }`, its money read from the **same local price lambda**
+  that feeds its `priceSec`, so the arm it reports can never disagree with the seconds it charges and
+  [`armPricesAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteCostField.kt:351)'s
+  sum-to-the-total holds by construction. A marker-priced point therefore reads `marker=` on the pull's
+  `SWEEP arms` line beside `band` · `zone` · `depth` where it was lumped into `other`, and the per-mark line
+  names the same arm — no drawn line, clock, verdict, string or properties key moved, and the wall still
+  declares none, being law rather than a price.
+- The witness is [`RouteMarkerCostTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/RouteMarkerCostTest.kt:176):
+  a priced point reports `MARKER` alone carrying its own seconds and no `OTHER`, the arms sum to what
+  `softPriceSecAt` answers, a point beyond every collar reports none, and the switch off reports none at all.
+  The unit suite and the packaging are green at the hop.
+- **Untouched by this hop:** the unit (P1), the depth arm's standing (P3) and the scale's reading (P4) stand
+  exactly as the plan left them.
+- **The review's named limits, recorded rather than fixed:** a point under several priced markers sums them
+  into that one arm, so the report names **a** marker and not which of them; and the fine tile's own field
+  declares the arm although a tile stores a pace-free factor and no arm is read there. `PriceArm.OTHER` now
+  has no production producer, its remaining role the honest default for a future source that does not
+  decompose.
+- **The presence fact shipped 2026-10-16 — the decision the forced-crossing reader was waiting on.** The report
+  now speaks **presence** beside the price: [`forcedCrossingNames`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt:811)
+  keeps filtering on the price — a zone its `speedRoute` prices to nothing is still never named as a forced
+  crossing — while a **second, independent read** names the water the line crossed:
+  [`crossedSlowZoneNames`](../../app/src/main/java/ykws/android/maro/spatial/multipass/ZoneGeometry.kt:232)
+  answers the zones the drawn line **enters** whose **own limit in force is below the cruise pace**, read off the
+  **displayed** limit ([`SpeedZone.speedLimitKn`](../../app/src/main/java/ykws/android/maro/data/regulation/SpeedZone.kt:29),
+  the field [`strictestDisplayLimitKnAt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/ZoneGeometry.kt:92)
+  reads and through it `MultipassWorld.zoneDisplayLimitKnAt`) and never `routeLimitKn` and never the price. The
+  two functions share one entry test, so neither can disagree about which water the line entered, and a zone at
+  or above the pace is named by neither — it costs no second and shows in no colour.
+- It rides [`RouteResult.Success`](../../app/src/main/java/ykws/android/maro/data/model/RouteResult.kt:98) and the
+  plan as a **record and not a drawn fact** — no proto, the two saved-route constructions in
+  [`RouteOverlay.kt`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:509) leave it empty, the
+  loss mirror carries it unchanged (R99) — and prints as `crossed=[…]` beside `forced=[…]` on the engine's own
+  answer trace, so a device reading tells the two facts apart at a glance.
+- The witness is [`RouteZonePhase4Test`](../../app/src/test/java/ykws/android/maro/spatial/multipass/RouteZonePhase4Test.kt:330):
+  a zone the price calls free is entered and never forced, a zone at or above the pace is named by neither, and a
+  zone genuinely crossed with no way around is **both** — plus the engine's
+  [`theZoneLimitSlowsTheClockWhateverThePriceSwitchSays`](../../app/src/test/java/ykws/android/maro/spatial/RouteAvoidEngineTest.kt:566),
+  where `route.avoid.speedZone.enabled` off still names what the clock times. Unit suite and packaging green at
+  the hop. Two stale claims that a surface read the report — `RouteResult.Success`'s own KDoc and the panel's
+  column-3 comment — now state the truth: **no composable prints the report**, no surface was invented and no
+  string added; the words for one are the user's own, and were deliberately not part of this hop.
+- **Untouched by this hop:** the unit (P1), the per-arm split's remaining arms (P2), the depth arm's standing
+  (P3) and the scale's reading (P4) stand exactly as the plan left them.
