@@ -90,12 +90,10 @@ A **windowed sweep with an allowance**, the user's *average taunt*, specified so
 
 ## Phases
 
-1. **The allowance** — the relative term and its floor on the existing triple proof, with fixtures pinning a
-   chord dearer by a millisecond as **dropped** and one dearer by a second as **kept**.
-2. **The geometry gate** — the flat-run test before any read, with a fixture that a genuinely turned run is
-   untouched.
-3. **The window** — k beyond 2 on a gated run, with the length cap and a fixture that a wiggle of three flat
-   vertices collapses while a leading bend around dear water survives.
+1. **The allowance** — shipped as a **pure share** rather than the floor this plan ordered; the deviation is
+   recorded below, and the Ask hop's replay shows the dropped floor was the half that mattered.
+2. **The geometry gate** — shipped at 45°, a code constant, read before any field value.
+3. **The window** — shipped over k = 3…4, bounded, with the triple keeping its own shape.
 4. **The record** — the engines doc's pipeline and its pull bullet, and the feature's state line.
 
 ## Open questions
@@ -116,3 +114,34 @@ A **windowed sweep with an allowance**, the user's *average taunt*, specified so
   own `stop=` — while the pass's 192 per-tile lines and ten terminals are present, so the growth's stop
   reason cannot be read from a device pass; and the capture carries **no `HARVEST` and no `WALK` line** at
   all, though the engines reference names both as traced. Each belongs to its own record.
+
+## Implemented — 2026-10-16
+
+- **The window and the allowance landed in the sweep, and what they cover is thinner than the order assumed.**
+  The key `route.avoid.pull.allowanceShare` (0.02, clamped 0.0–0.5) read through
+  [`AppConfig.routeAvoidPullAllowanceShare`](../../app/src/main/java/ykws/android/maro/config/AppConfig.kt:620); the
+  verdict `chordSec <= pathSec × (1 + share)`; the clearance proof still read first and absolute; a flat-run gate at
+  `SWEEP_WINDOW_MAX_TURN_DEG` 45° and a window of `SWEEP_WINDOW_MAX_SPAN` 4 segments, both code constants, the window
+  ahead of the triple in [`sweep()`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt:424);
+  the full unit suite green and the APK packaged. It is generic as ordered — the sweep is shared by `avoid` and
+  `evolutive`, so both drawn lines move.
+- **The replay against your own capture is this landing's real measure, and it is thin.** Of the **48** `why=PRICE`
+  refusals in [`route_depth_pass.log`](../../route_depth_pass.log:1) exactly **three** flip — `7.479` against `7.463`,
+  and the printed-equality `2.455` against `2.455` — so about **one step of the ten-bend staircase, on λ 1 alone**, is
+  straightened, and the `2.455` case moves no drawn point.
+- **What a share cannot reach is the lane that binds the strip**: **20 of the 48** refusals have `pathSec=0.000` — free
+  legs beside a chord of 1.5 to 31.6 s — and a share of zero is zero, so every window over them sums to zero and no
+  chord passes.
+- **The floor this plan ordered was dropped, and the replay says it was the load-bearing half.** §2's *floor of one
+  price sample's seconds* was not implemented; the Ask hop's figures show it would have flipped four of those free-leg
+  lanes. The deviation is recorded here rather than left implied.
+- **The second symptom is untouched.** The capture's 87.1° `BOW_COAST` corner is kept by clearance and the gate refuses
+  a window over any run holding it, so the flat-wiggle class is answered and the corner you pointed at is not.
+- **Cost, measured.** On the existing settled-rung fixture the fine line's `priceReads` moved 503 → 697 and `marks`
+  1297 → 1718 with the pull's and the final pass's counters unmoved — the Ask hop prices that at roughly **+7–10 ms on a
+  75.9–98.8 ms fine stage**, sound on this water. The plan's own cost model is refuted by it: the window's longer chords
+  are new points that each pay a read, not one memoised read per k.
+- **Owed, recorded and not fixed** — the allowance is written twice where one loop would carry both; an accepted window
+  prints no `chordSec`/`pathSec` and a refused one prints nothing, so its proof cannot be audited; the sweep has no clock
+  of its own; four of the window's branches are unowned by fixtures; `AvoidPullLookbackTest` leans on the shipped key
+  without naming it; and the sweep's KDoc overstates what the memo saves.

@@ -605,6 +605,28 @@ object AppConfig {
     const val ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX = 300.0
 
     /**
+     * The settled lookback's **price allowance** (a share of the legs' own price) —
+     * `route.avoid.pull.allowanceShare`, default 0.02, clamped
+     * [ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN]..[ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX].
+     *
+     * The sweep drops an interior vertex only where the skipping chord is **not dearer** than the two
+     * legs it replaces; that strict test pins a vertex on a difference the field's own sampling cannot
+     * justify. The allowance is **relative** — a vertex drops while `chordSec <= pathSec × (1 + share)` —
+     * so where the legs cost nothing the allowance is nothing and a priced chord is never cut by it, and
+     * it adds no field read of its own: the same two seconds it compares are already paid. A share, so a
+     * share of free legs is free; 0 restores the strict test and the ceiling is a drawing licence at half
+     * the legs' own price. It changes a drawn line and never a control, so no `strings.xml` key is owed.
+     */
+    var routeAvoidPullAllowanceShare: Double = 0.02
+        private set
+
+    /** Lowest allowance share the properties load accepts — the floor that restores the strict test. */
+    const val ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN = 0.0
+
+    /** Highest allowance share the properties load accepts — a drawing licence, capped at half the legs. */
+    const val ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX = 0.5
+
+    /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
      * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
      * the pace after leaving it. 0.1–2.0, default 1.0: a purposeful ease, light bracing, 2.0 the
@@ -2446,6 +2468,10 @@ object AppConfig {
             props.getProperty("route.avoid.ladder.tieToleranceSec")?.toDoubleOrNull()?.let {
                 routeAvoidLadderTieToleranceSec =
                     it.coerceIn(ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN, ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX)
+            }
+            props.getProperty("route.avoid.pull.allowanceShare")?.toDoubleOrNull()?.let {
+                routeAvoidPullAllowanceShare =
+                    it.coerceIn(ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN, ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX)
             }
             props.getProperty("route.avoid.speedZone.outsideMargin.costFraction")?.toDoubleOrNull()?.let {
                 routeAvoidSpeedZoneOutsideMarginCostFraction = it.coerceIn(0.0, 1.0)
