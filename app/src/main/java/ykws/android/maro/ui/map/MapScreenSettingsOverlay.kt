@@ -1578,15 +1578,20 @@ private fun RoutingSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
+            val paceOptions = AppConfig.ROUTE_FREE_WATER_PACE_OPTIONS_KN
+            val paceIsAny = AppConfig.isFreeWaterPaceAny(settings.routeFreeWaterPaceKn)
             SliderRow(
                 label = stringResource(R.string.settings_route_pace_label),
                 description = stringResource(R.string.settings_route_pace_desc),
-                valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
+                valueLabel = if (paceIsAny) {
+                    stringResource(R.string.settings_route_pace_any)
+                } else {
+                    stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn)
+                },
                 value = settings.routeFreeWaterPaceKn,
-                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
-                // The setting's own grid, read from its one home: six intervals of five knots between 5 and 35.
-                steps = ((AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
-                    / AppConfig.ROUTE_FREE_WATER_PACE_STEP_KN).toInt() - 1,
+                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_ANY..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
+                // The one ordered list both doors read — Any first, then six intervals of five knots.
+                steps = paceOptions.size - 2,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
             )
 

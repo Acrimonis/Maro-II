@@ -658,11 +658,18 @@ class SettingsManager(
         boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
         boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
         emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f),
-        // Clamped on read like every other bounded slider: a stored value is never a promise.
+        // Clamped on read like every other bounded slider — the `Any` sentinel alone passing through,
+        // because the snap's 5 kn floor would turn a stored *no preference* into the slowest boat.
         routeFreeWaterPaceKn = prefs.getFloat(
             KEY_ROUTE_FREE_WATER_PACE_KN,
             ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn
-        ).let { ykws.android.maro.config.AppConfig.snapFreeWaterPaceKn(it) },
+        ).let {
+            if (ykws.android.maro.config.AppConfig.isFreeWaterPaceAny(it)) {
+                ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_ANY
+            } else {
+                ykws.android.maro.config.AppConfig.snapFreeWaterPaceKn(it)
+            }
+        },
         // The dial's one stored value, clamped on read — and the one place a pre-dial store is mapped.
         routeSlowWaterStop = resolveSlowWaterStop(),
         routeMarkerStrength = prefs.getFloat(

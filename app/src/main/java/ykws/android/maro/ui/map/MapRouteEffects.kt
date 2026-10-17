@@ -46,13 +46,14 @@ internal fun MapRouteEngineEffect(
     appSettings: AppSettings,
     routeEngineSelection: MutableStateFlow<RouteEngine>,
     avoidWorldProvider: () -> MultipassWorld,
-    settingsProvider: () -> AppSettings
+    settingsProvider: () -> AppSettings,
+    paceProvider: () -> Double
 ) {
     LaunchedEffect(appSettings.routeEngineId) {
         routeEngineSelection.value =
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
-                    { settingsProvider().routeFreeWaterPaceKn.toDouble() },
+                    { paceProvider() },
                     { settingsProvider().verdictWeight },
                     avoidWorldProvider,
                     { settingsProvider().routeMarkerStrength.toDouble() }
