@@ -42,7 +42,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -324,44 +323,18 @@ private fun LayersSettings(
                     SectionDivider()
 
                     // Number of tracks
-                    Text(
-                        text = stringResource(R.string.settings_tracks_count_label),
-                        color = ComposeColor(AppConfig.uiTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_tracks_count_desc),
-                            color = ComposeColor(AppConfig.uiTextMuted),
-                            fontSize = AppConfig.uiFontDescSize.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = countValueLabel(settings.trackingRenderNb),
-                            color = ComposeColor(AppConfig.uiValueText),
-                            fontSize = AppConfig.uiFontValueSize.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Slider(
+                    SliderRow(
+                        label = stringResource(R.string.settings_tracks_count_label),
+                        description = stringResource(R.string.settings_tracks_count_desc),
+                        valueLabel = countValueLabel(settings.trackingRenderNb),
                         value = settings.trackingRenderNb.toFloat(),
+                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
+                        steps = AppConfig.PATH_COUNT_MAX,
                         onValueChange = { v ->
                             onUpdateSettings {
                                 it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, AppConfig.PATH_COUNT_ALL))
                             }
-                        },
-                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
-                        steps = AppConfig.PATH_COUNT_MAX,
-                        colors = SliderDefaults.colors(
-                            thumbColor = ComposeColor(AppConfig.uiAccent),
-                            activeTrackColor = ComposeColor(AppConfig.uiAccent),
-                            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
-                        )
+                        }
                     )
 
                     SectionDivider()
@@ -472,44 +445,18 @@ private fun LayersSettings(
 
                     // The Routes count, the route ladder, the pinned-route ladder and every route
                     // colour: a route's whole appearance is edited in one place (D5, D6, D8).
-                    Text(
-                        text = stringResource(R.string.settings_routes_count_label),
-                        color = ComposeColor(AppConfig.uiTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_routes_count_desc),
-                            color = ComposeColor(AppConfig.uiTextMuted),
-                            fontSize = AppConfig.uiFontDescSize.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = countValueLabel(settings.routeRenderNb),
-                            color = ComposeColor(AppConfig.uiValueText),
-                            fontSize = AppConfig.uiFontValueSize.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Slider(
+                    SliderRow(
+                        label = stringResource(R.string.settings_routes_count_label),
+                        description = stringResource(R.string.settings_routes_count_desc),
+                        valueLabel = countValueLabel(settings.routeRenderNb),
                         value = settings.routeRenderNb.toFloat(),
+                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
+                        steps = AppConfig.PATH_COUNT_MAX,
                         onValueChange = { v ->
                             onUpdateSettings {
                                 it.copy(routeRenderNb = v.roundToInt().coerceIn(0, AppConfig.PATH_COUNT_ALL))
                             }
-                        },
-                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
-                        steps = AppConfig.PATH_COUNT_MAX,
-                        colors = SliderDefaults.colors(
-                            thumbColor = ComposeColor(AppConfig.uiAccent),
-                            activeTrackColor = ComposeColor(AppConfig.uiAccent),
-                            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
-                        )
+                        }
                     )
 
                     SectionDivider()
@@ -724,7 +671,7 @@ private fun LayersSettings(
                     SliderRow(
                         label = stringResource(R.string.settings_marker_zoom_label),
                         description = stringResource(R.string.settings_marker_zoom_desc),
-                        valueLabel = "%d%%".format(settings.markerPointIconZoom),
+                        valueLabel = stringResource(R.string.settings_value_pct_fmt, settings.markerPointIconZoom),
                         value = settings.markerPointIconZoom.toFloat(),
                         valueRange = 50f..150f,
                         steps = 19,
@@ -738,7 +685,7 @@ private fun LayersSettings(
                     SliderRow(
                         label = stringResource(R.string.settings_marker_halo_size_label),
                         description = stringResource(R.string.settings_marker_halo_size_desc),
-                        valueLabel = "%d%%".format(settings.markerHaloSize),
+                        valueLabel = stringResource(R.string.settings_value_pct_fmt, settings.markerHaloSize),
                         value = settings.markerHaloSize.toFloat(),
                         valueRange = 0f..100f,
                         steps = 19,
@@ -1583,7 +1530,7 @@ private fun NavigationSettings(
         SliderRow(
             label = stringResource(R.string.settings_map_offset_boat_label),
             description = stringResource(R.string.settings_map_offset_boat_desc),
-            valueLabel = "${settings.mapOffsetBoatFromBottomPct}%",
+            valueLabel = stringResource(R.string.settings_value_pct_fmt, settings.mapOffsetBoatFromBottomPct),
             value = settings.mapOffsetBoatFromBottomPct.toFloat(),
             valueRange = 5f..50f,
             steps = 9,
@@ -1631,15 +1578,20 @@ private fun RoutingSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
+            val paceOptions = AppConfig.ROUTE_FREE_WATER_PACE_OPTIONS_KN
+            val paceIsAny = AppConfig.isFreeWaterPaceAny(settings.routeFreeWaterPaceKn)
             SliderRow(
                 label = stringResource(R.string.settings_route_pace_label),
                 description = stringResource(R.string.settings_route_pace_desc),
-                valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
+                valueLabel = if (paceIsAny) {
+                    stringResource(R.string.settings_route_pace_any)
+                } else {
+                    stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn)
+                },
                 value = settings.routeFreeWaterPaceKn,
-                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
-                // The setting's own grid, read from its one home: six intervals of five knots between 5 and 35.
-                steps = ((AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
-                    / AppConfig.ROUTE_FREE_WATER_PACE_STEP_KN).toInt() - 1,
+                valueRange = AppConfig.ROUTE_FREE_WATER_PACE_ANY..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
+                // The one ordered list both doors read — Any first, then six intervals of five knots.
+                steps = paceOptions.size - 2,
                 onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
             )
 

@@ -621,9 +621,14 @@ private fun RouteEndsSection(section: RouteSummaryData) {
  */
 @Composable
 private fun RouteQuickAccessSection(section: RouteSummaryData) {
-    // The setting's own grid, read from its one home — seven stops, 5 … 35 kn by 5.
-    val paceOptions = AppConfig.ROUTE_FREE_WATER_PACE_STOPS_KN.map {
-        it to stringResource(R.string.settings_route_pace_value_fmt, it)
+    // The setting's one ordered list, read from its one home — Any first, then 5 … 35 kn by 5. The
+    // sentinel wears the wheel's own word (`--Any--`), the Settings row keeping the plain one.
+    val paceOptions = AppConfig.ROUTE_FREE_WATER_PACE_OPTIONS_KN.map {
+        it to if (AppConfig.isFreeWaterPaceAny(it)) {
+            stringResource(R.string.settings_route_pace_any_wheel)
+        } else {
+            stringResource(R.string.settings_route_pace_value_fmt, it)
+        }
     }
     // The dial's own six stops in dial order; each stop's word comes off [verdictDialLabel], the one helper
     // the Settings row reads too, so the wheel writes exactly what the Settings row writes.

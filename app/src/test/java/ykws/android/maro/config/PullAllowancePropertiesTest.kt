@@ -23,7 +23,7 @@ import java.util.Properties
 class PullAllowancePropertiesTest {
 
     /** The share shipped today. */
-    private val expectedShare = "0.02"
+    private val expectedShare = "0.1"
 
     private fun shipped(relative: String): Properties {
         val file = System.getProperty("maro.repoDir")

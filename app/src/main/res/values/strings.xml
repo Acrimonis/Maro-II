@@ -118,6 +118,8 @@
     <string name="settings_speed_colour_label">Speed Colour</string>
     <string name="settings_default_colour_label">Default colour</string>
     <string name="settings_value_dp_fmt">%.2f dp</string>
+    <string name="settings_value_pct_fmt">%1$d%%</string>
+    <string name="settings_value_m_fmt">%1$d m</string>
     <string name="settings_depth_cutoff_expander">Shallow cutoff (EMODnet)</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
     <string name="settings_emodnet_cutoff_desc">Hide EMODnet depths shallower than this (shown as no data). 0 = off</string>
@@ -626,7 +628,7 @@
     <string name="cd_route_toggle">Route destination mode</string>
     <!-- The map's route fan (R75–R80): the parent anchor's own name and the automatic child's. The
          other four children act exactly as the keys they reuse already name — `route_action_arm`,
-         `route_action_save_track`, `route_exit_save` and `route_exit_discard` — so the fan adds no
+         `route_action_select`, `route_action_save_track` and `route_exit_discard` — so the fan adds no
          second copy of those words. -->
     <string name="cd_route_fan">Route actions</string>
     <string name="cd_route_fan_auto">Automatic route</string>
@@ -757,8 +759,12 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Cruising speed</string>
-    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
+    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow. At Any, the route plans at your boat\'s own pace.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_pace_any">Any</string>
+    <!-- The quick-access wheel's own word for the same stop: the wheel is a list of values, so the -->
+    <!-- sentinel reads with dashes there and plain words on the Settings row. -->
+    <string name="settings_route_pace_any_wheel">--Any--</string>
     <!-- The verdict's dial: how much a second in slow water counts against a second of driving. Its stops
          are the weight's own chips and the track's two ends, and its top stop is the sentinel that weighs
          the slow seconds alone — named, never numbered. -->

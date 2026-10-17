@@ -3,6 +3,7 @@ package ykws.android.maro.spatial.multipass
 import kotlinx.coroutines.sync.withLock
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import kotlin.math.roundToInt
 
 /**
  * **Why an outward warm-up walk ended** — the fact a device pass reads instead of guessing from a count.
@@ -119,9 +120,12 @@ private const val WARM_EDGE_EPS = 1e-9
  *
  * It is the pass's own driver, and pure Kotlin like the pass: [derive] is the builder's own request
  * derivation (`RouteGridBuilder.fineTilesOver`), so every tile the walk asks for is keyed and built exactly
- * as the arm over that water would key and build it. Growth is not linear in area — a ring yields tiles only
- * where the active plan keeps fine water — which is why nothing is counted off the ring itself: each ring is
- * handed to the pass, and the walk counts what the derivation and the pass actually returned.
+ * as the arm over that water would key and build it. **Ring zero is [seed], handed in rather than derived
+ * here** (D7): the app edge derives the home area once, protects its entry names, and only then calls the
+ * walk — so protection never waits on this walk's gate, clock or fullness stop, and the seed is never
+ * derived twice. Growth is not linear in area — a ring yields tiles only where the active plan keeps fine
+ * water — which is why nothing is counted off the ring itself: each ring is handed to the pass, and the
+ * walk counts what the derivation and the pass actually returned.
  *
  * **The window is the work, and it opens only where something is really built.** The walk works out what
  * the ring will build ([`FineTilePrewarm.pending`]) before the pass opens anything, so a ring of
@@ -144,6 +148,13 @@ private const val WARM_EDGE_EPS = 1e-9
 internal suspend fun warmOutward(
     pass: FineTilePrewarm,
     area: WarmArea,
+    /**
+     * **The seed ring's requests — the home area, already derived by the app edge** (D7). Ring zero builds
+     * exactly this list, so no derivation is paid twice and the caller can protect the seed's entry names
+     * before this walk's gate, clock or fullness checks are ever asked. Empty where the home area carries
+     * no fine layer, which is the walk's [WarmStop.NOTHING_TO_DO].
+     */
+    seed: List<FineTileRequest>,
     derive: (BBox) -> List<FineTileRequest>,
     storedNames: Set<String>,
     orderFrom: LatLng,
@@ -158,6 +169,11 @@ internal suspend fun warmOutward(
     targetPct: Int,
     /** The store's own ceiling probe — `FineTileCache.storeFullness` in production. */
     storeFullness: suspend () -> StoreFullness? = { null },
+    /**
+     * **The map's hit rate, printed on the walk's end line** (D9) — whether the home area is really warm
+     * across routes, read off a number rather than a guess. `0.0` where a caller keeps no map.
+     */
+    mapHitRate: () -> Double = { 0.0 },
     /**
      * Whether the walk may go on, or must stand down. It is asked **per ring** as well as per tile inside
      * the pass, so the app's own gate binds for the whole walk rather than for the launch that opened it.
@@ -202,7 +218,9 @@ internal suspend fun warmOutward(
             stop = WarmStop.TARGET
             break
         }
-        val requests = derive(box)
+        // Ring zero is the caller's own seed (D7): the app edge derived it once, protected its entry
+        // names, and handed it in, so no derivation is paid twice and protection never waits on this walk.
+        val requests = if (rings == 0) seed else derive(box)
         if (requests.isEmpty()) {
             // The seed's own water carries no fine layer (a single-grid plan, or a mask that keeps
             // nothing here), so there is nothing to warm and no reason to speculate outward.
@@ -265,6 +283,9 @@ internal suspend fun warmOutward(
         box = wider
         rings++
     }
-    trace("PREWARM walk done rings=$rings built=$built warm=$warm stop=$stop")
+    trace(
+        "PREWARM walk done rings=$rings built=$built warm=$warm stop=$stop " +
+            "hitRate=${(mapHitRate() * 100).roundToInt()}%"
+    )
     WarmOutcome(built = built, warm = warm, rings = rings, stop = stop)
 }

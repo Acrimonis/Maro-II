@@ -53,7 +53,6 @@ internal data class PrewarmOutcome(
  * follow one another — within a ring and across the rings of one walk — so the dot stands for the walk's
  * real work rather than flickering tile to tile. The moment the walk stops building to wait at its gate,
  * no further mark arrives and the grace lets the dot fall: the indicator says **working**, never **waiting**.
-======>>>>>>> REPLACE
  *
  * **It is pure Kotlin** — no Android type reaches it. This class owns only the arithmetic of one area:
  * skip-what-is-warm, order own-ship outward, honour the two caps and the store's ceiling, and ask

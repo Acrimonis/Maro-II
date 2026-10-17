@@ -1,6 +1,12 @@
 # Plan — the dropdown wheel, one gesture, an arrowless box and a wheel over it
 
-**Feature:** Ui_General · **Date:** 2026-10-05 · **Status:** implemented on `feature/wheel-down` — pass 1, revision 1 and revision 2 all built green; the commit is a tap on a row, an outside click cancels, and one text alignment drives the field and the wheel; the device pass is owed
+**Feature:** Ui_General · **Date:** 2026-10-05 · **Status:** implemented on `feature/wheel-down` — pass 1, revision 1 and revision 2 all built green; the device pass is owed
+
+> **Superseded 2026-10-17 where it states a requirement**, by
+> [`261017_FEAT_PLN_Ui_General_wheel-commit-on-release.md`](261017_FEAT_PLN_Ui_General_wheel-commit-on-release.md):
+> the release is the only commit and the band is the value, so §2's tap-only commit, the outside-click cancel,
+> the candidate band and the snapping release are replaced. The geometry, the arrowless box, the slot rule and
+> the shared alignment stand. Kept for its mechanism history.
 
 > **This plan supersedes every earlier requirement for the dropdown control** except the two clauses §3 names as
 > standing. The clauses it retires are enumerated in §3 and their homes are edited at implementation; the rule

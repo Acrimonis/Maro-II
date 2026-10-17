@@ -35,7 +35,7 @@ The types on the seam, all in the same file:
 - `RouteStepReading(stage, labelResId, value, unitResId)` — one figure a stage reports about **its own** work.
 
 **The registry** is [`RouteEngineChoice`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt):
-one row per algorithm (`id`, `labelResId`, a factory taking the pace, the verdict's weight, the marker strength and the world providers),
+one row per algorithm (`id`, `labelResId`, a factory taking the resolved pace — setting or boat — the verdict's weight, the marker strength and the world providers),
 `all` in menu order, and `resolve(id)` answering the shipped default for an id nothing claims. A new algorithm
 is one row there plus one class implementing `RouteEngine`.
 
@@ -186,7 +186,7 @@ starts under the family that owns it:
 | `route.evolutive.grid.cellM`, `route.evolutive.grid.fineCellM` | `evolutive`'s two layers |
 | `route.evolutive.depth.reachM`, `route.evolutive.depth.priceSecPerM` | The depth band: the metres of depth above the gate's own minimum where the price ends, and the seconds a metre of depth deficit costs per cell, before λ |
 | `route.walk.maxCells` | The ceiling a walk is refused over before it is rastered |
-| `route.fineTile.maxBytes` | The fine-tile store's on-disk ceiling — a sibling of the map's in-memory one, bounding the directory |
+| `route.fineTile.maxBytes` | The fine-tile store's on-disk ceiling — a sibling of the map's in-memory one; a **soft** bound, since the protected home area may hold the store above it, in which case the reclaim takes the least recently used unprotected entry and reports once when none is left |
 | `route.prewarm.box`, `route.prewarm.maxTiles`, `route.prewarm.maxMs` | The pre-warm's own box (`south,west,north,east`) and its two caps — the tile budget and the time budget |
 | `route.prewarm.growthStepTiles`, `route.prewarm.threads`, `route.prewarm.targetPct` | How many tiles one growth step adds to each edge, the workers the warm-up's dispatcher may run, and the share of the store's ceiling the warm area may fill — the rest standing as a reserve |
 | `route.repair.maxRadiusM` | The end repair's sweep radius |

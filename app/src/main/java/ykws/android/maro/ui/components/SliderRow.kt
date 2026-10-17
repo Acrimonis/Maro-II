@@ -48,7 +48,9 @@ internal fun SliderRow(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        // The value hugs the track: it bottoms out with the text block, never floats beside
+        // a description and away from the slider it names.
+        verticalAlignment = Alignment.Bottom
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -116,7 +118,9 @@ internal fun ScaledSliderRow(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        // The trailing group hugs the track: it bottoms out with the text block, the ×10
+        // checkbox and the value travelling together (§2.2).
+        verticalAlignment = Alignment.Bottom
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(

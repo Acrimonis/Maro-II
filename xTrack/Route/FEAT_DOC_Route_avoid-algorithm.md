@@ -41,7 +41,8 @@ consumers. Every source **adds** to a base; none may lower it, so no passable ce
 
 - **The unit is seconds**, not metres-equivalent: the base is `cellM / v(pace)`, a zone term is the
   cell's time excess `cellM × (1/v(limit) − 1/v(pace)) × λ`, and the A\* heuristic is
-  `haversine / v(pace)` so it stays admissible. The ETA stays λ-free — the clock reads the limit in
+  `haversine / v(pace)` so it stays admissible. The pace is the **resolved** one — the setting's number,
+  or the boat's own under the `Any` stop. The ETA stays λ-free — the clock reads the limit in
   force, never the price.
 
 ## The sources

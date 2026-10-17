@@ -38,7 +38,8 @@ object AppConfig {
 
     /**
      * Free-water pace (kn) a route's trip figure plans at until the boat's own observed pace has
-     * something to say — `route.freeWaterPaceKn`, default 28.
+     * something to say — `route.freeWaterPaceKn`, default 25, and the fallback the `Any` stop plans
+     * at while the boat has no evidence.
      *
      * The span's bounds live beside it so the properties loader, the settings clamp and the Settings
      * row all read one definition rather than each spelling 3 and 40 for itself.
@@ -85,6 +86,28 @@ object AppConfig {
         get() = generateSequence(ROUTE_FREE_WATER_PACE_MIN_KN) { it + ROUTE_FREE_WATER_PACE_STEP_KN }
             .takeWhile { it <= ROUTE_FREE_WATER_PACE_MAX_KN }
             .toList()
+
+    /** **The `Any` stop** — the scale's first position, the absence of a preference and never a speed. */
+    const val ROUTE_FREE_WATER_PACE_ANY = 0f
+
+    /**
+     * The one ordered option list both doors read — the sentinel first, then the numbered stops lowest
+     * first — so the Settings row's top and the drawer wheel's first row cannot part.
+     */
+    val ROUTE_FREE_WATER_PACE_OPTIONS_KN: List<Float>
+        get() = listOf(ROUTE_FREE_WATER_PACE_ANY) + ROUTE_FREE_WATER_PACE_STOPS_KN
+
+    /** Whether [kn] is the `Any` sentinel — a stored or chosen value that means *no preference*. */
+    fun isFreeWaterPaceAny(kn: Float): Boolean = kn == ROUTE_FREE_WATER_PACE_ANY
+
+    /**
+     * The pace the search plans at: the boat's own when the stop is `Any` and [observedKn] stands, the
+     * shipped default while `Any` has no evidence, and the setting's own number otherwise. The one
+     * resolver both wiring lambdas read, so a numbered stop keeps its behaviour and only `Any` changes
+     * who supplies the number.
+     */
+    fun routePaceForSearchKn(setKn: Double, observedKn: Double?): Double =
+        if (setKn == ROUTE_FREE_WATER_PACE_ANY.toDouble()) observedKn ?: routeFreeWaterPaceKn.toDouble() else setKn
 
     /**
      * A pace moved onto the setting's grid and held inside its bounds — the one rule for every reader. The nearest
@@ -245,12 +268,13 @@ object AppConfig {
     const val ROUTE_WALK_MAX_CELLS_MAX = 5_000_000
 
     /**
-     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 72 MiB
-     * (75 497 472). Past it the store reclaims its oldest entries, so a boat extending the cache across
-     * seasons cannot grow the directory without bound. It is the app edge that hands this to
+     * **The fine-tile store's disk ceiling (bytes)** — `route.fineTile.maxBytes`, default 96 MiB
+     * (100 663 296). Past it the store reclaims its least recently used **unprotected** entries, so a boat
+     * extending the cache across seasons cannot grow the directory without bound — softly, because the
+     * protected home area can hold it above the ceiling. It is the app edge that hands this to
      * [`DirectoryFineTileStore`]; the in-memory map's own ceiling is a separate, smaller sibling.
      */
-    var routeFineTileMaxBytes: Long = 72L * 1024L * 1024L
+    var routeFineTileMaxBytes: Long = 96L * 1024L * 1024L
         private set
 
     /**
@@ -336,8 +360,9 @@ object AppConfig {
      * store whether one more tile of the size it last wrote would still fit **under this share** rather than
      * under the whole ceiling, so the rest stands as a reserve for water the seed area does not cover: an
      * occasional off-area spot is written into free space instead of evicting a tile the seed prepared. The
-     * pass's own tile cap and the store's hard ceiling are untouched beside it (D2), and the walk still
-     * never overshoots, because one reading decides both.
+     * pass's own tile cap is untouched beside it (D2), and the store's ceiling is a soft one — the
+     * protected home area may stand above it — yet the walk still never overshoots, because one reading
+     * decides both.
      */
     var routePrewarmTargetPct: Int = 80
         private set
@@ -597,7 +622,7 @@ object AppConfig {
 
     /**
      * The settled lookback's **price allowance** (a share of the legs' own price) —
-     * `route.avoid.pull.allowanceShare`, default 0.02, clamped
+     * `route.avoid.pull.allowanceShare`, default 0.1, clamped
      * [ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN]..[ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX].
      *
      * The sweep drops an interior vertex only where the skipping chord is **not dearer** than the two
@@ -608,7 +633,7 @@ object AppConfig {
      * share of free legs is free; 0 restores the strict test and the ceiling is a drawing licence at half
      * the legs' own price. It changes a drawn line and never a control, so no `strings.xml` key is owed.
      */
-    var routeAvoidPullAllowanceShare: Double = 0.02
+    var routeAvoidPullAllowanceShare: Double = 0.1
         private set
 
     /** Lowest allowance share the properties load accepts — the floor that restores the strict test. */
@@ -846,8 +871,8 @@ object AppConfig {
     // trigger's quiet time; the sweep, the ordering, the metric and the walk are all structural.
 
     /** Quiet time (ms) the map must stand still, with a target acquired under the anchor, before
-     *  inspect mode recentres the camera on that target. Default 666. Set via `map.inspect.dwellMs`. */
-    var uiMapInspectDwellMs: Long = 666L
+     *  inspect mode recentres the camera on that target. Default 1499. Set via `map.inspect.dwellMs`. */
+    var uiMapInspectDwellMs: Long = 1499L
         private set
 
     /**

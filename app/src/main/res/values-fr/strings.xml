@@ -117,6 +117,8 @@
     <string name="settings_speed_colour_label">Couleur selon la vitesse</string>
     <string name="settings_default_colour_label">Couleur par défaut</string>
     <string name="settings_value_dp_fmt">%.2f dp</string>
+    <string name="settings_value_pct_fmt">%1$d %%</string>
+    <string name="settings_value_m_fmt">%1$d m</string>
     <string name="settings_depth_cutoff_expander">Seuil hauts-fonds (EMODnet)</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>
@@ -630,7 +632,7 @@
     <string name="cd_route_toggle">Mode destination de route</string>
     <!-- Le fan de route de la carte (R75–R80) : le nom de son ancre et celui de l\'enfant automatique.
          Les quatre autres enfants font exactement ce que les clés réutilisées nomment déjà —
-         `route_action_arm`, `route_action_save_track`, `route_exit_save` et `route_exit_discard` —
+         `route_action_arm`, `route_action_select`, `route_action_save_track` et `route_exit_discard` —
          donc le fan n\'ajoute pas une seconde copie de ces mots. -->
     <string name="cd_route_fan">Actions de route</string>
     <string name="cd_route_fan_auto">Route automatique</string>
@@ -759,8 +761,12 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Vitesse de croisière</string>
-    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent.</string>
+    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent. Sur Indifférent, la route planifie à la vitesse de votre bateau.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_pace_any">Indifférent</string>
+    <!-- Le mot propre au sélecteur rapide pour ce même arrêt : la roue liste des valeurs, la sentinelle -->
+    <!-- s\'y lit donc entre tirets, alors que la ligne des réglages garde le mot simple. -->
+    <string name="settings_route_pace_any_wheel">--Indifférent--</string>
     <!-- Le cadran du verdict : le poids d\'une seconde d\'eau lente face à une seconde de trajet. Ses
          arrêts sont les pastilles du poids et les deux extrémités de la piste, et son arrêt du haut est
          le sentinelle qui ne pèse que les secondes lentes — nommé, jamais numéroté. -->

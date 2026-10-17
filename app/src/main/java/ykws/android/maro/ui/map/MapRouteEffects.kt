@@ -22,6 +22,7 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.RouteEngine
 import ykws.android.maro.spatial.RouteEngineChoice
 import ykws.android.maro.spatial.multipass.FineTileCache
+import ykws.android.maro.spatial.multipass.FineTileCodec
 import ykws.android.maro.spatial.multipass.FineTilePrewarm
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.RouteGridBuilder
@@ -46,13 +47,14 @@ internal fun MapRouteEngineEffect(
     appSettings: AppSettings,
     routeEngineSelection: MutableStateFlow<RouteEngine>,
     avoidWorldProvider: () -> MultipassWorld,
-    settingsProvider: () -> AppSettings
+    settingsProvider: () -> AppSettings,
+    paceProvider: () -> Double
 ) {
     LaunchedEffect(appSettings.routeEngineId) {
         routeEngineSelection.value =
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
-                    { settingsProvider().routeFreeWaterPaceKn.toDouble() },
+                    { paceProvider() },
                     { settingsProvider().verdictWeight },
                     avoidWorldProvider,
                     { settingsProvider().routeMarkerStrength.toDouble() }
@@ -198,9 +200,16 @@ internal fun MapRoutePrewarmEffect(
             )
             val orderFrom = where
                 ?: LatLng((box.latSouth + box.latNorth) / 2.0, (box.lonWest + box.lonEast) / 2.0)
+            // The home area is derived **here, once**, and protected before the walk runs (D7): a store
+            // already at its 80 % share — the normal steady state — stops the walk at its first fullness
+            // check, and protection must not depend on that stop. The same requests become ring zero, so
+            // the seed is never derived a second time.
+            val seed = builder.fineTilesOver(world, area.seedBox, markerStrength())
+            FineTileCache.protect(seed.map { FineTileCodec.entryName(it.key) }.toSet())
             warmOutward(
                 pass = FineTilePrewarm(map, trace = { line -> Log.i(PREWARM_TAG, line) }),
                 area = area,
+                seed = seed,
                 derive = { over -> builder.fineTilesOver(world, over, markerStrength()) },
                 storedNames = map.storedNames(),
                 orderFrom = orderFrom,
@@ -210,6 +219,8 @@ internal fun MapRoutePrewarmEffect(
                 // the seed area (the plan's §11): the walk stops on the store's own room under it.
                 targetPct = AppConfig.routePrewarmTargetPct,
                 storeFullness = { FineTileCache.storeFullness() },
+                // The walk's end line carries the map's hit rate — whether the home area is really warm (D9).
+                mapHitRate = { map.hitRate },
                 // Every gate is read **per tile, here**, never sampled once at launch: the seam waits out an
                 // armed route and a competing job — the pass resumes to fill the holes — and answers `false`
                 // on battery-saver, which stands the pass down instead of letting it run to its cap on a
