@@ -3,7 +3,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-09-21.
+> **Updated:** 2026-10-17.
 
 ---
 
@@ -39,6 +39,8 @@ Layer 1 is a single composable call: [`OverlayLayer`](../app/src/main/java/ykws/
 **Right-edge control column rule (paint-only):** the right-edge controls (zoom `+`/`−`, fan, add-zone) float over the map; the map itself always renders full-bleed and must never be padded by the control column. An overlay drawn **outside** the map's left overlay column anchors `BottomStart` — never `BottomCenter`/`BottomEnd` — and reserves the column on the overlay itself via `end = RIGHT_CONTROL_COLUMN_INSET` (82dp: 12dp gap + 64dp button + 6dp end). Its live users are the undo snackbar stack ([`MapSnackbarHost`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt)), `LockBanner` and `MapStatusBanner`, all three drawn from full-width parents.
 
 **Bottom-band clearance rule:** every banner in the map's bottom band clears the bottom-left zone tag column whenever one is drawn — its start inset is `bannerStartInset(tagsDrawn)`, the band's gutter plus the tag column's width — and the right control column always; an overlay inside the left overlay column takes that second half from the column itself and adds no `end` reserve of its own, an overlay outside it from the rule above. The banner family's control, skin, clearance and each face's interior are written once, in `docs/ui-component-guidelines.md` §5.7.
+
+**Bottom-edge rule:** the map's bottom band ends on the band gutter in both orientations — the bottom-left tag column and the zoom stack share that one bottom line, and landscape adds no navigation-bar inset, the map alone drawing under the bar. The value and the family's placement rule live in `docs/ui-component-guidelines.md` §5.7.
 
 **Full-height landscape drawer rule:** drawers anchored to the left edge in landscape (Marker, TrackInfo, Wizard) are full-height and must clear the status bar — pass `statusBarsInset = true` to `DrawerScaffold` (or apply `windowInsetsPadding(WindowInsets.statusBars)` for drawers that don't use `DrawerScaffold`).
 

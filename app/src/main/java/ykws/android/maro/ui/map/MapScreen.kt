@@ -69,7 +69,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -5070,14 +5069,12 @@ private fun MapContent(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // btm zone: tags + txt + overlays
-                // In landscape, clear the nav bar; in portrait, match the row's own `ui.map.toggle.gutter`.
+                // Both orientations take the row's own `ui.map.toggle.gutter`, so the tag column's
+                // bottom edge lands on the zoom stack's (`cb`), which pads the same gutter.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.navigationBars)
-                            else Modifier.padding(bottom = TOP_TOGGLE_GUTTER)
-                        )
+                        .padding(bottom = TOP_TOGGLE_GUTTER)
                 ) {
                     // Behind layer: regulated zone icons + info text
                     Row(
