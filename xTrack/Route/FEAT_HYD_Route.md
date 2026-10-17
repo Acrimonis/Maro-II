@@ -1,24 +1,31 @@
 # Context Hydration — Route — 2026-10-17
 
-**Last Bake:** 2026-10-17 06:48 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-17 15:02 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** The session opened on the user's `#new route-fan` and their route-fan rework order, cut the branch from `origin/develop` at its fetched head, and ran a plan-then-implement pass ending in `#bake`; no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim about the code stands behind a file read.
+**Directive trace:** The session opened on the user's `#focus route` and `#new rte-cche`, examined the fine-tile cache's reclaim, settled the home-area protection with the user across a question-and-answer pass, wrote the plan of record, ran `#impl` (Code → Ask → Architect) and closed the Ask hop's two blockers in one fix hop. No dependency was added, no machine-shaped data file was opened, the device was never touched, every claim about the code stands behind a file read, and the only git write was the branch creation the user ordered.
 
 ## State
 
-The route fan is rebuilt on `feature/route-fan`. Its unused **Save to track and exit** child is gone, the `Route` child now arms the acquisition alone, and a new **Follow** child sits directly below it — wearing a new `navigation` vector and the reused `route_action_select` name — firing the same selection the acquisition panel's Follow action does; the arc reads **Route auto · Route · Follow · Save · Discard**, and the fan now closes on the follow, acquire and auto children (R91). `RouteFanSaveExitIcon` retired from `FanIconComponents.kt`, `RouteFanFollowIcon` joined, and `ui/icons/Navigation.kt` is the new standalone vector; the `cd_route_fan` comment in both locales names the reused keys, and R91/R92 in `FEAT_DSC_Route.md` were amended — the closers, and the Save-and-exit exception dropped so every ending is two-phase.
+The fine-tile store now protects the **home area** — `route.prewarm.box` — from reclamation. `TileStore.protect(names)` carries the set and its own byte total; `MapRoutePrewarmEffect` derives the seed box once, turns its entry names into that set and installs them **before** the walk starts, handing the same requests to `warmOutward` as ring zero; `FineTileCache` remembers the last set and re-applies it at `install`, so an Activity recreation cannot strip protection.
 
-`:app:assembleDebug` and `:app:testDebugUnitTest` are green; nothing is device-validated, and `ui/icons/Logout.kt` is now uncalled and was kept rather than deleted.
+The reclaim walks one **access-ordered index** (entry name → bytes, primed by the listing that already primes the byte total) instead of listing and sorting the directory on every overflowing save, skips protected names, and returns on an arithmetic test alone when only protected bytes remain — reporting that once per store, the latch on the line and never on the behaviour. `list()` deliberately still reads the directory, because the prewarm treats a name as proof that a file stands.
+
+The ceiling is **96 MiB** and **soft** across its four homes — `route.fineTile.maxBytes`, `AppConfig.routeFineTileMaxBytes`, `DirectoryFineTileStore.DEFAULT_MAX_BYTES` and the renamed ceiling test. New readings ride the device log: `STORE trim evicted=… remaining=… protected=… ms=…`, `STORE trim cannot reach ceiling …` once, and `hitRate=NN%` on `PREWARM walk done`.
+
+`:app:testDebugUnitTest :app:assembleDebug` is green at 1317 tests at the first landing and after the review fixes. Nothing is committed, staged or pushed: `feature/rte-cche` still sits on `origin/develop`'s head `ea5a734` with no upstream, and the work is in the working tree.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the fan's enablement list, action list and children reordered, and the close guard moved to follow · acquire · auto
-- `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt` — `RouteFanSaveExitIcon` out, `RouteFanFollowIcon` in
-- `app/src/main/java/ykws/android/maro/ui/icons/Navigation.kt` — the new standalone Material Symbols vector
-- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — the `cd_route_fan` comment block names the reused keys
-- `xTrack/Route/FEAT_DSC_Route.md` — R91, R92, the two concept bullets, a Key Files line and the Docs pointer
-- `xTrack/Route/261017_FEAT_PLN_Route_route-fan-decouple.md` — the plan of record
+- `xTrack/Route/261017_FEAT_PLN_Route_home-area-eviction.md` — the plan of record and its `## Implemented`
+- `app/src/main/java/ykws/android/maro/spatial/DirectoryFineTileStore.kt` — the index, the protected total, the index-only `trim()`, the directory `list()`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/TileStore.kt` — `protect`, inert in `NoOp`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/FineTileCache.kt` — the remembered set and its re-apply at `install`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/FineTileWarm.kt` — the seed handed in, ring zero built from it, the hit rate on the end line
+- `app/src/main/java/ykws/android/maro/ui/map/MapRouteEffects.kt` — the seed derived and protected before the walk
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` · `app/src/main/assets/maro.properties` — the 96 MiB ceiling and its soft-ceiling wording
+- `app/src/test/java/ykws/android/maro/config/FineTileStoreCeilingPropertiesTest.kt` · the store and warm suites
+- `xTrack/Route/FEAT_DSC_Route.md` · `docs` — the state doc and the engines reference
 
 ## Next Step
 
-The device pass is the user's: the fan's arc and enablement and its close rule on the follow, acquire and auto children. `app/src/main/java/ykws/android/maro/ui/icons/Logout.kt` awaits the user's word if it is to be deleted.
+The device pass is the user's: several routes over cold outer water, then a reload, reading that no `STORE trim` names a home tile and that the walk's `hitRate` rises. The home area's own byte count is still unmeasured, `FineTilePrewarm.kt` no longer carries the stray patch fragment — removed on the user's word — and `#commit` has not been run, so the branch still carries nothing of this session.

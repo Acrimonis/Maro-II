@@ -22,27 +22,35 @@ import java.io.File
  * carries; a short, foreign or key-mismatched file answers `null` and is deleted, so a partial or corrupt
  * store falls back to the build rather than half-reading it. A write is **atomic** — a temp file renamed
  * over the target — so a half-written entry is never visible. A served tile **touches** its entry's age,
- * so oldest-first reclamation never evicts water a live arm still needs.
+ * so least-recently-used reclamation never evicts water a live arm still needs.
  *
- * **A disk ceiling bounds the directory.** Past [maxBytes] the oldest entries (by last-modified) are
- * reclaimed, so a store a boat keeps extending across seasons cannot grow without bound; the ceiling is a
- * sibling of [`FineTileMap`]'s in-memory one, not a second invalidation — a stamp change is still a
- * different key and therefore a miss. The ceiling's one home is the `route.fineTile.maxBytes` property
- * ([DEFAULT_MAX_BYTES] mirrors it), read at the app edge.
+ * **A disk ceiling bounds the directory, softly.** Past [maxBytes] the least recently used unprotected
+ * entries are reclaimed, so a store a boat keeps extending across seasons cannot grow without bound; the
+ * ceiling is a sibling of [`FineTileMap`]'s in-memory one, not a second invalidation — a stamp change is
+ * still a different key and therefore a miss. Protection is a **floor**, not an exemption from
+ * accounting: where the protected home area alone stands above the ceiling, the store keeps it and says
+ * once that the ceiling cannot be reached rather than taking a tile the walk prepared. The ceiling's one
+ * home is the `route.fineTile.maxBytes` property ([DEFAULT_MAX_BYTES] mirrors it), read at the app edge.
  *
- * **The total is incremental.** The running byte total is primed **once** by a listing and then adjusted
- * on every save and delete, so a save never re-sums the directory — the O(n²) the naive per-save sum
- * carried once hundreds of tiles landed. Each load and each save emits one `STORE` line through the
- * injected [trace] sink, and the first reclamation raises [onReclaim] once.
+ * **The total is incremental, and it rides an access-ordered index.** The running byte total and the
+ * entry index are primed **once** by a listing and then adjusted on every save, delete and drop, so a
+ * save never re-sums nor re-lists the directory — the O(n²) the naive per-save sum carried once hundreds
+ * of tiles landed, and the listing-and-sort every overflowing save used to pay. The index
+ * ([index]) is a `LinkedHashMap` in **access order**: its head is the least recently used entry and its
+ * tail the one just served or written, so a reclaim walks it head-first instead of sorting the directory.
+ * A load miss drops that name's accounting on the spot, and a file gone behind the store is dropped too —
+ * the index may over-report fullness, never serve a tile. Each load and each save emits one `STORE` line
+ * through the injected [trace] sink, each reclamation one `STORE trim` line, and the first reclamation
+ * raises [onReclaim] once.
  *
  * **The total is also what the store answers about itself.** [fullness] hands the running total, this
  * store's ceiling and **the size of the entry it wrote last** to the warming policy, which asks
  * [StoreFullness.hasRoomAt] rather than guessing from an entry count — one more entry of that size under the
  * share of the ceiling the walk is held to, which leaves the rest a reserve. That reading is **live, never a
- * latch**: a save trims the directory back to its ceiling, so what it holds is never *above* it and an
- * inequality on the pair can never show, while a verdict remembered from a past reclamation would keep the
- * warm-up dead for the rest of the process even once the directory had room again. The read pays no listing,
- * and an unprimed total answers `null` rather than zero, so a policy can never mistake "not counted yet" for
+ * latch**: a save trims the directory back to its ceiling, so what it holds is never *above* it unless the
+ * protected floor is, while a verdict remembered from a past reclamation would keep the warm-up dead for
+ * the rest of the process even once the directory had room again. The read pays no listing, and an
+ * unprimed total answers `null` rather than zero, so a policy can never mistake "not counted yet" for
  * "nothing stored".
  *
  * [`FineTileMap`]: ykws.android.maro.spatial.multipass.FineTileMap
@@ -56,6 +64,14 @@ internal class DirectoryFineTileStore(
     private val trace: (String) -> Unit = {}
 ) : TileStore {
 
+    /**
+     * **The entry index, in access order** — entry name → its bytes, the head least recently used. Primed
+     * once by the same listing that primes [dirBytes], tail-moved on every load and save, pruned on delete
+     * and on any load miss. It is an estimate of the directory, never a source of tiles: the file stays
+     * the truth (D4).
+     */
+    private val index = LinkedHashMap<String, Long>(16, 0.75f, true)
+
     /** The running byte total, primed once by a listing and adjusted per save and delete; `-1` = unprimed. */
     private var dirBytes: Long = -1L
 
@@ -65,8 +81,20 @@ internal class DirectoryFineTileStore(
      */
     private var lastEntryBytes: Long = 0L
 
+    /** The entry names the walk must never reclaim — the home area, as the store last heard it (D1). */
+    private var protectedNames: Set<String> = emptySet()
+
+    /** The protected names' own byte total, kept current by every save, delete and drop (D2). */
+    private var protectedBytes: Long = 0L
+
     /** True once a reclamation has been reported, so [onReclaim] fires at most once per store. */
     private var reclaimedReported: Boolean = false
+
+    /**
+     * True once the "cannot reach the ceiling" line has been printed. The latch is on the **line only**,
+     * never on the behaviour: a later trim after the protected set shrinks still evicts (D6).
+     */
+    private var ceilingUnreachableReported: Boolean = false
 
     /**
      * How many times the whole directory has been read for its total — one per store at most, so a test
@@ -79,6 +107,8 @@ internal class DirectoryFineTileStore(
         val name = FineTileCodec.entryName(key)
         val file = File(dir, name)
         if (!file.isFile) {
+            // A file gone behind the store leaves its accounting with it — the index may over-report, never serve.
+            dropAccounting(name)
             trace("STORE load name=$name hit=false")
             return@withContext null
         }
@@ -90,10 +120,12 @@ internal class DirectoryFineTileStore(
         if (tile == null) {
             // A miss — corrupt, another version, another key — is discarded rather than re-read on every arm.
             file.delete()
+            dropAccounting(name)
             trace("STORE load name=$name hit=false")
         } else {
-            // A served tile is touched, so oldest-first reclamation never evicts it while a live arm needs it.
+            // A served tile is touched, so least-recently-used reclamation never evicts it while a live arm needs it.
             file.setLastModified(System.currentTimeMillis())
+            touchEntry(name, file.length())
             trace("STORE load name=$name hit=true")
         }
         tile
@@ -114,7 +146,7 @@ internal class DirectoryFineTileStore(
                 if (!temp.renameTo(target)) {
                     temp.delete()
                 } else {
-                    recordWrite(bytes.size.toLong())
+                    recordWrite(target.name, bytes.size.toLong())
                     trim()
                     trace("STORE save name=${target.name} bytes=${bytes.size}")
                 }
@@ -126,14 +158,33 @@ internal class DirectoryFineTileStore(
 
     override suspend fun delete(key: TileKey) {
         withContext(Dispatchers.IO) {
-            val file = File(dir, FineTileCodec.entryName(key))
-            val length = file.length()
-            if (file.delete()) recordDelete(length)
+            val name = FineTileCodec.entryName(key)
+            val file = File(dir, name)
+            // A file already gone is the same accounting drop: what the index counted must leave with it.
+            if (file.delete() || !file.exists()) recordDelete(name)
         }
     }
 
+    /**
+     * **The entries the store holds, read off the directory itself** (D5). It is deliberately **not** the
+     * index: the prewarm reads a name as proof that a file stands ([`FineTilePrewarm.pending`]), so a name
+     * the index still carried after the OS purged the directory would suppress that tile's build for a
+     * whole walk. One listing per walk is nothing beside the per-save scan the index removed.
+     */
     override suspend fun list(): List<String> = withContext(Dispatchers.IO) {
-        dir.listFiles()?.map { it.name } ?: emptyList()
+        dir.listFiles()
+            ?.filter { it.isFile && !it.name.endsWith(".tmp") }
+            ?.map { it.name }
+            ?: emptyList()
+    }
+
+    /**
+     * **The entries the store must keep** — the home area's names as the walk derived them (D1, D7).
+     * Where the index has not been primed yet the set is remembered and counted at priming, so a set that
+     * arrives before the first listing still carries its byte total (D2).
+     */
+    override fun protect(names: Set<String>) {
+        applyProtection(names)
     }
 
     /**
@@ -160,56 +211,160 @@ internal class DirectoryFineTileStore(
     /**
      * **Adjusts the running total for a write, and keeps the entry's own size.** The first save on a fresh
      * store **primes** it with one listing (which already counts the file just written); every later save
-     * adds its own bytes, so no save ever re-sums the directory. The size is kept because it is what
+     * adjusts by the difference the rename made, so no save ever re-sums the directory. The entry moves to
+     * the index's tail — the write is the freshest use it has had. The size is kept because it is what
      * [readFullness] measures the next entry against — the one honest reading of "at the ceiling" a store
      * trimming itself back to that ceiling can give.
      */
     @Synchronized
-    private fun recordWrite(bytesWritten: Long) {
+    private fun recordWrite(name: String, bytesWritten: Long) {
         lastEntryBytes = bytesWritten
-        if (dirBytes < 0L) runningTotal() else dirBytes += bytesWritten
+        if (dirBytes < 0L) prime()
+        // The name may already stand: a rewrite replaces its old bytes rather than adding to them.
+        val previous = index.remove(name) ?: 0L
+        dirBytes -= previous
+        if (name in protectedNames) protectedBytes -= previous
+        index[name] = bytesWritten
+        dirBytes += bytesWritten
+        if (name in protectedNames) protectedBytes += bytesWritten
     }
 
-    /** Subtracts a deleted file's bytes from the running total, where it has been primed. */
+    /** Subtracts a deleted file's bytes from the running total, where the index counted them. */
     @Synchronized
-    private fun recordDelete(length: Long) {
-        if (dirBytes >= 0L) dirBytes -= length
+    private fun recordDelete(name: String) {
+        val known = index.remove(name) ?: return
+        if (dirBytes >= 0L) dirBytes -= known
+        if (name in protectedNames) protectedBytes = (protectedBytes - known).coerceAtLeast(0L)
+    }
+
+    /** Drops a name the file behind the store lost, with its bytes and its share of the protected total. */
+    @Synchronized
+    private fun dropAccounting(name: String) {
+        val known = index.remove(name) ?: return
+        if (dirBytes >= 0L) dirBytes -= known
+        if (name in protectedNames) protectedBytes = (protectedBytes - known).coerceAtLeast(0L)
+    }
+
+    /** Re-keys a served entry to the index's tail, correcting its bytes where the file's length moved. */
+    @Synchronized
+    private fun touchEntry(name: String, actualBytes: Long) {
+        if (dirBytes < 0L) return
+        val known = index.remove(name) ?: return
+        dirBytes += actualBytes - known
+        if (name in protectedNames) protectedBytes += actualBytes - known
+        index[name] = actualBytes
+    }
+
+    /** Takes the caller's protection set, recomputing the protected total where the index is primed. */
+    @Synchronized
+    private fun applyProtection(names: Set<String>) {
+        protectedNames = names
+        if (dirBytes < 0L) {
+            // Priming counts the protected bytes itself, so a set arriving first is not lost (D2).
+            protectedBytes = 0L
+            return
+        }
+        var total = 0L
+        for ((entry, bytes) in index) if (entry in names) total += bytes
+        protectedBytes = total
     }
 
     /**
-     * The running total, primed with **one** listing where it is not yet primed — the only full-directory
-     * read this store ever pays, counted by [directoryScans].
+     * **The running total, primed with one listing** — the only full-directory read this store ever pays,
+     * counted by [directoryScans]. The listing is walked oldest-first, so the index's head is the oldest
+     * entry and its tail the newest even across a process restart; the protected names are counted here,
+     * so a set that arrived before the first listing still has its byte total.
      */
     @Synchronized
-    private fun runningTotal(): Long {
-        if (dirBytes < 0L) {
-            directoryScans++
-            dirBytes = dir.listFiles()?.sumOf { it.length() } ?: 0L
+    private fun prime() {
+        if (dirBytes >= 0L) return
+        directoryScans++
+        val files = dir.listFiles()
+        if (files == null) {
+            dirBytes = 0L
+            protectedBytes = 0L
+            return
         }
-        return dirBytes
-    }
-
-    /** Drops the oldest entries until the directory holds at most [maxBytes] — a disk-ceiling reclamation. */
-    @Synchronized
-    private fun trim() {
-        if (runningTotal() <= maxBytes) return
-        val files = dir.listFiles() ?: return
-        var total = dirBytes
-        var deleted = 0
+        var total = 0L
+        var protectedTotal = 0L
         for (file in files.sortedBy { it.lastModified() }) {
-            if (total <= maxBytes) break
-            val length = file.length()
-            if (file.delete()) {
-                total -= length
-                deleted++
-            }
+            val bytes = file.length()
+            index[file.name] = bytes
+            total += bytes
+            if (file.name in protectedNames) protectedTotal += bytes
         }
         dirBytes = total
-        if (deleted > 0 && !reclaimedReported) {
-            reclaimedReported = true
-            trace("STORE reclaim evicted=$deleted remainingBytes=$total")
-            onReclaim()
+        protectedBytes = protectedTotal
+    }
+
+    /**
+     * **Reclaims from the index's head until the directory holds at most [maxBytes].** Protected names are
+     * skipped, each victim is unlinked and dropped as it goes, and a file already gone costs an accounting
+     * drop that still counts as evicted. The walk returns before any I/O only where nothing unprotected
+     * remains — a protected floor above the ceiling is still no reason to keep outer water that would
+     * otherwise go (D5) — and says so once per store, the latch on the line alone (D6).
+     */
+    @Synchronized
+    private fun trim() {
+        prime()
+        if (dirBytes <= maxBytes) return
+        val startedMs = System.currentTimeMillis()
+        if (dirBytes <= protectedBytes) {
+            reportCeilingUnreachable(startedMs)
+            return
         }
+        var evicted = 0
+        var stuck = false
+        val victim = index.entries.iterator()
+        while (dirBytes > maxBytes) {
+            if (dirBytes <= protectedBytes) {
+                stuck = true
+                break
+            }
+            var candidate: Map.Entry<String, Long>? = null
+            while (victim.hasNext()) {
+                val entry = victim.next()
+                if (entry.key !in protectedNames) {
+                    candidate = entry
+                    break
+                }
+            }
+            if (candidate == null) {
+                // The index ran out: every name left is protected, so the ceiling cannot be reached.
+                stuck = true
+                break
+            }
+            val bytes = candidate.value
+            val file = File(dir, candidate.key)
+            if (file.delete() || !file.exists()) {
+                victim.remove()
+                dirBytes -= bytes
+                evicted++
+            } else {
+                // The file would not go: leaving it in the accounting keeps the total honest and stops the walk.
+                stuck = true
+                break
+            }
+        }
+        if (evicted > 0) {
+            trace("STORE trim evicted=$evicted remaining=$dirBytes protected=$protectedBytes ms=${System.currentTimeMillis() - startedMs}")
+            if (!reclaimedReported) {
+                reclaimedReported = true
+                onReclaim()
+            }
+        } else if (stuck) {
+            reportCeilingUnreachable(startedMs)
+        }
+    }
+
+    /** The once-per-store "nothing more can go" line — the latch is on the line, never on [trim]. */
+    private fun reportCeilingUnreachable(startedMs: Long) {
+        if (ceilingUnreachableReported) return
+        ceilingUnreachableReported = true
+        trace(
+            "STORE trim cannot reach ceiling evicted=0 remaining=$dirBytes protected=$protectedBytes " +
+                "ms=${System.currentTimeMillis() - startedMs}"
+        )
     }
 
     companion object {
@@ -217,9 +372,10 @@ internal class DirectoryFineTileStore(
         const val DIR_NAME = "fine_tiles"
 
         /**
-         * The default disk ceiling (72 MiB), mirroring `route.fineTile.maxBytes`. That property key is the
+         * The default disk ceiling (96 MiB), mirroring `route.fineTile.maxBytes`. That property key is the
          * value's one home, read at the app edge; this default stands for a caller that names none (a test).
+         * It is a soft ceiling: a protected home area may hold the store above it.
          */
-        const val DEFAULT_MAX_BYTES: Long = 72L * 1024L * 1024L
+        const val DEFAULT_MAX_BYTES: Long = 96L * 1024L * 1024L
     }
 }
