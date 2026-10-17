@@ -132,6 +132,10 @@ Examples in Settings: Marker halo size and Point/icon zoom (Layers → Markers),
 
 Row padding: **vertical only** — like every row it carries **no horizontal padding** of its own; the container owns the inset (§2.0). Label-left / value-right share one line; for a **two-thumb** slider use `RangeSliderRow` (§2.8).
 
+**A value's suffix is read from a `*_fmt` key, never formatted in code** — `settings_value_pct_fmt`, `settings_value_m_fmt` and `settings_value_dp_fmt` carry the `%`, the `m` and the `dp`, so both locale files own the wording.
+
+**The value hugs its track.** The row's trailing content — the value, and on `ScaledSliderRow` the whole `[☐ ×10][value]` group with it — is **bottom-aligned** against the label/description block (`Alignment.Bottom`), so the reading sits directly above the slider it names; centred, it floats away from its own track whenever a description makes the block two lines. The parts inside that group stay centred on each other, and `RangeSliderRow`'s value line already ends its own block (§2.8), so nothing there changes.
+
 **The marker wizard's slider steps use this row.** Radius, Proximity and Routing cost are a `CardArea` holding this very `SliderRow` (`ui/components/SliderRow.kt`), so the two surfaces share one implementation rather than resembling one; `SliderStep` is only the wizard's thin seam over it, and it passes the two optional end readings — `startLabel` and `endLabel` — that the settings rows leave off. The container owns the inset (§2.0) and the row pads vertically only, as everywhere.
 
 **A slider whose top position means "no limit" reads a word there, not a number.** The Tracks and Routes render counts run 0..30 with a 31st position labelled `All` (`settings_count_all`, through one `countValueLabel`), the sentinel being the only value past the countable band; the range is `0f..31f` with `steps = 30`, so **all 32 positions land on integers** — a slider over an integer band wants `top − bottom − 1` steps, never the band's own width. The bound and the sentinel have one home beside the value they seed (`AppConfig.PATH_COUNT_MAX` / `PATH_COUNT_ALL`, resolved by `AppConfig.pathRenderCap`), and every clamp, label and cap site reads that home rather than spelling the numbers.
@@ -562,6 +566,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ A row that pads itself **horizontally** or paints its own surface (background/radius) — the `CardArea`/`NestedCard` owns the inset and the box (§2.0, §2.1, §2.3). **The bar-shaped controls are the deliberate exception** (§2.7, §2.8, §2.12): `SegmentedRow`, `MultiSelectRow` and `DropdownRow` draw their own rim and pad themselves inside the card's inset, because their box *is* the control
 - ❌ Hand-rolled label + `Switch` rows — use `ToggleRow` (§2.1); its description is optional
 - ❌ Hand-rolled divider markup (`Spacer` + `Box(background)`) — use `SectionDivider()` (§2.6)
+- ❌ Hand-rolled one-knob slider blocks (a bare `Text` label, a `Row` of description + value, then a bare `Slider`) — use `SliderRow` (§2.2)
 - ❌ Hand-rolled `RangeSlider` blocks — use `RangeSliderRow` (§2.8); its value line is mandatory
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ A hand-rolled `Row` of card sections, or a hand-drawn vertical divider (use `SectionRow`, §2.14)
