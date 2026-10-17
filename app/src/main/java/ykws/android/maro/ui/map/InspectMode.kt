@@ -421,10 +421,6 @@ internal fun inspectAnchor(mapView: MapView, centerOffsetPx: Int): LatLng? {
  * mode's own overlay draws it — while a hidden marker layer or hidden tracks contribute nothing, so
  * the mode can never resurrect what the user switched off. The live recording is excluded: it has
  * no card behind it.
- *
- * This is also where every candidate's bbox is derived (plan §2): a point's own position, a line's
- * extent over the very points the metric measures, both cached on the candidate so the per-frame
- * eligibility test never walks geometry again.
  */
 internal suspend fun warmInspectCandidates(
     markers: List<UserMarker>,
@@ -460,13 +456,13 @@ internal suspend fun warmInspectCandidates(
  *
  * - **warming** the layer-visible filtered geometry once at arming, off the UI thread, so a drag
  *   frame never reads a file and no candidate's bbox is derived twice (plan §2);
- * - the **sweep**, an O(N) minimum scan per frame off the UI thread, where the only eligible
- *   candidates are those whose cached bbox overlaps the viewport: stale motion ticks are conflated
- *   and a scan in flight is never cancelled, so every tick publishes and the previous highlight
- *   stands until its successor lands. Each publish is the mode's **live acquire** — the acquired item,
- *   or null — which the caller turns into the panel's presence (plan §1, §2), and a new nearest takes
- *   it over only by the margin `AppConfig.uiMapInspectSwitchMarginPct` settles, so two candidates at
- *   nearly the same distance cannot hand the panel back and forth;
+ * - the **sweep**, an O(N) minimum scan per frame off the UI thread over the whole candidate list:
+ *   stale motion ticks are conflated and a scan in flight is never cancelled, so every tick publishes
+ *   and the previous highlight stands until its successor lands. Each publish is the mode's **live
+ *   acquire** — the acquired item, or null — which the caller turns into the panel's presence (plan
+ *   §1, §2), and a new nearest takes it over only by the margin
+ *   `AppConfig.uiMapInspectSwitchMarginPct` settles, so two candidates at nearly the same distance
+ *   cannot hand the panel back and forth;
  * - the **quiet clock**, purely the quiet: a dwell [AppConfig.uiMapInspectDwellMs] of an idle map with
  *   a target acquired under the gold and no panel open, whose expiry is the **recentre** — the camera
  *   moved onto the acquired item and the ladder frozen at that instant (plan §1, §2);
@@ -545,13 +541,11 @@ internal fun MapInspectEffects(
     val activityTick = remember { mutableIntStateOf(0) }
     LaunchedEffect(activityId) { activityTick.intValue++ }
 
-    // ── Motion: the mode's reference, the live viewport, and the tick consumers key on ──
+    // ── Motion: the mode's reference and the tick consumers key on ──
     // **The acquire point is captured once, at arming, and never re-established** (the user's spec,
     // 2026-10-17): every sweep ranks from the point under the centre marker as the mode was armed, so a
-    // pan, a zoom, the pause's recentre and a step's own framing all move the view alone. The viewport is
-    // the projection's own visible bounds, read fresh on every scan, and it is the whole of the sweep's
-    // eligibility test (plan §2): the map moving changes *which* items are candidates, never the point
-    // they are ranked from.
+    // pan, a zoom, the pause's recentre and a step's own framing all move the view alone. The mode has
+    // no viewport cut, so a motion never changes *which* items are ranked — only when the sweep re-runs.
     val reference = remember { mutableStateOf<LatLng?>(null) }
     val motionTick = remember { mutableIntStateOf(0) }
     val offsetState = rememberUpdatedState(centerOffsetPx)
@@ -611,15 +605,11 @@ internal fun MapInspectEffects(
         // A fresh, unfrozen session starts from the sweep's own answer, never the item the walk left.
         highlight.value = null
         inspectSweep(snapshotFlow { motionTick.intValue }) {
-            // The viewport is read here rather than remembered, so every scan sees the map as it stands —
-            // including the first scan after arming, which no motion has announced yet.
-            val v = mapView?.boundingBox?.let {
-                InspectBounds(it.latNorth, it.lonEast, it.latSouth, it.lonWest)
-            }
             val ref = reference.value
-            if (v == null || ref == null) null
+            if (ref == null) null
             else withContext(Dispatchers.Default) {
-                val nearest = InspectRanking.nearest(ref, warm, v)
+                // The whole candidate list is ranked: the mode has no viewport cut.
+                val nearest = InspectRanking.nearest(ref, warm)
                 // The held item's distance as it stands now, so the margin is judged against the truth
                 // rather than against the figure it carried when it was still the closest.
                 val heldDistance = highlight.value?.id?.let { id ->
@@ -661,17 +651,13 @@ internal fun MapInspectEffects(
                 // The key the wait completed on is the candidate still under the gold: a later one
                 // would have arrived as a new key and restarted the wait.
                 if (candidate.id != key.candidateId) return@collect
-                // The ladder is a single bounded pass over the same warm geometry, filtered to the
-                // viewport on screen at the pick (read here, on the composition thread, because
-                // osmdroid's own bounds are not safe to read off it) and ranked from the mode's fixed
-                // reference, so the sequence is reproducible and never re-ranks — and the recentre that
+                // The ladder is a single bounded pass over the same warm geometry, ranked from the
+                // mode's fixed reference over **every** item the map holds — the mode has no viewport
+                // cut — so the sequence is reproducible and never re-ranks, and the recentre that
                 // follows it cannot change what the walk steps through.
-                val viewport = mapView?.boundingBox?.let {
-                    InspectBounds(it.latNorth, it.lonEast, it.latSouth, it.lonWest)
-                }
-                val ladder = if (viewport == null) emptyList() else withContext(Dispatchers.Default) {
+                val ladder = withContext(Dispatchers.Default) {
                     val ref = reference.value ?: return@withContext emptyList()
-                    InspectRanking.rank(ref, warm, viewport)
+                    InspectRanking.rank(ref, warm)
                 }
                 onRecentre(candidate, ladder)
             }

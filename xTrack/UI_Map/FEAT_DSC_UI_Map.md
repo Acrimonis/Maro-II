@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-17 12:37
+modified: 2026-10-17 13:06
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -158,6 +158,8 @@ explicit values/ViewModels + inline callbacks).
 - `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `WizardDrawer.kt`, `markers/wizard/`, `MapScreen.kt`
 
 ## Implemented
+
+- **inspect mode — the walk uses the full filtered list, no viewport cut (2026-10-17, `feature/inspect`)** — the viewport cut is withdrawn: [`InspectRanking`](app/src/main/java/ykws/android/maro/ui/map/InspectRanking.kt:55) loses `InspectBounds` and the candidate bbox entirely, `nearest()` and `rank()` take just `(anchor, candidates)`, and [`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:602) drops both `boundingBox` reads — so the sweep's true closest and the walk both cover every item the map holds, with the map filters and layer/view buttons still gating the set and the live track excluded. `InspectRankingTest` pins an off-screen item winning the nearest and staying in the order.
 
 - **inspect mode — the anchor captured at arming and the frozen walk owning the card (2026-10-17, `feature/inspect`)** — the acquire point is now captured once at arming and never re-established ([`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:548) seeds it and `refreshMotion` no longer writes it), so every sweep ranks from where the mode was armed and a step's own framing moves the view alone. Once the pause freezes the ladder, [`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:478) gains `frozen`/`frozenCandidate`: the sweep stops publishing, the quiet clock stops re-arming the pause, and the gold paints the cursor's item, while [`inspectAcquireAction`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:312) refuses any live open or close on a frozen ladder and the marker gold reads the cursor ([`MapScreen.kt:3512`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3512)); `InspectAcquireTest` pins the frozen rule.
 

@@ -17,10 +17,10 @@ import ykws.android.maro.spatial.SpatialOperations
 // so the whole behaviour is unit-testable without a device.
 //
 // Two consumers, one metric (plan §2, §3):
-//  - the sweep needs only the nearest eligible item → [nearest], an O(N) minimum scan per frame over
-//    the candidates whose cached bbox overlaps the viewport;
-//  - the ladder needs the visible order → [rank], that same viewport filter then a full sort, run
-//    once at the pick, so a Next walks only the items the screen actually shows.
+//  - the sweep needs only the nearest item → [nearest], an O(N) minimum scan over the whole
+//    candidate list — the mode has no viewport cut, so the true closest always wins;
+//  - the ladder needs the whole order → [rank], the same full sort, run once at the pick, so a Next
+//    walks every item the map holds.
 // Both read the same loaded geometry, so the gold is always the ladder's first entry.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -45,73 +45,24 @@ internal sealed interface InspectGeometry {
 }
 
 /**
- * A rectangle in degrees, edges inclusive.
+ * One inspectable item: its id, what kind it is — the ladder's tie-break reads that — and the
+ * geometry the metric measures.
  *
- * The inspect mode's eligibility test is one of these against the viewport: overlap first, distance
- * second, so a nearer item off screen loses to a farther one on it (plan §2). A candidate's own box
- * is derived once at warm time, so the per-frame test is a rectangle comparison and never a
- * geometry walk. Pure and Android-free: the caller converts the projection's own bounds into one.
- */
-internal data class InspectBounds(
-    val north: Double,
-    val east: Double,
-    val south: Double,
-    val west: Double
-) {
-
-    /** True when the two rectangles share ground, an edge alone counting as shared. */
-    fun overlaps(other: InspectBounds): Boolean =
-        south <= other.north && other.south <= north && west <= other.east && other.west <= east
-
-    companion object {
-
-        /** A point's own degenerate box. */
-        fun of(point: LatLng): InspectBounds =
-            InspectBounds(point.latitude, point.longitude, point.latitude, point.longitude)
-
-        /**
-         * The extent of a line's stored points — its own box, seams included, since this is a
-         * containment test and not a measurement. An empty list yields an inverted box, which
-         * overlaps nothing; the warm pass's own non-empty rule makes that case unreachable.
-         */
-        fun of(points: List<TrackPoint>): InspectBounds {
-            var north = Double.NEGATIVE_INFINITY
-            var east = Double.NEGATIVE_INFINITY
-            var south = Double.POSITIVE_INFINITY
-            var west = Double.POSITIVE_INFINITY
-            for (point in points) {
-                if (point.lat > north) north = point.lat
-                if (point.lat < south) south = point.lat
-                if (point.lon > east) east = point.lon
-                if (point.lon < west) west = point.lon
-            }
-            return InspectBounds(north, east, south, west)
-        }
-    }
-}
-
-/**
- * One inspectable item: its id, what kind it is — the ladder's tie-break reads that — the geometry
- * the metric measures, and the bbox that decides eligibility.
- *
- * A marker's kind and its geometry are independent: a corridor is a MARKER measured as a LINE. The
- * bbox follows the geometry: a point's own position, or a line's extent, both derived here so warm
- * time is the only time the geometry is walked for it (plan §2).
+ * A marker's kind and its geometry are independent: a corridor is a MARKER measured as a LINE.
  */
 internal data class InspectCandidate(
     val id: String,
     val kind: InspectKind,
-    val geometry: InspectGeometry,
-    val bounds: InspectBounds
+    val geometry: InspectGeometry
 ) {
     companion object {
         /** A pin, or a circle at its centre. */
         fun point(id: String, kind: InspectKind, point: LatLng): InspectCandidate =
-            InspectCandidate(id, kind, InspectGeometry.Point(point), InspectBounds.of(point))
+            InspectCandidate(id, kind, InspectGeometry.Point(point))
 
         /** A polyline: a track, or a corridor's centre line. */
         fun line(id: String, kind: InspectKind, points: List<TrackPoint>): InspectCandidate =
-            InspectCandidate(id, kind, InspectGeometry.Line(points), InspectBounds.of(points))
+            InspectCandidate(id, kind, InspectGeometry.Line(points))
     }
 }
 
@@ -167,32 +118,28 @@ internal object InspectRanking {
     }
 
     /**
-     * The visible ladder over [candidates]: the items whose own cached box overlaps [viewport],
-     * ascending by distance, ties broken markers before tracks and then by id ascending —
-     * deterministic, so the walk is reproducible and testable.
+     * The full ladder over [candidates], ascending by distance, ties broken markers before tracks
+     * and then by id ascending — deterministic, so the walk is reproducible and testable.
      *
-     * The filter is the same one [nearest] reads (plan §2, §5), so the walk a Next steps stays on the
-     * items the screen actually shows; the ladder is built once at the pick, so a later pan does not
-     * re-rank it.
+     * Deliberately **not** viewport-filtered: the mode has no viewport cut, so the walk covers every
+     * item the map holds and a Next may land on one the screen has left behind (the user's spec,
+     * 2026-10-17).
      */
-    fun rank(anchor: LatLng, candidates: List<InspectCandidate>, viewport: InspectBounds): List<InspectRank> =
+    fun rank(anchor: LatLng, candidates: List<InspectCandidate>): List<InspectRank> =
         candidates
-            .filter { viewport.overlaps(it.bounds) }
             .map { InspectRank(it.id, it.kind, distance(anchor, it)) }
             .sortedWith(compareBy({ it.distanceM }, { if (it.kind == InspectKind.MARKER) 0 else 1 }, { it.id }))
 
     /**
-     * The sweep's O(N) minimum scan: the closest candidate whose own box overlaps [viewport], or
-     * null when the viewport holds none — which is what clears the gold and lets the scan stand
-     * idle until the map moves again.
+     * The sweep's O(N) minimum scan: the closest candidate over the whole list, or null when the list
+     * is empty — which is what clears the gold and lets the scan stand idle until the map moves again.
      *
-     * Overlap first and distance second, so the answer is never an item the screen does not show,
-     * and no incumbent is held: the true closest of this scan wins on every re-rank (plan §2, §3).
+     * No viewport test stands: the mode ranks every item the map holds, so the true closest wins on
+     * every re-rank and no incumbent is held (plan §2, §3; the user's spec, 2026-10-17).
      */
-    fun nearest(anchor: LatLng, candidates: List<InspectCandidate>, viewport: InspectBounds): InspectRank? {
+    fun nearest(anchor: LatLng, candidates: List<InspectCandidate>): InspectRank? {
         var best: InspectRank? = null
         for (candidate in candidates) {
-            if (!viewport.overlaps(candidate.bounds)) continue
             val d = distance(anchor, candidate)
             val current = best
             if (current == null ||
