@@ -13,7 +13,7 @@ internal const val FINE_TILE_CELLS = 64
  *
  * - a [state] of the stored [`MultipassCellState`] ordinal, one byte a member,
  * - six doubles a member — [sourceCostFactor], [zoneLimitKn], [collarLimitKn], [bandLimitKn],
- *   [bandCollarLimitKn] and [depthBandSec],
+ *   [bandCollarLimitKn] and [gateDistanceM],
  * - an [localIndex] of each member's **local** cell index within the tile (`row * cols + col`), so a
  *   dense box is never materialised to hold one and the member's position is recovered by arithmetic.
  *
@@ -22,10 +22,10 @@ internal const val FINE_TILE_CELLS = 64
  * moves neither the key nor a byte and one tile serves every speed. The base is re-applied once, in one
  * home ([memberCostAtBase]), when [writeInto] materialises the tile into the arm's grid.
  *
- * **The depth band is neither paced nor curved.** [depthBandSec] is the plan's band price at the member,
- * already in seconds and **λ-free**: the pass's own cursor scales it where the search and the pull read
- * it, so all three rungs share one tile exactly as they share one grid. It is the one member value a
- * base multiply does **not** touch — an absolute time, never a multiplier of the base.
+ * **The gate distance is neither paced nor priced.** [gateDistanceM] is the metres from the member's
+ * centre to the nearest shallow cell, **λ-free**: the pass's own cursor turns it into seconds where the
+ * search and the pull read it, so all three rungs share one tile exactly as they share one grid. It is
+ * the one member value a base multiply does **not** touch — a distance, never a multiplier of the base.
  *
  * The tile is the same water a per-arm fine window used to carry — its contents come from the existing
  * [`rasterizeWindow`] with the plan's `fineMask` applied — so a shared tile is the marking work done
@@ -70,12 +70,11 @@ internal class FineTile(
     /** The 300 m band's outside-margin limit (kn) of each member. */
     val bandCollarLimitKn: DoubleArray,
     /**
-     * **The λ-free depth-band price (s) of each member** — `0.0` on water the plan's band does not
-     * reach, on a plan that prices none, and where the depth is unknown. It is stored verbatim from the
-     * unit-base raster and restored verbatim by [writeInto]: unlike [sourceCostFactor] nothing scales
-     * it but the pass's own λ at read.
+     * **The gate distance (m) of each member** — `Double.MAX_VALUE` on water no shallow cell is
+     * reachable from. It is stored verbatim from the unit-base raster and restored verbatim by
+     * [writeInto]: unlike [sourceCostFactor] nothing scales it but the pass's own λ at read.
      */
-    val depthBandSec: DoubleArray,
+    val gateDistanceM: DoubleArray,
     /** Each member's local cell index within the block: `row * cols + col`. */
     val localIndex: IntArray
 ) {
@@ -106,7 +105,7 @@ internal class FineTile(
             if (!target.inBounds(row, col)) continue
             target.writeMember(
                 row, col, state[m], memberCostAtBase(target.baseCostSec, sourceCostFactor[m]),
-                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m], depthBandSec[m]
+                zoneLimitKn[m], collarLimitKn[m], bandLimitKn[m], bandCollarLimitKn[m], gateDistanceM[m]
             )
         }
     }
@@ -159,7 +158,7 @@ internal class FineTile(
             val collarLimitKn = DoubleArray(members)
             val bandLimitKn = DoubleArray(members)
             val bandCollarLimitKn = DoubleArray(members)
-            val depthBandSec = DoubleArray(members)
+            val gateDistanceM = DoubleArray(members)
             val localIndex = IntArray(members)
             var m = 0
             for (row in haloCells until haloCells + tileCells) {
@@ -171,7 +170,7 @@ internal class FineTile(
                     collarLimitKn[m] = grid.collarLimitKn(row, col)
                     bandLimitKn[m] = grid.bandLimitKn(row, col)
                     bandCollarLimitKn[m] = grid.bandCollarLimitKn(row, col)
-                    depthBandSec[m] = grid.depthBandSec(row, col)
+                    gateDistanceM[m] = grid.gateDistanceM(row, col)
                     localIndex[m] = (row - haloCells) * tileCells + (col - haloCells)
                     m++
                 }
@@ -185,7 +184,7 @@ internal class FineTile(
                 cellM = grid.cellM,
                 state = state, sourceCostFactor = sourceCostFactor, zoneLimitKn = zoneLimitKn,
                 collarLimitKn = collarLimitKn, bandLimitKn = bandLimitKn,
-                bandCollarLimitKn = bandCollarLimitKn, depthBandSec = depthBandSec,
+                bandCollarLimitKn = bandCollarLimitKn, gateDistanceM = gateDistanceM,
                 localIndex = localIndex
             )
         }

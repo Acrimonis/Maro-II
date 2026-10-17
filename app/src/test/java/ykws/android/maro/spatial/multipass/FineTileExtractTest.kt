@@ -105,6 +105,6 @@ class FineTileExtractTest {
     /** Member 0's seven stored values, as one comparable snapshot. */
     private fun memberZero(tile: FineTile): List<Double> = listOf(
         tile.state[0].toDouble(), tile.sourceCostFactor[0], tile.zoneLimitKn[0], tile.collarLimitKn[0],
-        tile.bandLimitKn[0], tile.bandCollarLimitKn[0], tile.depthBandSec[0]
+        tile.bandLimitKn[0], tile.bandCollarLimitKn[0], tile.gateDistanceM[0]
     )
 }

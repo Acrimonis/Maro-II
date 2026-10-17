@@ -36,6 +36,7 @@ import ykws.android.maro.spatial.multipass.RouteCornerPass
 import ykws.android.maro.spatial.multipass.RouteCornerPass.CornerOutcome
 import ykws.android.maro.spatial.multipass.RouteCornerPass.CornerVerdict
 import ykws.android.maro.spatial.multipass.RouteCostField
+import ykws.android.maro.spatial.multipass.RouteDepthReading
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridBuilder
 import ykws.android.maro.spatial.multipass.RouteGridPlan
@@ -645,6 +646,13 @@ class RouteAvoidEngine(
         val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
         val slowM = slowMetres(timedLine, ctx.pace)
         trace {
+            // **The depth gate's own readings** — how shallow the drawn line gets and how close it comes
+            // to the wall's edge, the closest point named, and the body separated from the ends by the
+            // pull's own end disc. Built inside the sink so a solve with the tag off pays none of it.
+            val lineMinDepthM = RouteDepthReading.minDepthM(ctx.world, timedLine.points)
+            val edge = RouteDepthReading.edgeReading(
+                ctx.world, timedLine.points, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
+            )
             "LINE distance=${fmt(lineLengthM(timedLine.points))}m duration=${fmt(timedLine.durationSec)}s " +
                 "legs=${timedLine.legTimesSec.size} " +
                 "step=${fmt(clockSampleM(ctx.cellM, ctx.fineCellM))}m " +
@@ -652,6 +660,11 @@ class RouteAvoidEngine(
                 "slowMetres=${fmt(slowM)}m slowShare=${fmt(zoneSlowShare(timedLine, ctx.pace), 2)} " +
                 "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
+                "minDepth=${if (lineMinDepthM.isNaN()) "n/a" else fmt(lineMinDepthM) + "m"} " +
+                "gateEdge=${if (edge.distanceM.isNaN()) "n/a" else fmt(edge.distanceM) + "m"} " +
+                "gateEdgeAt=${pointText(edge.at)} " +
+                "bodyEdge=${if (edge.bodyDistanceM.isNaN()) "n/a" else fmt(edge.bodyDistanceM) + "m"} " +
+                "bodyEdgeAt=${pointText(edge.bodyAt)} " +
                 "forced=[${forced.joinToString(", ")}] " +
                 "crossed=[${crossed.joinToString(", ")}]"
         }
@@ -889,6 +902,10 @@ class RouteAvoidEngine(
      * device's own `Log.i` channel under the tag's level otherwise; [message] is built only when a line
      * is actually emitted.
      */
+    /** A point as `lat,lon` to five decimals, or `n/a` where it is `NaN`. */
+    private fun pointText(p: LatLng): String =
+        if (p.latitude.isNaN()) "n/a" else "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
+
     private inline fun trace(message: () -> String) {
         val sink = traceSink
         if (sink != null) sink(message()) else if (logEnabled) Log.i(TAG, message())

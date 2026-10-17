@@ -76,7 +76,7 @@ class AvoidDepthGateTest {
     private fun gated(depthMAt: (LatLng) -> Double): MultipassGrid =
         rasterize(
             box, 50.0, paceKn, 25.0, emptyList(), emptyList(), box.latNorth,
-            RouteCostField(listOf(depthGateSource(minDepthM, depthMAt)))
+            RouteCostField(listOf(depthGateSource(minDepthM, depthMAt = depthMAt)))
         )
 
     /** A patch of water roughly 250 m by 110 m at the corridor's middle, away from the ends. */

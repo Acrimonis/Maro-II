@@ -32,7 +32,6 @@ import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
-import ykws.android.maro.spatial.multipass.DepthBand
 import ykws.android.maro.spatial.multipass.MultipassEdge
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.bandReachM
@@ -793,8 +792,8 @@ class RouteAvoidEngineTest {
 
         override fun fineWater(query: FineWaterQuery): FineWater = inner.fineWater(query)
 
-        /** The band travels with the plan it wraps, so a wrapper cannot change `avoid`'s water. */
-        override fun depthBand(): DepthBand? = inner.depthBand()
+        /** The berth travels with the plan it wraps, so a wrapper cannot change `avoid`'s water. */
+        override val pricesBerth: Boolean get() = inner.pricesBerth
     }
 
     /**

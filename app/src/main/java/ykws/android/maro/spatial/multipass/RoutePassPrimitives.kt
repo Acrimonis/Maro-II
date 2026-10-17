@@ -38,22 +38,15 @@ internal fun costField(
      * **The marker price's strength** — the Routing row's own factor, threaded as a live value beside
      * [pace] so a slider move reaches the next arm. The marker law is `base × step × strength`.
      */
-    markerStrength: Double = 1.0,
-    /**
-     * **The plan whose depth band this field prices** — the band rides the plan seam rather than a door
-     * on this function, so `avoid`'s plan answers none and its field is exactly what it was. The band's
-     * law is λ-free on the field ([RouteCostField.depthBandSecAt], what the rasterizer writes) and the
-     * pass's [lambda] is the cursor [RouteCostField.softPriceSecAt] scales it by, so the search and the
-     * guard price one point identically.
-     */
-    plan: RouteGridPlan = UniformGridPlan
+    markerStrength: Double = 1.0
 ): RouteCostField {
     val sources = ArrayList<RouteCostSource>(3)
     sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
     if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
-        sources.add(depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p -> depthMAt(world, p) })
+        sources.add(
+            depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p -> depthMAt(world, p) }
+        )
     }
-    val depthBandSec = depthBandSecOf(plan, world)
     val bandM = world.bandWidthM
     val bandPriced = withBand && AppConfig.routeAvoidZone300Enabled && bandM > 0.0
     val zonesPriced = withZones && AppConfig.routeAvoidSpeedZoneEnabled && zones.isNotEmpty()
@@ -164,7 +157,7 @@ internal fun costField(
             AppConfig.routeMarkerEnabled
         )
     )
-    return RouteCostField(sources, cellM, depthBandSec, if (depthBandSec != null) lambda else 0.0)
+    return RouteCostField(sources, cellM)
 }
 
 /**
@@ -177,17 +170,28 @@ internal fun depthMAt(world: MultipassWorld, p: LatLng): Double {
     return if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
 }
 
+/** The gate's standoff margin in force (m), 0 where the gate is off — both engines' hard standoff. */
+internal fun gateStandoffM(depthGateActive: Boolean): Double =
+    if (depthGateActive) AppConfig.routeAvoidDepthGateMarginM else 0.0
+
 /**
- * **The plan's depth band as a λ-free per-cell price read, or `null` where it prices none.** It is the
- * one derivation the field's own arm and the tiles' own field share, so a rasterised cell and a
- * guarded point are priced by the same law, and a world whose depth layer is not loaded answers `null`
- * — there is no sounding to price over, exactly as the gate's wall would be inert.
+ * **The berth's law** — the gate margin it starts at, the outer edge it fades to, and the full rate. It
+ * rides the plan because the berth is *this* algorithm's own water: `avoid` prices none, `evolutive`
+ * answers the `route.evolutive.berth.*` keys behind the gate's own switch.
  */
-internal fun depthBandSecOf(plan: RouteGridPlan, world: MultipassWorld): ((LatLng) -> Double)? {
-    if (!world.depthReady) return null
-    val band = plan.depthBand() ?: return null
-    return { p -> depthBandPriceSecAt(band, depthMAt(world, p)) }
-}
+internal data class BerthLaw(val marginM: Double, val outerM: Double, val secPerM: Double)
+
+/** The plan's berth law, or `null` where it prices none (or the gate is off). */
+internal fun berthLawOf(plan: RouteGridPlan, depthGateActive: Boolean): BerthLaw? =
+    if (plan.pricesBerth && depthGateActive) {
+        BerthLaw(
+            AppConfig.routeAvoidDepthGateMarginM,
+            AppConfig.routeEvolutiveBerthOuterM,
+            AppConfig.routeEvolutiveBerthSecPerM
+        )
+    } else {
+        null
+    }
 
 /**
  * **The fine tile's own field — the depth gate's wall and the priced markers, at an explicit base.**
@@ -205,18 +209,14 @@ internal fun depthBandSecOf(plan: RouteGridPlan, world: MultipassWorld): ((LatLn
 internal fun tileCostField(
     world: MultipassWorld,
     baseCostSec: Double,
-    markerStrength: Double,
-    /**
-     * **The plan whose depth band this tile's water carries**, so a cached tile and a fresh arm's build
-     * price one band identically. The tile stores the band's λ-free seconds per member — a cursor of
-     * zero here, since a tile is never pulled against — and the arm's own pass scales them.
-     */
-    plan: RouteGridPlan = UniformGridPlan
+    markerStrength: Double
 ): RouteCostField {
     val sources = ArrayList<RouteCostSource>(3)
     sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
     if (AppConfig.routeAvoidDepthGateEnabled && world.depthReady) {
-        sources.add(depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p -> depthMAt(world, p) })
+        sources.add(
+            depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p -> depthMAt(world, p) }
+        )
     }
     sources.addAll(
         markerSources(
@@ -226,7 +226,7 @@ internal fun tileCostField(
             AppConfig.routeMarkerEnabled
         )
     )
-    return RouteCostField(sources, depthBandPriceSecAt = depthBandSecOf(plan, world))
+    return RouteCostField(sources)
 }
 
 /**
