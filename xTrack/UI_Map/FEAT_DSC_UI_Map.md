@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-13 19:47
+modified: 2026-10-17 11:52
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -158,6 +158,8 @@ explicit values/ViewModels + inline callbacks).
 - `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `WizardDrawer.kt`, `markers/wizard/`, `MapScreen.kt`
 
 ## Implemented
+
+- **bottom-left tag column aligned to the zoom stack (2026-10-17, `feature/lyt-ui`)** — the map's bottom zone padded itself by `WindowInsets.navigationBars` in landscape and by `ui.map.toggle.gutter` in portrait, so on a three-button device the tag column stood a nav bar's height above the map's bottom edge while the zoom stack beside it sat on 6 dp; the zone now takes `padding(bottom = TOP_TOGGLE_GUTTER)` in both orientations and its `navigationBars` import went with the fork. The same box carries the loading card, the error card and the exit toast, so those no longer clear the nav bar in landscape; the zoom stack still pads its own literal 6 dp, and the two homes of that gutter are recorded as a finding rather than merged.
 
 - **routing square's loading dot reads the tile store's busy window (2026-10-13)** — the routing square's mark turns white (`ui.map.pulse.dot.loading`, `AppConfig.uiMapPulseDotLoading`) at **half** the regular beat while the **fine-tile store** is working — the window a cleared app cache actually rebuilds over seconds — and clears a grace after its last tile, so one arming reads as one steady window rather than a flicker tile to tile. The signal's one home is [`FineTileCache.busy`](app/src/main/java/ykws/android/maro/spatial/multipass/FineTileCache.kt:59), a `StateFlow` fed by each store-facing lookup the map runs ([`FineTileMap`](app/src/main/java/ykws/android/maro/spatial/multipass/FineTileMap.kt:43)'s `onBusy` sink) and debounced by [`FineTileActivity`](app/src/main/java/ykws/android/maro/spatial/multipass/FineTileActivity.kt:29) at a 400 ms grace. `MapScreen` collects it and threads it into [`routeFace`](app/src/main/java/ykws/android/maro/ui/map/MapToggleFace.kt:115), whose loading arm changes the mark's colour and beat alone — the fill is resolved exactly as the arms beneath it, so an off square keeps the pale base. The two edges also emit one `busy on` / `busy off` line on the `MaroRoute` tag ([`FineTileCache.traceTo`](app/src/main/java/ykws/android/maro/spatial/multipass/FineTileCache.kt:66)), so a device pass is read rather than eyeballed. The half beat is a derived [`AppConfig.uiMapPulseDotLoadingMs`](app/src/main/java/ykws/android/maro/config/AppConfig.kt:718) (`ui.map.pulse.dot.ms` ÷ 2, 333 ms today), never a second key; `TopToggleFace` and `MapSurfaceFace` carry the optional `dotPulseMs`, and [`MapToggleSquare`](app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt:169) hands it to `MapPulseDot` (the shared default otherwise). The dot no longer reports the regulated-zone asset load — that asset ships in the APK and never moves on an app-cache clear — and the repository keeps no loading flag for it. The mark's disc, floor, ring width and inset ratio are untouched → `xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md`.
 
