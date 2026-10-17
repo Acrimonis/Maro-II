@@ -1,8 +1,9 @@
 <!-- scope: feature -->
 # Route — a priced band beyond the depth gate's margin
 
-**Date:** 2026-10-07 · **Status:** in design as **one standing question** — the band itself left the tree with
-`selective`, so this file no longer describes a design in discussion but the ask that survived its carrier ·
+**Date:** 2026-10-07 · **Status:** in design as **one standing question** — the band landed on `evolutive`,
+was re-tuned to a per-metre cubic fall, and the 20 m standoff is enforced; the open question is the
+**20–50 m berth** (standoff price vs depth price) ·
 **Anchors re-verified 2026-10-16** · **Order:** the user's word
 of 2026-10-07 — *"Margin is closest allowed. I would like to add an extra range and increase its cost. The
 idea is not to prevent going through but if possible, go wider away from those low depth. For ex, min is
@@ -96,16 +97,12 @@ the water allows. Two shapes, and choosing between them was this plan's first qu
 
 ## Open questions
 
-- In the user's example, is **20 m a depth and 50 m a depth, or 50 m a distance**? The sentence reads both
-  ways, and the two shapes above are exactly those two readings.
-- Should the price be **per metre** toward the wall or a **flat surcharge** on a shallow cell?
-- Does the band belong to the depth gate (keys beside `minM` / `marginM`) or to the slow-water family that λ
-  already owns?
-- What must **not** happen: a rung choosing a much longer open-water line to shave a few metres of shallow
-  water. Is there a cap on the detour the band may buy, or is λ the only brake?
-
-- All four were answered by the code as the Updates below record — the geometry, the per-metre gradient, the
-  keys' home and the brake. What stands is not on this list.
+- **The berth's currency.** The user's *at least 20 m away, then out if there is room* reads as a
+  **standoff**, but the shipped price is in **depth**. On the last pair every rung sits at exactly
+  `gateEdge=20.0 m` over a flat 4 m bank, because there is no depth room to move into. Whether the 20–50 m
+  berth should be priced in **standoff distance** — fed by a per-grid distance-to-gate field, which would
+  also replace the eight-bearing ring's per-read cost — is the decision now open. The per-metre cubic, the
+  plateau's removal and the hard 20 m standoff above it are settled and recorded in `## Update — 2026-10-17`.
 
 ## Update — 2026-10-16: the design landed, and its home is leaving
 
@@ -205,3 +202,49 @@ the water allows. Two shapes, and choosing between them was this plan's first qu
   steps around, its seconds held out of play by the clock and the crown alike; the figures and the fix they point
   at, a windowed taunt with an allowance, live in
   [`261016_FEAT_PLN_Route_taunt-window-and-allowance.md`](261016_FEAT_PLN_Route_taunt-window-and-allowance.md).
+
+## Update — 2026-10-17: the dials, the unit and the plateau
+
+- **The band's dials are the outer edge and the rate** — `route.evolutive.depth.softDepthM=50` and
+  `route.evolutive.depth.priceSecPerM=0.1`; the `route.evolutive.depth.reachM` key and its accessor are gone, so
+  the water the price ends at is the order's own 50 m depth rather than the gate plus a reach.
+- **The charge is per metre of water** — `depthBandPriceSecAt(band, depthM, cellM)` returns
+  `secPerM × (the depth's share of the band)³ × cellM`, so the 20 m ribbon and the 100 m interior pay the same per
+  metre; `depthBandSecOf` and `tileCostField` carry the cell size, and `theRateIsTheSamePerMetreAtEveryCellSize`
+  pins it. The device evidence that drove it — a three-rung 5 kn pair with the whole run inside the 300 m band —
+  showed the per-cell unit leaving the coarse grid five times cheaper per metre, where the offshore detour is
+  decided.
+- **No plateau stands above the wall** — the band's inner end is the gate's own `minM`, so the price falls in one
+  straight line to the 50 m edge and a 4 m and a 7 m cell are different prices. The second device pair — 643 m,
+  every metre inside the former 20 m plateau — returned the *same line at every λ*, because a flat price cancels
+  out of the ranking; the `route.evolutive.depth.floorM` key, its accessor and the tile key's floor field were
+  removed before the branch was recorded.
+- **The fall is cubic** — the depth's share of the band is raised to the cube (`DEPTH_BAND_CURVE`), so twenty
+  metres of water costs under a third of the wall's rate. On the 1.4 km pair that makes the Detour rung's saving
+  (~474 s at λ5) cover a ~1 km offshore detour (~389 s), where the linear fall saved only ~48 s and the pair's
+  rungs sat within 9–17 m; `theFallIsCubicInTheDepthShare` pins the curve.
+- **Build** — the six scoped suites are green (DepthBandCostTest, DepthBandPropertiesTest, TileKeyTest,
+  FineTileMapTest, FineTileExtractTest, FineTilePaceFreeTest). The full unit suite runs 1317 tests with **one
+  failure that predates this change** — `PullAllowancePropertiesTest` expecting
+  `route.avoid.pull.allowanceShare=0.02` while `maro.properties` ships `0.1`; neither file is in this change's set.
+- **The LINE now carries the gate's own two readings** — `minDepth=` (the shallowest known depth on the
+  drawn line) and `gateEdge=` (the closest it comes to the water the gate blocks, by an eight-bearing
+  ring scan at a 5 m step), both read from the line's 10 m samples **inside** the trace sink, so a solve
+  with the tag off pays neither; `RouteDepthReading` holds them and `RouteDepthReadingTest` pins the
+  shelf geometry.
+- **The new readings put the last pair on record** — λ1 runs 1 398 m with `minDepth=2.7 m` and
+  `gateEdge=5 m`: the coastal rung rides the gate's own threshold and the drawn line **dips under the
+  gate's 3 m between marks**, five metres off blocked water. The two detour rungs run 2 638 · 2 656 m at
+  `minDepth=4.1 m` and `gateEdge=20 m`. The preceding 2.9 km pair read 4.9 m / 25 m on all three rungs.
+- **The 20 m standoff is enforced** — on the user's word that 5 m was too close, `depthGateSource` gained
+  its margin: `gateStandoffClears` samples an eight-bearing ring at `route.avoid.depthGate.marginM` (20 m)
+  and the corner pass's bows use the same test, so a cell, a chord or a bow whose ring touches blocked
+  water is refused, while `0` restores the bare step. That answers the sub-gate dip at its source — the
+  pull's 20 m marks could pass over shallower water than either end, and the ring closes the gap. Its
+  device pass reads `gateEdge=20.0 m` on all three rungs — the Coastal rung moved from 5 m to 20 m and
+  its shallowest water from 2.7 m to **3.9 m** — at the price of a slower acquisition: coarse
+  688–856 ms against 201–286 ms, fine 1.1–1.8 s against 0.56–0.77 s, and `passableUnique` 9 648 → 9 165.
+- **Still open** — the berth's currency. The hard 20 m standoff holds and the cubic separates the rungs, but
+  the 20–50 m berth the user asked for is invisible because the preference is in depth, not standoff; a
+  per-grid distance-to-gate field would carry that berth and replace the ring's per-read cost. The zero
+  clearance and the per-interval reads it buys stand beside it.

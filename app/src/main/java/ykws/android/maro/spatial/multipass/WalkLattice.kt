@@ -551,6 +551,39 @@ internal class WalkWindows private constructor(
     }
 
     /**
+     * **The gate distance (m) the drawn tail reads at [point]** — the finest layer whose own window holds
+     * passable water where the point stands, read at that layer's cell, so the band's 20 m survives into
+     * the points. The pull's guard reads this, mirroring [cellSizeAt] so the size and the distance agree
+     * about which layer the point resolves on.
+     */
+    fun gateDistanceMAt(point: LatLng): Double {
+        val layers = lattices ?: return windows[0].grid.gateDistanceMAt(point.latitude, point.longitude)
+        var winner = layers[0]
+        var winnerIndex = 0
+        for (index in layers.indices) {
+            if (layers[index].cellM > winner.cellM) {
+                winner = layers[index]
+                winnerIndex = index
+            }
+        }
+        for (index in layers.indices) {
+            val lattice = layers[index]
+            if (lattice.cellM >= winner.cellM) continue
+            val slot = rawSlotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
+            if (slot >= 0 && passable(slot)) {
+                winner = lattice
+                winnerIndex = index
+            }
+        }
+        val row = winner.rowOf(point.latitude)
+        val col = winner.colOf(point.longitude)
+        val slot = rawSlotOf(winnerIndex, row, col)
+        if (slot < 0) return Double.MAX_VALUE
+        val window = windowOf(slot)
+        return window.grid.gateDistanceM(row - window.rowOffset, col - window.colOffset)
+    }
+
+    /**
      * The slots **across the seam** from the cell on [layer] at `(row, col)` in direction `(dr, dc)` — the
      * other resolution's cells that meet this cell's face, or its corner. Empty where the walk is one
      * lattice, where the pair is not an integer ratio above one, or where a fine cell stands inside its
@@ -614,12 +647,12 @@ internal class WalkWindows private constructor(
     }
 
     /**
-     * The slot's own **λ-free depth-band price (s)**, read from the window that holds it — the value
-     * the search scales by the pass's own cursor, exactly as it reads [sourceCostSec] and the limits.
+     * The slot's own **gate-distance (m)**, read from the window that holds it — the value the search
+     * scales by the pass's own cursor, exactly as it reads [sourceCostSec] and the limits.
      */
-    fun depthBandSec(slot: Int): Double {
+    fun gateDistanceM(slot: Int): Double {
         val window = windowOf(slot)
-        return window.grid.depthBandSec(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
+        return window.grid.gateDistanceM(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
     /** The window a slot stands on — its own grid and its lattice offset. */

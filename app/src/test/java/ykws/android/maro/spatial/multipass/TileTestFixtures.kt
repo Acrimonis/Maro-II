@@ -43,8 +43,9 @@ internal object TileTestFixtures {
         gateMinDepthM = 3.0,
         gateMarginM = 20.0,
         depthGateEnabled = true,
-        depthBandSoftDepthM = 28.0,
-        depthBandSecPerM = 0.05,
+        berthOuterM = 50.0,
+        berthSecPerM = 0.1,
+        depthCollarM = 170.0,
         bandWidthM = 300.0,
         bandLimitKn = 5.0,
         bandOutsideMarginM = 50.0,
@@ -77,8 +78,9 @@ internal object TileTestFixtures {
         "gateMinDepthM" to base.copy(gateMinDepthM = base.gateMinDepthM + 1.0),
         "gateMarginM" to base.copy(gateMarginM = base.gateMarginM + 1.0),
         "depthGateEnabled" to base.copy(depthGateEnabled = !base.depthGateEnabled),
-        "depthBandSoftDepthM" to base.copy(depthBandSoftDepthM = base.depthBandSoftDepthM + 1.0),
-        "depthBandSecPerM" to base.copy(depthBandSecPerM = base.depthBandSecPerM + 1.0),
+        "berthOuterM" to base.copy(berthOuterM = base.berthOuterM + 1.0),
+        "berthSecPerM" to base.copy(berthSecPerM = base.berthSecPerM + 1.0),
+        "depthCollarM" to base.copy(depthCollarM = base.depthCollarM + 1.0),
         "bandWidthM" to base.copy(bandWidthM = base.bandWidthM + 1.0),
         "bandLimitKn" to base.copy(bandLimitKn = base.bandLimitKn + 1.0),
         "bandOutsideMarginM" to base.copy(bandOutsideMarginM = base.bandOutsideMarginM + 1.0),
@@ -105,7 +107,7 @@ internal object TileTestFixtures {
         collarLimitKn = DoubleArray(members) { it * 2.5 },
         bandLimitKn = DoubleArray(members) { it * 3.0 },
         bandCollarLimitKn = DoubleArray(members) { it * 3.5 },
-        depthBandSec = DoubleArray(members) { it * 4.0 },
+        gateDistanceM = DoubleArray(members) { it * 4.0 },
         localIndex = IntArray(members) { it }
     )
 }

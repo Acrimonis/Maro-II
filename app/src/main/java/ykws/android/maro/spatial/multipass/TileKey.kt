@@ -17,8 +17,8 @@ import java.io.DataOutputStream
  * - **The stamps** — [depthGenerationStamp], [coastlineGenerationStamp], [emodnetCutoffM] and
  *   [zoneGenerationStamp]: a re-baked asset, a moved cutoff or a rebuilt zone list must not leave
  *   coefficients cached.
- * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the depth band's
- *   [depthBandSoftDepthM] and [depthBandSecPerM], the band's [bandWidthM], [bandLimitKn] and
+ * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the berth's
+ *   [berthOuterM] and [berthSecPerM], the band's [bandWidthM], [bandLimitKn] and
  *   [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's fine-mask bands ([coastBandsM]). The
  *   **pace is deliberately absent**: the tile stores a pace-free factor and the base is re-applied from
  *   the target grid, so one tile serves every speed.
@@ -65,18 +65,25 @@ internal data class TileKey(
     /** Whether the 3 m depth gate is armed for this arm. */
     val depthGateEnabled: Boolean,
     /**
-     * **The depth band's outer edge (m of depth)** — the plan's own answer, `0.0` where it prices none.
-     * A member's stored depth price is zero outside it, so a plan that prices no band and a plan whose
-     * band reaches nothing produce the same water; keying it keeps that a **miss** rather than a line
-     * drawn against a band the tile never carried.
+     * **The berth's outer edge (m off the gate edge)** — the plan's own answer, `0.0` where it prices
+     * none. A member's stored distance is zero-priced beyond it, so a plan that prices no berth and a
+     * plan whose berth reaches nothing produce the same water; keying it keeps that a **miss** rather
+     * than a line drawn against a berth the tile never carried.
      */
-    val depthBandSoftDepthM: Double,
+    val berthOuterM: Double,
     /**
-     * **The depth band's per-metre gradient (s/m)** — the plan's own answer, `0.0` where it prices none.
-     * It scales every member's stored depth price, so a moved value must move the key or a cached tile
-     * would price the old gradient.
+     * **The berth's full rate (s/m)** — the plan's own answer, `0.0` where it prices none. It scales
+     * every member's stored distance into seconds, so a moved value must move the key or a cached tile
+     * would price the old rate. The berth's inner end is the gate's own margin, which [gateMarginM]
+     * already keys.
      */
-    val depthBandSecPerM: Double,
+    val berthSecPerM: Double,
+    /**
+     * **The low-depth collar's reach (m off a shallow cell)** — the plan's own answer, `0.0` where it
+     * asks no collar. The fine membership keeps a cell at or inside it, so a moved collar must move the
+     * key or a cached tile would keep water the collar no longer covers.
+     */
+    val depthCollarM: Double,
     /** The priced band's width (m). */
     val bandWidthM: Double,
     /** The 300 m band's own speed limit (kn), or 0.0 where the band is not priced. */
@@ -152,8 +159,9 @@ internal data class TileKey(
         out.writeDouble(gateMinDepthM)
         out.writeDouble(gateMarginM)
         out.writeBoolean(depthGateEnabled)
-        out.writeDouble(depthBandSoftDepthM)
-        out.writeDouble(depthBandSecPerM)
+        out.writeDouble(berthOuterM)
+        out.writeDouble(berthSecPerM)
+        out.writeDouble(depthCollarM)
         out.writeDouble(bandWidthM)
         out.writeDouble(bandLimitKn)
         out.writeDouble(bandOutsideMarginM)

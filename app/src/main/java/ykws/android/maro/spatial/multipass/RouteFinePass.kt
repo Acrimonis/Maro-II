@@ -26,8 +26,8 @@ internal class RouteFinePass {
      * context here — a line cost counts and caches nothing.
      */
     internal fun pricedLineCost(setup: PullSetup, points: List<LatLng>): Double {
-        if (!setup.field.hasSoft || points.size < 2) return 0.0
         val ctx = setup.context()
+        if (!ctx.hasSoftPrice || points.size < 2) return 0.0
         var total = 0.0
         for (i in 1 until points.size) {
             total += MultipassPull.softPriceSec(points[i - 1], points[i], ctx)
@@ -83,9 +83,21 @@ internal class RouteFinePass {
         val fineGuard =
             costField(
                 world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-                markerStrength = ctx.markerStrength, plan = ctx.plan
+                markerStrength = ctx.markerStrength
             )
-        val setup = PullSetup(marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches)
+        val gateMarginM = gateStandoffM(ctx.depthGateActive)
+        val berth = berthLawOf(ctx.plan, ctx.depthGateActive)
+        val gateDistanceMAt: (LatLng) -> Double = { p ->
+            (ctx.windows ?: WalkWindows.of(ctx.grid)).gateDistanceMAt(p)
+        }
+        val setup = PullSetup(
+            marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches,
+            gateDistanceMAt = gateDistanceMAt, gateMarginM = gateMarginM,
+            berthOuterM = berth?.outerM ?: 0.0, berthSecPerM = berth?.secPerM ?: 0.0, berthLambda = lambda,
+            gateDepthAt = { p -> depthMAt(world, p) },
+            gateMinDepthM = if (ctx.depthGateActive) ctx.minDepthM else 0.0,
+            paceMps = Units.knotsToMps(pace)
+        )
         // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
         // the way the device takes it says whether the price walk grouped at all on this fine grid.
         val pullTiming = PullTiming()
@@ -111,7 +123,13 @@ internal class RouteFinePass {
                 "memoPriceHits=${finalTiming.memoPriceHits} " +
                 "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
         }
-        return swept
+        // The wall-checked straightening — Douglas–Peucker over the settled line, before the corner pass
+        // consumes it: near-collinear waypoints collapse into straight chords so the corner pass sees
+        // fewer bends, and a chord is taken only where it clears the wall and is no dearer. The pass reads
+        // the same setup the pull walked, so the clearance is one home.
+        val straightened = MultipassPull.straightenLine(setup, swept)
+        trace { "STRAIGHTEN points=${swept.size}→${straightened.size}" }
+        return straightened
     }
 
     /**
@@ -143,9 +161,9 @@ internal class RouteFinePass {
         refusals: PullRefusals?,
         markerStrength: Double = 1.0,
         /**
-         * **The plan's own depth band** — carried so this local re-solve prices the very water the
-         * coarse answer did: its field writes the band's λ-free price onto the local grid exactly as
-         * the arm's own field did, and its pull prices the band at the pass's λ.
+         * **The plan whose berth this crossing prices** — carried so this local re-solve prices the very
+         * water the coarse answer did: its grid carries the same distance field and its pull prices the
+         * berth at the pass's λ.
          */
         plan: RouteGridPlan = UniformGridPlan,
         trace: (() -> String) -> Unit = {}
@@ -176,23 +194,37 @@ internal class RouteFinePass {
         val to = if (last == line.size - 1) aim else line[last + 1]
         val base = costField(
             world, fineCellM, pace, withZones = false, withBand = false, zones = emptyList(), lambda = lambda,
-            markerStrength = markerStrength, plan = plan
+            markerStrength = markerStrength
         )
         val guard = costField(
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
-            markerStrength = markerStrength, plan = plan
+            markerStrength = markerStrength
         )
+        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val gateMarginM = gateStandoffM(depthGateActive)
+        val berth = berthLawOf(plan, depthGateActive)
         // This crossing walks one fine grid — clearance at its own cell, price at the coarse one, as in
         // `finePass`. The water is built once here, immediately after the field, and never cached.
         val coarseStepM = fineCellM
         val priceStepM = cellM
-        val setup = PullSetup(marginM, coarseStepM, priceStepM, guard, start, aim, approaches)
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
-            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world)
+            zoneOutsideMarginM = outsideMarginM, band = bandLaw(world),
+            gateMarginM = gateMarginM, berthOuterM = berth?.outerM ?: 0.0
         )
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
+        val setup = PullSetup(
+            marginM, coarseStepM, priceStepM, guard, start, aim, approaches,
+            gateDistanceMAt = { p -> WalkWindows.of(grid).gateDistanceMAt(p) },
+            gateMarginM = gateMarginM,
+            berthOuterM = berth?.outerM ?: 0.0,
+            berthSecPerM = berth?.secPerM ?: 0.0,
+            berthLambda = lambda,
+            gateDepthAt = { p -> depthMAt(world, p) },
+            gateMinDepthM = if (depthGateActive) AppConfig.routeAvoidDepthGateMinM else 0.0,
+            paceMps = Units.knotsToMps(pace)
+        )
         val search = MultipassSearch.search(
             grid,
             grid.cellOf(from.latitude, from.longitude),
@@ -205,9 +237,12 @@ internal class RouteFinePass {
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
             },
-            // The band's own cursor travels with the field: the local grid carries the same λ-free
-            // price the coarse one did, so this re-solve prices one band exactly as the arm did.
-            depthK = lambda
+            // The berth's own cursor travels with the field: the local grid carries the same distance
+            // field the coarse one did, so this re-solve prices one berth exactly as the arm did.
+            berthK = lambda,
+            berthMarginM = gateMarginM,
+            berthOuterM = berth?.outerM ?: 0.0,
+            berthSecPerM = berth?.secPerM ?: 0.0
         )
         val path = search.path
         if (path == null) {

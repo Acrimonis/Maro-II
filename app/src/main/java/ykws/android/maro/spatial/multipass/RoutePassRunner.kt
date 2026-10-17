@@ -78,11 +78,25 @@ internal class RoutePassRunner {
         val guardField =
             costField(
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
-                lambda = lambda, markerStrength = ctx.markerStrength, plan = ctx.plan
+                lambda = lambda, markerStrength = ctx.markerStrength
             )
+        // The gate's hard standoff (both engines) and the plan's berth law (evolutive alone), read once
+        // here so the search and the pull share one cursor.
+        val gateMarginM = gateStandoffM(ctx.depthGateActive)
+        val berth = berthLawOf(ctx.plan, ctx.depthGateActive)
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
-        val setup = PullSetup(marginM, coarseStepM, priceStepM, guardField, start, aim, approaches)
+        val setup = PullSetup(
+            marginM, coarseStepM, priceStepM, guardField, start, aim, approaches,
+            gateDistanceMAt = { p -> windows.gateDistanceMAt(p) },
+            gateMarginM = gateMarginM,
+            berthOuterM = berth?.outerM ?: 0.0,
+            berthSecPerM = berth?.secPerM ?: 0.0,
+            berthLambda = lambda,
+            gateDepthAt = { p -> depthMAt(world, p) },
+            gateMinDepthM = if (ctx.depthGateActive) ctx.minDepthM else 0.0,
+            paceMps = Units.knotsToMps(pace)
+        )
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
         // The search reads the family's **lattice** coordinates; the seeds arrive as cells of the interior
         // grid's own local space, so they are translated onto the walk first — a no-op for the single grid,
@@ -99,9 +113,12 @@ internal class RoutePassRunner {
                     AppConfig.routeAvoidZone300OutsideMarginCostFraction
                 )
             },
-            // The depth band's own cursor: the grid stores its price λ-free, so the rung's λ is applied
-            // here — the same λ the guard field prices the pull's points at.
-            depthK = lambda
+            // The berth's own cursor: the grid stores its distance, so the rung's λ is applied here — the
+            // same λ the guard field prices the pull's points at.
+            berthK = lambda,
+            berthMarginM = gateMarginM,
+            berthOuterM = berth?.outerM ?: 0.0,
+            berthSecPerM = berth?.secPerM ?: 0.0
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)

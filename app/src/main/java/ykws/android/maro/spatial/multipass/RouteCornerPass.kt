@@ -515,7 +515,11 @@ object RouteCornerPass {
         val coastFloorM = min(marginM, world.distanceToCoastM(at.latitude, at.longitude))
         fun blockerAt(p: LatLng): CornerOutcome? {
             if (world.distanceToCoastM(p.latitude, p.longitude) < coastFloorM - 1e-6) return CornerOutcome.BOW_COAST
-            if (!depthClearsGate(world.depthAt(p.latitude, p.longitude), depthGateActive, minDepthM)) {
+            // **The gate's own standoff** — a bow is refused where its ring at the gate's margin touches
+            // blocked water, so a curve cannot cut inside the standoff the search keeps the line to.
+            if (depthGateActive &&
+                !gateStandoffClears(p, marginM, minDepthM) { q -> depthMAt(world, q) }
+            ) {
                 return CornerOutcome.BOW_DEPTH
             }
             if (!cornerInZone && world.zoneLimitKnAt(p.latitude, p.longitude) != null) {

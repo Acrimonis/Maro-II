@@ -59,18 +59,14 @@ interface RouteGridPlan {
     fun fineWater(query: FineWaterQuery): FineWater
 
     /**
-     * **The depth band this plan prices, or `null` where it prices none** — the reach above the gate's
-     * own minimum and the per-metre gradient ([DepthBand]). It rides the plan because the band is a
-     * decision about *this* algorithm's own water rather than a switch any engine may flip: `avoid`
-     * answers `null` and its field, its grid and its line are untouched, while `evolutive` answers the
-     * two `route.evolutive.depth.*` keys behind the depth gate's own switch.
-     *
-     * It is the one thing a plan carries that is a **price**, and it is carried deliberately: the
-     * band's law is the plan's own preference beside the wall, and a door (`withDepthBand`-style) on
-     * every engine's shared field would have offered `avoid` a price it must never pay. A plan still
-     * prices nothing by itself — it answers a law, and the field that reads it turns it into seconds.
+     * **Whether this plan prices the gate berth** — the 20→50 m standoff price off the gate edge. It
+     * rides the plan because the berth is a decision about *this* algorithm's own water rather than a
+     * switch any engine may flip: `avoid` answers `false` and its field, its grid and its line are
+     * untouched, while `evolutive` answers `true` and prices the `route.evolutive.berth.*` keys behind
+     * the gate's own switch. A plan still prices nothing by itself — the runner reads the berth law from
+     * [berthLawOf].
      */
-    fun depthBand(): DepthBand?
+    val pricesBerth: Boolean get() = false
 }
 
 /**
@@ -92,8 +88,8 @@ object UniformGridPlan : RouteGridPlan {
     /** One tile is no lattice, and no lattice carries no fine layer: `avoid`'s mask is empty. */
     override fun fineWater(query: FineWaterQuery): FineWater = FineWater()
 
-    /** `avoid` prices no depth band: its water, its grid and its line are exactly what they were. */
-    override fun depthBand(): DepthBand? = null
+    /** `avoid` prices no berth: its water, its grid and its line are exactly what they were. */
+    override val pricesBerth: Boolean get() = false
 }
 
 /**
@@ -133,30 +129,34 @@ object EvolutiveGridPlan : RouteGridPlan {
         val cutReach =
             bandReachM(band, AppConfig.routeAvoidZone300OutsideMarginM) + query.marginM + query.baseCellM
         val memberRadius = query.marginM + query.baseCellM
+        val collarM =
+            if (AppConfig.routeAvoidDepthGateEnabled && query.world.depthReady) {
+                depthCollarReachM(query.marginM, query.baseCellM)
+            } else {
+                0.0
+            }
         return FineWater(
             coastReachesM = listOf(cutReach),
-            coastBandsM = listOf(0.0..memberRadius)
+            coastBandsM = listOf(0.0..memberRadius),
+            depthCollarM = collarM
         )
     }
 
     /**
-     * **This engine's depth band: the shallow wall's own neighbourhood, priced.** The outer edge is the
-     * gate's minimum plus the plan's reach, so the reach is read as **metres of depth** like the gate's
-     * own threshold and not as a planimetric standoff a geometry-free law could not express; the
-     * gradient is the plan's per-metre key. The gate's switch governs it: with the gate off there is no
-     * wall for the band to lean against and no depth read to price over, so the plan answers nothing and
-     * the water is exactly `avoid`'s.
+     * **This engine's berth: the shallow wall's own neighbourhood, priced off its edge.** The gate's
+     * switch governs it — with the gate off there is no wall for the berth to lean against, so the water
+     * is exactly `avoid`'s — and the law's own values live on the `route.evolutive.berth.*` keys.
      */
-    override fun depthBand(): DepthBand? =
-        if (!AppConfig.routeAvoidDepthGateEnabled) {
-            null
-        } else {
-            DepthBand(
-                softDepthM = AppConfig.routeAvoidDepthGateMinM + AppConfig.routeEvolutiveDepthReachM,
-                secPerM = AppConfig.routeEvolutiveDepthPriceSecPerM
-            )
-        }
+    override val pricesBerth: Boolean get() = true
 }
+
+/**
+ * **The low-depth collar's reach (m off a shallow cell)** — the gate's own margin (the 20 m exclusion)
+ * plus the same `margin + one coarse cell` the shore ribbon uses, so the fine 20 m cells follow the
+ * shallow water out past the weighted band and a ribbon's width beyond it.
+ */
+internal fun depthCollarReachM(marginM: Double, baseCellM: Double): Double =
+    AppConfig.routeAvoidDepthGateMarginM + (marginM + baseCellM)
 
 /** [box] grown by [metresM] on every side, in the degrees the box itself is written in. */
 internal fun inflateBox(box: BBox, metresM: Double): BBox {

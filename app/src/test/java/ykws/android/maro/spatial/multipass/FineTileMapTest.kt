@@ -26,7 +26,7 @@ class FineTileMapTest {
         fineCellM = 20.0, tileRow = row, tileCol = 0, tileCells = FINE_TILE_CELLS,
         capLatNorth = 43.6, depthGenerationStamp = 1L, coastlineGenerationStamp = 2L,
         emodnetCutoffM = 2.0f, obstacleMarginM = 50.0, gateMinDepthM = 3.0, gateMarginM = 20.0,
-        depthGateEnabled = true, depthBandSoftDepthM = 28.0, depthBandSecPerM = 0.05,
+        depthGateEnabled = true, berthOuterM = 50.0, berthSecPerM = 0.1, depthCollarM = 170.0,
         bandWidthM = 300.0, bandLimitKn = 5.0, bandOutsideMarginM = 50.0,
         bandEnabled = true, zoneOutsideMarginM = 100.0, zonesEnabled = true,
         coastBandsM = listOf(0.0..100.0),
@@ -43,7 +43,7 @@ class FineTileMapTest {
         state = ByteArray(members), sourceCostFactor = DoubleArray(members),
         zoneLimitKn = DoubleArray(members), collarLimitKn = DoubleArray(members),
         bandLimitKn = DoubleArray(members), bandCollarLimitKn = DoubleArray(members),
-        depthBandSec = DoubleArray(members),
+        gateDistanceM = DoubleArray(members),
         localIndex = IntArray(members) { it }
     )
 

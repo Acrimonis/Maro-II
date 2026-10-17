@@ -6,6 +6,7 @@ import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.min
 
 /**
  * The clearance taut pull: collapses the coarse cell path into straight waypoints that stay clear of
@@ -242,7 +243,23 @@ internal class PullSetup(
     val field: RouteCostField,
     val start: LatLng,
     val aim: LatLng,
-    val approaches: EndApproaches = EndApproaches.NONE
+    val approaches: EndApproaches = EndApproaches.NONE,
+    /** The gate distance (m) read at a point — the walk/grid's own field, `MAX_VALUE` where none. */
+    val gateDistanceMAt: (LatLng) -> Double = { Double.MAX_VALUE },
+    /** The gate's standoff margin (m) — the hard standoff, both engines, 0 where the gate is off. */
+    val gateMarginM: Double = 0.0,
+    /** The berth's outer edge (m off the gate edge), 0 where this plan prices no berth. */
+    val berthOuterM: Double = 0.0,
+    /** The berth's full rate (s/m at the margin), 0 where this plan prices no berth. */
+    val berthSecPerM: Double = 0.0,
+    /** The pass's own λ for the berth — the cursor that turns the grid's distance into seconds. */
+    val berthLambda: Double = 0.0,
+    /** The world's depth (m) at a point — the water ring's own read, `NaN` where none is supplied. */
+    val gateDepthAt: (LatLng) -> Double = { Double.NaN },
+    /** The gate's minimum depth (m); `0.0` disables the water ring, as a fixture without a gate does. */
+    val gateMinDepthM: Double = 0.0,
+    /** The walk's pace (m/s) — the travel term every proof compares; `0.0` (a fixture) reads soft price only. */
+    val paceMps: Double = 0.0
 ) {
 
     /**
@@ -256,7 +273,10 @@ internal class PullSetup(
         timing: PullTiming? = null,
         memo: MarkMemo? = null
     ): PullContext = PullContext(
-        marginM, coarseStepM, priceStepM, field, start, aim, approaches, refusals, timing, memo
+        marginM, coarseStepM, priceStepM, field, start, aim, approaches,
+        gateDistanceMAt, gateMarginM, berthOuterM, berthSecPerM, berthLambda,
+        gateDepthAt, gateMinDepthM, paceMps,
+        refusals, timing, memo
     )
 }
 
@@ -280,10 +300,41 @@ internal class PullContext(
     val start: LatLng,
     val aim: LatLng,
     val approaches: EndApproaches = EndApproaches.NONE,
+    val gateDistanceMAt: (LatLng) -> Double = { Double.MAX_VALUE },
+    val gateMarginM: Double = 0.0,
+    val berthOuterM: Double = 0.0,
+    val berthSecPerM: Double = 0.0,
+    val berthLambda: Double = 0.0,
+    val gateDepthAt: (LatLng) -> Double = { Double.NaN },
+    val gateMinDepthM: Double = 0.0,
+    /** The walk's pace (m/s) — the travel term every proof compares; `0.0` reads soft price only. */
+    val paceMps: Double = 0.0,
     val refusals: PullRefusals? = null,
     val timing: PullTiming? = null,
     val memo: MarkMemo? = null
-)
+) {
+    /** Whether any price is in force — the field's soft sources or the berth's own rate. */
+    val hasSoftPrice: Boolean =
+        field.hasSoft || (berthLambda > 0.0 && berthSecPerM > 0.0 && berthOuterM > gateMarginM)
+
+    /** The berth's rate at [p], in seconds per metre, at this pass's cursor. */
+    fun berthRate(p: LatLng): Double {
+        if (berthLambda <= 0.0 || berthSecPerM <= 0.0) return 0.0
+        val share = berthShare(gateDistanceMAt(p), gateMarginM, berthOuterM)
+        if (share <= 0.0) return 0.0
+        return berthLambda * berthSecPerM * share
+    }
+
+    /** The berth's own boundary clearance at [p] — `min(|d − margin|, |d − outer|)` — or `MAX_VALUE`. */
+    fun berthClearanceM(p: LatLng): Double {
+        if (berthLambda <= 0.0 || berthSecPerM <= 0.0 || berthOuterM <= gateMarginM) return Double.MAX_VALUE
+        val d = gateDistanceMAt(p)
+        return min(abs(d - gateMarginM), abs(d - berthOuterM))
+    }
+
+    /** The soft clearance the price-walk's group proof reads — the field's and the berth's, one number. */
+    fun softClearanceM(p: LatLng): Double = min(field.priceClearanceM(p), berthClearanceM(p))
+}
 
 object MultipassPull {
 
@@ -318,12 +369,12 @@ object MultipassPull {
         val result = ArrayList<LatLng>(path.size)
         result.add(path.first())
         val prefixStartNs = System.nanoTime()
-        val pathPriceSec = if (ctx.field.hasSoft) softPricePrefix(path, ctx) else null
+        val pathTotalSec = if (ctx.hasSoftPrice || ctx.paceMps > 0.0) totalPrefix(path, ctx) else null
         ctx.timing?.addPrice(System.nanoTime() - prefixStartNs)
         var anchor = 0
         var probe = 1
         while (probe < path.size) {
-            val decision = chordDecision(pathPriceSec, path, anchor, probe, ctx)
+            val decision = chordDecision(pathTotalSec, path, anchor, probe, ctx)
             val refused = decision.refusal
             when {
                 refused == null -> probe++
@@ -346,6 +397,84 @@ object MultipassPull {
         if (result.last() != path.last()) result.add(path.last())
         ctx.timing?.recordWalk(setup, memo)
         return result
+    }
+
+    /** The deviation (m) under which a run of waypoints reads as one straight line. */
+    private const val STRAIGHTEN_EPSILON_M = 10.0
+    /** Metres per degree, near enough for a deviation tolerance — the straightener needs no geodesy. */
+    private const val M_PER_DEG = 111_320.0
+
+    /**
+     * **The wall-checked straightening** — a Douglas–Peucker pass over [points], run after the pull and
+     * before the corner pass, so a run of near-collinear waypoints collapses into one straight chord and
+     * the corner pass sees fewer bends rather than more. It only ever **drops** points: a run is replaced
+     * by its chord when every dropped point lies within [epsilonM] of that chord **and** the chord clears
+     * the wall and is no dearer than the run it replaces; otherwise the farthest point is kept and the two
+     * halves are straightened in turn. Ends are untouched and no point is ever invented, so every kept
+     * point is one the pull already proved clear — the pass can straighten but never breach the wall.
+     */
+    internal fun straightenLine(
+        setup: PullSetup,
+        points: List<LatLng>,
+        epsilonM: Double = STRAIGHTEN_EPSILON_M
+    ): List<LatLng> {
+        if (points.size < 3 || epsilonM <= 0.0) return points
+        val ctx = setup.context()
+        val keep = BooleanArray(points.size)
+        keep[0] = true
+        keep[points.lastIndex] = true
+        markStraight(points, 0, points.lastIndex, epsilonM, ctx, keep)
+        val out = ArrayList<LatLng>(points.size)
+        for (i in points.indices) if (keep[i]) out.add(points[i])
+        return out
+    }
+
+    /** The recursive split — keep the farthest point of a run, and its two halves, unless the chord is legal. */
+    private fun markStraight(
+        points: List<LatLng>,
+        lo: Int,
+        hi: Int,
+        epsilonM: Double,
+        ctx: PullContext,
+        keep: BooleanArray
+    ) {
+        if (hi <= lo + 1) return
+        var far = lo + 1
+        var farthest = -1.0
+        for (i in lo + 1 until hi) {
+            val deviation = perpendicularM(points[i], points[lo], points[hi])
+            if (deviation > farthest) {
+                farthest = deviation
+                far = i
+            }
+        }
+        if (farthest <= epsilonM && chordLegal(points, lo, hi, ctx)) return
+        keep[far] = true
+        markStraight(points, lo, far, epsilonM, ctx, keep)
+        markStraight(points, far, hi, epsilonM, ctx, keep)
+    }
+
+    /** The chord `lo → hi` replaces the run `lo..hi` only where it clears the wall and is no dearer. */
+    private fun chordLegal(points: List<LatLng>, lo: Int, hi: Int, ctx: PullContext): Boolean {
+        val a = points[lo]
+        val b = points[hi]
+        if (legClearCause(a, b, ctx) != null) return false
+        var runTotal = 0.0
+        for (i in lo until hi) runTotal += totalSec(points[i], points[i + 1], ctx)
+        return totalSec(a, b, ctx) <= runTotal
+    }
+
+    /** The perpendicular distance (m) from [p] to the segment [a]→[b], equirectangular about [a]. */
+    private fun perpendicularM(p: LatLng, a: LatLng, b: LatLng): Double {
+        val cosLat = Math.cos(Math.toRadians((a.latitude + b.latitude) / 2.0))
+        val px = (p.longitude - a.longitude) * M_PER_DEG * cosLat
+        val py = (p.latitude - a.latitude) * M_PER_DEG
+        val bx = (b.longitude - a.longitude) * M_PER_DEG * cosLat
+        val by = (b.latitude - a.latitude) * M_PER_DEG
+        val len2 = bx * bx + by * by
+        if (len2 <= 0.0) return Math.hypot(px, py)
+        val t = ((px * bx + py * by) / len2).coerceIn(0.0, 1.0)
+        return Math.hypot(px - t * bx, py - t * by)
     }
 
     /**
@@ -488,8 +617,8 @@ object MultipassPull {
                     i++
                     continue
                 }
-                val chordSec = softPriceSec(a, c, ctx)
-                val pathSec = softPriceSec(a, b, ctx) + softPriceSec(b, c, ctx)
+                val chordSec = totalSec(a, c, ctx)
+                val pathSec = totalSec(a, b, ctx) + totalSec(b, c, ctx)
                 // The allowance is relative: a share of the legs' own price, and nothing where they are free.
                 if (chordSec <= pathSec * (1.0 + allowanceShare)) {
                     trace {
@@ -576,9 +705,9 @@ object MultipassPull {
             val a = work[i - 1]
             val e = work[i - 1 + span]
             if (legClearCause(a, e, ctx) == null) {
-                val chordSec = softPriceSec(a, e, ctx)
+                val chordSec = totalSec(a, e, ctx)
                 var pathSec = 0.0
-                for (j in i - 1 until i - 1 + span) pathSec += softPriceSec(work[j], work[j + 1], ctx)
+                for (j in i - 1 until i - 1 + span) pathSec += totalSec(work[j], work[j + 1], ctx)
                 if (chordSec <= pathSec * (1.0 + allowanceShare)) return span
             }
             span--
@@ -611,7 +740,12 @@ object MultipassPull {
         var worstAt: LatLng? = null
         for (j in 0 until marks.count) {
             val p = chordPoint(a, c, marks.markT(j))
-            val arms = ctx.field.armPricesAt(p)
+            val fieldArms = ctx.field.armPricesAt(p)
+            // The berth rides the grid, not the field, so its arm is added here at the same cell unit the
+            // loop below converts to seconds — the report names it [PriceArm.DEPTH] rather than missing it.
+            val berthRate = ctx.berthRate(p)
+            val arms =
+                if (berthRate > 0.0) fieldArms + (PriceArm.DEPTH to berthRate * ctx.field.cellM) else fieldArms
             if (arms.isEmpty()) continue
             var here = 0.0
             var dearest: PriceArm? = null
@@ -650,7 +784,7 @@ object MultipassPull {
      *  timed apart where a [timing] is handed in, so the clearance walk and the price walk are told
      *  apart rather than inferred from the gap between two stage lines. */
     private fun chordDecision(
-        pathPriceSec: DoubleArray?,
+        pathTotalSec: DoubleArray?,
         path: List<LatLng>,
         anchor: Int,
         probe: Int,
@@ -663,7 +797,7 @@ object MultipassPull {
         ctx.timing?.addClearance(System.nanoTime() - clearanceStartNs)
         if (cause == null) {
             val priceStartNs = System.nanoTime()
-            val refusal = priceRefusal(pathPriceSec, path, anchor, probe, ctx)
+            val refusal = priceRefusal(pathTotalSec, path, anchor, probe, ctx)
             ctx.timing?.addPrice(System.nanoTime() - priceStartNs)
             return ChordDecision(refusal)
         }
@@ -757,6 +891,17 @@ object MultipassPull {
             // The rastered walls are a **step**, so every mark tests them: no bound could prove a
             // half-step holds no shallow cell, and a coarse-only walk would sail one.
             if (ctx.field.hardBlocked(p)) return ChordRefusal.LAND
+            // The gate's own standoff, read off the grid's distance field: a mark at or inside the gate's
+            // margin is refused — the cheap pre-filter, on the cell centres.
+            if (ctx.gateMarginM > 0.0 && ctx.gateDistanceMAt(p) <= ctx.gateMarginM) return ChordRefusal.LAND
+            // **The water ring — the binding 20 m.** A mark whose ring at the gate's margin touches shallow
+            // water is refused, so the line keeps its margin from the water itself, not from a sounding,
+            // which is the only thing that reads a true 20 m to the edge.
+            if (ctx.gateMinDepthM > 0.0 &&
+                !gateStandoffClears(p, ctx.gateMarginM, ctx.gateMinDepthM, ctx.gateDepthAt)
+            ) {
+                return ChordRefusal.LAND
+            }
             // The materialized distance is the one read the proof may spare, and it is skipped exactly
             // where the coarse mark covering this fine mark has already answered for its half-step.
             val covering = coarse.indexOf(t)
@@ -783,14 +928,14 @@ object MultipassPull {
      * coincide mark for mark on a straight run and diverge where the path bends.
      */
     private fun priceRefusal(
-        pathPriceSec: DoubleArray?,
+        pathTotalSec: DoubleArray?,
         path: List<LatLng>,
         anchor: Int,
         probe: Int,
         ctx: PullContext
     ): ChordRefusal? {
-        val replacedPriceSec = pathPriceSec?.let { it[probe] - it[anchor] } ?: return null
-        return if (softPriceSec(path[anchor], path[probe], ctx) > replacedPriceSec) {
+        val replacedTotalSec = pathTotalSec?.let { it[probe] - it[anchor] } ?: return null
+        return if (totalSec(path[anchor], path[probe], ctx) > replacedTotalSec) {
             ChordRefusal.PRICE
         } else {
             null
@@ -863,6 +1008,17 @@ object MultipassPull {
     }
 
     /**
+     * **The chord's own seconds** — the travel it costs at the walk's pace plus the water it pays for.
+     * This is the number every proof compares: a chord that is dearer in soft price but shorter in
+     * distance can still be cheaper in total, and the guard must see that, or it keeps a longer, slower
+     * line. A walk without a pace (`paceMps <= 0`, a fixture) reads the soft price alone, as before.
+     */
+    internal fun totalSec(a: LatLng, b: LatLng, ctx: PullContext): Double {
+        val travel = if (ctx.paceMps > 0.0) SpatialOperations.haversine(a, b) / ctx.paceMps else 0.0
+        return travel + softPriceSec(a, b, ctx)
+    }
+
+    /**
      * [softPriceSec] read as a recursion over the chord's own intervals `[i0, i1)`. A span at or under
      * [floorCount] intervals is the group walk's own; a longer span is tested by one clearance read at
      * its midpoint and, proved, priced from one price read there. An unproved span splits in half and
@@ -891,9 +1047,9 @@ object MultipassPull {
         }
         val halfM = marks.spanLengthM(i0, i1) / 2.0
         val mid = chordPoint(a, b, marks.spanMidT(i0, i1))
-        val clearance = ctx.field.priceClearanceM(mid)
+        val clearance = ctx.softClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
-            val price = ctx.field.softPriceSecPerMAt(mid)
+            val price = ctx.field.softPriceSecPerMAt(mid) + ctx.berthRate(mid)
             ctx.timing?.addPriceReads(1)
             for (j in i0 until i1) acc[0] += price * marks.widthM(j)
             return
@@ -928,7 +1084,7 @@ object MultipassPull {
             val proved = if (k > 1) {
                 // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
                 // can never be proved, and a group of one interval is never asked.
-                val clearance = ctx.field.priceClearanceM(chordPoint(a, b, marks.spanMidT(i, i + k)))
+                val clearance = ctx.softClearanceM(chordPoint(a, b, marks.spanMidT(i, i + k)))
                 clearance < Double.MAX_VALUE && clearance >= halfM
             } else {
                 false
@@ -950,6 +1106,15 @@ object MultipassPull {
         val prefix = DoubleArray(path.size)
         for (i in 1 until path.size) {
             prefix[i] = prefix[i - 1] + softPriceSec(path[i - 1], path[i], ctx)
+        }
+        return prefix
+    }
+
+    /** [totalSec] accumulated along [path], so one span's total is a single subtraction. */
+    internal fun totalPrefix(path: List<LatLng>, ctx: PullContext): DoubleArray {
+        val prefix = DoubleArray(path.size)
+        for (i in 1 until path.size) {
+            prefix[i] = prefix[i - 1] + totalSec(path[i - 1], path[i], ctx)
         }
         return prefix
     }
@@ -976,16 +1141,21 @@ object MultipassPull {
      */
     private fun readPrice(ctx: PullContext, p: LatLng): Double {
         val memo = ctx.memo
-        if (memo == null) {
+        val raw = if (memo == null) {
             ctx.timing?.addPriceReads(1)
-            return ctx.field.softPriceSecPerMAt(p)
+            ctx.field.softPriceSecPerMAt(p)
+        } else {
+            val held = memo.priceOrNull(ctx.field, p)
+            if (held != null) {
+                held
+            } else {
+                val price = ctx.field.softPriceSecPerMAt(p)
+                memo.putPrice(ctx.field, p, price)
+                ctx.timing?.addPriceReads(1)
+                price
+            }
         }
-        val held = memo.priceOrNull(ctx.field, p)
-        if (held != null) return held
-        val price = ctx.field.softPriceSecPerMAt(p)
-        memo.putPrice(ctx.field, p, price)
-        ctx.timing?.addPriceReads(1)
-        return price
+        return raw + ctx.berthRate(p)
     }
 }
 
