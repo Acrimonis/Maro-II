@@ -53,9 +53,10 @@ internal data class StoreFullness(
  *
  * **The store's work is signalled through its holder, not here.** [`FineTileCache.busy`] is the one
  * debounced window the routing square's dot reads, and the warm-up's own tiles alone feed it — an arm's
- * store reads never light it. This seam stays a pure read/write and carries no signal of its own.
- * [fullness] is the one exception in spirit — a read the warming policy makes *about* the store — and it
- * is still a plain read: it neither opens, closes nor debounces the window.
+ * store reads never light it. This seam carries no signal of its own, but it is no longer a pure
+ * read/write: it carries the two policy knobs the warming walk sets and reads — [fullness], a read made
+ * *about* the store, and [protect], the one policy it is told. Neither is a signal of work, and neither
+ * opens, closes nor debounces the window.
  */
 internal interface TileStore {
 
@@ -70,6 +71,17 @@ internal interface TileStore {
 
     /** The entries the store currently holds, as opaque names — diagnostics and reclamation. */
     suspend fun list(): List<String>
+
+    /**
+     * **The entry names the store must never reclaim** — the home area's own tiles, derived by the walk
+     * and re-applied on every install. The replacement policy itself stays the store's: a protected entry
+     * is skipped when the ceiling is reached and the next unprotected one is taken, so protection is a
+     * floor under the ceiling rather than a second policy beside it. The whole set is the caller's last
+     * word, never a merge per call. Non-suspend because it is pure policy state — no file is opened to
+     * learn it — so an install can re-apply the remembered set before the first lookup. The default is
+     * **inert**, so a store that cannot protect (or a fixture that never has) behaves as it always did.
+     */
+    fun protect(names: Set<String>) {}
 
     /**
      * **The store's own fullness, or `null` where it cannot say.** Fed by the running byte total the
@@ -87,6 +99,7 @@ internal interface TileStore {
             override suspend fun save(key: TileKey, tile: FineTile) {}
             override suspend fun delete(key: TileKey) {}
             override suspend fun list(): List<String> = emptyList()
+            override fun protect(names: Set<String>) {}
             override suspend fun fullness(): StoreFullness? = null
         }
     }

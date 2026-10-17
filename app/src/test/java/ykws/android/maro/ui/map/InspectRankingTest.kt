@@ -9,7 +9,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
@@ -18,9 +17,8 @@ import ykws.android.maro.data.track.TrackPoint
 
 /**
  * Unit tests for the inspect ranking (plan §2, §3, §8): the metric's points-and-lines rule and its
- * GAP awareness, the ordering and tie-break, viewport eligibility through a candidate's own cached
- * bbox, the true closest winning with no stickiness, clear-on-empty and the resume when a candidate
- * comes back, and the sweep pipeline's conflate-but-never-cancel behaviour.
+ * GAP awareness, the ordering and tie-break, the true closest over the whole list with no viewport
+ * cut, and the sweep pipeline's conflate-but-never-cancel behaviour.
  */
 class InspectRankingTest {
 
@@ -28,13 +26,6 @@ class InspectRankingTest {
         TrackPoint(lat = lat, lon = lon, type = type)
 
     private val anchor = LatLng(0.0, 0.0)
-
-    /** A viewport, i.e. the projection's own visible bounds. */
-    private fun viewport(north: Double, east: Double, south: Double, west: Double) =
-        InspectBounds(north, east, south, west)
-
-    /** The whole world, for the tests whose subject is not eligibility. */
-    private val everywhere = viewport(90.0, 180.0, -90.0, -180.0)
 
     // 0.001° of latitude is ~111.2 m with the app's haversine radius.
     private val nearTrack = InspectCandidate.line(
@@ -109,7 +100,7 @@ class InspectRankingTest {
     @Test
     fun `the gold is always the ladder's first entry`() {
         val candidates = listOf(farMarker, nearTrack, InspectCandidate.point("M2", InspectKind.MARKER, LatLng(0.0005, 0.0)))
-        val nearest = InspectRanking.nearest(anchor, candidates, everywhere)
+        val nearest = InspectRanking.nearest(anchor, candidates)
         val ladder = InspectRanking.rank(anchor, candidates)
         assertEquals(ladder.first(), nearest)
     }
@@ -123,78 +114,35 @@ class InspectRankingTest {
         assertEquals("T1", first.first().id)
     }
 
+    @Test
+    fun `the nearest and the ladder ignore the screen entirely`() {
+        // No viewport cut: the closest item wins wherever it sits, and the full order keeps every item.
+        val offScreenMarker = InspectCandidate.point("M9", InspectKind.MARKER, LatLng(0.0005, 0.0))
+        assertEquals("M9", InspectRanking.nearest(anchor, listOf(offScreenMarker, nearTrack))?.id)
+        assertEquals(
+            listOf("M9", "T1"),
+            InspectRanking.rank(anchor, listOf(offScreenMarker, nearTrack)).map { it.id }
+        )
+    }
+
     // ── The true closest: no incumbent, no margin ─────────────────────────────
 
     @Test
     fun `the true closest wins on every re-rank with no stickiness`() {
         val candidates = listOf(nearTrack, farMarker)
-        assertEquals("T1", InspectRanking.nearest(anchor, candidates, everywhere)?.id)
+        assertEquals("T1", InspectRanking.nearest(anchor, candidates)?.id)
         // Re-ranked from scratch: the answer is the geometry's, never an incumbent's.
-        assertEquals("T1", InspectRanking.nearest(anchor, candidates, everywhere)?.id)
+        assertEquals("T1", InspectRanking.nearest(anchor, candidates)?.id)
         // With the anchor over the marker's own side the marker takes the gold at once, whatever the
         // previous highlight was.
-        assertEquals("M1", InspectRanking.nearest(LatLng(0.02, 0.0), candidates, everywhere)?.id)
+        assertEquals("M1", InspectRanking.nearest(LatLng(0.02, 0.0), candidates)?.id)
     }
 
     @Test
     fun `a hair closer is enough — no margin has to be overcome`() {
         // ~110.1 m against the track's ~111.2 m: less than one per cent better, and still the winner.
         val barelyCloser = InspectCandidate.point("M1", InspectKind.MARKER, LatLng(0.00099, 0.0))
-        assertEquals("M1", InspectRanking.nearest(anchor, listOf(nearTrack, barelyCloser), everywhere)?.id)
-    }
-
-    // ── Eligibility is the viewport ──────────────────────────────────────────
-
-    @Test
-    fun `a point is eligible through its own position`() {
-        val marker = InspectCandidate.point("M", InspectKind.MARKER, LatLng(0.001, 0.0))
-        // A viewport holding the point ...
-        assertEquals("M", InspectRanking.nearest(anchor, listOf(marker), viewport(0.01, 0.01, 0.0, -0.01))?.id)
-        // ... and one that stops just short of it, which is an honest empty screen rather than an
-        // item the user cannot see.
-        assertNull(InspectRanking.nearest(anchor, listOf(marker), viewport(0.0005, 0.01, -0.01, -0.01)))
-    }
-
-    @Test
-    fun `a line is eligible when its box overlaps although no vertex is on screen`() {
-        // A line running west to east through the anchor's own latitude: both of its vertices sit at
-        // lon ±0.01, the viewport holds only the middle, and the cached box is what finds it.
-        val acrossTheScreen = InspectCandidate.line(
-            "T4",
-            InspectKind.TRACK,
-            listOf(pt(0.0, -0.01), pt(0.0, 0.01))
-        )
-        val middle = viewport(0.0005, 0.0005, -0.0005, -0.0005)
-        assertEquals("T4", InspectRanking.nearest(anchor, listOf(acrossTheScreen), middle)?.id)
-        // A viewport that stands clear of the line's own box — north of it, spanning the same
-        // longitudes — is still empty however near the anchor sees the line.
-        assertNull(
-            InspectRanking.nearest(anchor, listOf(acrossTheScreen), viewport(0.002, 0.01, 0.001, -0.01))
-        )
-    }
-
-    @Test
-    fun `a nearer item off screen loses to a farther one on screen`() {
-        // The marker is twice as close to the anchor, but it is off the viewport while the track is
-        // on it: overlap first, distance second (plan §2).
-        val onScreen = viewport(0.01, 0.01, -0.01, -0.01)
-        val justOutside = InspectCandidate.point("M2", InspectKind.MARKER, LatLng(0.012, 0.0))
-        assertEquals(
-            "T1",
-            InspectRanking.nearest(anchor, listOf(nearTrack, justOutside), onScreen)?.id
-        )
-    }
-
-    @Test
-    fun `an empty viewport clears the highlight and the ranking resumes when it comes back`() {
-        val candidates = listOf(nearTrack)
-        val onScreen = viewport(0.05, 0.05, -0.05, -0.05)
-        val elsewhere = viewport(40.0, 40.0, 39.0, 39.0)
-        assertEquals("T1", InspectRanking.nearest(anchor, candidates, onScreen)?.id)
-        // Nothing overlaps: the highlight clears rather than naming an item off screen.
-        assertNull(InspectRanking.nearest(anchor, candidates, elsewhere))
-        // And the same candidate comes back the moment the viewport holds it again.
-        assertEquals("T1", InspectRanking.nearest(anchor, candidates, onScreen)?.id)
+        assertEquals("M1", InspectRanking.nearest(anchor, listOf(nearTrack, barelyCloser))?.id)
     }
 
     // ── The sweep pipeline: conflate stale ticks, never cancel a scan ─────────
@@ -241,8 +189,8 @@ class InspectRankingTest {
         inspectSweep(ticks) {
             results.removeFirst()
         }.collect { published += it }
-        // The empty viewport's own result is published — the gold clears — and the map's next motion
-        // publishes the candidate that came back.
+        // The empty scan's own result is published — the gold clears — and the next tick publishes
+        // the candidate that came back.
         assertEquals(listOf(null, InspectRank("T1", InspectKind.TRACK, distanceM = 12.0)), published)
     }
 }

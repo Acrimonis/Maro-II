@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -78,5 +79,42 @@ class FineTileCacheTest {
         advanceTimeBy(FineTileCache.BUSY_GRACE_MS + 1)
         runCurrent()
         assertFalse("the walk's own end is what closes the window, a grace later", FineTileCache.busy.value)
+    }
+
+    /** A store that records every protection set it is told, and answers nothing else. */
+    private class RecordingStore : TileStore {
+        val protectedSets = mutableListOf<Set<String>>()
+        override suspend fun load(key: TileKey): FineTile? = null
+        override suspend fun save(key: TileKey, tile: FineTile) {}
+        override suspend fun delete(key: TileKey) {}
+        override suspend fun list(): List<String> = emptyList()
+        override fun protect(names: Set<String>) {
+            protectedSets += names
+        }
+
+        override suspend fun fullness(): StoreFullness? = null
+    }
+
+    /**
+     * **A re-install re-applies the remembered home area** (D7). The app edge installs a fresh store in
+     * `MainActivity.onCreate`, so protection kept only in the store would be stripped by a recreation;
+     * the holder keeps the last set and tells the new store at once.
+     */
+    @Test
+    fun reInstallingReappliesTheRememberedSet() {
+        FineTileCache.reset()
+        val first = RecordingStore()
+        FineTileCache.install(first)
+        val names = setOf("home-a", "home-b")
+        FineTileCache.protect(names)
+        assertEquals("the installed store is told at once", listOf(names), first.protectedSets)
+
+        val second = RecordingStore()
+        FineTileCache.install(second)
+        assertEquals(
+            "and a recreation's store is told the remembered set",
+            listOf(names),
+            second.protectedSets
+        )
     }
 }

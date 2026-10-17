@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-17 12:10
+modified: 2026-10-17 13:06
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -76,6 +76,9 @@ explicit values/ViewModels + inline callbacks).
 
 ## Implemented
 
+- **inspect mode — the walk covers the whole filtered list (2026-10-17, `feature/inspect`)** — the viewport cut is withdrawn: `InspectBounds` and the candidate bbox leave `InspectRanking`, `rank()` and `nearest()` take just the anchor and the candidates, and both `boundingBox` reads leave the inspect effects, so the sweep's nearest and the walk cover every item the map holds while the filters and layer buttons still gate the set and the live track stays out.
+- **inspect mode — one anchor at arming and a frozen walk owning the card (2026-10-17, `feature/inspect`)** — the acquire point is captured once at arming and never re-established, so each sweep ranks from where the mode was armed, while the pause's freeze stops the sweep publishing, stops the quiet clock re-arming and paints the cursor's item gold, a live open or close refused.
+- **inspect mode — quiet at 1499 ms, its viewport ladder withdrawn the same day (2026-10-17, `feature/inspect`)** — `map.inspect.dwellMs` ships at 1499 with `AppConfig.uiMapInspectDwellMs` mirroring it and `InspectModePropertiesTest` pinning both homes; the viewport-only ladder it introduced was withdrawn by the entry above, so the walk again covers the map's full filtered set.
 - **bottom-left tag column aligned to the zoom stack (2026-10-17, `feature/lyt-ui`)** — the bottom zone takes `ui.map.toggle.gutter` in both orientations, so the tag column and the zoom stack share one bottom line; the landscape navigation-bar inset and its import are gone, and the user's device pass read the two on that line. → `xTrack/UI_Map/FEAT_DOC_UI_Map_decisions.md`
 - **routing square's loading dot reads the tile store's busy window (2026-10-13)** — a half-beat white mark while the fine-tile store works, cleared after a 400 ms grace, so one arming reads as one steady window. → `xTrack/UI_Map/FEAT_DOC_UI_Map_decisions.md`
 - **the menu chevron gate adopts its list's order (2026-10-10, `feature/listery`)** — each chevron walks its own list's sort while membership stays the map filter, and a list sort edit closes a menu-opened card of either kind. → `xTrack/UI_Map/FEAT_DOC_UI_Map_decisions.md`

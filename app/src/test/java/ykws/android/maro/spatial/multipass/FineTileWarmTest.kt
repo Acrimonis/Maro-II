@@ -29,6 +29,11 @@ class FineTileWarmTest {
     /** A store whose names and ceiling a test drives — a listing and a fullness verdict are the whole API. */
     private class WarmStore(initial: List<TileKey> = emptyList()) : TileStore {
         private val names = linkedSetOf<String>().apply { initial.forEach { add(FineTileCodec.entryName(it)) } }
+
+        /** The set the app edge installed, so a test reads back what the store was told to keep (D7). */
+        var protected: Set<String> = emptySet()
+            private set
+
         override suspend fun load(key: TileKey): FineTile? = null
         override suspend fun save(key: TileKey, tile: FineTile) {
             names += FineTileCodec.entryName(key)
@@ -37,6 +42,9 @@ class FineTileWarmTest {
             names -= FineTileCodec.entryName(key)
         }
         override suspend fun list(): List<String> = names.toList()
+        override fun protect(names: Set<String>) {
+            protected = names
+        }
         override suspend fun fullness(): StoreFullness? = null
     }
 
@@ -95,10 +103,13 @@ class FineTileWarmTest {
         val map = FineTileMap(store = WarmStore())
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val derive = oneTileABox(built, boxes)
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
-            derive = oneTileABox(built, boxes),
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
@@ -124,10 +135,13 @@ class FineTileWarmTest {
         val map = FineTileMap(store = WarmStore(initial = listOf(warmKey)))
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val derive = oneTileABox(built, boxes)
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
-            derive = oneTileABox(built, boxes),
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
@@ -146,10 +160,13 @@ class FineTileWarmTest {
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
         var probes = 0
+        val walkArea = area()
+        val derive = threeTilesABox(built, boxes)
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
-            derive = threeTilesABox(built, boxes),
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
@@ -172,10 +189,13 @@ class FineTileWarmTest {
         val map = FineTileMap(store = WarmStore())
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
+        val walkArea = area(region = null)
+        val derive = oneTileABox(built, boxes)
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(region = null),
-            derive = oneTileABox(built, boxes),
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 4,
@@ -191,13 +211,16 @@ class FineTileWarmTest {
     fun aSeedWithNoFineWaterIsNotGrownOutward() = runBlocking {
         val map = FineTileMap(store = WarmStore())
         val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val derive: (BBox) -> List<FineTileRequest> = { box ->
+            boxes += box
+            emptyList()
+        }
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
-            derive = { box ->
-                boxes += box
-                emptyList()
-            },
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
@@ -223,17 +246,20 @@ class FineTileWarmTest {
         val warmKey = TileTestFixtures.baseKey(row = rowOf(seed))
         val map = FineTileMap(store = WarmStore(initial = listOf(warmKey)))
         val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val derive: (BBox) -> List<FineTileRequest> = { box ->
+            boxes += box
+            listOf(
+                FineTileRequest(warmKey, LatLng(box.latSouth, box.lonWest)) {
+                    throw AssertionError("a tile the store already names must never be built")
+                }
+            )
+        }
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
-            derive = { box ->
-                boxes += box
-                listOf(
-                    FineTileRequest(warmKey, LatLng(box.latSouth, box.lonWest)) {
-                        throw AssertionError("a tile the store already names must never be built")
-                    }
-                )
-            },
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = map.storedNames(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
@@ -260,32 +286,37 @@ class FineTileWarmTest {
         val live = AtomicInteger(0)
         val peak = AtomicInteger(0)
         val builds = mutableListOf<String>()
-        fun walk(tag: String, rowBase: Int) = launch {
-            warmOutward(
-                pass = FineTilePrewarm(map),
-                area = area(),
-                derive = { box ->
-                    val row = rowBase + rowOf(box)
-                    val key = TileTestFixtures.baseKey(row = row)
-                    listOf(
-                        FineTileRequest(key, LatLng(box.latSouth, box.lonWest)) {
-                            val now = live.incrementAndGet()
-                            if (now > peak.get()) peak.set(now)
-                            // A suspension inside the build, so a second walk could provably be here at the
-                            // same moment were the slot not holding it out.
-                            delay(5)
-                            builds += "$tag:$row"
-                            live.decrementAndGet()
-                            TileTestFixtures.tile(2, row = row)
-                        }
-                    )
-                },
-                storedNames = emptySet(),
-                orderFrom = LatLng(43.50, 7.00),
-                maxTiles = 2,
-                maxTimeMs = 10_000,
-                targetPct = targetPct
-            )
+        fun walk(tag: String, rowBase: Int) = run {
+            val walkArea = area()
+            val derive: (BBox) -> List<FineTileRequest> = { box ->
+                val row = rowBase + rowOf(box)
+                val key = TileTestFixtures.baseKey(row = row)
+                listOf(
+                    FineTileRequest(key, LatLng(box.latSouth, box.lonWest)) {
+                        val now = live.incrementAndGet()
+                        if (now > peak.get()) peak.set(now)
+                        // A suspension inside the build, so a second walk could provably be here at the
+                        // same moment were the slot not holding it out.
+                        delay(5)
+                        builds += "$tag:$row"
+                        live.decrementAndGet()
+                        TileTestFixtures.tile(2, row = row)
+                    }
+                )
+            }
+            launch {
+                warmOutward(
+                    pass = FineTilePrewarm(map),
+                    area = walkArea,
+                    seed = derive(walkArea.seedBox),
+                    derive = derive,
+                    storedNames = emptySet(),
+                    orderFrom = LatLng(43.50, 7.00),
+                    maxTiles = 2,
+                    maxTimeMs = 10_000,
+                    targetPct = targetPct
+                )
+            }
         }
         val first = walk("a", 0)
         val second = walk("b", 1_000)
@@ -311,10 +342,13 @@ class FineTileWarmTest {
         val map = FineTileCache.shared!!
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val derive = oneTileABox(built, boxes)
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
-            derive = oneTileABox(built, boxes),
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
             maxTiles = 100,
@@ -350,22 +384,26 @@ class FineTileWarmTest {
         val gate = CompletableDeferred<Unit>()
         var asks = 0
 
+        val walkArea = area()
+        val derive: (BBox) -> List<FineTileRequest> = { box ->
+            boxes += box
+            val row = rowOf(box)
+            val key = TileTestFixtures.baseKey(row = row)
+            listOf(
+                FineTileRequest(key, LatLng(box.latSouth, box.lonWest)) {
+                    busyAtBuild += FineTileCache.busy.value
+                    built += key
+                    TileTestFixtures.tile(2, row = row)
+                }
+            )
+        }
+        val seed = derive(walkArea.seedBox)
         val walk = launch {
             warmOutward(
                 pass = FineTilePrewarm(map),
-                area = area(),
-                derive = { box ->
-                    boxes += box
-                    val row = rowOf(box)
-                    val key = TileTestFixtures.baseKey(row = row)
-                    listOf(
-                        FineTileRequest(key, LatLng(box.latSouth, box.lonWest)) {
-                            busyAtBuild += FineTileCache.busy.value
-                            built += key
-                            TileTestFixtures.tile(2, row = row)
-                        }
-                    )
-                },
+                area = walkArea,
+                seed = seed,
+                derive = derive,
                 storedNames = emptySet(),
                 orderFrom = LatLng(43.50, 7.00),
                 maxTiles = 100,
@@ -423,9 +461,14 @@ class FineTileWarmTest {
         val map = FineTileMap(store = WarmStore())
         val built = mutableListOf<TileKey>()
         val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        // The seed as the app edge derives it, into throwaway recorders: the walk's own derive must
+        // stay untouched, which is what `boxes` watching it proves below.
+        val seed = oneTileABox(mutableListOf(), mutableListOf())(walkArea.seedBox)
         val outcome = warmOutward(
             pass = FineTilePrewarm(map),
-            area = area(),
+            area = walkArea,
+            seed = seed,
             derive = threeTilesABox(built, boxes),
             storedNames = emptySet(),
             orderFrom = LatLng(43.50, 7.00),
@@ -437,8 +480,114 @@ class FineTileWarmTest {
             storeFullness = { StoreFullness(bytesHeld = 850L, ceilingBytes = 1_000L, nextEntryBytes = 100L) }
         )
 
-        assertEquals("the store's share stopped the walk before the seed was even derived", 0, boxes.size)
+        assertEquals("the store's share stopped the walk before it derived a ring", 0, boxes.size)
         assertEquals("and nothing was built into the reserve", 0, outcome.built)
         assertEquals(WarmStop.TARGET, outcome.stop)
+    }
+
+    /**
+     * **Ring zero builds the seed it was handed, not a second derivation** (D7). The app edge derives the
+     * home area once, protects its entry names, and hands the same requests here; the walk's own `derive`
+     * is asked only for the rings beyond, so the seed box is never derived twice.
+     */
+    @Test
+    fun theSeedHandedInIsWhatRingZeroBuilds() = runBlocking {
+        val map = FineTileMap(store = WarmStore())
+        val built = mutableListOf<TileKey>()
+        val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val seedRequests = (10..11).map { row ->
+            val key = TileTestFixtures.baseKey(row = row)
+            FineTileRequest(key, LatLng(walkArea.seedBox.latSouth, walkArea.seedBox.lonWest)) {
+                built += key
+                TileTestFixtures.tile(2, row = row)
+            }
+        }
+        val outcome = warmOutward(
+            pass = FineTilePrewarm(map),
+            area = walkArea,
+            seed = seedRequests,
+            derive = oneTileABox(built, boxes),
+            storedNames = emptySet(),
+            orderFrom = LatLng(43.50, 7.00),
+            maxTiles = 100,
+            maxTimeMs = 10_000,
+            targetPct = targetPct
+        )
+
+        assertEquals(
+            "the handed-in seed is what ring zero built, in its own order",
+            listOf(10, 11),
+            built.take(2).map { it.tileRow }
+        )
+        assertTrue("the walk's derive was never asked for the seed box", boxes.none { it == walkArea.seedBox })
+        assertEquals("and the walk still grew past it", WarmStop.REGION, outcome.stop)
+    }
+
+    /**
+     * **Protection lands before the walk's first fullness check** (D7) — the steady state this feature
+     * exists for. A store already at its 80 % share stops the walk at TARGET before it derives or builds
+     * anything, and the home area must be protected all the same: the app edge derives the seed, protects
+     * its names, and only then calls the walk, which is the order this test replays.
+     */
+    @Test
+    fun aWalkStoppingAtTargetOnItsFirstCheckStillLeavesTheStoreProtected() = runBlocking {
+        val store = WarmStore()
+        FineTileCache.reset()
+        FineTileCache.install(store)
+        val map = FineTileCache.shared!!
+        val walkArea = area()
+        val seed = oneTileABox(mutableListOf(), mutableListOf())(walkArea.seedBox)
+        val seedNames = seed.map { FineTileCodec.entryName(it.key) }.toSet()
+        // The app edge's own order: derive once, protect, then walk.
+        FineTileCache.protect(seedNames)
+        var derived = 0
+        val outcome = warmOutward(
+            pass = FineTilePrewarm(map),
+            area = walkArea,
+            seed = seed,
+            derive = { derived++; emptyList() },
+            storedNames = emptySet(),
+            orderFrom = LatLng(43.50, 7.00),
+            maxTiles = 100,
+            maxTimeMs = 10_000,
+            targetPct = targetPct,
+            // Room at the ceiling, none under the target: the walk's very first check ends it.
+            storeFullness = { StoreFullness(bytesHeld = 850L, ceilingBytes = 1_000L, nextEntryBytes = 100L) }
+        )
+
+        assertEquals("the store's share ended the walk at its first check", WarmStop.TARGET, outcome.stop)
+        assertEquals("nothing was derived below the seed and nothing built", 0, derived)
+        assertEquals(0, outcome.built)
+        assertEquals("and the home area is protected anyway", seedNames, store.protected)
+    }
+
+    /** **The walk's end line carries the map's hit rate** (D9) — the reading the home area is judged on. */
+    @Test
+    fun theWalkEndLineCarriesTheMapsHitRate() = runBlocking {
+        val lines = mutableListOf<String>()
+        val map = FineTileMap(store = WarmStore())
+        val built = mutableListOf<TileKey>()
+        val boxes = mutableListOf<BBox>()
+        val walkArea = area()
+        val derive = oneTileABox(built, boxes)
+        warmOutward(
+            pass = FineTilePrewarm(map),
+            area = walkArea,
+            seed = derive(walkArea.seedBox),
+            derive = derive,
+            storedNames = emptySet(),
+            orderFrom = LatLng(43.50, 7.00),
+            maxTiles = 100,
+            maxTimeMs = 10_000,
+            targetPct = targetPct,
+            mapHitRate = { 0.75 },
+            trace = { lines += it }
+        )
+
+        assertTrue(
+            "the end line names the hit rate it was handed",
+            lines.single { it.startsWith("PREWARM walk done") }.contains("hitRate=75%")
+        )
     }
 }

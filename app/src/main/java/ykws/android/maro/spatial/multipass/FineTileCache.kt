@@ -46,6 +46,14 @@ internal object FineTileCache {
     private var installedStore: TileStore? = null
 
     /**
+     * **The home area's entry names, as the last walk derived them** (D7). They are remembered here
+     * because [`install`] builds a new store on every Activity recreation, and protection kept only in the
+     * store would be stripped by the first recreation. Empty until a walk reports its seed ring.
+     */
+    @Volatile
+    private var protectedNames: Set<String> = emptySet()
+
+    /**
      * **How long the busy window holds after the last tile the walk built (ms).** The walk builds one tile
      * at a time, so the gap between two tiles is only the loop's own `writeInto` and key build — a few
      * milliseconds — and without a hold the window would fall there and blink the dot. 400 ms rides over
@@ -100,6 +108,16 @@ internal object FineTileCache {
     suspend fun storeFullness(): StoreFullness? = installedStore?.fullness()
 
     /**
+     * **Remember the home area's entry names and hand them to the installed store** (D7). The walk derives
+     * them from its seed ring and reports them once; the holder keeps the last set so [`install`] can
+     * re-apply it, and forwards each call now so a store installed mid-session learns it immediately.
+     */
+    fun protect(names: Set<String>) {
+        protectedNames = names
+        installedStore?.protect(names)
+    }
+
+    /**
      * **Point the window's trace at the route tag.** Each edge then emits one line — `busy on` when the
      * walk's first tile starts, `busy off` a grace after its last — so a device pass is read rather than
      * eyeballed. Inert until the app edge installs the log, in the spirit of the store's own `trace` sink.
@@ -113,17 +131,21 @@ internal object FineTileCache {
      * arm — a later install (an Activity recreation, say) drops the in-memory tiles and the next arm
      * re-reads them from the store. The window is deliberately left alone: it is fed by the warm-up's own
      * tiles, and a recreation installs beside a walk only **cooperatively** cancelled — so an install must
-     * never zero the tile that walk is still building.
+     * never zero the tile that walk is still building. The remembered home area ([protect]) is re-applied
+     * to the new store at once, so a recreation cannot strip a protection the walk had already won.
      */
     fun install(store: TileStore, maxBytes: Long = FineTileMap.DEFAULT_MAX_BYTES) {
         installedStore = store
         shared = FineTileMap(maxBytes, store)
+        val names = protectedNames
+        if (names.isNotEmpty()) store.protect(names)
     }
 
     /** Drop the installed map — a builder then keeps its own. The test seam, and the app's own reset. */
     fun reset() {
         shared = null
         installedStore = null
+        protectedNames = emptySet()
         activity = newActivity(windowScope)
     }
 
@@ -136,6 +158,7 @@ internal object FineTileCache {
     internal fun reset(scope: CoroutineScope) {
         shared = null
         installedStore = null
+        protectedNames = emptySet()
         activity = newActivity(scope)
     }
 
