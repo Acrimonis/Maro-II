@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -33,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.ui.components.SliderRow
 import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.regulation.RegulatedZone
@@ -355,43 +354,16 @@ fun BoatSizeSlider(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.settings_boat_length_label),
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = AppConfig.uiFontToggleSize.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "${settings.boatSizeM.toInt()} m",
-                color = ComposeColor(AppConfig.uiAccent),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
+    SliderRow(
+        label = stringResource(R.string.settings_boat_length_label),
+        valueLabel = stringResource(R.string.settings_value_m_fmt, settings.boatSizeM.toInt()),
+        value = settings.boatSizeM.toFloat(),
+        valueRange = 3f..25f,
+        steps = 21,
+        onValueChange = { v ->
+            onUpdateSettings { it.copy(boatSizeM = v.toDouble().coerceIn(3.0, 25.0)) }
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Slider(
-            value = settings.boatSizeM.toFloat(),
-            onValueChange = { v ->
-                onUpdateSettings { it.copy(boatSizeM = v.toDouble().coerceIn(3.0, 25.0)) }
-            },
-            valueRange = 3f..25f,
-            steps = 21,
-            modifier = Modifier.fillMaxWidth(),
-            colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(AppConfig.uiAccent),
-                activeTrackColor = ComposeColor(AppConfig.uiAccent),
-                inactiveTrackColor = ComposeColor(AppConfig.uiAccent).copy(alpha = 0.3f)
-            )
-        )
-    }
+    )
 }
 
 data class CategoryToggleItem(

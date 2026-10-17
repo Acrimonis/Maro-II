@@ -1,29 +1,34 @@
-# Context Hydration — Ui_General — 2026-10-10
+# Context Hydration — Ui_General — 2026-10-17
 
-**Last Bake:** 2026-10-10 08:25 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-17 06:21 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (the reported regression, the delete normalization's plan and its implementation, then this bake), the device was never touched (the builds and suites are named below), and every claim about the code rests on a file read. Named rather than hidden: the pipeline's Ask hop on the delete pass was **declined by the user**, so that pass carries no independent review, and one claim of the agent's own was refuted by the code earlier in the session and retracted in the plan.
+**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (`#new sp-ui`, `#focus ui general`, the slider order, the wheel discussion and its `#impl`, the transition order and its `#impl`, then `#bake`/`#commit`/`#push`), the device was never touched, and every claim about the code rests on a file read. Named rather than hidden: the Ask hop on the wheel landing could not run the build, having no shell, so its green state is the Code hop's word; and the settings-slider normalisation ran as one Code hop with no independent review.
 
 ## State
 
-Two passes shipped on `feature/rte-n-trck-list`.
+Three landings on `feature/sp-ui`, cut from `origin/develop` at `cdbd887`.
 
-**The tracks/routes split's regression on the dashboard walk.** The card's walked list, its delete-advance and the R2 close now all read the **card's own kind** — the two lists being kind-locked, the kind an item carries is the list it came from. `CardWalkPolicy` gained the pure `cardWalkListIds(...)` beside a kind-aware `trackScopeClosed(source, cardIsRoute, listWorld: ListScope?, mapWorld: ListScope?)`; `MapScreen` collects `routeSummaries`, routes the walk world and the delete-advance through the helper, deletes the tracks-only `trackListIdsOf`, and carries the kind as `ListScope?` tokens through `CloseDashboards` and its fifteen call sites. A track or route map write no longer names the marker world — a behaviour change on the marker side, named in the plan rather than carried silently.
+**The settings sliders went onto one component.** `SliderRow` and `ScaledSliderRow` now bottom-align their trailing content, so a value sits on the track it names rather than beside a wrapping description; the tracks count row, the routes count row and `BoatSizeSlider` — three hand-rolled copies — are each one `SliderRow` call, and the boat size's value takes the row family's face instead of 14 sp accent. The `%` and `m` suffixes moved into `settings_value_pct_fmt` and `settings_value_m_fmt` beside `settings_value_dp_fmt`, and §2.2 plus §4 of the component guidelines now state both rules, including the missing one-knob anti-pattern bullet.
 
-**The delete normalization.** The delete family now has **one pending set** and **one hiding rule**, with its surfaces kept: the map's toast for the cards, the scaffold's inline snackbar for the list rows. `ListOverlayScaffold` takes `sharedPending: MutableList<PendingDeletion>` plus a `pendingKeyPrefix`, so the shell's set and the lists' are one instance, and `PendingDeletion(key, hideFromMap)` carries the one difference the doors have. `hiddenMapIdsOf(pending, prefix)` is the hiding rule's single home: only an entry a **card** entered leaves the map, so the stored-tracks pass's `visibleStoredSummaries(allTrackSummaries, hiddenTrackIds)` — with `hiddenTrackIds` in its rebuild keys — and the marker overlay's filter each hide a deferred delete and **neither hides a list swipe**, which is the user's own correction. Every dismissal trigger and every Undo is behaviourally verbatim; the multiselect confirm keeps its immediate commit and the route discard its R92 two-phase inside the route mode. `MarkersViewModel.pendingDeletes` is left alone as the post-create undo's own concept — the plan's first draft claimed it was dead, the code refuted that, and the retraction stands in the plan's own record.
+**The dropdown wheel commits on release.** The band is the value: a row tap, a drag inside the popup, the box drag's `onDragEnd` and an outside tap each write the band and close, while back and a cancelled drag close writing nothing — the cancel is gone by design. `wheelCentredRow` is the one bridge over `wheelCentredIndex`, and the snap lost its reader, so `snapWheelToSlot`, `wheelSnapTargetSlots` and their unit test went with it.
 
-Both passes: `apk-build.bat` SUCCESSFUL with `app-debug.apk` produced, and the scoped `ui.map` (+ `ui.components`) suites green, the walk pass at 41 suites / 416 tests / 0 failures and the delete pass with `PendingDeletionHidingTest`'s three cases.
+**The popup transition is symmetric.** An `Animatable` at 120 ms with a 4 dp rise runs on open and its exact reverse on close, the window held for the exit because a `Popup` dies with its composition. `Open` / `Closing` / `Closed` is the whole state, one `close()` guards every door so the fading window writes nothing, and the drawn motion is a `graphicsLayer` alpha and translation, so no measured size or offset moves.
+
+Gates: `:app:compileDebugKotlin` green at each landing, and the scoped `ui.components` suite green on the wheel landing — no device pass has been taken.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt` — `cardWalkListIds`, the kind-aware `trackScopeClosed`, `hiddenMapIdsOf`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeSummaries`, the walk world and delete-advance through the helper, the kind through `CloseDashboards`, the typed pending set with its two card doors and the two hidden-id sets
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — `visibleStoredSummaries` and `hiddenTrackIds` in the rebuild keys
-- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `PendingDeletion`, `sharedPending`, `pendingKeyPrefix`; now `internal`, as `MarkerManagementOverlay` also is
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` · `TrackHistoryOverlay.kt` · `MarkerManagementOverlay.kt` — the shared set and prefix to both list surfaces
-- `app/src/test/java/ykws/android/maro/ui/map/` — `PendingDeletionHidingTest.kt` (new), `CardWalkDecisionsTest.kt`, `DashboardScopeClosedTest.kt`
-- `xTrack/Ui_General/261010_FEAT_PLN_Ui_General_route-card-walk-scope.md` · `261010_FEAT_PLN_Ui_General_delete-normalization.md` — the two plans of record
+- `app/src/main/java/ykws/android/maro/ui/components/SliderRow.kt` — bottom alignment, the `[☐ ×10][value]` group travelling with it
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` · `RegulatedZoneComponents.kt` — the count rows and `BoatSizeSlider` through `SliderRow`
+- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — `settings_value_pct_fmt`, `settings_value_m_fmt`
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt` — the phase set, `open()`/`close()`, the band commit and the popup animation
+- `app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt` — the Final-pass release observer and `wheelCentredRow`
+- `app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt` · `app/src/test/…/WheelPolicyTest.kt` — the snap helpers retired
+- `docs/ui-component-guidelines.md` §2.2 · §2.10 · §2.12 · §2.15 · §4 — the rules both landings moved
+- `xTrack/Ui_General/261017_FEAT_PLN_Ui_General_settings-slider-normalization.md` · `261017_FEAT_PLN_Ui_General_wheel-commit-on-release.md` — the two plans of record
 
 ## Next Step
 
-The device pass, owed to the user: a route opened from the Routes list with its counter and both pills stepping routes; one list's filter write leaving the other list's card standing; a card's delete hiding its item at once and returning on Undo; a list swipe leaving the map untouched; the multiselect confirm still deleting at once; and the route discard unchanged.
+The device pass, owed to the user: a slider value reading at the bottom of its row and the three normalised rows in place; the wheel committing the band the finger leaves on both route ends and the algorithm row; the popup fading in and out with nothing accepting a touch during the fade; and a drag released outside the popup window, which the plan names as platform-dependent.
+
+Owed in code, recorded and folded nowhere: the wheel plan's §8 — S-1 the consumption-blind drag discriminator, S-2 the snap that can no longer decide a value (weakened, not gone, since it may animate during the 120 ms fade), S-3 the field drag reading a band one `scrollBy` stale, S-4 the index-to-value write spelled twice — and the one should-fix the second review added, the `phase == Open` predicate living in three lambdas.

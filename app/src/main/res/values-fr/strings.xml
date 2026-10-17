@@ -117,6 +117,8 @@
     <string name="settings_speed_colour_label">Couleur selon la vitesse</string>
     <string name="settings_default_colour_label">Couleur par défaut</string>
     <string name="settings_value_dp_fmt">%.2f dp</string>
+    <string name="settings_value_pct_fmt">%1$d %%</string>
+    <string name="settings_value_m_fmt">%1$d m</string>
     <string name="settings_depth_cutoff_expander">Seuil hauts-fonds (EMODnet)</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>

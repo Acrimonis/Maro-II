@@ -1,7 +1,6 @@
 package ykws.android.maro.ui.components
 
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * **The wheel's arithmetic, stated once and free of Compose.**
@@ -83,13 +82,3 @@ internal fun wheelTargetScrollPx(selectedIndex: Int, slotDp: Float): Float = sel
  * sit off the band. The guard applies it once per open, and never fights a clamp it cannot win.
  */
 internal fun wheelCorrectionSlots(targetIndex: Int, centredIndex: Int): Int = targetIndex - centredIndex
-
-/**
- * **The slot a released drag lands on** — the nearest whole number of slots to [offsetPx], the distance an
- * opening drag scrolled the wheel. It rounds to nearest, so a finger lifted between two rows takes the closer
- * one; the popup being a separate window, the library's snap cannot reach a scroll the field itself performed,
- * so this helper is the whole of that landing. Answers `0` when [slotPx] is not a positive figure rather than
- * dividing by it, and is pure so it can be unit-tested beside the rest of the wheel's arithmetic.
- */
-internal fun wheelSnapTargetSlots(offsetPx: Float, slotPx: Float): Int =
-    if (slotPx <= 0f) 0 else (offsetPx / slotPx).roundToInt()

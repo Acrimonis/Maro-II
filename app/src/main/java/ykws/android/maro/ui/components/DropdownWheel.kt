@@ -2,6 +2,8 @@ package ykws.android.maro.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -20,10 +22,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -50,12 +56,16 @@ private const val BAND_RULE_DP = 1
  *
  * Two things are deliberate here. **The band is the mark** — `uiSelectContainer` behind an accent rule above
  * and below, the app's own taken-choice face — and only the label under it is bold, so the wheel needs no
- * check glyph of its own. **The commit is a tap** (2026-10-05, revision 1): the drag only scrolls and snaps, so
- * the band shows what a tap would take and **nothing is written while the popup is open**; a tap on any row,
- * the banded one included, writes that row and closes, and **an outside click cancels** — the dismissal writes
- * nothing, so the cancel is the absence of a write rather than a revert. This is the gesture the retired
- * roller could not make reliable, re-entered by decision and guarded by reading the same band the wheel draws
- * — the commit is *guarded*, not proven unrelated to that fault.
+ * check glyph of its own. **The release is the commit** (2026-10-17, revision 2): the row the band names at
+ * the instant the pointer lifts is written through [onChoose] and the popup closes with that write, so the
+ * band is **the value, not a candidate**. A tap on a row is the degenerate release — no movement, that row's
+ * own write and close; a drag begun inside the wheel writes its band at its own pointer-up, the observer
+ * reading at the Final pass and consuming nothing; and the fling `rememberSnapFlingBehavior` would have
+ * carried is cut by the close rather than chased across it. An outside tap writes the band it finds, so the
+ * scrim means the same as tapping the banded row; **back alone closes without a write**, and a cancelled drag
+ * closes with nothing written. This is the gesture the retired roller could not make reliable, re-entered by
+ * decision and guarded by reading the same band the wheel draws — the commit is *guarded*, not proven
+ * unrelated to that fault.
  *
  * **The slot is the box's own measured height**, taken as a parameter rather than measured here from the
  * label, so the two surfaces cannot drift at any font scale: the wheel's height is `slots × slot` and its
@@ -91,27 +101,21 @@ internal fun DropdownWheel(
     // internal to the library — so the spring and the fling's friction are the library's own until a
     // `TargetedFlingBehavior` of ours earns the pair.
     val snap = rememberSnapFlingBehavior(listState, SnapPosition.Center)
+    // The callbacks are held rather than captured by the gesture below, which is keyed on nothing that moves
+    // per recomposition: a caller's new option list must not leave an older one behind the observer.
+    val currentOnChoose by rememberUpdatedState(onChoose)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
 
-    val centred by remember {
-        derivedStateOf {
-            val layout = listState.layoutInfo
-            wheelCentredIndex(
-                visible = layout.visibleItemsInfo.map { WheelItemBounds(it.index, it.offset, it.size) },
-                viewportStartOffsetPx = layout.viewportStartOffset,
-                viewportSizePx = layout.viewportSize.height
-            )
-        }
-    }
+    val centred by remember { derivedStateOf { listState.wheelCentredRow() } }
 
     // **The landing, and the one comparison the wheel never made** (2026-09-29). From its rest frame the list
     // scrolls **by** the entry's own distance on the slot grid — `index × slot` — so no offset sign and no
     // origin have to be assumed, and the end pad cancels out of the difference instead of entering the sum.
     // The row the band then names is read from the first laid-out frame and compared with the entry the caller
     // holds: once, and only here, so the wheel's answer and its drawing cannot drift apart. **It stays keyed
-    // on the open** (2026-10-05, revision 1): nothing is written while the popup is open, so `selectedIndex`
-    // cannot change under this effect; the per-open key keeps the landing to one run per open, and returning
-    // it to the value it reads would be correct too — with the settle commit gone, neither can re-land the
-    // wheel under a finger still on it.
+    // on the open** (2026-10-17, revision 2): the landing is the one scroll no finger makes — every gesture
+    // that moves the wheel writes and closes on its lift — so keying on `selectedIndex` would re-land the
+    // wheel under the close that write has already ordered.
     LaunchedEffect(Unit) {
         if (labels.isEmpty()) return@LaunchedEffect
         val target = selectedIndex.coerceIn(0, labels.lastIndex)
@@ -128,6 +132,32 @@ internal fun DropdownWheel(
             modifier = modifier
                 .fillMaxWidth()
                 .height((slots * slotDp).dp)
+                .pointerInput(Unit) {
+                    // **The wheel's own release** (2026-10-17): a drag begun inside the popup writes the row
+                    // the band names at its pointer-up and closes. The observer reads at the Final pass and
+                    // consumes nothing, so the LazyColumn keeps its scroll and its snap; it answers only a
+                    // gesture that moved past the touch slop, leaving taps to the rows' own `clickable`, so
+                    // one tap writes once.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Final
+                        )
+                        var dragged = false
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Final)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                                dragged = true
+                            }
+                            if (change.changedToUpIgnoreConsumed()) break
+                        }
+                        if (dragged) {
+                            centred?.let { currentOnChoose(it) }
+                            currentOnDismiss()
+                        }
+                    }
+                }
         ) {
             // The band is the bottom layer, so the centred row's own label draws over it rather than under.
             Column(modifier = Modifier.align(Alignment.Center).fillMaxWidth().height(slotDp.dp)) {
@@ -154,8 +184,9 @@ internal fun DropdownWheel(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(slotDp.dp)
-                            // The one commit: a tap on any row writes that row and the caller closes. The
-                            // drag only scrolls and snaps and an outside tap writes nothing — the cancel.
+                            // The degenerate release: a tap on a row writes that row and the caller closes.
+                            // A drag never arrives here — the wheel's own observer answers it — and every
+                            // exit is a write, so no tap is a cancel.
                             .clickable {
                                 onChoose(index)
                                 onDismiss()
@@ -183,4 +214,19 @@ internal fun DropdownWheel(
             }
         }
     }
+}
+
+/**
+ * **The row the band names, read off the hoisted state** — the one bridge from Compose's layout to the pure
+ * [wheelCentredIndex]. Every commit reaches the band through this same read: the wheel's own release, the
+ * field drag's release and an outside tap all answer from it, so no second definition of the row under the
+ * band exists to drift from the drawing.
+ */
+internal fun LazyListState.wheelCentredRow(): Int? {
+    val layout = layoutInfo
+    return wheelCentredIndex(
+        visible = layout.visibleItemsInfo.map { WheelItemBounds(it.index, it.offset, it.size) },
+        viewportStartOffsetPx = layout.viewportStartOffset,
+        viewportSizePx = layout.viewportSize.height
+    )
 }

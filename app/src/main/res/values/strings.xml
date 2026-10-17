@@ -118,6 +118,8 @@
     <string name="settings_speed_colour_label">Speed Colour</string>
     <string name="settings_default_colour_label">Default colour</string>
     <string name="settings_value_dp_fmt">%.2f dp</string>
+    <string name="settings_value_pct_fmt">%1$d%%</string>
+    <string name="settings_value_m_fmt">%1$d m</string>
     <string name="settings_depth_cutoff_expander">Shallow cutoff (EMODnet)</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
     <string name="settings_emodnet_cutoff_desc">Hide EMODnet depths shallower than this (shown as no data). 0 = off</string>
