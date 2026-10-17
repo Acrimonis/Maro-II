@@ -9,7 +9,7 @@ import ykws.android.maro.ui.icons.Output_circle
 import ykws.android.maro.ui.icons.Stacks
 import ykws.android.maro.ui.icons.bolt
 import ykws.android.maro.ui.icons.cancel
-import ykws.android.maro.ui.icons.logout
+import ykws.android.maro.ui.icons.navigation
 import ykws.android.maro.ui.icons.route
 import ykws.android.maro.ui.icons.save
 
@@ -220,7 +220,7 @@ fun RouteFanArmIcon(enabled: Boolean) = RouteFanChildIcon(
     contentDescription = R.string.route_action_arm
 )
 
-/** Child 3 — **Save to track**: whatever a line stands unwritten (R77). */
+/** Child 4 — **Save to track**: whatever a line stands unwritten (R77). */
 @Composable
 fun RouteFanSaveIcon(enabled: Boolean) = RouteFanChildIcon(
     imageVector = save,
@@ -228,12 +228,12 @@ fun RouteFanSaveIcon(enabled: Boolean) = RouteFanChildIcon(
     contentDescription = R.string.route_action_save_track
 )
 
-/** Child 4 — **Save to track and exit**: the following phase's own save-and-leave (R77). */
+/** Child 3 — **Follow**: the acquisition's own selection door, offered once a line stands unwritten (R77). */
 @Composable
-fun RouteFanSaveExitIcon(enabled: Boolean) = RouteFanChildIcon(
-    imageVector = logout,
+fun RouteFanFollowIcon(enabled: Boolean) = RouteFanChildIcon(
+    imageVector = navigation,
     enabled = enabled,
-    contentDescription = R.string.route_exit_save
+    contentDescription = R.string.route_action_select
 )
 
 /**

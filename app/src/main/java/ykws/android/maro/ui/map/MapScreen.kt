@@ -2970,29 +2970,26 @@ fun MapScreen(
             // **That list is not the arc's reading order**: a left-facing fan puts index 0 at the arc's
             // **bottom** — `FanConfig.baseAngleDeg` is 270° for `FanDirection.LEFT`, the five-child step
             // is 36°, so index 0 lands at 198° and index 4 at 342° — and the screen therefore reads the
-            // list **bottom to top**: the user's word of 2026-09-29 being **Route (auto) · Route · Save
-            // to track · Save to track and exit · Discard, top to bottom**, which is exactly this list
-            // reversed, index 0 opening the reading with Discard.
+            // list **bottom to top**: the order top to bottom being **Route (auto) · Route · Follow ·
+            // Save to track · Discard** (2026-10-17), which is exactly this list reversed, index 0
+            // opening the reading with Discard.
             val routeFanEnabled: List<Boolean> = run {
                 val phase = routeState.phase
-                val following = phase == RoutePhase.FOLLOWING
                 val saveOpen = (routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved
-                val selectOpen = !routeDisplayArmed ||
-                    (phase == RoutePhase.CHOOSING && !routeCommitted &&
-                        (routeSelectedLine != null || routePartialDrawn))
+                val followOpen = phase == RoutePhase.CHOOSING && !routeCommitted &&
+                    (routeSelectedLine != null || routePartialDrawn)
                 listOf(
                     // Discard — wherever a line can be left, from the search itself to a written route.
                     // Read from the **display** flag, so a pending window's own cell is inert.
                     routeDisplayArmed,
-                    // Save to track and exit — the Following phase's alone: inside the acquisition the
-                    // leaving is the phase move Discard, and it asks nothing (R63).
-                    following && saveOpen,
                     // Save to track — mirrors the panel's own face: a line stands (or is drawn) and is
                     // unwritten.
                     saveOpen,
-                    // Route — dual purpose: acquire while idle, and confirm the selected line — the
-                    // settled one, or the partial one an early select committed to.
-                    selectOpen,
+                    // Follow — the acquisition's own selection door: an armed, uncommitted line stands
+                    // (or is drawn) and the press takes it (2026-10-17).
+                    followOpen,
+                    // Route — acquisition alone: off means an arming, nothing more.
+                    !routeDisplayArmed,
                     // Route (auto) — the arming that takes the settled answer itself (R80), and an
                     // arming belongs to Idle alone (R65). Its source is the **display** flag, not the
                     // phase: the flag is what the press reads and the only thing a restore brings back,
@@ -3001,32 +2998,29 @@ fun MapScreen(
                     !routeDisplayArmed
                 )
             }
-            // **The five actions, in that same list's order** (D5, R79): the Route child acquires while
-            // idle and confirms the settled line during the acquisition, the Route (auto) child arms with
-            // the auto-pick flag, the save pair mirror the panel's and the dialog's own saves, and the
+            // **The five actions, in that same list's order** (D5, R79): the Route child arms the
+            // acquisition alone, the Follow child takes the settled or partial line, the Route (auto)
+            // child arms with the auto-pick flag, the Save child mirrors the panel's save, and the
             // Discard is the dialog's third outcome without its question.
             val routeFanActions: List<() -> Unit> = listOf(
                 // Discard — the deferred door: the window opens, the disposal waits on the toast.
                 { discardRoute() },
                 {
-                    // Save to track and exit acts on the live mode: a pending window is superseded first.
-                    cancelPendingDiscard()
-                    routeSelectedLine?.let { saveRouteTrack(it, routePinned) }
-                    endRouteMode()
-                },
-                {
                     cancelPendingDiscard()
                     saveRoute()
                 },
                 {
-                    // Route — read from the **display**: off means an arming (which commits a pending
-                    // discard first), on means confirming the selected line.
-                    if (routeDisplayArmed) followRoute()
-                    else {
-                        if (pendingDiscard != null) commitPendingDiscard()
-                        routeAutoPick = false
-                        armRouteMode(forceFresh = true)
-                    }
+                    // Follow — the acquisition's own selection door, on the live mode: a pending window
+                    // is superseded first, then the settled or committed partial line becomes the route.
+                    cancelPendingDiscard()
+                    followRoute()
+                },
+                {
+                    // Route — acquisition alone: an arming commits a pending discard before the flag is
+                    // set, so the disposal's own clear cannot eat the intent.
+                    if (pendingDiscard != null) commitPendingDiscard()
+                    routeAutoPick = false
+                    armRouteMode(forceFresh = true)
                 },
                 {
                     // Route (auto) — a new arming commits a pending discard before the flag is set, so
@@ -5205,10 +5199,10 @@ private fun MapContent(
                     // ── The route fan (R75–R80, R91) ──────────────────────────
                     // The parent opens the arc and states the mode (R76); the five children are the
                     // route's own actions, each enabled by the mode's own readings rather than the
-                    // phase alone (R77); and a child's press fires its action. The acquire (`Route`)
-                    // and follow (`Route auto`) children also close the arc, while Discard, Save+Exit
-                    // and Save leave it expanded; otherwise the fan closes on the back key, the scrim,
-                    // or the parent anchor's own toggle (R91).
+                    // phase alone (R77); and a child's press fires its action. The follow, acquire
+                    // (`Route`) and auto (`Route auto`) children also close the arc, while Discard and
+                    // Save leave it expanded; otherwise the fan closes on the back key, the scrim, or
+                    // the parent anchor's own toggle (R91, 2026-10-17).
                     // **The list runs bottom to top** — index 0 sits at the arc's bottom — so it is the
                     // screen's reading reversed: Discard lowest, `bolt` highest.
                     Box(modifier = Modifier.alpha(routeFanAlpha)) {
@@ -5236,16 +5230,16 @@ private fun MapContent(
                             // nothing for it to act on.
                             children = listOf<@Composable (Boolean, Boolean) -> Unit>(
                                 { _, enabled -> RouteFanDiscardIcon(enabled) },
-                                { _, enabled -> RouteFanSaveExitIcon(enabled) },
                                 { _, enabled -> RouteFanSaveIcon(enabled) },
+                                { _, enabled -> RouteFanFollowIcon(enabled) },
                                 { _, enabled -> RouteFanArmIcon(enabled) },
                                 { _, enabled -> RouteFanAutoIcon(enabled) }
                             ),
                             enabledStates = routeFanEnabled,
                             onChildClick = { index: Int, _: Boolean ->
-                                // The acquire (3) and follow (4) children collapse the arc; the rest
-                                // (Discard 0, Save+Exit 1, Save 2) leave it expanded (R91).
-                                if (index == 3 || index == 4) onDismissFan()
+                                // Follow (2), acquire (3) and auto (4) collapse the arc; Discard (0)
+                                // and Save (1) leave it expanded (R91, 2026-10-17).
+                                if (index == 2 || index == 3 || index == 4) onDismissFan()
                                 routeFanActions.getOrNull(index)?.invoke()
                             }
                         )

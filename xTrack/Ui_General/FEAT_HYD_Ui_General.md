@@ -1,6 +1,6 @@
 # Context Hydration — Ui_General — 2026-10-17
 
-**Last Bake:** 2026-10-17 06:21 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-17 06:48 UTC — written by `#bake`; absence means never baked
 
 **Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (`#new sp-ui`, `#focus ui general`, the slider order, the wheel discussion and its `#impl`, the transition order and its `#impl`, then `#bake`/`#commit`/`#push`), the device was never touched, and every claim about the code rests on a file read. Named rather than hidden: the Ask hop on the wheel landing could not run the build, having no shell, so its green state is the Code hop's word; and the settings-slider normalisation ran as one Code hop with no independent review.
 
