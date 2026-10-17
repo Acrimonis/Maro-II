@@ -100,11 +100,12 @@
 - The Tracks and Routes card reads Tracks Appearance → Routes Appearance → Speed Arrows Settings → export/import, each Appearance block opening on its own two-chip Speed Display row.
 - The Tracks/Routes appearance settings seed from the unified `path.*` family, and `maro.properties` was taxonomised into eight subject domains.
 
-**UI_Map** · **status:** active · **created:** 2026-06-07 00:00 · **modified:** 2026-10-13 19:47
-- Map display layer management — the depth and colour-depth layers, overlays, inspect mode, the toggle squares and the drawer ladder.
+**UI_Map** · **status:** active · **created:** 2026-06-07 00:00 · **modified:** 2026-10-17 12:10
+- Map display layer management — the depth and colour-depth layers, overlays, inspect mode, the toggle squares and the drawer ladder, with the shipped calls grouped by subject in `FEAT_DOC_UI_Map_decisions.md`.
 - The layer fan is the master display gate for routes and tracks, the open dashboard's own item its one exception, and the two header eyes stay dimmed but tappable beneath it.
 - Inspect mode re-ranks the nearest inspectable item on every sweep and opens its dashboard at once, the pause recentring the camera and a drag resetting the card.
 - The map dash family rides one frame (one header, one dissolve, square corners, one walk row) and the toggle squares resolve through one pure `MapToggleFace`.
+- The bottom band ends on the map gutter in both orientations, so the bottom-left tag column and the zoom stack share one bottom line and landscape adds no navigation-bar inset.
 
 **WorkflowImprovement** · **status:** active · **created:** 2026-06-03 00:00 · **modified:** 2026-10-14 07:59
 - The xTrack `#`-command system and rulebook governance, with the Claude Code agent adapters in `.claude/agents/`.
