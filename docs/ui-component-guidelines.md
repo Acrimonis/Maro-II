@@ -513,7 +513,13 @@ For a single choice whose option list may grow past the two or three segments a 
   instant the pointer lifts is written and the popup closes with that write, a tap on a row is the degenerate
   release, and an outside tap commits the band, so no exit is a cancel. `PopupSurface` is its outer
   surface with `scrollable = false` and `contentPadding = 0.dp`, the wheel owning the only scroll; its
-  arithmetic lives in `WheelPolicy.kt`, unit-tested beside it.
+  arithmetic lives in `WheelPolicy.kt`, unit-tested beside it. **The popup fades and rises as it opens and
+  mirrors that as it closes** (2026-10-17): a 120 ms fade with a 4 dp rise in, alpha 1 → 0 with the same
+  rise back out, one `graphicsLayer` carrying both directions so no size or offset moves. The exit runs
+  **before** the window is released — `Open` and `Closing` both compose the popup and `Closed` composes
+  nothing — and **the held window is deaf**: its rows, the wheel's pointer observer, the scrim, the back
+  key and the box's own toggle all refuse while `Closing`, because the commit has already happened and a
+  second gesture inside the fade must not write again or restart the popup.
 - **The selection is resolved once, and the popup names the row it lands on** — one index feeds
   the box's word and the wheel's entry alike, and the wheel reaches that entry by scrolling *by* its own
   distance on the slot grid from the popup's rest frame, then comparing the row the band names with the entry

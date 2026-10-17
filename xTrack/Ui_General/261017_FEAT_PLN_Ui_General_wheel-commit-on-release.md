@@ -75,8 +75,45 @@ The pipeline forbids ping-pong, so these stand as owed work, not as edits made a
 - **N-2 — an unreadable band closes without a write**, in the observer as much as in `commitBand(null)`, against the KDoc's "No exit is a cancel"; neither is reachable in practice.
 - **N-3 — a drag lifted outside the popup window** takes the cancel path or the scrim's write depending on the platform; device evidence owes the answer, and this plan names neither.
 - **N-4 — `WheelPolicy`'s header still names the 2026-10-05 plan** as the design of record, and `wheelSlotCount`'s KDoc justifies the even count by a snap that no longer runs.
+
+## 8a. The follow-up — the open transition
+
+**Ordered after the commit rule landed (2026-10-17): a 120 ms fade with a small rise on open.** As first
+shipped the dismissal stayed immediate — `expanded = false` was the whole close, no held window and no exit
+transition; **§8b replaces that half with the symmetric pair the user ordered next.**
+
+- **The enter idiom is the app's own**: an `Animatable(0f)` animated to `1f` in a `LaunchedEffect(Unit)` at `tween(120)`, as the drawer's dissolve does — `AnimatedVisibility(visible = true)` guarantees nothing on a first frame, whereas this branch leaves composition on every close and so starts at zero on every open.
+- **Drawn only**: alpha and a 4 dp `translationY` on the `PopupSurface`'s `graphicsLayer`, so the measured size, the `popupOffset` and the band-on-box alignment are untouched and the wheel's landing reads the layout it always read.
+- **One home for the figure**: a private constant in `DropdownRow.kt` naming what it times, never a bare `120` inline.
+- **Corpus**: §2.12 of `docs/ui-component-guidelines.md` gained the sentence and the epic's implemented entry names the transition; §6's geometry non-goal still holds.
+- **Verification**: `:app:compileDebugKotlin` and the scoped `ui.components` suite.
 - **Resting on an idiom rather than on code:** whether the back key reaches a popup's dispatcher at all is library behaviour; what the tree shows is that `dismissOnBackPress = false` leaves the composed `BackHandler` the only receiver, and that its registration dies with the popup.
 - **Health verdict:** structure yes — one band reader, one arithmetic home, a duplicated snap mechanism and its test deleted; honesty not yet, two sentences of this plan having described behaviour the code does not have, both corrected in `## Implemented`.
+
+## 8b. The close mirrors the open (2026-10-17)
+
+**The user's order, after §8a shipped: "make it look the same on close."** A `Popup` is destroyed the instant it
+leaves composition, so the exit cannot be a fade owned by a disappearing node — the window has to be **held**
+while the animation runs and closed for real after it.
+
+- **One phase, not two booleans.** `expanded` became a private `DropdownPhase` closed set — `Open` and
+  `Closing` both compose the popup, `Closed` composes nothing — so no `expanded && !closing` pair can drift.
+- **One close path.** The row tap, the wheel's pointer-up, the field's `onDragEnd`, an outside tap, back, a
+  cancelled drag and the box's own toggle all reach one `close()`; the commit stays exactly where it was,
+  before it. Guarding that one path and the commit on the phase is what makes the held window **deaf**:
+  `Closing` answers no write, no second dismissal and no re-open.
+- **The exit mirrors the enter.** The same `Animatable`, the same `tween(120)`, the same 4 dp translation —
+  alpha 1 → 0 with `translationY` returning to the positive rise — and the phase moves to `Closed` only when
+  the animation completes.
+- **One effect per transition.** The `LaunchedEffect` is keyed on the phase, so the enter and the exit never
+  share a run; the value lives in the popup's own branch, so a fresh open creates it at zero and a `Closed`
+  close discards it with the popup, and a re-open starts from zero again.
+- **Nothing geometric moves.** Still an alpha and a translation only, so the band stays the box's rectangle and
+  the landing reads the same layout it always read.
+- **The repeated `expanded = false` sites collapsed for free** — the review's N-1: with every door routed
+  through `close()`, the five spellings the Ask hop counted are one, and the commit/close pair N-1 named is
+  owned by the control rather than by the wheel.
+- **Verification**: `:app:compileDebugKotlin` and the scoped `ui.components` suite.
 
 ## Implemented
 
@@ -92,3 +129,13 @@ The pipeline forbids ping-pong, so these stand as owed work, not as edits made a
   §2.10, §2.12, §2.15, the epic's `### dropdown row` and both KDocs were rewritten, and the 2026-10-05 plan
   is marked superseded where it states a requirement. `:app:compileDebugKotlin` and the scoped
   `ui.components` suite green; no device action, no commit, no push.
+
+- **dropdown-popup-transition (2026-10-17, `feature/sp-ui`)** — the dropdown's popup now opens with a 120 ms
+  fade and a 4 dp rise and **mirrors that on the way out**, one `Animatable` and one `tween(120)` per
+  direction, alpha 1 → 0 with the rise returning, drawn only through `graphicsLayer` so the geometry, the
+  `popupOffset`, the slot height and the landing effect are untouched. `expanded` became the private
+  `DropdownPhase` closed set — `Open` and `Closing` both composing, `Closed` nothing — and every dismissal
+  reaches one `close()`, which is what holds the window for the exit and makes it deaf: the rows, the wheel's
+  pointer observer, the scrim, the back key and the box all refuse while `Closing`. One `LaunchedEffect` per
+  phase transition, so a re-open after a close starts from zero. §2.12 and the epic gained the symmetric
+  pair; §8a records the open, §8b the close.
