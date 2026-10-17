@@ -15,7 +15,7 @@ import ykws.android.maro.data.settings.AppSettings
  *  - The six new appearance keys are `maro.properties` values, each checked equal to the default the
  *    code carries — a key misspelled on one side, which would leave the code's default standing, or a
  *    value changed on one side only, fails here.
- *  - The eleven re-homed colour keys are present in `maro.properties` and **absent** from
+ *  - The seven re-homed colour keys are present in `maro.properties` and **absent** from
  *    `colors.properties`: no key has two homes, and the deletion half of the move is asserted rather
  *    than assumed.
  *  - The retired coastline width pair is gone from `maro.properties`, replaced by the single key.
@@ -55,9 +55,6 @@ class CoastlineAppearancePropertiesTest {
         "map.zone300.boundary.color",
         "map.hazard.disc.fill.color",
         "map.hazard.outline.color",
-        "map.zoneAhead.line.color",
-        "map.zoneAhead.cone.fill.color",
-        "map.zoneAhead.cone.outline.color",
         "map.navigation.arrow.color",
         "map.navigation.line.color"
     )
@@ -135,7 +132,7 @@ class CoastlineAppearancePropertiesTest {
     }
 
     @Test
-    fun theElevenColourKeysLiveOnlyInMaroProperties() {
+    fun theSevenColourKeysLiveOnlyInMaroProperties() {
         val maro = shipped("maro.properties")
         val colors = shipped("colors.properties")
 
