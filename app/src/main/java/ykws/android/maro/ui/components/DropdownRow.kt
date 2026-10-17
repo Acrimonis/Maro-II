@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import ykws.android.maro.config.AppConfig
@@ -67,14 +68,17 @@ private const val WHEEL_SLOT_FALLBACK_DP = 38f
  *
  * **The wheel's state is hoisted here, and the field's own drag detector drives it** (2026-10-05): the popup
  * is a separate window, so the pointer that opened it never reaches the wheel, and the vertical drag that
- * begins on the box both opens the popup and scrolls the wheel through `scrollBy`, snapping to the nearest
- * slot on release ([wheelSnapTargetSlots]). The drag is taken unconditionally, so the page under that finger
- * does not scroll with it (D0); a tap still opens the popup, so the control keeps a non-drag path. The slot is
- * the box's own measured height, so the two surfaces cannot drift at any font scale.
+ * begins on the box both opens the popup and scrolls the wheel through `scrollBy`. The drag is taken
+ * unconditionally, so the page under that finger does not scroll with it (D0); a tap still opens the popup,
+ * so the control keeps a non-drag path. The slot is the box's own measured height, so the two surfaces cannot
+ * drift at any font scale.
  *
- * **The commit is a row tap, and an outside click cancels** (2026-10-05, revision 1): `DropdownWheel`'s row
- * tap writes through the wheel's `onChoose` and closes, and `onDismissRequest` only closes — it writes
- * nothing — so an outside tap or back is the cancel, and the drag only scrolls and snaps.
+ * **The release is the commit, and nothing cancels** (2026-10-17, revision 2): the field drag's `onDragEnd`
+ * writes the row the band names at that instant and closes in place of the retired snap, the wheel's own
+ * pointer-up does the same inside the popup, and a tap on a row is the degenerate release of the row tapped.
+ * An outside tap writes the band it finds — the scrim means exactly what tapping the banded row does — while
+ * **back closes without a write**, since it can only arrive before the wheel moved, and a cancelled drag
+ * closes with nothing written. The band is therefore the value, not a candidate.
  *
  * The generic [T] is the option value the caller persists (the `CustomSortField` shape): the row never holds
  * user-facing text, the caller hands in already-resolved labels for each option and the selected value.
@@ -107,12 +111,21 @@ internal fun <T> DropdownRow(
     val selectedIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
     val selectedLabel = options.getOrNull(selectedIndex)?.second.orEmpty()
     val labels = options.map { it.second }
+    // **The one band commit** (2026-10-17): the row under the band, read through the wheel's single reader off
+    // the hoisted state and written through the control's own choice. The field's release and an outside tap
+    // reach this; the wheel's own release reads the same row inside the popup, and a tap on a row writes that
+    // row. No exit is a cancel, so a mistaken gesture is undone by opening the popup again.
+    val commitBand: (LazyListState?) -> Unit = { state ->
+        state?.wheelCentredRow()?.let { index -> options.getOrNull(index)?.let { onSelect(it.first) } }
+    }
+    // The detector below is keyed on nothing that moves per recomposition, so it reaches the commit through a
+    // holder: a caller's new option list must not leave an older one behind the gesture.
+    val currentCommitBand by rememberUpdatedState(commitBand)
     // **The slot is the box's own measured height** (§2), taken as dp; the bars' figure stands in until the
     // first measure, which always precedes an open.
     val slotDp = with(density) {
         if (anchorSize.height > 0) anchorSize.height.toDp().value else WHEEL_SLOT_FALLBACK_DP
     }
-    val slotPx = with(density) { slotDp.dp.toPx() }
     val boundDp = popupMaxHeightDp(LocalConfiguration.current.screenHeightDp)
     val slots = remember(labels.size, slotDp, boundDp) { wheelSlotsFitting(labels.size, slotDp, boundDp) }
     val boxWidth = with(density) { anchorSize.width.toDp() }
@@ -161,16 +174,20 @@ internal fun <T> DropdownRow(
                 modifier = when (sizing) {
                     DropdownSizing.Content -> Modifier.width(dropdownBoxWidth(labels))
                     DropdownSizing.Fill -> Modifier.fillMaxWidth()
-                }.pointerInput(slotPx) {
+                }.pointerInput(Unit) {
                     // **The opening drag owns the popup's scroll** (§4). The pointer is the field's, so the
                     // field scrolls the hoisted state by hand; the library's snap belongs to a drag begun
-                    // inside the open popup and cannot be borrowed here, which is what the release's own
-                    // nearest-slot helper is for. The drag is taken unconditionally, so the page underneath
-                    // does not scroll under that finger.
+                    // inside the open popup and cannot be borrowed here. The drag is taken unconditionally,
+                    // so the page underneath does not scroll under that finger, and **its release is the
+                    // commit** (2026-10-17): the band the finger leaves is written and the popup closes, in
+                    // place of the retired snap.
                     detectVerticalDragGestures(
                         onDragStart = { expanded = true },
-                        onDragEnd = { snapWheelToSlot(wheelState, slotPx, scope) },
-                        onDragCancel = { snapWheelToSlot(wheelState, slotPx, scope) },
+                        onDragEnd = {
+                            currentCommitBand(wheelState)
+                            expanded = false
+                        },
+                        onDragCancel = { expanded = false },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
                             val wheel = wheelState
@@ -191,10 +208,24 @@ internal fun <T> DropdownRow(
                 Popup(
                     alignment = Alignment.TopStart,
                     offset = popupOffset,
-                    // The outside click and back only close; nothing is written, so this is the cancel.
-                    onDismissRequest = { expanded = false },
-                    properties = PopupProperties(focusable = true, usePlatformDefaultWidth = false)
+                    // The outside click commits the band and closes — the scrim means what tapping the banded
+                    // row does. Back does not arrive here: its dismissal is switched off below and the
+                    // popup's own `BackHandler` closes without a write.
+                    onDismissRequest = {
+                        commitBand(listState)
+                        expanded = false
+                    },
+                    properties = PopupProperties(
+                        focusable = true,
+                        dismissOnBackPress = false,
+                        usePlatformDefaultWidth = false
+                    )
                 ) {
+                    // **Back closes with no write** (§5): every gesture writes and closes on its lift, so the
+                    // band can only still hold the stored entry when back arrives, and writing it would be a
+                    // redundant persistence write. This handler owns the key; the outside tap keeps
+                    // `onDismissRequest`.
+                    BackHandler { expanded = false }
                     // The wheel owns the popup's scroll, so the surface does not add one of its own; and it
                     // takes no inset, so the section card fills the popup with no `uiBackground` ring.
                     PopupSurface(
@@ -217,18 +248,4 @@ internal fun <T> DropdownRow(
             }
         }
     }
-}
-
-/**
- * **Release the opening drag onto a whole slot** — read how far the wheel has been scrolled and scroll the
- * difference to the nearest slot multiple ([wheelSnapTargetSlots]). The popup is a separate window, so the
- * library's own snap does not reach a scroll the field performed; this is that landing. Nothing moves when the
- * wheel is already on a slot, and nothing is scrolled when the popup has not composed its state yet.
- */
-private fun snapWheelToSlot(state: LazyListState?, slotPx: Float, scope: CoroutineScope) {
-    val wheel = state ?: return
-    val offset = wheel.firstVisibleItemIndex * slotPx + wheel.firstVisibleItemScrollOffset
-    val target = wheelSnapTargetSlots(offset, slotPx)
-    val delta = target * slotPx - offset
-    if (delta != 0f) scope.launch { wheel.scrollBy(delta) }
 }
