@@ -1002,6 +1002,11 @@ remaining call sites in `MapScreen.kt`.
   toast and the two cards, whose parent is the map's left overlay column and already ends where that
   column does (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column
   either way.
+- **Placement — the band gutter, in both orientations.** The band's bottom edge is the band gutter (the
+  table below), never a navigation-bar inset: the app draws edge-to-edge, so the map runs under a
+  landscape navigation bar while the band's content ends on the same line the zoom stack's own
+  `padding(bottom)` puts it on — the tag column's bottom edge and the zoom stack's bottom edge are one
+  line, and a landscape navigation bar shifts neither.
 
 **Banner face — the pill**
 
