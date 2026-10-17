@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-17 11:52
+modified: 2026-10-17 13:06
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -158,6 +158,12 @@ explicit values/ViewModels + inline callbacks).
 - `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `WizardDrawer.kt`, `markers/wizard/`, `MapScreen.kt`
 
 ## Implemented
+
+- **inspect mode — the walk uses the full filtered list, no viewport cut (2026-10-17, `feature/inspect`)** — the viewport cut is withdrawn: [`InspectRanking`](app/src/main/java/ykws/android/maro/ui/map/InspectRanking.kt:55) loses `InspectBounds` and the candidate bbox entirely, `nearest()` and `rank()` take just `(anchor, candidates)`, and [`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:602) drops both `boundingBox` reads — so the sweep's true closest and the walk both cover every item the map holds, with the map filters and layer/view buttons still gating the set and the live track excluded. `InspectRankingTest` pins an off-screen item winning the nearest and staying in the order.
+
+- **inspect mode — the anchor captured at arming and the frozen walk owning the card (2026-10-17, `feature/inspect`)** — the acquire point is now captured once at arming and never re-established ([`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:548) seeds it and `refreshMotion` no longer writes it), so every sweep ranks from where the mode was armed and a step's own framing moves the view alone. Once the pause freezes the ladder, [`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:478) gains `frozen`/`frozenCandidate`: the sweep stops publishing, the quiet clock stops re-arming the pause, and the gold paints the cursor's item, while [`inspectAcquireAction`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:312) refuses any live open or close on a frozen ladder and the marker gold reads the cursor ([`MapScreen.kt:3512`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3512)); `InspectAcquireTest` pins the frozen rule.
+
+- **inspect mode — quiet time at 1499 ms and a viewport-only ladder (2026-10-17, `feature/inspect`)** — the recentre's quiet now ships at `map.inspect.dwellMs=1499` (was 1234), with [`AppConfig.uiMapInspectDwellMs`](app/src/main/java/ykws/android/maro/config/AppConfig.kt:882) mirroring it and a new `InspectModePropertiesTest` pinning both homes. The frozen distance ladder is now filtered to the viewport on screen at the pick — [`InspectRanking.rank()`](app/src/main/java/ykws/android/maro/ui/map/InspectRanking.kt:176) applies the same overlap test `nearest` reads — so a Prev/Next walks only the items the screen shows; [`MapInspectEffects`](app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt:649) reads the live bounds at the pause and passes them in, and `InspectRankingTest` gains the off-viewport-exclusion pin.
 
 - **bottom-left tag column aligned to the zoom stack (2026-10-17, `feature/lyt-ui`)** — the map's bottom zone padded itself by `WindowInsets.navigationBars` in landscape and by `ui.map.toggle.gutter` in portrait, so on a three-button device the tag column stood a nav bar's height above the map's bottom edge while the zoom stack beside it sat on 6 dp; the zone now takes `padding(bottom = TOP_TOGGLE_GUTTER)` in both orientations and its `navigationBars` import went with the fork. The same box carries the loading card, the error card and the exit toast, so those no longer clear the nav bar in landscape; the zoom stack still pads its own literal 6 dp, and the two homes of that gutter are recorded as a finding rather than merged.
 

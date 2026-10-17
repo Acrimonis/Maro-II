@@ -75,6 +75,24 @@ class InspectAcquireTest {
         )
     }
 
+    @Test
+    fun `a frozen ladder never opens or closes on a live answer`() {
+        // Once the pause has frozen the ladder, the walk owns the card: a different nearest and a lost
+        // target alike must leave the stepped card standing until the walk itself moves.
+        assertEquals(
+            InspectAcquire.NONE,
+            inspectAcquireAction(
+                rankId = "T2", cardOpen = true, openInFlight = false, showingId = "M1", ladderFrozen = true
+            )
+        )
+        assertEquals(
+            InspectAcquire.NONE,
+            inspectAcquireAction(
+                rankId = null, cardOpen = true, openInFlight = false, showingId = "M1", ladderFrozen = true
+            )
+        )
+    }
+
     // ── The reset boundary (plan §1) ────────────────────────────────────────
 
     @Test
