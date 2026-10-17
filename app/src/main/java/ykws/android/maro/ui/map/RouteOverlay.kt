@@ -513,6 +513,16 @@ internal fun routePlanOf(track: Track): RoutePlan? {
     )
 }
 
+/**
+ * **Is this line already a track?** — the one read of the session's route-to-track link, shared by the
+ * selected line's and the followed line's save facts (R16, R17). The read direction is not an identity
+ * (R99): the link is bridged across the loss mirror, so a plan saved in either orientation answers its
+ * own track, and a plan with no link answers false.
+ */
+internal fun routeLinkSaved(links: Map<RoutePlan, String?>, plan: RoutePlan?): Boolean {
+    if (plan == null) return false
+    return links[plan] != null || links[plan.reversed()] != null
+}
 
 /**
  * **A partial plan from the main lookup's provisional points** — the early-save's own line.

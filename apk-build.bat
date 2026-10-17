@@ -6,7 +6,7 @@ REM hasn't is simply absent (the app falls back to a live fetch at runtime where
 echo ======================================
 echo  Building Maro II APK...
 echo ======================================
-call gradlew assembleDebug
+call "%~dp0gradlew.bat" assembleDebug
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Build failed with error code %ERRORLEVEL%
     exit /b %ERRORLEVEL%
