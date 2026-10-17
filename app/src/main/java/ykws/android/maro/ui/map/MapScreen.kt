@@ -808,6 +808,10 @@ fun MapScreen(
     // the back key — all reach them from outside the panel's own composition (R23), and one dialog
     // reached by three doors needs one set of those values.
     var routePinned by remember { mutableStateOf(false) }
+    // **The save door's one in-flight gate** (2026-10-17) — a write already running refuses a second
+    // press, so a double tap inside the IO window cannot write the same line twice; the same flag is
+    // what greys the save faces while it holds.
+    var routeSaveInFlight by remember { mutableStateOf(false) }
     // The early save's draft: a track already written, re-saved at each main iteration. The id's
     // presence is the "already saved" fact the doors read; the companions fix its identity.
     var routeDraftId by remember { mutableStateOf<String?>(null) }
@@ -864,12 +868,27 @@ fun MapScreen(
     val routeSelectedLine = routeSelectedPage?.plan
     // The panel's own selected index: the selected page's position in the ETA-ordered view.
     val routeSortedSelectedIndex = routeSelectedPage?.let { routeSortedPages.indexOf(it).coerceAtLeast(0) } ?: 0
-    // **Is the selected line already written?** — the one fact the save actions grey themselves on;
-    // an early save still growing its draft counts as written too.
-    val routeFrontSaved = routeSelectedLine?.let { routeSessionLinks[it] != null } == true || routeDraftId != null
+    // **Is the selected line already written?** — the one fact the save actions grey themselves on; an
+    // early save still growing its draft counts as written too, and the link is read through its one
+    // home, so a mirrored line answers the track it was written as (R16, R17, R99).
+    val routeFrontSaved = routeLinkSaved(routeSessionLinks, routeSelectedLine) ||
+        routeDraftId != null || routeSaveInFlight
     // **The early doors** — the main's partial line is drawn, and the selection is committed to it.
     val routePartialDrawn = routeSelectedLine == null && routeProvisionalLine.size >= 2
     val routeCommitted = (routeState as? RouteState.Choosing)?.committed == true
+    // **The followed line, and whether it is already written** (2026-10-17): the page list is dropped on
+    // entering `Following`, so a followed route has no selected line to write — the save cell and the save
+    // door both read this pair. A route followed from a saved track carries its own id and is written
+    // already, and the link is read through the same one home as the selected line's. An **open early
+    // save** and a **write already in flight** count as written too, so the door cannot write a second
+    // track while the draft is being finalised over the followed line's own id.
+    val routeFollowingPlan = (routeState as? RouteState.Following)?.plan
+    val routeFollowingSaved = (routeState as? RouteState.Following)?.let { following ->
+        following.followedTrackId != null ||
+            routeLinkSaved(routeSessionLinks, following.plan) ||
+            routeDraftId != null ||
+            routeSaveInFlight
+    } == true
 
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
@@ -2542,19 +2561,25 @@ fun MapScreen(
              * with its own instant and its own name, and it writes its own track.
              */
             fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
-                if (plan.points.size < 2) return
+                if (plan.points.size < 2 || routeSaveInFlight) return
+                routeSaveInFlight = true
                 routeSaveScope.launch {
-                    val writtenId = writeRouteTrack(plan, pin, name)
-                    routeViewModel.noteRouteSaved(plan, writtenId)
+                    try {
+                        val writtenId = writeRouteTrack(plan, pin, name)
+                        routeViewModel.noteRouteSaved(plan, writtenId)
+                    } finally {
+                        routeSaveInFlight = false
+                    }
                 }
             }
 
             /**
              * **The panel's and the fan's one save door** — writes the selected line, or starts an
-             * early save when only the main's partial line stands.
+             * early save when only the main's partial line stands. A followed route is the third case
+             * (2026-10-17): the page list is gone by then, so the line being followed is what is written.
              */
             fun saveRoute() {
-                val plan = routeSelectedLine
+                val plan = routeSelectedLine ?: routeFollowingPlan
                 if (plan != null) {
                     saveRouteTrack(plan, routePinned)
                     return
@@ -2992,15 +3017,17 @@ fun MapScreen(
             // opening the reading with Discard.
             val routeFanEnabled: List<Boolean> = run {
                 val phase = routeState.phase
-                val saveOpen = (routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved
+                val saveOpen = ((routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved) ||
+                    (routeFollowingPlan != null &&
+                        routeFollowingPlan.points.size >= 2 && !routeFollowingSaved)
                 val followOpen = phase == RoutePhase.CHOOSING && !routeCommitted &&
                     (routeSelectedLine != null || routePartialDrawn)
                 listOf(
                     // Discard — wherever a line can be left, from the search itself to a written route.
                     // Read from the **display** flag, so a pending window's own cell is inert.
                     routeDisplayArmed,
-                    // Save to track — mirrors the panel's own face: a line stands (or is drawn) and is
-                    // unwritten.
+                    // Save to track — mirrors the panel's own face while choosing, and stands open while
+                    // a followed line is still unwritten (2026-10-17).
                     saveOpen,
                     // Follow — the acquisition's own selection door: an armed, uncommitted line stands
                     // (or is drawn) and the press takes it (2026-10-17).
@@ -3078,10 +3105,13 @@ fun MapScreen(
                 }
             }
             // The early save's close: when the selected line lands, the draft takes the full line and
-            // the session links the landed plan to it, so the save door shuts for good.
-            LaunchedEffect(routeSelectedLine) {
+            // the session links the landed plan to it, so the save door shuts for good. `Following` is
+            // the second close (2026-10-17): the early-select door empties the pages in the same call
+            // that enters the state, so no selected line is ever observed and the draft — the very line
+            // being followed — would keep its partial track beside a live save door.
+            LaunchedEffect(routeSelectedLine, routeFollowingPlan) {
                 val draftId = routeDraftId ?: return@LaunchedEffect
-                val plan = routeSelectedLine ?: return@LaunchedEffect
+                val plan = routeSelectedLine ?: routeFollowingPlan ?: return@LaunchedEffect
                 routeDraftWriteMutex.withLock {
                     writeRouteTrack(
                         plan,

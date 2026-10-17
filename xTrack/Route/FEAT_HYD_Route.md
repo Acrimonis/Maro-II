@@ -1,8 +1,10 @@
 # Context Hydration — Route — 2026-10-17
 
-**Last Bake:** 2026-10-17 16:45 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-17 18:58 UTC — written by `#bake`; absence means never baked
 
 **Directive trace:** The session ran on `feature/route-ld` (cut from `origin/develop`) on the user's `#focus route` / `#new route-ld`, then a long device-driven loop: the **20 m standoff** enforced, the ring replaced by a **per-grid gate-distance berth** (`#impl`), the **depth collar + tile halo** (`#impl`), the line's **Chaikin smoothing** replaced by **Douglas–Peucker** on the user's *use a better line straightening method*, and the pull's guard moved to **total time** on *plan fix* + `#impl`. Between hops the user ran the device and asked for the logcat after each build, and tuned `route.evolutive.berth.secPerM` 0.1 → 0.5 → 0.75. The device was touched only for the logcats the user asked for, dump-only; **no dependency was added, no machine-shaped data file opened, no work started without an order, and every code claim stands behind a file read.**
+
+**2026-10-17 follow-up** — Save now serves the followed line: the fan's `Save` child arms while a route is followed and writes the followed plan, an open early-save draft counts as written and is finalised over that line's own id, one `routeLinkSaved` helper reads the session link across both mirror orientations for the selected and followed facts, the save door carries an in-flight gate against a double tap, and `apk-build.bat` resolves its own `gradlew.bat`; `testDebugUnitTest` and `assembleDebug` green, no dependency added.
 
 ## State
 

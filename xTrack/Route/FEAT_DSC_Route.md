@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-17 16:45
+modified: 2026-10-17 18:58
 ---
 
 # Feature: Route
@@ -78,8 +78,16 @@ ui/map/        RouteViewModel.kt, RouteHost.kt, RouteOverlay.kt, RouteConfirmPan
 Idle → a door armed on the standing pair → Choosing (the search runs; the panel and the provisional line)
 Choosing → Select route → Following (the line, the toggle, the one exit dialog)
 Choosing → Save to track / Discard route → Idle
+Following → Save to track → Following (the followed line is written; the mode stays)
 Following → the toggle's off or the back key → the one dialog → save and exit · continue · discard
 ```
+
+The save door serves the **followed** line too (2026-10-17): the fan's `Save` child writes the line being
+followed, gated on that line being unwritten — a followed saved track is already written, and an early
+save's draft is finalised over the followed line when the mode starts following it, so the door never
+writes a second track for the same line. The link is read through one helper for both lines
+([`routeLinkSaved`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:516)), which bridges
+the loss mirror's reversal, and a write already in flight counts as written and refuses a second press.
 
 A discard is **two-phase** (R92): the display ends at once and the disposal waits on the undo toast.
 
