@@ -574,6 +574,12 @@ internal fun <T : ListableItem> ListOverlayScaffold(
     modifier: Modifier = Modifier,
     multiActions: List<MultiActionSpec> = emptyList(),
     headerActions: @Composable () -> Unit = {},
+    /**
+     * A caller's own quick filter, drawn under the section row and above the list — the one door a
+     * user should not have to open the funnel for. Null draws nothing, so the scaffold stays generic
+     * and no axis it does not own reaches its header.
+     */
+    quickFilterSlot: (@Composable () -> Unit)? = null,
     lazyListState: LazyListState = rememberLazyListState(),
     restoredScrollState: SavedScrollState? = null,
     /**
@@ -813,6 +819,10 @@ internal fun <T : ListableItem> ListOverlayScaffold(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                quickFilterSlot?.let { slot ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { slot() }
+                    Spacer(Modifier.height(8.dp))
+                }
             } else {
                 Spacer(Modifier.height(4.dp))
             }

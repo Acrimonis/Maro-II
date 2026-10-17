@@ -144,6 +144,50 @@ import kotlin.math.roundToInt
  * - IME Done → commit, Back → revert to original
  * - Only one field editable per card at a time
  */
+/**
+ * The routes list's pinned doors — `All · Pinned · Not pinned` — writing the `pinned` axis of the
+ * route filter through the scaffold's own callback (2026-10-17). The axis is the funnel's, read and
+ * written by its rule: an absent key is `ALL`, and the `All` door removes the key rather than storing
+ * the default, so a linked filter carries no leftover axis to the map and Reset clears it with the rest.
+ *
+ * @param filterState the active list filter — the routes list's own, or the shared one while linked.
+ * @param onFilterChange the same callback the funnel writes through, so one door opens both surfaces.
+ */
+@Composable
+private fun RoutesPinnedFilterRow(
+    filterState: ListFilter,
+    onFilterChange: (ListFilter) -> Unit
+) {
+    val selected = filterState.axes["pinned"] ?: "ALL"
+    val doors = listOf(
+        "ALL" to R.string.filter_option_all,
+        "PINNED" to R.string.settings_marker_halo_pinned_label,
+        "UNPINNED" to R.string.filter_option_unpinned
+    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        doors.forEach { (value, labelResId) ->
+            val active = value == selected
+            TextButton(
+                onClick = {
+                    val axes = if (value == "ALL") filterState.axes - "pinned"
+                    else filterState.axes + ("pinned" to value)
+                    onFilterChange(ListFilter(axes))
+                }
+            ) {
+                Text(
+                    text = stringResource(labelResId),
+                    color = Color(if (active) AppConfig.uiAccent else AppConfig.uiTextMuted),
+                    fontSize = 14.sp,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TrackHistoryOverlay(
@@ -451,6 +495,11 @@ internal fun TrackHistoryOverlay(
         onReset = onReset,
         filterLinked = filterLinked,
         onToggleLink = onToggleLink,
+        // The routes list's own three-door pinned filter: the funnel's axis, reachable in one tap, and
+        // written through this same callback so the list/map link and Reset keep holding.
+        quickFilterSlot = if (isRoutes) {
+            { RoutesPinnedFilterRow(filterState = filterState, onFilterChange = onFilterChange) }
+        } else null,
         accentColors = { accentColorMap },
         cardContent = { summary, isSelected, onSelect, onLongPress ->
             TrackCardContent(
