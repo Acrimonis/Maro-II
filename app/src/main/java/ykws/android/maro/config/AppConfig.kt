@@ -1581,15 +1581,6 @@ object AppConfig {
     /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline.color` in maro.properties. */
     var mapHazardOutline: Int = 0xFF000000.toInt()
         private set
-    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line.color` in maro.properties. */
-    var mapZoneAheadLine: Int = 0xCC4CAF50.toInt()
-        private set
-    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill.color` in maro.properties. */
-    var mapZoneAheadConeFill: Int = 0xFFFFEB00.toInt()
-        private set
-    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline.color` in maro.properties. */
-    var mapZoneAheadConeOutline: Int = 0xFFFFC800.toInt()
-        private set
     /** Zone300 boundary colour — the seed of `AppSettings.zone300Color`. Default #FFE53935.
      *  Set via `map.zone300.boundary.color` in maro.properties. The band's water-only fill
      *  colour is that same setting and this file carries no fill key. */
@@ -2532,9 +2523,6 @@ object AppConfig {
             // ── Map overlays ──────────────────────────────────────────────────
             props.getProperty("map.hazard.disc.fill.color")?.let { parseColorOrNull(it) }?.let { mapHazardDiscFill = it }
             props.getProperty("map.hazard.outline.color")?.let { parseColorOrNull(it) }?.let { mapHazardOutline = it }
-            props.getProperty("map.zoneAhead.line.color")?.let { parseColorOrNull(it) }?.let { mapZoneAheadLine = it }
-            props.getProperty("map.zoneAhead.cone.fill.color")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeFill = it }
-            props.getProperty("map.zoneAhead.cone.outline.color")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeOutline = it }
             props.getProperty("map.zone300.boundary.color")?.let { parseColorOrNull(it) }?.let { mapZone300Boundary = it }
             props.getProperty("map.sprite.tap.flash.color")?.let { parseColorOrNull(it) }?.let { mapMarkerTapFlashColor = it }
             props.getProperty("map.sprite.tap.flash.alpha")?.toFloatOrNull()?.let { mapMarkerTapFlashAlpha = it.coerceIn(0f, 1f) }
