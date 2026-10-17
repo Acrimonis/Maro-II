@@ -19,8 +19,8 @@ import ykws.android.maro.spatial.SpatialOperations
 // Two consumers, one metric (plan §2, §3):
 //  - the sweep needs only the nearest eligible item → [nearest], an O(N) minimum scan per frame over
 //    the candidates whose cached bbox overlaps the viewport;
-//  - the ladder needs the whole order → [rank], a full sort, run once at the pick and deliberately
-//    not viewport-filtered, so a Next may walk to an off-screen item.
+//  - the ladder needs the visible order → [rank], that same viewport filter then a full sort, run
+//    once at the pick, so a Next walks only the items the screen actually shows.
 // Both read the same loaded geometry, so the gold is always the ladder's first entry.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -167,14 +167,17 @@ internal object InspectRanking {
     }
 
     /**
-     * The full ladder over [candidates], ascending by distance, ties broken markers before tracks
-     * and then by id ascending — deterministic, so the walk is reproducible and testable.
+     * The visible ladder over [candidates]: the items whose own cached box overlaps [viewport],
+     * ascending by distance, ties broken markers before tracks and then by id ascending —
+     * deterministic, so the walk is reproducible and testable.
      *
-     * Deliberately **not** viewport-filtered (plan §5): the ladder is the walk world a Next steps
-     * through, and a step may land on an item the screen has since left behind.
+     * The filter is the same one [nearest] reads (plan §2, §5), so the walk a Next steps stays on the
+     * items the screen actually shows; the ladder is built once at the pick, so a later pan does not
+     * re-rank it.
      */
-    fun rank(anchor: LatLng, candidates: List<InspectCandidate>): List<InspectRank> =
+    fun rank(anchor: LatLng, candidates: List<InspectCandidate>, viewport: InspectBounds): List<InspectRank> =
         candidates
+            .filter { viewport.overlaps(it.bounds) }
             .map { InspectRank(it.id, it.kind, distance(anchor, it)) }
             .sortedWith(compareBy({ it.distanceM }, { if (it.kind == InspectKind.MARKER) 0 else 1 }, { it.id }))
 

@@ -1,27 +1,22 @@
-# Context Hydration — UI_Map — 2026-10-10
+# Context Hydration — UI_Map — 2026-10-17
 
-**Last Bake:** 2026-10-10 12:50 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-10-17 12:37 UTC — written by `#bake`; absence means never baked
 
 **Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders, the device was never touched (the build and the scoped suites are named below), and every claim about the code rests on a file read.
 
 ## State
 
-**Menu chevron order (2026-10-10, `feature/listery`).** The hamburger menu's three chevron doors walk the sort of the list each one opens — `trackListSort`, `routeListSort`, `markerListSort` — while membership stays the map filter, so the map's own drawing (`_mapMarkers`, the stored-track ranking, the render cap, the inspect candidates) is untouched. `sortMarkers` and `sortSummaries` left their view models for top-level pure homes both the list and the gate read; `menuTrackIdsOf` / `menuRouteIdsOf` take the sort state, and `MapScreen` derives `menuMarkerIds` for the chevron's walk world and `firstMarkerId`. The close rule moved with it: the `DrawerSource.MENU` arm of `scopeClosed` and the `TrackCardSource.MENU` arm of `trackScopeClosed` are now `listWorld || mapWorld`, so a list sort edit closes a menu-opened card of either kind, the map-filter arm's meaning unchanged. Both bare `setOnMarkerClickListener` suppressors left `MarkerOverlay` (with the now-dead `confirmed` parameter), so a marker tap reaches osmdroid's own handler — the Markers feature's `marker-click-remove` entry records it.
+**Inspect mode, two landings on `feature/inspect`.** The recentre's quiet now ships at `map.inspect.dwellMs=1499` (was 1234; `AppConfig.uiMapInspectDwellMs` mirrors it and `InspectModePropertiesTest` pins both), and the frozen ladder is filtered to the viewport on screen at the pick (`InspectRanking.rank` applies the same overlap test `nearest` reads), so a Prev/Next walks only the items the screen shows. The step/focus fault was then fixed: the acquire point is captured once at arming and `refreshMotion` no longer rewrites it, and once the pause freezes the ladder `MapInspectEffects` gains `frozen`/`frozenCandidate` — the sweep stops publishing, the quiet clock stops re-arming the pause, and the gold paints the cursor's item — while `inspectAcquireAction` refuses any live open or close on a frozen ladder. `:app:assembleDebug` is SUCCESSFUL and the scoped `ui.map` + `config` suites are green.
 
-**Still live from the prior session.** The layer-fan master gate and the toggle-geometry / selection-escape pass are in `## Implemented`; the palette's `.floor` 0.25 / `.ms` 666 against `AppConfig`'s 0.33 / 555 keep two `MapPulseDotTest` assertions red as the user ordered, untouched.
-
-**Review.** No review artifact for this session is on file in the corpus, so the bake records the gap rather than restating findings it cannot cite; no open should-fix is carried.
-
-**Verification.** `apk-build.bat` SUCCESSFUL, and the scoped `ui.map` list, card-walk, selection-policy and marker suites green — the new `MenuMarkerOrderTest` pins `sortMarkers`, `ListScopeAndCountsTest` the sort-ordered referential, `DashboardScopeClosedTest` the widened close rule.
+**Known limit on the walk.** The ladder is the warmed candidate set — map-filtered markers while the marker layer shows, and non-live routes/tracks whose own layer and map filter hold — intersected with the viewport read at the pause and frozen there. An item hidden by a filter or layer, whose geometry failed to load, or that becomes visible only after the recentre's zoom is therefore outside the walk; the render cap is not a limit.
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `sortMarkers` lifted to a top-level pure home; `scopeClosed`'s MENU arm
-- `app/src/main/java/ykws/android/maro/ui/map/CardWalkPolicy.kt` — `trackScopeClosed`'s MENU arm reads the list write too
-- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — `sortSummaries` lifted to a top-level pure home
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `menuTrackIdsOf` / `menuRouteIdsOf` take the sort state; `menuMarkerIds` derived
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — both bare tap suppressors and `confirmed` removed
-- `app/src/test/java/ykws/android/maro/ui/map/MenuMarkerOrderTest.kt`, `ListScopeAndCountsTest.kt`, `DashboardScopeClosedTest.kt` — the pins
-- `xTrack/UI_Map/FEAT_DSC_UI_Map.md` — the `## Implemented` entry; `xTrack/Markers/FEAT_DSC_Markers.md` — `marker-click-remove`
+- `app/src/main/java/ykws/android/maro/ui/map/InspectMode.kt` — anchor seed, `frozen`/`frozenCandidate`, sweep and quiet stand-down, `inspectAcquireAction`'s `ladderFrozen`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — frozen state, guarded `onSweep`, cursor-owned marker gold
+- `app/src/main/java/ykws/android/maro/ui/map/InspectRanking.kt` — viewport-filtered `rank`
+- `app/src/main/assets/maro.properties` — `map.inspect.dwellMs=1499`, mirrored by `AppConfig.uiMapInspectDwellMs`
+- `app/src/test/java/ykws/android/maro/ui/map/InspectRankingTest.kt`, `InspectAcquireTest.kt`, `config/InspectModePropertiesTest.kt` — the pins
+- `xTrack/UI_Map/FEAT_DSC_UI_Map.md` — the two `## Implemented` entries
 
 ## Next Step
-The device pass, owed to the user: each chevron opening the head of its own list's order, a list sort edit closing an open menu card, and a marker tap now reaching osmdroid's handler — with the feature's older owed passes (the layer fan's gate, the five faces and the pulse mark, inspect live-acquire, marker zoom and the dp pass) standing beside it.
+A device pass on `feature/inspect`: step the walk and confirm each step frames the stepped item with its gold and card agreeing, the pause fires once at 1499 ms, and the anchor never drifts; the feature's older owed passes stand beside it.

@@ -878,8 +878,8 @@ object AppConfig {
     // trigger's quiet time; the sweep, the ordering, the metric and the walk are all structural.
 
     /** Quiet time (ms) the map must stand still, with a target acquired under the anchor, before
-     *  inspect mode recentres the camera on that target. Default 666. Set via `map.inspect.dwellMs`. */
-    var uiMapInspectDwellMs: Long = 666L
+     *  inspect mode recentres the camera on that target. Default 1499. Set via `map.inspect.dwellMs`. */
+    var uiMapInspectDwellMs: Long = 1499L
         private set
 
     /**

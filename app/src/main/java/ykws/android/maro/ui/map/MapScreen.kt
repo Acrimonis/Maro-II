@@ -2671,7 +2671,15 @@ fun MapScreen(
                         trackDrawerState.track?.id
                     else -> null
                 }
-                when (inspectAcquireAction(rank?.id, inspectCardOpen, inspectHandoff != null, showingId)) {
+                when (
+                    inspectAcquireAction(
+                        rank?.id,
+                        inspectCardOpen,
+                        inspectHandoff != null,
+                        showingId,
+                        ladderFrozen = inspectCursor != null
+                    )
+                ) {
                     InspectAcquire.CLOSE -> closeInspectCard()
                     InspectAcquire.OPEN ->
                         if (rank != null) openInspectCard(rank.id, rank.kind, cursor = null, frame = false)
@@ -2881,6 +2889,11 @@ fun MapScreen(
                 activityId = mapActivityId,
                 panelOpen = inspectPanelOpen,
                 recentring = inspectRecentring,
+                // The pause freezes the ladder, and from then on the walk owns both the card and the
+                // gold: the sweep and the quiet clock stand down, and the item the cursor sits on is the
+                // one the gold paints, so a step and its framing can never be replaced.
+                frozen = inspectCursor != null,
+                frozenCandidate = inspectCursor?.current,
                 highlightedTrackId = highlightedTrackId,
                 rebuildGeneration = trackRebuildGeneration.value,
                 // The same plan inputs the canonical rebuild paints the selection from, so the gold the
@@ -2894,8 +2907,13 @@ fun MapScreen(
                 // settings page, a list, the fan) owns the screen instead, so the mode stays out of its
                 // way and resumes on the next sweep after it closes.
                 onSweep = { rank ->
-                    inspectCandidate = rank
-                    if (!inspectPanelOpen) acquireInspect(rank)
+                    // Once the ladder is frozen the walk owns the card and the gold. The effect itself
+                    // stands down when frozen; this guard closes the window between the cursor being
+                    // seated and that restart, so a late tick can never repaint either.
+                    if (inspectCursor == null) {
+                        inspectCandidate = rank
+                        if (!inspectPanelOpen) acquireInspect(rank)
+                    }
                 },
                 // The pause (plan §1, §2): the quiet has elapsed with this item acquired, so the mode
                 // recentres the camera onto it and freezes the ladder its walk steps. The shell effect
@@ -3509,7 +3527,9 @@ fun MapScreen(
                     markerZonesVisible = appSettings.markerZonesVisible,
                     // An inspect candidate wears the same gold the selection does: a marker candidate
                     // simply joins this overlay's existing input rather than being painted separately.
-                    selectedMarkerId = inspectCandidate?.takeIf { it.kind == InspectKind.MARKER }?.id
+                    // A frozen ladder's gold is the walk's own item, so the card and the gold agree.
+                    selectedMarkerId = (inspectCursor?.current ?: inspectCandidate)
+                        ?.takeIf { it.kind == InspectKind.MARKER }?.id
                         ?: selectedMarkerId,
                     markerHaloSize = appSettings.markerHaloSize,
                     markerPointIconZoom = appSettings.markerPointIconZoom,

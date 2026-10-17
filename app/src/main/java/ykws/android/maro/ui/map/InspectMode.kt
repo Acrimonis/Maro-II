@@ -305,9 +305,9 @@ internal enum class InspectAcquire {
 
 /**
  * The live acquire as one rule (plan §1): the panel's presence is the target's presence. An open in
- * flight owns the slot until it lands, the anchor losing its target closes the panel without disarming,
- * and an answer already on screen is no change at all — which is what keeps a live swap from reopening
- * its own panel on every sweep.
+ * flight owns the slot until it lands, a frozen ladder hands the slot to the walk, the anchor losing
+ * its target closes the panel without disarming, and an answer already on screen is no change at all —
+ * which is what keeps a live swap from reopening its own panel on every sweep.
  */
 internal fun inspectAcquireAction(
     /** The acquired item's id, or null when the viewport holds none. */
@@ -317,9 +317,15 @@ internal fun inspectAcquireAction(
     /** Whether an open is in flight: its successor owns the slot until it lands. */
     openInFlight: Boolean,
     /** The id the standing card shows, or null while none stands. */
-    showingId: String?
+    showingId: String?,
+    /**
+     * True once the pause has frozen the ladder: the walk owns the card, so no live answer may open or
+     * close it (the user's spec, 2026-10-17).
+     */
+    ladderFrozen: Boolean = false
 ): InspectAcquire = when {
     openInFlight -> InspectAcquire.NONE
+    ladderFrozen -> InspectAcquire.NONE
     rankId == null -> if (cardOpen) InspectAcquire.CLOSE else InspectAcquire.NONE
     showingId == rankId -> InspectAcquire.NONE
     else -> InspectAcquire.OPEN
@@ -495,6 +501,14 @@ internal fun MapInspectEffects(
     /** True while a panel owns the screen: the menu, settings, either list or the layer fan. */
     panelOpen: Boolean,
     /**
+     * True once the pause has frozen the ladder: the walk owns both the card and the gold, so the sweep
+     * stops publishing and the quiet clock stops re-arming the pause. A step's own framing then moves the
+     * view alone and nothing may replace the walked item (the user's spec, 2026-10-17).
+     */
+    frozen: Boolean,
+    /** The item the frozen walk sits on, or null while the ladder is not frozen — the gold it paints. */
+    frozenCandidate: InspectRank?,
+    /**
      * True from the moment the pause's recentre is issued until it lands: the mode's own camera move.
      * Its scroll events must not be read as the user's activity, or the quiet would restart on the
      * very move that spent it (plan §3).
@@ -532,13 +546,12 @@ internal fun MapInspectEffects(
     LaunchedEffect(activityId) { activityTick.intValue++ }
 
     // ── Motion: the mode's reference, the live viewport, and the tick consumers key on ──
-    // **The reference follows the user's own motion and nothing else**: a drag re-establishes the acquire
-    // point at the geo point under the centre marker, while the pause's recentre moves the view alone —
-    // the mark is what tells the two apart, so the mode's own camera move never drags the acquire point
-    // with it (plan §1, 2026-10-07). The viewport is the projection's own visible bounds, read fresh on
-    // every scan, and it is the whole of the sweep's eligibility test (plan §2): the map moving changes
-    // *which* items are candidates, and the user's drag that moves it also moves the point they are ranked
-    // from — the acquisition starts again from where they leave the map.
+    // **The acquire point is captured once, at arming, and never re-established** (the user's spec,
+    // 2026-10-17): every sweep ranks from the point under the centre marker as the mode was armed, so a
+    // pan, a zoom, the pause's recentre and a step's own framing all move the view alone. The viewport is
+    // the projection's own visible bounds, read fresh on every scan, and it is the whole of the sweep's
+    // eligibility test (plan §2): the map moving changes *which* items are candidates, never the point
+    // they are ranked from.
     val reference = remember { mutableStateOf<LatLng?>(null) }
     val motionTick = remember { mutableIntStateOf(0) }
     val offsetState = rememberUpdatedState(centerOffsetPx)
@@ -551,16 +564,12 @@ internal fun MapInspectEffects(
             reference.value = null
             onDispose { }
         } else {
-            // One motion handler for pan and zoom alike: a user's motion re-establishes the acquire point —
-            // the geo point under the centre marker as they leave it — and restarts the quiet. The mode's
-            // own recentre does neither, so the acquire point stays where the user last put it (plan §1).
+            // One motion handler for pan and zoom alike: a motion re-runs the sweep against the moved
+            // viewport and restarts the quiet, but it never moves the acquire point — that point is the
+            // marker's own, captured at arming. The mode's own camera moves are excluded from the activity
+            // so the quiet the recentre just spent cannot start again (plan §3).
             fun refreshMotion() {
-                if (!recentringState.value) reference.value = inspectAnchor(mv, offsetState.value())
                 motionTick.intValue++
-                // A motion is something the user did, so it restarts the clock's wait as well as
-                // re-ranking the sweep. The mode's own recentre is the one exception: its scroll events
-                // arrive while the mark holds, and counting them would restart the very quiet the
-                // recentre just spent (plan §3).
                 activityTick.intValue = inspectActivityAfterMotion(activityTick.intValue, recentringState.value)
             }
             val listener = object : MapListener {
@@ -575,8 +584,9 @@ internal fun MapInspectEffects(
                 }
             }
             mv.addMapListener(listener)
-            // Seed immediately: arming must sweep before the user touches anything, so the gold is
-            // live on the first frame. The seed carries no lift, so it starts no clock.
+            // Capture the acquire point once, at arming, then run the first sweep: the gold is live on
+            // the first frame and the point stands for the rest of the session.
+            reference.value = inspectAnchor(mv, offsetState.value())
             refreshMotion()
             onDispose { mv.removeMapListener(listener) }
         }
@@ -589,12 +599,17 @@ internal fun MapInspectEffects(
     val highlight = remember { mutableStateOf<InspectRank?>(null) }
     // How much closer a new nearest must be before it takes the panel over (plan §1, 2026-10-07).
     val switchMargin = AppConfig.uiMapInspectSwitchMarginPct.coerceIn(0, 90) / 100.0
-    LaunchedEffect(armed, warm) {
+    LaunchedEffect(armed, warm, frozen) {
         if (!armed || warm.isEmpty()) {
             highlight.value = null
             onSweep(null)
             return@LaunchedEffect
         }
+        // A frozen ladder is the walk's: the sweep publishes nothing, so no change of nearest can swap
+        // the stepped card or repaint the gold behind it.
+        if (frozen) return@LaunchedEffect
+        // A fresh, unfrozen session starts from the sweep's own answer, never the item the walk left.
+        highlight.value = null
         inspectSweep(snapshotFlow { motionTick.intValue }) {
             // The viewport is read here rather than remembered, so every scan sees the map as it stands —
             // including the first scan after arming, which no motion has announced yet.
@@ -629,8 +644,11 @@ internal fun MapInspectEffects(
     // re-ranks. The mode marks its own recentre — [recentring] — so the camera move cannot restart
     // this very clock: its scroll events arrive while the mark holds and are not user activity.
     val dwellMs = AppConfig.uiMapInspectDwellMs
-    LaunchedEffect(armed, warm, panelOpen) {
+    LaunchedEffect(armed, warm, panelOpen, frozen) {
         if (!armed || warm.isEmpty()) return@LaunchedEffect
+        // Once the ladder is frozen the pause is spent: the walk's own framing is the only camera move,
+        // so a later quiet must not recentre onto the sweep's nearest and replace the stepped item.
+        if (frozen) return@LaunchedEffect
         snapshotFlow {
             InspectDwellKey(
                 candidateId = highlight.value?.id,
@@ -643,12 +661,17 @@ internal fun MapInspectEffects(
                 // The key the wait completed on is the candidate still under the gold: a later one
                 // would have arrived as a new key and restarted the wait.
                 if (candidate.id != key.candidateId) return@collect
-                // The ladder is a single bounded pass over the same warm geometry, ranked from the
-                // mode's fixed reference, so the sequence is reproducible and never re-ranks — and the
-                // recentre that follows it cannot change what the walk steps through.
-                val ladder = withContext(Dispatchers.Default) {
+                // The ladder is a single bounded pass over the same warm geometry, filtered to the
+                // viewport on screen at the pick (read here, on the composition thread, because
+                // osmdroid's own bounds are not safe to read off it) and ranked from the mode's fixed
+                // reference, so the sequence is reproducible and never re-ranks — and the recentre that
+                // follows it cannot change what the walk steps through.
+                val viewport = mapView?.boundingBox?.let {
+                    InspectBounds(it.latNorth, it.lonEast, it.latSouth, it.lonWest)
+                }
+                val ladder = if (viewport == null) emptyList() else withContext(Dispatchers.Default) {
                     val ref = reference.value ?: return@withContext emptyList()
-                    InspectRanking.rank(ref, warm)
+                    InspectRanking.rank(ref, warm, viewport)
                 }
                 onRecentre(candidate, ladder)
             }
@@ -656,11 +679,13 @@ internal fun MapInspectEffects(
 
     // ── The mode's own overlay: one line, swapped in one non-suspending block ──
     LaunchedEffect(
-        armed, highlight.value?.id, highlight.value?.kind, warm,
+        armed, frozen, frozenCandidate?.id, frozenCandidate?.kind,
+        highlight.value?.id, highlight.value?.kind, warm,
         rebuildGeneration, highlightedTrackId
     ) {
         val mv = mapView ?: return@LaunchedEffect
-        val candidate = highlight.value
+        // The gold has one owner: the frozen walk when the ladder is frozen, the sweep before it.
+        val candidate = if (frozen) frozenCandidate else highlight.value
         // The commit path: once the canonical rebuild paints the picked track, the mode drops its
         // own line in the same block that would have re-stacked it — no flash, one author.
         val owned = mv.overlays.filter { overlay ->

@@ -101,7 +101,7 @@ class InspectRankingTest {
             InspectCandidate.point("M1", InspectKind.MARKER, LatLng(0.001, 0.0)),
             InspectCandidate.line("T1", InspectKind.TRACK, listOf(pt(0.002, 0.0), pt(0.002, 0.001)))
         )
-        val ladder = InspectRanking.rank(anchor, candidates)
+        val ladder = InspectRanking.rank(anchor, candidates, everywhere)
         assertEquals(listOf("M1", "M9", "T1", "T9"), ladder.map { it.id })
         assertEquals(InspectKind.MARKER, ladder[0].kind)
     }
@@ -110,17 +110,30 @@ class InspectRankingTest {
     fun `the gold is always the ladder's first entry`() {
         val candidates = listOf(farMarker, nearTrack, InspectCandidate.point("M2", InspectKind.MARKER, LatLng(0.0005, 0.0)))
         val nearest = InspectRanking.nearest(anchor, candidates, everywhere)
-        val ladder = InspectRanking.rank(anchor, candidates)
+        val ladder = InspectRanking.rank(anchor, candidates, everywhere)
         assertEquals(ladder.first(), nearest)
     }
 
     @Test
     fun `the ladder is reproducible against a frozen anchor`() {
         val candidates = listOf(nearTrack, farMarker)
-        val first = InspectRanking.rank(anchor, candidates)
-        val second = InspectRanking.rank(anchor, candidates)
+        val first = InspectRanking.rank(anchor, candidates, everywhere)
+        val second = InspectRanking.rank(anchor, candidates, everywhere)
         assertEquals(first, second)
         assertEquals("T1", first.first().id)
+    }
+
+    @Test
+    fun `the ladder holds only the items visible on the viewport`() {
+        // The marker is the true closest but sits north of the screen; the track is farther and on it.
+        val offScreenMarker = InspectCandidate.point("M9", InspectKind.MARKER, LatLng(0.02, 0.0))
+        val onScreen = viewport(0.01, 0.01, -0.01, -0.01)
+        val ladder = InspectRanking.rank(anchor, listOf(offScreenMarker, nearTrack), onScreen)
+        assertEquals(
+            "the off-screen closer marker must not be in the walk",
+            listOf("T1"),
+            ladder.map { it.id }
+        )
     }
 
     // ── The true closest: no incumbent, no margin ─────────────────────────────
