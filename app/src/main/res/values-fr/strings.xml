@@ -794,7 +794,7 @@
     <!-- Les libellés des barreaux de la première colonne de l\'acquisition — les trois lignes tracées
          nommées pour ce qu\'elles font (détour, équilibré, côtier), plus une préférence ; gardées
          distinctes des mots du cadran du verdict ci-dessus. -->
-    <string name="route_rung_through">Côtier</string>
+    <string name="route_rung_through">Au plus près</string>
     <string name="route_rung_balanced">Équilibré</string>
     <string name="route_rung_around">Détour</string>
     <!-- Le séparateur entre les noms de barreaux d\'une page fusionnée, lu de gauche à droite. -->

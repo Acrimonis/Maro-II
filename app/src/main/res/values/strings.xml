@@ -790,9 +790,9 @@
     <string name="route_unit_cells">cells</string>
     <string name="route_unit_points">points</string>
     <!-- The acquisition's first-column rung labels — the three drawn lines named for what they do
-         (detour, balanced, coastal), no longer a preference; kept apart from the settings' own words for
+         (detour, balanced, closest), no longer a preference; kept apart from the settings' own words for
          the verdict's dial above. -->
-    <string name="route_rung_through">Coastal</string>
+    <string name="route_rung_through">Closest</string>
     <string name="route_rung_balanced">Balanced</string>
     <string name="route_rung_around">Detour</string>
     <!-- The separator between a folded page's rung names, read left to right. -->
