@@ -899,7 +899,13 @@ class RouteViewModel(
         while (paceSamples.isNotEmpty() && paceSamples.first().atMs < nowMs - RoutePace.WINDOW_MS) {
             paceSamples.removeFirst()
         }
-        _paceKn.value = RoutePace.paceKn(paceSamples.toList(), nowMs, setPaceKn)
+        // The sentinel never reaches RoutePace's clamp: `Any` resolves to the shipped fallback here, so
+        // a cold start plans at 25 kn rather than being snapped into the slowest boat on the scale.
+        _paceKn.value = RoutePace.paceKn(
+            paceSamples.toList(),
+            nowMs,
+            AppConfig.routePaceForSearchKn(setPaceKn, null)
+        )
     }
 
     companion object {
