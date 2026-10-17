@@ -757,8 +757,12 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Cruising speed</string>
-    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow.</string>
+    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow. At Any, the route plans at your boat\'s own pace.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_pace_any">Any</string>
+    <!-- The quick-access wheel's own word for the same stop: the wheel is a list of values, so the -->
+    <!-- sentinel reads with dashes there and plain words on the Settings row. -->
+    <string name="settings_route_pace_any_wheel">--Any--</string>
     <!-- The verdict's dial: how much a second in slow water counts against a second of driving. Its stops
          are the weight's own chips and the track's two ends, and its top stop is the sentinel that weighs
          the slow seconds alone — named, never numbered. -->

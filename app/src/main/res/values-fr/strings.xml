@@ -759,8 +759,12 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Vitesse de croisière</string>
-    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent.</string>
+    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent. Sur Indifférent, la route planifie à la vitesse de votre bateau.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_pace_any">Indifférent</string>
+    <!-- Le mot propre au sélecteur rapide pour ce même arrêt : la roue liste des valeurs, la sentinelle -->
+    <!-- s\'y lit donc entre tirets, alors que la ligne des réglages garde le mot simple. -->
+    <string name="settings_route_pace_any_wheel">--Indifférent--</string>
     <!-- Le cadran du verdict : le poids d\'une seconde d\'eau lente face à une seconde de trajet. Ses
          arrêts sont les pastilles du poids et les deux extrémités de la piste, et son arrêt du haut est
          le sentinelle qui ne pèse que les secondes lentes — nommé, jamais numéroté. -->

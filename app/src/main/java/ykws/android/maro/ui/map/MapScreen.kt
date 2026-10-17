@@ -769,11 +769,14 @@ fun MapScreen(
             emodnetShallowCutoffM = { appSettings.emodnetShallowCutoffM }
         )
     }
+    val routeSearchPaceKn = remember {
+        MutableStateFlow(AppConfig.routePaceForSearchKn(appSettings.routeFreeWaterPaceKn.toDouble(), null))
+    }
     val routeEngineSelection = remember {
         MutableStateFlow(
             RouteEngineChoice.resolve(appSettings.routeEngineId)
                 .factory(
-                    { viewModel.settings.value.routeFreeWaterPaceKn.toDouble() },
+                    { routeSearchPaceKn.value },
                     { viewModel.settings.value.verdictWeight },
                     avoidWorldProvider,
                     { viewModel.settings.value.routeMarkerStrength.toDouble() }
@@ -784,7 +787,8 @@ fun MapScreen(
         appSettings = appSettings,
         routeEngineSelection = routeEngineSelection,
         avoidWorldProvider = avoidWorldProvider,
-        settingsProvider = { viewModel.settings.value }
+        settingsProvider = { viewModel.settings.value },
+        paceProvider = { routeSearchPaceKn.value }
     )
     val routeViewModel: RouteViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(
@@ -792,6 +796,12 @@ fun MapScreen(
         )
     val routeState by routeViewModel.state.collectAsState()
     val routePaceKn by routeViewModel.paceKn.collectAsState()
+    LaunchedEffect(appSettings.routeFreeWaterPaceKn, routePaceKn) {
+        routeSearchPaceKn.value = AppConfig.routePaceForSearchKn(
+            appSettings.routeFreeWaterPaceKn.toDouble(),
+            routePaceKn
+        )
+    }
     var routeArmed by rememberSaveable { mutableStateOf(false) }
     val routeSaveScope = rememberCoroutineScope()
     // The pin the saves start with and the one exit dialog's open flag. Held by the screen rather than
@@ -3282,12 +3292,16 @@ fun MapScreen(
                 routeTripFigure(
                     plan = following.plan,
                     from = routeBoatPosition,
-                    // The **configured** dial's own word and the **set** pace — what the user chose,
-                    // read as the word and the figure the card prints rather than the literal.
+                    // The **configured** dial's own word and the pace in force — the set number, or the
+                    // boat's own when the stop is Any — read as the word and figure the card prints.
                     preferenceLabel = verdictDialLabel(
                         VerdictDial.ofIndex(appSettings.routeSlowWaterStop)
                     ),
-                    paceKn = appSettings.routeFreeWaterPaceKn.toDouble()
+                    paceKn = if (AppConfig.isFreeWaterPaceAny(appSettings.routeFreeWaterPaceKn)) {
+                        routePaceKn
+                    } else {
+                        appSettings.routeFreeWaterPaceKn.toDouble()
+                    }
                 )
             }
             // The dial's own word in force — the weight each settled row's rank was read against, read

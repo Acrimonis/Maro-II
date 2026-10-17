@@ -35,7 +35,7 @@ The types on the seam, all in the same file:
 - `RouteStepReading(stage, labelResId, value, unitResId)` — one figure a stage reports about **its own** work.
 
 **The registry** is [`RouteEngineChoice`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt):
-one row per algorithm (`id`, `labelResId`, a factory taking the pace, the verdict's weight, the marker strength and the world providers),
+one row per algorithm (`id`, `labelResId`, a factory taking the resolved pace — setting or boat — the verdict's weight, the marker strength and the world providers),
 `all` in menu order, and `resolve(id)` answering the shipped default for an id nothing claims. A new algorithm
 is one row there plus one class implementing `RouteEngine`.
 
