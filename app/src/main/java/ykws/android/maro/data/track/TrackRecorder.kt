@@ -1583,25 +1583,28 @@ class TrackRecorder(
         return TripEnd(marker.id, markerLabel(marker.name, marker.icon))
     }
 
-    /** The registered stop that takes the name's first slot by rule, ranked by the same tiers the
-     *  stop title uses — diving, then a manual marker, then the longest idle. */
-    private fun leadingStop(track: Track): TimedMarker? {
-        val wia = whereAmI ?: return null
-        data class Stop(val marker: UserMarker, val tier: Int, val durationSec: Long)
-        val best = track.boatMarkers.mapNotNull { bm ->
-            val result = wia(LatLng(bm.boatLat, bm.boatLon))
-            val match = result.allMatches
-                .firstOrNull { MarkerMatcher.markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
-                ?: return@mapNotNull null
-            val tier = when {
-                hasDivingPinnedMarker(result) -> 1
-                bm.trigger == BoatMarkerTrigger.MANUAL -> 2
-                else -> 3
+    /** The markers an idle stop stood in, ranked for the title's body: a dive marker leads, then the
+     *  longest idle, and only an IDLE stop counts — a manual tap names the fallback title, never the
+     *  body (2026-10-18). Each stop resolves through the ends' own smallest-zone rule. */
+    private fun idleBodyMarkers(track: Track): List<TimedMarker> {
+        val wia = whereAmI ?: return emptyList()
+        data class IdleStop(val marker: TimedMarker, val dive: Boolean, val durationSec: Long)
+        val now = System.currentTimeMillis()
+        return track.boatMarkers
+            .filter { it.trigger == BoatMarkerTrigger.IDLE }
+            .mapNotNull { bm ->
+                val result = wia(LatLng(bm.boatLat, bm.boatLon))
+                val match = MarkerMatcher.topNamingMatch(result.allMatches)
+                    ?: return@mapNotNull null
+                val marker = MarkerMatcher.markerOf(match)
+                IdleStop(
+                    marker = TimedMarker(marker.id, markerLabel(marker.name, marker.icon), 0.0),
+                    dive = hasDivingPinnedMarker(result),
+                    durationSec = ((bm.endTimeMs ?: now) - bm.startTimeMs) / 1000
+                )
             }
-            val now = System.currentTimeMillis()
-            Stop(MarkerMatcher.markerOf(match), tier, ((bm.endTimeMs ?: now) - bm.startTimeMs) / 1000)
-        }.minWithOrNull(compareBy({ it.tier }, { -it.durationSec })) ?: return null
-        return TimedMarker(best.marker.id, markerLabel(best.marker.name, best.marker.icon), 0.0)
+            .sortedWith(compareBy({ if (it.dive) 0 else 1 }, { -it.durationSec }))
+            .map { it.marker }
     }
 
     /** The markers the trip met, in the fusion's own order — what the comment falls back to when
@@ -1612,20 +1615,18 @@ class TrackRecorder(
             .filter { it.isNotBlank() }
 
     /**
-     * The trip's name from the markers it met, or null where nothing names it (settled 2026-10-11).
-     *
-     * Reads the matcher's order rather than re-deriving it, and walks the points it is handed: the
-     * live call hands the fixes recorded so far, and the finalize call the whole raw set before
-     * simplification thins it. Both ends are dropped from the body, a shared marked endpoint is not
-     * repeated, and a distinct marked destination closes the name whatever its score. An identified
-     * origin now leads the name, and an end that is the boat's own home port names nothing.
+     * The trip's name from its two ends and the idle stops between them, or null where nothing names
+     * it (settled 2026-10-11). The body carries only markers an idle stop stood in — a marker merely
+     * passed never names the title (2026-10-18) — while both ends stay positional: a shared marked
+     * endpoint is not repeated, a distinct marked destination closes the name whatever its score, an
+     * identified origin leads it, and an end that is the boat's own home port names nothing.
      */
     private fun composeTripName(points: List<TrackPoint>): String? {
         if (whereAmI == null) return null
         if (points.size < 2) return null
         val first = points.first()
         val last = points.last()
-        val ranked = TrackNaming.timedScores(points) { contactsAt(it) }
+        val ranked = currentTrack?.let { idleBodyMarkers(it) } ?: emptyList()
         val samePlace = SpatialOperations.haversine(
             LatLng(first.lat, first.lon),
             LatLng(last.lat, last.lon)
@@ -1640,7 +1641,7 @@ class TrackRecorder(
             ranked = ranked,
             origin = origin ?: TripEnd(null, ""),
             destination = destination,
-            leading = currentTrack?.let { leadingStop(it) }
+            leading = null
         )
         return TrackNaming.compose(
             origin = shape.origin,
