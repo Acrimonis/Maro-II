@@ -545,6 +545,23 @@ object MarkerMatcher {
         is MarkerGeometry.Corridor -> g.widthM
     }
 
+    /**
+     * The single match that names a position (2026-10-18): the smallest zone wins — the match with
+     * the least [zoneSizeOf] — and on equal size an inside match beats a proximity match, so a near
+     * zone outranks a containing one exactly when it is strictly smaller. Auto markers are ignored;
+     * further ties fall back to [sortScore].
+     */
+    internal fun topNamingMatch(matches: List<WhereAmIMatch>): WhereAmIMatch? =
+        matches
+            .filter { markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+            .minWithOrNull(
+                compareBy(
+                    { zoneSizeOf(it) },
+                    { if (it is WhereAmIMatch.ZoneMatch) 0 else 1 },
+                    { sortScore(it) }
+                )
+            )
+
     // ─────────────────────────────────────────────────────────────────────
     // Debug — sample all boundary points for visual ray rendering
     // ─────────────────────────────────────────────────────────────────────

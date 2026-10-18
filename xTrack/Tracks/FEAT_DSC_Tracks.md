@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-14 08:54
+modified: 2026-10-18 12:44
 ---
 
 # Feature: Tracks
@@ -86,7 +86,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - GPS spike rejection uses four gates — a receiver-lock recovery skips the fix, a context cap separates sea from land (auto-detected), a direction check applies at sea only, and an acceleration limit rejects the fix; demo mode bypasses every gate.
 - Rejection compares on the GPS epoch timestamp, and the stillness policy still sees every fix — only point *recording* is gated.
 - The recording foreground service runs `START_STICKY` with a persistent, ongoing, low-importance notification ("Ready", or "Recording • speed • elapsed • distance", suffixed "(Demo)" outside GPS mode); update intents are throttled to 5 s.
-- A route and a recorded trip are named from the marker zones they met: an identified origin leads the name, the ranked body (top two) follows, and a distinct marked destination closes it; an end that is the boat's home port — inside the Port Salis geofence, or a label naming Salis — never names either kind.
+- A route and a recorded trip are named from their ends and idle stops: an end resolves to the smallest zone it stands inside — or, only when that zone is strictly smaller, one it stands near, a pin outranking any zone — the body carries only markers an idle stop stood in (dive-first, then longest-idle), a distinct marked destination closes the name, and an end that is the boat's home port — inside the Port Salis geofence, or a label naming Salis — never names either kind.
 
 ## Docs
 - `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its markers: the payloads in a track's extensions and their `wpt` companions, the `trackId` remap on import, the transient filter and the skip-consistency rule (shipped 2026-10-11)
