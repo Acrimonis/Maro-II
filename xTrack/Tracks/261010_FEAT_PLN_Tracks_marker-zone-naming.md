@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Tracks — naming a recorded trip from the markers it entered, weighted by time
 
-**Status:** shipped — §1–§4 and §9–§10 landed 2026-10-10 on `feature/rte-track-naming`; §11, the origin-led chain and the home port, added 2026-10-11 on `feature/troute-naming`; the residual items under §5 stand open except the source end.
+**Status:** shipped — §1–§4 and §9–§10 landed 2026-10-10 on `feature/rte-track-naming`; §11, the origin-led chain and the home port, added 2026-10-11 on `feature/troute-naming`; §12, the smallest-zone ends and the idle-only body, added 2026-10-18 on `feature/route-naming`; the residual items under §5 stand open except the source end.
 
 ## 1. The rule
 
@@ -87,7 +87,15 @@ A track or a route just written names itself in a two-second toast — `"%s" sav
 - **The home port never names anything** — an end inside the Port Salis geofence (`track.originLat` / `track.originLon` / `track.geofenceRadiusM`) or one whose label carries `salis` is excluded from both ends of both kinds; a trip's home-port end keeps its id, so the body still drops it as an end.
 - **One home** — the exclusion is `TrackNaming.namesHomePort`, read by the recorder's `composeTripName` and by the route's `routeEndName`.
 
+## 12. Smallest-zone ends and the idle-only body (settled 2026-10-18)
+
+- **An end is the smallest zone** — [`MarkerMatcher.topNamingMatch`](../../app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt:548) picks the match with the least zone size, an inside match beating a proximity match only on equal size, so a near zone outranks a containing one exactly when it is strictly smaller; auto markers are ignored and a pin — size zero — outranks any zone. Both the recorder's `endAt` and the route's `routeEndName` read it, so the two kinds' ends share one rule.
+- **The body carries idle stops alone** — [`TrackRecorder.idleBodyMarkers`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:1589) ranks only `IDLE` boatMarkers, dive-first then longest-idle, and `composeTripName` feeds the body from it; the traversal's timed fusion stays only for the comment's traversed list, and `leadingStop` folded into the new helper and was removed. A marker merely passed never names the title.
+- **Open:** no unit test pins the idle-only rule; an idle stop resolves inside-or-near rather than strictly inside.
+
 ## Implemented
+
+- **Smallest-zone ends and idle-only body (2026-10-18, `feature/route-naming`):** `MarkerMatcher.topNamingMatch` is the ends' one home — smallest zone wins, inside beating near only on equal size, a pin outranking any zone — read by the recorder's `endAt` and the route's `routeEndName`, so a route end resolves by proximity exactly as a track end does; and the title body was narrowed to idle stops, `idleBodyMarkers` ranking IDLE boatMarkers dive-first then longest-idle with `composeTripName` fed from it and `leadingStop` removed. `MarkerMatcherNamingMatchTest` pins the selector. `testDebugUnitTest assembleDebug` green.
 
 - **Origin and home port (2026-10-11, `feature/troute-naming`):** `TrackNaming.compose` takes the origin and joins the segments, `select` carries the origin out of the body, and `namesHomePort` is the exclusion's one home; the recorder shows an identified origin and blanks a home-port end, and `routeEndName` excludes it for a saved route. `apk-build.bat` SUCCESS and the full suite green at 1142 tests.
 
