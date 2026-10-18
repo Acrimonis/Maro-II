@@ -143,6 +143,8 @@ internal fun OverlayLayer(
      * drawer reads it; the mode's own state lives in `RouteViewModel`.
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
+    /** Arms a fresh acquisition on the standing pair — the menu's Go button. */
+    onArmRoute: () -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -434,6 +436,7 @@ internal fun OverlayLayer(
                 isOpen = true,
                 routeSummary = routeSummary,
                 routeSummaryVisible = routeSummaryVisible,
+                onGo = onArmRoute,
                 recorderState = trackRecorderState,
                 trackCount = trackMapCount,
                 markerCount = markerMapCount,

@@ -651,6 +651,8 @@
     <string name="route_comment_ends">Origine et destination</string>
     <!-- La légende courte de l'accès rapide : les deux réglages qu'elle coiffe, la vitesse d'abord. -->
     <string name="route_comment_quick_access">Vitesse de croisière et préférence</string>
+    <!-- Le bouton Go de la section Route du tiroir : arme une acquisition fraîche sur la paire en place. -->
+    <string name="route_go">Aller</string>
     <string name="route_end_current">Position actuelle</string>
     <string name="route_end_position">Position du repère</string>
     <!-- L\'habit des entrées fixes : le nom d\'un repère est une donnée et ne peut pas le porter, et
