@@ -2462,8 +2462,9 @@ fun MapScreen(
 
             /**
              * The name a saved route takes (settled 2026-10-10): `from to destination`, each end
-             * named by the marker zone containing it and, failing that, by its own dropdown
-             * content — a flagged marker's name, or the drawer's fixed label.
+             * named by the smallest zone containing it or, failing that, the smallest zone it stands
+             * near, and finally by its own dropdown content — a flagged marker's name, or the
+             * drawer's fixed label (2026-10-18).
              */
             fun composeRouteName(plan: RoutePlan): String {
                 val origin = routeEndName(
@@ -5436,9 +5437,9 @@ private fun MapContent(
 // ── The Route section's two ends (R44–R46) ──────────────────────────────────
 
 /**
- * The name one route end contributes to the route's own name (settled 2026-10-10): the marker zone
- * containing the end where one does, else the flagged marker that end stands on, each wearing its
- * own icon where one was set.
+ * The name one route end contributes to the route's own name (settled 2026-10-10): the smallest
+ * marker zone containing the end, or the smallest zone it stands near, each wearing its own icon
+ * where one was set — and, failing either, the flagged marker that end stands on (2026-10-18).
  *
  * `null` when no marker names the end — the drawer's fixed `Current position` / `Marker position`
  * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder. A
@@ -5455,22 +5456,19 @@ private fun routeEndName(
     homePortRadiusM: Double,
     whereAmI: ((LatLng) -> ykws.android.maro.spatial.WhereAmIResult)?
 ): String? {
-    val zone = endPoint?.let { point ->
+    val nearest = endPoint?.let { point ->
         whereAmI?.invoke(LatLng(point.latitude, point.longitude))
             ?.allMatches
-            ?.firstOrNull { match ->
-                match is ykws.android.maro.spatial.WhereAmIMatch.ZoneMatch &&
-                    ykws.android.maro.spatial.MarkerMatcher.markerOf(match).origin != MarkerOrigin.IDLE_AUTO
-            }
+            ?.let { ykws.android.maro.spatial.MarkerMatcher.topNamingMatch(it) }
             ?.let { ykws.android.maro.spatial.MarkerMatcher.markerOf(it) }
     }
-    // The zone branch already reads the matcher's filtered result; the flagged-selection fallback
+    // The position branch already reads the matcher's filtered result; the flagged-selection fallback
     // guards the same rule by hand, so a routing-only marker never lends its name to an end, and the
     // end is refused again when it is the boat's own home port.
     val flagged = (selection as? RouteEndSelection.Marker)
         ?.let { end -> markers.firstOrNull { it.id == end.markerId } }
         ?.takeIf { !it.routingOnly }
-    val named = zone ?: flagged
+    val named = nearest ?: flagged
     val label = named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) } ?: return null
     val homePort = endPoint?.let { point ->
         ykws.android.maro.data.track.TrackNaming.namesHomePort(

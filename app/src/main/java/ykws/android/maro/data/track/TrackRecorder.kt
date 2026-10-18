@@ -1573,12 +1573,11 @@ class TrackRecorder(
         }
     }
 
-    /** The marker identifying one end: the match the matcher's own order ranks first, user markers
-     *  ahead of auto ones, or null where nothing identifies the place. */
+    /** The marker identifying one end: the smallest zone it stands inside or, failing that, the
+     *  smallest zone it stands near — the one rule both kinds' ends share (2026-10-18). */
     private fun endAt(point: TrackPoint): TripEnd? {
         val wia = whereAmI ?: return null
-        val top = wia(LatLng(point.lat, point.lon)).allMatches
-            .firstOrNull { MarkerMatcher.markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+        val top = MarkerMatcher.topNamingMatch(wia(LatLng(point.lat, point.lon)).allMatches)
             ?: return null
         val marker = MarkerMatcher.markerOf(top)
         return TripEnd(marker.id, markerLabel(marker.name, marker.icon))
