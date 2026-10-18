@@ -5,7 +5,7 @@ Convenience wrappers over standard git. **🛑 The rules are single-sourced in `
 
 A git `#`-command **is** its own go-ahead: the invocation authorises the operation, so the agent executes it — never re-confirmed as a permission question, never handed back for the user to run. `#commit` / `#push` / `#merge` / `#cherry` confirm only the action's scope; `#new` / `#move` / `#move new` / `#rename` ask nothing, save `#new`'s one question when the branch already exists and `#rename`'s one before it deletes a published old name.
 
-  #new [branch_name]  **Always** switch to code agent for this task.
+  #new [branch_name]  **Always** run it with write access — Roo: switch to Code; Claude Code: the main session.
                       **Always** do it immediately when in a prompt.
                       fetch `origin/develop`, checkout `--no-track -b feature/[branch_name]`
                       from it — the new branch carries no upstream, so a bare `git push` refuses with

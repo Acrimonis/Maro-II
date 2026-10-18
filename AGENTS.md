@@ -92,7 +92,7 @@ touching the device, and stating a claim about the code with no file read behind
 - **🛑 GIT WRITES AND DEPLOYS ARE THE USER'S CALL: run them only on the word, and never raise them.**
   WHEN a command would change the tree, the index or a ref → it runs only on the user's explicit word:
   `add`, `commit`, `push`, `merge`, `rebase` and their kin, staging included — `git add` may stage when
-  preparing a `#commit`, never preemptively — and a `new_task(Code)` subtask is no exemption.
+  preparing a `#commit`, never preemptively — and a subtask or subagent is no exemption.
   WHEN it changes nothing → it always runs, in every mode: `status`, `log`, `diff`, `fetch`,
   `rev-list`, and anything else read-only.
   WHEN a git `#`-command is invoked → the invocation is the go-ahead: execute it rather than asking
@@ -117,7 +117,7 @@ touching the device, and stating a claim about the code with no file read behind
 
 - **🟢 WRITE-ONCE: Prefer one comprehensive write per source file; batch related edits.**
   Avoid full-file rewrite loops and save-compile-rewrite churn — each rewrite invalidates the prompt cache.
-  Targeted apply_diff patches for build errors, review feedback, or discovered edge cases are normal.
+  Targeted patches for build errors, review feedback, or discovered edge cases are normal.
 
 - **🧹 ONE HOME PER FACT: a value, a claim or a reader list is written once.** `*.properties` is the source
   of truth for every value — code defaults and documentation follow it, never the reverse — and a duplicate
@@ -220,12 +220,13 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 
 Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. `docs/cmd_help.md` is a derived printed view of §7b.
 
-# 8. Mode Handoff Protocol — all modes return control to Architect on completion.
+# 8. Mode Handoff Protocol — Roo only: all modes return control to Architect on completion.
+Claude Code has no modes: the main session plans, implements, debugs and reports itself, and only `#implement`'s review hop runs in a subagent (`ask`), whose final message is its §8c payload. The Core Directives bind the main session unchanged.
 
 ## 8a. Agent-Specific Adapter Files
-`.claude/`, `.clinerules/`, `CLAUDE.md` are thin adapters — pointer to this file only. Any info beyond redirect is stale — ignore and flag.
+`.claude/` (skills, and `agents/ask.md` — the `#implement` reviewer), `.clinerules/`, `CLAUDE.md` are thin adapters — pointer to this file only. Any info beyond redirect is stale — ignore and flag.
 
-## 8b. Handoff Rules by Mode
+## 8b. Handoff Rules by Mode (Roo)
 
 | Entered via | Mode | On completion |
 |---|---|---|
@@ -238,13 +239,13 @@ Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. `docs/cmd
 | User asks implementation without `#implement` | **Architect** | `new_task(mode=code, ...)` with plan path + todos |
 
 ## 8c. Summary Payload Format
-When calling `switch_mode`, include 1-3 bullet summary in the reason field:
+Every handoff — Roo's `switch_mode` reason field, or the Claude Code `ask` subagent's final message — carries a 1-3 bullet summary:
 - **Code:** what was implemented, build status, files changed, deviations
 - **Ask:** scope covered, code health observations (spaghetti, factorization, maintenance)
 - **Debug:** root cause, evidence, fix/non-fix recommendation
 
 # 9. Environment & Tooling
-- **Shell:** Windows `cmd.exe`. Use CMD built-ins (`dir`, `del`, `type`, `findstr`) — not PowerShell, and not Unix utilities (`sed`, `grep`, `cat`, `rm`, `cp`, `mv`).
+- **Shell:** Windows. Use the shell your harness provides, in that shell's own syntax, and never mix syntaxes in one command: `cmd.exe` → CMD built-ins (`dir`, `del`, `type`, `findstr`); PowerShell → cmdlets; Git Bash → POSIX. Where the harness has dedicated file read, search or edit tools, use those instead of the shell.
 - **ADB:** `adb.exe` is on PATH — call `adb` directly, no path qualifier. Device workflow in `docs/SETUP.md`.
 - **APK pipeline:** `apk-bake.bat` bakes data → `apk-build.bat` packages only (`gradlew assembleDebug`) → `apk-deploy.bat` installs + relaunches. Command detail in `README.md`; the bake-vs-build contract lives in the BakeNormalization feature file.
 
