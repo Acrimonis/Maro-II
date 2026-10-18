@@ -2,7 +2,7 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-10-05 20:56
+modified: 2026-10-18 13:08
 ---
 
 # Feature: Ui_Menu
@@ -19,6 +19,8 @@ scrollable body, and renders its four sections with the shared Settings stencils
 
 
 ## Implemented
+
+- **route-go-button (2026-10-18, `feature/route-gui`)** — the Routing card's quick-access pair gained a **Go** button on its right arming a fresh acquisition on the standing pair: a new `onGo` on `MenuDrawerOverlay` threaded through `OverlayLayer.onArmRoute` to the existing `armRouteMode(forceFresh = true)`, the button a dedicated `GoButton` matching the wheel boxes' height, and `route_go` in both locales — `:app:compileDebugKotlin` green, no dependency added
 
 - **route-gate-clarification (2026-10-05, same branch)** — the route Speed/Direction switches were settled as **subordinate to the master Speed Colors and Arrows chips** (copy + comments, no logic change: a route shows speed colours or chevrons only while the master chip and its own switch are both on), and a **pinned route now obeys the arrows veto** ([`pinnedTrackRenderPlan()`](../../app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt:599)) while a pinned track stays untouched and route colours keep the pinned pair; a `SectionDivider` then split the Layers card's track and routes groups → [`261005_FEAT_PLN_Ui_Menu_kind-visibility-toggles.md`](261005_FEAT_PLN_Ui_Menu_kind-visibility-toggles.md)
 

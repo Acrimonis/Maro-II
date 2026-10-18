@@ -4043,6 +4043,8 @@ fun MapScreen(
                 // The line's own colour, which the drawer's band wears while the engine searches (R51).
                 lineColor = appSettings.routeLineColor,
             ),
+            // The menu's Go button: the same single trigger as the map's square and the fan's child.
+            onArmRoute = { armRouteMode(forceFresh = true) },
             markerList = buildMarkerListOverlayData(
                 markers = mgmtMarkers,
                 appSettings = appSettings,

@@ -100,6 +100,8 @@ fun MenuDrawerOverlay(
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
     routeSummaryVisible: Boolean = false,
+    /** Arms a fresh acquisition on the standing pair — the Go button's one action. */
+    onGo: () -> Unit = {},
     modifier: Modifier = Modifier,
     // ── Filter state ──────────────────────────────────────────────────
     trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
@@ -201,7 +203,18 @@ fun MenuDrawerOverlay(
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
-            RouteQuickAccessSection(routeSummary)
+            // The Go button stands right of the two prefs and arms the fresh acquisition on the
+            // pair the section above holds — the same single trigger the map's square and the
+            // fan's child share.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppConfig.uiSpacingDropdownGap.dp)
+            ) {
+                Box(Modifier.weight(1f)) {
+                    RouteQuickAccessSection(routeSummary)
+                }
+                GoButton(onClick = onGo)
+            }
 
             // ── The mode's summary: what a route is doing, and what it costs — the card's foot ──
             // It is the read-only echo of the mode, what remains readable of it while the drawer stands
@@ -651,6 +664,30 @@ private fun RouteQuickAccessSection(section: RouteSummaryData) {
         leftWidth = DropdownPairWidth.Proportional,
         rightWidth = DropdownPairWidth.Proportional
     )
+}
+
+/**
+ * **The Go button** — the drawer's third door onto the acquisition, standing right of the quick-access
+ * pair. It wears the same vertical padding and value size as the wheel boxes it sits beside, so the
+ * button and the two dropdowns read as one row; the label is the accent-filled primary action's.
+ */
+@Composable
+private fun GoButton(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
+            .background(Color(AppConfig.uiAccent))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = BAR_CELL_PAD_VERTICAL_DP.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.route_go),
+            color = Color.White,
+            fontSize = AppConfig.uiFontValueSize.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
 }
 
 /**
