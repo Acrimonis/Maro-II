@@ -25,11 +25,14 @@ internal object FineTileCodec {
      * **no migration**: a v1 entry is a miss, because v2 carries the pace-free [FineTile.sourceCostFactor]
      * where v1 carried `sourceCostSec` and `baseCostSec`; a v2 entry is likewise a miss, because v3 drops
      * the retired depth-price coefficient from the stored field list; a v3 entry is a miss too, because
-     * v4 carried the depth band's own λ-free price; and a v4 entry is a miss, because v5 carries the
-     * gate-distance field in that slot instead. A key that no longer names a value its entry carries is
-     * **orphaned rather than addressed**, and the disk trim reclaims it by age.
+     * v4 carried the depth band's own λ-free price; a v4 entry is a miss, because v5 carries the
+     * gate-distance field in that slot instead; a v5 entry is a miss, because v6 paints the gate's wall
+     * and writes that field from the measured 3 m edge rather than from cell centres — the same fields,
+     * a different wall; and a v6 entry is a miss, because v7 traces that edge on a finer sub-cell. A key that
+     * no longer names a value its entry carries is **orphaned rather than addressed**, and the disk trim
+     * reclaims it by age.
      */
-    const val FORMAT_VERSION: Int = 5
+    const val FORMAT_VERSION: Int = 7
 
     /** Eight bytes that say "a fine-tile entry, this codec's shape" before the version byte. */
     private const val MAGIC: Long = 0x4D41524F54494C45L // "MAROTILE"

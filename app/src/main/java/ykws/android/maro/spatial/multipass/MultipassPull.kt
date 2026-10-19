@@ -6,6 +6,7 @@ import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -36,9 +37,16 @@ import kotlin.math.min
  * `d − coarseStep / 2` off the wall — so **no verdict can move**: a chord refused today is refused, one
  * pulled taut today is taut, and the marks themselves are exactly the ones the fine walk would have made.
  *
- * **No ring clearance.** The pull carries no standoff: a speed zone's outside margin is a **price** in
- * the search and in the field's own price guard, never a clearance here. The two walls that still bind
- * are the land margin and the price guard.
+ * **The depth gate's standoff is measured, on its own lattice.** Where a [GateRule] is in force a chord
+ * must keep the gate's wall ([GateRule.hardM]) off the traced 3 m line: one edge read every
+ * [GATE_MARK_STEP_M] proves its interval by the same 1-Lipschitz bound, and only an interval a mark
+ * cannot prove is walked at [GATE_FINE_STEP_M]. The gate waives itself on its own narrower disc
+ * ([GateRule.waiverM]) and on the carved approaches, so beyond that disc the gate's interior binds even
+ * where the coast's wider waiver still stands.
+ *
+ * **No ring clearance.** The pull carries no other standoff: a speed zone's outside margin is a **price**
+ * in the search and in the field's own price guard, never a clearance here. What binds is the land margin,
+ * the depth gate's measured wall and the price guard.
  *
  * **The priced half of the guarantee.** Where the field carries a price, a chord is accepted only
  * while its own summed price stays within the A* cell path's over the span it would replace — so the
@@ -56,6 +64,24 @@ import kotlin.math.min
  * every unproved group keeps today's reads.
  */
 private const val MIN_SAMPLE_STEP_M = 1.0
+
+/**
+ * **The gate's own mark step (m)** — one edge read per interval of this length along a chord, each proving
+ * its whole interval where it reads at least the wall plus half the interval. A constant of the walk.
+ */
+internal const val GATE_MARK_STEP_M = 20.0
+
+/**
+ * **The gate's fine step (m)** — the sampling an unproved interval is walked at, each sample proving its own
+ * sub-interval by the same bound, so the wall holds to within nothing rather than to within a sample.
+ */
+internal const val GATE_FINE_STEP_M = 2.0
+
+/**
+ * **How far past the berth's outer edge (m) a span proof reads before it settles for what it read** — the
+ * span the price walk may price from one berth read in open water, so the common case stays one read.
+ */
+private const val BERTH_PROOF_REACH_M = 150.0
 
 /**
  * **The settled lookback's window: the largest span (segments) one chord may replace.** A span of `k`
@@ -152,6 +178,12 @@ internal class MarkMemo {
     /** The summed soft price already read, by the point it was read at. */
     private val price = HashMap<LatLng, Double>()
 
+    /** The depth gate's measured edge distance already read, by the point it was read at. */
+    private val edge = HashMap<LatLng, Double>()
+
+    /** The berth proof's own wider edge read, by the point it was read at. */
+    private val farEdge = HashMap<LatLng, Double>()
+
     /** The hard reads answered from the table rather than the field — raised on [hardDistance]'s hit side. */
     var hardHits: Long = 0L
         private set
@@ -173,6 +205,40 @@ internal class MarkMemo {
         }
         val value = field.hardDistanceM(p)
         hard[p] = value
+        return value
+    }
+
+    /** The gate-edge reads answered from the table rather than the index — [edgeDistance]'s own hit side. */
+    var edgeHits: Long = 0L
+        private set
+
+    /**
+     * The gate's edge distance at [p] within [reachM] — read once from [gate], then answered from here. It is
+     * bound to the walk's [field] like the two tables beside it, the gate rule living exactly as long as the
+     * field, and a walk reads one reach, so the point alone keys it.
+     */
+    fun edgeDistance(field: RouteCostField, gate: GateRule, p: LatLng, reachM: Double): Double {
+        bind(field)
+        val held = edge[p]
+        if (held != null) {
+            edgeHits++
+            return held
+        }
+        val value = gate.edgeM(p, reachM)
+        edge[p] = value
+        return value
+    }
+
+    /** The berth proof's wider edge read at [p] — read once from [gate], then answered from here. */
+    fun farEdgeDistance(field: RouteCostField, gate: GateRule, p: LatLng, reachM: Double): Double {
+        bind(field)
+        val held = farEdge[p]
+        if (held != null) {
+            edgeHits++
+            return held
+        }
+        val value = gate.edgeM(p, reachM)
+        farEdge[p] = value
         return value
     }
 
@@ -207,20 +273,23 @@ internal class MarkMemo {
         price[p] = value
     }
 
-    /** Wipes both tables when the field's identity changes, so no answer can cross a rebuild. */
+    /** Wipes every table when the field's identity changes, so no answer can cross a rebuild. */
     private fun bind(field: RouteCostField) {
         if (boundField !== field) {
             hard.clear()
             price.clear()
+            edge.clear()
+            farEdge.clear()
             boundField = field
         }
     }
 }
 
 /**
- * **The water one call walks, in one value.** It holds the seven constants every walking call re-listed
- * before this step — the margin, the two steps, the field, the two raw ends and the carved approaches —
- * and it **is the walk's own context ([PullContext]) cut back to those seven**: the walk's three tallies
+ * **The water one call walks, in one value.** It holds the constants every walking call re-listed before
+ * this step — the margin, the two steps, the field, the two raw ends and the carved approaches, then the
+ * depth gate's rule, the berth's law and its cursor, and the pace — and it **is the walk's own context
+ * ([PullContext]) cut back to those values**: the walk's three tallies
  * stay out, because a counter shared between two walks of one pass cannot change an answer while a cache
  * can, so the two constructs keep one lifetime each — the setup per call, the context per walk.
  *
@@ -244,29 +313,21 @@ internal class PullSetup(
     val start: LatLng,
     val aim: LatLng,
     val approaches: EndApproaches = EndApproaches.NONE,
-    /** The gate distance (m) read at a point — the walk/grid's own field, `MAX_VALUE` where none. */
-    val gateDistanceMAt: (LatLng) -> Double = { Double.MAX_VALUE },
-    /** The gate's standoff margin (m) — the hard standoff, both engines, 0 where the gate is off. */
-    val gateMarginM: Double = 0.0,
-    /** The berth's outer edge (m off the gate edge), 0 where this plan prices no berth. */
-    val berthOuterM: Double = 0.0,
-    /** The berth's full rate (s/m at the margin), 0 where this plan prices no berth. */
-    val berthSecPerM: Double = 0.0,
-    /** The pass's own λ for the berth — the cursor that turns the grid's distance into seconds. */
+    /** The depth gate's rule — the measured edge and its wall — or `null` where the gate is out of force. */
+    val gate: GateRule? = null,
+    /** The berth's law, or `null` where this plan prices none. */
+    val berth: BerthLaw? = null,
+    /** The pass's own λ for the berth — the cursor that turns a distance's rate into seconds. */
     val berthLambda: Double = 0.0,
-    /** The world's depth (m) at a point — the water ring's own read, `NaN` where none is supplied. */
-    val gateDepthAt: (LatLng) -> Double = { Double.NaN },
-    /** The gate's minimum depth (m); `0.0` disables the water ring, as a fixture without a gate does. */
-    val gateMinDepthM: Double = 0.0,
     /** The walk's pace (m/s) — the travel term every proof compares; `0.0` (a fixture) reads soft price only. */
     val paceMps: Double = 0.0
 ) {
 
     /**
-     * **The walk's context, folded from this setup in one place** — the seven water values plus whichever
+     * **The walk's context, folded from this setup in one place** — the setup's water values plus whichever
      * of the walk's three tallies the caller names. `pricedLineCost` and `snapToCorners` pass none — they
      * count and cache nothing of their own — and [MultipassPull.pull] passes the walk's own refusals,
-     * timing and memo, so no site re-lists the seven values by hand.
+     * timing and memo, so no site re-lists the values by hand.
      */
     internal fun context(
         refusals: PullRefusals? = null,
@@ -274,16 +335,16 @@ internal class PullSetup(
         memo: MarkMemo? = null
     ): PullContext = PullContext(
         marginM, coarseStepM, priceStepM, field, start, aim, approaches,
-        gateDistanceMAt, gateMarginM, berthOuterM, berthSecPerM, berthLambda,
-        gateDepthAt, gateMinDepthM, paceMps,
+        gate, berth, berthLambda, paceMps,
         refusals, timing, memo
     )
 }
 
 /**
  * **One walk's own values, made once at its start and threaded instead of re-declared.** The context
- * carries the walk's constants — the margin, the two steps, the field, the two raw ends and the carved
- * approaches — beside its three tallies: the refusals it counts, the timing it keeps and the memo it
+ * carries the walk's constants — the margin, the two steps, the field, the two raw ends, the carved
+ * approaches, the depth gate's rule, the berth's law and its cursor, and the pace — beside its three
+ * tallies: the refusals it counts, the timing it keeps and the memo it
  * fills, each **exactly as nullable as the walk demands**, so a solve that wants none of them passes
  * none. Nothing per-chord lives here — no endpoint, no anchor or probe index, no prefix array, no
  * lattice — and the membership is closed at what travels with the walk today: a new field is a new
@@ -300,36 +361,58 @@ internal class PullContext(
     val start: LatLng,
     val aim: LatLng,
     val approaches: EndApproaches = EndApproaches.NONE,
-    val gateDistanceMAt: (LatLng) -> Double = { Double.MAX_VALUE },
-    val gateMarginM: Double = 0.0,
-    val berthOuterM: Double = 0.0,
-    val berthSecPerM: Double = 0.0,
+    val gate: GateRule? = null,
+    val berth: BerthLaw? = null,
     val berthLambda: Double = 0.0,
-    val gateDepthAt: (LatLng) -> Double = { Double.NaN },
-    val gateMinDepthM: Double = 0.0,
     /** The walk's pace (m/s) — the travel term every proof compares; `0.0` reads soft price only. */
     val paceMps: Double = 0.0,
     val refusals: PullRefusals? = null,
     val timing: PullTiming? = null,
     val memo: MarkMemo? = null
 ) {
-    /** Whether any price is in force — the field's soft sources or the berth's own rate. */
-    val hasSoftPrice: Boolean =
-        field.hasSoft || (berthLambda > 0.0 && berthSecPerM > 0.0 && berthOuterM > gateMarginM)
+    /** Whether the berth prices anything on this walk. */
+    private val berthPriced: Boolean =
+        gate != null && berthLambda > 0.0 && berth != null && berth.pricesAnything
 
-    /** The berth's rate at [p], in seconds per metre, at this pass's cursor. */
-    fun berthRate(p: LatLng): Double {
-        if (berthLambda <= 0.0 || berthSecPerM <= 0.0) return 0.0
-        val share = berthShare(gateDistanceMAt(p), gateMarginM, berthOuterM)
-        if (share <= 0.0) return 0.0
-        return berthLambda * berthSecPerM * share
+    /** Whether any price is in force — the field's soft sources or the berth's own rate. */
+    val hasSoftPrice: Boolean = field.hasSoft || berthPriced
+
+    /**
+     * **How far one edge read looks (m)** — far enough for the berth's whole priced span and for the gate's
+     * own proofs, so one memoised read serves the price and the wall alike.
+     */
+    private val edgeReachM: Double =
+        max(if (berthPriced) berth!!.outerM else 0.0, (gate?.hardM ?: 0.0) + GATE_MARK_STEP_M / 2.0 + GATE_FINE_STEP_M)
+
+    /** The gate's edge distance at [p] (m, the pad taken off), from the walk's memo where it holds it. */
+    fun edgeM(p: LatLng): Double {
+        val rule = gate ?: return Double.MAX_VALUE
+        return memo?.edgeDistance(field, rule, p, edgeReachM) ?: rule.edgeM(p, edgeReachM)
     }
 
-    /** The berth's own boundary clearance at [p] — `min(|d − margin|, |d − outer|)` — or `MAX_VALUE`. */
+    /** The berth's rate at [p], in seconds per metre, at this pass's cursor — read off the measured edge. */
+    fun berthRate(p: LatLng): Double {
+        if (!berthPriced) return 0.0
+        return berthLambda * berth!!.rateSecPerM(edgeM(p))
+    }
+
+    /**
+     * **The berth's own boundary clearance at [p]** — the law's own declaration — or `MAX_VALUE` where it
+     * prices nothing. A point beyond the price's own read is read again, as far as [BERTH_PROOF_REACH_M] past
+     * the outer edge: the clearance is then that read's own, and a point further still proves the reach and
+     * no more — never an unbounded "no boundary" that would let one berth-free read price a span whose ends
+     * stand in the berth.
+     */
     fun berthClearanceM(p: LatLng): Double {
-        if (berthLambda <= 0.0 || berthSecPerM <= 0.0 || berthOuterM <= gateMarginM) return Double.MAX_VALUE
-        val d = gateDistanceMAt(p)
-        return min(abs(d - gateMarginM), abs(d - berthOuterM))
+        if (!berthPriced) return Double.MAX_VALUE
+        val law = berth!!
+        val near = edgeM(p)
+        if (near != Double.MAX_VALUE) return law.clearanceM(near)
+        timing?.addFarEdgeRead()
+        val rule = gate!!
+        val reachM = law.outerM + BERTH_PROOF_REACH_M
+        val far = memo?.farEdgeDistance(field, rule, p, reachM) ?: rule.edgeM(p, reachM)
+        return if (far == Double.MAX_VALUE) BERTH_PROOF_REACH_M else law.clearanceM(far)
     }
 
     /** The soft clearance the price-walk's group proof reads — the field's and the berth's, one number. */
@@ -883,31 +966,59 @@ object MultipassPull {
         for (k in 0 until coarseCount) {
             coarseClear[k] = readHard(ctx, chordPoint(a, b, coarse.markT(k))) >= provedClearM
         }
+        val gate = ctx.gate
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
             val p = chordPoint(a, b, t)
             // The end-disc and the carved approach, one rule: the margin binds the path, never the ends.
-            if (marginWaived(p, ctx.marginM, ctx.start, ctx.aim, ctx.approaches, sampleStep)) continue
+            // The gate's own disc is narrower, so the gate's interior still binds past it.
+            if (marginWaived(p, ctx.marginM, ctx.start, ctx.aim, ctx.approaches, sampleStep)) {
+                if (gate != null && !gateWaived(p, ctx) && gate.isShallow(p)) return ChordRefusal.LAND
+                continue
+            }
             // The rastered walls are a **step**, so every mark tests them: no bound could prove a
             // half-step holds no shallow cell, and a coarse-only walk would sail one.
             if (ctx.field.hardBlocked(p)) return ChordRefusal.LAND
-            // The gate's own standoff, read off the grid's distance field: a mark at or inside the gate's
-            // margin is refused — the cheap pre-filter, on the cell centres.
-            if (ctx.gateMarginM > 0.0 && ctx.gateDistanceMAt(p) <= ctx.gateMarginM) return ChordRefusal.LAND
-            // **The water ring — the binding 20 m.** A mark whose ring at the gate's margin touches shallow
-            // water is refused, so the line keeps its margin from the water itself, not from a sounding,
-            // which is the only thing that reads a true 20 m to the edge.
-            if (ctx.gateMinDepthM > 0.0 &&
-                !gateStandoffClears(p, ctx.gateMarginM, ctx.gateMinDepthM, ctx.gateDepthAt)
-            ) {
-                return ChordRefusal.LAND
-            }
             // The materialized distance is the one read the proof may spare, and it is skipped exactly
             // where the coarse mark covering this fine mark has already answered for its half-step.
             val covering = coarse.indexOf(t)
             if (!coarseClear[covering] && readHard(ctx, p) < ctx.marginM) return ChordRefusal.LAND
         }
+        // **The gate's measured standoff**, on its own lattice: the chord keeps the wall off the traced
+        // 3 m line everywhere outside the gate's own waiver.
+        if (gate != null && gate.hardM > 0.0 && gateRefuses(a, b, dist, gate, ctx)) return ChordRefusal.LAND
         return null
+    }
+
+    /**
+     * **Whether the chord comes within the gate's wall** — one edge read per [GATE_MARK_STEP_M] interval
+     * proves the interval where it reads at least `hardM + width / 2`; an unproved interval is walked at
+     * [GATE_FINE_STEP_M], each sample proving its own sub-interval the same way, so a chord that passes has
+     * every point at least [GateRule.hardM] off the edge. A sample inside the gate's waiver proves nothing
+     * and refuses nothing.
+     */
+    private fun gateRefuses(a: LatLng, b: LatLng, dist: Double, gate: GateRule, ctx: PullContext): Boolean {
+        if (dist <= 0.0) return false
+        val marks = MarkLattice(dist, GATE_MARK_STEP_M)
+        for (j in 0 until marks.count) {
+            val widthM = marks.widthM(j)
+            if (ctx.edgeM(chordPoint(a, b, marks.markT(j))) >= gate.hardM + widthM / 2.0) continue
+            val fromM = j * marks.stepM
+            val samples = ceil(widthM / GATE_FINE_STEP_M).toInt().coerceAtLeast(1)
+            val subM = widthM / samples
+            for (s in 0 until samples) {
+                val q = chordPoint(a, b, (fromM + (s + 0.5) * subM) / dist)
+                if (gateWaived(q, ctx)) continue
+                if (ctx.edgeM(q) < gate.hardM + subM / 2.0) return true
+            }
+        }
+        return false
+    }
+
+    /** Whether the gate waives itself at [p] — the gate's own one rule ([GateRule.waives]). */
+    private fun gateWaived(p: LatLng, ctx: PullContext): Boolean {
+        val gate = ctx.gate ?: return true
+        return gate.waives(p, ctx.start, ctx.aim, ctx.approaches)
     }
 
     /**
@@ -1256,6 +1367,21 @@ class PullTiming {
     var memoHardHits: Long = 0L
         private set
 
+    /** The depth gate's edge reads the walk answered from its own [MarkMemo] rather than the index. */
+    var memoEdgeHits: Long = 0L
+        private set
+
+    /**
+     * The berth proofs that read past the price's own reach — each a wider edge read, answered from the memo
+     * where it holds the point — so the proof's own cost is read on the device rather than inferred.
+     */
+    var farEdgeReads: Long = 0L
+        private set
+
+    internal fun addFarEdgeRead() {
+        farEdgeReads++
+    }
+
     /** The clearance walk's own sampling step (m), read from the [PullSetup] the walk was handed. */
     var stepM: Double = 0.0
         private set
@@ -1287,7 +1413,7 @@ class PullTiming {
     }
 
     /**
-     * Copies the walk's two steps and its memo's two hit counts into the tally at the walk's own end,
+     * Copies the walk's two steps and its memo's three hit counts into the tally at the walk's own end,
      * read from the [PullSetup] and [MarkMemo] the walk was handed — so the line proves the steps in
      * force and prices the memo on the water it actually walked.
      */
@@ -1296,5 +1422,6 @@ class PullTiming {
         priceStepM = setup.priceStepM
         memoPriceHits = memo?.priceHits ?: 0L
         memoHardHits = memo?.hardHits ?: 0L
+        memoEdgeHits = memo?.edgeHits ?: 0L
     }
 }

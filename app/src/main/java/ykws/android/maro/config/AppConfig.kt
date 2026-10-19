@@ -431,14 +431,39 @@ object AppConfig {
         private set
 
     /**
-     * The berth's **full rate** — `route.evolutive.berth.secPerM`, default 0.1, clamped
+     * The berth's **rate at the margin** — `route.evolutive.berth.secPerM`, default 0.1, clamped
      * [ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN]..[ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX]. It is a
-     * **per-metre-of-water rate** at the 20 m margin: a cell's price is
-     * `secPerM × λ × berthShare(distance) × cellM`, so a 20 m ribbon and a 100 m interior pay the same
-     * per metre. **No cap exists beside it**: λ and the law are the whole brake.
+     * **per-metre-of-water rate** at the 20 m margin, falling to nothing at the outer edge: a cell's price is
+     * `λ × BerthLaw.rateSecPerM(distance) × cellM`, so a 20 m ribbon and a 100 m interior pay the same per
+     * metre. **No cap exists beside it**: λ and the law are the whole brake.
      */
     var routeEvolutiveBerthSecPerM: Double = 0.1
         private set
+
+    /**
+     * **The berth's floor — the hard wall (m off the measured 3 m edge)** — `route.evolutive.berth.floorM`,
+     * default 10, clamped [ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MIN]..[ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MAX] and never
+     * above `route.avoid.depthGate.marginM` where it is read (`berthLawOf`). Under the floor no route goes;
+     * between it and the margin the water is the berth's inner ramp, usable but dear, so a narrow passage
+     * stays open and is crossed down its middle. `avoid` prices no berth and keeps its wall at the margin.
+     */
+    var routeEvolutiveBerthFloorM: Double = 10.0
+        private set
+
+    /**
+     * **The inner ramp's rate at the floor** (s per metre of water, before λ) —
+     * `route.evolutive.berth.innerSecPerM`, default 0.5, clamped
+     * [ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN]..[ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX] and never under
+     * [routeEvolutiveBerthSecPerM] where it is read, so the rate never rises with the distance off the edge.
+     */
+    var routeEvolutiveBerthInnerSecPerM: Double = 0.5
+        private set
+
+    /** Lowest berth floor (m) the load accepts — zero, the wall on the edge itself. */
+    const val ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MIN = 0.0
+
+    /** Highest berth floor (m) the load accepts. */
+    const val ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MAX = 200.0
 
     /** Lowest berth outer edge (m) the load accepts — zero, the berth's own off position. */
     const val ROUTE_EVOLUTIVE_BERTH_OUTER_M_MIN = 0.0
@@ -491,13 +516,14 @@ object AppConfig {
         private set
 
     /**
-     * The lateral standoff (m) the curve fitter keeps off the depth gate's wall —
+     * The standoff (m) a route keeps off the depth gate's measured edge —
      * `route.avoid.depthGate.marginM`, default 20, clamped 0.0..200.0.
      *
-     * The fitter reads it as the distance from a sampled cell's **centre** to the nearest cell whose
-     * centre is under the gate, refusing a sample within it — the same 20 m of standoff the gate's own
-     * rule implies, made representable at the grid's resolution without a finer walk. It is the depth
-     * gate's standoff only: the coast's own clearance is [routeAvoidObstacleMarginM].
+     * It is read off the traced 3 m line ([`ShallowEdgeIndex`]), never off sampled cell centres. On `avoid`
+     * it is the wall. On `evolutive` it is the **preferred** standoff: the wall stands at
+     * [routeEvolutiveBerthFloorM] and the water between is the berth's inner ramp. Either way it is also the
+     * disc around each end inside which the gate waives itself, and the standoff the corner pass's bows
+     * keep. It is the depth gate's standoff only: the coast's own clearance is [routeAvoidObstacleMarginM].
      */
     var routeAvoidDepthGateMarginM: Double = 20.0
         private set
@@ -2427,6 +2453,18 @@ object AppConfig {
             }
             props.getProperty("route.evolutive.berth.secPerM")?.toDoubleOrNull()?.let {
                 routeEvolutiveBerthSecPerM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN,
+                    ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX
+                )
+            }
+            props.getProperty("route.evolutive.berth.floorM")?.toDoubleOrNull()?.let {
+                routeEvolutiveBerthFloorM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MIN,
+                    ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MAX
+                )
+            }
+            props.getProperty("route.evolutive.berth.innerSecPerM")?.toDoubleOrNull()?.let {
+                routeEvolutiveBerthInnerSecPerM = it.coerceIn(
                     ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN,
                     ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX
                 )

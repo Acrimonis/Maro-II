@@ -23,9 +23,9 @@ import kotlin.math.cos
  * three reads [legalWater] and [marginLand] share — which is why the carve belongs **after** the
  * rasterisation, beside the grid's own `forceFree`, and never inside the sweep.
  *
- * **The one rule, three readers.** *The margin is waived on the approach to an end* is read by the
- * grid (the carved cells opened), by the pull's exemption (the stretch's samples) and by the ring's
- * own validity question ([carveBerth] run for the point being aimed) — one statement, one home.
+ * **The one rule, two readers.** *The margin is waived on the approach to an end* is read by the grid
+ * (the carved cells opened) and by every walk's exemption — the pull's and the depth gate's
+ * ([GateRule.waives]), both reading the stretch the carve returns — one statement, one home.
  *
  * **What still binds, in the carve as everywhere else:** the coastline's water, a hazard ring's filled
  * interior (never water, so never margin-land) and the depth gate, whose single home is
@@ -115,6 +115,11 @@ fun carveReachCells(marginM: Double, cellM: Double): Int =
  * **[reachCellM] is the cell the reach is measured in, defaulting to the grid's own.** A window onto a
  * finer layer carries a coarser reach through this argument while its own cell sizes its geometry, so the
  * disc lands in whichever layer holds the end without a second reach rule.
+ *
+ * **The depth gate's own disc is narrower** ([GateRule.waiverM]). Where a [gate] is in force, a cell its
+ * wall painted opens only inside that disc — the gate binds the route past it — and inside it such a cell
+ * opens even off the coast's margin, so an end standing beside shallow water is never enclosed by them. Every
+ * cell it opens takes its measured distance off the edge, so the search proves its steps on a true reading.
  */
 fun openEndDisc(
     grid: MultipassGrid,
@@ -123,7 +128,8 @@ fun openEndDisc(
     marginM: Double,
     depthGateActive: Boolean,
     minDepthM: Double,
-    reachCellM: Double = grid.cellM
+    reachCellM: Double = grid.cellM,
+    gate: GateRule? = null
 ): Int {
     val reach = carveReachCells(marginM, reachCellM)
     val origin = grid.cellOf(end.latitude, end.longitude)
@@ -135,11 +141,23 @@ fun openEndDisc(
             if (!grid.inBounds(row, col)) continue
             if (grid.passable(row, col)) continue
             val centre = grid.center(row, col)
-            if (SpatialOperations.haversine(centre, end) > marginM) continue
+            val fromEndM = SpatialOperations.haversine(centre, end)
+            if (fromEndM > marginM) continue
             if (!world.isWater(centre.latitude, centre.longitude)) continue
             if (!depthClearsGate(world.depthAt(centre.latitude, centre.longitude), depthGateActive, minDepthM)) continue
-            if (world.distanceToCoastM(centre.latitude, centre.longitude) >= marginM) continue
+            val coastMarginLand = world.distanceToCoastM(centre.latitude, centre.longitude) < marginM
+            if (gate != null) {
+                val gateLand = gate.edgeM(centre, gate.hardM) < gate.hardM
+                val insideGateDisc = fromEndM <= gate.waiverM
+                if (gateLand && !insideGateDisc) continue
+                if (!coastMarginLand && !gateLand) continue
+            } else if (!coastMarginLand) {
+                continue
+            }
             grid.openCarve(row, col)
+            // A cell the coast's margin barred took no seed of the gate's distance; it is open water now, so
+            // it takes its measured distance, which the search's step guard and the berth read.
+            if (gate != null) grid.writeGateDistanceM(row, col, gate.edgeM(centre, gate.seedReachM(grid.cellM)))
             opened++
         }
     }
@@ -196,6 +214,11 @@ fun metricCarveLattice(anchor: LatLng, cellM: Double): (Int, CarveDirection) -> 
  * ring's interior (never water) and a depth-gated cell all stop it — and every direction failing
  * answers [CARVE_NO_LEGAL_WATER]. An [anchor] that is legal water already is [CARVE_END_CLEAR]: there
  * is nothing to carve.
+ *
+ * **Where a [gate] is in force, its wall is a margin the carve crosses too**: legal water must also stand
+ * the gate's wall off the measured edge, and the water inside that wall — never the shallow itself — is
+ * margin water the stretch may cross, so an end beside shallow water is carved out to water both margins
+ * call legal.
  */
 fun carveBerth(
     world: MultipassWorld,
@@ -204,16 +227,17 @@ fun carveBerth(
     reachCells: Int,
     depthGateActive: Boolean,
     minDepthM: Double,
-    stepAt: (steps: Int, direction: CarveDirection) -> LatLng?
+    stepAt: (steps: Int, direction: CarveDirection) -> LatLng?,
+    gate: GateRule? = null
 ): BerthCarve {
-    if (legalWater(world, anchor, marginM, depthGateActive, minDepthM)) {
+    if (legalWater(world, anchor, marginM, depthGateActive, minDepthM, gate)) {
         return BerthCarve(null, 0, emptyList(), CARVE_END_CLEAR, 0.0)
     }
     for (direction in CarveDirection.entries) {
         var steps = 0
         while (steps < reachCells) {
             val at = stepAt(steps + 1, direction) ?: break
-            if (legalWater(world, at, marginM, depthGateActive, minDepthM)) {
+            if (legalWater(world, at, marginM, depthGateActive, minDepthM, gate)) {
                 return BerthCarve(
                     direction,
                     steps + 1,
@@ -222,36 +246,41 @@ fun carveBerth(
                     SpatialOperations.haversine(anchor, at)
                 )
             }
-            if (!marginLand(world, at, marginM, depthGateActive, minDepthM)) break
+            if (!marginLand(world, at, marginM, depthGateActive, minDepthM, gate)) break
             steps++
         }
     }
     return BerthCarve(null, 0, emptyList(), CARVE_NO_LEGAL_WATER, 0.0)
 }
 
-/** The destination's test: water, deep enough, and clear of the margin the approach waives. */
+/** The destination's test: water, deep enough, and clear of every margin the approach waives. */
 private fun legalWater(
     world: MultipassWorld,
     at: LatLng,
     marginM: Double,
     depthGateActive: Boolean,
-    minDepthM: Double
+    minDepthM: Double,
+    gate: GateRule?
 ): Boolean =
     world.isWater(at.latitude, at.longitude) &&
         world.distanceToCoastM(at.latitude, at.longitude) >= marginM &&
-        depthClearsGate(world.depthAt(at.latitude, at.longitude), depthGateActive, minDepthM)
+        depthClearsGate(world.depthAt(at.latitude, at.longitude), depthGateActive, minDepthM) &&
+        (gate == null || gate.edgeM(at, gate.hardM) >= gate.hardM)
 
 /**
- * The intermediate's test — **margin-land**: water the margin has taken that is not the depth gate's
- * own land, which is the only water a carve may cross.
+ * The intermediate's test — **margin-land**: water a margin has taken — the coast's, or the gate's wall
+ * off the measured edge — that is not the depth gate's own blocked water, which is the only water a carve
+ * may cross.
  */
 private fun marginLand(
     world: MultipassWorld,
     at: LatLng,
     marginM: Double,
     depthGateActive: Boolean,
-    minDepthM: Double
+    minDepthM: Double,
+    gate: GateRule?
 ): Boolean =
     world.isWater(at.latitude, at.longitude) &&
-        world.distanceToCoastM(at.latitude, at.longitude) < marginM &&
-        depthClearsGate(world.depthAt(at.latitude, at.longitude), depthGateActive, minDepthM)
+        depthClearsGate(world.depthAt(at.latitude, at.longitude), depthGateActive, minDepthM) &&
+        (world.distanceToCoastM(at.latitude, at.longitude) < marginM ||
+            (gate != null && gate.edgeM(at, gate.hardM) < gate.hardM))

@@ -24,7 +24,7 @@ class RouteCornerPassTest {
         val b = LatLng(43.502, 7.0)
         val c = LatLng(43.504, 7.0)
         val rounded = RouteCornerPass.round(
-            listOf(a, b, c), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(a, b, c), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertEquals(listOf(a, b, c), rounded.points)
     }
@@ -38,7 +38,7 @@ class RouteCornerPassTest {
         val world = CoastWorld(coast)
         val margin = 50.0
         val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, world, false, 3.0, margin
+            listOf(prev, corner, next), 28.0, world, null, margin
         )
         assertTrue("the corner gains arc points", rounded.points.size > 3)
         assertTrue("the corner vertex is replaced by the arc", corner !in rounded.points)
@@ -71,7 +71,7 @@ class RouteCornerPassTest {
         )
         val world = CoastWorld(emptyList(), listOf(zone))
         val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, world, false, 3.0, 50.0
+            listOf(prev, corner, next), 28.0, world, null, 50.0
         )
         for (p in rounded.points) {
             assertFalse("no drawn point bows into the zone", zone.contains(p.latitude, p.longitude))
@@ -84,7 +84,7 @@ class RouteCornerPassTest {
         val prev = LatLng(43.50001, 7.0)
         val next = LatLng(43.5, 7.00001)
         val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertTrue("the corner stands sharp", corner in rounded.points)
         assertEquals("taken at the turn floor", 5.0, rounded.ceilingKnAt(corner)!!, 0.01)
@@ -95,7 +95,7 @@ class RouteCornerPassTest {
     fun theTallyNamesWhatHappenedAtEachCorner() {
         val shallow = RouteCornerPass.round(
             listOf(LatLng(43.5, 7.0), LatLng(43.502, 7.0), LatLng(43.504, 7.0)),
-            28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertEquals(
             "a straight run is read as too shallow to round",
@@ -104,7 +104,7 @@ class RouteCornerPassTest {
 
         val rounded = RouteCornerPass.round(
             listOf(LatLng(43.505, 7.0), LatLng(43.5, 7.0), LatLng(43.5, 7.005)),
-            28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            28.0, CoastWorld(emptyList()), null, 50.0
         )
         val verdict = rounded.verdicts.single()
         assertEquals("the convex corner is drawn", RouteCornerPass.CornerOutcome.ROUNDED, verdict.outcome)
@@ -114,7 +114,7 @@ class RouteCornerPassTest {
 
         val starved = RouteCornerPass.round(
             listOf(LatLng(43.50001, 7.0), LatLng(43.5, 7.0), LatLng(43.5, 7.00001)),
-            28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            28.0, CoastWorld(emptyList()), null, 50.0
         )
         val starvedVerdict = starved.verdicts.single()
         assertEquals(
@@ -139,7 +139,7 @@ class RouteCornerPassTest {
         val d = LatLng(43.4904610, 7.0230682)
 
         val rounded = RouteCornerPass.round(
-            listOf(a, firstBend, secondBend, d), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(a, firstBend, secondBend, d), 28.0, CoastWorld(emptyList()), null, 50.0
         )
 
         val first = rounded.verdicts[0]
@@ -170,7 +170,7 @@ class RouteCornerPassTest {
         val d = LatLng(43.4968240, 7.0050632)
 
         val rounded = RouteCornerPass.round(
-            listOf(a, firstBend, secondBend, d), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(a, firstBend, secondBend, d), 28.0, CoastWorld(emptyList()), null, 50.0
         )
 
         assertEquals("the pair is one corner, not two", 1, rounded.verdicts.size)
@@ -195,7 +195,7 @@ class RouteCornerPassTest {
         val prev = offset(corner, 0.0, -200.0)
         val next = offset(corner, 200.0 * tan(Math.toRadians(5.0)), 200.0)
         val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         val verdict = rounded.verdicts.single()
         assertEquals("too flat to round", RouteCornerPass.CornerOutcome.SHALLOW, verdict.outcome)
@@ -226,7 +226,7 @@ class RouteCornerPassTest {
         )
         val next = offset(corner, 1541.0 * sin(Math.toRadians(48.0)), 1541.0 * cos(Math.toRadians(48.0)))
         val rounded = RouteCornerPass.round(
-            listOf(feedStart, stubStart, corner, next), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(feedStart, stubStart, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertTrue("two bends are read", rounded.verdicts.size == 2)
         val feed = rounded.verdicts[0]
@@ -266,7 +266,7 @@ class RouteCornerPassTest {
         )
         val next = offset(corner, 500.0 * sin(Math.toRadians(48.0)), 500.0 * cos(Math.toRadians(48.0)))
         val rounded = RouteCornerPass.round(
-            listOf(feedStart, kink, corner, next), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(feedStart, kink, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertTrue("two bends are read", rounded.verdicts.size == 2)
         val flat = rounded.verdicts[0]
@@ -298,7 +298,7 @@ class RouteCornerPassTest {
         val prev = offset(corner, 0.0, -10.0)
         val next = offset(corner, 100.0, 0.0)
         val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         val verdict = rounded.verdicts.single()
         assertEquals(
@@ -340,7 +340,7 @@ class RouteCornerPassTest {
         val prev = offset(corner, 0.0, -3.0)
         val next = offset(corner, 50.0 * sin(Math.toRadians(170.0)), 50.0 * cos(Math.toRadians(170.0)))
         val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
         )
         val verdict = rounded.verdicts.single()
         assertEquals(
@@ -369,7 +369,7 @@ class RouteCornerPassTest {
 
         val curved = RouteCornerPass.round(
             listOf(offset(corner, 0.0, -curvedRoom), corner, next),
-            28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertEquals(
             "a curve just above the hard bottom is drawn",
@@ -380,7 +380,7 @@ class RouteCornerPassTest {
 
         val standing = RouteCornerPass.round(
             listOf(offset(corner, 0.0, -standingRoom), corner, next),
-            28.0, CoastWorld(emptyList()), false, 3.0, 50.0
+            28.0, CoastWorld(emptyList()), null, 50.0
         )
         assertEquals(
             "a hair less room leaves it standing",

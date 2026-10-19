@@ -18,8 +18,9 @@ import java.io.DataOutputStream
  *   [zoneGenerationStamp]: a re-baked asset, a moved cutoff or a rebuilt zone list must not leave
  *   coefficients cached.
  * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the berth's
- *   [berthOuterM] and [berthSecPerM], the band's [bandWidthM], [bandLimitKn] and
- *   [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's fine-mask bands ([coastBandsM]). The
+ *   [berthOuterM] and [berthFloorM], the band's [bandWidthM],
+ *   [bandLimitKn] and [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's fine-mask bands
+ *   ([coastBandsM]). The
  *   **pace is deliberately absent**: the tile stores a pace-free factor and the base is re-applied from
  *   the target grid, so one tile serves every speed.
  * - **The switches** — [bandEnabled], [zonesEnabled] and [depthGateEnabled], plus the
@@ -60,7 +61,7 @@ internal data class TileKey(
     val obstacleMarginM: Double,
     /** The depth gate's minimum depth (m). */
     val gateMinDepthM: Double,
-    /** The depth gate's own margin (m), the depth price band's inner half. */
+    /** The depth gate's own margin (m) — the wall on `avoid`, the berth's ramps' joint on `evolutive`. */
     val gateMarginM: Double,
     /** Whether the 3 m depth gate is armed for this arm. */
     val depthGateEnabled: Boolean,
@@ -72,14 +73,7 @@ internal data class TileKey(
      */
     val berthOuterM: Double,
     /**
-     * **The berth's full rate (s/m)** — the plan's own answer, `0.0` where it prices none. It scales
-     * every member's stored distance into seconds, so a moved value must move the key or a cached tile
-     * would price the old rate. The berth's inner end is the gate's own margin, which [gateMarginM]
-     * already keys.
-     */
-    val berthSecPerM: Double,
-    /**
-     * **The low-depth collar's reach (m off a shallow cell)** — the plan's own answer, `0.0` where it
+     * **The low-depth collar's reach (m off the measured edge)** — the plan's own answer, `0.0` where it
      * asks no collar. The fine membership keeps a cell at or inside it, so a moved collar must move the
      * key or a cached tile would keep water the collar no longer covers.
      */
@@ -121,7 +115,13 @@ internal data class TileKey(
      * **Whether the marker price is armed** (`route.marker.enabled`). The rasterizer reads it, so a
      * toggled switch must move the key; the wall never reads it and stands either way.
      */
-    val markerPriceEnabled: Boolean
+    val markerPriceEnabled: Boolean,
+    /**
+     * **The berth's floor — the gate's wall (m off the measured edge)** — the plan's own answer, `0.0`
+     * where it prices no berth. The rasterizer paints the wall at it, so a moved floor is a different tile.
+     * The berth's two rates are deliberately absent: a tile stores distances, never the berth's price.
+     */
+    val berthFloorM: Double = 0.0
 ) {
 
     /**
@@ -160,7 +160,6 @@ internal data class TileKey(
         out.writeDouble(gateMarginM)
         out.writeBoolean(depthGateEnabled)
         out.writeDouble(berthOuterM)
-        out.writeDouble(berthSecPerM)
         out.writeDouble(depthCollarM)
         out.writeDouble(bandWidthM)
         out.writeDouble(bandLimitKn)
@@ -183,6 +182,7 @@ internal data class TileKey(
         for (marker in markers) out.writeMarker(marker)
         out.writeDouble(markerStrength)
         out.writeBoolean(markerPriceEnabled)
+        out.writeDouble(berthFloorM)
         out.flush()
         return buffer.toByteArray()
     }

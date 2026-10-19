@@ -481,6 +481,37 @@ internal class WalkWindows private constructor(
     }
 
     /**
+     * **The cell an end anchors the walk on** — the finest layer's own cell holding [point] where that cell
+     * is passable (the end's own freed cell, in every window that holds the end), so the walk leaves the end
+     * from the water it stands in rather than from the centre of the coarse block around it. [coarse] — the
+     * interior's reading — answers where no finer passable cell holds the point, and always on a single grid.
+     */
+    fun endCellAt(point: LatLng, coarse: CellIndex): CellIndex {
+        val layers = lattices ?: return coarse
+        var best: CellIndex? = null
+        var bestCellM = Double.MAX_VALUE
+        for (index in layers.indices) {
+            val lattice = layers[index]
+            if (lattice.cellM >= bestCellM) continue
+            val row = lattice.rowOf(point.latitude)
+            val col = lattice.colOf(point.longitude)
+            val slot = rawSlotOf(index, row, col)
+            if (slot >= 0 && passable(slot)) {
+                best = CellIndex(row, col, index)
+                bestCellM = lattice.cellM
+            }
+        }
+        return best ?: coarse
+    }
+
+    /**
+     * The slot an end's cell takes: a coarse-layer coordinate through the walk's own reading rule ([slotOf]),
+     * a finer layer's own cell ([endCellAt]) at that layer's own address.
+     */
+    fun slotOfEnd(cell: CellIndex): Int =
+        if (cell.layer == 0 || lattices == null) slotOf(cell.row, cell.col) else rawSlotOf(cell.layer, cell.row, cell.col)
+
+    /**
      * The slot a lattice coordinate takes, resolved through the walk's own reading rule. Where the
      * coordinate is a **coarse-layer** cell and a passable fine cell stands over the same water, the fine
      * cell is the one the walk reads and the coarse copy is not; every other coordinate resolves through
@@ -548,39 +579,6 @@ internal class WalkWindows private constructor(
             if (slot >= 0 && passable(slot)) local = lattice
         }
         return local.cellM
-    }
-
-    /**
-     * **The gate distance (m) the drawn tail reads at [point]** — the finest layer whose own window holds
-     * passable water where the point stands, read at that layer's cell, so the band's 20 m survives into
-     * the points. The pull's guard reads this, mirroring [cellSizeAt] so the size and the distance agree
-     * about which layer the point resolves on.
-     */
-    fun gateDistanceMAt(point: LatLng): Double {
-        val layers = lattices ?: return windows[0].grid.gateDistanceMAt(point.latitude, point.longitude)
-        var winner = layers[0]
-        var winnerIndex = 0
-        for (index in layers.indices) {
-            if (layers[index].cellM > winner.cellM) {
-                winner = layers[index]
-                winnerIndex = index
-            }
-        }
-        for (index in layers.indices) {
-            val lattice = layers[index]
-            if (lattice.cellM >= winner.cellM) continue
-            val slot = rawSlotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
-            if (slot >= 0 && passable(slot)) {
-                winner = lattice
-                winnerIndex = index
-            }
-        }
-        val row = winner.rowOf(point.latitude)
-        val col = winner.colOf(point.longitude)
-        val slot = rawSlotOf(winnerIndex, row, col)
-        if (slot < 0) return Double.MAX_VALUE
-        val window = windowOf(slot)
-        return window.grid.gateDistanceM(row - window.rowOffset, col - window.colOffset)
     }
 
     /**

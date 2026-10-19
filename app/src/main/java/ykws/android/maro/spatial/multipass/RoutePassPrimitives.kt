@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
@@ -162,36 +163,111 @@ internal fun costField(
 
 /**
  * **The depth the router reads at a point** — the world's own sample, `NaN` where nothing is known. One
- * home, so the gate's wall and the depth band's price can never disagree about where a sounding is: an
+ * home, so the gate's wall, its traced edge and the berth can never disagree about where a sounding is: an
  * unsurveyed point is `NaN` for both, and neither treats it as shallow.
  */
-internal fun depthMAt(world: MultipassWorld, p: LatLng): Double {
-    val sample = world.depthAt(p.latitude, p.longitude)
-    return if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
-}
+internal fun depthMAt(world: MultipassWorld, p: LatLng): Double =
+    depthMOf(world.depthAt(p.latitude, p.longitude))
 
-/** The gate's standoff margin in force (m), 0 where the gate is off — both engines' hard standoff. */
-internal fun gateStandoffM(depthGateActive: Boolean): Double =
-    if (depthGateActive) AppConfig.routeAvoidDepthGateMarginM else 0.0
+/** **One sample as the router reads it** — its depth in metres, `NaN` where it holds nothing. */
+internal fun depthMOf(sample: DepthSample): Double =
+    if (sample.hasData && !sample.depthM.isNaN()) sample.depthM.toDouble() else Double.NaN
 
 /**
- * **The berth's law** — the gate margin it starts at, the outer edge it fades to, and the full rate. It
- * rides the plan because the berth is *this* algorithm's own water: `avoid` prices none, `evolutive`
- * answers the `route.evolutive.berth.*` keys behind the gate's own switch.
+ * **The berth's law** — one rate (s per metre of water, before λ) at every distance off the measured
+ * 3 m edge, read by the search, the pull's guard and the arm report alike ([rateSecPerM]).
+ *
+ * - From [floorM] to [marginM] — **the inner ramp**: [innerSecPerM] at the floor, falling straight to
+ *   [secPerM] at the margin. It is the price of a narrow passage: the hard wall stands at the floor, and
+ *   the water up to the margin is usable but dear, cheapest in a passage's middle.
+ * - From [marginM] to [outerM] — **the outer ramp**: [secPerM] at the margin, falling straight to nothing
+ *   at the outer edge, the *move out if there is room* the 2026-10-17 order asked for.
+ * - Beyond [outerM]: nothing.
+ *
+ * The rate is continuous at the margin and never rises with the distance, so in a symmetric passage the
+ * cheapest water is its middle. A law whose [floorM] stands at its [marginM] has no inner ramp and prices
+ * the water inside the margin at the full [secPerM], exactly as the berth always did. It rides the plan
+ * because the berth is *this* algorithm's own water: `avoid` prices none, `evolutive` answers the
+ * `route.evolutive.berth.*` keys behind the gate's own switch.
  */
-internal data class BerthLaw(val marginM: Double, val outerM: Double, val secPerM: Double)
+data class BerthLaw(
+    val marginM: Double,
+    val outerM: Double,
+    val secPerM: Double,
+    val floorM: Double = marginM,
+    val innerSecPerM: Double = secPerM
+) {
+    /** Whether the inner ramp exists — a floor under the margin. */
+    val hasInnerRamp: Boolean get() = floorM < marginM
+
+    /** Whether the law prices anything at all. */
+    val pricesAnything: Boolean
+        get() = (secPerM > 0.0 && outerM > marginM) || (hasInnerRamp && innerSecPerM > 0.0)
+
+    /** The rate (s/m, before λ) at [distanceM] off the edge. */
+    fun rateSecPerM(distanceM: Double): Double {
+        if (distanceM >= marginM) {
+            if (outerM <= marginM || distanceM >= outerM) return 0.0
+            return secPerM * (outerM - distanceM) / (outerM - marginM)
+        }
+        if (!hasInnerRamp) return if (outerM > marginM) secPerM else 0.0
+        if (distanceM <= floorM) return innerSecPerM
+        return secPerM + (innerSecPerM - secPerM) * (marginM - distanceM) / (marginM - floorM)
+    }
+
+    /** A cell's own price (s, before λ) at [distanceM] off the edge — the rate times the cell. */
+    fun priceSecAt(distanceM: Double, cellM: Double): Double =
+        if (cellM <= 0.0) 0.0 else rateSecPerM(distanceM) * cellM
+
+    /**
+     * **The distance to the nearest place the rate's slope changes**, which the pull's price walk reads as
+     * its group proof. Inside the inner ramp it is `0.0`: the ramp is steep, so a stretch there is read
+     * mark by mark rather than from one midpoint. Elsewhere it is the distance to the margin or the outer
+     * edge, as the berth always declared.
+     */
+    fun clearanceM(distanceM: Double): Double {
+        if (hasInnerRamp && distanceM < marginM) return 0.0
+        return min(abs(distanceM - marginM), abs(distanceM - outerM))
+    }
+}
 
 /** The plan's berth law, or `null` where it prices none (or the gate is off). */
-internal fun berthLawOf(plan: RouteGridPlan, depthGateActive: Boolean): BerthLaw? =
-    if (plan.pricesBerth && depthGateActive) {
-        BerthLaw(
-            AppConfig.routeAvoidDepthGateMarginM,
-            AppConfig.routeEvolutiveBerthOuterM,
-            AppConfig.routeEvolutiveBerthSecPerM
-        )
-    } else {
-        null
-    }
+internal fun berthLawOf(plan: RouteGridPlan, depthGateActive: Boolean): BerthLaw? {
+    if (!plan.pricesBerth || !depthGateActive) return null
+    val marginM = AppConfig.routeAvoidDepthGateMarginM
+    val secPerM = AppConfig.routeEvolutiveBerthSecPerM
+    return BerthLaw(
+        marginM = marginM,
+        outerM = AppConfig.routeEvolutiveBerthOuterM,
+        secPerM = secPerM,
+        floorM = AppConfig.routeEvolutiveBerthFloorM.coerceAtMost(marginM),
+        innerSecPerM = AppConfig.routeEvolutiveBerthInnerSecPerM.coerceAtLeast(secPerM)
+    )
+}
+
+/**
+ * **The gate's rule for one arm**, or `null` where the gate is out of force: the world's measured edge,
+ * the wall at the berth's floor where the plan prices one (`evolutive`) and at the gate's own margin
+ * where it does not (`avoid`), the margin as the preferred standoff, and the margin again as the disc
+ * around each end inside which the gate waives itself.
+ */
+internal fun gateRuleOf(
+    world: MultipassWorld,
+    plan: RouteGridPlan,
+    depthGateActive: Boolean,
+    minDepthM: Double
+): GateRule? {
+    if (!depthGateActive) return null
+    val preferredM = AppConfig.routeAvoidDepthGateMarginM
+    val berth = berthLawOf(plan, depthGateActive)
+    return GateRule(
+        world.shallowEdges(minDepthM),
+        hardM = berth?.floorM ?: preferredM,
+        preferredM = preferredM,
+        waiverM = preferredM,
+        berthOuterM = berth?.outerM ?: 0.0
+    )
+}
 
 /**
  * **The fine tile's own field — the depth gate's wall and the priced markers, at an explicit base.**

@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.coastline.CoastlineRepository
 import ykws.android.maro.data.depth.DepthRepository
+import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
@@ -149,6 +150,20 @@ interface MultipassWorld {
      * carries a cost, so the field's marker sources are absent and today's no-marker fast path stands.
      */
     fun routeMarkers(): List<RouteMarker> = emptyList()
+
+    /**
+     * **The depth gate's edge as a line** — the [ShallowEdgeIndex] over this world's own [depthAt] at
+     * [minDepthM], the one read every guard measures its standoff on.
+     *
+     * The default reads [depthAt] on a nominal [NOMINAL_DEPTH_NODE_M] lattice laid from [latticeAnchor],
+     * fresh per call, which is a fixture's whole need; the live world answers its own raster's lattice
+     * from an index kept for the session.
+     */
+    fun shallowEdges(minDepthM: Double): ShallowEdgeIndex = ShallowEdgeIndex(
+        depthAt = { lat, lon -> depthMAt(this, LatLng(lat, lon)) },
+        lattice = DepthLattice.nominal(latticeAnchor, NOMINAL_DEPTH_NODE_M),
+        minDepthM = minDepthM
+    )
 }
 
 /**
@@ -264,6 +279,16 @@ class LiveMultipassWorld(
     override fun depthAt(latitude: Double, longitude: Double): DepthSample =
         depth.depthAt(latitude, longitude).gatedForEmodnetShallow(emodnetShallowCutoffM())
 
+    /**
+     * The loaded raster's own edge index, kept across searches by [LiveShallowEdges] so a session traces
+     * each chunk once. With no grid loaded the gate is out of force and never asks; the fixture default
+     * then stands, reading the empty grid as NoData.
+     */
+    override fun shallowEdges(minDepthM: Double): ShallowEdgeIndex {
+        val grid = depth.getGrid() ?: return super.shallowEdges(minDepthM)
+        return LiveShallowEdges.of(grid, emodnetShallowCutoffM(), minDepthM)
+    }
+
     override fun speedZonesIn(box: BBox): List<SpeedZone> =
         speedZonesInBox(zonesProvider(), box, excludedZoneIds())
 
@@ -303,4 +328,29 @@ class LiveMultipassWorld(
             val isWall = !pin && price >= ROUTING_COST_BLOCKED
             RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else price, isWall = isWall)
         }
+}
+
+/**
+ * **The live raster's edge index, kept for the session.** A [LiveMultipassWorld] is built per search, so
+ * the index it answers lives here instead, keyed on what its segments are traced from: the grid itself
+ * (its identity and its own stamp), the chart's EMODnet cutoff and the gate's depth. A reload, a moved
+ * cutoff or a moved gate replaces it whole; anything else reuses the chunks already traced.
+ */
+private object LiveShallowEdges {
+
+    private data class Key(val gridIdentity: Int, val gridStamp: Long, val cutoffM: Float, val minDepthM: Double)
+
+    @Volatile
+    private var held: Pair<Key, ShallowEdgeIndex>? = null
+
+    fun of(grid: DepthGrid, cutoffM: Float, minDepthM: Double): ShallowEdgeIndex {
+        val key = Key(System.identityHashCode(grid), grid.metadata.fetchTimestampMs, cutoffM, minDepthM)
+        held?.let { (k, index) -> if (k == key) return index }
+        synchronized(this) {
+            held?.let { (k, index) -> if (k == key) return index }
+            val index = shallowEdgesOver(grid, cutoffM, minDepthM)
+            held = key to index
+            return index
+        }
+    }
 }

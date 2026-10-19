@@ -141,13 +141,18 @@ object RouteCornerPass {
         val speedKn: Double
     )
 
-    /** Rounds every corner of [line] and returns the drawn polyline with its curvature ceilings. */
+    /**
+     * Rounds every corner of [line] and returns the drawn polyline with its curvature ceilings.
+     *
+     * [gate] is the depth gate's rule, `null` where it is out of force: a bow keeps the gate's preferred
+     * standoff off the measured 3 m edge, or the corner's own where that is less. [marginM] is the coast's
+     * own clearance, read the same relative way.
+     */
     fun round(
         line: List<LatLng>,
         paceKn: Double,
         world: MultipassWorld,
-        depthGateActive: Boolean,
-        minDepthM: Double,
+        gate: GateRule?,
         marginM: Double
     ): RoundedLine {
         if (line.size < 3) return RoundedLine(line, { null })
@@ -191,7 +196,7 @@ object RouteCornerPass {
             val emittedIn = SpatialOperations.haversine(tail, at)
             val attempt = attemptCorner(
                 prev, at, next, emittedIn, legInM[i], legOutM[i], shareM[i], paceMps, aLat, vFloorMps,
-                transitionSec, reachFraction, world, depthGateActive, minDepthM, marginM
+                transitionSec, reachFraction, world, gate, marginM
             )
             verdicts.add(attempt.verdict(i, at))
             val rounded = attempt.rounded
@@ -428,8 +433,7 @@ object RouteCornerPass {
         transitionSec: Double,
         reachFraction: Double,
         world: MultipassWorld,
-        depthGateActive: Boolean,
-        minDepthM: Double,
+        gate: GateRule?,
         marginM: Double
     ): Attempt {
         // The legs are the caller's **significant** ones — the straight to the nearest vertex the pass will
@@ -510,15 +514,17 @@ object RouteCornerPass {
         // than the corner itself, so a bend the walk placed inside the margin can still be rounded — a curve
         // can never make the line worse than it already is — while every bow from a corner standing clear of
         // the margin keeps the margin whole. This is the zone test's own idea, a corner inside a zone being
-        // excused the zone. The shallow wall stays absolute, being a lawful ceiling rather than a distance
-        // the line could already have broken.
+        // excused the zone. The gate's standoff reads the same way off the measured 3 m edge, at the gate's
+        // preferred standoff, while its blocked water itself stays absolute.
         val coastFloorM = min(marginM, world.distanceToCoastM(at.latitude, at.longitude))
+        val gateFloorM = gate?.let { min(it.preferredM, it.edgeM(at, it.preferredM)) } ?: 0.0
         fun blockerAt(p: LatLng): CornerOutcome? {
             if (world.distanceToCoastM(p.latitude, p.longitude) < coastFloorM - 1e-6) return CornerOutcome.BOW_COAST
-            // **The gate's own standoff** — a bow is refused where its ring at the gate's margin touches
-            // blocked water, so a curve cannot cut inside the standoff the search keeps the line to.
-            if (depthGateActive &&
-                !gateStandoffClears(p, marginM, minDepthM) { q -> depthMAt(world, q) }
+            // **The gate's own standoff, measured** — a bow is refused where it stands in blocked water, or
+            // nearer the measured edge than the corner it replaces (never nearer than the preferred standoff
+            // where the corner itself stands clear of it).
+            if (gate != null &&
+                (gate.isShallow(p) || gate.edgeM(p, gate.preferredM) < gateFloorM - 1e-6)
             ) {
                 return CornerOutcome.BOW_DEPTH
             }

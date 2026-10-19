@@ -53,6 +53,14 @@ class FineTileCodecTest {
         assertNull("a moved stamp must be a miss, never the old tile", FineTileCodec.decode(drifted, bytes))
     }
 
+    /** A tile stored before the gate's wall was measured carries the old wall: its format is a miss. */
+    @Test
+    fun anEntryOfTheFormerFormatIsAMiss() {
+        val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
+        bytes[8] = (FineTileCodec.FORMAT_VERSION - 1).toByte()
+        assertNull("a former-format entry must miss", FineTileCodec.decode(key, bytes))
+    }
+
     @Test
     fun aTruncatedEntryIsAMiss() {
         val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))

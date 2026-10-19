@@ -114,10 +114,11 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val bandSpec = bandLaw(world)
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
+        val gate = gateRuleOf(world, plan, depthGateActive, minDepthM)
         val grid = rasterize(
             box, cellM, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
             zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            gateMarginM = gateStandoffM(depthGateActive)
+            gate = gate
         )
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
@@ -125,12 +126,12 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val aimStateBefore = grid.state(aimCell.row, aimCell.col)
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
-        openEndDisc(grid, world, from.toLatLng(), marginM, depthGateActive, minDepthM)
-        openEndDisc(grid, world, to.toLatLng(), marginM, depthGateActive, minDepthM)
-        val carveReach = carveReachCells(marginM, cellM)
+        openEndDisc(grid, world, from.toLatLng(), marginM, depthGateActive, minDepthM, gate = gate)
+        openEndDisc(grid, world, to.toLatLng(), marginM, depthGateActive, minDepthM, gate = gate)
+        val carveReach = carveReachCells(carveMarginM(marginM, gate), cellM)
         val startCarve =
-            carveEnd(world, grid, startCell, from.toLatLng(), marginM, carveReach, depthGateActive)
-        val aimCarve = carveEnd(world, grid, aimCell, to.toLatLng(), marginM, carveReach, depthGateActive)
+            carveEnd(world, grid, startCell, from.toLatLng(), marginM, carveReach, depthGateActive, gate)
+        val aimCarve = carveEnd(world, grid, aimCell, to.toLatLng(), marginM, carveReach, depthGateActive, gate)
         val approaches = EndApproaches(startCarve.points, aimCarve.points)
         val refusals = PullRefusals()
         trace {
@@ -167,7 +168,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             startCell = startCell, aimCell = aimCell, start = start, aim = aim, sets = sets,
             limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
-            regionSaturated = regionSaturated, plan = plan
+            regionSaturated = regionSaturated, plan = plan, gate = gate
         )
     }
 
@@ -238,7 +239,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // band's.
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        val gateMarginM = gateStandoffM(depthGateActive)
+        val gate = gateRuleOf(world, plan, depthGateActive, minDepthM)
         val berth = berthLawOf(plan, depthGateActive)
         val fineWater = plan.fineWater(
             FineWaterQuery(
@@ -270,8 +271,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val interiorGrid = rasterizeWindow(
             coarseBox, family.coarse, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
             zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            gateMarginM = gateMarginM, berthOuterM = berth?.outerM ?: 0.0,
-            collarReachM = fineWater.depthCollarM
+            gate = gate, collarReachM = fineWater.depthCollarM
         )
         val fineStartNs = System.nanoTime()
         val windows = ArrayList<WalkWindow>(fineBoxes.size + 1)
@@ -288,7 +288,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             val bandGrid = fineWindowGrid(
                 world, anchor, family.fine, fineBox, pace, marginM, zoneOutsideMarginM,
                 priced, bandSpec, fineMask, edges, openCoast,
-                minDepthM, depthGateActive, gateMarginM, berth?.outerM ?: 0.0, fineWater.depthCollarM,
+                minDepthM, depthGateActive, gate, fineWater.depthCollarM,
                 fineWater, markerStrength, trace
             )
             fineCells += bandGrid.rows * bandGrid.cols
@@ -314,19 +314,24 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             for (end in listOf(from.toLatLng(), to.toLatLng())) {
                 if (!window.holds(lattice.rowOf(end.latitude), lattice.colOf(end.longitude))) continue
                 window.grid.forceFree(end.latitude, end.longitude)
-                openEndDisc(window.grid, world, end, marginM, depthGateActive, minDepthM, reachCellM = lattice.cellM)
+                openEndDisc(
+                    window.grid, world, end, marginM, depthGateActive, minDepthM, reachCellM = lattice.cellM,
+                    gate = gate
+                )
             }
         }
         // Each end's carve reach follows the **local** cell it stands on, so a coastal berth is scanned at the
         // band's own step while an open-water one keeps the interior's (Phase 6). Under the walk's own
         // priority an end a passable fine cell supersedes is a **fine** cell, so the carve runs on that
         // end's own window and cell rather than the interior's; an ordinary end keeps the interior.
-        val startReach = carveReachCells(marginM, walk.cellSizeAt(from.toLatLng()))
-        val aimReach = carveReachCells(marginM, walk.cellSizeAt(to.toLatLng()))
-        val startCarve =
-            carveEndOf(walk, world, from.toLatLng(), startCell, marginM, startReach, depthGateActive, interiorGrid)
-        val aimCarve =
-            carveEndOf(walk, world, to.toLatLng(), aimCell, marginM, aimReach, depthGateActive, interiorGrid)
+        val startReach = carveReachCells(carveMarginM(marginM, gate), walk.cellSizeAt(from.toLatLng()))
+        val aimReach = carveReachCells(carveMarginM(marginM, gate), walk.cellSizeAt(to.toLatLng()))
+        val startCarve = carveEndOf(
+            walk, world, from.toLatLng(), startCell, marginM, startReach, depthGateActive, interiorGrid, gate
+        )
+        val aimCarve = carveEndOf(
+            walk, world, to.toLatLng(), aimCell, marginM, aimReach, depthGateActive, interiorGrid, gate
+        )
         val approaches = EndApproaches(startCarve.points, aimCarve.points)
         val refusals = PullRefusals()
         // (e) Every count names its layer: a coarse cell is twenty-five fine ones, so the two inventories
@@ -363,7 +368,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             sets = sets, limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
             regionSaturated = regionSaturated, plan = plan,
-            windows = walk
+            windows = walk, gate = gate
         )
     }
 
@@ -389,8 +394,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         openCoast: List<List<LatLng>>,
         minDepthM: Double,
         depthGateActive: Boolean,
-        gateMarginM: Double,
-        berthOuterM: Double,
+        gate: GateRule?,
         collarReachM: Double,
         fineWater: FineWater,
         markerStrength: Double,
@@ -425,7 +429,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                     trace { "TILE built row=$tileRow col=$tileCol" }
                     buildFineTile(
                         world, fine, tileRow, tileCol, marginM, zoneOutsideMarginM,
-                        priced, bandSpec, fineMask, edges, openCoast, gateMarginM, berthOuterM, collarReachM,
+                        priced, bandSpec, fineMask, edges, openCoast, gate, collarReachM,
                         markerStrength
                     )
                 }
@@ -466,7 +470,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val bandSpec = bandLaw(world)
         val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        val gateMarginM = gateStandoffM(depthGateActive)
+        val gate = gateRuleOf(world, plan, depthGateActive, minDepthM)
         val berth = berthLawOf(plan, depthGateActive)
         val fineWater = plan.fineWater(
             FineWaterQuery(
@@ -504,7 +508,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                         buildFineTile(
                             world, fine, tileRow, tileCol, marginM, zoneOutsideMarginM,
                             priced, bandSpec, fineMask, edges, openCoast,
-                            gateMarginM, berth?.outerM ?: 0.0, fineWater.depthCollarM, markerStrength
+                            gate, fineWater.depthCollarM, markerStrength
                         )
                     }
                 }
@@ -576,8 +580,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         fineMask: FineMask?,
         edges: List<MultipassEdge>,
         openCoast: List<List<LatLng>>,
-        gateMarginM: Double,
-        berthOuterM: Double,
+        gate: GateRule?,
         collarReachM: Double,
         markerStrength: Double
     ): FineTile {
@@ -599,7 +602,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             grown, fine, paceKn = 0.0, marginM = marginM, edges = edges, openCoast = openCoast,
             capLatNorth = capLatNorth, field = tileField, zones = priced,
             zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            gateMarginM = gateMarginM, berthOuterM = berthOuterM, collarReachM = collarReachM,
+            gate = gate, collarReachM = collarReachM,
             fineMask = fineMask, baseCostSecOverride = 1.0
         )
         return FineTile.extract(raster, tileRow, tileCol, FINE_TILE_CELLS, halo)
@@ -664,8 +667,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         markerStrength = markerStrength,
         markerPriceEnabled = AppConfig.routeMarkerEnabled,
         berthOuterM = berth?.outerM ?: 0.0,
-        berthSecPerM = berth?.secPerM ?: 0.0,
-        depthCollarM = depthCollarM
+        depthCollarM = depthCollarM,
+        berthFloorM = berth?.floorM ?: 0.0
     )
 }
 
@@ -817,21 +820,12 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 for (i in 0 until coast.size - 1) mark(coast[i], coast[i + 1], reachM)
             }
         }
-        // Pass 2 — the low-depth collar: every shallow cell harvested at the fine lattice marks the tiles
-        // within the collar, so an offshore bank gets its own fine window and fine 20 m cells.
+        // Pass 2 — the low-depth collar: every segment of the measured 3 m line marks the tiles within the
+        // collar, so an offshore bank — and a rock no fine cell centre stands on — gets its own fine window
+        // and fine 20 m cells.
         if (world != null && collarM > 0.0 && world.depthReady) {
-            val gateMinM = AppConfig.routeAvoidDepthGateMinM
-            var row = lattice.rowOf(box.latSouth)
-            val lastRow = lattice.rowOf(box.latNorth)
-            while (row <= lastRow) {
-                var col = lattice.colOf(box.lonWest)
-                val lastCol = lattice.colOf(box.lonEast)
-                while (col <= lastCol) {
-                    val centre = lattice.center(row, col)
-                    if (!depthClearsGate(depthMAt(world, centre), gateMinM)) mark(centre, centre, collarM)
-                    col++
-                }
-                row++
+            world.shallowEdges(AppConfig.routeAvoidDepthGateMinM).forEachSegmentIn(box) { aLat, aLon, bLat, bLon ->
+                mark(LatLng(aLat, aLon), LatLng(bLat, bLon), collarM)
             }
         }
         return FineTileGrid(
@@ -974,15 +968,16 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         marginM: Double,
         reachCells: Int,
         depthGateActive: Boolean,
-        interior: MultipassGrid
+        interior: MultipassGrid,
+        gate: GateRule?
     ): BerthCarve {
         // [coarseCell] is a cell of the interior grid's own local space; the walk reads lattice coordinates,
         // so translate it first — a no-op at the single grid's zero offset, the P4.1 case otherwise.
         val lattice = walk.latticeCell(interior, coarseCell.row, coarseCell.col)
         val slot = walk.slotOf(lattice.row, lattice.col)
-        if (slot < 0) return carveEnd(world, interior, coarseCell, end, marginM, reachCells, depthGateActive)
+        if (slot < 0) return carveEnd(world, interior, coarseCell, end, marginM, reachCells, depthGateActive, gate)
         val window = walk.windowOf(slot)
-        return carveEnd(world, window.grid, walk.localCell(slot), end, marginM, reachCells, depthGateActive)
+        return carveEnd(world, window.grid, walk.localCell(slot), end, marginM, reachCells, depthGateActive, gate)
     }
 
     /**
@@ -996,7 +991,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         end: LatLng,
         marginM: Double,
         reachCells: Int,
-        depthGateActive: Boolean
+        depthGateActive: Boolean,
+        gate: GateRule?
     ): BerthCarve {
         val found = carveBerth(
             world,
@@ -1004,21 +1000,36 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             marginM,
             reachCells,
             depthGateActive,
-            AppConfig.routeAvoidDepthGateMinM
-        ) { steps, direction ->
-            val row = cell.row + steps * direction.dRow
-            val col = cell.col + steps * direction.dCol
-            if (grid.inBounds(row, col)) grid.center(row, col) else null
-        }
+            AppConfig.routeAvoidDepthGateMinM,
+            stepAt = { steps, direction ->
+                val row = cell.row + steps * direction.dRow
+                val col = cell.col + steps * direction.dCol
+                if (grid.inBounds(row, col)) grid.center(row, col) else null
+            },
+            gate = gate
+        )
         val direction = found.direction ?: return found
         for (steps in 1 until found.stepsToWater) {
-            grid.openCarve(
-                cell.row + steps * direction.dRow,
-                cell.col + steps * direction.dCol
-            )
+            val row = cell.row + steps * direction.dRow
+            val col = cell.col + steps * direction.dCol
+            grid.openCarve(row, col)
+            // A carved cell the coast's margin barred took no seed of the gate's distance; it is open water
+            // now, so it takes its measured distance, which the step guard and the berth read.
+            if (gate != null) {
+                grid.writeGateDistanceM(row, col, gate.edgeM(grid.center(row, col), gate.seedReachM(grid.cellM)))
+            }
         }
-        return found.copy(points = listOf(end, found.points.last()))
+        // The approach runs from the end itself through the carve's own anchor and cells to the legal cell —
+        // the very line the walk stands on — so a reader asking whether a point is on it asks it exactly.
+        return found.copy(points = listOf(end) + found.points)
     }
+
+    /**
+     * **The margin a carve must cross** — the coast's own, or the gate's wall plus its pad where that is
+     * wider, so an end standing in shallow-side water can still reach water both margins call legal.
+     */
+    private fun carveMarginM(marginM: Double, gate: GateRule?): Double =
+        if (gate == null) marginM else maxOf(marginM, gate.hardM + gate.padM)
 
     /** One end's carve, as the instrument reads it: the direction, the cells opened, the metres — or why not. */
     private fun carveLine(end: String, carve: BerthCarve): String {

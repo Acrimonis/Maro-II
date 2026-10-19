@@ -29,6 +29,9 @@ import ykws.android.maro.spatial.multipass.MultipassGrid
 import ykws.android.maro.spatial.multipass.MultipassSearch
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.CellIndex
+import ykws.android.maro.spatial.multipass.EndApproaches
+import ykws.android.maro.spatial.multipass.GateRule
+import ykws.android.maro.spatial.multipass.StepGuard
 import ykws.android.maro.spatial.multipass.GridContext
 import ykws.android.maro.spatial.multipass.GridWalk
 import ykws.android.maro.spatial.multipass.PassReading
@@ -606,9 +609,7 @@ class RouteAvoidEngine(
         // foul, left standing only where even the 1 kn bottom's radius overshoots the room — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
         // limit stays the hard ceiling throughout.
-        val rounded = RouteCornerPass.round(
-            refined, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
-        )
+        val rounded = RouteCornerPass.round(refined, ctx.pace, ctx.world, ctx.gate, ctx.marginM)
         // **The corner tally**: what the pass did at each bend, with the speed limit in force there and
         // whether it stands in the 300 m band — the two readings that tell a corner's own speed from the
         // water's.
@@ -620,7 +621,7 @@ class RouteAvoidEngine(
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
-            ctx.startCell, ctx.aimCell, refined
+            ctx.startCell, ctx.aimCell, refined, ctx.gate, ctx.approaches
         )
         // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
         // the price. The zones are the world's own, not the grid's switch-gated set, so a crossing the
@@ -633,10 +634,12 @@ class RouteAvoidEngine(
         trace {
             // **The depth gate's own readings** — how shallow the drawn line gets and how close it comes
             // to the wall's edge, the closest point named, and the body separated from the ends by the
-            // pull's own end disc. Built inside the sink so a solve with the tag off pays none of it.
+            // gate's own waiver; then the traced line's own readings beside the independent scan. Built
+            // inside the sink so a solve with the tag off pays none of it.
             val lineMinDepthM = RouteDepthReading.minDepthM(ctx.world, timedLine.points)
             val edge = RouteDepthReading.edgeReading(
-                ctx.world, timedLine.points, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
+                ctx.world, timedLine.points, ctx.depthGateActive, ctx.minDepthM,
+                ctx.gate?.waiverM ?: ctx.marginM, ctx.gate, ctx.approaches
             )
             "LINE distance=${fmt(lineLengthM(timedLine.points))}m duration=${fmt(timedLine.durationSec)}s " +
                 "legs=${timedLine.legTimesSec.size} " +
@@ -650,9 +653,14 @@ class RouteAvoidEngine(
                 "gateEdgeAt=${pointText(edge.at)} " +
                 "bodyEdge=${if (edge.bodyDistanceM.isNaN()) "n/a" else fmt(edge.bodyDistanceM) + "m"} " +
                 "bodyEdgeAt=${pointText(edge.bodyAt)} " +
+                "edgeIdx=${if (edge.indexDistanceM.isNaN()) "n/a" else fmt(edge.indexDistanceM) + "m"} " +
+                "bodyEdgeIdx=${if (edge.indexBodyDistanceM.isNaN()) "n/a" else fmt(edge.indexBodyDistanceM) + "m"} " +
+                "innerM=${if (edge.innerM.isNaN()) "n/a" else fmt(edge.innerM) + "m"} " +
                 "forced=[${forced.joinToString(", ")}] " +
                 "crossed=[${crossed.joinToString(", ")}]"
         }
+        // The edge index's own tally — what tracing the 3 m line has cost this session so far.
+        ctx.gate?.let { gate -> trace { gate.edges.statsLine() } }
         // The rung's own cost, exactly the figures the ranking reads: the seconds the line spends under a
         // regulated limit, each bucket weighed by its own limit's shortfall against the pace, plus the
         // ramps riding the limit of the run they serve, and the settled clock. All of it comes from
@@ -799,7 +807,9 @@ class RouteAvoidEngine(
         to: RoutePoint,
         startCell: CellIndex,
         aimCell: CellIndex,
-        waypoints: List<LatLng>
+        waypoints: List<LatLng>,
+        gate: GateRule?,
+        approaches: EndApproaches
     ): List<String> {
         val restrictive = priced.filter { zonePriceSec(cellM, pace, it.limitKn, lambda) > 0.0 }
         if (restrictive.isEmpty()) {
@@ -809,7 +819,12 @@ class RouteAvoidEngine(
         val blocked = grid.blockedCopy(pace)
         blocked.forceFree(from.latitude, from.longitude)
         blocked.forceFree(to.latitude, to.longitude)
-        val probe = MultipassSearch.search(blocked, startCell, aimCell, Units.knotsToMps(pace))
+        // The probe walks the same wall the search does, so a gap the guarded search cannot use never
+        // makes a crossing look avoidable.
+        val probe = MultipassSearch.search(
+            blocked, startCell, aimCell, Units.knotsToMps(pace),
+            stepGuard = gate?.let { StepGuard(it, from.toLatLng(), to.toLatLng(), approaches) }
+        )
         val avoiding = probe.path != null
         val restrictiveZones = zones.zip(priced)
             .filter { (_, p) -> zonePriceSec(cellM, pace, p.limitKn, lambda) > 0.0 }

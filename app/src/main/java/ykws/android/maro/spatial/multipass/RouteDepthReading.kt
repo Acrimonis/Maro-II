@@ -7,10 +7,12 @@ import kotlin.math.cos
 import kotlin.math.max
 
 /**
- * **What the drawn line gives the depth gate, read once per rung for the device's `LINE` line.** Two
- * figures, both in metres and both `NaN` where they cannot be read: the shallowest **known** depth on
- * the line, and the closest the line comes to the gate's own edge — the water the wall would block —
- * measured by an eight-bearing ring scan from the line's own samples.
+ * **What the drawn line gives the depth gate, read once per rung for the device's `LINE` line.** The
+ * figures are in metres and `NaN` where they cannot be read: the shallowest **known** depth on the line;
+ * the closest the line comes to the gate's own edge — the water the wall would block — measured by an
+ * eight-bearing ring scan from the line's own samples, an auditor that knows nothing of the traced line;
+ * and, where a [GateRule] is handed, the same closest approach read off the traced line itself every
+ * metre, beside the metres run inside the gate's preferred standoff.
  *
  * It is a **reading and nothing else**: no price, no clock and no state move with it, and the ray's own
  * budget is the trace's — the sink only builds the string while the `MaroRoute` tag is on, so the scan
@@ -21,6 +23,12 @@ internal object RouteDepthReading {
 
     /** The step the line is sampled at, metres — the clock's own floor and the gate's own scale. */
     private const val SAMPLE_STEP_M = 10.0
+
+    /**
+     * The step the traced line's own reading samples at, metres — fine enough that a breach of the wall
+     * cannot hide between two samples by more than half of it.
+     */
+    private const val INDEX_SAMPLE_STEP_M = 1.0
 
     /** How far one edge scan reaches, metres — past this a sample is treated as not near an edge. */
     private const val EDGE_SCAN_MAX_M = 200.0
@@ -56,15 +64,25 @@ internal object RouteDepthReading {
     /**
      * **The line's closest approach to the gate's edge, with the point named and the body separated.**
      * [distanceM]/[at] are the closest over the whole line; [bodyDistanceM]/[bodyAt] are the closest
-     * over the **body** — the samples more than [excludeEndsM] from either end, the same end disc the
-     * pull waives. Both are `NaN`, with a `NaN` coordinate, where the gate is off or nothing reaches an
-     * edge inside [EDGE_SCAN_MAX_M].
+     * over the **body** — the samples outside the gate's own waiver: more than `excludeEndsM` from either
+     * end and off the carved approaches. Both are `NaN`, with a `NaN` coordinate, where the gate is off or
+     * nothing reaches an edge inside [EDGE_SCAN_MAX_M].
+     *
+     * These two are the **independent auditor** — an eight-bearing scan of the depth itself, which knows
+     * nothing of the traced line. Beside them stand the traced line's own readings where a [GateRule] is
+     * handed: [indexDistanceM] and [indexBodyDistanceM], the same closest approaches read off the edge index
+     * (the pad taken off), and [innerM], the metres of body closer than the gate's preferred standoff. The
+     * auditor reading well under the index is the index wrong; the index's body reading under the wall is a
+     * breach — both bug reports, neither a repair.
      */
     internal data class EdgeReading(
         val distanceM: Double,
         val at: LatLng,
         val bodyDistanceM: Double,
-        val bodyAt: LatLng
+        val bodyAt: LatLng,
+        val indexDistanceM: Double = Double.NaN,
+        val indexBodyDistanceM: Double = Double.NaN,
+        val innerM: Double = Double.NaN
     )
 
     /** The closest approach to the gate's edge, whole line and body, each with its own point. */
@@ -73,7 +91,9 @@ internal object RouteDepthReading {
         points: List<LatLng>,
         gateActive: Boolean,
         minDepthM: Double,
-        excludeEndsM: Double
+        excludeEndsM: Double,
+        gate: GateRule? = null,
+        approaches: EndApproaches = EndApproaches.NONE
     ): EdgeReading {
         val nowhere = LatLng(Double.NaN, Double.NaN)
         if (!gateActive || points.isEmpty()) {
@@ -85,25 +105,52 @@ internal object RouteDepthReading {
         var allAt = nowhere
         var body = Double.POSITIVE_INFINITY
         var bodyAt = nowhere
+        var indexAll = Double.POSITIVE_INFINITY
+        var indexBody = Double.POSITIVE_INFINITY
+        var innerM = 0.0
         forEachSample(points) { p ->
             val edge = edgeDistanceAt(world, p, minDepthM)
             if (edge < all) {
                 all = edge
                 allAt = p
             }
-            if (SpatialOperations.haversine(start, p) > excludeEndsM &&
-                SpatialOperations.haversine(p, aim) > excludeEndsM &&
-                edge < body
-            ) {
+            val inBody = if (gate != null) !gate.waives(p, start, aim, approaches)
+                else !MultipassPull.marginWaived(p, excludeEndsM, start, aim, approaches, SAMPLE_STEP_M)
+            if (inBody && edge < body) {
                 body = edge
                 bodyAt = p
             }
         }
+        if (gate != null) {
+            // The traced line's own reading: each leg's closest approach exactly, and its points walked every
+            // metre only where the leg comes inside the preferred standoff or near an end's waiver — the rest
+            // of the line is open water whose leg reading is its body reading.
+            val nearEndsM = excludeEndsM + max(polylineLengthM(approaches.start), polylineLengthM(approaches.aim))
+            for (i in 1 until points.size) {
+                val a = points[i - 1]
+                val b = points[i]
+                val leg = gate.segmentEdgeM(a, b, EDGE_SCAN_MAX_M)
+                if (leg < indexAll) indexAll = leg
+                val nearEnds = SpatialOperations.pointToSegmentDistance(start, a, b) <= nearEndsM ||
+                    SpatialOperations.pointToSegmentDistance(aim, a, b) <= nearEndsM
+                if (leg >= gate.preferredM && !nearEnds) {
+                    if (leg < indexBody) indexBody = leg
+                    continue
+                }
+                forEachSample(listOf(a, b), INDEX_SAMPLE_STEP_M) { p ->
+                    if (gate.waives(p, start, aim, approaches)) return@forEachSample
+                    val indexed = gate.edgeM(p, EDGE_SCAN_MAX_M)
+                    if (indexed < indexBody) indexBody = indexed
+                    if (indexed < gate.preferredM) innerM += INDEX_SAMPLE_STEP_M
+                }
+            }
+        }
+        fun orNaN(v: Double) = if (v == Double.POSITIVE_INFINITY || v == Double.MAX_VALUE) Double.NaN else v
         return EdgeReading(
-            if (all == Double.POSITIVE_INFINITY) Double.NaN else all,
-            allAt,
-            if (body == Double.POSITIVE_INFINITY) Double.NaN else body,
-            bodyAt
+            orNaN(all), allAt, orNaN(body), bodyAt,
+            indexDistanceM = if (gate == null) Double.NaN else orNaN(indexAll),
+            indexBodyDistanceM = if (gate == null) Double.NaN else orNaN(indexBody),
+            innerM = if (gate == null) Double.NaN else innerM
         )
     }
 
@@ -131,15 +178,15 @@ internal object RouteDepthReading {
         return nearest
     }
 
-    /** Every sampled point on the line: its first vertex, then each leg walked at [SAMPLE_STEP_M]. */
-    private fun forEachSample(points: List<LatLng>, visit: (LatLng) -> Unit) {
+    /** Every sampled point on the line: its first vertex, then each leg walked at [stepM]. */
+    private fun forEachSample(points: List<LatLng>, stepM: Double = SAMPLE_STEP_M, visit: (LatLng) -> Unit) {
         if (points.isEmpty()) return
         visit(points[0])
         for (i in 1 until points.size) {
             val a = points[i - 1]
             val b = points[i]
             val legM = SpatialOperations.haversine(a, b)
-            val steps = max(1, (legM / SAMPLE_STEP_M).toInt())
+            val steps = max(1, (legM / stepM).toInt())
             for (s in 1..steps) {
                 val t = s.toDouble() / steps
                 visit(

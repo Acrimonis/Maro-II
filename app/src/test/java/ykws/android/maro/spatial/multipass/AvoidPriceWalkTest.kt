@@ -137,7 +137,7 @@ class AvoidPriceWalkTest {
             sets = emptyList(), limitAt = { null }, zones = emptyList(), priced = emptyList(),
             approaches = EndApproaches.NONE, refusals = PullRefusals(),
             depthGateActive = false, minDepthM = 0.0, regionSaturated = false,
-            windows = walk.windows
+            windows = walk.windows, gate = null
         )
     }
 

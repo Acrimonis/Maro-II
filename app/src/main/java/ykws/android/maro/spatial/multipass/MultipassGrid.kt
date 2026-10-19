@@ -11,7 +11,6 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
-import java.util.PriorityQueue
 
 /**
  * One grid position, row-major: `row` is the latitude band, `col` the longitude band.
@@ -129,11 +128,12 @@ class MultipassGrid(
 
     /**
      * **The gate-distance field (m) standing on each cell** — the metres from this cell's centre to the
-     * nearest gate-blocked cell, `Double.MAX_VALUE` where none is reachable through water. The
-     * rasterizer's BFS fills it once and every pass reads it: the search scales it by λ at read
-     * ([MultipassSearch]'s `berthK`) and the pull's guard reads the same distance from the walk, so
-     * one grid serves all three rungs. A [FineTile] carries it per member so a cached tile and a fresh
-     * build price one berth alike.
+     * depth gate's measured edge, the edge index's pad taken off, `Double.MAX_VALUE` where none is
+     * reachable through water. The rasterizer writes it **exactly** within [`GateRule.seedReachM`] of the
+     * traced line and relaxes the rest through the water from those seeds, so it never reads closer than
+     * the truth there and only ever further beyond. The search prices the berth on it and proves its
+     * steps clear from it, and the fine mask keeps its collar on it, so one grid serves all three rungs.
+     * A [FineTile] carries it per member so a cached tile and a fresh build price one berth alike.
      */
     private val gateDistanceM = DoubleArray(rows * cols) { Double.MAX_VALUE }
 
@@ -155,12 +155,6 @@ class MultipassGrid(
 
     /** **The gate-distance field (m) at this cell**, or `Double.MAX_VALUE` where no shallow water is reachable. */
     fun gateDistanceM(row: Int, col: Int): Double = gateDistanceM[index(row, col)]
-
-    /** The gate distance at a point, read through the cell it falls in — the pull's own read. */
-    fun gateDistanceMAt(latitude: Double, longitude: Double): Double {
-        val (row, col) = cellOf(latitude, longitude)
-        return gateDistanceM(row, col)
-    }
 
     /**
      * **The strictest limit in force at this cell** (kn), or 0.0 where none stands: a ring's own interior
@@ -296,9 +290,9 @@ class MultipassGrid(
     }
 
     /**
-     * **Marks one cell a gate wall** — land, and the zero source of the distance field's BFS. It is the
-     * rasterizer's write where the field's gate source blocks a cell, keeping the wall and the distance
-     * field one event rather than two.
+     * **Marks one cell a wall the field rasters** — land, and a zero source of the distance field. It is
+     * the rasterizer's write where the field's gate (or a wall marker's body) blocks a cell, keeping the
+     * wall and the distance field one event rather than two.
      */
     internal fun markGateBlocked(row: Int, col: Int) {
         val i = index(row, col)
@@ -306,7 +300,7 @@ class MultipassGrid(
         gateDistanceM[i] = 0.0
     }
 
-    /** Writes the BFS's distance onto a cell — the dilation's own door, apart from [markGateBlocked]. */
+    /** Writes one distance onto a cell — the seeding's and the relaxation's door, apart from [markGateBlocked]. */
     internal fun writeGateDistanceM(row: Int, col: Int, m: Double) {
         gateDistanceM[index(row, col)] = m
     }
@@ -343,7 +337,8 @@ class MultipassGrid(
         collarLimitKn[i] = 0.0
         bandLimitKn[i] = 0.0
         bandCollarLimitKn[i] = 0.0
-        gateDistanceM[i] = Double.MAX_VALUE
+        // The gate's distance stays the cell's own: it is geometry, not a price the end is excused, and the
+        // search's step guard proves steps on it — a freed cell claiming open water would be trusted blind.
     }
 
     /**
@@ -435,8 +430,7 @@ fun rasterize(
     blockZones: Boolean = false,
     zoneOutsideMarginM: Double = 0.0,
     band: BandLaw? = null,
-    gateMarginM: Double = 0.0,
-    berthOuterM: Double = 0.0,
+    gate: GateRule? = null,
     collarReachM: Double = 0.0
 ): MultipassGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
@@ -445,7 +439,7 @@ fun rasterize(
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, cellM / mPerDegLat, cellM / mPerDegLon, mPerDegLat, mPerDegLon,
         cellM, paceKn, marginM, edges, openCoast, capLatNorth, field, zones, blockZones,
-        zoneOutsideMarginM, band, gateMarginM, berthOuterM, collarReachM
+        zoneOutsideMarginM, band, gate, collarReachM
     )
 }
 
@@ -457,7 +451,7 @@ fun rasterize(
  *
  * [fineMask] carries the layer's own membership where the walk is two-layer: a passable cell keeps its
  * water only where its centre stands inside one of the mask's coast bands, within the zone rim of a
- * priced ring or within the depth collar of a gate-blocked cell, and every other passable cell is painted
+ * priced ring or within the depth collar of the measured 3 m edge, and every other passable cell is painted
  * land. `null` — the uniform pass — masks nothing. The coast measure is the margin's own sweep, so the
  * collars and the land can never disagree about where the coast is.
  *
@@ -478,8 +472,7 @@ internal fun rasterizeWindow(
     blockZones: Boolean = false,
     zoneOutsideMarginM: Double = 0.0,
     band: BandLaw? = null,
-    gateMarginM: Double = 0.0,
-    berthOuterM: Double = 0.0,
+    gate: GateRule? = null,
     collarReachM: Double = 0.0,
     fineMask: FineMask? = null,
     baseCostSecOverride: Double? = null
@@ -488,7 +481,7 @@ internal fun rasterizeWindow(
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, lattice.cellSizeDegLat, lattice.cellSizeDegLon,
         mPerDegLat, mPerDegLon, lattice.cellM, paceKn, marginM, edges, openCoast, capLatNorth, field,
-        zones, blockZones, zoneOutsideMarginM, band, gateMarginM, berthOuterM, collarReachM,
+        zones, blockZones, zoneOutsideMarginM, band, gate, collarReachM,
         fineMask, baseCostSecOverride
     )
 }
@@ -513,8 +506,7 @@ private fun rasterizeFrame(
     blockZones: Boolean,
     zoneOutsideMarginM: Double,
     band: BandLaw?,
-    gateMarginM: Double = 0.0,
-    berthOuterM: Double = 0.0,
+    gate: GateRule? = null,
     collarReachM: Double = 0.0,
     fineMask: FineMask? = null,
     baseCostSecOverride: Double? = null
@@ -557,15 +549,19 @@ private fun rasterizeFrame(
 
     // 4. The field's own sources, once per cell centre. Sources only ever add a block or a price —
     //    a field with neither a rastered wall nor a price writes nothing and costs a single test.
+    //    A blocked cell is the gate's interior or a wall marker's body: either is the distance field's
+    //    zero source, marked land and seeded in one write, and a body is remembered apart so it keeps
+    //    the standoff it has always had.
+    val wallBodies = ArrayList<Int>()
     if (field.hasBlocking || field.hasSoft) {
         for (row in 0 until grid.rows) {
             for (col in 0 until grid.cols) {
                 if (!grid.passable(row, col)) continue
-                val at = field.evaluate(grid.center(row, col))
+                val centre = grid.center(row, col)
+                val at = field.evaluate(centre)
                 if (at.blocked) {
-                    // The only rastered wall is the gate: a blocked cell is the distance field's zero
-                    // source, marked land and seeded in one write.
                     grid.markGateBlocked(row, col)
+                    if (gate != null && !gate.isShallow(centre)) wallBodies.add(grid.index(row, col))
                     continue
                 }
                 if (at.softCostSec > 0.0) grid.addSourceCost(row, col, at.softCostSec, at.tag)
@@ -573,12 +569,15 @@ private fun rasterizeFrame(
         }
     }
 
-    // 4b. The gate-distance field and the margin dilation: a multi-source BFS from every gate-blocked
-    //     cell fills each water cell with its distance to the nearest shallow cell, then every cell
-    //     closer than the gate's margin is painted land — the 20 m standoff, moved off the old
-    //     eight-bearing ring's per-read cost onto one BFS the grid stores.
-    if (gateMarginM > 0.0) {
-        dilateGateGrid(grid, gateMarginM, maxOf(gateMarginM, berthOuterM, collarReachM))
+    // 4b. The gate's standoff, measured: the traced 3 m line writes each cell's exact distance within
+    //     the seed reach and paints the wall land, the field relaxes outward through the water to the
+    //     berth and the collar, and only then does a wall marker's body paint its old centre-based
+    //     standoff — after the relaxation, as the old dilation did, so the ring it paints still carries
+    //     its distance and never walls the field in.
+    if (gate != null) {
+        seedShallowEdge(grid, gate, box, mPerDegLat, mPerDegLon)
+        relaxGateDistance(grid, maxOf(gate.preferredM, gate.berthOuterM, collarReachM))
+        paintWallBodyStandoff(grid, wallBodies, gate.preferredM)
     }
 
     // 5. Speed zones, one even-odd fill per zone — the outer ring and its holes as one ring set, so a
@@ -610,30 +609,103 @@ private fun rasterizeFrame(
 }
 
 /**
- * **The collar membership, laid on the margin's own sweeps** — a passable cell keeps its water where its
- * centre stands inside one of the mask's coast bands; every other passable cell is painted land. The coast
- * measure is the margin's own (`pointToSegmentDistance`) at each band's own upper edge, so the mask and the
- * land cannot disagree about where the coast is — the agreement the old coast-ribbon mask preserved.
+ * **The measured edge, written onto the grid** — every passable cell within [GateRule.seedReachM] of a traced
+ * segment takes its exact distance to the edge, the index's pad taken off, and every passable cell under
+ * [GateRule.hardM] is then painted land: the wall, measured rather than inferred from neighbouring cell
+ * centres, so a rock no cell centre stands on still walls the water around it. Land takes no seed — a
+ * coast cell stays `MAX_VALUE` — so the relaxation that follows never carries a distance across it.
+ *
+ * The sweep reads the edge's own distance kernel in the grid's local metres, one frame for the whole grid,
+ * so a segment's cells cost arithmetic alone — no point object and no trigonometry per cell.
  */
-/**
- * **The gate-distance field and its margin dilation** — one multi-source Dijkstra from every
- * gate-blocked cell over the 8-neighbour grid, then every passable cell closer than [gateMarginM] is
- * painted land. The distance is cell-centre to cell-centre, diagonals `√2·cellM`, and the walk stops at
- * [capM] — the berth's outer edge, beyond which the price is zero and a reading is useless. Land never
- * relaxes: a coast cell stays `MAX_VALUE` and is never expanded, so a shallow cell on the far side of a
- * landmass does not price water it cannot see.
- */
-private fun dilateGateGrid(grid: MultipassGrid, gateMarginM: Double, capM: Double) {
-    val orth = grid.cellM
-    val diag = grid.cellM * sqrt(2.0)
-    val queue = PriorityQueue<Pair<Double, Int>>(compareBy { it.first })
+private fun seedShallowEdge(
+    grid: MultipassGrid,
+    gate: GateRule,
+    box: BBox,
+    mPerDegLat: Double,
+    mPerDegLon: Double
+) {
+    val sweepM = gate.seedReachM(grid.cellM) + gate.padM
+    val grown = BBox(
+        box.latSouth - sweepM / mPerDegLat, box.latNorth + sweepM / mPerDegLat,
+        box.lonWest - sweepM / mPerDegLon, box.lonEast + sweepM / mPerDegLon
+    )
+    val padM = gate.padM
+    gate.edges.forEachSegmentIn(grown) { aLat, aLon, bLat, bLon ->
+        val rMin = floor((min(aLat, bLat) - sweepM / mPerDegLat - grid.latSouth) / grid.cellSizeDegLat).toInt()
+            .coerceIn(0, grid.rows - 1)
+        val rMax = ceil((max(aLat, bLat) + sweepM / mPerDegLat - grid.latSouth) / grid.cellSizeDegLat).toInt()
+            .coerceIn(0, grid.rows - 1)
+        val cMin = floor((min(aLon, bLon) - sweepM / mPerDegLon - grid.lonWest) / grid.cellSizeDegLon).toInt()
+            .coerceIn(0, grid.cols - 1)
+        val cMax = ceil((max(aLon, bLon) + sweepM / mPerDegLon - grid.lonWest) / grid.cellSizeDegLon).toInt()
+            .coerceIn(0, grid.cols - 1)
+        for (r in rMin..rMax) {
+            val cy = (grid.latSouth + (r + 0.5) * grid.cellSizeDegLat) * mPerDegLat
+            for (c in cMin..cMax) {
+                if (!grid.passable(r, c)) continue
+                val cx = (grid.lonWest + (c + 0.5) * grid.cellSizeDegLon) * mPerDegLon
+                val d = pointToSegmentM(cx, cy, aLon * mPerDegLon, aLat * mPerDegLat, bLon * mPerDegLon, bLat * mPerDegLat)
+                if (d > sweepM) continue
+                val e = max(0.0, d - padM)
+                if (e < grid.gateDistanceM(r, c)) grid.writeGateDistanceM(r, c, e)
+            }
+        }
+    }
     for (r in 0 until grid.rows) {
         for (c in 0 until grid.cols) {
-            if (grid.gateDistanceM(r, c) == 0.0) queue.add(0.0 to r * grid.cols + c)
+            if (grid.passable(r, c) && grid.gateDistanceM(r, c) < gate.hardM) grid.markLand(r, c)
+        }
+    }
+}
+
+/**
+ * **A wall marker's body keeps the standoff it has always had** — the passable cells whose centre stands
+ * within [standoffM] of a body cell's centre are painted land, the centre-to-centre rule the depth gate's
+ * old dilation applied to every rastered wall, painted after the distance field relaxed exactly as that
+ * dilation was. The depth gate now paints from its measured edge; a body is not depth, so it keeps the old
+ * rule rather than gaining or losing a standoff in passing.
+ */
+private fun paintWallBodyStandoff(grid: MultipassGrid, bodies: List<Int>, standoffM: Double) {
+    if (bodies.isEmpty() || standoffM <= 0.0) return
+    val reachCells = standoffM / grid.cellM
+    val reach = floor(reachCells).toInt()
+    for (index in bodies) {
+        val row = index / grid.cols
+        val col = index % grid.cols
+        for (dr in -reach..reach) {
+            for (dc in -reach..reach) {
+                if ((dr * dr + dc * dc).toDouble() > reachCells * reachCells + 1e-9) continue
+                val r = row + dr
+                val c = col + dc
+                if (grid.inBounds(r, c) && grid.passable(r, c)) grid.markLand(r, c)
+            }
+        }
+    }
+}
+
+/**
+ * **The gate-distance field, relaxed from its seeds** — one multi-source Dijkstra over the 8-neighbour
+ * grid from every cell that holds a distance: the exact seeds near the traced edge and the zeros of the
+ * blocked cells. A seed is never lowered (a relaxed distance cannot undercut an exact one, the triangle
+ * inequality forbids it), so the field stays exact where it was written and reads at or above the truth
+ * beyond. The walk stops at [capM] — the berth's outer edge or the collar, beyond which no reader asks.
+ * Land never relaxes: a coast cell is never stepped into, so a shallow on the far side of a landmass does
+ * not price water it cannot see.
+ */
+private fun relaxGateDistance(grid: MultipassGrid, capM: Double) {
+    val orth = grid.cellM
+    val diag = grid.cellM * sqrt(2.0)
+    val queue = CellHeap()
+    for (r in 0 until grid.rows) {
+        for (c in 0 until grid.cols) {
+            val d = grid.gateDistanceM(r, c)
+            if (d < Double.MAX_VALUE) queue.push(d, r * grid.cols + c)
         }
     }
     while (queue.isNotEmpty()) {
-        val (dist, idx) = queue.poll() ?: break
+        val dist = queue.peekKey()
+        val idx = queue.pop()
         val row = idx / grid.cols
         val col = idx % grid.cols
         if (dist > grid.gateDistanceM(row, col)) continue
@@ -648,24 +720,67 @@ private fun dilateGateGrid(grid: MultipassGrid, gateMarginM: Double, capM: Doubl
                 if (nd > capM) continue
                 if (nd < grid.gateDistanceM(nr, nc)) {
                     grid.writeGateDistanceM(nr, nc, nd)
-                    queue.add(nd to nr * grid.cols + nc)
+                    queue.push(nd, nr * grid.cols + nc)
                 }
             }
         }
     }
-    // The dilation: water at or inside the gate's margin becomes land — the hard standoff. It is
-    // **inclusive** so a cell whose centre stands exactly one cell off the wall (cellM == marginM) is
-    // painted: the old ring blocked `distance <= margin`, and a strict `<` paints nothing beyond the
-    // shallow cells themselves whenever the cell is not finer than the margin, which collapses the
-    // standoff the 20 m cell against the 20 m margin was found on.
-    for (r in 0 until grid.rows) {
-        for (c in 0 until grid.cols) {
-            if (!grid.passable(r, c)) continue
-            if (grid.gateDistanceM(r, c) <= gateMarginM) grid.markLand(r, c)
+}
+
+/** A binary min-heap of `(distance, cell)` pairs in two primitive arrays — the relaxation's queue, unboxed. */
+private class CellHeap {
+    private var keys = DoubleArray(256)
+    private var cells = IntArray(256)
+    private var size = 0
+
+    fun isNotEmpty(): Boolean = size > 0
+
+    fun peekKey(): Double = keys[0]
+
+    fun push(key: Double, cell: Int) {
+        if (size == keys.size) {
+            keys = keys.copyOf(size * 2)
+            cells = cells.copyOf(size * 2)
         }
+        var i = size++
+        while (i > 0) {
+            val parent = (i - 1) / 2
+            if (keys[parent] <= key) break
+            keys[i] = keys[parent]
+            cells[i] = cells[parent]
+            i = parent
+        }
+        keys[i] = key
+        cells[i] = cell
+    }
+
+    /** Removes the least key and answers its cell. */
+    fun pop(): Int {
+        val top = cells[0]
+        val lastKey = keys[--size]
+        val lastCell = cells[size]
+        var i = 0
+        while (true) {
+            var child = 2 * i + 1
+            if (child >= size) break
+            if (child + 1 < size && keys[child + 1] < keys[child]) child++
+            if (keys[child] >= lastKey) break
+            keys[i] = keys[child]
+            cells[i] = cells[child]
+            i = child
+        }
+        keys[i] = lastKey
+        cells[i] = lastCell
+        return top
     }
 }
 
+/**
+ * **The collar membership, laid on the margin's own sweeps** — a passable cell keeps its water where its
+ * centre stands inside one of the mask's coast bands; every other passable cell is painted land. The coast
+ * measure is the margin's own (`pointToSegmentDistance`) at each band's own upper edge, so the mask and the
+ * land cannot disagree about where the coast is — the agreement the old coast-ribbon mask preserved.
+ */
 private fun applyFineMask(
     grid: MultipassGrid,
     edges: List<MultipassEdge>,
@@ -699,8 +814,8 @@ private fun applyFineMask(
             }
         }
     }
-    // The low-depth collar: a cell at or inside the collar of a shallow cell is fine water too, so the
-    // fine 20 m layer follows an offshore bank. The gate BFS reached the collar because the frame's cap
+    // The low-depth collar: a cell at or inside the collar of the measured edge is fine water too, so the
+    // fine 20 m layer follows an offshore bank. The gate relaxation reached the collar because the frame's cap
     // includes it, so `gateDistanceM` is known wherever this reads it.
     if (mask.depthCollarM > 0.0) {
         for (r in 0 until grid.rows) {
@@ -751,9 +866,8 @@ private fun writeBandLaw(
 }
 
 /**
- * Walks the cells whose centre is within [radiusM] of [edge], in metres, via a degrees-expanded bbox,
- * handing [action] the cell-centre-to-segment distance it computed — the reading the margin band
- * decides on.
+ * Walks the cells whose centre is within [radiusM] of [edge], in metres — the coast's own sweep, read
+ * through the plain-segment form below.
  */
 private fun forEachCellNear(
     grid: MultipassGrid,
@@ -762,13 +876,28 @@ private fun forEachCellNear(
     mPerDegLat: Double,
     mPerDegLon: Double,
     action: (row: Int, col: Int, distanceM: Double) -> Unit
+) = forEachCellNear(grid, edge.a, edge.b, radiusM, mPerDegLat, mPerDegLon, action)
+
+/**
+ * Walks the cells whose centre is within [radiusM] of the segment [a]–[b], in metres, via a
+ * degrees-expanded bbox, handing [action] the cell-centre-to-segment distance it computed — the reading
+ * the coast's margin band and the depth gate's measured edge both decide on.
+ */
+private fun forEachCellNear(
+    grid: MultipassGrid,
+    a: LatLng,
+    b: LatLng,
+    radiusM: Double,
+    mPerDegLat: Double,
+    mPerDegLon: Double,
+    action: (row: Int, col: Int, distanceM: Double) -> Unit
 ) {
     val degLat = radiusM / mPerDegLat
     val degLon = radiusM / mPerDegLon
-    val minLat = min(edge.a.latitude, edge.b.latitude) - degLat
-    val maxLat = max(edge.a.latitude, edge.b.latitude) + degLat
-    val minLon = min(edge.a.longitude, edge.b.longitude) - degLon
-    val maxLon = max(edge.a.longitude, edge.b.longitude) + degLon
+    val minLat = min(a.latitude, b.latitude) - degLat
+    val maxLat = max(a.latitude, b.latitude) + degLat
+    val minLon = min(a.longitude, b.longitude) - degLon
+    val maxLon = max(a.longitude, b.longitude) + degLon
     val rMin = floor((minLat - grid.latSouth) / grid.cellSizeDegLat).toInt().coerceIn(0, grid.rows - 1)
     val rMax = ceil((maxLat - grid.latSouth) / grid.cellSizeDegLat).toInt().coerceIn(0, grid.rows - 1)
     val cMin = floor((minLon - grid.lonWest) / grid.cellSizeDegLon).toInt().coerceIn(0, grid.cols - 1)
@@ -776,7 +905,7 @@ private fun forEachCellNear(
     for (r in rMin..rMax) {
         for (c in cMin..cMax) {
             val centre = grid.center(r, c)
-            val distanceM = SpatialOperations.pointToSegmentDistance(centre, edge.a, edge.b)
+            val distanceM = SpatialOperations.pointToSegmentDistance(centre, a, b)
             if (distanceM <= radiusM) {
                 action(r, c, distanceM)
             }
