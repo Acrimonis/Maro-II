@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route search panel — the order moves on landings, the last landing selects the winner
 
-Follow-up to [`261019_FEAT_PLN_Route_route-sch-sort.md`](261019_FEAT_PLN_Route_route-sch-sort.md), written the same day after the user's answers. Where the two disagree, this one stands: the earlier plan's one-second gate, its `route.panel.orderRefreshMs` key and its *provisional rows by time* order group are withdrawn.
+Follow-up to [`261019_FEAT_PLN_Route_route-sch-sort.md`](xxArchive/261019_FEAT_PLN_Route_route-sch-sort.md), written the same day after the user's answers. Where the two disagree, this one stands: the earlier plan's one-second gate, its `route.panel.orderRefreshMs` key and its *provisional rows by time* order group are withdrawn.
 
 ## Rules (user, 2026-10-19)
 

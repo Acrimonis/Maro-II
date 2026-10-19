@@ -40,3 +40,7 @@
 - The test file keeps its old name `RouteSmoothPassTest.kt` while the class is `RouteStraightenTest`; rename the file.
 - The `chordLegal` price branch has no direct test — add one where a dearer chord is refused while a cheaper one collapses.
 - `chordLegal` uses a strict `<=` with no allowance, so it may under-straighten where the sweep's own allowance would drop more; the allowance is the second tuning lever beside epsilon.
+
+## Outcome
+
+Shipped as planned in its second form: the first method, Chaikin corner-cutting, added points and was replaced by a Douglas–Peucker `straightenLine` (10 m) between the pull and the corner pass. Its rule and open points are promoted to `FEAT_DSC_Route.md` ## Rules and `FEAT_DOC_Route_decisions.md` §8; the device pass is owed there.

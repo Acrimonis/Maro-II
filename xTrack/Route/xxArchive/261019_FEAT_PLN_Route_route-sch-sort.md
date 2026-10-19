@@ -71,3 +71,7 @@ Status: in design (2026-10-19), revised the same day after the user's answers. N
 - **Tests.** Order, snapshot, rank-view and gate tests; an engine test that all three rungs keep their own chain and send the PULL pair.
 
 Deviations and corrections to this plan: a `RouteViewModel` test home does exist (`RouteAcquisitionTest`), so the earlier "none to extend" line was wrong; the throttle gate is still a standalone class. The review's open low-severity points: the verdict is stored a moment before the fold table is, so one rank recomputation may count the twin as its own entry (the next page change corrects it); `selectPage` reads the live order, so a tap in the instant before a recomposition can land one row off; the hand-tap-then-fold re-seat gap was not confirmed as new.
+
+## Outcome
+
+Shipped, then partly withdrawn the same day: the per-rung stage words, the `Landed x/n · speed · preference` header, the early provisional pair and the live ranks counting a merged route once stand; the one-second order gate (`route.panel.orderRefreshMs`) and the provisional-time order group were withdrawn by `261019_FEAT_PLN_Route_route-sch-sort-landing-order.md`, which stands where the two disagree. The state is in `FEAT_DSC_Route.md`; its two transient edges are a todo there.
