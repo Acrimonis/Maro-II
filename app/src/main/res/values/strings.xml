@@ -733,7 +733,7 @@
     <string name="route_discard_acq_toast">Route discarded</string>
     <string name="route_discard_followed_toast">Route discarded</string>
     <string name="route_left_toast">Route left</string>
-    <string name="route_action_new">New search</string>
+    <string name="route_action_new">New</string>
     <!-- The map's action and undo rows (`MapSnackbarHost`): the three delete and create messages, each
          naming its own item, beside the route discard's two above. -->
     <string name="snack_track_deleted">Track \"%1$s\" deleted</string>

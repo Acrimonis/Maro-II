@@ -3077,7 +3077,7 @@ fun MapScreen(
             // opening the reading with Discard.
             val routeFanEnabled: List<Boolean> = run {
                 val phase = routeState.phase
-                val saveOpen = ((routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved) ||
+                val saveOpen = (routeSelectedLine != null && !routeFrontSaved) ||
                     (routeFollowingPlan != null &&
                         routeFollowingPlan.points.size >= 2 && !routeFollowingSaved)
                 val followOpen = phase == RoutePhase.CHOOSING && !routeCommitted &&
@@ -3383,12 +3383,11 @@ fun MapScreen(
             // is where the outcomes are taken from, so it needs no floating surface to be reached —
             // and once `Select route` is pressed the ordinary dashboard returns, which is the whole of
             // what the navigation phase adds. `routeOwnsSlot` is declared above, with the band.
-            // **The drawer's summary stands while the engine searches as well as while a route is
-            // followed** (the user's word, 2026-10-04): the card is where the mode's own figures are
-            // read, so it now stands through the acquisition too, showing the pending mark wherever a
-            // figure does not exist yet. That widens D5's "routing phase alone", which this line no
-            // longer follows — the acquisition's status no longer lives on the panel alone.
-            val routeSummaryVisible = routeSearching || (routeState is RouteState.Following && !routeDiscarding)
+            // **The drawer's summary stands while a route is followed, and not while the engine
+            // searches** (the user's word, 2026-10-19, narrowing that of 2026-10-04): the search's
+            // status lives on the panel alone again, and the card is where the followed route's
+            // figures are read.
+            val routeSummaryVisible = routeState is RouteState.Following && !routeDiscarding
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,

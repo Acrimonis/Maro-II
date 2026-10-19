@@ -743,7 +743,7 @@
     <string name="route_discard_acq_toast">Route abandonnée</string>
     <string name="route_discard_followed_toast">Route abandonnée</string>
     <string name="route_left_toast">Route quittée</string>
-    <string name="route_action_new">Nouvelle recherche</string>
+    <string name="route_action_new">Nouvelle</string>
     <string name="route_started_toast">Nouvelle recherche de route lancée</string>
     <!-- Affiché quand la dernière route est calculée et que la sélection quitte une route choisie à la main pour la gagnante. -->
     <string name="route_best_selected_toast">Recherche terminée — meilleure route sélectionnée</string>

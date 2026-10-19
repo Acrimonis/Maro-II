@@ -84,8 +84,8 @@ private const val ROUTE_HEADER_SEPARATOR = " · "
  *                        that one page.
  * @param frontSaved      whether the **selected** line is already written (R55) — including an early
  *                        save still growing in the background.
- * @param partialDrawn    whether the main lookup has a drawable partial line, so the two doors open
- *                        before the search lands.
+ * @param partialDrawn    whether the main lookup has a drawable partial line, so `Select route` opens
+ *                        before the search lands (`Save to track` waits for a landed line).
  * @param committed       whether an early `Select route` is waiting on the main line's finalization.
  * @param isLandscape     whether the device is in landscape orientation.
  * @param dashboardBaseHeight the dashboard's base height — the floor the panel uses in portrait.
@@ -180,7 +180,8 @@ internal fun RouteConfirmationPanel(
     }
     val refusal = acquiring.refusal ?: selected?.reason
     val canSelect = selectedPlan != null || (partialDrawn && !committed)
-    val canSave = (selectedPlan != null || partialDrawn) && !frontSaved
+    // Saving waits for a landed line: a partial line opens `Select route` (R88) but never the save door.
+    val canSave = selectedPlan != null && !frontSaved
     // The third door's word follows the cost (§5.6): its own short red one while the selected line is
     // unwritten, the exit dialog's own *Leave* under the accent once `frontSaved` says nothing is lost.
     val endingDoor = routeAcquisitionEndingDoor(written = frontSaved)
