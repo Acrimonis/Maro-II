@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-10-07 13:43
+modified: 2026-10-19 06:35
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-10-07 13:43
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **maro-properties-tldr (2026-10-19, `feature/props`)** — 61 `# tldr;` lines added to `maro.properties`, each the last comment line above a key whose comment was too technical, stating in plain words what the value changes for the user and wrapped at 100 characters; comments only, no key or value moved. Still open: six comment/value contradictions (`route.speed.accelMps2`, `route.turn.lateralAccelMps2`, `route.turn.transitionSec`, `route.avoid.speedZone.outsideMarginM`, `route.follow.arrival.etaSec` unit, blank-line runs in `route.avoid.*`) and the uncommented `path.arrow.*` tuning keys, left without a tldr
 
 - **tracks-routes-sections-rearrangement — the follow-up pass, F0–F7 (2026-10-07, `feature/tracks-rotes-norm`)** — the card's boundary rhythm now matches the target: the tracks and routes appearance expanders stand adjacent (the historical divider between them removed) and a `SectionDivider` opens the tuning block behind them (F0); the readerless `settings_tracks_direction_desc` is deleted from both locales (F1); the two hygiene tests were made to bite — `TrackRenderStringsTest` retargeted to `settings_tracks_direction_density_label` with a corrected rationale (F2) and `SpeedDisplayChipsTest`'s tuning-key check narrowed to the block's own source slice (F3); two keys were renamed to match what they hold — `settings_tracks_speed_display_label` → `settings_speed_display_label` and `settings_routes_speed_direction_desc` → `settings_routes_speed_display_desc`, both locales and every reader moved together and `settings_tracks_direction_settings_label` left as the plan's candidate only (F4); the duplicated chip row is extracted into one private `SpeedDisplaySubSection` (F5) and the tuning block's opening spacer tokenised to `ui.spacing.expanderToContent` (F6); and the flips test is widened to all four axes with the file-first reader single-homed in a new `TestSourceFiles` helper (F7). No setting's value or seed changed — only the string keys F1 retired and F4 renamed moved — and no new dependency; `apk-build.bat` SUCCESSFUL and the scoped `ui.map` + `config` suite at 46 suites / 411 tests / 0 failures. The device pass is owed → [`261007_FEAT_PLN_Ui_Settings_tracks-routes-sections-rearrangement.md`](261007_FEAT_PLN_Ui_Settings_tracks-routes-sections-rearrangement.md)
 

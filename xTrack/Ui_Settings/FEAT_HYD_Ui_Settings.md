@@ -1,28 +1,20 @@
-# Context Hydration — Ui_Settings — 2026-10-07
+# Context Hydration — Ui_Settings — 2026-10-19
 
-**Last Bake:** 2026-10-07 10:53 UTC — written by `#bake`
-**Branch:** feature/tracks-rotes-norm — the path render engine's branch; this feature's part is the seed keys only, with a per-kind Settings split designed in the plan and not built
+**Last Bake:** 2026-10-19 06:35 UTC — written by `#bake`
+**Branch:** feature/props — cut from `origin/develop` this session for the `maro.properties` comment pass
 
-**Directive trace:** no covered action stopped. No dependency was added, no machine-shaped data file was opened, and no device was touched — no Settings UI changed, so nothing needed a device. Every claim about the code came from a file read or a build's own output; the run's figures — the 653-test scoped suite and the green `apk-build.bat` — are the commands' own output. This session's plan extension touched no Settings code, so it carries no figures of its own, and no git write ran before the commit that closes the session.
+**Directive trace:** no covered action stopped. No dependency was added, no machine-shaped data file was opened, no device was touched, and no build ran — the change is comments only. Every tldr was written from the comment it sits under, never from a guess; the `path.arrow.*` tuning keys, whose meaning no comment states, got none. No git write ran before the `#commit` that closes the session.
 
 ## State
 
-**The Tracks/Routes appearance settings now seed from the unified `path.*` family.** The path render engine unifies tracks' and routes' line rendering behind one painter, so every value the Settings rows expose is a `path.*` key in `maro.properties`, read through the cascade `path.<kind>.<group>.<class>.<leaf>` (`AppConfig` + `PathProperties.kt`'s `pathKeyCandidates`). The rows read their seeds from `path.line.*` (widths, fades, colours, dash, the selection gold and the casing), `path.route.line.*` (the route kind's own pairs, widths and frozen dash), `path.gate.*` (the two route-scoped gates) and `path.pin.*` (the destination pin). No Settings UI, label or string changed — only where the seeds come from — so nothing here needs a device pass of its own.
+**`maro.properties` speaks plainly where it was technical.** 61 `# tldr;` lines stand as the last comment line above their key, each saying in plain words what the value changes for the user — GPS cadence, the routing engines (turns, grids, margins, the three-route ladder, the pre-warm), the recording speed gates, automatic stop pins, inspect mode and the screen-hold staleness. Lines over 100 characters wrap onto `#`-led continuation lines aligned under the text. No key or value moved.
 
-**The user-visible change is the value a seed holds, never the row.** A row whose label, ladder or behaviour was untouched keeps it; the one consequence worth naming is that the three literals the file had kept hardcoded (the selection gold, the casing colour, the pin ring) are now keys, so they are configurable like every other path value.
-
-**Designed, not built — the per-kind Settings split.** The plan's `## Speed and arrow display` section records the settled next step, and **no code for it exists**: every appearance and speed-and-direction row for tracks moves into a tracks block and for routes into a routes block, with **no shared control governing both kinds** and each row named for its own kind; the file keeps its global tier, read as the seed each kind starts from rather than as a switch. This is the surface that would reverse this bake's single-seed arrangement, so it stays in design until ordered.
-
-**Open and recorded.** This feature owes no device pass for this pass. Named rather than lost: the four `path.*` colour values the settings expose (`path.line.color.from` / `.to`, `path.line.color.pinned.from` / `.to`) still reach the app as seeds only through `AppConfig`; the Settings rows read live values from `SettingsManager`, which is unchanged.
+**Open and recorded.** Six comment/value contradictions were found and left unfixed, as unasked: `route.speed.accelMps2` (comment says 1.0 shipped, value 0.666667), `route.turn.lateralAccelMps2` (0.33 and a 28 kn pace in the comment, 0.666667 and 25 kn in the file), `route.turn.transitionSec` (2.5 s vs 3.333333), `route.avoid.speedZone.outsideMarginM` (100 vs 150), `route.follow.arrival.etaSec` (comment says minutes, key is seconds) and the blank-line runs in `route.avoid.*`. The `path.arrow.*` tuning keys still carry no comment of their own, so no tldr.
 
 ## Target Files
 
-- `app/src/main/assets/maro.properties` — the `path.*` family, its banner and precedence, is the one home for both kinds' line rendering
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the resolver and the seed fields the Settings rows fall back to; stale-key KDoc swept
-- `app/src/main/java/ykws/android/maro/config/PathProperties.kt` — `PathKind`, `PathClass` and `pathKeyCandidates`
-- `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — the plan, its in-design speed/arrow section naming this feature as the per-kind rows' owner
-- `docs/color-scheme.md`, `docs/ui-component-guidelines.md` — the `path.*` colour family and the reinforcement note
+- `app/src/main/assets/maro.properties` — the 61 tldr lines
 
 ## Next Step
 
-Nothing is owed here; the per-kind Settings split waits in the plan, in design, until it is ordered, and the feature's own open work is unchanged by this pass.
+Nothing is owed by this pass; the contradictions above wait on the user's word.
