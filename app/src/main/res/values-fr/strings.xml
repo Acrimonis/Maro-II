@@ -745,6 +745,8 @@
     <string name="route_left_toast">Route quittée</string>
     <string name="route_action_new">Nouvelle</string>
     <string name="route_started_toast">Nouvelle recherche de route lancée</string>
+    <!-- Affiché quand l\'enfant Route (auto) de l\'éventail est pressé pendant une recherche : la recherche continue et la gagnante est suivie à sa fin. -->
+    <string name="route_auto_follow_toast">La meilleure route sera suivie</string>
     <!-- Affiché quand la dernière route est calculée et que la sélection quitte une route choisie à la main pour la gagnante. -->
     <string name="route_best_selected_toast">Recherche terminée — meilleure route sélectionnée</string>
     <string name="route_refusal_too_short">Départ et destination trop proches pour tracer une route</string>

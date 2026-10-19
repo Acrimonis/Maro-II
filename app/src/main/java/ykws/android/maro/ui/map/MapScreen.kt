@@ -3098,8 +3098,9 @@ fun MapScreen(
                     // arming belongs to Idle alone (R65). Its source is the **display** flag, not the
                     // phase: the flag is what the press reads and the only thing a restore brings back,
                     // so the phase would draw the cell live on the arming frame and dead after process
-                    // death, exactly when the arc is needed.
-                    !routeDisplayArmed
+                    // death, exactly when the arc is needed. **It is also live while a search runs**
+                    // (2026-10-19): the press then only sets the auto-follow intent.
+                    routeAutoChildEnabled(routeDisplayArmed, routeState, routeAutoPick)
                 )
             }
             // **The five actions, in that same list's order** (D5, R79): the Route child arms the
@@ -3130,8 +3131,19 @@ fun MapScreen(
                     // Route (auto) — a new arming commits a pending discard before the flag is set, so
                     // the disposal's own clear cannot eat the auto-pick.
                     if (pendingDiscard != null) commitPendingDiscard()
+                    // Pressed while a search already runs, it keeps that search (arming is a no-op while
+                    // armed) and only sets the intent, so the press says so: the winner is followed when
+                    // the last route lands.
+                    val searchRunning = routeArmed
                     routeAutoPick = true
                     armRouteMode()
+                    // A refused pair (too short) arms nothing: the intent must not outlive the press and
+                    // fire on a later arming through another door.
+                    if (!routeArmed) routeAutoPick = false
+                    if (searchRunning) {
+                        routeNoticeToast = context.getString(R.string.route_auto_follow_toast)
+                        routeNoticeToastAt = SystemClock.elapsedRealtime()
+                    }
                 }
             )
             // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **set is

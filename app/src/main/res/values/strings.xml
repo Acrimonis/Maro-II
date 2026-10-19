@@ -740,6 +740,8 @@
     <string name="snack_marker_deleted">Marker \"%1$s\" deleted</string>
     <string name="snack_marker_created">Marker \"%1$s\" created</string>
     <string name="route_started_toast">New route search started</string>
+    <!-- Shown when the fan's Route (auto) child is pressed while a search runs: the search goes on and the winner is followed at its end. -->
+    <string name="route_auto_follow_toast">Will follow the best route</string>
     <!-- Shown when the last route lands and the highlight leaves a hand-picked route for the winner. -->
     <string name="route_best_selected_toast">Search done — best route selected</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>

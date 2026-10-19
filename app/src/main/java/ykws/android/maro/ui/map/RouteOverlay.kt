@@ -350,6 +350,19 @@ internal fun routeEtaStep(
 internal fun routeAutoPickReady(autoPick: Boolean, state: RouteState, anyLanded: Boolean): Boolean =
     autoPick && state is RouteState.Choosing && !state.searching && anyLanded
 
+/**
+ * **Whether the fan's *Route (auto)* child is live** — in two situations. With nothing armed
+ * ([displayArmed] false, which includes a pending discard window) it is the arming, as before; **while a
+ * search runs** it is live too, and a press then arms nothing: it only sets the auto-follow intent
+ * ([autoPickSet]), the winner being followed when the last route lands. Once the search has ended, an
+ * early select is committed or the intent already stands, the child is off — `Follow` takes a settled set.
+ */
+internal fun routeAutoChildEnabled(displayArmed: Boolean, state: RouteState, autoPickSet: Boolean): Boolean {
+    if (!displayArmed) return true
+    val choosing = state as? RouteState.Choosing ?: return false
+    return choosing.searching && !choosing.committed && !autoPickSet
+}
+
 /** The ladder's rung count — the acquisition's pages, and the map's line pool. */
 internal const val ROUTE_LADDER_RUNG_COUNT = 3
 
