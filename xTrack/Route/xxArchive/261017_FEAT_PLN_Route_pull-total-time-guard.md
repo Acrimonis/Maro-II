@@ -43,3 +43,7 @@
 
 - Whether the A\* itself should price continuous chords (out of scope — the pull's refinement is the home of this fix).
 - The device pass: does the inward bend disappear, and does the line shorten without losing its standoff?
+
+## Outcome
+
+Shipped as planned: every chord proof in the pull — the price refusal, the sweep's triple and window, and the straightener's `chordLegal` — compares total seconds (travel at the pace plus soft price) instead of soft price alone. Its rule and open points are promoted to `FEAT_DSC_Route.md` ## Rules and `FEAT_DOC_Route_decisions.md` §8; the device pass is owed there.

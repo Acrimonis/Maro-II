@@ -94,9 +94,8 @@ fun MenuDrawerOverlay(
     onOpenSettings: () -> Unit = {},
     /**
      * The route mode's read-only summary and its own gate: [routeSummaryVisible] is the chrome flag, which
-     * now stands while the engine searches **and** while a route is followed (the user's word, 2026-10-04,
-     * widening the "routing phase alone" of 2026-09-28), and [routeSummary] carries the words and the
-     * colour the block prints.
+     * stands while a route is followed and not while the engine searches (the user's word, 2026-10-19),
+     * and [routeSummary] carries the words and the colour the block prints.
      */
     routeSummary: RouteSummaryData = RouteSummaryData(),
     routeSummaryVisible: Boolean = false,

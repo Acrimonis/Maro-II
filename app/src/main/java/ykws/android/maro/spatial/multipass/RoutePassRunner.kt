@@ -22,18 +22,17 @@ import ykws.android.maro.spatial.Units
  * — the ends, the pace, the margins, the limit read, the zones and the corner sets — comes from the
  * context, so a coarse pass and a fine one differ by their [GridWalk] alone.
  *
- * **[publishStage] is the candidates' own door**, and it is the one behaviour the instrument changed:
- * the λ passes and the fine pass move the panel's stage line, a candidate's pass does not, so the panel
- * narrates the answer's build alone. [guardZones] and [guardBand] drop one source's price from the
+ * **[publishStage] is the stage line's door**: the engine opens it on every rung, so each row prints its
+ * own stage, and a caller that wants the pass silent (a test harness) closes it. [guardZones] and [guardBand] drop one source's price from the
  * pull's own field for a candidate that drops it — the grid's own limits were dropped by the caller —
  * so the dropped price is dropped from the search and the guard alike. One cursor prices both sources,
  * so a candidate never names a second λ. [publish] and [trace] are the engine's own, handed in so the
  * emission sequence never belongs to the seat.
  *
- * **The provisional pair rides the SNAP boundary on every pass.** Between the first pull and the corner
- * snap, [runPass] always publishes a [RouteStage.SNAP] reading carrying the pulled line's own distance
- * and a limit-read duration — the provisional figure — whether or not the caller narrates stages, because
- * each rung's own row waits on its own line; the caller decides what travels from there.
+ * **The provisional pair rides two boundaries on every pass.** At the [RouteStage.PULL] boundary it
+ * carries the A* cell path's own length and limit-read clock, and between the first pull and the corner
+ * snap a [RouteStage.SNAP] reading replaces it with the pulled line's own distance and limit-read
+ * duration — the provisional figure — because each rung's own row waits on its own line.
  */
 internal class RoutePassRunner {
 
@@ -128,6 +127,10 @@ internal class RoutePassRunner {
         val full = listOf(start) + coarse + listOf(aim)
         // The readings ride the boundary the stage just left: the search's own two counts are known here,
         // at the pull that follows it, so they belong to the PULL update's `stageDone` = SEARCH.
+        // The cell path already supports a first provisional pair — its length and its limit-read clock.
+        // It is an overestimate by nature (the path is jagged until the pull), so the pair jumps at the
+        // pull's own SNAP boundary and again at the landing; the row's stage word says it is not final.
+        val cellPathTimed = timeLineWithLimits(full, pace, limitAt, clockSampleM(cellM, ctx.fineCellM))
         if (publishStage) publish(
             RouteStage.PULL, full.map { RoutePoint.of(it) },
             listOf(
@@ -140,7 +143,7 @@ internal class RoutePassRunner {
                     search.passableCells.toDouble(), R.string.route_unit_cells
                 )
             ),
-            null
+            RouteProvisional(pulledLengthM(full), cellPathTimed.durationSec)
         )
         val pullTiming = PullTiming()
         val pullStartNs = System.nanoTime()
@@ -155,8 +158,7 @@ internal class RoutePassRunner {
         // The provisional pair belongs to this boundary and to the pulled line alone: the line is taut
         // here, but the settled clock is still the pull → snap → pull tail and the corner pass away, so
         // one enforced-limit read and the pulled length are all a row can stand behind now. It rides the
-        // SNAP boundary for **every** pass — the narrating main and a candidate alike — because each
-        // rung's own row waits on its own line; the caller decides what travels from there.
+        // SNAP boundary for **every** pass, because each rung's own row waits on its own line.
         val provisionalTimed = timeLineWithLimits(pulled, pace, limitAt, clockSampleM(cellM, ctx.fineCellM))
         val provisional = RouteProvisional(pulledLengthM(pulled), provisionalTimed.durationSec)
         publish(

@@ -59,3 +59,11 @@
 - **Rationale:** the user's word of 2026-10-17 — *there is no need to rank it anymore, I would pick it myself* — which the `Any` stop answers only in part, since with a resolved pace the crown still compares rungs by trip time.
 - **What would re-open it:** the user's word to order the pace-free design, or a device reading showing the pace setting steering a line the user did not want.
 - **Recorded in:** [`xxArchive/261017_FEAT_PLN_Route_no-preferred-speed.md`](xxArchive/261017_FEAT_PLN_Route_no-preferred-speed.md)
+
+## 8. The pull straightens by dropping points, and judges a chord on total time
+
+- **Decision:** after the pull and before the corner pass, `straightenLine` replaces a run of waypoints by its chord (Douglas–Peucker, `epsilonM = 10.0`) wherever the chord is legal — its wall clear and its **total seconds** (travel at the pace plus the soft price) no worse than the path's; and `priceRefusal`, the sweep's triple and window proofs and `chordLegal` all compare that total, never the soft price alone. A fixture that gives no pace (`paceMps = 0`) reads the soft price only, unchanged.
+- **Rationale:** the 2026-10-17 device passes. Chaikin corner-cutting *added* points (`SMOOTH points=10→19`) and made the corner pass see more bends, so the method was replaced by one that drops them; and a shorter chord (~3.6 m, ~1.4 s of travel at 5 kn) was refused on a soft price 0.55 s higher although it was ~0.85 s cheaper overall.
+- **Left standing:** the wall check (`legClearCause`) and the sweep's own allowance are untouched; `chordLegal` takes a strict `<=` with no allowance, so the allowance is a second tuning lever beside epsilon.
+- **Still open:** the epsilon (10 m) and whether the straightener should be gated on `avoid` (its fine pass runs it too); a test for the `chordLegal` price branch (a dearer chord refused while a cheaper one collapses); renaming `RouteSmoothPassTest.kt` to match its `RouteStraightenTest` class; and whether the A\* itself should price continuous chords (out of scope — the pull's refinement is the home of this fix). The device pass is the user's.
+- **Recorded in:** [`xxArchive/261017_FEAT_PLN_Route_line-smoothing.md`](xxArchive/261017_FEAT_PLN_Route_line-smoothing.md), [`xxArchive/261017_FEAT_PLN_Route_pull-total-time-guard.md`](xxArchive/261017_FEAT_PLN_Route_pull-total-time-guard.md)

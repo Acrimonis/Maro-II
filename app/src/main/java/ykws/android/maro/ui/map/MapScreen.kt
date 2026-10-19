@@ -844,21 +844,24 @@ fun MapScreen(
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
     val routeStage by routeViewModel.stage.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
-    // **The ladder's running best, by the lookup that owns its row** — the winner the seat follows and
-    // the panel marks, reported at each rung's terminal.
-    val routeRunningBest by routeViewModel.runningBest.collectAsState()
-    // **The settled set's verdict** — the crown beside every landed rung's rank, the engine's own fold
-    // reported beside the running best, so the panel marks the crown and ranks the rows without
-    // re-deriving the rule (2026-10-15).
-    val routeVerdict by routeViewModel.verdict.collectAsState()
+    // **The ranks and the crown the panel prints** — the engine's own fold read through the folds and
+    // counted over the pages that stand, live from the first landing, so the panel ranks the rows and
+    // marks the crown without re-deriving the rule.
+    val routeRankView by routeViewModel.rankView.collectAsState()
+    // **The order the rows stand in** — a snapshot of lookup ids the view model refreshes through its
+    // gate, so the figures stay live while a landing never moves a row under the finger.
+    val routeOrder by routeViewModel.order.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
     // first (index 0) — and the one the selection stands on, both in computation order, so the map's
     // pool and the provisional line stay tied to the main (R54, R64).
     val routePages by routeViewModel.pages.collectAsState()
     val routeSelectedIndex by routeViewModel.selectedIndex.collectAsState()
-    // **The panel's ETA-ordered view** — the same pages, landed fastest-first — while the map keeps
-    // drawing the computation order above. It is a view: nothing below reorders `routePages`.
-    val routeSortedPages = remember(routePages) { routePagesByEta(routePages) }
+    // **The panel's ordered view** — the same pages, in the held order (ranked rows by rank, then the
+    // rest in ladder order; rewritten when a route lands, is refused or is merged away) — while the map keeps drawing the computation order above. It is a view:
+    // nothing below reorders `routePages`.
+    val routeSortedPages = remember(routePages, routeOrder) {
+        routeApplyOrder(routePages, routeOrder).map { routePages[it] }
+    }
     // **Is a search running?** — read once, because the toggle's dot, the panel's status word and the
     // drawer's summary all branch on it.
     val routeSearching = (routeState as? RouteState.Choosing)?.searching == true
@@ -866,7 +869,7 @@ fun MapScreen(
     // save writes (R54, R55): read from the same list the drawing reads, so the two cannot disagree.
     val routeSelectedPage = selectedPageOrNull(routePages, routeSelectedIndex)
     val routeSelectedLine = routeSelectedPage?.plan
-    // The panel's own selected index: the selected page's position in the ETA-ordered view.
+    // The panel's own selected index: the selected page's position in the ordered view.
     val routeSortedSelectedIndex = routeSelectedPage?.let { routeSortedPages.indexOf(it).coerceAtLeast(0) } ?: 0
     // **Is the selected line already written?** — the one fact the save actions grey themselves on; an
     // early save still growing its draft counts as written too, and the link is read through its one
@@ -1157,6 +1160,13 @@ fun MapScreen(
         if (routeNoticeToast != null) {
             delay(2_000L)
             routeNoticeToast = null
+        }
+    }
+    // The last route landing moved a hand-picked highlight onto the winner: say so on the map banner.
+    LaunchedEffect(routeViewModel) {
+        routeViewModel.seatMovedAtEnd.collect {
+            routeNoticeToast = context.getString(R.string.route_best_selected_toast)
+            routeNoticeToastAt = SystemClock.elapsedRealtime()
         }
     }
     // ── Background location permission dialog state (A2) ─────────────────
@@ -3067,7 +3077,7 @@ fun MapScreen(
             // opening the reading with Discard.
             val routeFanEnabled: List<Boolean> = run {
                 val phase = routeState.phase
-                val saveOpen = ((routeSelectedLine != null || routePartialDrawn) && !routeFrontSaved) ||
+                val saveOpen = (routeSelectedLine != null && !routeFrontSaved) ||
                     (routeFollowingPlan != null &&
                         routeFollowingPlan.points.size >= 2 && !routeFollowingSaved)
                 val followOpen = phase == RoutePhase.CHOOSING && !routeCommitted &&
@@ -3088,8 +3098,9 @@ fun MapScreen(
                     // arming belongs to Idle alone (R65). Its source is the **display** flag, not the
                     // phase: the flag is what the press reads and the only thing a restore brings back,
                     // so the phase would draw the cell live on the arming frame and dead after process
-                    // death, exactly when the arc is needed.
-                    !routeDisplayArmed
+                    // death, exactly when the arc is needed. **It is also live while a search runs**
+                    // (2026-10-19): the press then only sets the auto-follow intent.
+                    routeAutoChildEnabled(routeDisplayArmed, routeState, routeAutoPick)
                 )
             }
             // **The five actions, in that same list's order** (D5, R79): the Route child arms the
@@ -3120,8 +3131,19 @@ fun MapScreen(
                     // Route (auto) — a new arming commits a pending discard before the flag is set, so
                     // the disposal's own clear cannot eat the auto-pick.
                     if (pendingDiscard != null) commitPendingDiscard()
+                    // Pressed while a search already runs, it keeps that search (arming is a no-op while
+                    // armed) and only sets the intent, so the press says so: the winner is followed when
+                    // the last route lands.
+                    val searchRunning = routeArmed
                     routeAutoPick = true
                     armRouteMode()
+                    // A refused pair (too short) arms nothing: the intent must not outlive the press and
+                    // fire on a later arming through another door.
+                    if (!routeArmed) routeAutoPick = false
+                    if (searchRunning) {
+                        routeNoticeToast = context.getString(R.string.route_auto_follow_toast)
+                        routeNoticeToastAt = SystemClock.elapsedRealtime()
+                    }
                 }
             )
             // **The auto-pick's one-shot** (D6, R80): it fires on the first `Choosing` whose **set is
@@ -3373,12 +3395,11 @@ fun MapScreen(
             // is where the outcomes are taken from, so it needs no floating surface to be reached —
             // and once `Select route` is pressed the ordinary dashboard returns, which is the whole of
             // what the navigation phase adds. `routeOwnsSlot` is declared above, with the band.
-            // **The drawer's summary stands while the engine searches as well as while a route is
-            // followed** (the user's word, 2026-10-04): the card is where the mode's own figures are
-            // read, so it now stands through the acquisition too, showing the pending mark wherever a
-            // figure does not exist yet. That widens D5's "routing phase alone", which this line no
-            // longer follows — the acquisition's status no longer lives on the panel alone.
-            val routeSummaryVisible = routeSearching || (routeState is RouteState.Following && !routeDiscarding)
+            // **The drawer's summary stands while a route is followed, and not while the engine
+            // searches** (the user's word, 2026-10-19, narrowing that of 2026-10-04): the search's
+            // status lives on the panel alone again, and the card is where the followed route's
+            // figures are read.
+            val routeSummaryVisible = routeState is RouteState.Following && !routeDiscarding
             val routeTrip = (routeState as? RouteState.Following)?.let { following ->
                 routeTripFigure(
                     plan = following.plan,
@@ -3402,7 +3423,6 @@ fun MapScreen(
                 if (routeOwnsSlot) {
                     RouteConfirmationPanel(
                         state = routeState,
-                        stage = routeStage,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3411,8 +3431,8 @@ fun MapScreen(
                         isLandscape = true,
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
-                        runningBestLookupId = routeRunningBest,
-                        verdict = routeVerdict,
+                        paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },
                         onSelectRoute = { followRoute() },
@@ -3450,7 +3470,6 @@ fun MapScreen(
                 if (routeOwnsSlot) {
                     RouteConfirmationPanel(
                         state = routeState,
-                        stage = routeStage,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3459,8 +3478,8 @@ fun MapScreen(
                         isLandscape = false,
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
-                        runningBestLookupId = routeRunningBest,
-                        verdict = routeVerdict,
+                        paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onMeasuredHeight = { dashboardBand.measuredRoute = it; dashboardBand.lastShown = it },
                         panelMaxHeight = bandCeiling,

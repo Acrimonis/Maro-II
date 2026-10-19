@@ -5,12 +5,17 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -360,13 +365,42 @@ class RouteViewModel(
     val verdict: StateFlow<RouteVerdict?> = _verdict.asStateFlow()
 
     /**
-     * **Whether the user has taken the seat over** — a hand selection (a row tap, a swipe) freezes it
-     * for good, so no later landing can move a highlight the reader has placed. Reset by [arm] and
-     * [end] alone.
+     * **The rungs folded into a survivor** — *dropped lookup → the lookup of the page that stood in its
+     * place*. A folded twin is not a rung of its own, so the ranking counts it with its survivor
+     * ([routeRankView]); the table is cleared with the arm.
+     */
+    private val _folded = MutableStateFlow<Map<RouteId, RouteId>>(emptyMap())
+
+    /**
+     * **The ranks and the crown the panel prints**, the engine's verdict read through the folds and
+     * counted over the pages that stand. Live from the first landing; whether the crown's check is shown
+     * is the panel's (it waits for the last rung).
+     */
+    val rankView: StateFlow<RouteRankView> =
+        combine(_pages, _verdict, _folded) { pages, verdict, folded -> routeRankView(pages, verdict, folded) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, RouteRankView())
+
+    /**
+     * **The order the panel's rows stand in**, as lookup ids — a snapshot rewritten only when a route
+     * lands, is refused or is merged away, so the figures stay live while a row moves at most three
+     * times. Ids and not page indices, because a fold removes a page and re-maps the rest.
+     */
+    private val _order = MutableStateFlow<List<RouteId>>(emptyList())
+    val order: StateFlow<List<RouteId>> = _order.asStateFlow()
+
+    /**
+     * **Whether the user has taken the seat over** — a hand selection (a row tap, a swipe) holds the
+     * highlight on that route while the search runs, however the rows reorder. The last landing ends the
+     * hold ([settleSeat]), moving the highlight to the winner. Reset by [arm] and [end].
      */
     private var seatFrozen = false
 
-    /** The main lookup's current stage — the panel's `Acquiring (stage)…` word. */
+    private val _seatMovedAtEnd = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Emits once when the last landing moved a hand-picked highlight onto the winner — the panel's toast. */
+    val seatMovedAtEnd: SharedFlow<Unit> = _seatMovedAtEnd.asSharedFlow()
+
+    /** The main lookup's current stage — the menu drawer's search word; each row carries its own on its page. */
     private val _stage = MutableStateFlow<RouteStage?>(null)
     val stage: StateFlow<RouteStage?> = _stage.asStateFlow()
 
@@ -428,6 +462,50 @@ class RouteViewModel(
                 .flatMapLatest { it.updates }
                 .collect { onUpdate(it) }
         }
+        // The panel's row order moves only when a route lands, is refused or is merged away: the key below
+        // is the pages' identities and whether each is settled, with the verdict and the folds, so a stage
+        // word or a provisional figure (which change the pages but not the key) moves no row.
+        viewModelScope.launch {
+            combine(_pages, _verdict, _folded) { pages, verdict, folded ->
+                Triple(pages.map { it.lookupId to (it.plan != null || it.reason != null) }, verdict, folded)
+            }
+                .distinctUntilChanged()
+                .collect { applyOrder() }
+        }
+    }
+
+    /** Writes the order the rows should now stand in, from the pages and the rank view as they are. */
+    private fun applyOrder() {
+        val pages = _pages.value
+        val view = routeRankView(pages, _verdict.value, _folded.value)
+        _order.value = routeTargetOrder(pages, view.ranks).mapNotNull { pages[it].lookupId }
+    }
+
+    /** Forgets the order and the fold table with the session they belonged to. */
+    private fun resetOrder() {
+        _order.value = emptyList()
+        _folded.value = emptyMap()
+    }
+
+    /** The page indices in the order the panel shows them — the held snapshot over the current pages. */
+    private fun displayOrder(pages: List<RoutePage> = _pages.value): List<Int> =
+        routeApplyOrder(pages, _order.value)
+
+    /**
+     * **The last landing's selection** — once every page has landed or been refused, the highlight goes
+     * to the winner, the top row, at the very moment the crown's check appears; a hand pick held through
+     * the search ends there, and [seatMovedAtEnd] fires only when that moved a hand-picked highlight. A
+     * committed early select stands untouched, and so does a set that crowned nothing.
+     */
+    private fun settleSeat(pages: List<RoutePage>) {
+        val choosing = _state.value as? RouteState.Choosing ?: return
+        if (choosing.committed || pages.any { it.plan == null && it.reason == null }) return
+        val crown = routeRankView(pages, _verdict.value, _folded.value).crownLookupId ?: return
+        val target = lookupPages[crown]?.takeIf { it in pages.indices && pages[it].plan != null } ?: return
+        val moved = seatFrozen && _selectedIndex.value != target
+        _selectedIndex.value = target
+        seatFrozen = false
+        if (moved) _seatMovedAtEnd.tryEmit(Unit)
     }
 
     /**
@@ -451,6 +529,7 @@ class RouteViewModel(
         cancelledLookups.clear()
         _runningBest.value = null
         _verdict.value = null
+        resetOrder()
         seatFrozen = false
         mirrored = false
         armedStartMarkerId = ends.startMarkerId
@@ -479,9 +558,9 @@ class RouteViewModel(
                 }
                 // The seat stands on the main until the ranking names a winner: the verdict's dial is a
                 // weight over the finished lines and names no ladder rung (2026-10-15), so nothing else
-                // seeds it and the seat resolves through the ETA view while the rungs land.
+                // seeds it and the seat resolves through the displayed order while the rungs land.
                 preferredRungIndex = MAIN_INDEX
-                _selectedIndex.value = routeEtaSeatedIndex(_pages.value, preferredRungIndex)
+                _selectedIndex.value = routeSeatedPageIndex(_pages.value, preferredRungIndex, displayOrder())
                 _state.value = RouteState.Choosing(
                     start = start, plan = null, searching = true, asked = true, refusal = null
                 )
@@ -526,6 +605,12 @@ class RouteViewModel(
                     collapsed = true,
                     foldedDescriptionResIds = foldedNames
                 )
+                // The folded twin counts with its survivor in the ranking: recorded before the page set
+                // moves, so the rank view never reads the page gone with its twin still unmapped.
+                val survivorLookup = survivorPage.lookupId
+                if (survivorLookup != null) {
+                    _folded.value = _folded.value + (update.routeId to survivorLookup)
+                }
                 _pages.value = newPages
                 // Re-map the surviving lookups to their new indices so a later rung still lands.
                 remapLookupPages(newPages)
@@ -545,14 +630,24 @@ class RouteViewModel(
                 }.coerceIn(0, (newPages.size - 1).coerceAtLeast(0))
                 // The winner the collapsed rung carried may name the page that just went: seatTo reads
                 // the survivor through the re-mapped lookup table, so the seat never lands on a fold.
-                if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
+                if (!seatFrozen) {
+                    _selectedIndex.value = seatTo(newPages)
+                } else {
+                    // A hand pick stays on its route when the removed page shifts the indices: re-found
+                    // by lookup id, and carried to the survivor when the pick itself was the folded twin.
+                    val picked = current.getOrNull(_selectedIndex.value)?.lookupId
+                    val pickedNow = if (picked == update.routeId) survivorLookup else picked
+                    val pickedIndex = newPages.indexOfFirst { it.lookupId == pickedNow }
+                    if (pickedIndex >= 0) _selectedIndex.value = pickedIndex
+                }
                 syncChoosing(newPages)
+                settleSeat(newPages)
                 return
             }
             if (!session.containsKey(plan)) putSession(plan, null)
             // A landed page prints the settled figures alone: the provisional pair the boundary update
             // carried while it waited is cleared here, so no row can show a stale pair beside a plan.
-            val updated = current[index].copy(plan = plan, provisional = null)
+            val updated = current[index].copy(plan = plan, provisional = null, stage = null)
             val newPages = current.toMutableList().also { it[index] = updated }
             _pages.value = newPages
             // The main lookup drives the stage and the provisional line. The provisional line clears with
@@ -569,6 +664,7 @@ class RouteViewModel(
             // main's slot — and never after a hand touch, which freezes it for good.
             if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
             syncChoosing(newPages)
+            settleSeat(newPages)
             // Early select: once the committed main line lands, the mode follows it. A refusal
             // instead un-commits, leaving the acquisition standing on the reason.
             if (index == MAIN_INDEX && update.nextStage == null) {
@@ -588,10 +684,13 @@ class RouteViewModel(
         }
         // A provisional pair rides its own boundary update and lands on the page that owns the id; a
         // terminal refusal clears it with the same stroke as a landing, since neither will settle further.
+        // Every boundary also moves the page's own stage word (null on the terminal), so each row prints
+        // the stage of the rung it describes.
         val updated = when {
-            update.reason != null -> current[index].copy(reason = update.reason, provisional = null)
-            update.provisional != null -> current[index].copy(provisional = update.provisional)
-            else -> current[index]
+            update.reason != null -> current[index].copy(reason = update.reason, provisional = null, stage = null)
+            update.provisional != null ->
+                current[index].copy(provisional = update.provisional, stage = update.nextStage)
+            else -> current[index].copy(stage = update.nextStage)
         }
         val newPages = current.toMutableList().also { it[index] = updated }
         _pages.value = newPages
@@ -611,6 +710,7 @@ class RouteViewModel(
             _selectedIndex.value = seatTo(newPages)
         }
         syncChoosing(newPages)
+        if (update.reason != null) settleSeat(newPages)
         // A committed main answered with a refusal un-commits instead of following (same rule as a landing).
         if (index == MAIN_INDEX && update.nextStage == null) {
             val choosing = _state.value as? RouteState.Choosing ?: return
@@ -643,13 +743,13 @@ class RouteViewModel(
      */
     /**
      * **Where the seat belongs right now** — the running best's page when the engine has named one,
-     * otherwise the main's slot through the ETA view. Read through `lookupPages`, so a winner whose
+     * otherwise the main's slot through the displayed order. Read through `lookupPages`, so a winner whose
      * page was folded away falls back to the seat's own resolution and never parks on a missing page.
      */
     private fun seatTo(pages: List<RoutePage>): Int {
         val bestIndex = _runningBest.value?.let { lookupPages[it] }
         if (bestIndex != null && bestIndex in pages.indices) return bestIndex
-        return routeEtaSeatedIndex(pages, preferredRungIndex)
+        return routeSeatedPageIndex(pages, preferredRungIndex, displayOrder(pages))
     }
 
     private fun syncChoosing(pages: List<RoutePage>) {
@@ -663,15 +763,15 @@ class RouteViewModel(
     }
 
     /**
-     * **Set the seat to a page by its position in the ETA-ordered view** — the panel's absolute set, so
+     * **Set the seat to a page by its position in the displayed order** — the panel's absolute set, so
      * a swipe, a row tap or a pager sync names a page rather than stepping from wherever the seat stood.
      * A position off the set is clamped.
      */
-    fun selectPage(etaViewIndex: Int) {
+    fun selectPage(displayIndex: Int) {
         val pages = _pages.value
         if (pages.isEmpty()) return
-        val order = routeEtaOrder(pages)
-        _selectedIndex.value = order[etaViewIndex.coerceIn(0, order.lastIndex)]
+        val order = displayOrder(pages)
+        _selectedIndex.value = order[displayIndex.coerceIn(0, order.lastIndex)]
         // A hand selection is the one thing that freezes the seat: from here no landing moves it.
         seatFrozen = true
         syncChoosing(pages)
@@ -718,6 +818,7 @@ class RouteViewModel(
             _provisionalLine.value = emptyList()
             _runningBest.value = null
             _verdict.value = null
+            resetOrder()
             enterFollowing(selected)
             return
         }
@@ -827,6 +928,7 @@ class RouteViewModel(
         preferredRungIndex = MAIN_INDEX
         _runningBest.value = null
         _verdict.value = null
+        resetOrder()
         seatFrozen = false
         mirrored = false
         etaState = RouteEtaState()

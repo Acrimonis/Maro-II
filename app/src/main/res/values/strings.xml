@@ -687,19 +687,18 @@
     <string name="route_reason_off_water">Outside the covered water</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
-    <!-- The status with the stage the engine published while a search runs — `Pull #2`, the stage word
-         then the selected route's own number (R15, rewritten 2026-10-08). The stage words themselves are
-         the closed set below. -->
-    <string name="route_status_acquiring">Searching…</string>
-    <!-- The band's own acquisition word: the shared one above carries an ellipsis the band does not use. -->
+    <!-- The drawer's status with the stage the engine published while a search runs — `Pull #2`, the
+         stage word then the selected route's own number (R15, rewritten 2026-10-08). The stage words
+         themselves are the closed set below. -->
     <string name="route_status_acquiring_bare">Searching</string>
     <string name="route_status_stage_number">%1$s #%2$d</string>
     <string name="route_status_active">Routing</string>
     <string name="route_status_selected">Selected — finishing the line…</string>
-    <!-- The settled status once the search stops: the pages standing and the cruising speed they plan
-         at, plural above one page; `settings_route_pace_value_fmt` renders the pace. -->
-    <string name="route_status_done_one">1 route @ %1$s</string>
-    <string name="route_status_done_many">%1$d routes @ %2$s</string>
+    <!-- The panel header's search summary, its segments joined by a middle dot: how many routes have
+         landed out of those started, then the cruising speed — under `Any` the pace the search
+         evaluated, in brackets — then the preference; `settings_route_pace_value_fmt` renders the pace. -->
+    <string name="route_header_landed_fmt">Landed %1$d/%2$d</string>
+    <string name="route_header_pace_any_fmt">Any (%1$s)</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -734,13 +733,17 @@
     <string name="route_discard_acq_toast">Route discarded</string>
     <string name="route_discard_followed_toast">Route discarded</string>
     <string name="route_left_toast">Route left</string>
-    <string name="route_action_new">New search</string>
+    <string name="route_action_new">New</string>
     <!-- The map's action and undo rows (`MapSnackbarHost`): the three delete and create messages, each
          naming its own item, beside the route discard's two above. -->
     <string name="snack_track_deleted">Track \"%1$s\" deleted</string>
     <string name="snack_marker_deleted">Marker \"%1$s\" deleted</string>
     <string name="snack_marker_created">Marker \"%1$s\" created</string>
     <string name="route_started_toast">New route search started</string>
+    <!-- Shown when the fan's Route (auto) child is pressed while a search runs: the search goes on and the winner is followed at its end. -->
+    <string name="route_auto_follow_toast">Will follow the best route</string>
+    <!-- Shown when the last route lands and the highlight leaves a hand-picked route for the winner. -->
+    <string name="route_best_selected_toast">Search done — best route selected</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
@@ -804,8 +807,6 @@
     <string name="route_rung_around">Detour</string>
     <!-- The separator between a folded page's rung names, read left to right. -->
     <string name="route_rung_names_sep">" | "</string>
-    <!-- The mark a row wears while the ladder still computes: the ranking's best so far, never a verdict. -->
-    <string name="route_winner_so_far">so far</string>
     <!-- The panel's delta once a second finished page exists — a page's duration against the selected
          one, read as "x less" or "x more". -->
     <string name="route_comparison_less">less</string>

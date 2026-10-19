@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,8 +35,6 @@ import kotlin.math.abs
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.RouteId
-import ykws.android.maro.spatial.RouteStage
-import ykws.android.maro.spatial.RouteVerdict
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
@@ -58,6 +57,9 @@ private const val ROUTE_CROWN_GLYPH = "\u2713"
  */
 private val ROUTE_CROWN_GLYPH_SIZE = 20.sp
 
+/** The middle dot joining the header's segments — punctuation, not user-facing text. */
+private const val ROUTE_HEADER_SEPARATOR = " · "
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The route acquisition's own dashboard — the panel the slot carries while a route is being acquired
 //
@@ -77,24 +79,24 @@ private val ROUTE_CROWN_GLYPH_SIZE = 20.sp
 /**
  * The acquisition's panel, for the dashboard slot.
  *
- * @param stage           the main lookup's current stage, or null when nothing is running (R15).
- * @param pages           the pages the acquisition draws, the main first — one per started lookup.
+ * @param pages          the pages the acquisition draws, the main first — one per started lookup.
  * @param selectedIndex   which of [pages] the selection stands on — the table and the saves describe
  *                        that one page.
  * @param frontSaved      whether the **selected** line is already written (R55) — including an early
  *                        save still growing in the background.
- * @param partialDrawn    whether the main lookup has a drawable partial line, so the two doors open
- *                        before the search lands.
+ * @param partialDrawn    whether the main lookup has a drawable partial line, so `Select route` opens
+ *                        before the search lands (`Save to track` waits for a landed line).
  * @param committed       whether an early `Select route` is waiting on the main line's finalization.
  * @param isLandscape     whether the device is in landscape orientation.
  * @param dashboardBaseHeight the dashboard's base height — the floor the panel uses in portrait.
- * @param paceKn          the cruising speed the settled line names (kn) — printed in the settled status word.
+ * @param paceKn          the cruising speed the search plans at (kn) — the evaluated pace under `Any`.
+ * @param paceSetKn       the cruising-speed **setting** (kn), `Any` included, so the header can say both.
  * @param onMeasuredHeight optional report of the open panel's measured height (Phase 2).
  * @param panelMaxHeight  the portrait frame's own ceiling (F5) — the band cap the map leaves,
  *                        under which a taller panel's body scrolls instead of covering the map
  *                        strip. Null keeps the full-screen ceiling; landscape ignores it.
  * @param onSelectPage    **absolute set**: names the page the pager or a row tap lands on, by its
- *                        position in the ETA-ordered view.
+ *                        position in the displayed order.
  * @param onSelectRoute   **Select route**: enters navigation on the selected line (R56).
  * @param onSaveTrack     **Save to track**: writes the selected line (R55).
  * @param onDiscard       **Discard**: the deferred ending, taken **only while the press would throw the
@@ -110,7 +112,6 @@ private val ROUTE_CROWN_GLYPH_SIZE = 20.sp
 @Composable
 internal fun RouteConfirmationPanel(
     state: RouteState,
-    stage: RouteStage?,
     pages: List<RoutePage>,
     selectedIndex: Int,
     frontSaved: Boolean,
@@ -119,23 +120,17 @@ internal fun RouteConfirmationPanel(
     isLandscape: Boolean,
     dashboardBaseHeight: Dp,
     paceKn: Double,
+    paceSetKn: Float,
     /**
-     * **The ladder's running best, by the lookup that owns its row** — the winner the seat follows. Its
-     * row wears a *so far* mark beside its name while the set still searches, the mark clearing with
-     * the last rung. `null` where the engine ranks nothing.
+     * **The ranks and the crown** — the engine's own fold read through the folds and counted over the
+     * pages that stand ([RouteRankView]). A landed row prints its rank at once, live as others land; the
+     * crown's check waits for the last rung. The panel re-derives no rule of the ranking.
      */
-    runningBestLookupId: RouteId? = null,
-    /**
-     * **The settled set's verdict** — the engine's own fold, carrying the crown and every landed rung's
-     * rank. The panel marks the crown ([RouteVerdict.best]) and prints each row's rank ([RouteVerdict.order])
-     * straight off it, re-deriving no rule: the ranking has one home and the UI duplicates none of it.
-     * `null` where the engine ranks nothing.
-     */
-    verdict: RouteVerdict? = null,
+    rankView: RouteRankView = RouteRankView(),
     /**
      * **The dial's own word in force** — the stop the crown was weighed by, already resolved
-     * ([verdictDialLabel]), printed in the header beside the stage so each rank is read against the
-     * weight that produced it. `null` where the surface carries no dial.
+     * ([verdictDialLabel]), the header's last segment so each rank is read against the weight that
+     * produced it. `null` where the surface carries no dial.
      */
     dialLabel: String? = null,
     onMeasuredHeight: ((Dp) -> Unit)? = null,
@@ -156,40 +151,44 @@ internal fun RouteConfirmationPanel(
     val clampedIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     val selected = pages.getOrNull(clampedIndex)
     val selectedPlan = selected?.plan
-    // The header's short state word: a committed early select reads its own word, the search reads the
-    // stage with the selected route's own number — `Pull #2` — and a settled page reads the settled line,
-    // the pages standing and the cruising speed they plan at.
-    val status = when {
-        committed -> stringResource(R.string.route_status_selected)
-        acquiring.searching -> stage?.let {
-            stringResource(
-                R.string.route_status_stage_number,
-                stringResource(it.labelResId),
-                clampedIndex + 1
-            )
-        } ?: stringResource(R.string.route_status_acquiring)
-        else -> {
-            val speedText = stringResource(R.string.settings_route_pace_value_fmt, paceKn)
-            if (pages.size == 1) stringResource(R.string.route_status_done_one, speedText)
-            else stringResource(R.string.route_status_done_many, pages.size, speedText)
-        }
+    // The header's one line: a committed early select reads its own word; otherwise the search summary —
+    // how many routes have landed, the cruising speed in force (the setting, or under `Any` the pace the
+    // search evaluated) and the preference the ranks were read against. The stage words moved to the
+    // rows, each rung printing its own.
+    val landedCount = pages.count { it.plan != null || it.reason != null }
+    val paceText = if (AppConfig.isFreeWaterPaceAny(paceSetKn)) {
+        stringResource(
+            R.string.route_header_pace_any_fmt,
+            stringResource(R.string.settings_route_pace_value_fmt, paceKn)
+        )
+    } else {
+        stringResource(R.string.settings_route_pace_value_fmt, paceSetKn)
+    }
+    val status = if (committed) {
+        stringResource(R.string.route_status_selected)
+    } else {
+        listOfNotNull(
+            // The counter only means something while rungs are still arriving; once all have landed it goes.
+            if (acquiring.searching) {
+                stringResource(R.string.route_header_landed_fmt, landedCount, pages.size)
+            } else {
+                null
+            },
+            paceText,
+            dialLabel
+        ).joinToString(ROUTE_HEADER_SEPARATOR)
     }
     val refusal = acquiring.refusal ?: selected?.reason
     val canSelect = selectedPlan != null || (partialDrawn && !committed)
-    val canSave = (selectedPlan != null || partialDrawn) && !frontSaved
+    // Saving waits for a landed line: a partial line opens `Select route` (R88) but never the save door.
+    val canSave = selectedPlan != null && !frontSaved
     // The third door's word follows the cost (§5.6): its own short red one while the selected line is
     // unwritten, the exit dialog's own *Leave* under the accent once `frontSaved` says nothing is lost.
     val endingDoor = routeAcquisitionEndingDoor(written = frontSaved)
-    // The *so far* mark stands only while the ladder still computes (the user's word of 2026-10-07):
-    // the winner's row wears it until the last rung lands.
-    val soFarLookupId = if (acquiring.searching) runningBestLookupId else null
-    // **The crown's mark and the ranks read one clock.** Both are read straight off the engine's own fold
-    // — the panel re-derives no rule of it — and both wait on the set settling: while the ladder still
-    // computes the row reads ` so far ` under its name and **no rank stands**, because a rank read mid-run
-    // is one that can still move under the reader. A row absent from the settled order wears none.
-    val settledVerdict = if (acquiring.searching) null else verdict
-    val crownLookupId = settledVerdict?.best?.lookupId
-    val landedRanks = settledVerdict?.order?.associate { it.lookupId to it.rank } ?: emptyMap()
+    // **The ranks are live and the crown waits.** A landed row prints its rank at once, read over the
+    // routes landed so far — the row's stage word and the header's `Landed x/n` say the set is not
+    // complete — while the crown's check stands only once the last rung has landed.
+    val crownLookupId = if (acquiring.searching) null else rankView.crownLookupId
 
     // The dashboard's one shape, both orientations (2026-10-07): no rounded corner on a map dash panel,
     // this panel's own landscape right-edge rounding included — it is squared with the marker and track
@@ -207,26 +206,13 @@ internal fun RouteConfirmationPanel(
         headerHorizontalPadding = 12.dp,
         fadeInOnEnter = true,
         headerActions = {
-            status?.let {
-                Text(
-                    text = it,
-                    color = Color(AppConfig.uiTextPrimary),
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            // The dial's own word in force, beside the stage: the weight each rank was read against.
-            dialLabel?.let {
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = it,
-                    color = Color(AppConfig.uiTextSecondary),
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = status,
+                color = Color(AppConfig.uiTextPrimary),
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (pages.size > 1) {
                 Spacer(Modifier.width(8.dp))
                 PageDots(currentIndex = clampedIndex, total = pages.size, fillUpToCurrent = false)
@@ -288,9 +274,8 @@ internal fun RouteConfirmationPanel(
                     pages = pages,
                     selectedIndex = clampedIndex,
                     onSelectPage = onSelectPage,
-                    soFarLookupId = soFarLookupId,
                     crownLookupId = crownLookupId,
-                    landedRanks = landedRanks
+                    ranks = rankView.ranks
                 )
             }
             selectedPlan?.let { PlanNotes(it) }
@@ -320,9 +305,8 @@ private fun RouteTablePager(
     pages: List<RoutePage>,
     selectedIndex: Int,
     onSelectPage: (Int) -> Unit,
-    soFarLookupId: RouteId?,
     crownLookupId: RouteId?,
-    landedRanks: Map<RouteId, Int>
+    ranks: Map<RouteId, Int>
 ) {
     SwipePager(
         pageCount = pages.size,
@@ -333,9 +317,8 @@ private fun RouteTablePager(
             pages = pages,
             selectedIndex = index,
             onSelectPage = onSelectPage,
-            soFarLookupId = soFarLookupId,
             crownLookupId = crownLookupId,
-            landedRanks = landedRanks
+            ranks = ranks
         )
     }
 }
@@ -356,21 +339,19 @@ private fun RouteTablePager(
  * reads the crown straight off the engine's verdict, so it stands on the ranking's winner however the
  * reader has moved the selection — the two marks can stand on **different rows** at once.
  *
- * **Each landed row prints its rank on the second line** (2026-10-15) — the very line the ` so far ` text
- * uses, so the two share one slot and one clock: a row reads **name and check** on its first line and
- * **`#1`** on the second once the set has settled, ` so far ` while the ladder still computes, so no rank
- * ever stands mid-run. The ranks are the engine's own ([RouteVerdict.order]) and **one per rung** — the
- * tolerance's groups broken by the ranking's own chain, never shared — while a provisional row absent
- * from the order wears none. This table re-derives no rule of the order.
+ * **The second line is one slot with two occupants.** While a row's rung computes it prints that rung's
+ * own stage word, **bold italic**; from the row's landing on it prints its rank, `#1`, read over the
+ * routes landed so far and live as others land. The ranks are the engine's own and **one per page** —
+ * a rung folded into another counts with it — and the crown's check, on the first line, waits for the
+ * last rung. This table re-derives no rule of the order.
  */
 @Composable
 private fun RouteSummaryTable(
     pages: List<RoutePage>,
     selectedIndex: Int,
     onSelectPage: (Int) -> Unit,
-    soFarLookupId: RouteId?,
     crownLookupId: RouteId?,
-    landedRanks: Map<RouteId, Int>
+    ranks: Map<RouteId, Int>
 ) {
     val selectedDurationSec = pages.getOrNull(selectedIndex)?.plan?.durationSec
     val radius = AppConfig.uiRadiusCard.dp
@@ -392,12 +373,12 @@ private fun RouteSummaryTable(
             }
             val textColor = if (selected) Color.White else Color(AppConfig.uiTextPrimary)
             val weight = if (selected) FontWeight.Bold else FontWeight.Normal
-            // The row's own place in the settled verdict: the crown (its check glyph) closing the name's
-            // own line and its rank below it, both read straight off the engine — a provisional row is
-            // absent from the order and wears neither. The selection stays a separate fact (§2.7b), so the
-            // crown and the taken choice can stand on two different rows at once.
+            // The row's own place in the verdict: the crown (its check glyph) closing the name's own line
+            // and its rank below it, both read straight off the engine — a row still computing has no
+            // rank and prints its stage word there instead. The selection stays a separate fact (§2.7b),
+            // so the crown and the taken choice can stand on two different rows at once.
             val isCrown = page.lookupId != null && page.lookupId == crownLookupId
-            val rank = page.lookupId?.let { landedRanks[it] }
+            val rank = page.lookupId?.let { ranks[it] }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -434,9 +415,8 @@ private fun RouteSummaryTable(
                         } else {
                             page.descriptionResId?.let { stringResource(it) } ?: ""
                         }
-                        // **name · check** on the first line, **rank** on the second: the check follows
-                        // the name's last word, the rank takes the ` so far ` line below it under the same
-                        // settled clock. The name takes the line's own wrap and yields the mark its width
+                        // **name · check** on the first line, **rank or stage** on the second: the check
+                        // follows the name's last word. The name takes the line's own wrap and yields the mark its width
                         // (`fill = false`), so a long name wraps inside the cell with the check closing its
                         // last line.
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -457,11 +437,10 @@ private fun RouteSummaryTable(
                                 )
                             }
                         }
-                        // One slot, one clock (2026-10-15): the settled rank, or the running best's own
-                        // word while the ladder still computes — never both, and nothing at all on a row
-                        // the settled order does not carry. The rank sits at **the name's own 13 sp**
-                        // (2026-10-15): it held Bold already, but at 11 sp it read smaller than the name
-                        // beside it and the weight did not register — bold only reads at the name's size.
+                        // One slot, two occupants: the rank once the row has landed, else the stage word of
+                        // the rung still computing in **bold italic** — never both, and nothing before a
+                        // rung's first boundary. Both sit at **the name's own 13 sp** (2026-10-15): bold
+                        // only reads at the name's size.
                         if (rank != null) {
                             Text(
                                 text = "#$rank",
@@ -469,12 +448,16 @@ private fun RouteSummaryTable(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                        } else if (page.lookupId != null && page.lookupId == soFarLookupId) {
-                            Text(
-                                text = stringResource(R.string.route_winner_so_far),
-                                color = textColor,
-                                fontSize = 11.sp
-                            )
+                        } else {
+                            page.stage?.let { stage ->
+                                Text(
+                                    text = stringResource(stage.labelResId),
+                                    color = textColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontStyle = FontStyle.Italic
+                                )
+                            }
                         }
                     }
                 }

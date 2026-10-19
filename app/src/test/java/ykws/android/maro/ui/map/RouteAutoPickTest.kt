@@ -67,6 +67,44 @@ class RouteAutoPickTest {
         )
     }
 
+    /** The child is the arming when nothing is armed, and the intent alone while a search runs. */
+    @Test
+    fun theAutoChildIsLiveWhenIdleAndWhileASearchRuns() {
+        assertTrue(
+            "nothing armed: it is the arming",
+            routeAutoChildEnabled(displayArmed = false, state = RouteState.Idle, autoPickSet = false)
+        )
+        assertTrue(
+            "a search running: it sets the intent",
+            routeAutoChildEnabled(displayArmed = true, state = choosing(), autoPickSet = false)
+        )
+    }
+
+    /** It is off once there is nothing left for it to decide. */
+    @Test
+    fun theAutoChildIsOffOnceTheIntentStandsOrTheSearchHasEnded() {
+        assertFalse(
+            "the intent already stands",
+            routeAutoChildEnabled(displayArmed = true, state = choosing(), autoPickSet = true)
+        )
+        assertFalse(
+            "a settled set is for Follow",
+            routeAutoChildEnabled(displayArmed = true, state = choosing(settled()), autoPickSet = false)
+        )
+        assertFalse(
+            "an early select is committed",
+            routeAutoChildEnabled(
+                displayArmed = true,
+                state = choosing().copy(committed = true),
+                autoPickSet = false
+            )
+        )
+        assertFalse(
+            "a followed route has no search to follow the winner of",
+            routeAutoChildEnabled(displayArmed = true, state = RouteState.Following(settled()), autoPickSet = false)
+        )
+    }
+
     /** A mode that has ended, or one already following, is no acquisition for the flag to fire in. */
     @Test
     fun anEndedOrFollowingModeFiresNothing() {

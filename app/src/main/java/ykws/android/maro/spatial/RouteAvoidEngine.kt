@@ -241,21 +241,16 @@ class RouteAvoidEngine(
     /** One lock for the fold: the rungs land concurrently, so add-and-rank is one critical step. */
     private val rankingLock = Mutex()
 
-    /** The first declared computation's id — the one that narrates the panel's stage line. */
-    private var stageComputationId: RouteId? = null
-
     /** The pass the instrument is on, reset at each solve so `STAGE` can carry its index. */
     private var passIndex = 0
 
     /**
-     * The id of the **main** lookup's stage channel while it runs. Only the main publishes stages —
-     * a candidate's pass is logged, never narrated — so this field is touched by the main lookup
-     * alone and a concurrent candidate can never write the wrong id into its emissions.
+     * **The stage each running lookup last published**, by lookup id, so a boundary's finished-then-next
+     * pair can be completed. Every rung narrates its own stages (each row prints its own), and the rungs
+     * run concurrently, so the chain is one entry per lookup in a concurrent map: a rung writes its own
+     * key alone, and an entry is dropped when its lookup ends.
      */
-    private var mainLookupId: RouteId? = null
-
-    /** The stage the main lookup last published, so the finished-then-next pair can be completed. */
-    private var lastStage: RouteStage? = null
+    private val lastStages = ConcurrentHashMap<RouteId, RouteStage>()
 
     /**
      * The instrument's **one gate**: the `MaroRoute` tag's own level, read once and remembered.
@@ -293,7 +288,6 @@ class RouteAvoidEngine(
             Computation(RouteId(++nextComputationId), R.string.route_rung_through, RoutePreference.FAST)
         )
         declarations = computations.associateBy { it.id }
-        stageComputationId = computations.first().id
         return RouteDeclarations.Available(computations.map { RouteComputation(it.id, it.descriptionResId) })
     }
 
@@ -345,9 +339,8 @@ class RouteAvoidEngine(
     }
 
     /**
-     * **One lookup, run on the engine's own lane.** The main computation publishes its stage pair and
-     * the settled result; a candidate publishes only its terminal update, the panel's stage line
-     * narrating the main's build alone. The [holder] and the [from]/[to] pair are the ones captured when the
+     * **One lookup, run on the engine's own lane.** Every rung publishes its own stage pairs and its
+     * settled result, each row printing the stage of the rung it describes. The [holder] and the [from]/[to] pair are the ones captured when the
      * lookup was declared, so a rung always runs the arm it was asked for.
      *
      * **A failed build is answered, a cancel is not (D36).** A non-cancellation exception inside the arm's
@@ -377,23 +370,20 @@ class RouteAvoidEngine(
     ) {
         val world = worldProvider()
         passIndex = 0
-        // Only the first rung narrates the panel's stage line; the others publish their terminal answer
-        // alone, so the stage context is the narrator's alone and a concurrent rung never writes into it.
-        val narrates = computation.id == stageComputationId
-        if (narrates) {
-            mainLookupId = lookupId
-            lastStage = null
-        }
-        // The outer `try` exists only to clear the narrator's fields however the lookup ends — **after**
-        // the terminal emit below, which reads `lastStage` as its own `stageDone`.
+        // Every rung narrates its own stages: the row prints the word of the rung it describes, and the
+        // chain is kept per lookup.
+        // The outer `try` exists only to clear this lookup's chain however it ends — **after** the
+        // terminal emit below, which reads it as its own `stageDone`.
         try {
             var rung: Rung? = null
             var verdict: RouteVerdict? = null
             // The build, the search and the fold — and only these — sit inside the catch.
             try {
+                // The rung waits on the arm's one shared grid first, so its row names that wait.
+                publish(lookupId, RouteStage.GRID)
                 val grid = sharedGrid(holder, world, from, to).await()
                 rung = grid?.let {
-                    searchRung(it, computation.lambda, publishStage = narrates, lookupId = lookupId)
+                    searchRung(it, computation.lambda, lookupId = lookupId)
                 }
                 // The fold is one critical step: the rungs land concurrently, so a verdict reported beside
                 // a rival's landing must see that landing whole or not at all.
@@ -424,10 +414,7 @@ class RouteAvoidEngine(
                 verdict
             )
         } finally {
-            if (narrates) {
-                mainLookupId = null
-                lastStage = null
-            }
+            lastStages.remove(lookupId)
         }
     }
 
@@ -501,20 +488,19 @@ class RouteAvoidEngine(
     private suspend fun searchRung(
         grid: GridContext,
         lambda: Double,
-        publishStage: Boolean,
         lookupId: RouteId
     ): Rung? {
-        val first = solveAtLambda(grid, lambda, publishStage, lookupId)
+        val first = solveAtLambda(grid, lambda, lookupId)
         if (first == null) {
             if (grid.regionSaturated) return null
             val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace) ?: return null
-            return solveAtLambda(grown, lambda, publishStage, lookupId)
+            return solveAtLambda(grown, lambda, lookupId)
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
         // the "around" rung's whole job. The wider answer is kept only where it forces fewer crossings.
         if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) return first
         val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace) ?: return first
-        val grownRung = solveAtLambda(grown, lambda, publishStage, lookupId) ?: return first
+        val grownRung = solveAtLambda(grown, lambda, lookupId) ?: return first
         return if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
     }
 
@@ -572,7 +558,6 @@ class RouteAvoidEngine(
     private suspend fun solveAtLambda(
         ctx: GridContext,
         lambda: Double,
-        publishStage: Boolean,
         lookupId: RouteId
     ): Rung? {
         val coarseStartNs = System.nanoTime()
@@ -582,9 +567,9 @@ class RouteAvoidEngine(
             ctx,
             GridWalk(ctx.grid, ctx.startCell, ctx.aimCell, ctx.cellM, ctx.windows),
             lambda,
-            publishStage = publishStage,
+            publishStage = true,
             publish = { stage, points, readings, provisional ->
-                publish(lookupId, publishStage, stage, points, readings, provisional)
+                publish(lookupId, stage, points, readings, provisional)
             },
             trace = seatTrace,
             guardZones = true,
@@ -606,7 +591,7 @@ class RouteAvoidEngine(
         // The fine stage is the refinement along the settled line alone — the crossings and the
         // re-tension — timed as one `fineMs`; it is a boundary of its own (FINE), since the coarse pass
         // closed at SNAP and the word must name the refinement rather than a pull already done.
-        if (publishStage) publish(lookupId, publishStage, RouteStage.FINE)
+        publish(lookupId, RouteStage.FINE)
         val fineStartNs = System.nanoTime()
         val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace)
         val fineMs = msSince(fineStartNs)
@@ -734,43 +719,24 @@ class RouteAvoidEngine(
 
 
     /**
-     * One boundary's emission. The **narrating** lookup publishes its whole stage pair — the stage just
-     * finished, the one about to run, the line and the readings — and only it moves [lastStage], so a
-     * concurrent candidate can never corrupt the main's chain. A **candidate** narrates nothing; only the
-     * provisional pair it can already stand behind travels, riding the same boundary update the main's
-     * does: the SNAP that follows the taut pull, where the pulled line's figures are honest and the row
-     * stops waiting on the fine pass. The stage word stays the main's alone.
+     * One boundary's emission. **Every** lookup publishes its whole stage pair — the stage just finished,
+     * the one about to run, the line, the readings and any provisional pair it can already stand behind —
+     * and moves only its own entry of [lastStages], so a concurrent rung can never corrupt another's chain.
+     * The row prints the word of the rung it describes, and the provisional pair replaces its `--` until
+     * the settled answer lands.
      */
     private fun publish(
         lookupId: RouteId,
-        narrates: Boolean,
         stage: RouteStage?,
         points: List<RoutePoint>? = null,
         readings: List<RouteStepReading> = emptyList(),
         provisional: RouteProvisional? = null
     ) {
-        if (!narrates) {
-            if (stage != RouteStage.SNAP || provisional == null) return
-            _updates.tryEmit(
-                RouteUpdate(
-                    routeId = lookupId,
-                    stageDone = RouteStage.PULL,
-                    nextStage = RouteStage.SNAP,
-                    line = points ?: emptyList(),
-                    result = null,
-                    reason = null,
-                    provisional = provisional
-                )
-            )
-            return
-        }
-        val id = mainLookupId ?: return
         if (stage == null) return
-        val done = lastStage
-        lastStage = stage
+        val done = lastStages.put(lookupId, stage)
         _updates.tryEmit(
             RouteUpdate(
-                routeId = id,
+                routeId = lookupId,
                 stageDone = done,
                 nextStage = stage,
                 line = points ?: emptyList(),
@@ -798,10 +764,11 @@ class RouteAvoidEngine(
         runningBest: RouteRunningBest? = null,
         verdict: RouteVerdict? = null
     ) {
+        val done = lastStages[lookupId]
         _updates.tryEmit(
             RouteUpdate(
                 routeId = lookupId,
-                stageDone = lastStage,
+                stageDone = done,
                 nextStage = null,
                 line = result?.points ?: emptyList(),
                 result = result,
@@ -811,7 +778,7 @@ class RouteAvoidEngine(
             )
         )
         trace {
-            "DONE stage=${lastStage?.name ?: "none"} result=${result != null} reason=${reason?.name ?: "none"}"
+            "DONE stage=${done?.name ?: "none"} result=${result != null} reason=${reason?.name ?: "none"}"
         }
     }
 

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -30,6 +31,7 @@ import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteRankedRung
 import ykws.android.maro.spatial.RouteReason
 import ykws.android.maro.spatial.RouteRunningBest
+import ykws.android.maro.spatial.RouteStage
 import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.RouteVerdict
 import ykws.android.maro.spatial.SpatialOperations
@@ -409,41 +411,97 @@ class RouteAcquisitionTest {
         assertNull("and neither does its distance line", pending.last().value)
     }
 
-    /** The ETA view orders landed pages fastest-first, keeps the ladder's order on a tie, and parks pending last. */
+    private fun timedPlan(seconds: Double) = RoutePlan(
+        start = start,
+        destination = aim,
+        destinationMoved = false,
+        points = listOf(start, aim),
+        legTimesSec = listOf(seconds),
+        distanceM = 1_000.0,
+        durationSec = seconds,
+        computedAtMs = 0L
+    )
+
+    /** Landed rows lead by rank, and every row still computing keeps the ladder's order, provisional or not. */
     @Test
-    fun routePagesByEtaOrdersFastestFirstAndKeepsTheLadderOnTies() {
-        val plan = { seconds: Double ->
-            RoutePlan(
-                start = start,
-                destination = aim,
-                destinationMoved = false,
-                points = listOf(start, aim),
-                legTimesSec = listOf(seconds),
-                distanceM = 1_000.0,
-                durationSec = seconds,
-                computedAtMs = 0L
+    fun routeTargetOrderPutsRanksFirstThenTheLadder() {
+        val around = RoutePage(lookupId = RouteId(1), plan = timedPlan(900.0))
+        val balanced = RoutePage(lookupId = RouteId(2), plan = timedPlan(600.0))
+        val provisional = RoutePage(lookupId = RouteId(3), provisional = RouteProvisional(1_000.0, 400.0))
+        val pending = RoutePage(lookupId = RouteId(4))
+        val pages = listOf(around, balanced, provisional, pending)
+
+        assertEquals(
+            "ranked rows by rank, then the provisional and pending ones in ladder order",
+            listOf(0, 1, 2, 3),
+            routeTargetOrder(pages, mapOf(RouteId(1) to 1, RouteId(2) to 2))
+        )
+        assertEquals(
+            "a better rank leads whatever the time",
+            listOf(1, 0, 2, 3),
+            routeTargetOrder(pages, mapOf(RouteId(1) to 2, RouteId(2) to 1))
+        )
+        assertEquals(
+            "with no rank at all the landed rows go by time, and a provisional pair moves nothing",
+            listOf(1, 0, 2, 3),
+            routeTargetOrder(pages, emptyMap())
+        )
+        val twin = RoutePage(lookupId = RouteId(5))
+        assertEquals(
+            "two pending rows keep the ladder's natural order",
+            listOf(0, 1, 2, 3, 4),
+            routeTargetOrder(pages + twin, mapOf(RouteId(1) to 1, RouteId(2) to 2))
+        )
+    }
+
+    /** A held snapshot orders the pages that still stand and appends the ones it has not seen. */
+    @Test
+    fun routeApplyOrderFollowsTheSnapshotByLookupIdAcrossAFold() {
+        val one = RoutePage(lookupId = RouteId(1))
+        val two = RoutePage(lookupId = RouteId(2))
+        val three = RoutePage(lookupId = RouteId(3))
+        assertEquals("an empty snapshot is the natural order", listOf(0, 1, 2), routeApplyOrder(listOf(one, two, three), emptyList()))
+        assertEquals(
+            "the snapshot's order wins",
+            listOf(2, 0, 1),
+            routeApplyOrder(listOf(one, two, three), listOf(RouteId(3), RouteId(1)))
+        )
+        assertEquals(
+            "a page the fold removed leaves the snapshot without moving the others",
+            listOf(1, 0),
+            routeApplyOrder(listOf(one, three), listOf(RouteId(3), RouteId(2), RouteId(1)))
+        )
+    }
+
+    /** A rung folded into a survivor counts as one: the survivor takes the best rank and the ranks stay dense. */
+    @Test
+    fun routeRankViewCountsAFoldedTwinWithItsSurvivor() {
+        val a = RoutePage(lookupId = RouteId(1))
+        val b = RoutePage(lookupId = RouteId(2))
+        val verdict = RouteVerdict(
+            best = RouteRunningBest(RouteId(3), compared = 3),
+            order = listOf(
+                RouteRankedRung(RouteId(3), 1),
+                RouteRankedRung(RouteId(2), 2),
+                RouteRankedRung(RouteId(1), 3)
             )
-        }
-        val around = RoutePage(lookupId = RouteId(1), plan = plan(900.0))
-        val balanced = RoutePage(lookupId = RouteId(2), plan = plan(600.0))
-        val through = RoutePage(lookupId = RouteId(3), plan = plan(300.0))
-        assertEquals(
-            "landed pages run fastest-first",
-            listOf(through, balanced, around),
-            routePagesByEta(listOf(around, balanced, through))
         )
-        val tie = RoutePage(lookupId = RouteId(4), plan = plan(300.0))
-        assertEquals(
-            "a tie keeps the ladder's natural order",
-            listOf(through, tie, balanced, around),
-            routePagesByEta(listOf(around, balanced, through, tie))
+        val view = routeRankView(listOf(a, b), verdict, folded = mapOf(RouteId(3) to RouteId(1)))
+        assertEquals("the survivor takes its twin's better rank", 1, view.ranks[RouteId(1)])
+        assertEquals("and the next page is 2, never 3", 2, view.ranks[RouteId(2)])
+        assertEquals("the crown follows the swallowed twin to its survivor", RouteId(1), view.crownLookupId)
+
+        val gap = RouteVerdict(
+            best = RouteRunningBest(RouteId(1), compared = 3),
+            order = listOf(
+                RouteRankedRung(RouteId(1), 1),
+                RouteRankedRung(RouteId(3), 2),
+                RouteRankedRung(RouteId(2), 3)
+            )
         )
-        val pending = RoutePage(lookupId = RouteId(5))
-        assertEquals(
-            "a pending page parks last",
-            listOf(through, balanced, around, pending),
-            routePagesByEta(listOf(around, pending, balanced, through))
-        )
+        val dense = routeRankView(listOf(a, b), gap, folded = mapOf(RouteId(3) to RouteId(1)))
+        assertEquals("a twin's rank leaves no gap", mapOf(RouteId(1) to 1, RouteId(2) to 2), dense.ranks)
+        assertEquals("no verdict, no ranks and no crown", RouteRankView(), routeRankView(listOf(a, b), null, emptyMap()))
     }
 
     /**
@@ -735,6 +793,122 @@ class RouteAcquisitionTest {
             viewModel.verdict.value?.best?.lookupId
         )
     }
+
+    private val far = RoutePoint(43.5100, 7.0300)
+
+    /** Lands the three rungs: ids[1] and ids[2] on lines of their own, ids[2] crowned over ids[0] over ids[1]. */
+    private fun landAll(engine: CountingEngine, ids: List<RouteId>, beforeLast: () -> Unit = {}) {
+        engine.publish(ids[0], line(start, aim))
+        engine.publish(ids[1], line(start, far))
+        beforeLast()
+        val verdict = RouteVerdict(
+            best = RouteRunningBest(ids[2], compared = 3),
+            order = listOf(
+                RouteRankedRung(ids[2], 1),
+                RouteRankedRung(ids[0], 2),
+                RouteRankedRung(ids[1], 3)
+            )
+        )
+        engine.publish(ids[2], line(start, shortcut), runningBest = ids[2], verdict = verdict)
+    }
+
+    /** A hand pick holds through the search, then the last landing moves the highlight to the winner and says so. */
+    @Test
+    fun theLastLandingMovesAHandPickedHighlightToTheWinnerAndSaysSo() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+        var toasts = 0
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.seatMovedAtEnd.collect { toasts++ }
+        }
+
+        engine.publish(ids[0], line(start, aim))
+        viewModel.selectPage(0)
+        landAll(engine, ids, beforeLast = {
+            assertEquals(
+                "the hand pick holds while a route is still computing",
+                ids[0],
+                viewModel.pages.value[viewModel.selectedIndex.value].lookupId
+            )
+        })
+
+        assertEquals(
+            "the last landing selects the winner, the top row",
+            ids[2],
+            viewModel.pages.value[viewModel.selectedIndex.value].lookupId
+        )
+        assertEquals("and the toast fires once", 1, toasts)
+    }
+
+    /** An untouched selection already ends on the winner, so there is nothing to announce. */
+    @Test
+    fun anUntouchedSelectionEndsOnTheWinnerWithoutAToast() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+        var toasts = 0
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.seatMovedAtEnd.collect { toasts++ }
+        }
+
+        landAll(engine, ids)
+
+        assertEquals(
+            ids[2],
+            viewModel.pages.value[viewModel.selectedIndex.value].lookupId
+        )
+        assertEquals("no toast when nothing moved a hand pick", 0, toasts)
+    }
+
+    /** A hand pick stays on its route when a fold removes a page above it and shifts the indices. */
+    @Test
+    fun aHandPickStaysOnItsRouteAcrossAFold() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        viewModel.selectPage(2)
+        assertEquals(ids[2], viewModel.pages.value[viewModel.selectedIndex.value].lookupId)
+
+        engine.publish(ids[1], line(start, aim))
+        assertEquals("the twin folded into the first page", 2, viewModel.pages.value.size)
+        assertEquals(
+            "and the pick followed its route to the shifted index",
+            ids[2],
+            viewModel.pages.value[viewModel.selectedIndex.value].lookupId
+        )
+    }
+
+    /** The rows reorder when a route lands, and a stage word or a provisional figure moves none. */
+    @Test
+    fun theOrderMovesOnLandingsOnly() = runTest {
+        val engine = CountingEngine(computations = 3)
+        val viewModel = RouteViewModel(MutableStateFlow(engine))
+        viewModel.arm(RouteEnds(start = start, fallbackStart = null, destination = aim))
+        val ids = viewModel.pages.value.map { it.lookupId!! }
+
+        engine.publish(ids[0], line(start, aim))
+        val afterFirst = viewModel.order.value
+        engine.boundary(ids[2], RouteStage.SNAP, RouteProvisional(1_000.0, 100.0))
+        assertEquals("a provisional pair reorders nothing", afterFirst, viewModel.order.value)
+
+        engine.publish(ids[1], line(start, far))
+        val verdict = RouteVerdict(
+            best = RouteRunningBest(ids[2], compared = 3),
+            order = listOf(
+                RouteRankedRung(ids[2], 1),
+                RouteRankedRung(ids[0], 2),
+                RouteRankedRung(ids[1], 3)
+            )
+        )
+        engine.publish(ids[2], line(start, shortcut), runningBest = ids[2], verdict = verdict)
+        assertEquals("the landings put the winner on top", ids[2], viewModel.order.value.first())
+    }
 }
 
 /**
@@ -761,6 +935,21 @@ private class CountingEngine(private val computations: Int = 1) : RouteEngine {
 
     override fun cancelLookup(id: RouteId) {
         cancelled += id
+    }
+
+    /** A boundary update: the rung enters [stage], optionally carrying a provisional pair. */
+    fun boundary(id: RouteId, stage: RouteStage, provisional: RouteProvisional? = null) {
+        _updates.tryEmit(
+            RouteUpdate(
+                routeId = id,
+                stageDone = null,
+                nextStage = stage,
+                line = emptyList(),
+                result = null,
+                reason = null,
+                provisional = provisional
+            )
+        )
     }
 
     fun publish(
