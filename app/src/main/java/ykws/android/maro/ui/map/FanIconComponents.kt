@@ -225,7 +225,7 @@ fun RouteFanArmIcon(enabled: Boolean) = RouteFanChildIcon(
 fun RouteFanSaveIcon(enabled: Boolean) = RouteFanChildIcon(
     imageVector = save,
     enabled = enabled,
-    contentDescription = R.string.route_action_save_track
+    contentDescription = R.string.cd_route_fan_save
 )
 
 /** Child 3 — **Follow**: the acquisition's own selection door, offered once a line stands unwritten (R77). */
@@ -233,7 +233,7 @@ fun RouteFanSaveIcon(enabled: Boolean) = RouteFanChildIcon(
 fun RouteFanFollowIcon(enabled: Boolean) = RouteFanChildIcon(
     imageVector = navigation,
     enabled = enabled,
-    contentDescription = R.string.route_action_select
+    contentDescription = R.string.cd_route_fan_follow
 )
 
 /**

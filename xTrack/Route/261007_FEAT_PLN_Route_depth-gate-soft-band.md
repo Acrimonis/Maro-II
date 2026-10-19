@@ -136,7 +136,7 @@ the water allows. Two shapes, and choosing between them was this plan's first qu
   depth is handled there by the **wall** and the **margin** alone, and no record in the corpus cancels the ask.
   So this file's subject is ordered work unfulfilled, not only an open discussion — the corpus reads the
   narrowing as *a choice*, and its reversal as *a choice too*
-  ([`261016_FEAT_PLN_Route_selective-retirement.md`](261016_FEAT_PLN_Route_selective-retirement.md:44)).
+  ([`261016_FEAT_PLN_Route_selective-retirement.md`](xxArchive/261016_FEAT_PLN_Route_selective-retirement.md:44)).
 - **Its ten anchors were re-pointed and one was dead** — every file:line this file cited had drifted (nine by
   twelve to a hundred and fifty lines, the deepest being `AppConfig`'s two accessors) and the tenth pointed at
   `RouteFineWater.kt:120` for `DepthBandLaw`, in a file that is now 58 lines and declares only `FineWater`,

@@ -87,3 +87,7 @@ the question of where that lever lives: **promote the three rung λ to `route.la
   (0.0 / 2.5 / 5.0) must still pass unchanged, since the file carries those very values.
 - A sweep for the retired phrasing — `λ loop`, `±20 %`, `bends around`, `follows the corrected λ` — leaving
   only history files under `xxArchive/`.
+
+## Outcome
+
+Shipped 2026-10-14: the ladder's three rung λ became `route.avoid.ladder.around|best|fast.lambda` keys read through `AppConfig` and published by `RoutePreference`, and every comment that still had the aversion dial pricing the search was rewritten onto the shipped model. No line, clock or ranking moved while the keys held their shipped values. The plan's stated limit about the seat thresholds died with the aversion dial's seat mapping (retired by the verdict plan's P3), so it is not carried.

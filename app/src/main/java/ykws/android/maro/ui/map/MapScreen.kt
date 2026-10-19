@@ -1058,8 +1058,8 @@ fun MapScreen(
         importBannerAt = SystemClock.elapsedRealtime()
     }
     // Transient route-acquisition refusal toast: null = hidden.
-    var routeRefusalToast by remember { mutableStateOf<String?>(null) }
-    var routeRefusalToastAt by remember { mutableStateOf(0L) }
+    var routeNoticeToast by remember { mutableStateOf<String?>(null) }
+    var routeNoticeToastAt by remember { mutableStateOf(0L) }
 
     // Transient save toast: the track or route just written, named, hidden after two seconds.
     var trackSavedToast by remember { mutableStateOf<String?>(null) }
@@ -1153,10 +1153,10 @@ fun MapScreen(
             importBanner = null
         }
     }
-    LaunchedEffect(routeRefusalToastAt) {
-        if (routeRefusalToast != null) {
+    LaunchedEffect(routeNoticeToastAt) {
+        if (routeNoticeToast != null) {
             delay(2_000L)
-            routeRefusalToast = null
+            routeNoticeToast = null
         }
     }
     // ── Background location permission dialog state (A2) ─────────────────
@@ -2232,8 +2232,8 @@ fun MapScreen(
              * and again where a matched file falls back to the search below.
              */
             fun refuseShortRoutePair() {
-                routeRefusalToast = context.getString(R.string.route_refusal_too_short)
-                routeRefusalToastAt = SystemClock.elapsedRealtime()
+                routeNoticeToast = context.getString(R.string.route_refusal_too_short)
+                routeNoticeToastAt = SystemClock.elapsedRealtime()
             }
 
 
@@ -2561,7 +2561,12 @@ fun MapScreen(
              * Nothing renames a written track here: a route recomputed or acquired again is a new plan
              * with its own instant and its own name, and it writes its own track.
              */
-            fun saveRouteTrack(plan: RoutePlan, pin: Boolean, name: String? = null) {
+            fun saveRouteTrack(
+                plan: RoutePlan,
+                pin: Boolean,
+                name: String? = null,
+                afterWrite: () -> Unit = {}
+            ) {
                 if (plan.points.size < 2 || routeSaveInFlight) return
                 routeSaveInFlight = true
                 routeSaveScope.launch {
@@ -2571,7 +2576,51 @@ fun MapScreen(
                     } finally {
                         routeSaveInFlight = false
                     }
+                    // Runs only once the write has landed: the write reads the mode's armed ids, so an
+                    // ending queued here cannot clear them before the track is built.
+                    afterWrite()
                 }
+            }
+
+            /** Arms afresh through the one trigger, and says so once the mode really armed. */
+            fun armFreshRoute() {
+                armRouteMode(forceFresh = true)
+                if (routeArmed) {
+                    routeNoticeToast = context.getString(R.string.route_started_toast)
+                    routeNoticeToastAt = SystemClock.elapsedRealtime()
+                }
+            }
+
+            /** **The restart's one act**: the mode ends for real and the same pair is armed afresh. */
+            fun restartRoute() {
+                endRouteMode()
+                armFreshRoute()
+            }
+
+            /**
+             * **The menu Go's own door** — a true restart, from any state. A standing discard window is
+             * settled first (its line is already gone to the user); a write still in flight is waited
+             * out by ignoring the press, since the write reads the mode's armed ids; a pair too short
+             * is refused before anything ends. Only a followed line not yet written asks first, through
+             * the exit dialog under its `RESTART` reason — every other state restarts silently.
+             */
+            fun goRoute() {
+                if (pendingDiscard != null) commitPendingDiscard()
+                if (!routeArmed) {
+                    armFreshRoute()
+                    return
+                }
+                if (routeSaveInFlight) return
+                val ends = routeEndsAtTrigger()
+                if (!routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)) {
+                    refuseShortRoutePair()
+                    return
+                }
+                if (routeState is RouteState.Following && !routeFollowingSaved) {
+                    routeExitReason = RouteExitReason.RESTART
+                    return
+                }
+                restartRoute()
             }
 
             /**
@@ -3255,7 +3304,7 @@ fun MapScreen(
                 showExitBanner = showExitBanner,
                 importBanner = importBanner,
                 trackOpStatus = chrome.trackOpStatus,
-                routeRefusalToast = routeRefusalToast,
+                routeNoticeToast = routeNoticeToast,
                 trackSavedToast = trackSavedToast,
                 rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
@@ -4043,8 +4092,8 @@ fun MapScreen(
                 // The line's own colour, which the drawer's band wears while the engine searches (R51).
                 lineColor = appSettings.routeLineColor,
             ),
-            // The menu's Go button: the same single trigger as the map's square and the fan's child.
-            onArmRoute = { armRouteMode(forceFresh = true) },
+            // The menu's Go button: a restart from any state, ending the standing mode before arming.
+            onArmRoute = { goRoute() },
             markerList = buildMarkerListOverlayData(
                 markers = mgmtMarkers,
                 appSettings = appSettings,
@@ -4317,6 +4366,10 @@ fun MapScreen(
             // the loss-free *Leave* costs nothing — each raises `route_left_toast`.
             onLeaveRoute = { leaveRoute() },
             onDiscardRoute = { discardRoute() },
+            onSaveAndRestartRoute = { plan ->
+                saveRouteTrack(plan, routePinned, afterWrite = { restartRoute() })
+            },
+            onRestartRoute = { restartRoute() },
             // ── Resume confirmation — its retained copy moved with the dialog ──
             resumeTarget = chrome.pendingResume,
             onClearResume = { chrome.pendingResume = null },
@@ -4851,7 +4904,7 @@ private fun MapContent(
     showExitBanner: Boolean,
     importBanner: ImportBannerState? = null,
     trackOpStatus: String? = null,
-    routeRefusalToast: String? = null,
+    routeNoticeToast: String? = null,
     trackSavedToast: String? = null,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
@@ -5424,7 +5477,7 @@ private fun MapContent(
         }
 
         // ── Transient route-acquisition refusal toast ──
-        routeRefusalToast?.let { message ->
+        routeNoticeToast?.let { message ->
             MapStatusBanner(
                 message = message,
                 tagsDrawn = bandTagsDrawn,
