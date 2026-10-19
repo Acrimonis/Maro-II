@@ -239,6 +239,17 @@ object AppConfig {
         private set
 
     /**
+     * The shortest time (ms) between two reorders of the route panel's rows —
+     * `route.panel.orderRefreshMs`, default 1000.
+     *
+     * A row's figures, stage word and rank update the instant they arrive; only the order the rows
+     * stand in waits for this interval, so a landing never moves a row under the reader's finger. The
+     * first change, the last landing and a fold apply at once. `0` reorders on every change.
+     */
+    var routePanelOrderRefreshMs: Long = 1_000L
+        private set
+
+    /**
      * The invalid-end repair's maximum sweep radius (m) — `route.repair.maxRadiusM`, default 200.
      *
      * The one knob of the repair: a point that is land or shallower than the gate is moved by an
@@ -2350,6 +2361,8 @@ object AppConfig {
             // rather than a behaviour the spatial side reads.
             props.getProperty("route.anchor.leadSec")?.toIntOrNull()
                 ?.let { routeAnchorLeadSec = it.coerceIn(0, 60) }
+            props.getProperty("route.panel.orderRefreshMs")?.toLongOrNull()
+                ?.let { routePanelOrderRefreshMs = it.coerceIn(0L, 10_000L) }
             props.getProperty("route.min.acquisition.lengthM")?.toDoubleOrNull()
                 ?.let { routeMinAcquisitionLengthM = it.coerceAtLeast(0.0) }
             props.getProperty("route.repair.maxRadiusM")?.toDoubleOrNull()

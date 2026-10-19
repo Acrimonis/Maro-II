@@ -17,6 +17,8 @@ import ykws.android.maro.data.track.Track
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteProvisional
 import ykws.android.maro.spatial.RouteReason
+import ykws.android.maro.spatial.RouteStage
+import ykws.android.maro.spatial.RouteVerdict
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import ykws.android.maro.ui.components.OptionRow
@@ -65,6 +67,11 @@ data class RoutePage(
      * replaces it, and the terminal update clears it.
      */
     val provisional: RouteProvisional? = null,
+    /**
+     * **The stage this rung is in while it computes** — the word its row prints in the rank's slot,
+     * `null` before its first boundary and from its landing or refusal on.
+     */
+    val stage: RouteStage? = null,
     /** True when this page stands for every collapsed rung — the same line at every preference. */
     val collapsed: Boolean = false,
     /**
@@ -383,29 +390,84 @@ internal fun routeSeatedIndex(hasPlan: List<Boolean>, preferredIndex: Int): Int 
 }
 
 /**
- * **The ETA order of [pages], as the original indices** — landed pages fastest-first, ties keeping the
- * ladder's natural (computation) order, and pages that have not landed last in that same order.
+ * **The ranks the panel prints, counted over the pages that stand** — the engine's verdict read through
+ * the folds. A rung folded into a survivor is not a rung of its own, so each surviving page takes the
+ * best (lowest) engine rank among itself and the lookups folded into it, and the ranks are counted over
+ * the pages present, `1..k`, never `1, 3`. [crownLookupId] is the survivor that holds the engine's crown,
+ * so the check never vanishes with a swallowed twin; whether it is shown is the panel's, at the end.
+ */
+data class RouteRankView(
+    val ranks: Map<RouteId, Int> = emptyMap(),
+    val crownLookupId: RouteId? = null
+)
+
+/**
+ * **The rank view of [pages]** under [verdict] and [folded] (*dropped lookup → the survivor it folded
+ * into*). Pure: it maps ids and renumbers, and re-derives no rule of the ranking.
+ */
+internal fun routeRankView(
+    pages: List<RoutePage>,
+    verdict: RouteVerdict?,
+    folded: Map<RouteId, RouteId>
+): RouteRankView {
+    if (verdict == null) return RouteRankView()
+    val present = pages.mapNotNull { it.lookupId }.toSet()
+    val best = mutableMapOf<RouteId, Int>()
+    for (entry in verdict.order) {
+        val owner = folded[entry.lookupId] ?: entry.lookupId
+        if (owner !in present) continue
+        best[owner] = minOf(best[owner] ?: entry.rank, entry.rank)
+    }
+    val counted = best.entries.sortedBy { it.value }
+        .mapIndexed { index, entry -> entry.key to index + 1 }
+        .toMap()
+    val crownOwner = verdict.best.lookupId.let { folded[it] ?: it }
+    return RouteRankView(counted, crownOwner.takeIf { it in counted })
+}
+
+/**
+ * **The order the panel's rows should stand in, as the original indices** — the landed rows by rank,
+ * then the rows that already hold a provisional pair by their time, then the rest in the ladder's own
+ * (computation) order. With no rank at all (an engine that ranks nothing) the landed rows fall in with
+ * the provisional ones by time, so the order degrades to fastest-first.
  *
  * The order is a pure view over [pages]: nothing reorders the page set itself, so the main — index 0
  * of the canonical list — stays index 0 for the map's pool and the provisional line no matter where
  * the sort puts it in the panel.
  */
-internal fun routeEtaOrder(pages: List<RoutePage>): List<Int> =
-    pages.indices.sortedBy { pages[it].plan?.durationSec ?: Double.POSITIVE_INFINITY }
-
-/** The page set the panel reads — the ETA-ordered view over the unchanged [pages]. */
-internal fun routePagesByEta(pages: List<RoutePage>): List<RoutePage> =
-    routeEtaOrder(pages).map { pages[it] }
+internal fun routeTargetOrder(pages: List<RoutePage>, ranks: Map<RouteId, Int>): List<Int> {
+    fun rankOf(index: Int): Int? = pages[index].lookupId?.let { ranks[it] }
+    fun timeOf(index: Int): Double? = routeRowFigures(pages[index])?.durationSec
+    return pages.indices.sortedWith(
+        compareBy<Int>(
+            { if (rankOf(it) != null) 0 else if (timeOf(it) != null) 1 else 2 },
+            { rankOf(it) ?: Int.MAX_VALUE },
+            { timeOf(it) ?: Double.POSITIVE_INFINITY },
+            { it }
+        )
+    )
+}
 
 /**
- * **The seat, answered as an original page index** — the preferred rung resolved against the
- * ETA-ordered view. While nothing has landed the preference's row stays selected as computing; once
- * any row has landed the seat takes the preference's rung when it is landed, otherwise the nearest
- * landed row in the sorted view. [routeSeatedIndex] keeps its one home: it is handed the sorted
- * view's plan flags and the preferred rung's position in that view.
+ * **The order a held snapshot gives the current [pages], as the original indices** — the snapshot's
+ * lookups that still stand, in its order, then any page it has not seen (a new one) in page order. The
+ * snapshot is kept as lookup ids, never page indices, because a fold removes a page and re-maps the rest;
+ * an empty snapshot is the natural page order.
  */
-internal fun routeEtaSeatedIndex(pages: List<RoutePage>, preferredRungIndex: Int): Int {
-    val order = routeEtaOrder(pages)
+internal fun routeApplyOrder(pages: List<RoutePage>, snapshot: List<RouteId>): List<Int> {
+    val byLookup = pages.indices.filter { pages[it].lookupId != null }.associateBy { pages[it].lookupId }
+    val held = snapshot.mapNotNull { byLookup[it] }
+    return held + pages.indices.filter { it !in held }
+}
+
+/**
+ * **The seat, answered as an original page index** — the preferred rung resolved against the displayed
+ * [order]. While nothing has landed the preference's row stays selected as computing; once any row has
+ * landed the seat takes the preference's rung when it is landed, otherwise the nearest landed row in the
+ * displayed view. [routeSeatedIndex] keeps its one home: it is handed the displayed view's plan flags
+ * and the preferred rung's position in that view.
+ */
+internal fun routeSeatedPageIndex(pages: List<RoutePage>, preferredRungIndex: Int, order: List<Int>): Int {
     val preferred = preferredRungIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     val preferredView = order.indexOf(preferred)
     val seated = routeSeatedIndex(order.map { pages[it].plan != null }, preferredView)

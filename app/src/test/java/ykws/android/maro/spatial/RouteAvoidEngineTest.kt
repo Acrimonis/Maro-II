@@ -771,6 +771,54 @@ class RouteAvoidEngineTest {
         assertTrue("the snap still precedes it", stages.indexOf(RouteStage.SNAP) < stages.indexOf(RouteStage.FINE))
     }
 
+    /**
+     * **Every rung narrates its own stages** — the three lookups run concurrently, and each one's chain is
+     * its own: it opens on the grid wait, every update's `stageDone` is the stage the same lookup entered
+     * before, and the pull boundary carries a first provisional pair beside the cell path.
+     */
+    @Test
+    fun everyRungNarratesItsOwnChainAndTheCellPathCarriesAFirstPair() = runBlocking {
+        val engine = newEngine()
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture's pair declares its rungs", declared)
+
+        val updates = ArrayList<RouteUpdate>()
+        val subscribed = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    synchronized(updates) { updates += update }
+                    if (update.nextStage == null &&
+                        synchronized(updates) { updates.count { it.nextStage == null } } == declared!!.computations.size
+                    ) {
+                        done.complete(Unit)
+                    }
+                }
+        }
+        subscribed.await()
+        val lookups = declared!!.computations.map { engine.startLookup(it.id) }
+        withTimeout(120_000) { done.await() }
+        collector.cancel()
+
+        for (lookup in lookups) {
+            val own = synchronized(updates) { updates.filter { it.routeId == lookup } }
+            assertEquals("a lookup's chain opens on the grid wait", RouteStage.GRID, own.first().nextStage)
+            own.zipWithNext().forEach { (before, after) ->
+                assertEquals(
+                    "each update closes the stage the same lookup entered before",
+                    before.nextStage,
+                    after.stageDone
+                )
+            }
+            assertNotNull(
+                "the pull boundary carries the cell path's pair",
+                own.firstOrNull { it.nextStage == RouteStage.PULL }?.provisional
+            )
+        }
+    }
+
     // ── The plan seam: the engine's own injection point ────────────────────────
 
     /** A plan that behaves exactly like the shipped one and counts how often the engine consults it. */

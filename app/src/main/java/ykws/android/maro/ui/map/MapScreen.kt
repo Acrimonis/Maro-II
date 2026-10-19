@@ -844,21 +844,24 @@ fun MapScreen(
     val routeSessionLinks by routeViewModel.sessionLinks.collectAsState()
     val routeStage by routeViewModel.stage.collectAsState()
     val routeProvisionalLine by routeViewModel.provisionalLine.collectAsState()
-    // **The ladder's running best, by the lookup that owns its row** — the winner the seat follows and
-    // the panel marks, reported at each rung's terminal.
-    val routeRunningBest by routeViewModel.runningBest.collectAsState()
-    // **The settled set's verdict** — the crown beside every landed rung's rank, the engine's own fold
-    // reported beside the running best, so the panel marks the crown and ranks the rows without
-    // re-deriving the rule (2026-10-15).
-    val routeVerdict by routeViewModel.verdict.collectAsState()
+    // **The ranks and the crown the panel prints** — the engine's own fold read through the folds and
+    // counted over the pages that stand, live from the first landing, so the panel ranks the rows and
+    // marks the crown without re-deriving the rule.
+    val routeRankView by routeViewModel.rankView.collectAsState()
+    // **The order the rows stand in** — a snapshot of lookup ids the view model refreshes through its
+    // gate, so the figures stay live while a landing never moves a row under the finger.
+    val routeOrder by routeViewModel.order.collectAsState()
     // **The pages the acquisition draws and the selection walks** — one per started lookup, the main
     // first (index 0) — and the one the selection stands on, both in computation order, so the map's
     // pool and the provisional line stay tied to the main (R54, R64).
     val routePages by routeViewModel.pages.collectAsState()
     val routeSelectedIndex by routeViewModel.selectedIndex.collectAsState()
-    // **The panel's ETA-ordered view** — the same pages, landed fastest-first — while the map keeps
-    // drawing the computation order above. It is a view: nothing below reorders `routePages`.
-    val routeSortedPages = remember(routePages) { routePagesByEta(routePages) }
+    // **The panel's ordered view** — the same pages, in the held order (ranked rows by rank, then the
+    // provisional ones by time) — while the map keeps drawing the computation order above. It is a view:
+    // nothing below reorders `routePages`.
+    val routeSortedPages = remember(routePages, routeOrder) {
+        routeApplyOrder(routePages, routeOrder).map { routePages[it] }
+    }
     // **Is a search running?** — read once, because the toggle's dot, the panel's status word and the
     // drawer's summary all branch on it.
     val routeSearching = (routeState as? RouteState.Choosing)?.searching == true
@@ -866,7 +869,7 @@ fun MapScreen(
     // save writes (R54, R55): read from the same list the drawing reads, so the two cannot disagree.
     val routeSelectedPage = selectedPageOrNull(routePages, routeSelectedIndex)
     val routeSelectedLine = routeSelectedPage?.plan
-    // The panel's own selected index: the selected page's position in the ETA-ordered view.
+    // The panel's own selected index: the selected page's position in the ordered view.
     val routeSortedSelectedIndex = routeSelectedPage?.let { routeSortedPages.indexOf(it).coerceAtLeast(0) } ?: 0
     // **Is the selected line already written?** — the one fact the save actions grey themselves on; an
     // early save still growing its draft counts as written too, and the link is read through its one
@@ -3402,7 +3405,6 @@ fun MapScreen(
                 if (routeOwnsSlot) {
                     RouteConfirmationPanel(
                         state = routeState,
-                        stage = routeStage,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3411,8 +3413,8 @@ fun MapScreen(
                         isLandscape = true,
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
-                        runningBestLookupId = routeRunningBest,
-                        verdict = routeVerdict,
+                        paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },
                         onSelectRoute = { followRoute() },
@@ -3450,7 +3452,6 @@ fun MapScreen(
                 if (routeOwnsSlot) {
                     RouteConfirmationPanel(
                         state = routeState,
-                        stage = routeStage,
                         pages = routeSortedPages,
                         selectedIndex = routeSortedSelectedIndex,
                         frontSaved = routeFrontSaved,
@@ -3459,8 +3460,8 @@ fun MapScreen(
                         isLandscape = false,
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
-                        runningBestLookupId = routeRunningBest,
-                        verdict = routeVerdict,
+                        paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onMeasuredHeight = { dashboardBand.measuredRoute = it; dashboardBand.lastShown = it },
                         panelMaxHeight = bandCeiling,
