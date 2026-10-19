@@ -857,7 +857,7 @@ fun MapScreen(
     val routePages by routeViewModel.pages.collectAsState()
     val routeSelectedIndex by routeViewModel.selectedIndex.collectAsState()
     // **The panel's ordered view** — the same pages, in the held order (ranked rows by rank, then the
-    // provisional ones by time) — while the map keeps drawing the computation order above. It is a view:
+    // rest in ladder order; rewritten when a route lands, is refused or is merged away) — while the map keeps drawing the computation order above. It is a view:
     // nothing below reorders `routePages`.
     val routeSortedPages = remember(routePages, routeOrder) {
         routeApplyOrder(routePages, routeOrder).map { routePages[it] }
@@ -1160,6 +1160,13 @@ fun MapScreen(
         if (routeNoticeToast != null) {
             delay(2_000L)
             routeNoticeToast = null
+        }
+    }
+    // The last route landing moved a hand-picked highlight onto the winner: say so on the map banner.
+    LaunchedEffect(routeViewModel) {
+        routeViewModel.seatMovedAtEnd.collect {
+            routeNoticeToast = context.getString(R.string.route_best_selected_toast)
+            routeNoticeToastAt = SystemClock.elapsedRealtime()
         }
     }
     // ── Background location permission dialog state (A2) ─────────────────

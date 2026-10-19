@@ -740,6 +740,8 @@
     <string name="snack_marker_deleted">Marker \"%1$s\" deleted</string>
     <string name="snack_marker_created">Marker \"%1$s\" created</string>
     <string name="route_started_toast">New route search started</string>
+    <!-- Shown when the last route lands and the highlight leaves a hand-picked route for the winner. -->
+    <string name="route_best_selected_toast">Search done — best route selected</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>

@@ -427,9 +427,9 @@ internal fun routeRankView(
 
 /**
  * **The order the panel's rows should stand in, as the original indices** — the landed rows by rank,
- * then the rows that already hold a provisional pair by their time, then the rest in the ladder's own
- * (computation) order. With no rank at all (an engine that ranks nothing) the landed rows fall in with
- * the provisional ones by time, so the order degrades to fastest-first.
+ * then the rest in the ladder's own (computation) order. With no rank at all (an engine that ranks
+ * nothing) the landed rows go by time, fastest-first, ahead of the rest. A provisional figure moves no
+ * row: the order is rewritten only when a route lands, is refused or is merged away.
  *
  * The order is a pure view over [pages]: nothing reorders the page set itself, so the main — index 0
  * of the canonical list — stays index 0 for the map's pool and the provisional line no matter where
@@ -437,7 +437,7 @@ internal fun routeRankView(
  */
 internal fun routeTargetOrder(pages: List<RoutePage>, ranks: Map<RouteId, Int>): List<Int> {
     fun rankOf(index: Int): Int? = pages[index].lookupId?.let { ranks[it] }
-    fun timeOf(index: Int): Double? = routeRowFigures(pages[index])?.durationSec
+    fun timeOf(index: Int): Double? = pages[index].plan?.durationSec
     return pages.indices.sortedWith(
         compareBy<Int>(
             { if (rankOf(it) != null) 0 else if (timeOf(it) != null) 1 else 2 },

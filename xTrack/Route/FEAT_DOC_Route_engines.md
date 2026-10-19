@@ -57,9 +57,11 @@ One arming declares **three rungs**, each a full solve at its own fixed λ over 
 `best` and `fast` — the three stops of [`RoutePreference`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePreference.kt),
 which maps a stop's index and its word onto the λ its rung is solved at. **The three values are keys of their
 own** — `route.avoid.ladder.around|best|fast.lambda` in `maro.properties`, read through `AppConfig` — because
-they are the ladder's one lever and the file is where every value lives. The first rung is the **main** and the
-only one that narrates the stage line; every other rung publishes its terminal update alone, plus the
-provisional pair it can already stand behind. There is **no budget loop**: a rung is computed at its own λ and
+they are the ladder's one lever and the file is where every value lives. The first rung is the **main** and
+alone drives the map's provisional line, but **every rung narrates its own stage chain** — opening on the wait
+for the shared grid (`GRID`), one entry per lookup so the concurrent rungs never share a cursor — so each row
+prints its own stage word, and every rung publishes a provisional pair at the SEARCH→PULL boundary (the cell
+path's length and clock) and again at SNAP (the pulled line's). There is **no budget loop**: a rung is computed at its own λ and
 never corrected, so the λ decide which line each rung drew and the crown is decided apart, by the verdict's
 own weight below.
 
@@ -70,8 +72,8 @@ under the **verdict's own weight** — the user's stop on the dial
 the crown is one sum, `trip time + weight × slow-water seconds`, the lowest winning, its *Ignore time* stop
 weighing the slow seconds alone and a tie tolerance (`route.avoid.ladder.tieToleranceSec`) guarding the flip.
 The λ name which line each rung drew, never which rung leads. The result travels as `RouteRunningBest` on the
-terminal update: a **running best**, not a verdict, so a surface reads *so far, the winner is…* until the last
-rung lands.
+terminal update, with the verdict beside it: the running best until the last rung lands, so the ranks read live
+over the rungs landed so far and the crown is final only with the last.
 
 ## The pipeline
 

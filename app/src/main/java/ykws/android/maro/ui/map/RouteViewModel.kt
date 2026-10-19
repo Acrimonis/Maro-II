@@ -5,11 +5,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -380,24 +381,24 @@ class RouteViewModel(
             .stateIn(viewModelScope, SharingStarted.Eagerly, RouteRankView())
 
     /**
-     * **The order the panel's rows stand in**, as lookup ids — a snapshot, refreshed through
-     * [orderGate] so a landing never moves a row under the reader's finger while the figures stay live.
-     * Ids and not page indices, because a fold removes a page and re-maps the rest.
+     * **The order the panel's rows stand in**, as lookup ids — a snapshot rewritten only when a route
+     * lands, is refused or is merged away, so the figures stay live while a row moves at most three
+     * times. Ids and not page indices, because a fold removes a page and re-maps the rest.
      */
     private val _order = MutableStateFlow<List<RouteId>>(emptyList())
     val order: StateFlow<List<RouteId>> = _order.asStateFlow()
 
-    private val orderGate = RouteOrderGate(AppConfig.routePanelOrderRefreshMs)
-
-    /** The refresh waiting for the gate's interval to end, if one is. */
-    private var orderJob: Job? = null
-
     /**
-     * **Whether the user has taken the seat over** — a hand selection (a row tap, a swipe) freezes it
-     * for good, so no later landing can move a highlight the reader has placed. Reset by [arm] and
-     * [end] alone.
+     * **Whether the user has taken the seat over** — a hand selection (a row tap, a swipe) holds the
+     * highlight on that route while the search runs, however the rows reorder. The last landing ends the
+     * hold ([settleSeat]), moving the highlight to the winner. Reset by [arm] and [end].
      */
     private var seatFrozen = false
+
+    private val _seatMovedAtEnd = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Emits once when the last landing moved a hand-picked highlight onto the winner — the panel's toast. */
+    val seatMovedAtEnd: SharedFlow<Unit> = _seatMovedAtEnd.asSharedFlow()
 
     /** The main lookup's current stage — the menu drawer's search word; each row carries its own on its page. */
     private val _stage = MutableStateFlow<RouteStage?>(null)
@@ -461,39 +462,20 @@ class RouteViewModel(
                 .flatMapLatest { it.updates }
                 .collect { onUpdate(it) }
         }
-        // The panel's row order follows the pages, the verdict and the folds through the gate.
+        // The panel's row order moves only when a route lands, is refused or is merged away: the key below
+        // is the pages' identities and whether each is settled, with the verdict and the folds, so a stage
+        // word or a provisional figure (which change the pages but not the key) moves no row.
         viewModelScope.launch {
-            combine(_pages, _verdict, _folded) { _, _, _ -> }.collect { onOrderInputs() }
-        }
-    }
-
-    /**
-     * **One change to what decides the order** — the pages, the verdict or the folds. The order applies
-     * at once when the set has settled or the pages that stand are not the snapshot's (the arm, a fold),
-     * and otherwise waits for the gate's interval to end, one refresh pending at a time.
-     */
-    private fun onOrderInputs() {
-        val pages = _pages.value
-        val settled = pages.none { it.plan == null && it.reason == null }
-        val standing = pages.mapNotNull { it.lookupId }.toSet()
-        val force = settled || standing != _order.value.toSet()
-        val waitMs = orderGate.waitMs(System.currentTimeMillis(), force)
-        if (waitMs == 0L) {
-            orderJob?.cancel()
-            orderJob = null
-            applyOrder()
-        } else if (orderJob == null) {
-            orderJob = viewModelScope.launch {
-                delay(waitMs)
-                orderJob = null
-                applyOrder()
+            combine(_pages, _verdict, _folded) { pages, verdict, folded ->
+                Triple(pages.map { it.lookupId to (it.plan != null || it.reason != null) }, verdict, folded)
             }
+                .distinctUntilChanged()
+                .collect { applyOrder() }
         }
     }
 
     /** Writes the order the rows should now stand in, from the pages and the rank view as they are. */
     private fun applyOrder() {
-        orderGate.applied(System.currentTimeMillis())
         val pages = _pages.value
         val view = routeRankView(pages, _verdict.value, _folded.value)
         _order.value = routeTargetOrder(pages, view.ranks).mapNotNull { pages[it].lookupId }
@@ -501,9 +483,6 @@ class RouteViewModel(
 
     /** Forgets the order and the fold table with the session they belonged to. */
     private fun resetOrder() {
-        orderJob?.cancel()
-        orderJob = null
-        orderGate.reset()
         _order.value = emptyList()
         _folded.value = emptyMap()
     }
@@ -511,6 +490,23 @@ class RouteViewModel(
     /** The page indices in the order the panel shows them — the held snapshot over the current pages. */
     private fun displayOrder(pages: List<RoutePage> = _pages.value): List<Int> =
         routeApplyOrder(pages, _order.value)
+
+    /**
+     * **The last landing's selection** — once every page has landed or been refused, the highlight goes
+     * to the winner, the top row, at the very moment the crown's check appears; a hand pick held through
+     * the search ends there, and [seatMovedAtEnd] fires only when that moved a hand-picked highlight. A
+     * committed early select stands untouched, and so does a set that crowned nothing.
+     */
+    private fun settleSeat(pages: List<RoutePage>) {
+        val choosing = _state.value as? RouteState.Choosing ?: return
+        if (choosing.committed || pages.any { it.plan == null && it.reason == null }) return
+        val crown = routeRankView(pages, _verdict.value, _folded.value).crownLookupId ?: return
+        val target = lookupPages[crown]?.takeIf { it in pages.indices && pages[it].plan != null } ?: return
+        val moved = seatFrozen && _selectedIndex.value != target
+        _selectedIndex.value = target
+        seatFrozen = false
+        if (moved) _seatMovedAtEnd.tryEmit(Unit)
+    }
 
     /**
      * **Arms the mode on the drawer's standing pair** — the machine's Idle → Choosing edge, and its only
@@ -634,8 +630,18 @@ class RouteViewModel(
                 }.coerceIn(0, (newPages.size - 1).coerceAtLeast(0))
                 // The winner the collapsed rung carried may name the page that just went: seatTo reads
                 // the survivor through the re-mapped lookup table, so the seat never lands on a fold.
-                if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
+                if (!seatFrozen) {
+                    _selectedIndex.value = seatTo(newPages)
+                } else {
+                    // A hand pick stays on its route when the removed page shifts the indices: re-found
+                    // by lookup id, and carried to the survivor when the pick itself was the folded twin.
+                    val picked = current.getOrNull(_selectedIndex.value)?.lookupId
+                    val pickedNow = if (picked == update.routeId) survivorLookup else picked
+                    val pickedIndex = newPages.indexOfFirst { it.lookupId == pickedNow }
+                    if (pickedIndex >= 0) _selectedIndex.value = pickedIndex
+                }
                 syncChoosing(newPages)
+                settleSeat(newPages)
                 return
             }
             if (!session.containsKey(plan)) putSession(plan, null)
@@ -658,6 +664,7 @@ class RouteViewModel(
             // main's slot — and never after a hand touch, which freezes it for good.
             if (!seatFrozen) _selectedIndex.value = seatTo(newPages)
             syncChoosing(newPages)
+            settleSeat(newPages)
             // Early select: once the committed main line lands, the mode follows it. A refusal
             // instead un-commits, leaving the acquisition standing on the reason.
             if (index == MAIN_INDEX && update.nextStage == null) {
@@ -703,6 +710,7 @@ class RouteViewModel(
             _selectedIndex.value = seatTo(newPages)
         }
         syncChoosing(newPages)
+        if (update.reason != null) settleSeat(newPages)
         // A committed main answered with a refusal un-commits instead of following (same rule as a landing).
         if (index == MAIN_INDEX && update.nextStage == null) {
             val choosing = _state.value as? RouteState.Choosing ?: return
