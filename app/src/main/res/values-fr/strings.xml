@@ -237,9 +237,9 @@
     <string name="sort_group_custom">Personnalisé</string>
     <string name="track_history_title_fmt">Historique des traces · %1$d</string>
     <string name="track_history_section">TRACES ENREGISTRÉES</string>
-    <string name="route_history_title_fmt">Historique des itinéraires · %1$d</string>
+    <string name="route_history_title_fmt">Historique des routes · %1$d</string>
     <string name="route_history_section">ITINÉRAIRES ENREGISTRÉS</string>
-    <string name="route_history_empty">Aucun itinéraire enregistré</string>
+    <string name="route_history_empty">Aucune route enregistrée</string>
     <string name="marker_list_title_fmt">Repères · %1$d</string>
     <string name="marker_list_section">VOS REPÈRES</string>
     <string name="track_point_count_fmt">%1$d pts</string>
@@ -332,7 +332,7 @@
 
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Traces</string>
-    <string name="menu_manage_routes">Itinéraires</string>
+    <string name="menu_manage_routes">Routes</string>
     <string name="menu_render_arrows">Flèches</string>
     <string name="menu_render_colours">Couleurs de vitesse</string>
     <string name="menu_manage_markers">Repères</string>
@@ -358,7 +358,7 @@
     <string name="resume_confirm_backup">Sauvegarder ce trajet avant de reprendre</string>
     <string name="track_backup_suffix">(sauvegarde)</string>
     <string name="cd_resume_recording">Reprendre l\'enregistrement</string>
-    <string name="cd_follow_route">Suivre l\'itinéraire</string>
+    <string name="cd_follow_route">Suivre la route</string>
     <string name="marker_color_title">Couleur du repère</string>
     <string name="marker_icon_title">Icône du repère</string>
     <string name="marker_icon_none">Aucune (✕)</string>
@@ -400,8 +400,8 @@
     <string name="settings_reg_info_desc">Afficher le texte d\'info à côté des icônes</string>
     <string name="settings_reg_info_visible">Texte d\'info visible</string>
     <string name="settings_section_tracks">Traces</string>
-    <string name="settings_section_tracks_and_routes">Traces et itinéraires</string>
-    <string name="settings_tracks_and_routes_desc">Traces et itinéraires enregistrés sur la carte</string>
+    <string name="settings_section_tracks_and_routes">Traces et routes</string>
+    <string name="settings_tracks_and_routes_desc">Traces et routes enregistrées sur la carte</string>
     <string name="settings_tracks_transfer_desc">Exporter les traces enregistrées, ou importer des traces depuis un fichier</string>
     <string name="settings_markers_transfer_desc">Exporter tous les repères, ou importer des repères depuis un fichier</string>
     <string name="settings_tracks_direction_settings_label">Réglages des flèches de vitesse</string>
@@ -418,8 +418,8 @@
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-30). Les épinglées s\'affichent toujours.</string>
     <string name="settings_track_appearance_desc">Comment les traces enregistrées sont dessinées sur la carte</string>
-    <string name="settings_routes_count_label">Itinéraires non épinglés à afficher</string>
-    <string name="settings_routes_count_desc">Ce nombre limite uniquement les itinéraires non épinglés (0-30). Les épinglés s\'affichent toujours.</string>
+    <string name="settings_routes_count_label">Routes non épinglées à afficher</string>
+    <string name="settings_routes_count_desc">Ce nombre limite uniquement les routes non épinglées (0-30). Les épinglées s\'affichent toujours.</string>
     <string name="settings_count_all">Tous</string>
     <string name="settings_transparency_label">Transparence des traces non épinglées</string>
     <string name="settings_transparency_desc" formatted="false">Dégradé sur les traces non épinglées, du plus récent au plus ancien. 0% = opaque, 100% = invisible.</string>
@@ -428,13 +428,13 @@
     <string name="settings_transparency_border_fill_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_pinned_transparency_label">Transparence des traces épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant de la plage non épinglée. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_route_transparency_label">Transparence des itinéraires non épinglés</string>
-    <string name="settings_route_transparency_desc" formatted="false">Dégradé sur les itinéraires non épinglés, du plus récent au plus ancien. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_pinned_route_transparency_label">Transparence des itinéraires épinglés</string>
-    <string name="settings_pinned_route_transparency_desc" formatted="false">Dégradé sur les itinéraires épinglés uniquement, indépendant de la plage non épinglée. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_route_transparency_label">Transparence des routes non épinglées</string>
+    <string name="settings_route_transparency_desc" formatted="false">Dégradé sur les routes non épinglées, de la plus récente à la plus ancienne. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_route_transparency_label">Transparence des routes épinglées</string>
+    <string name="settings_pinned_route_transparency_desc" formatted="false">Dégradé sur les routes épinglées uniquement, indépendant de la plage non épinglée. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
     <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Traces passées : dégradé du plus récent (De) au plus ancien (Vers). Traces épinglées : leur propre dégradé.</string>
-    <string name="settings_routes_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Itinéraires : dégradé du plus récent (De) au plus ancien (Vers). Itinéraires épinglés : leur propre dégradé.</string>
+    <string name="settings_routes_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Routes : dégradé de la plus récente (De) à la plus ancienne (Vers). Routes épinglées : leur propre dégradé.</string>
     <string name="settings_section_markers">Repères</string>
     <string name="settings_markers_desc">Configurer le rendu des repères et la création des repères automatiques d\'arrêt</string>
     <string name="settings_marker_idle_threshold_label">Seuil d\'arrêt</string>
@@ -474,8 +474,8 @@
     <string name="cd_view_tracks">Voir la liste des traces</string>
     <string name="cd_manage_markers">Gérer les repères</string>
     <string name="cd_open_first_track">Ouvrir la première trace</string>
-    <string name="cd_open_first_route">Ouvrir le premier itinéraire</string>
-    <string name="cd_toggle_routes_map">Afficher ou masquer les itinéraires sur la carte</string>
+    <string name="cd_open_first_route">Ouvrir la première route</string>
+    <string name="cd_toggle_routes_map">Afficher ou masquer les routes sur la carte</string>
     <string name="cd_toggle_tracks_map">Afficher ou masquer les traces sur la carte</string>
     <string name="cd_open_first_marker">Ouvrir le premier repère</string>
     <string name="cd_create_marker">Créer un repère</string>
@@ -548,12 +548,12 @@
     <string name="wizard_field_name">Nom</string>
     <string name="wizard_field_description">Description</string>
     <string name="wizard_routing_cost_title">Coût de routage</string>
-    <string name="wizard_routing_cost_description">Coût d\'un itinéraire vers ce repère</string>
+    <string name="wizard_routing_cost_description">Coût d\'une route vers ce repère</string>
     <string name="wizard_routing_cost_unset">Désactivé</string>
     <string name="wizard_routing_cost_blocked">Mur</string>
     <string name="wizard_routing_cost_top">Maxi</string>
     <string name="wizard_routing_cost_only">Uniquement</string>
-    <string name="wizard_route_role_title">Rôle d\'itinéraire</string>
+    <string name="wizard_route_role_title">Rôle de route</string>
     <string name="wizard_route_role_description">Le repère peut servir d\'origine ou de destination</string>
     <string name="wizard_route_role_origin">Origine</string>
     <string name="wizard_route_role_destination">Dest</string>
@@ -603,11 +603,11 @@
     <string name="settings_color_past_tracks">Traces passées</string>
     <string name="settings_color_pinned_tracks">Traces épinglées</string>
     <string name="settings_color_active_route">Route active</string>
-    <string name="settings_color_routes">Itinéraires</string>
-    <string name="settings_color_pinned_routes">Itinéraires épinglés</string>
-    <string name="settings_routes_appearance_label">Rendu des itinéraires</string>
-    <string name="settings_routes_appearance_desc">Comment les itinéraires enregistrés sont dessinés sur la carte</string>
-    <string name="settings_routes_speed_display_desc">Couleurs de vitesse et flèches de direction sur les itinéraires, chaque case ne régissant que les itinéraires.</string>
+    <string name="settings_color_routes">Routes</string>
+    <string name="settings_color_pinned_routes">Routes épinglées</string>
+    <string name="settings_routes_appearance_label">Rendu des routes</string>
+    <string name="settings_routes_appearance_desc">Comment les routes enregistrées sont dessinées sur la carte</string>
+    <string name="settings_routes_speed_display_desc">Couleurs de vitesse et flèches de direction sur les routes, chaque case ne régissant que les routes.</string>
     <string name="settings_section_appearance">Apparence</string>
     <string name="settings_section_routing_tuning">Réglages</string>
     <!-- R42 : une couleur illisible dans maro.properties retombe sur sa voisine, et l\'app le dit au démarrage. -->
@@ -636,11 +636,13 @@
          donc le fan n\'ajoute pas une seconde copie de ces mots. -->
     <string name="cd_route_fan">Actions de route</string>
     <string name="cd_route_fan_auto">Route automatique</string>
+    <string name="cd_route_fan_save">Enregistrer la route</string>
+    <string name="cd_route_fan_follow">Suivre la route</string>
     <!-- Le titre et le commentaire de l'acquisition : le nom de la phase, puis une ligne disant d'où
          vient la réponse. Les extrémités sont choisies dans la section Route du tiroir, donc rien
          n'est placé sur la carte. -->
-    <string name="route_acq_title">Acquisition d\'itinéraire</string>
-    <string name="route_acq_comment">L\'itinéraire suit les extrémités choisies dans la section route</string>
+    <string name="route_acq_title">Recherche de route</string>
+    <string name="route_acq_comment">La route suit les extrémités choisies dans la section route</string>
     <!-- La section Route du tiroir : les entrées fixes de ses deux sélecteurs et l'action qui arme
          l'acquisition sur la paire en place. Le nom propre à chaque repère est une donnée, pas un libellé.
          Son en-tête est `route_comment_ends`, donc aucun titre « Route » nu ne s'y tient. -->
@@ -658,9 +660,9 @@
     <!-- L\'habit des entrées fixes : le nom d\'un repère est une donnée et ne peut pas le porter, et
          c\'est ce qui distingue les deux sortes d\'entrée dans le sélecteur (§2.12). -->
     <string name="route_end_fixed_fmt">-- %1$s --</string>
-    <string name="route_action_arm">Route</string>
+    <string name="route_action_arm">Recherche de route</string>
     <!-- R68 : la ligne d'état du résumé, au-dessus de ses lignes, quand un candidat fait gagner du temps. -->
-    <string name="route_alternative_status">Un itinéraire plus rapide économise %1$s</string>
+    <string name="route_alternative_status">Une route plus rapide économise %1$s</string>
     <!-- Les itinéraires candidats proposés à côté de l'itinéraire retenu (R53, R54, R62) : le titre du
          bloc, une ligne par alternative — son numéro, sa durée et ce qu'elle économise, en temps et en
          part de l'horloge du trajet retenu — et la paire qui fait défiler la sélection. -->
@@ -687,19 +689,19 @@
          NO_PATH et OFF_WATER sur le flux de mises à jour. -->
     <string name="route_reason_cannot_repair">Aucune eau valide à proximité de ce point</string>
     <string name="route_reason_world_not_ready">Les données d\'eau se chargent encore</string>
-    <string name="route_reason_no_path">Aucun itinéraire trouvé</string>
+    <string name="route_reason_no_path">Aucune route trouvée</string>
     <string name="route_reason_off_water">Hors de la zone d\'eau couverte</string>
     <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
-    <string name="route_following_active">Routage actif</string>
+    <string name="route_following_active">Route active</string>
     <!-- Le statut avec l'étape que le moteur publie pendant une recherche — « Trait #2 », le mot de
          l'étape puis le numéro de la route sélectionnée (R15, réécrit le 2026-10-08). Les mots de l'étape
          sont l'ensemble fermé ci-dessous. -->
-    <string name="route_status_acquiring">Acquisition…</string>
+    <string name="route_status_acquiring">Recherche…</string>
     <!-- Le mot d\'acquisition propre à la bande : celui du dessus porte une ellipse que la bande n\'utilise pas. -->
-    <string name="route_status_acquiring_bare">Acquisition</string>
+    <string name="route_status_acquiring_bare">Recherche</string>
     <string name="route_status_stage_number">%1$s #%2$d</string>
-    <string name="route_status_active">En route</string>
-    <string name="route_status_selected">Sélectionné — itinéraire en cours de finalisation…</string>
+    <string name="route_status_active">Route active</string>
+    <string name="route_status_selected">Sélectionnée — route en cours de finalisation…</string>
     <!-- Le statut posé une fois la recherche arrêtée : les pages en place et la vitesse de croisière
          qu\'elles planifient, au pluriel au-delà d\'une ; `settings_route_pace_value_fmt` rend le pas. -->
     <string name="route_status_done_one">1 route @ %1$s</string>
@@ -723,6 +725,9 @@
          du panneau d'acquisition est son propre `route_acq_discard` tant que sa ligne n'est pas écrite, et
          le `route_exit_leave` de ce dialogue une fois qu'elle l'est — un coût, un mot. -->
     <string name="route_exit_title">Quitter la route ?</string>
+    <string name="route_restart_title">Relancer la route ? La ligne suivie n\'est pas enregistrée.</string>
+    <string name="route_restart_save">Enregistrer et relancer</string>
+    <string name="route_restart_stay">Continuer le suivi</string>
     <string name="route_exit_save">Enregistrer et quitter</string>
     <string name="route_exit_continue">Continuer</string>
     <string name="route_exit_discard">Abandonner la route</string>
@@ -735,10 +740,11 @@
          honnêtement, et la sortie sans perte — la porte écrite du panneau, le `Quitter` de ce dialogue et
          sa porte d'enregistrement — chacune offrant Annuler (`action_undo`) et Nouvelle acquisition, qui
          réarme les mêmes extrémités. -->
-    <string name="route_discard_acq_toast">Itinéraire abandonnée</string>
-    <string name="route_discard_followed_toast">Itinéraire abandonné</string>
+    <string name="route_discard_acq_toast">Route abandonnée</string>
+    <string name="route_discard_followed_toast">Route abandonnée</string>
     <string name="route_left_toast">Route quittée</string>
-    <string name="route_action_new">Nouvelle...</string>
+    <string name="route_action_new">Nouvelle recherche</string>
+    <string name="route_started_toast">Nouvelle recherche de route lancée</string>
     <string name="route_refusal_too_short">Départ et destination trop proches pour tracer une route</string>
     <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>

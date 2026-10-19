@@ -4,7 +4,7 @@
 > **Purpose:** the Route feature's decisions of record — choices still in force that no rule in
 > [`FEAT_DSC_Route.md`](FEAT_DSC_Route.md) states and no state doc already homes.
 > **Scope:** whether and how the app draws a route from the boat to a destination.
-> **Last updated:** 2026-10-16
+> **Last updated:** 2026-10-19
 > **Promoted by:** the `#archive` sweep of 2026-10-09 that retired the twenty-one 2026-10-03 → 10-06 plans, and the sweep of 2026-10-14 that retired the five landed plans of 2026-10-07 → 10-13.
 
 ---
@@ -51,4 +51,11 @@
 - **Supersedes:** the 2026-10-07 decision that created the engine, whose own words narrowed point 1's scope onto it while keeping `avoid` as the shipped default and `evolutive` as the reference. The engine's going reverses that scoping rather than extending it, and nothing in the code ever forbade the flag on the other engines: `withDepthBand` was a door every `costField` took.
 - **Left standing:** the shared wall and margin, the marker price with its `MARKER` arm, the fine-cell-over-coarse-copy rule, and the tile store's versioned codec — a tile written by the retired engine reads as a **miss**, never a wrong tile, and its halo was already zero for the adaptive plan.
 - **Still open:** whether a soft depth preference returns on `evolutive` ([`261007_FEAT_PLN_Route_depth-gate-soft-band.md`](261007_FEAT_PLN_Route_depth-gate-soft-band.md) now holds that question), and the health notes the retirement left behind — two code prose lines still describing the collar, and `FineTile.extract`'s production-dead `haloCells`.
-- **Recorded in:** [`261016_FEAT_PLN_Route_selective-retirement.md`](261016_FEAT_PLN_Route_selective-retirement.md)
+- **Recorded in:** [`261016_FEAT_PLN_Route_selective-retirement.md`](xxArchive/261016_FEAT_PLN_Route_selective-retirement.md)
+
+## 7. The pace-free design is recorded, not ordered
+
+- **Decision:** the `Any` stop on the cruising-speed scale ships as the absence of a preference, the search then planning at the boat's own pace; the broader pace-free design — a search that needs no speed at all — is **recorded and not ordered**. Four pieces stand open: the **proposals unranked** (three rows stating distance, added distance and priced water crossed, no rank and no crown), the **cost unit** (effective metres with a per-limit penalty table, or seconds at the limit in force — a re-unit of every price law), the **calibration table** (how dear a 5 kn ring is against a marker, a shipped table whose numbers are the user's) and the **corner radius's own replacement** (drawn from the limit in force at the bend, with one fixed maximum in open water).
+- **Rationale:** the user's word of 2026-10-17 — *there is no need to rank it anymore, I would pick it myself* — which the `Any` stop answers only in part, since with a resolved pace the crown still compares rungs by trip time.
+- **What would re-open it:** the user's word to order the pace-free design, or a device reading showing the pace setting steering a line the user did not want.
+- **Recorded in:** [`xxArchive/261017_FEAT_PLN_Route_no-preferred-speed.md`](xxArchive/261017_FEAT_PLN_Route_no-preferred-speed.md)

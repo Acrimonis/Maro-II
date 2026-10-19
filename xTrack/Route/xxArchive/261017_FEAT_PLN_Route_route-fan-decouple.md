@@ -28,3 +28,7 @@ created: 2026-10-17 06:38 UTC
 
 - `app/src/main/java/ykws/android/maro/ui/icons/Logout.kt` has no caller now; deletion needs the user's word.
 - The retired archive's R77 still names the 2026-09-29 five children; this plan supersedes that list.
+
+## Outcome
+
+Shipped 2026-10-17: the fan's Save-and-exit child left, `Route` arms the acquisition alone and a new `Follow` child below it takes the settled or partial line, the arc reading Route auto · Route · Follow · Save · Discard. R91 and R92 in `FEAT_DSC_Route.md` carry the closers and the endings. The uncalled `Logout.kt` is promoted to the DSC's removal list.

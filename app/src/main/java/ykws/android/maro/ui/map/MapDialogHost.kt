@@ -26,9 +26,10 @@ import ykws.android.maro.ui.components.OptionRow
  * **Why the route's one exit dialog stands** (R59, R100): the ordinary leave the toggle's off and the
  * back key raise, or the **arrival cue** the followed route's own time-to-go raises when it crosses the
  * route's arrival threshold. The doors are the dialog's own in both cases — the arrival prompt changes
- * only the title.
+ * only the title. The menu's Go raises it as [RESTART] over a followed line not yet written: same
+ * three doors, but the endings hand over to a fresh acquisition rather than to the deferred window.
  */
-internal enum class RouteExitReason { EXIT, ARRIVAL }
+internal enum class RouteExitReason { EXIT, ARRIVAL, RESTART }
 
 /**
  * Windowed dialogs/sheets host (extracted from MapScreen). Owns ONLY popup windows
@@ -90,6 +91,10 @@ internal fun MapDialogHost(
     onDiscardRoute: () -> Unit,
     /** The loss-free endings — the save door once it has written, and the third door's own *Leave*: both defer on `route_left_toast`. */
     onLeaveRoute: () -> Unit,
+    /** The restart's save door: writes the followed line, then ends the mode and arms afresh. */
+    onSaveAndRestartRoute: (RoutePlan) -> Unit,
+    /** The restart's loss door: ends the mode and arms afresh, with no deferred window. */
+    onRestartRoute: () -> Unit,
     // ── Resume confirmation (optional backup) ──
     resumeTarget: PendingTrackResume?,
     onClearResume: () -> Unit,
@@ -270,10 +275,14 @@ internal fun MapDialogHost(
         // unsaved line is not until the save door writes it.
         val written = front == null || routeViewModel.isRouteSaved(front) || followedTrackId != null
         val doors = routeExitDoors(written)
+        val restart = routeExitReason == RouteExitReason.RESTART
         ConfirmDialog(
             title = stringResource(
-                if (routeExitReason == RouteExitReason.ARRIVAL) R.string.route_arrival_title
-                else R.string.route_exit_title
+                when (routeExitReason) {
+                    RouteExitReason.ARRIVAL -> R.string.route_arrival_title
+                    RouteExitReason.RESTART -> R.string.route_restart_title
+                    else -> R.string.route_exit_title
+                }
             ),
             visible = true,
             onDismiss = { onDismissExit() },
@@ -283,16 +292,20 @@ internal fun MapDialogHost(
                 // The accent is the dialog's own outcome: it writes the route the toggle follows, and it
                 // greys once that write has nothing left to do.
                 ConfirmAction(
-                    label = stringResource(doors.save.labelRes),
+                    label = stringResource(if (restart) R.string.route_restart_save else doors.save.labelRes),
                     role = doors.save.role,
                     enabled = doors.save.enabled
                 ) {
                     onDismissExit()
-                    if (front != null) onSaveRoute(front)
-                    onLeaveRoute()
+                    if (restart) {
+                        if (front != null) onSaveAndRestartRoute(front)
+                    } else {
+                        if (front != null) onSaveRoute(front)
+                        onLeaveRoute()
+                    }
                 },
                 ConfirmAction(
-                    label = stringResource(doors.stay.labelRes),
+                    label = stringResource(if (restart) R.string.route_restart_stay else doors.stay.labelRes),
                     role = doors.stay.role,
                     enabled = doors.stay.enabled
                 ) { onDismissExit() },
@@ -302,7 +315,11 @@ internal fun MapDialogHost(
                     enabled = doors.loss.enabled
                 ) {
                     onDismissExit()
-                    if (doors.loss.discards) onDiscardRoute() else onLeaveRoute()
+                    when {
+                        restart -> onRestartRoute()
+                        doors.loss.discards -> onDiscardRoute()
+                        else -> onLeaveRoute()
+                    }
                 }
             )
         )

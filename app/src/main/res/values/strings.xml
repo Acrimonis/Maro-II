@@ -627,14 +627,15 @@
     <!-- Route destination mode -->
     <string name="cd_route_toggle">Route destination mode</string>
     <!-- The map's route fan (R75–R80): the parent anchor's own name and the automatic child's. The
-         other four children act exactly as the keys they reuse already name — `route_action_arm`,
-         `route_action_select`, `route_action_save_track` and `route_exit_discard` — so the fan adds no
-         second copy of those words. -->
+         other four children are icon-only, so their names carry the noun the panel's buttons leave out:
+         `route_action_arm`, `route_exit_discard`, and the fan's own save and follow names below. -->
     <string name="cd_route_fan">Route actions</string>
     <string name="cd_route_fan_auto">Automatic route</string>
+    <string name="cd_route_fan_save">Save route</string>
+    <string name="cd_route_fan_follow">Follow route</string>
     <!-- The acquisition's own title and comment: the phase's name, then one line of whence the answer
          comes. The ends are chosen in the drawer's Route section, so nothing is placed on the map. -->
-    <string name="route_acq_title">Route acquisition</string>
+    <string name="route_acq_title">Route search</string>
     <string name="route_acq_comment">The route follows the ends chosen in the route section</string>
     <!-- The drawer's Route section: its two selectors' fixed entries and the action that arms the
          acquisition on the standing pair. Each flagged marker's own name is data, not a label. Its
@@ -653,7 +654,7 @@
     <!-- The fixed entries' own dress: a marker's name is data and cannot wear it, which is what tells the
          two kinds of entry apart in the selector (§2.12). -->
     <string name="route_end_fixed_fmt">-- %1$s --</string>
-    <string name="route_action_arm">Route</string>
+    <string name="route_action_arm">Route search</string>
     <!-- R68 : la ligne d'état du résumé, au-dessus de ses lignes, quand un candidat fait gagner du temps. -->
     <string name="route_alternative_status">A faster route saves %1$s</string>
     <!-- The candidate lines the engine offered beside the settled one (R53, R54, R62): the block's own
@@ -689,9 +690,9 @@
     <!-- The status with the stage the engine published while a search runs — `Pull #2`, the stage word
          then the selected route's own number (R15, rewritten 2026-10-08). The stage words themselves are
          the closed set below. -->
-    <string name="route_status_acquiring">Acquiring…</string>
+    <string name="route_status_acquiring">Searching…</string>
     <!-- The band's own acquisition word: the shared one above carries an ellipsis the band does not use. -->
-    <string name="route_status_acquiring_bare">Acquiring</string>
+    <string name="route_status_acquiring_bare">Searching</string>
     <string name="route_status_stage_number">%1$s #%2$d</string>
     <string name="route_status_active">Routing</string>
     <string name="route_status_selected">Selected — finishing the line…</string>
@@ -717,6 +718,9 @@
          `route_acq_discard` while its line is unwritten, and this dialog's own `route_exit_leave` once it is
          written — one cost, one word. -->
     <string name="route_exit_title">Leave the Route mode?</string>
+    <string name="route_restart_title">Restart the route? The followed line is not saved.</string>
+    <string name="route_restart_save">Save and restart</string>
+    <string name="route_restart_stay">Keep following</string>
     <string name="route_exit_save">Save and Leave</string>
     <string name="route_exit_continue">Continue</string>
     <string name="route_exit_discard">Discard route</string>
@@ -730,12 +734,13 @@
     <string name="route_discard_acq_toast">Route discarded</string>
     <string name="route_discard_followed_toast">Route discarded</string>
     <string name="route_left_toast">Route left</string>
-    <string name="route_action_new">New...</string>
+    <string name="route_action_new">New search</string>
     <!-- The map's action and undo rows (`MapSnackbarHost`): the three delete and create messages, each
          naming its own item, beside the route discard's two above. -->
     <string name="snack_track_deleted">Track \"%1$s\" deleted</string>
     <string name="snack_marker_deleted">Marker \"%1$s\" deleted</string>
     <string name="snack_marker_created">Marker \"%1$s\" created</string>
+    <string name="route_started_toast">New route search started</string>
     <string name="route_refusal_too_short">Start and destination are too close to plan a route</string>
     <string name="route_destination_moved">Nearest water point</string>
     <string name="route_trip_title">Route</string>
