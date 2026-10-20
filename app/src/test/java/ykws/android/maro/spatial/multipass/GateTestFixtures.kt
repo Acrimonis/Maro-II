@@ -87,18 +87,32 @@ internal object GateTestFixtures {
         berthOuterM: Double = 50.0
     ): GateRule = GateRule(edgesOf(grid), hardM = hardM, preferredM = preferredM, waiverM = preferredM, berthOuterM = berthOuterM)
 
-    /** A world of open water over [grid]: no coast, every point water, the raster's own depth and edge. */
-    class RasterWorld(private val grid: DepthGrid) : MultipassWorld {
-        private val edges = edgesOf(grid)
+    /**
+     * A world of open water over [grid]: no coast, every point water, the raster's own depth and edge.
+     * [bandWidthM] is the priced band's width — above 0 it arms `evolutive`'s fine water, whose depth collar
+     * then follows the measured edge; with no coast the band itself prices nothing.
+     */
+    class RasterWorld(
+        private val grid: DepthGrid,
+        override val bandWidthM: Double = 0.0,
+        /**
+         * The chart's EMODnet cutoff where the world reads depth as the live one does
+         * ([DepthGrid.depthAtFilled], excluded and missing nodes at the gate depth); `null` reads the raster
+         * plainly, as every fixture before the filled read did.
+         */
+        private val readCutoffM: Float? = null
+    ) : MultipassWorld {
+        private val edges = edgesOf(grid, readCutoffM ?: 0f)
         override val coastlineReady: Boolean get() = true
         override val depthReady: Boolean get() = true
         override val regionBounds: BBox? get() = null
-        override val bandWidthM: Double get() = 0.0
         override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
         override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
         override fun isWater(latitude: Double, longitude: Double): Boolean = true
         override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
-        override fun depthAt(latitude: Double, longitude: Double): DepthSample = grid.depthAt(latitude, longitude)
+        override fun depthAt(latitude: Double, longitude: Double): DepthSample =
+            readCutoffM?.let { grid.depthAtFilled(latitude, longitude, it, MIN_DEPTH_M.toFloat()) }
+                ?: grid.depthAt(latitude, longitude)
         override fun shallowEdges(minDepthM: Double): ShallowEdgeIndex = edges
     }
 

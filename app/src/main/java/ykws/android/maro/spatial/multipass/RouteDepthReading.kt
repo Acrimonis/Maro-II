@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
@@ -17,7 +18,9 @@ import kotlin.math.max
  * It is a **reading and nothing else**: no price, no clock and no state move with it, and the ray's own
  * budget is the trace's — the sink only builds the string while the `MaroRoute` tag is on, so the scan
  * runs on a device pass and never on a plain solve. An unsurveyed sample is skipped rather than read as
- * shallow, exactly as the gate itself treats a NoData sounding.
+ * shallow, exactly as the gate itself treats a NoData sounding, and a sample holding no real sounding — the
+ * router's assumed depth ([`DepthGrid.depthAtFilled`]) — is skipped too. A sample blending a real sounding
+ * with assumed ones reads the blend under the real node's source.
  */
 internal object RouteDepthReading {
 
@@ -40,13 +43,21 @@ internal object RouteDepthReading {
     private val BEARINGS = DoubleArray(8) { it * PI / 4.0 }
 
     /** The shallowest depth the line's samples answer, or `NaN` where none of them is surveyed. */
-    fun minDepthM(world: MultipassWorld, points: List<LatLng>): Double {
+    fun minDepthM(world: MultipassWorld, points: List<LatLng>): Double = minDepthAt(world, points).first
+
+    /** [minDepthM] with the sample it was read at — `NaN` and `null` where no sample holds a depth. */
+    fun minDepthAt(world: MultipassWorld, points: List<LatLng>): Pair<Double, LatLng?> {
         var shallowest = Double.POSITIVE_INFINITY
+        var at: LatLng? = null
         forEachSample(points) { p ->
-            val depth = depthMAt(world, p)
-            if (!depth.isNaN() && depth < shallowest) shallowest = depth
+            val sample = world.depthAt(p.latitude, p.longitude)
+            val depth = if (sample.source == DepthSource.NONE) Double.NaN else depthMOf(sample)
+            if (!depth.isNaN() && depth < shallowest) {
+                shallowest = depth
+                at = p
+            }
         }
-        return if (shallowest == Double.POSITIVE_INFINITY) Double.NaN else shallowest
+        return if (shallowest == Double.POSITIVE_INFINITY) Double.NaN to null else shallowest to at
     }
 
     /**
@@ -65,7 +76,7 @@ internal object RouteDepthReading {
      * **The line's closest approach to the gate's edge, with the point named and the body separated.**
      * [distanceM]/[at] are the closest over the whole line; [bodyDistanceM]/[bodyAt] are the closest
      * over the **body** — the samples outside the gate's own waiver: more than `excludeEndsM` from either
-     * end and off the carved approaches. Both are `NaN`, with a `NaN` coordinate, where the gate is off or
+     * end. Both are `NaN`, with a `NaN` coordinate, where the gate is off or
      * nothing reaches an edge inside [EDGE_SCAN_MAX_M].
      *
      * These two are the **independent auditor** — an eight-bearing scan of the depth itself, which knows
@@ -92,8 +103,7 @@ internal object RouteDepthReading {
         gateActive: Boolean,
         minDepthM: Double,
         excludeEndsM: Double,
-        gate: GateRule? = null,
-        approaches: EndApproaches = EndApproaches.NONE
+        gate: GateRule? = null
     ): EdgeReading {
         val nowhere = LatLng(Double.NaN, Double.NaN)
         if (!gateActive || points.isEmpty()) {
@@ -114,8 +124,8 @@ internal object RouteDepthReading {
                 all = edge
                 allAt = p
             }
-            val inBody = if (gate != null) !gate.waives(p, start, aim, approaches)
-                else !MultipassPull.marginWaived(p, excludeEndsM, start, aim, approaches, SAMPLE_STEP_M)
+            val inBody = if (gate != null) !gate.waives(p, start, aim)
+                else !MultipassPull.marginWaived(p, excludeEndsM, start, aim)
             if (inBody && edge < body) {
                 body = edge
                 bodyAt = p
@@ -125,20 +135,19 @@ internal object RouteDepthReading {
             // The traced line's own reading: each leg's closest approach exactly, and its points walked every
             // metre only where the leg comes inside the preferred standoff or near an end's waiver — the rest
             // of the line is open water whose leg reading is its body reading.
-            val nearEndsM = excludeEndsM + max(polylineLengthM(approaches.start), polylineLengthM(approaches.aim))
             for (i in 1 until points.size) {
                 val a = points[i - 1]
                 val b = points[i]
                 val leg = gate.segmentEdgeM(a, b, EDGE_SCAN_MAX_M)
                 if (leg < indexAll) indexAll = leg
-                val nearEnds = SpatialOperations.pointToSegmentDistance(start, a, b) <= nearEndsM ||
-                    SpatialOperations.pointToSegmentDistance(aim, a, b) <= nearEndsM
+                val nearEnds = SpatialOperations.pointToSegmentDistance(start, a, b) <= excludeEndsM ||
+                    SpatialOperations.pointToSegmentDistance(aim, a, b) <= excludeEndsM
                 if (leg >= gate.preferredM && !nearEnds) {
                     if (leg < indexBody) indexBody = leg
                     continue
                 }
                 forEachSample(listOf(a, b), INDEX_SAMPLE_STEP_M) { p ->
-                    if (gate.waives(p, start, aim, approaches)) return@forEachSample
+                    if (gate.waives(p, start, aim)) return@forEachSample
                     val indexed = gate.edgeM(p, EDGE_SCAN_MAX_M)
                     if (indexed < indexBody) indexBody = indexed
                     if (indexed < gate.preferredM) innerM += INDEX_SAMPLE_STEP_M

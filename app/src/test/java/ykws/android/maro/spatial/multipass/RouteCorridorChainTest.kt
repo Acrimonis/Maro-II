@@ -21,23 +21,23 @@ class RouteCorridorChainTest {
 
     private val corridor = BBox(43.45, 43.55, 6.95, 7.05)
 
-    /** The carve's own reach for a margin and a cell: `ceil(marginM / cellM) + 1` cells of water. */
-    private fun reachM(marginM: Double, cellM: Double): Double = carveReachCells(marginM, cellM) * cellM
+    /** The end disc's scan reach for a margin and a cell: `ceil(marginM / cellM) + 1` cells of water. */
+    private fun reachM(marginM: Double, cellM: Double): Double = endDiscReachCells(marginM, cellM) * cellM
 
     private fun BBox.holds(p: LatLng): Boolean =
         p.latitude in latSouth..latNorth && p.longitude in lonWest..lonEast
 
     /**
      * **The ends are inside by construction**: each end stands at its own box's centre, so the disc the
-     * berth frees is inside the chain at every cell the plan names — and the carve's wider reach is inside
+     * berth frees is inside the chain at every cell the plan names — and the disc scan's wider reach is inside
      * wherever the half-width can hold it.
      *
-     * The carve reach is `ceil(marginM / cellM) + 1` cells, so at the **coarse** 100 m cell it is 200 m —
+     * The disc scan's reach is `ceil(marginM / cellM) + 1` cells, so at the **coarse** 100 m cell it is 200 m —
      * wider than the 150 m half-width itself, and this test says so rather than pretending otherwise: `w`
-     * bounds the carve's reach only while `2 × cellM` is under it.
+     * bounds that reach only while `2 × cellM` is under it.
      */
     @Test
-    fun theChainCarriesBothEndDiscsAndTheirCarveReach() {
+    fun theChainCarriesBothEndDiscsAndTheirScanReach() {
         val marginM = 25.0
         val halfWidthM = 150.0
         val line = listOf(LatLng(43.5000, 7.0000), LatLng(43.5000, 7.0300))
@@ -66,12 +66,12 @@ class RouteCorridorChainTest {
             val reach = reachM(marginM, cellM)
             for (end in line) {
                 for (bearing in 0 until 360 step 15) {
-                    val carved = SpatialOperations.pointAlongBearing(
+                    val reached = SpatialOperations.pointAlongBearing(
                         end.latitude, end.longitude, bearing.toDouble(), reach
                     )
                     assertTrue(
-                        "the $reach m carve reach at a $cellM m cell stands in some box, bearing $bearing",
-                        chain.any { it.holds(LatLng(carved.latitude, carved.longitude)) }
+                        "the $reach m disc scan reach at a $cellM m cell stands in some box, bearing $bearing",
+                        chain.any { it.holds(LatLng(reached.latitude, reached.longitude)) }
                     )
                 }
             }

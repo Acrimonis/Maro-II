@@ -60,7 +60,7 @@ class GateCoverageTest {
         val grid = MultipassGrid(box.latSouth, box.lonWest, 20.0 / GateTestFixtures.M_PER_DEG_LAT,
             20.0 / GateTestFixtures.M_PER_DEG_LON, rows = 5, cols = 10, cellM = 20.0, baseCostSec = 1.0)
         val walk = WalkWindows.of(grid)
-        val far = StepGuard(gate, at(400.0, 0.0), at(400.0, 300.0), EndApproaches.NONE)
+        val far = StepGuard(gate, at(400.0, 0.0), at(400.0, 300.0))
         // Row 0's centres stand 10 m off the edge. Stored distances that prove the step are trusted outright,
         // even here, where they are deliberately wrong: the guard reads nothing it can prove.
         grid.writeGateDistanceM(0, 3, 100.0)
@@ -75,8 +75,8 @@ class GateCoverageTest {
         grid.writeGateDistanceM(2, 6, 5.0)
         assertTrue("an unproved step clear of the wall passes", far.clear(walk, walk.slotOf(2, 5), walk.slotOf(2, 6), 20.0))
         // Inside an end's own disc the gate waives itself.
-        val near = StepGuard(gate, grid.center(0, 5), at(400.0, 300.0), EndApproaches.NONE)
-        assertTrue("a step inside the end's disc is waived", near.clear(walk, walk.slotOf(0, 5), walk.slotOf(0, 6), 20.0))
+        val near = StepGuard(gate, grid.center(0, 5), at(400.0, 300.0))
+        assertTrue("a step inside the end's disc is waived to its rim", near.clear(walk, walk.slotOf(0, 5), walk.slotOf(0, 6), 20.0))
     }
 
     /** A 50 m passage at 26.6° — the angle no straight or diagonal row runs along — still holds a legal line. */
@@ -100,7 +100,7 @@ class GateCoverageTest {
         val aim = at(200.0 + 90.0, 200.0 + 180.0)
         val path = MultipassSearch.search(
             grid, grid.cellOf(start.latitude, start.longitude), grid.cellOf(aim.latitude, aim.longitude),
-            Units.knotsToMps(25.0), stepGuard = StepGuard(gate, start, aim, EndApproaches.NONE)
+            Units.knotsToMps(25.0), stepGuard = StepGuard(gate, start, aim)
         ).path
         assertNotNull("the 26.6° passage holds a legal line", path)
     }
@@ -142,25 +142,6 @@ class GateCoverageTest {
         assertEquals("inside the ramp every mark is read", rampMarks, rampReads)
         val (openReads, openMarks) = reads(400.0)
         assertTrue("far off the edge spans are priced from one read ($openReads of $openMarks)", openReads < openMarks)
-    }
-
-    /** An end the shallows enclose answers no carve under the gate's rule, rather than a carve across them. */
-    @Test
-    fun anEndTheShallowsEncloseIsNotCarved() {
-        val pocketN = 150.0
-        val pocketE = 150.0
-        val raster = GateTestFixtures.raster(150, 150, 2.0) { n, e ->
-            if ((n - pocketN) * (n - pocketN) + (e - pocketE) * (e - pocketE) <= 9.0 * 9.0) 10.0 else 2.0
-        }
-        val world = GateTestFixtures.RasterWorld(raster)
-        val gate = GateTestFixtures.gateOver(raster, hardM = floorM)
-        val anchor = at(pocketN, pocketE)
-        val carve = carveBerth(
-            world, anchor, 50.0, carveReachCells(maxOf(50.0, floorM + gate.padM), 20.0),
-            true, GateTestFixtures.MIN_DEPTH_M, metricCarveLattice(anchor, 20.0), gate
-        )
-        assertFalse("no direction leaves the pocket through deep water", carve.reachable)
-        assertEquals(CARVE_NO_LEGAL_WATER, carve.reason)
     }
 
     @Test

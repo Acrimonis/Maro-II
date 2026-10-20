@@ -53,39 +53,10 @@ class FineTileCodecTest {
         assertNull("a moved stamp must be a miss, never the old tile", FineTileCodec.decode(drifted, bytes))
     }
 
-    /** A tile stored before the gate's wall was measured carries the old wall: its format is a miss. */
-    @Test
-    fun anEntryOfTheFormerFormatIsAMiss() {
-        val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
-        bytes[8] = (FineTileCodec.FORMAT_VERSION - 1).toByte()
-        assertNull("a former-format entry must miss", FineTileCodec.decode(key, bytes))
-    }
-
     @Test
     fun aTruncatedEntryIsAMiss() {
         val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
         assertNull("a partial entry must miss", FineTileCodec.decode(key, bytes.copyOf(bytes.size / 2)))
-    }
-
-    @Test
-    fun anotherFormatVersionIsAMiss() {
-        val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
-        // The version byte sits immediately after the 8-byte magic word.
-        bytes[8] = (bytes[8] + 1).toByte()
-        assertNull("another version must not be half-read", FineTileCodec.decode(key, bytes))
-    }
-
-    /**
-     * **D7 — v1 is refused, never read.** v1 carried `sourceCostSec` and `baseCostSec`; v2 carries the
-     * pace-free `sourceCostFactor` and no base. There is no migration: a v1 entry is a miss, so it is
-     * discarded and rebuilt rather than mis-parsed as v2's shape.
-     */
-    @Test
-    fun aVersionOneEntryIsRefusedNeverRead() {
-        val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
-        // Force the version byte back to v1 — the byte immediately after the 8-byte magic word.
-        bytes[8] = 1
-        assertNull("a v1 entry is a miss, never a stale tile", FineTileCodec.decode(key, bytes))
     }
 
     @Test

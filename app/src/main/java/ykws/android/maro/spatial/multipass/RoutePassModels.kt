@@ -71,7 +71,6 @@ internal data class GridContext(
     val limitAt: (LatLng) -> Double?,
     val zones: List<SpeedZone>,
     val priced: List<ZoneRing>,
-    val approaches: EndApproaches,
     val refusals: PullRefusals,
     val depthGateActive: Boolean,
     val minDepthM: Double,

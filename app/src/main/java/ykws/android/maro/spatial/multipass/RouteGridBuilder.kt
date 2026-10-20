@@ -17,7 +17,7 @@ import kotlin.math.min
 internal data class FineTileSide(val latDeg: Double, val lonDeg: Double)
 
 /**
- * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' berth carve → the
+ * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' discs → the
  * corner sets, lifted out of the pass pipeline so the context build and its instrument readers are a
  * named seat of their own.
  *
@@ -39,7 +39,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
     private val ownTiles = FineTileMap()
 
     /**
-     * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' berth carve →
+     * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' discs →
      * the corner sets. Everything λ-free: the grid stores limits, never prices, so the three rungs
      * share it and each rung prices its own pass. `null` where the corridor is empty.
      *
@@ -128,19 +128,12 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         grid.forceFree(to.latitude, to.longitude)
         openEndDisc(grid, world, from.toLatLng(), marginM, depthGateActive, minDepthM, gate = gate)
         openEndDisc(grid, world, to.toLatLng(), marginM, depthGateActive, minDepthM, gate = gate)
-        val carveReach = carveReachCells(carveMarginM(marginM, gate), cellM)
-        val startCarve =
-            carveEnd(world, grid, startCell, from.toLatLng(), marginM, carveReach, depthGateActive, gate)
-        val aimCarve = carveEnd(world, grid, aimCell, to.toLatLng(), marginM, carveReach, depthGateActive, gate)
-        val approaches = EndApproaches(startCarve.points, aimCarve.points)
         val refusals = PullRefusals()
         trace {
             "GRID ${inventory(grid)} " +
                 "start=${cellRead(world, grid, startCell, from, startStateBefore)} " +
                 "aim=${cellRead(world, grid, aimCell, to, aimStateBefore)}"
         }
-        trace { carveLine("start", startCarve) }
-        trace { carveLine("aim", aimCarve) }
         val start = from.toLatLng()
         val aim = to.toLatLng()
         val sets = ArrayList<CornerSet>(3)
@@ -166,7 +159,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
             zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, markerStrength = markerStrength, grid = grid,
             startCell = startCell, aimCell = aimCell, start = start, aim = aim, sets = sets,
-            limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
+            limitAt = limitAt, zones = zones, priced = priced,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
             regionSaturated = regionSaturated, plan = plan, gate = gate
         )
@@ -181,10 +174,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
      * crossing probe keep their answers. The band is the second window, its membership the coast and the
      * depth gate dilated by one coarse cell — **the band's outer edge is the seam**.
      *
-     * The ends' **discs** land in every window that holds the end, each at that window's **own** cell; the
-     * berth **carve** runs on the window the walk **reads the end on** — the fine collar's grid where a
-     * passable fine cell supersedes the interior's coarse cell, the interior's own otherwise — its reach
-     * read at the end's **local** cell, and the corner-set radii are the **local** size each corner stands
+     * The ends' **discs** land in every window that holds the end, each at that window's **own** cell, and
+     * the corner-set radii are the **local** size each corner stands
      * on (Phase 6) — so the band's 20 m reaches the drawn points while a single grid's own `avoid` answers
      * stay cell for cell.
      *
@@ -320,19 +311,6 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 )
             }
         }
-        // Each end's carve reach follows the **local** cell it stands on, so a coastal berth is scanned at the
-        // band's own step while an open-water one keeps the interior's (Phase 6). Under the walk's own
-        // priority an end a passable fine cell supersedes is a **fine** cell, so the carve runs on that
-        // end's own window and cell rather than the interior's; an ordinary end keeps the interior.
-        val startReach = carveReachCells(carveMarginM(marginM, gate), walk.cellSizeAt(from.toLatLng()))
-        val aimReach = carveReachCells(carveMarginM(marginM, gate), walk.cellSizeAt(to.toLatLng()))
-        val startCarve = carveEndOf(
-            walk, world, from.toLatLng(), startCell, marginM, startReach, depthGateActive, interiorGrid, gate
-        )
-        val aimCarve = carveEndOf(
-            walk, world, to.toLatLng(), aimCell, marginM, aimReach, depthGateActive, interiorGrid, gate
-        )
-        val approaches = EndApproaches(startCarve.points, aimCarve.points)
         val refusals = PullRefusals()
         // (e) Every count names its layer: a coarse cell is twenty-five fine ones, so the two inventories
         // are printed apart and never summed into one figure the engine cannot stand behind.
@@ -341,8 +319,6 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 "start=${cellRead(world, interiorGrid, startCell, from, startStateBefore)} " +
                 "aim=${cellRead(world, interiorGrid, aimCell, to, aimStateBefore)}"
         }
-        trace { carveLine("start", startCarve) }
-        trace { carveLine("aim", aimCarve) }
         // Phase 6: each corner's own reach is the **local** cell it stands on — fine where the water is the
         // band's, coarse in the open — so a bend near the coast moves at the 20 m contract's own scale.
         val sets = ArrayList<CornerSet>(3)
@@ -365,7 +341,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
             zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, markerStrength = markerStrength, grid = interiorGrid,
             startCell = startCell, aimCell = aimCell, start = from.toLatLng(), aim = to.toLatLng(),
-            sets = sets, limitAt = limitAt, zones = zones, priced = priced, approaches = approaches,
+            sets = sets, limitAt = limitAt, zones = zones, priced = priced,
             refusals = refusals, depthGateActive = depthGateActive, minDepthM = minDepthM,
             regionSaturated = regionSaturated, plan = plan,
             windows = walk, gate = gate
@@ -949,93 +925,12 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
     ): String {
         val sample = world.depthAt(at.latitude, at.longitude)
         return "(r=${cell.row},c=${cell.col} isWater=${world.isWater(at.latitude, at.longitude)} " +
-            "depth=${if (sample.hasData) "${fmt(sample.depthM.toDouble())}m" else "none"} " +
+            "depth=${when {
+                !sample.hasData -> "none"
+                sample.source == ykws.android.maro.data.model.DepthSource.NONE -> "filled"
+                else -> "${fmt(sample.depthM.toDouble())}m"
+            }} " +
             "state=$stateBefore→${grid.state(cell.row, cell.col)} " +
             "limit=${fmt(grid.zoneLimitKn(cell.row, cell.col))}kn)"
-    }
-
-    /**
-     * **One end's berth carve, on the window the walk reads it on.** An end a passable fine cell
-     * supersedes resolves to a fine cell, so the carve follows that end's own window and local cell;
-     * an ordinary end — or one whose fine copy the walk does not hold — keeps the interior grid and the
-     * interior's cell, cell for cell as before.
-     */
-    private fun carveEndOf(
-        walk: WalkWindows,
-        world: MultipassWorld,
-        end: LatLng,
-        coarseCell: CellIndex,
-        marginM: Double,
-        reachCells: Int,
-        depthGateActive: Boolean,
-        interior: MultipassGrid,
-        gate: GateRule?
-    ): BerthCarve {
-        // [coarseCell] is a cell of the interior grid's own local space; the walk reads lattice coordinates,
-        // so translate it first — a no-op at the single grid's zero offset, the P4.1 case otherwise.
-        val lattice = walk.latticeCell(interior, coarseCell.row, coarseCell.col)
-        val slot = walk.slotOf(lattice.row, lattice.col)
-        if (slot < 0) return carveEnd(world, interior, coarseCell, end, marginM, reachCells, depthGateActive, gate)
-        val window = walk.windowOf(slot)
-        return carveEnd(world, window.grid, walk.localCell(slot), end, marginM, reachCells, depthGateActive, gate)
-    }
-
-    /**
-     * **The berth carve (F7), read off one end** — the scan, then the cells it opens, then the stretch
-     * the pull will read.
-     */
-    private fun carveEnd(
-        world: MultipassWorld,
-        grid: MultipassGrid,
-        cell: CellIndex,
-        end: LatLng,
-        marginM: Double,
-        reachCells: Int,
-        depthGateActive: Boolean,
-        gate: GateRule?
-    ): BerthCarve {
-        val found = carveBerth(
-            world,
-            grid.center(cell.row, cell.col),
-            marginM,
-            reachCells,
-            depthGateActive,
-            AppConfig.routeAvoidDepthGateMinM,
-            stepAt = { steps, direction ->
-                val row = cell.row + steps * direction.dRow
-                val col = cell.col + steps * direction.dCol
-                if (grid.inBounds(row, col)) grid.center(row, col) else null
-            },
-            gate = gate
-        )
-        val direction = found.direction ?: return found
-        for (steps in 1 until found.stepsToWater) {
-            val row = cell.row + steps * direction.dRow
-            val col = cell.col + steps * direction.dCol
-            grid.openCarve(row, col)
-            // A carved cell the coast's margin barred took no seed of the gate's distance; it is open water
-            // now, so it takes its measured distance, which the step guard and the berth read.
-            if (gate != null) {
-                grid.writeGateDistanceM(row, col, gate.edgeM(grid.center(row, col), gate.seedReachM(grid.cellM)))
-            }
-        }
-        // The approach runs from the end itself through the carve's own anchor and cells to the legal cell —
-        // the very line the walk stands on — so a reader asking whether a point is on it asks it exactly.
-        return found.copy(points = listOf(end) + found.points)
-    }
-
-    /**
-     * **The margin a carve must cross** — the coast's own, or the gate's wall plus its pad where that is
-     * wider, so an end standing in shallow-side water can still reach water both margins call legal.
-     */
-    private fun carveMarginM(marginM: Double, gate: GateRule?): Double =
-        if (gate == null) marginM else maxOf(marginM, gate.hardM + gate.padM)
-
-    /** One end's carve, as the instrument reads it: the direction, the cells opened, the metres — or why not. */
-    private fun carveLine(end: String, carve: BerthCarve): String {
-        val direction = carve.direction
-            ?: return "CARVE end=$end dir=none reason=${carve.reason} length=0.0m"
-        val cells = (carve.stepsToWater - 1).coerceAtLeast(0)
-        return "CARVE end=$end dir=${direction.label} cells=$cells length=${fmt(carve.lengthM)}m"
     }
 }

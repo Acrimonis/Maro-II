@@ -26,6 +26,17 @@ enum class DepthSource(val id: Int, val nominalResM: Double, val seedConfidence:
 
     companion object {
         fun fromId(i: Int): DepthSource = entries.firstOrNull { it.id == i } ?: NONE
+
+        /**
+         * **The one EMODnet exclusion rule** — an EMODnet reading (115 m cells, often a coast or rock
+         * artefact) shallower than [cutoffM] is unreliable for navigation and taken for no reading at all.
+         * Only EMODnet is excluded; finer sources and deeper EMODnet pass. A reading above the datum
+         * (negative) is excluded at any cutoff, 0 included. Read by the chart's gates and the router's read
+         * alike; the chart's per-cell colour gate ([DepthGrid.depthGated]) alone keeps negatives and cutoff 0
+         * open, so it can colour drying ground.
+         */
+        fun isExcludedEmodnet(depthM: Float, sourceId: Int, cutoffM: Float): Boolean =
+            sourceId == EMODNET.id && depthM < cutoffM
     }
 }
 
@@ -46,7 +57,7 @@ data class DepthSample(
      * (Litto3D/SDB) and deeper EMODnet pass through. [cutoffM] = 0 disables the gate.
      */
     fun gatedForEmodnetShallow(cutoffM: Float): DepthSample =
-        if (hasData && source == DepthSource.EMODNET && depthM < cutoffM) NONE else this
+        if (hasData && DepthSource.isExcludedEmodnet(depthM, source.id, cutoffM)) NONE else this
 
     companion object {
         val NONE = DepthSample(Float.NaN, DepthSource.NONE, 0, false)
@@ -96,13 +107,76 @@ class DepthGrid(
      * (115 m, often a coast/rock artifact) shallower than [cutoffM] returns [Float.NaN]
      * (NoData) so downstream builders (bitmap, warning, isobaths) skip it.
      * Only EMODnet is gated; finer sources (Litto3D/SDB) and deeper EMODnet pass through.
-     * [cutoffM] = 0 disables the gate. NaN or above-datum cells pass through unchanged.
+     * [cutoffM] = 0 disables the gate. NaN or above-datum cells pass through unchanged — the chart's own
+     * exception to [DepthSource.isExcludedEmodnet], so it can colour drying ground.
      */
     fun depthGated(r: Int, c: Int, cutoffM: Float): Float {
         val d = depthRaw(r, c)
         if (d.isNaN() || d < 0f) return d
-        if (cutoffM > 0f && sourceAt(r, c) == DepthSource.EMODNET && d < cutoffM) return Float.NaN
+        if (cutoffM > 0f && DepthSource.isExcludedEmodnet(d, source[idx(r, c)].toInt(), cutoffM)) return Float.NaN
         return d
+    }
+
+    /**
+     * **The depth at a point as the route search reads it** — bilinear like [depthAt], but a node that is
+     * excluded EMODnet ([DepthSource.isExcludedEmodnet] under [excludeBelowM]) or holds no data takes part in
+     * the blend **at [fillM]** rather than with its own value or not at all. With [fillM] at the gate depth,
+     * such a node can neither drag its neighbours under the gate nor wall anything itself, while a real
+     * sounding beside it still reads as it is: the blend `fill + Σw·(v − fill) / Σw` lies under the gate
+     * exactly where the real nodes' own blend does, and an all-filled quad reads [fillM] exactly.
+     *
+     * A sample whose four nodes all hold no data (land, beyond the raster) is still no data. A sample
+     * holding no real sounding at all reads [fillM] with no source ([DepthSource.NONE]), so a reader can
+     * tell an assumed depth from a measured one; otherwise the source is the heaviest real node's.
+     */
+    fun depthAtFilled(lat: Double, lon: Double, excludeBelowM: Float, fillM: Float): DepthSample {
+        var wSum = 0.0
+        var deltaSum = 0.0
+        var anyData = false
+        var bestW = -1.0
+        var bestR = -1
+        var bestC = -1
+        forEachNode(lat, lon) { r, c, w ->
+            val v = depthRaw(r, c)
+            if (!v.isNaN()) anyData = true
+            wSum += w
+            // A node is real unless it holds no data or is excluded EMODnet — the source byte read only
+            // where the depth is under the cutoff, so the common node pays nothing for it.
+            val real = !v.isNaN() && !(v < excludeBelowM && DepthSource.isExcludedEmodnet(v, source[idx(r, c)].toInt(), excludeBelowM))
+            if (real) {
+                deltaSum += w * (v - fillM)
+                if (w > bestW) { bestW = w; bestR = r; bestC = c }
+            }
+        }
+        if (wSum <= 0.0 || !anyData) return DepthSample.NONE
+        val depth = (fillM + deltaSum / wSum).toFloat()
+        return if (bestR < 0) {
+            DepthSample(depthM = fillM, source = DepthSource.NONE, confidence = 0, hasData = true)
+        } else {
+            DepthSample(depthM = depth, source = sourceAt(bestR, bestC), confidence = confidenceAt(bestR, bestC), hasData = true)
+        }
+    }
+
+    /**
+     * **The four raster nodes around a point**, each handed to [visit] with its bilinear weight — the one
+     * geometry both reads ([depthAt], [depthAtFilled]) blend over, so they can never disagree about which
+     * nodes a point reads or how much each weighs. A node outside the grid or of zero weight is skipped.
+     */
+    private inline fun forEachNode(lat: Double, lon: Double, visit: (r: Int, c: Int, w: Double) -> Unit) {
+        if (rows == 0 || cols == 0) return
+        val fr = (lat - boundingBox.latSouth) / cellSizeDegLat - 0.5
+        val fc = (lon - boundingBox.lonWest) / cellSizeDegLon - 0.5
+        val r0 = floor(fr).toInt()
+        val c0 = floor(fc).toInt()
+        val tr = fr - r0
+        val tc = fc - c0
+        for (dr in 0..1) for (dc in 0..1) {
+            val r = r0 + dr
+            val c = c0 + dc
+            if (r < 0 || r >= rows || c < 0 || c >= cols) continue
+            val w = (if (dr == 0) 1.0 - tr else tr) * (if (dc == 0) 1.0 - tc else tc)
+            if (w > 0.0) visit(r, c, w)
+        }
     }
 
     fun cellCenterLat(r: Int): Double = boundingBox.latSouth + (r + 0.5) * cellSizeDegLat
@@ -115,29 +189,18 @@ class DepthGrid(
      * highest-weight valid neighbour.
      */
     fun depthAt(lat: Double, lon: Double): DepthSample {
-        if (rows == 0 || cols == 0) return DepthSample.NONE
-        val fr = (lat - boundingBox.latSouth) / cellSizeDegLat - 0.5
-        val fc = (lon - boundingBox.lonWest) / cellSizeDegLon - 0.5
-        val r0 = floor(fr).toInt()
-        val c0 = floor(fc).toInt()
-        val tr = fr - r0
-        val tc = fc - c0
         var wSum = 0.0
         var vSum = 0.0
         var bestW = -1.0
         var bestR = -1
         var bestC = -1
-        for (dr in 0..1) for (dc in 0..1) {
-            val r = r0 + dr
-            val c = c0 + dc
-            if (r < 0 || r >= rows || c < 0 || c >= cols) continue
+        forEachNode(lat, lon) { r, c, w ->
             val v = depthRaw(r, c)
-            if (v.isNaN()) continue
-            val w = (if (dr == 0) 1.0 - tr else tr) * (if (dc == 0) 1.0 - tc else tc)
-            if (w <= 0.0) continue
-            wSum += w
-            vSum += w * v
-            if (w > bestW) { bestW = w; bestR = r; bestC = c }
+            if (!v.isNaN()) {
+                wSum += w
+                vSum += w * v
+                if (w > bestW) { bestW = w; bestR = r; bestC = c }
+            }
         }
         if (wSum <= 0.0 || bestR < 0) return DepthSample.NONE
         return DepthSample(

@@ -164,10 +164,20 @@ internal fun costField(
 /**
  * **The depth the router reads at a point** — the world's own sample, `NaN` where nothing is known. One
  * home, so the gate's wall, its traced edge and the berth can never disagree about where a sounding is: an
- * unsurveyed point is `NaN` for both, and neither treats it as shallow.
+ * excluded or missing node reads the gate depth in the world's blend, an unsurveyed point is `NaN`, and
+ * neither is ever shallow.
  */
 internal fun depthMAt(world: MultipassWorld, p: LatLng): Double =
     depthMOf(world.depthAt(p.latitude, p.longitude))
+
+/**
+ * **The point a fraction [t] of the way from [a] to [b]**, read linearly in latitude and longitude — the one
+ * home for the straight every pass draws between two points, at the scale a leg spans.
+ */
+internal fun chordPointAt(a: LatLng, b: LatLng, t: Double): LatLng = LatLng(
+    a.latitude + (b.latitude - a.latitude) * t,
+    a.longitude + (b.longitude - a.longitude) * t
+)
 
 /** **One sample as the router reads it** — its depth in metres, `NaN` where it holds nothing. */
 internal fun depthMOf(sample: DepthSample): Double =

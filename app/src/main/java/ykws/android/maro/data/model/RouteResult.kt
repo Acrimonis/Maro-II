@@ -37,9 +37,9 @@ sealed interface RouteResult {
      *                             in force, each leg timed at the limit in force at its midpoint and
      *                             capped by the pace. [legTimesSec] sums to it exactly, with no fairing
      *                             residual.
-     * @property destinationMoved  true when the aimed destination resolved elsewhere — land, or
-     *                             another stretch of water — and the route ends at the closest
-     *                             point of the boat's own stretch instead.
+     * @property destinationMoved  true when the aimed destination resolved elsewhere — land, shallow
+     *                             water, or too near either — and the route ends at the nearest
+     *                             clear point instead.
      * @property forcedCrossingZoneNames  the priced speed zones' own names, when the route had to
      *                             enter one: a crossing is forbidden while a way around exists, so a
      *                             name here says no way around was found and the crossing was priced

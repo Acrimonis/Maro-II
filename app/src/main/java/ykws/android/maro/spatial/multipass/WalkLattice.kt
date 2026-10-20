@@ -300,7 +300,7 @@ internal class WalkSlotIndex(
  * The index — `(layer, row, col)` → slot and its two mirror arrays — is a pure function of the windows'
  * **shape** (each window's layer, its lattice offset and its extent), never of their contents, so an arm
  * whose windows carry the same shape reuses the previous arm's index instead of walking every cell again.
- * The contents differ per arm (the berth carve writes each arm's own cells), so the [`WalkWindows`] itself
+ * The contents differ per arm (the end discs write each arm's own cells), so the [`WalkWindows`] itself
  * is rebuilt over the caller's own windows; only the index is shared, and it is read-only once built. One
  * entry, newest wins, keyed on the shape alone.
  *
@@ -534,7 +534,7 @@ internal class WalkWindows private constructor(
 
     /**
      * **The walk's own lattice coordinate for a cell of [grid] named locally by `(row, col)`** — the
-     * translation a two-layer walk needs because its seeds and its carve arrive in a window's **local**
+     * translation a two-layer walk needs because its seeds arrive in a window's **local**
      * index space while [`slotOf`] reads the family's lattice coordinates. The window that holds [grid]
      * supplies its offset; a single-window walk holds its grid as window zero, so that offset is zero there
      * and the coordinate is the grid's own. The corridor-anchored family made the two coincide everywhere; a
@@ -715,7 +715,7 @@ internal class WalkWindows private constructor(
          * layers over the same water each keep their own cells — the identity a coordinate-only key collapses.
          *
          * The index itself comes from [`WalkIndexCache`]; the walk still holds **this** arm's own windows,
-         * so its read cells are the ones the caller has just built and carved.
+         * so its read cells are the ones the caller has just built and opened.
          */
         fun onLattice(lattices: List<WalkLattice>, windows: List<WalkWindow>): WalkWindows {
             val index = WalkIndexCache.getOrBuild(windows)

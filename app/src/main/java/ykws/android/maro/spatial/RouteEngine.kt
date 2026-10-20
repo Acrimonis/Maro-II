@@ -15,10 +15,10 @@ import ykws.android.maro.data.model.RouteResult
  * between two points**, and it answers a set of declared computations, each with its own id. Starting
  * any of them needs only that id, because the whole set runs on the one pair the engine was handed.
  *
- * **The pair is repaired first.** The first step of [routesToCompute] is the invalid-end repair — a
- * point that is land or shallower than the minimum depth is moved to the nearest valid water on the
- * sea side — and a pair that cannot be repaired is refused by name rather than searched. The flow
- * never sees the unrepaired points: they exist only inside the engine.
+ * **The pair is repaired first.** The first step of [routesToCompute] is the end repair — an end on land,
+ * on shallow water or too near either is moved to the nearest usable water, and the answer says so — and a
+ * pair that cannot be repaired is refused by name rather than searched. The flow never sees the
+ * unrepaired points: they exist only inside the engine.
  *
  * **One callback shape carries everything the flow learns.** [updates] is the engine's own `Flow` of
  * [RouteUpdate] values, each carrying the lookup's id, the stage just finished and the one about to
@@ -30,7 +30,8 @@ import ykws.android.maro.data.model.RouteResult
  * flow asking. After a cancel, no further update for that id may arrive.
  *
  * **No engine holds a clock or a gate.** All three calls are plain, not `suspend` — [routesToCompute]
- * is the repair plus a local configuration read, [startLookup] launches the job and returns, and
+ * is the repair plus a local configuration read (the repair reads the coast and the depth line, so the
+ * caller runs it off the screen's thread), [startLookup] launches the job and returns, and
  * [cancelLookup] cancels it. An engine that cannot answer does not gate the mode: the toggle arms and
  * the status line says why. Coroutines and `Flow` only.
  */

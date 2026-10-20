@@ -1,7 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,8 +9,8 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.multipass.GateTestFixtures.at
 
 /**
- * **The guards that read the measured edge** — the pull's chord, the corner pass's bow, the ends' disc and
- * carve. Each is pinned on a straight shelf (shallow south of 100 m, deep north of it, on a 2 m raster), so
+ * **The guards that read the measured edge** — the pull's chord, the corner pass's bow and the ends' disc.
+ * Each is pinned on a straight shelf (shallow south of 100 m, deep north of it, on a 2 m raster), so
  * every distance a test names is metres off the edge.
  */
 class GateGuardsTest {
@@ -117,21 +116,5 @@ class GateGuardsTest {
                 assertTrue("a reopened wall cell stands within 20 m of the end ($fromEnd m)", fromEnd <= gate.waiverM)
             }
         }
-    }
-
-    /** An end beside shallow water in open sea is carved out to water both margins call legal. */
-    @Test
-    fun aShallowSideEndIsCarvedOutToLegalWater() {
-        val raster = shelf()
-        val gate = GateTestFixtures.gateOver(raster, hardM = floorM)
-        val world = GateTestFixtures.RasterWorld(raster)
-        val anchor = at(edgeN + 1.0, 200.0)
-        val carve = carveBerth(
-            world, anchor, 50.0, carveReachCells(maxOf(50.0, floorM + gate.padM), 20.0),
-            true, GateTestFixtures.MIN_DEPTH_M, metricCarveLattice(anchor, 20.0), gate
-        )
-        assertTrue("the end has an approach", carve.reachable)
-        assertNotNull(carve.direction)
-        assertTrue("the carve lands on water the wall leaves open", gate.edgeM(carve.points.last(), 50.0) >= floorM)
     }
 }

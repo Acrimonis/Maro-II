@@ -342,15 +342,15 @@ class MultipassGrid(
     }
 
     /**
-     * Opens a **carved** cell — the berth channel's own write, beside [forceFree] and deliberately not
-     * the same one: the cell becomes [MultipassCellState.FREE] at the grid's **base cost**, and it
-     * **keeps its zone limit**.
+     * Opens a cell of an end's **disc** ([openEndDisc]) — beside [forceFree] and deliberately not the same
+     * write: the cell becomes [MultipassCellState.FREE] at the grid's **base cost**, and it **keeps its zone
+     * limit**.
      *
-     * The distinction is the rule the carve waives: only the shore margin is a courtesy, so a zone
-     * standing in the berth must still price the cell the A\* reads, while [forceFree] — which answers
-     * the end itself — clears the limit as well. The channel is water the margin took, nothing more.
+     * The distinction is the rule the disc waives: only the shore margin is a courtesy, so a zone standing
+     * in the disc must still price the cell the A\* reads, while [forceFree] — which answers the end itself —
+     * clears the limit as well. The disc is water the margin took, nothing more.
      */
-    fun openCarve(row: Int, col: Int) {
+    fun openEndCell(row: Int, col: Int) {
         val i = index(row, col)
         cellState[i] = FREE_ORDINAL
         cellSourceCostSec[i] = baseCostSec
@@ -387,7 +387,7 @@ class MultipassGrid(
         /** [MultipassCellState.LAND]'s own ordinal, so a wall test compares a byte and boxes no tag. */
         private val LAND_ORDINAL: Byte = MultipassCellState.LAND.ordinal.toByte()
 
-        /** [MultipassCellState.FREE]'s own ordinal, the tag a reset or a carve writes back. */
+        /** [MultipassCellState.FREE]'s own ordinal, the tag a reset or an end cell writes back. */
         private val FREE_ORDINAL: Byte = MultipassCellState.FREE.ordinal.toByte()
     }
 }

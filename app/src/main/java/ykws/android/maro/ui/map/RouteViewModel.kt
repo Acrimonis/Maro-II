@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import ykws.android.maro.spatial.RouteTrace
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
@@ -324,11 +328,23 @@ class RouteViewModel(
     private val selection: StateFlow<RouteEngine>,
 
     /** The live persisted settings — the seat reads the user's slow-water preference from here. */
-    private val settings: StateFlow<AppSettings> = MutableStateFlow(AppSettings())
+    private val settings: StateFlow<AppSettings> = MutableStateFlow(AppSettings()),
+
+    /**
+     * Where the engine declares an arm's routes: its end repair reads the coast and the measured depth
+     * line, a cold read the screen's own thread must not pay.
+     */
+    private val declareDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     /** The engine the running session was armed with, or null while the mode is idle. */
     private val _sessionEngine = MutableStateFlow<RouteEngine?>(null)
+
+    /** Bumped by every arm and every exit, so an arm whose declaration outlived either is dropped. */
+    private var armGeneration = 0
+
+    /** Whether an arm's declaration is running off the screen's thread — a second arm waits it out. */
+    private var declaringArm = false
 
     /** The engine the feature calls right now — the session's own while one runs, else the selected. */
     private fun engine(): RouteEngine = _sessionEngine.value ?: selection.value
@@ -517,8 +533,8 @@ class RouteViewModel(
      * refused pair arms the toggle and the status line carries the reason: no engine answer gates the
      * mode.
      */
-        suspend fun arm(ends: RouteEnds) {
-        if (_state.value !is RouteState.Idle) return
+    suspend fun arm(ends: RouteEnds) {
+        if (_state.value !is RouteState.Idle || declaringArm) return
         clearSession()
         _sessionEngine.value = selection.value
         _pages.value = emptyList()
@@ -540,7 +556,18 @@ class RouteViewModel(
             _state.value = RouteState.Choosing(start = start, plan = null)
             return
         }
-        when (val declarations = engine().routesToCompute(start, destination)) {
+        // The declaration runs off the screen's thread; an exit or a newer arm while it runs makes its answer
+        // stale, and it is dropped rather than arming a mode the user has already left.
+        val declaring = engine()
+        val token = ++armGeneration
+        declaringArm = true
+        val answer = try {
+            withContext(declareDispatcher) { declaring.routesToCompute(start, destination) }
+        } finally {
+            declaringArm = false
+        }
+        if (token != armGeneration) return
+        when (val declarations = answer) {
             is RouteDeclarations.Refused -> {
                 _state.value = RouteState.Choosing(
                     start = start, plan = null, asked = true, refusal = declarations.reason
@@ -592,6 +619,11 @@ class RouteViewModel(
                     current[i].plan?.let { routeDispersionM(it.points, update.result.points) <= tolerance } == true
             }
             if (survivor != null) {
+                RouteTrace.line {
+                    val dispersion = current[survivor].plan?.let { routeDispersionM(it.points, update.result.points) }
+                    "FOLD rung=${update.routeId} into=${current[survivor].lookupId} " +
+                        "dispersion=${dispersion?.let { "%.1f".format(it) } ?: "n/a"}m tolerance=${"%.0f".format(tolerance)}m"
+                }
                 val newPages = current.filterIndexed { i, _ -> i != index }.toMutableList()
                 val survivorIndex = if (survivor > index) survivor - 1 else survivor
                 // The survivor keeps every rung's name: its own label first (or the names it already
@@ -913,6 +945,7 @@ class RouteViewModel(
 
     /** The panel's Exit — the acquisition's own door, and every other ending (R57). */
     fun end() {
+        armGeneration++
         disposeLookups()
         clearSession()
         _pages.value = emptyList()

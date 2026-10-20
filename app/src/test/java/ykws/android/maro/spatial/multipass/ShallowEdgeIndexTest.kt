@@ -107,23 +107,74 @@ class ShallowEdgeIndexTest {
     }
 
     /**
-     * **A node the chart's cutoff hides still leaves its shallow band traced.** A 1.5 m EMODnet node beside
-     * 3.5 m nodes reads as NoData where it stands, yet its depth blends into its neighbours' read: the band
-     * between falls under the gate, and the index must see it although no node's own read is shallow.
+     * **An excluded EMODnet node shapes nothing.** A 1.5 m EMODnet node beside 3.5 m Litto3D nodes, the
+     * chart's cutoff at 2.0: the router reads it at the gate depth, so neither the node nor the band beside it
+     * is blocked water and no edge is traced — it can no longer drag its Litto3D neighbours under the gate.
      */
     @Test
-    fun aHiddenEmodnetNodeStillLeavesItsBandTraced() {
+    fun anExcludedEmodnetNodeShapesNoEdge() {
         val grid = GateTestFixtures.raster(
             11, 11, cellM,
             source = { n, e -> if (n == rockN && e == rockE) DepthSource.EMODNET else DepthSource.LITTO3D }
         ) { n, e -> if (n == rockN && e == rockE) 1.5 else 3.5 }
         val edges = GateTestFixtures.edgesOf(grid, cutoffM = 2.0f)
         val node = at(rockN, rockE)
-        assertFalse("the node itself reads as NoData", edges.isShallow(node.latitude, node.longitude))
-        val band = at(rockN, rockE + 9.0)
-        assertTrue("the band beside it is blocked water", edges.isShallow(band.latitude, band.longitude))
-        val off = at(rockN, rockE + 30.0)
-        assertTrue("and its edge is traced", edges.distanceM(off.latitude, off.longitude, 50.0) < 30.0)
+        assertFalse("the node itself is not blocked", edges.isShallow(node.latitude, node.longitude))
+        val band = at(rockN, rockE + 12.0)
+        assertFalse("nor the band beside it, which the old read walled", edges.isShallow(band.latitude, band.longitude))
+        assertEquals("and no edge stands near it", Double.MAX_VALUE, edges.distanceM(node.latitude, node.longitude, 50.0), 0.0)
+    }
+
+    /**
+     * **A real shoal beside an excluded node keeps its edge, the line at the excluded node's side.** A 2.0 m
+     * Litto3D node beside an excluded 0.4 m EMODnet node: the blend between them is shallow on the Litto3D
+     * side, and the 3 m line lands within one pad of the excluded node, which reads the gate depth.
+     */
+    @Test
+    fun aRealShoalBesideAnExcludedNodeKeepsItsEdge() {
+        val grid = GateTestFixtures.raster(
+            11, 11, cellM,
+            source = { n, e -> if (n == rockN && e == rockE + cellM) DepthSource.EMODNET else DepthSource.LITTO3D }
+        ) { n, e ->
+            when {
+                n == rockN && e == rockE -> 2.0
+                n == rockN && e == rockE + cellM -> 0.4
+                else -> 5.0
+            }
+        }
+        val edges = GateTestFixtures.edgesOf(grid, cutoffM = 3.0f)
+        val shoal = at(rockN, rockE)
+        assertTrue("the Litto3D shoal is blocked", edges.isShallow(shoal.latitude, shoal.longitude))
+        val excluded = at(rockN, rockE + cellM)
+        assertFalse("the excluded node is not", edges.isShallow(excluded.latitude, excluded.longitude))
+        assertTrue(
+            "the 3 m line lands within one pad of the excluded node",
+            edges.distanceM(excluded.latitude, excluded.longitude, 50.0) <= edges.padM + 1e-6
+        )
+    }
+
+    /** A plateau of excluded EMODnet reads the gate depth exactly: no blocked water and nothing traced. */
+    @Test
+    fun aPlateauOfExcludedEmodnetIsNotShallow() {
+        val grid = GateTestFixtures.raster(11, 11, cellM, source = { _, _ -> DepthSource.EMODNET }) { _, _ -> 1.0 }
+        val edges = GateTestFixtures.edgesOf(grid, cutoffM = 3.0f)
+        val p = at(rockN + 7.0, rockE + 3.0)
+        assertFalse("the plateau is not blocked", edges.isShallow(p.latitude, p.longitude))
+        assertEquals(3.0f, grid.depthAtFilled(p.latitude, p.longitude, 3.0f, 3.0f).depthM)
+        assertEquals("no edge is traced", Double.MAX_VALUE, edges.distanceM(p.latitude, p.longitude, 100.0), 0.0)
+    }
+
+    /** With the cutoff under the gate, EMODnet between the two still walls: only what the cutoff excludes fills. */
+    @Test
+    fun emodnetBetweenACutoffAndTheGateStillWalls() {
+        val grid = GateTestFixtures.raster(
+            11, 11, cellM,
+            source = { n, e -> if (n == rockN && e == rockE) DepthSource.EMODNET else DepthSource.LITTO3D }
+        ) { n, e -> if (n == rockN && e == rockE) 2.5 else 5.0 }
+        val node = at(rockN, rockE)
+        assertTrue("a 2.5 m EMODnet node walls under a 2.0 cutoff", GateTestFixtures.edgesOf(grid, cutoffM = 2.0f).isShallow(node.latitude, node.longitude))
+        assertTrue("and under no cutoff", GateTestFixtures.edgesOf(grid, cutoffM = 0f).isShallow(node.latitude, node.longitude))
+        assertFalse("and not under a 3.0 cutoff", GateTestFixtures.edgesOf(grid, cutoffM = 3.0f).isShallow(node.latitude, node.longitude))
     }
 
     @Test

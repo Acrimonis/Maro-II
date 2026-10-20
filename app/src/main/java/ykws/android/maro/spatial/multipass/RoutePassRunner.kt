@@ -60,7 +60,6 @@ internal class RoutePassRunner {
         val limitAt = ctx.limitAt
         val zones = ctx.zones
         val sets = ctx.sets
-        val approaches = ctx.approaches
         val refusals = ctx.refusals
         // The guard reads the water the snap guards: for a two-layer walk that is the fine band's own cell,
         // not the interior's, so the tail's prices sit at the resolution the line was resolved at (Phase 6).
@@ -86,7 +85,7 @@ internal class RoutePassRunner {
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
         val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, guardField, start, aim, approaches,
+            marginM, coarseStepM, priceStepM, guardField, start, aim,
             gate = gate,
             berth = berth,
             berthLambda = lambda,
@@ -113,7 +112,7 @@ internal class RoutePassRunner {
             berthK = lambda,
             berth = berth,
             // The gate's step check, so every raw leg the pull may keep already keeps the wall.
-            stepGuard = gate?.let { StepGuard(it, start, aim, approaches) }
+            stepGuard = gate?.let { StepGuard(it, start, aim) }
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)

@@ -60,7 +60,6 @@ internal class RouteFinePass {
         val priced = ctx.priced
         val zones = ctx.zones
         val sets = ctx.sets
-        val approaches = ctx.approaches
         val refusals = ctx.refusals
         val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
@@ -76,7 +75,7 @@ internal class RouteFinePass {
             if (!lineEntersZone(out, zone)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals,
+                lambda, edges, openCoast, capLatNorth, priced, zones, sets, refusals,
                 ctx.markerStrength, ctx.plan, ctx.gate, trace
             ) ?: out
         }
@@ -88,7 +87,7 @@ internal class RouteFinePass {
         val gate = ctx.gate
         val berth = berthLawOf(ctx.plan, ctx.depthGateActive)
         val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches,
+            marginM, coarseStepM, priceStepM, fineGuard, start, aim,
             gate = gate, berth = berth, berthLambda = lambda,
             paceMps = Units.knotsToMps(pace)
         )
@@ -155,7 +154,6 @@ internal class RouteFinePass {
         priced: List<ZoneRing>,
         zones: List<SpeedZone>,
         sets: List<CornerSet>,
-        approaches: EndApproaches,
         refusals: PullRefusals?,
         markerStrength: Double = 1.0,
         /**
@@ -214,7 +212,7 @@ internal class RouteFinePass {
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, guard, start, aim, approaches,
+            marginM, coarseStepM, priceStepM, guard, start, aim,
             gate = gate,
             berth = berth,
             berthLambda = lambda,
@@ -236,7 +234,7 @@ internal class RouteFinePass {
             // field the coarse one did, so this re-solve prices one berth exactly as the arm did.
             berthK = lambda,
             berth = berth,
-            stepGuard = gate?.let { StepGuard(it, start, aim, approaches) },
+            stepGuard = gate?.let { StepGuard(it, start, aim) },
             // The splice's own ends are vertices of the line, not the route's: their cells are bound.
             waiveEndSlots = false
         )

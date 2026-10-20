@@ -59,12 +59,21 @@ internal object RouteMedialNudge {
         val ctx = setup.context()
         val spanM = berth.outerM * PASSAGE_SPAN_FACTOR
         val samples = sampleLine(line)
+        // Why each sample is in no passage, counted for the trace — the first test it failed.
+        var waived = 0
+        var open = 0
+        var noLeft = 0
+        var noRight = 0
+        var wide = 0
         for (s in samples) {
-            if (gate.waives(s.at, setup.start, setup.aim, setup.approaches)) continue
+            if (gate.waives(s.at, setup.start, setup.aim)) { waived++; continue }
             val edge = gate.edgeM(s.at, berth.outerM)
-            if (edge >= berth.outerM) continue
-            val left = gate.edges.rayHitM(s.at, s.normalEast, s.normalNorth, spanM) ?: continue
-            val right = gate.edges.rayHitM(s.at, -s.normalEast, -s.normalNorth, spanM - left) ?: continue
+            if (edge >= berth.outerM) { open++; continue }
+            val left = gate.edges.rayHitM(s.at, s.normalEast, s.normalNorth, spanM)
+            if (left == null) { noLeft++; continue }
+            val right = gate.edges.rayHitM(s.at, -s.normalEast, -s.normalNorth, spanM)
+            if (right == null) { noRight++; continue }
+            if (left + right > spanM) { wide++; continue }
             s.edgeM = edge
             s.offsetM = (left - right) / 2.0
         }
@@ -96,7 +105,10 @@ internal object RouteMedialNudge {
             i = j + 1
         }
         while (nextVertex < line.size) out.add(line[nextVertex++])
-        trace { "NUDGE stretches=$stretches moved=$moved points=${line.size}→${out.size}" }
+        trace {
+            "NUDGE stretches=$stretches moved=$moved points=${line.size}→${out.size} samples=${samples.size} " +
+                "waived=$waived open=$open noLeft=$noLeft noRight=$noRight wide=$wide"
+        }
         return out
     }
 

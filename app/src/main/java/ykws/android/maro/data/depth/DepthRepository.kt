@@ -94,6 +94,10 @@ class DepthRepository(
     // ── Queries ───────────────────────────────────────────────────────────────
 
     fun depthAt(lat: Double, lon: Double): DepthSample = grid?.depthAt(lat, lon) ?: DepthSample.NONE
+
+    /** The route search's read — [DepthGrid.depthAtFilled] over the loaded grid, no data where none is loaded. */
+    fun depthAtFilled(lat: Double, lon: Double, excludeBelowM: Float, fillM: Float): DepthSample =
+        grid?.depthAtFilled(lat, lon, excludeBelowM, fillM) ?: DepthSample.NONE
     fun getGrid(): DepthGrid? = grid
     fun getRenderModel(): DepthRenderModel? = renderModel
     fun isLoaded(): Boolean = grid != null

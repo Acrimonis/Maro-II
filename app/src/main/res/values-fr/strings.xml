@@ -750,7 +750,6 @@
     <!-- Affiché quand la dernière route est calculée et que la sélection quitte une route choisie à la main pour la gagnante. -->
     <string name="route_best_selected_toast">Recherche terminée — meilleure route sélectionnée</string>
     <string name="route_refusal_too_short">Départ et destination trop proches pour tracer une route</string>
-    <string name="route_destination_moved">Point d\'eau le plus proche</string>
     <string name="route_trip_title">Route</string>
     <string name="route_trip_distance_nm">%1$.1f NM</string>
     <!-- La ligne unique sous le chiffre du trajet suivi : la distance restante, le mot du

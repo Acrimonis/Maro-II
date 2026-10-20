@@ -19,8 +19,8 @@ import kotlin.math.sqrt
  * **The sub-cell (m) a mixed raster quad is split into before the 3 m line is traced** — the trace's own
  * precision, and the whole of the bound every reader subtracts ([ShallowEdgeIndex.padM]). At 1.5 m the pad
  * is 2.1 m, so a reading sits at most two pads (4.2 m) under the truth and a passage of 50 m always keeps a
- * legal row on a 20 m grid with a 10 m wall. **It shapes the stored wall**: a change here must bump
- * [`FineTileCodec.FORMAT_VERSION`], since no tile key carries it.
+ * legal row on a 20 m grid with a 10 m wall. **It shapes the stored wall**, which no tile key carries —
+ * safe because the tile store keeps one build's entries only.
  */
 internal const val SHALLOW_EDGE_SUBCELL_M = 1.5
 
@@ -102,27 +102,21 @@ class DepthLattice(
  * measures the standoff instead of sampling depth at a handful of points around it.
  *
  * **Built lazily, chunk by chunk.** A chunk is [CHUNK_QUADS] × [CHUNK_QUADS] raster quads, built on first
- * touch and kept for the index's life. Its nodes are read once, twice over: through the gate's own
- * [depthAt], and through [rawDepthAt], the raster's own value before any chart gate hides a node. A quad
- * **may hold blocked water** where a node's raw depth is under the gate — a node the EMODnet cutoff hides
- * still blends its depth into its neighbours' read, so the band beside it can fall under the gate — and
- * **may hold open water** where a node's gated read clears it. Every quad that may hold both is split into
- * [split] × [split] sub-cells of at most [SHALLOW_EDGE_SUBCELL_M], each sub-node read through the gate's
- * own [depthAt], NoData read as deep, and the contour traced on that sub-field; a chunk holding no such
- * quad holds no segment. Tracing the gate's own function — the EMODnet shallow gate and the NoData
- * renormalisation included — is what keeps the line and the wall from ever disagreeing about which water
- * is blocked.
+ * touch and kept for the index's life. Its nodes are read once, through the gate's own [depthAt]: a quad
+ * **may hold blocked water** where a node reads under the gate and **may hold open water** where one clears
+ * it. Every quad that may hold both is split into [split] × [split] sub-cells of at most
+ * [SHALLOW_EDGE_SUBCELL_M], each sub-node read through [depthAt], NoData read as deep, and the contour traced
+ * on that sub-field; a chunk holding no such quad holds no segment. Tracing the gate's own function is what
+ * keeps the line and the wall from ever disagreeing about which water is blocked. The live read
+ * ([`DepthGrid.depthAtFilled`]) is a plain bilinear blend, so a quad's lowest value stands at a corner and a
+ * quad with no corner under the gate holds no blocked water.
  *
  * **The bound ([padM]).** A crossing on a sub-cell's side is exact (the field is linear along it) and the
  * true contour never leaves its sub-cell, so a true edge point stands within one sub-cell diagonal of an
  * emitted segment. Every reader therefore subtracts [padM] from the distance it reads, which makes the
  * reading a **lower bound** on the true distance — the side a wall must err on. The bound holds wherever the
- * gate's depth is continuous, NoData renormalisation included (the read is then monotone along each axis, so
- * a sub-cell's extremes stand at its corners). **The one caveat is the EMODnet shallow cutoff**, which the gate
- * applies by the dominant node's source and so switches discontinuously: inside a traced quad, a sliver of
- * blocked water narrower than one sub-cell, whose four sub-corners all read gated or deep, is not traced.
- * Only coarse EMODnet water shallower than the chart's own cutoff can make one, and never wider than a
- * sub-cell.
+ * gate's depth is continuous within a quad, which the live read is but at a NoData node itself (a single
+ * point read as deep): a crossing beside one can stand a sub-cell off, still within the pad.
  *
  * Thread-safe: tile builds run on several workers, and a chunk is built once under the map's own
  * `computeIfAbsent`.
@@ -131,12 +125,7 @@ class ShallowEdgeIndex(
     private val depthAt: (Double, Double) -> Double,
     private val lattice: DepthLattice,
     /** The gate's own depth (m): water under it is blocked, NoData never is. */
-    val minDepthM: Double,
-    /**
-     * The raster's own depth before any chart gate, `NaN` for NoData — the read that says whether a quad
-     * may hold blocked water. It is [depthAt] itself where no gate hides a node.
-     */
-    private val rawDepthAt: (Double, Double) -> Double = depthAt
+    val minDepthM: Double
 ) {
     /** How many sub-cells a quad side is split into, so neither sub-side exceeds [SHALLOW_EDGE_SUBCELL_M]. */
     private val split: Int =
@@ -297,16 +286,11 @@ class ShallowEdgeIndex(
         val qc0 = chunkCol * CHUNK_QUADS
         val n = CHUNK_QUADS + 1
         val nodes = DoubleArray(n * n) { idx -> read(lattice.nodeLat(qr0 + idx / n), lattice.nodeLon(qc0 + idx % n)) }
-        // Whether a node may stand under the gate: its raw depth is — a node the chart's cutoff hides still
-        // blends that depth into its neighbours' read.
-        val rawShallow = BooleanArray(n * n) { idx ->
-            rawDepthAt(lattice.nodeLat(qr0 + idx / n), lattice.nodeLon(qc0 + idx % n)) < minDepthM
-        }
         var anyShallow = false
         var anyClear = false
-        for (idx in nodes.indices) {
-            if (rawShallow[idx]) anyShallow = true
-            if (nodes[idx] >= minDepthM) anyClear = true
+        for (value in nodes) {
+            if (value < minDepthM) anyShallow = true
+            if (value >= minDepthM) anyClear = true
         }
         if (!anyShallow || !anyClear) {
             builtChunks.incrementAndGet()
@@ -324,8 +308,7 @@ class ShallowEdgeIndex(
                 val se = nodes[qr * n + qc + 1]
                 val ne = nodes[(qr + 1) * n + qc + 1]
                 val nw = nodes[(qr + 1) * n + qc]
-                val mayBeShallow = rawShallow[qr * n + qc] || rawShallow[qr * n + qc + 1] ||
-                    rawShallow[(qr + 1) * n + qc + 1] || rawShallow[(qr + 1) * n + qc]
+                val mayBeShallow = sw < minDepthM || se < minDepthM || ne < minDepthM || nw < minDepthM
                 val mayBeClear = sw >= minDepthM || se >= minDepthM || ne >= minDepthM || nw >= minDepthM
                 if (!mayBeShallow || !mayBeClear) continue
                 mixed++
@@ -523,8 +506,8 @@ private fun cross(ux: Double, uy: Double, vx: Double, vy: Double): Double = ux *
  *   `avoid`, which prices no berth, answers the gate's own margin.
  * - [preferredM] — the standoff kept wherever there is room (`route.avoid.depthGate.marginM`): the corner
  *   pass's bow keeps it, and the berth's inner ramp ends at it.
- * - [waiverM] — the disc around each raw end inside which the gate does not bind, the end's own carved
- *   approach beside it: an end standing in shallow-side water must still be left.
+ * - [waiverM] — the disc around each raw end inside which the gate does not bind, and the only place it
+ *   does not: an end standing in shallow-side water must still be left.
  *
  * Every distance it answers is the index's reading **minus the pad**, so a guard reading it reads a lower
  * bound on the true distance and a line it clears is clear.
@@ -545,8 +528,8 @@ class GateRule(
      * field relaxing from those seeds: the berth's whole priced span, and at least the wall plus one cell
      * diagonal, so a step between two neighbouring cells can be proved clear from the two cells' stored
      * distances alone. The raster and the search's step guard read this one rule, so the guard never trusts a
-     * distance the raster did not write exactly. **It shapes the stored field**: a change here must bump
-     * [`FineTileCodec.FORMAT_VERSION`].
+     * distance the raster did not write exactly. **It shapes the stored field**, which the tile store keeps
+     * per build, so a change here needs nothing more.
      */
     fun seedReachM(cellM: Double): Double = max(berthOuterM, hardM + cellM * sqrt(2.0))
 
@@ -566,37 +549,66 @@ class GateRule(
     fun isShallow(p: LatLng): Boolean = edges.isShallow(p.latitude, p.longitude)
 
     /**
-     * **Whether the gate waives itself at [p]** — within its own disc ([waiverM]) around either raw end, or on
-     * an end's carved approach ([EndApproaches]), read to within [APPROACH_TOLERANCE_M]: the approach is the
-     * polyline the carve stretched through its own cells' centres, so a point the walk stands on it lies on
-     * it. The search's step guard, the pull, the medial nudge and the trace all read this one rule.
+     * **Whether the gate waives itself at [p]** — within its own disc ([waiverM]) around either raw end, and
+     * nowhere else: no stretch of water beyond that disc is exempt, so every leg past it is measured. The
+     * search's step guard, the pull, the medial nudge and the trace all read this one rule.
      */
-    fun waives(p: LatLng, start: LatLng, aim: LatLng, approaches: EndApproaches): Boolean =
-        MultipassPull.marginWaived(p, waiverM, start, aim, approaches, APPROACH_TOLERANCE_M)
+    fun waives(p: LatLng, start: LatLng, aim: LatLng): Boolean = waivesNear(p, start) || waivesNear(p, aim)
 
-    companion object {
-        /** How near (m) a point must stand to a carved approach to stand on it. */
-        const val APPROACH_TOLERANCE_M = 2.0
+    /** Which waiver holds at [p] — `disc` within [waiverM] of an end, else `none` — the trace's reading of [waives]. */
+    fun waiverOf(p: LatLng, start: LatLng, aim: LatLng): String = if (waives(p, start, aim)) "disc" else "none"
+
+    /** Whether the gate waives itself at [p] for one end: within [waiverM] of [end]. */
+    fun waivesNear(p: LatLng, end: LatLng): Boolean = SpatialOperations.haversine(p, end) < waiverM
+
+    /**
+     * **Whether the segment [a]–[b] keeps the wall wherever the gate does not waive itself** — one
+     * [segmentEdgeM] where neither end is waived; otherwise the segment is cut into pieces of at most
+     * [GATE_FINE_STEP_M], a piece with a waived end is dropped and each run of unwaived pieces is read as one
+     * segment. It is the pull's own per-mark granularity, so the waiver's rim is lenient by one piece at most.
+     */
+    fun keepsWall(a: LatLng, b: LatLng, start: LatLng, aim: LatLng): Boolean {
+        val aWaived = waives(a, start, aim)
+        val bWaived = waives(b, start, aim)
+        if (!aWaived && !bWaived) return segmentEdgeM(a, b, hardM) >= hardM
+        val pieces = ceil(SpatialOperations.haversine(a, b) / GATE_FINE_STEP_M).toInt().coerceAtLeast(1)
+        var runFrom: LatLng? = null
+        var last = a
+        var lastWaived = aWaived
+        for (k in 1..pieces) {
+            val p = if (k == pieces) b else chordPointAt(a, b, k.toDouble() / pieces)
+            val waived = if (k == pieces) bWaived else waives(p, start, aim)
+            if (!lastWaived && !waived) {
+                if (runFrom == null) runFrom = last
+            } else if (runFrom != null) {
+                if (segmentEdgeM(runFrom, last, hardM) < hardM) return false
+                runFrom = null
+            }
+            last = p
+            lastWaived = waived
+        }
+        return runFrom == null || segmentEdgeM(runFrom, b, hardM) >= hardM
     }
 }
 
 /**
- * **The edge index over a loaded raster, as the live world reads it** — the gate's depth through the chart's
- * own EMODnet cutoff, the raw depth beside it for the prefilter, and the raster's own lattice with its
- * longitude side measured at the southern edge, where it is widest, so the pad holds over the whole region.
- * The raster is held weakly: an index outlives its raster only until the next search replaces it.
+ * **The edge index over a loaded raster, as the live world reads it** — the router's own depth read
+ * ([`DepthGrid.depthAtFilled`]: the chart's EMODnet cutoff excludes, excluded and missing nodes read at the
+ * gate depth), and the raster's own lattice with its longitude side measured at the southern edge, where it
+ * is widest, so the pad holds over the whole region. The raster is held weakly: an index outlives its raster
+ * only until the next search replaces it.
  */
 fun shallowEdgesOver(grid: DepthGrid, cutoffM: Float, minDepthM: Double): ShallowEdgeIndex {
     val held = WeakReference(grid)
+    val fillM = minDepthM.toFloat()
     return ShallowEdgeIndex(
         depthAt = { lat, lon ->
-            held.get()?.let { depthMOf(it.depthAt(lat, lon).gatedForEmodnetShallow(cutoffM)) } ?: Double.NaN
+            held.get()?.let { depthMOf(it.depthAtFilled(lat, lon, cutoffM, fillM)) } ?: Double.NaN
         },
         lattice = DepthLattice(
             grid.boundingBox.latSouth, grid.boundingBox.lonWest,
             grid.cellSizeDegLat, grid.cellSizeDegLon, grid.boundingBox.latSouth
         ),
-        minDepthM = minDepthM,
-        rawDepthAt = { lat, lon -> held.get()?.let { depthMOf(it.depthAt(lat, lon)) } ?: Double.NaN }
+        minDepthM = minDepthM
     )
 }

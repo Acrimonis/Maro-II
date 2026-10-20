@@ -19,9 +19,8 @@ import kotlin.math.min
  * A chord is clear when every sample along it stands at least [marginM] from the field's nearest hard
  * wall, sampled at `≤ marginM / 2` so the margin is a guarantee rather than an approximation. The
  * clearance is **exempt where the margin itself is waived** — within a margin-radius disc around each
- * forced-free end (the raw start and aim), and on the **carved approach** each end was granted
- * ([EndApproaches]), which is how the first and last legs reconcile with the margin predicate even
- * when the berth runs deeper than that disc. A rejected chord is re-walked once from its
+ * forced-free end (the raw start and aim), which is how the first and last legs reconcile with the margin
+ * predicate. A rejected chord is re-walked once from its
  * predecessor's predecessor — the concave-coast retry, bounded rather than looped.
  *
  * **The field's two hard shapes are read apart.** A mark pays the rastered walls' own step
@@ -41,8 +40,8 @@ import kotlin.math.min
  * must keep the gate's wall ([GateRule.hardM]) off the traced 3 m line: one edge read every
  * [GATE_MARK_STEP_M] proves its interval by the same 1-Lipschitz bound, and only an interval a mark
  * cannot prove is walked at [GATE_FINE_STEP_M]. The gate waives itself on its own narrower disc
- * ([GateRule.waiverM]) and on the carved approaches, so beyond that disc the gate's interior binds even
- * where the coast's wider waiver still stands.
+ * ([GateRule.waiverM]) alone, so beyond that disc the gate's interior binds even where the coast's wider
+ * waiver still stands.
  *
  * **No ring clearance.** The pull carries no other standoff: a speed zone's outside margin is a **price**
  * in the search and in the field's own price guard, never a clearance here. What binds is the land margin,
@@ -287,7 +286,7 @@ internal class MarkMemo {
 
 /**
  * **The water one call walks, in one value.** It holds the constants every walking call re-listed before
- * this step — the margin, the two steps, the field, the two raw ends and the carved approaches, then the
+ * this step — the margin, the two steps, the field and the two raw ends, then the
  * depth gate's rule, the berth's law and its cursor, and the pace — and it **is the walk's own context
  * ([PullContext]) cut back to those values**: the walk's three tallies
  * stay out, because a counter shared between two walks of one pass cannot change an answer while a cache
@@ -297,7 +296,7 @@ internal class MarkMemo {
  * walk's sampling step (the cell the call was resolved on) and [priceStepM] the price walk's own interior
  * cell, the step and grouping rule its prefix is built from, so the guard compares two walks of one law.
  * [field] is the unified cost field, [marginM] the shore clearance, and [start] and [aim] the two raw
- * ends whose discs, beside the carved [approaches], the margin waives.
+ * ends whose discs the margin waives.
  *
  * **One lifetime, per call.** A call builds its setup once, immediately after the field it hands the
  * walk, and never stores it: a corridor that grows hands the grown context's fresh field to a new setup,
@@ -312,7 +311,6 @@ internal class PullSetup(
     val field: RouteCostField,
     val start: LatLng,
     val aim: LatLng,
-    val approaches: EndApproaches = EndApproaches.NONE,
     /** The depth gate's rule — the measured edge and its wall — or `null` where the gate is out of force. */
     val gate: GateRule? = null,
     /** The berth's law, or `null` where this plan prices none. */
@@ -334,7 +332,7 @@ internal class PullSetup(
         timing: PullTiming? = null,
         memo: MarkMemo? = null
     ): PullContext = PullContext(
-        marginM, coarseStepM, priceStepM, field, start, aim, approaches,
+        marginM, coarseStepM, priceStepM, field, start, aim,
         gate, berth, berthLambda, paceMps,
         refusals, timing, memo
     )
@@ -342,8 +340,8 @@ internal class PullSetup(
 
 /**
  * **One walk's own values, made once at its start and threaded instead of re-declared.** The context
- * carries the walk's constants — the margin, the two steps, the field, the two raw ends, the carved
- * approaches, the depth gate's rule, the berth's law and its cursor, and the pace — beside its three
+ * carries the walk's constants — the margin, the two steps, the field, the two raw ends, the depth
+ * gate's rule, the berth's law and its cursor, and the pace — beside its three
  * tallies: the refusals it counts, the timing it keeps and the memo it
  * fills, each **exactly as nullable as the walk demands**, so a solve that wants none of them passes
  * none. Nothing per-chord lives here — no endpoint, no anchor or probe index, no prefix array, no
@@ -360,7 +358,6 @@ internal class PullContext(
     val field: RouteCostField,
     val start: LatLng,
     val aim: LatLng,
-    val approaches: EndApproaches = EndApproaches.NONE,
     val gate: GateRule? = null,
     val berth: BerthLaw? = null,
     val berthLambda: Double = 0.0,
@@ -417,6 +414,16 @@ internal class PullContext(
 
     /** The soft clearance the price-walk's group proof reads — the field's and the berth's, one number. */
     fun softClearanceM(p: LatLng): Double = min(field.priceClearanceM(p), berthClearanceM(p))
+
+    /**
+     * **This walk's field alone** — no berth and no gate, the same field, steps and memo — whose soft price
+     * is the field's own: the base the sweep's allowance is a share of. The memo holds the field's raw
+     * price, the berth being added after it, so the reads it shares answer alike.
+     */
+    fun fieldOnly(): PullContext = PullContext(
+        marginM, coarseStepM, priceStepM, field, start, aim,
+        paceMps = paceMps, timing = timing, memo = memo
+    )
 }
 
 object MultipassPull {
@@ -426,7 +433,7 @@ object MultipassPull {
      * the field's margin allows and independent of grid orientation.
      *
      * @param setup the water this call walks — the margin, the clearance and price steps, the field,
-     *   the two raw ends and the carved approaches — built by the caller once and immediately after
+     *   and the two raw ends — built by the caller once and immediately after
      *   the field it hands the walk, never cached across a corridor's growth.
      * @param refusals the tally the walk counts its refused chords into, or `null` where none is read.
      * @param timing the walk's own tally of what it spent, or `null` where no reader wants it.
@@ -577,11 +584,13 @@ object MultipassPull {
      *
      * **The allowance makes the price proof tolerant of the field's own sampling.** The strict test pins a
      * vertex on a difference smaller than the water can be read — the log's own `+16 ms` against `7.463 s`,
-     * and a pair equal below the printed precision. The chord now drops while `chordSec <= pathSec ×
-     * (1 + [allowanceShare])`, a **relative** term: where the legs cost nothing the allowance is nothing,
-     * so a priced chord is never cut by it, and it reads no new field value — the same two seconds the
-     * proof already compares. The wall stays absolute: clearance is still read first and short-circuits, so
-     * a chord refused by land pays no price read at all.
+     * and a pair equal below the printed precision. The chord drops while `chordSec <= pathSec +
+     * [allowanceShare] × fieldSec`, `fieldSec` being the legs' **field** price alone — never their travel
+     * and never the gate berth's term — so where the field charges nothing the allowance is nothing, and the
+     * berth's standoff is traded only for a chord truly cheaper in total, never for a shorter line within
+     * the allowance (2026-10-20). The field price is read only where the strict test fails. The wall stays
+     * absolute: clearance is still read first and short-circuits, so a chord refused by land pays no price
+     * read at all.
      *
      * **A window collapses a flat run the triple alone cannot see.** One interior vertex at a time is
      * invisible to a run of three or more flat vertices — an open-water wiggle, a pocket-boundary
@@ -605,8 +614,8 @@ object MultipassPull {
      * so the same input always yields the same line; every removal shortens the list, so the loop
      * terminates.
      *
-     * **It reuses the walk's own context and memo** — the field, the margin, both steps and the carved
-     * approaches — so the end-exemption and the marks the pull already paid apply unchanged, and a shared
+     * **It reuses the walk's own context and memo** — the field, the margin, both steps and the raw ends —
+     * so the end-exemption and the marks the pull already paid apply unchanged, and a shared
      * [MarkMemo] answers the sweep's retraced marks rather than paying them again.
      *
      * **It reports itself through [trace], so a silent sweep is never mistaken for one that ran.** One
@@ -617,11 +626,11 @@ object MultipassPull {
      * while the summary keeps its shape, a window's vertices counting into its `dropped=` beside the
      * triple's. The report decides nothing: the drawn line is the walk's either way.
      *
-     * @param allowanceShare the price allowance as a share of the legs' own price —
+     * @param allowanceShare the price allowance as a share of the legs' own field price —
      *   `route.avoid.pull.allowanceShare` through [AppConfig] where none is handed, so a caller reading a
      *   fixture passes its own and the shipped key is the default.
-     * @param setup the water the settled walk was handed — the same margin, steps, field, raw ends and
-     *   approaches, so the sweep's proofs are the walk's own.
+     * @param setup the water the settled walk was handed — the same margin, steps, field and raw ends, so
+     *   the sweep's proofs are the walk's own.
      * @param line the settled line, raw start first and raw aim last, exactly as [`pull`] returned it.
      * @param refusals the tally the settled pull counted into; the sweep runs only where it is non-empty,
      *   and a `null` tally proves nothing so the sweep runs.
@@ -652,6 +661,7 @@ object MultipassPull {
             return line
         }
         val ctx = setup.context(refusals, timing, memo)
+        val fieldCtx = ctx.fieldOnly()
         val work = ArrayList(line)
         var passes = 0
         var dropped = 0
@@ -672,7 +682,7 @@ object MultipassPull {
                 // triple cannot see is worth a longer chord; a turned run is left to the triple below.
                 val span = windowSpan(work, i)
                 if (span > 2) {
-                    val collapsed = longestWindowChord(work, i, span, ctx, allowanceShare)
+                    val collapsed = longestWindowChord(work, i, span, ctx, fieldCtx, allowanceShare)
                     if (collapsed != null) {
                         trace {
                             "SWEEP window idx=$i span=$collapsed at=${atText(b)} " +
@@ -702,8 +712,7 @@ object MultipassPull {
                 }
                 val chordSec = totalSec(a, c, ctx)
                 val pathSec = totalSec(a, b, ctx) + totalSec(b, c, ctx)
-                // The allowance is relative: a share of the legs' own price, and nothing where they are free.
-                if (chordSec <= pathSec * (1.0 + allowanceShare)) {
+                if (allowanceAccepts(chordSec, pathSec, work, i - 1, i + 1, fieldCtx, allowanceShare)) {
                     trace {
                         "SWEEP drop idx=$i at=${atText(b)} turn=${fmt(sweepTurnDeg(a, b, c))}"
                     }
@@ -781,6 +790,7 @@ object MultipassPull {
         i: Int,
         maxSpan: Int,
         ctx: PullContext,
+        fieldCtx: PullContext,
         allowanceShare: Double
     ): Int? {
         var span = maxSpan
@@ -791,11 +801,34 @@ object MultipassPull {
                 val chordSec = totalSec(a, e, ctx)
                 var pathSec = 0.0
                 for (j in i - 1 until i - 1 + span) pathSec += totalSec(work[j], work[j + 1], ctx)
-                if (chordSec <= pathSec * (1.0 + allowanceShare)) return span
+                if (allowanceAccepts(chordSec, pathSec, work, i - 1, i - 1 + span, fieldCtx, allowanceShare)) {
+                    return span
+                }
             }
             span--
         }
         return null
+    }
+
+    /**
+     * **The sweep's price proof** — the chord over `work[from] … work[to]` is not dearer in total than the
+     * legs it replaces, give or take [allowanceShare] of those legs' **field** price, read on [fieldCtx]. The
+     * field read is paid only where the strict comparison fails.
+     */
+    private fun allowanceAccepts(
+        chordSec: Double,
+        pathSec: Double,
+        work: List<LatLng>,
+        from: Int,
+        to: Int,
+        fieldCtx: PullContext,
+        allowanceShare: Double
+    ): Boolean {
+        if (chordSec <= pathSec) return true
+        if (allowanceShare <= 0.0 || !fieldCtx.hasSoftPrice) return false
+        var fieldSec = 0.0
+        for (j in from until to) fieldSec += softPriceSec(work[j], work[j + 1], fieldCtx)
+        return chordSec <= pathSec + allowanceShare * fieldSec
     }
 
     /**
@@ -822,7 +855,7 @@ object MultipassPull {
         var worstSec = 0.0
         var worstAt: LatLng? = null
         for (j in 0 until marks.count) {
-            val p = chordPoint(a, c, marks.markT(j))
+            val p = chordPointAt(a, c, marks.markT(j))
             val fieldArms = ctx.field.armPricesAt(p)
             // The berth rides the grid, not the field, so its arm is added here at the same cell unit the
             // loop below converts to seconds — the report names it [PriceArm.DEPTH] rather than missing it.
@@ -894,36 +927,12 @@ object MultipassPull {
     internal fun clearanceStep(marginM: Double): Double = (marginM / 2.0).coerceAtLeast(MIN_SAMPLE_STEP_M)
 
     /**
-     * Whether the margin is **waived** at [p]: within a disc of [marginM] around either raw end, or on
-     * either carved approach. It is the pull's own exemption, read here and by the curve fitter's wall
-     * test from one home, so the two can never disagree about where the shore clearance binds.
+     * Whether the margin is **waived** at [p]: within a disc of [marginM] around either raw end. It is the
+     * pull's own exemption, read here and by the curve fitter's wall test from one home, so the two can never
+     * disagree about where the shore clearance binds.
      */
-    internal fun marginWaived(
-        p: LatLng,
-        marginM: Double,
-        start: LatLng,
-        aim: LatLng,
-        approaches: EndApproaches,
-        toleranceM: Double
-    ): Boolean =
-        SpatialOperations.haversine(p, start) < marginM ||
-            SpatialOperations.haversine(p, aim) < marginM ||
-            approachCovers(p, approaches.start, toleranceM) ||
-            approachCovers(p, approaches.aim, toleranceM)
-
-    /**
-     * Whether [p] stands on one of the approach's own segments — within [toleranceM], the walk's own
-     * sampling step, so a sample that cannot be told apart from the stretch reads as on it.
-     */
-    internal fun approachCovers(p: LatLng, approach: List<LatLng>, toleranceM: Double): Boolean {
-        if (approach.size < 2) return false
-        for (i in 0 until approach.size - 1) {
-            if (SpatialOperations.pointToSegmentDistance(p, approach[i], approach[i + 1]) <= toleranceM) {
-                return true
-            }
-        }
-        return false
-    }
+    internal fun marginWaived(p: LatLng, marginM: Double, start: LatLng, aim: LatLng): Boolean =
+        SpatialOperations.haversine(p, start) < marginM || SpatialOperations.haversine(p, aim) < marginM
 
     /** The walk's [legClearCause] answered with a boolean, from the walk's own context. */
     internal fun legClear(a: LatLng, b: LatLng, ctx: PullContext): Boolean =
@@ -933,12 +942,8 @@ object MultipassPull {
      * The same walk [legClear] answers with a boolean, read for its **cause** — so the instrument can
      * count which of the pull's tests refused a chord instead of leaving the three to guesswork.
      *
-     * **The exemption is one rule with two halves**, and it is the margin's own scope: the shore
-     * clearance binds the **route**, never the ends. A sample standing within [PullContext.marginM] of
-     * either end is skipped, and so is one standing on that end's **carved approach** — the stretch the
-     * berth carve opened, which the disc cannot cover once the berth runs deeper than the margin.
-     * Without that second half the pull re-closes the very channel it just used, and the drawn line
-     * becomes a staircase inside the berth it escaped.
+     * **The exemption is the margin's own scope**: the shore clearance binds the **route**, never the ends,
+     * so a sample standing within [PullContext.marginM] of either end is skipped.
      *
      * The coarse marks stand on a **fixed lattice from the chord's own start**, one per [PullContext.coarseStepM]
      * with the last interval sized to the chord's remainder, each at its own interval's midpoint; each
@@ -964,15 +969,15 @@ object MultipassPull {
         val provedClearM = ctx.marginM + coarseStep / 2.0
         val coarseClear = BooleanArray(coarseCount)
         for (k in 0 until coarseCount) {
-            coarseClear[k] = readHard(ctx, chordPoint(a, b, coarse.markT(k))) >= provedClearM
+            coarseClear[k] = readHard(ctx, chordPointAt(a, b, coarse.markT(k))) >= provedClearM
         }
         val gate = ctx.gate
         for (i in 1 until steps) {
             val t = i.toDouble() / steps
-            val p = chordPoint(a, b, t)
-            // The end-disc and the carved approach, one rule: the margin binds the path, never the ends.
-            // The gate's own disc is narrower, so the gate's interior still binds past it.
-            if (marginWaived(p, ctx.marginM, ctx.start, ctx.aim, ctx.approaches, sampleStep)) {
+            val p = chordPointAt(a, b, t)
+            // The end-disc: the margin binds the path, never the ends. The gate's own disc is narrower, so
+            // the gate's interior still binds past it.
+            if (marginWaived(p, ctx.marginM, ctx.start, ctx.aim)) {
                 if (gate != null && !gateWaived(p, ctx) && gate.isShallow(p)) return ChordRefusal.LAND
                 continue
             }
@@ -1002,12 +1007,12 @@ object MultipassPull {
         val marks = MarkLattice(dist, GATE_MARK_STEP_M)
         for (j in 0 until marks.count) {
             val widthM = marks.widthM(j)
-            if (ctx.edgeM(chordPoint(a, b, marks.markT(j))) >= gate.hardM + widthM / 2.0) continue
+            if (ctx.edgeM(chordPointAt(a, b, marks.markT(j))) >= gate.hardM + widthM / 2.0) continue
             val fromM = j * marks.stepM
             val samples = ceil(widthM / GATE_FINE_STEP_M).toInt().coerceAtLeast(1)
             val subM = widthM / samples
             for (s in 0 until samples) {
-                val q = chordPoint(a, b, (fromM + (s + 0.5) * subM) / dist)
+                val q = chordPointAt(a, b, (fromM + (s + 0.5) * subM) / dist)
                 if (gateWaived(q, ctx)) continue
                 if (ctx.edgeM(q) < gate.hardM + subM / 2.0) return true
             }
@@ -1018,18 +1023,8 @@ object MultipassPull {
     /** Whether the gate waives itself at [p] — the gate's own one rule ([GateRule.waives]). */
     private fun gateWaived(p: LatLng, ctx: PullContext): Boolean {
         val gate = ctx.gate ?: return true
-        return gate.waives(p, ctx.start, ctx.aim, ctx.approaches)
+        return gate.waives(p, ctx.start, ctx.aim)
     }
-
-    /**
-     * The point [t] of the way from [a] to [b] — the chord's own parameterisation, one home for the
-     * coarse marks, the fine ones and the price walk's interval midpoints, so no two of them can be
-     * placed off the same line.
-     */
-    private fun chordPoint(a: LatLng, b: LatLng, t: Double): LatLng = LatLng(
-        a.latitude + (b.latitude - a.latitude) * t,
-        a.longitude + (b.longitude - a.longitude) * t
-    )
 
     /**
      * The price guard's own cause: `PRICE` where the chord costs more than the span it would replace.
@@ -1157,7 +1152,7 @@ object MultipassPull {
             return
         }
         val halfM = marks.spanLengthM(i0, i1) / 2.0
-        val mid = chordPoint(a, b, marks.spanMidT(i0, i1))
+        val mid = chordPointAt(a, b, marks.spanMidT(i0, i1))
         val clearance = ctx.softClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
             val price = ctx.field.softPriceSecPerMAt(mid) + ctx.berthRate(mid)
@@ -1195,17 +1190,17 @@ object MultipassPull {
             val proved = if (k > 1) {
                 // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
                 // can never be proved, and a group of one interval is never asked.
-                val clearance = ctx.softClearanceM(chordPoint(a, b, marks.spanMidT(i, i + k)))
+                val clearance = ctx.softClearanceM(chordPointAt(a, b, marks.spanMidT(i, i + k)))
                 clearance < Double.MAX_VALUE && clearance >= halfM
             } else {
                 false
             }
             if (proved) {
-                val price = readPrice(ctx, chordPoint(a, b, marks.spanMidT(i, i + k)))
+                val price = readPrice(ctx, chordPointAt(a, b, marks.spanMidT(i, i + k)))
                 for (j in i until i + k) acc[0] += price * marks.widthM(j)
             } else {
                 for (j in i until i + k) {
-                    acc[0] += readPrice(ctx, chordPoint(a, b, marks.markT(j))) * marks.widthM(j)
+                    acc[0] += readPrice(ctx, chordPointAt(a, b, marks.markT(j))) * marks.widthM(j)
                 }
             }
             i += k
@@ -1267,23 +1262,6 @@ object MultipassPull {
             }
         }
         return raw + ctx.berthRate(p)
-    }
-}
-
-/**
- * **The two ends' carved approaches, as the pull reads them** — the stretch each end may travel on
- * beside the margin-radius disc around it. One value rather than two lists, because the exemption is
- * one rule read twice: a berth channel longer than the margin is not covered by the disc, so a chord
- * standing on the stretch must be exempt exactly as a sample within the disc already is.
- *
- * [NONE] is what a solve without a carve passes — no stretch exempt, which is the shipped behaviour.
- */
-data class EndApproaches(
-    val start: List<LatLng> = emptyList(),
-    val aim: List<LatLng> = emptyList()
-) {
-    companion object {
-        val NONE = EndApproaches()
     }
 }
 

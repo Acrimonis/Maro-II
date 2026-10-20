@@ -18,13 +18,13 @@ import ykws.android.maro.data.settings.AppSettings
  * calls [RouteCostField.hardBlocked] — so the water the world answers *is* the water the router
  * walls.
  *
- * The world below mirrors the live adapter: it applies [DepthSample.gatedForEmodnetShallow] at the
- * chart's own `emodnetShallowCutoffM`, exactly as
+ * The world below mirrors the live adapter: it reads [DepthGrid.depthAtFilled] at the chart's own
+ * `emodnetShallowCutoffM`, the excluded and missing nodes at the gate depth, exactly as
  * [`LiveMultipassWorld`](../../../../main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt)
- * now reads it — one rule, one value, chart and router alike. Two cells, same 1.5 m sounding, below
+ * reads it — one rule, one value, chart and router alike. Two cells, same 1.5 m sounding, below
  * the 3 m depth gate either way:
  *
- * - a **coarse EMODnet** one, gated to no-data by the chart's 2 m cutoff, is no longer a wall;
+ * - a **coarse EMODnet** one, excluded by the chart's cutoff (2 m in this fixture), is no longer a wall;
  * - a **fine Litto3D** one, which the EMODnet gate never touches, still is.
  */
 class RouteEmodnetShallowGateTest {
@@ -81,10 +81,10 @@ class RouteEmodnetShallowGateTest {
     }
 
     /**
-     * The live world's own depth read, in miniature: water everywhere, no band, and [depthAt]
-     * returned through [DepthSample.gatedForEmodnetShallow] at the chart's cutoff — the one line
+     * The live world's own depth read, in miniature: water everywhere, no band, and [depthAt] read through
+     * [DepthGrid.depthAtFilled] at the chart's cutoff and the gate depth — the one line
      * [`LiveMultipassWorld`](../../../../main/java/ykws/android/maro/spatial/multipass/MultipassWorld.kt)
-     * adds over the raw layer read.
+     * reads over the raw layer.
      */
     private class GatedWorld(
         private val depths: DepthGrid,
@@ -110,6 +110,6 @@ class RouteEmodnetShallowGateTest {
             Double.MAX_VALUE
 
         override fun depthAt(latitude: Double, longitude: Double): DepthSample =
-            depths.depthAt(latitude, longitude).gatedForEmodnetShallow(emodnetShallowCutoffM)
+            depths.depthAtFilled(latitude, longitude, emodnetShallowCutoffM, 3.0f)
     }
 }

@@ -118,7 +118,9 @@ class MainActivity : ComponentActivity() {
         // once (D9), hopped to the UI thread here; each load and save prints one `STORE` line on the tag.
         FineTileCache.install(
             DirectoryFineTileStore(
-                dir = File(cacheDir, DirectoryFineTileStore.DIR_NAME),
+                root = File(cacheDir, DirectoryFineTileStore.DIR_NAME),
+                // Each install keeps its own tiles: a build never reads a tile another build computed.
+                buildStamp = packageManager.getPackageInfo(packageName, 0).lastUpdateTime,
                 maxBytes = AppConfig.routeFineTileMaxBytes,
                 onReclaim = { runOnUiThread { reportFineTileReclaimed() } },
                 trace = { line -> android.util.Log.i("MaroRoute", line) }

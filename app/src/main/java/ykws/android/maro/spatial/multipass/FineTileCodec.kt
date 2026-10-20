@@ -7,34 +7,20 @@ import java.io.DataOutputStream
 import java.security.MessageDigest
 
 /**
- * **The fine tile's wire codec — one home for the stored field list, the format version and the key.**
+ * **The fine tile's wire codec — one home for the stored field list and the key.**
  *
- * An entry is a magic word, a **format version byte**, the key's [canonical bytes][TileKey.canonicalBytes]
- * and then the tile's own fields and arrays. The key is stored **whole** and compared on load, so a name
- * collision, a format drift or a stamp change can only ever answer a **miss** — never a stale or wrong
- * tile. The format is versioned so a future shape change is a different byte, and a `decode` of another
- * version returns `null` rather than half-reading it.
+ * An entry is a magic word, the key's [canonical bytes][TileKey.canonicalBytes] and then the tile's own
+ * fields and arrays. The key is stored **whole** and compared on load, so a name collision or a stamp
+ * change can only ever answer a **miss** — never a stale or wrong tile. There is **no format version**: the
+ * store keeps one build's entries only (`DirectoryFineTileStore`), so an entry is always read by the code
+ * that wrote it.
  *
  * The codec is pure Kotlin (no Android type), so it lives with the tile types and the store seam; the
  * Android file access is `DirectoryFineTileStore`'s job.
  */
 internal object FineTileCodec {
 
-    /**
-     * The on-disk format's own version. An entry of another version is discarded, never read — there is
-     * **no migration**: a v1 entry is a miss, because v2 carries the pace-free [FineTile.sourceCostFactor]
-     * where v1 carried `sourceCostSec` and `baseCostSec`; a v2 entry is likewise a miss, because v3 drops
-     * the retired depth-price coefficient from the stored field list; a v3 entry is a miss too, because
-     * v4 carried the depth band's own λ-free price; a v4 entry is a miss, because v5 carries the
-     * gate-distance field in that slot instead; a v5 entry is a miss, because v6 paints the gate's wall
-     * and writes that field from the measured 3 m edge rather than from cell centres — the same fields,
-     * a different wall; and a v6 entry is a miss, because v7 traces that edge on a finer sub-cell. A key that
-     * no longer names a value its entry carries is **orphaned rather than addressed**, and the disk trim
-     * reclaims it by age.
-     */
-    const val FORMAT_VERSION: Int = 7
-
-    /** Eight bytes that say "a fine-tile entry, this codec's shape" before the version byte. */
+    /** Eight bytes that say "a fine-tile entry, this codec's shape" before the key. */
     private const val MAGIC: Long = 0x4D41524F54494C45L // "MAROTILE"
 
     private val HEX = "0123456789abcdef".toCharArray()
@@ -55,12 +41,11 @@ internal object FineTileCodec {
         return hex.toString()
     }
 
-    /** Encodes [tile] under [key] — the versioned, key-verified entry the store writes. */
+    /** Encodes [tile] under [key] — the key-verified entry the store writes. */
     fun encode(key: TileKey, tile: FineTile): ByteArray {
         val buffer = ByteArrayOutputStream(512)
         val out = DataOutputStream(buffer)
         out.writeLong(MAGIC)
-        out.writeByte(FORMAT_VERSION)
         val keyBytes = key.canonicalBytes()
         out.writeInt(keyBytes.size)
         out.write(keyBytes)
@@ -89,15 +74,13 @@ internal object FineTileCodec {
     }
 
     /**
-     * The tile [bytes] carries **for [key]**, or `null` on a miss of any kind: a foreign magic, another
-     * format version, a stored key that is not [key]'s own, or a truncated body. A `null` is always safe —
+     * The tile [bytes] carries **for [key]**, or `null` on a miss of any kind: a foreign magic, a stored key
+     * that is not [key]'s own, or a truncated body. A `null` is always safe —
      * the caller rebuilds — which is the whole point of storing and comparing the key.
      */
     fun decode(key: TileKey, bytes: ByteArray): FineTile? = try {
         val input = DataInputStream(ByteArrayInputStream(bytes))
         if (input.readLong() != MAGIC) {
-            null
-        } else if (input.readByte().toInt() != FORMAT_VERSION) {
             null
         } else {
             val keyLength = input.readInt()

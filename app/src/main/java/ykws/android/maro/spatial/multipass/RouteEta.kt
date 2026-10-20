@@ -133,7 +133,7 @@ private fun splitLeg(
     val steps = ceil(dist / step).toInt().coerceAtLeast(2)
     for (s in 1..steps) {
         val t = s.toDouble() / steps
-        val p = interpolate(a, b, t)
+        val p = chordPointAt(a, b, t)
         val limit = readLimit(limitKnAt, p)
         if (limit != prevLimit) {
             val crossing = bisectLimitChange(a, b, prevT, t, prevLimit, limit, limitKnAt)
@@ -160,10 +160,10 @@ private fun bisectLimitChange(
     var h = hi
     repeat(24) {
         val mid = (l + h) / 2.0
-        val limit = readLimit(limitKnAt, interpolate(a, b, mid))
+        val limit = readLimit(limitKnAt, chordPointAt(a, b, mid))
         if (limit == loLimit) l = mid else h = mid
     }
-    return interpolate(a, b, (l + h) / 2.0)
+    return chordPointAt(a, b, (l + h) / 2.0)
 }
 
 /** A line's slow time split by what slowed it — a ring's interior, the band's width, and the ramps. */
@@ -396,7 +396,7 @@ private fun insideSeconds(
     var inside0 = inside(a)
     for (s in 1..intervals) {
         val t1 = s.toDouble() / intervals
-        val p1 = if (s == intervals) b else interpolate(a, b, t1)
+        val p1 = if (s == intervals) b else chordPointAt(a, b, t1)
         val inside1 = inside(p1)
         if (inside0 && inside1) {
             insideM += (t1 - t0) * lengthM
@@ -423,7 +423,7 @@ private fun bisectMembership(
     var h = hi
     repeat(40) {
         val mid = (l + h) / 2.0
-        if (inside(interpolate(a, b, mid)) == loInside) l = mid else h = mid
+        if (inside(chordPointAt(a, b, mid)) == loInside) l = mid else h = mid
     }
     return (l + h) / 2.0
 }
@@ -516,8 +516,3 @@ fun timeLineWithProfile(
 private fun midpoint(a: LatLng, b: LatLng): LatLng =
     LatLng((a.latitude + b.latitude) / 2.0, (a.longitude + b.longitude) / 2.0)
 
-private fun interpolate(a: LatLng, b: LatLng, t: Double): LatLng =
-    LatLng(
-        a.latitude + (b.latitude - a.latitude) * t,
-        a.longitude + (b.longitude - a.longitude) * t
-    )

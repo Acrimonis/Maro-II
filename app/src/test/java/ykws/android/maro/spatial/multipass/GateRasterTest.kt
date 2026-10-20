@@ -90,7 +90,7 @@ class GateRasterTest {
         val path = MultipassSearch.search(
             grid, grid.cellOf(start.latitude, start.longitude), grid.cellOf(aim.latitude, aim.longitude),
             Units.knotsToMps(paceKn),
-            stepGuard = StepGuard(gate, start, aim, EndApproaches.NONE)
+            stepGuard = StepGuard(gate, start, aim)
         ).path
         assertNotNull("the open water round the rock is crossed", path)
         val centres = path!!.map { grid.center(it.row, it.col) }
@@ -117,7 +117,7 @@ class GateRasterTest {
             val path = MultipassSearch.search(
                 grid, grid.cellOf(start.latitude, start.longitude), grid.cellOf(aim.latitude, aim.longitude),
                 Units.knotsToMps(paceKn),
-                stepGuard = StepGuard(gate, start, aim, EndApproaches.NONE)
+                stepGuard = StepGuard(gate, start, aim)
             ).path
             assertNotNull("the 50 m passage holds a legal line at offset $shiftM m", path)
         }
@@ -140,7 +140,7 @@ class GateRasterTest {
             val path = MultipassSearch.search(
                 grid, grid.cellOf(start.latitude, start.longitude), grid.cellOf(aim.latitude, aim.longitude),
                 Units.knotsToMps(paceKn),
-                stepGuard = StepGuard(gate, start, aim, EndApproaches.NONE)
+                stepGuard = StepGuard(gate, start, aim)
             ).path
             assertNotNull("the diagonal 50 m passage holds a legal line at offset $shiftM m", path)
         }

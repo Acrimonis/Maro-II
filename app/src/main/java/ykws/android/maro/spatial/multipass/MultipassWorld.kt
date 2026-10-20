@@ -98,11 +98,11 @@ interface MultipassWorld {
     fun distanceToCoastM(latitude: Double, longitude: Double): Double
 
     /**
-     * The depth at a point **as the router reads the water** — [DepthSample.NONE] (no data) when the
-     * point is unsurveyed or no grid is loaded, and, on a coarse EMODnet cell reading shallower than
-     * the chart's own `emodnetShallowCutoffM`, [DepthSample.NONE] too: the same gate the chart draws
-     * with ([DepthSample.gatedForEmodnetShallow]), at the same setting's value, so a cell the chart
-     * calls no-data never walls the route. The 3 m gate reads this once per cell centre.
+     * The depth at a point **as the router reads the water** — [DepthSample.NONE] (no data) where the point
+     * is unsurveyed or no grid is loaded. A coarse EMODnet reading the chart's own `emodnetShallowCutoffM`
+     * excludes, and a node with no data, take part in the read at the gate depth
+     * ([`DepthGrid.depthAtFilled`]): they never wall the route, and never drag a real sounding beside them
+     * under the gate. The 3 m gate reads this once per cell centre.
      */
     fun depthAt(latitude: Double, longitude: Double): DepthSample
 
@@ -271,13 +271,14 @@ class LiveMultipassWorld(
         coastline.distanceToCoastMeters(latitude, longitude)
 
     /**
-     * The live depth read, passed through the same EMODnet shallow gate the chart applies
-     * ([DepthSample.gatedForEmodnetShallow]) at the setting's own value: a coarse EMODnet cell the
-     * chart calls no-data reads as no-data here, so the engine's shallow wall stands only where the
-     * water is trustworthy, and a finer source (Litto3D/SDB) shallower than the gate still walls.
+     * The live depth read: excluded EMODnet and missing nodes read at the gate depth before the blend
+     * ([`DepthGrid.depthAtFilled`]), so the wall stands only on trustworthy soundings, and a finer source
+     * (Litto3D/SDB) shallower than the gate still walls.
      */
     override fun depthAt(latitude: Double, longitude: Double): DepthSample =
-        depth.depthAt(latitude, longitude).gatedForEmodnetShallow(emodnetShallowCutoffM())
+        depth.depthAtFilled(
+            latitude, longitude, emodnetShallowCutoffM(), AppConfig.routeAvoidDepthGateMinM.toFloat()
+        )
 
     /**
      * The loaded raster's own edge index, kept across searches by [LiveShallowEdges] so a session traces

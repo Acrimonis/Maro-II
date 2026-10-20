@@ -402,4 +402,15 @@ class DirectoryFineTileStoreTest {
             store.list()
         )
     }
+    /** A new install's store never reads a tile the previous build wrote: its folder is cleared on first use. */
+    @Test
+    fun aNewBuildClearsThePreviousBuildsTiles() = kotlinx.coroutines.runBlocking {
+        val dir = newDir()
+        val key = TileTestFixtures.baseKey()
+        DirectoryFineTileStore(dir, buildStamp = 1L).save(key, TileTestFixtures.tile(5))
+        assertNotNull("the first build reads its own tile", DirectoryFineTileStore(dir, buildStamp = 1L).load(key))
+        val next = DirectoryFineTileStore(dir, buildStamp = 2L)
+        assertNull("the next build reads nothing of the first's", next.load(key))
+        assertFalse("and the first build's folder is gone", File(dir, "1").exists())
+    }
 }

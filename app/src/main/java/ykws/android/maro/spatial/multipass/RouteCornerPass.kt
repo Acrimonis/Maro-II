@@ -7,7 +7,9 @@ import ykws.android.maro.spatial.Units
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -52,6 +54,11 @@ object RouteCornerPass {
     /** The pass's hard bottom (kn): under it a fitted bend is left standing, never drawn near-static. */
     private const val MIN_CORNER_KN = 1.0
 
+    /** The most metres between two coast and zone reads along a straight the pass draws. */
+    private const val WALL_SAMPLE_M = 2.0
+
+    /** How near (m) a point must stand to a leg to lie on it — the bow ends' own rounding, nothing more. */
+    private const val ON_LEG_M = 0.01
 
     /**
      * The most a bend's own turn may weigh when two bends share one leg — `tan(delta / 2)` capped, so a
@@ -145,8 +152,12 @@ object RouteCornerPass {
      * Rounds every corner of [line] and returns the drawn polyline with its curvature ceilings.
      *
      * [gate] is the depth gate's rule, `null` where it is out of force: a bow keeps the gate's preferred
-     * standoff off the measured 3 m edge, or the corner's own where that is less. [marginM] is the coast's
-     * own clearance, read the same relative way.
+     * standoff off the measured 3 m edge, or the corner's own where that is less — and never less than the
+     * gate's wall where the gate does not waive itself, read off the line's own two ends.
+     * [marginM] is the coast's own clearance, read the same relative way. Every straight the pass draws
+     * that no earlier stage measured — a bow's chords, the chords joining a bow past the kinks it passes on
+     * either side, a merged corner's extensions — is measured against the same walls, and a kink a bow has
+     * passed is not drawn again on either side of it.
      */
     fun round(
         line: List<LatLng>,
@@ -161,14 +172,21 @@ object RouteCornerPass {
         val vFloorMps = Units.knotsToMps(AppConfig.routeTurnMinSpeedKn)
         val transitionSec = AppConfig.routeTurnTransitionSec
         val reachFraction = AppConfig.routeTurnReachFraction
+        val ends = LineEnds(line.first(), line.last())
         // **A close pair of bends is one turn**: the line is read with each such pair replaced by the
-        // crossing of its outer legs, so what follows rounds one corner over the pair's whole span.
-        val corners = compoundLine(line, paceMps, aLat)
+        // crossing of its outer legs, so what follows rounds one corner over the pair's whole span — where
+        // the crossing and the two extensions reaching it keep the walls at the pair's own floors.
+        val corners = compoundLine(line, paceMps, aLat) { b, x, c ->
+            val zoneExcused = world.zoneLimitKnAt(b.latitude, b.longitude) != null ||
+                world.zoneLimitKnAt(c.latitude, c.longitude) != null
+            val walls = wallsAround(world, gate, marginM, ends, listOf(b, c), zoneExcused)
+            walls.pointBlocker(x) == null && walls.segmentBlocker(b, x) == null && walls.segmentBlocker(x, c) == null
+        }
         if (corners.size < 3) return RoundedLine(corners, { null })
         // **A kink too flat to be a corner keeps its point but not the room.** The room a bend may use is
         // the straight to the nearest **significant** vertex on each side — a corner the pass will consider,
         // or the line's own end — so a 3° kink a few metres ahead no longer caps the bend beside it, while
-        // the kink itself stays a drawn point of the line, the pass never churning a point it was given.
+        // the kink itself stays a drawn point of the line until a bow passes it.
         val legInM = DoubleArray(corners.size) { i -> if (i == 0) 0.0 else significantLegM(corners, i, -1) }
         val legOutM = DoubleArray(corners.size) { i ->
             if (i == corners.lastIndex) 0.0 else significantLegM(corners, i, 1)
@@ -186,6 +204,8 @@ object RouteCornerPass {
         // bow sets it; a bend left standing is a point of the line, not a curve, so it never becomes the
         // tail, and with no bow drawn yet the line's own origin stands.
         var tail = corners.first()
+        // The last index a drawn bow has passed ahead of its corner: those kinks are not drawn again.
+        var passedThrough = -1
         for (i in 1 until corners.lastIndex) {
             val at = corners[i]
             val prev = corners[i - 1]
@@ -196,14 +216,15 @@ object RouteCornerPass {
             val emittedIn = SpatialOperations.haversine(tail, at)
             val attempt = attemptCorner(
                 prev, at, next, emittedIn, legInM[i], legOutM[i], shareM[i], paceMps, aLat, vFloorMps,
-                transitionSec, reachFraction, world, gate, marginM
-            )
+                transitionSec, reachFraction, world, gate, marginM, ends, out
+            ) { tangentM -> passedAhead(corners, i, tangentM).takeIf { it > i + 1 }?.let { corners[it] } }
             verdicts.add(attempt.verdict(i, at))
             val rounded = attempt.rounded
             if (rounded == null) {
                 // Every bend left standing keeps its own point on the line — a gentle kink is where the
-                // walk put it — and only a refusal about the turn carries a corner ceiling beside it.
-                if (out.last() != at) out.add(at)
+                // walk put it, unless the last bow has already passed it — and only a refusal about the turn
+                // carries a corner ceiling beside it.
+                if (i > passedThrough && out.last() != at) out.add(at)
                 if (attempt.capsAtFloor) ceilings[at] = attempt.speedKn
             } else {
                 val ceilingKn = Units.mpsToKnots(rounded.cornerSpeedMps)
@@ -219,6 +240,9 @@ object RouteCornerPass {
                     ceilings[p] = ceilingKn
                 }
                 tail = out.last()
+                // The kinks the bow has passed ahead of its corner are not drawn after it, so the line never
+                // runs back along the bow's own overrun; the straight it then draws was measured with the bow.
+                passedThrough = passedAhead(corners, i, rounded.tangentM) - 1
             }
         }
         if (out.last() != corners.last()) out.add(corners.last())
@@ -237,9 +261,16 @@ object RouteCornerPass {
      *
      * Only a pair turning the **same way** is merged — opposite turns are an S the line means, not one
      * corner — and the crossing is skipped where the outer legs are near parallel or where it falls beyond
-     * those legs, there being no corner to make.
+     * those legs, there being no corner to make. **The crossing is new water**: the merge is made only where
+     * [keepsWalls] passes it and its two extensions — first bend → crossing → second bend — so a refused bow
+     * never leaves an unmeasured corner standing, and the bow's own floors are never read off one.
      */
-    private fun compoundLine(line: List<LatLng>, paceMps: Double, aLat: Double): List<LatLng> {
+    private fun compoundLine(
+        line: List<LatLng>,
+        paceMps: Double,
+        aLat: Double,
+        keepsWalls: (first: LatLng, crossing: LatLng, second: LatLng) -> Boolean
+    ): List<LatLng> {
         if (line.size < 4) return line
         val paceRadiusM = paceMps * paceMps / aLat
         val out = ArrayList<LatLng>(line.size)
@@ -255,7 +286,8 @@ object RouteCornerPass {
                 continue
             }
             val j = nextBendIndex(line, i)
-            val crossing = if (j > i) mergeCrossing(line, i, j, turn, paceRadiusM) else null
+            val crossing = (if (j > i) mergeCrossing(line, i, j, turn, paceRadiusM) else null)
+                ?.takeIf { keepsWalls(line[i], it, line[j]) }
             if (crossing == null) {
                 out.add(line[i])
                 i++
@@ -434,7 +466,10 @@ object RouteCornerPass {
         reachFraction: Double,
         world: MultipassWorld,
         gate: GateRule?,
-        marginM: Double
+        marginM: Double,
+        ends: LineEnds,
+        drawn: List<LatLng>,
+        trailAt: (tangentM: Double) -> LatLng?
     ): Attempt {
         // The legs are the caller's **significant** ones — the straight to the nearest vertex the pass will
         // consider, or the line's own end — never the distance to the adjacent point, so a kink too flat to
@@ -507,44 +542,30 @@ object RouteCornerPass {
             return pts
         }
 
-        // Which wall a single drawn point meets, if any — the three tests the clearance gate runs, in
-        // the order it has always run them, named rather than collapsed into `false`.
-        //
-        // The coast test is **relative to the corner it replaces**: a bow may not come closer to the shore
-        // than the corner itself, so a bend the walk placed inside the margin can still be rounded — a curve
-        // can never make the line worse than it already is — while every bow from a corner standing clear of
-        // the margin keeps the margin whole. This is the zone test's own idea, a corner inside a zone being
-        // excused the zone. The gate's standoff reads the same way off the measured 3 m edge, at the gate's
-        // preferred standoff, while its blocked water itself stays absolute.
-        val coastFloorM = min(marginM, world.distanceToCoastM(at.latitude, at.longitude))
-        val gateFloorM = gate?.let { min(it.preferredM, it.edgeM(at, it.preferredM)) } ?: 0.0
-        fun blockerAt(p: LatLng): CornerOutcome? {
-            if (world.distanceToCoastM(p.latitude, p.longitude) < coastFloorM - 1e-6) return CornerOutcome.BOW_COAST
-            // **The gate's own standoff, measured** — a bow is refused where it stands in blocked water, or
-            // nearer the measured edge than the corner it replaces (never nearer than the preferred standoff
-            // where the corner itself stands clear of it).
-            if (gate != null &&
-                (gate.isShallow(p) || gate.edgeM(p, gate.preferredM) < gateFloorM - 1e-6)
-            ) {
-                return CornerOutcome.BOW_DEPTH
-            }
-            if (!cornerInZone && world.zoneLimitKnAt(p.latitude, p.longitude) != null) {
-                return CornerOutcome.BOW_ZONE
-            }
-            return null
+        // The walls a bow may not cross, read **relative to the corner it replaces** ([Walls]).
+        val walls = wallsAround(world, gate, marginM, ends, listOf(at), cornerInZone)
+        // A joining chord is read relative to its corner **and** its fixed end — a point the line already
+        // stands on — so it is never refused for water the drawn line reaches anyway.
+        val chordWalls = HashMap<LatLng, Walls>()
+        fun wallsTo(fixed: LatLng): Walls = chordWalls.getOrPut(fixed) {
+            val zoneExcused = cornerInZone || world.zoneLimitKnAt(fixed.latitude, fixed.longitude) != null
+            wallsAround(world, gate, marginM, ends, listOf(at, fixed), zoneExcused)
         }
+        // Which wall the bow drawn at [v] meets first, if any: each point, the straight between each two —
+        // the gate measured over it — and the two chords joining it to the line where they follow no leg
+        // the line was given: from the last point the drawing tail keeps to the bow's first, and from the
+        // bow's last to the first point it has not passed.
         fun firstBlocker(v: Double): CornerOutcome? {
             val pts = build(v)
+            val tangentM = tangentOf(v)
+            val lead = leadPoint(drawn, at, tangentM) ?: drawn.last()
+            if (SpatialOperations.pointToSegmentDistance(lead, prev, at) > ON_LEG_M) {
+                wallsTo(lead).segmentBlocker(lead, pts.first())?.let { return it }
+            }
+            trailAt(tangentM)?.let { trail -> wallsTo(trail).segmentBlocker(pts.last(), trail)?.let { return it } }
             for (i in pts.indices) {
-                blockerAt(pts[i])?.let { return it }
-                if (i > 0) {
-                    val a = pts[i - 1]
-                    val mid = LatLng(
-                        (a.latitude + pts[i].latitude) / 2.0,
-                        (a.longitude + pts[i].longitude) / 2.0
-                    )
-                    blockerAt(mid)?.let { return it }
-                }
+                walls.pointBlocker(pts[i])?.let { return it }
+                if (i > 0) walls.segmentBlocker(pts[i - 1], pts[i])?.let { return it }
             }
             return null
         }
@@ -603,6 +624,106 @@ object RouteCornerPass {
             cornerInZone, Units.mpsToKnots(v),
             RoundedCorner(build(v), v, composite(rDrawn, lDrawn, signedDelta).tangent)
         )
+    }
+
+    /**
+     * **The first index past the corner at [i] that a bow reaching [tangentM] has not passed** — the line's
+     * end, a vertex the pass will consider, or the first kink at least [tangentM] from the corner.
+     */
+    private fun passedAhead(corners: List<LatLng>, i: Int, tangentM: Double): Int {
+        var k = i + 1
+        while (k < corners.lastIndex &&
+            abs(turnDegreesAt(corners[k - 1], corners[k], corners[k + 1])) < MIN_TURN_DEG &&
+            SpatialOperations.haversine(corners[k], corners[i]) < tangentM - 1e-6
+        ) {
+            k++
+        }
+        return k
+    }
+
+    /**
+     * **The point the drawing tail keeps before a bow reaching [tangentM] from [at]** — found exactly as the
+     * tail takes back the points the bow passes — or `null` where it takes none back.
+     */
+    private fun leadPoint(drawn: List<LatLng>, at: LatLng, tangentM: Double): LatLng? {
+        var k = drawn.lastIndex
+        while (k > 0 && SpatialOperations.haversine(drawn[k], at) < tangentM - 1e-6) k--
+        return if (k < drawn.lastIndex) drawn[k] else null
+    }
+
+    /** The line's own two ends — where the depth gate waives itself. */
+    private class LineEnds(val start: LatLng, val aim: LatLng)
+
+    /** The [Walls] around the corners [around] — each floor the least any of them stands at. */
+    private fun wallsAround(
+        world: MultipassWorld,
+        gate: GateRule?,
+        marginM: Double,
+        ends: LineEnds,
+        around: List<LatLng>,
+        zoneExcused: Boolean
+    ): Walls {
+        val coastFloorM = min(marginM, around.minOf { world.distanceToCoastM(it.latitude, it.longitude) })
+        val gateFloorM = gate?.let { g -> min(g.preferredM, around.minOf { g.edgeM(it, g.preferredM) }) } ?: 0.0
+        return Walls(world, gate, ends, coastFloorM, gateFloorM, zoneExcused)
+    }
+
+    /**
+     * **The three walls a drawn curve may not cross**, read relative to the corner it replaces.
+     *
+     * The coast at [coastFloorM] — a bow may not come closer to the shore than its corner, so a bend the walk
+     * placed inside the margin can still be rounded, a curve never making the line worse than it already is.
+     * The depth gate at [gateFloorM] — its preferred standoff, or the corner's own where that is less — and
+     * **never under the gate's wall where the gate does not waive itself**, so a corner the end's waiver
+     * excused hands no point beyond the waiver its own closeness; blocked water itself stays absolute. A
+     * zone the corner stands outside of, unless [zoneExcused].
+     */
+    private class Walls(
+        private val world: MultipassWorld,
+        private val gate: GateRule?,
+        private val ends: LineEnds,
+        private val coastFloorM: Double,
+        private val gateFloorM: Double,
+        private val zoneExcused: Boolean
+    ) {
+        /** The floor at [p]; the waiver is read only where the corner itself stands under the wall. */
+        private fun gateFloorAt(g: GateRule, p: LatLng): Double =
+            if (gateFloorM >= g.hardM || g.waives(p, ends.start, ends.aim)) gateFloorM else g.hardM
+
+        private fun coastBlocker(p: LatLng): CornerOutcome? =
+            CornerOutcome.BOW_COAST.takeIf { world.distanceToCoastM(p.latitude, p.longitude) < coastFloorM - 1e-6 }
+
+        private fun zoneBlocker(p: LatLng): CornerOutcome? =
+            CornerOutcome.BOW_ZONE.takeIf { !zoneExcused && world.zoneLimitKnAt(p.latitude, p.longitude) != null }
+
+        private fun gateBlocker(p: LatLng): CornerOutcome? = gate?.let { g ->
+            CornerOutcome.BOW_DEPTH.takeIf { g.isShallow(p) || g.edgeM(p, g.preferredM) < gateFloorAt(g, p) - 1e-6 }
+        }
+
+        /** Which wall the point [p] meets, if any — coast, gate, zone, in the order the pass always read them. */
+        fun pointBlocker(p: LatLng): CornerOutcome? = coastBlocker(p) ?: gateBlocker(p) ?: zoneBlocker(p)
+
+        /**
+         * Which wall the straight [a] → [b] meets between its two points, if any: the gate **measured** over
+         * the segment against the lesser of its ends' floors — and, where that is under the wall, the wall
+         * itself wherever the gate does not waive the straight ([GateRule.keepsWall]) — the coast and the
+         * zone read at points at most [WALL_SAMPLE_M] apart, a bow's own chord at its midpoint.
+         */
+        fun segmentBlocker(a: LatLng, b: LatLng): CornerOutcome? {
+            val pieces = max(2, ceil(SpatialOperations.haversine(a, b) / WALL_SAMPLE_M).toInt())
+            for (k in 1 until pieces) {
+                val p = chordPointAt(a, b, k.toDouble() / pieces)
+                (coastBlocker(p) ?: zoneBlocker(p))?.let { return it }
+            }
+            if (gate != null) {
+                val floorM = min(gateFloorAt(gate, a), gateFloorAt(gate, b))
+                if (gate.segmentEdgeM(a, b, gate.preferredM) < floorM - 1e-6) return CornerOutcome.BOW_DEPTH
+                if (floorM < gate.hardM && !gate.keepsWall(a, b, ends.start, ends.aim)) {
+                    return CornerOutcome.BOW_DEPTH
+                }
+            }
+            return null
+        }
     }
 
     /** The single-bend curve in a canonical frame: start (0,0) heading 0, end heading [signedDelta]. */

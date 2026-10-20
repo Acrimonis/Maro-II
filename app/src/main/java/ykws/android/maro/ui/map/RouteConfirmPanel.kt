@@ -278,7 +278,6 @@ internal fun RouteConfirmationPanel(
                     ranks = rankView.ranks
                 )
             }
-            selectedPlan?.let { PlanNotes(it) }
         }
     }
 }
@@ -607,20 +606,5 @@ private fun SpeedLimitsGrid(plan: RoutePlan) {
                 if (rowCells.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-    }
-}
-
-/**
- * **The note a route can carry, and only where it is true**.
- */
-@Composable
-private fun PlanNotes(plan: RoutePlan) {
-    if (plan.destinationMoved) {
-        Text(
-            text = "(${stringResource(R.string.route_destination_moved)})",
-            color = Color(AppConfig.uiTextPrimary),
-            fontSize = 12.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
