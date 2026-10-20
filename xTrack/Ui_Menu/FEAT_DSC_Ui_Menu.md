@@ -2,7 +2,7 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-10-18 13:08
+modified: 2026-10-20 19:40
 ---
 
 # Feature: Ui_Menu
@@ -19,6 +19,8 @@ scrollable body, and renders its four sections with the shared Settings stencils
 
 
 ## Implemented
+
+- **route-list-inline-filter-removed (2026-10-20, `feature/route-list-remove-crap`)** — the routes list dropped its inline **All · Pinned · Not pinned** row so that choice lives only in the filter popup: `RoutesPinnedFilterRow` and its `quickFilterSlot` wiring left `TrackHistoryOverlay.kt`, and the scaffold's now-callerless `quickFilterSlot` hook and render block left `ListOverlayScaffold.kt`. The `pinned` axis stays in `ListFilter`; `:app:compileDebugKotlin` passes and the change is committed `71beb9f7`.
 
 - **route-go-button (2026-10-18, `feature/route-gui`)** — the Routing card's quick-access pair gained a **Go** button on its right arming a fresh acquisition on the standing pair: a new `onGo` on `MenuDrawerOverlay` threaded through `OverlayLayer.onArmRoute` to the existing `armRouteMode(forceFresh = true)`, the button a dedicated `GoButton` matching the wheel boxes' height, and `route_go` in both locales — `:app:compileDebugKotlin` green, no dependency added
 

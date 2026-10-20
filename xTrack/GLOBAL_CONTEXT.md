@@ -3,6 +3,8 @@
 > State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-20 19:40 UTC] Ui_Settings — the Layers card is retitled **Routes and Tracks** and Routes Appearance now leads the two collapsibles, the key renamed with expand state kept → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
+- [2026-10-20 19:39 UTC] Ui_Menu — the routes list dropped its inline All/Pinned/Not pinned row, that axis now living only in the filter popup → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-10-20 18:07 UTC] Route — the 20:01 device search's Closest line crossed 0.6 m water through the berth carve's unchecked hop; the carve is retired on `feature/route-low-depth-check`, so the gate waives only its 20 m end disc and no leg past it crosses water under 3 m, the boxed-in allowance kept as the only exit; the unrequested start note and the destination note under the route table removed — 1404 tests green, `apk-build.bat` packaged, the coast-boxed harbour end left open → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-19 20:08 UTC] Route — on `feature/route-low-depth-check`: the measured depth gate (committed `6475d327`), then enforced end to end; then for the Bacon – La Grenille channel the trace that reads a missed passage, route ends held 25 m clear of shore and shallows, and the router's depth read filling ignored EMODnet and missing nodes at the gate depth (the channel opens in the probe and the engine fixture), the EMODnet cutoff's default at 3.0 in `maro.properties`, and the fine-tile store kept per installed build with no format version — reviewed at every step, 1408 tests green, `apk-build.bat` packaged; the smoothing plan waits on the user's call, centring and the no-way start on the channel's device run → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-19 18:43 UTC] Route — the route search panel now reports each route's own search on `feature/route-gogo`: every rung narrates its stage (bold italic in the rank's slot until it lands), a landed row prints its live `#rank` with a merged route counted once, the header reads `Landed x/n · speed · preference`, a first provisional pair rides the search → pull boundary, the rows reorder only on a landing, refusal or merge, a hand pick holds until the last landing selects the top row with a toast, and the crown's check waits for the end; then the menu drawer lost its summary card during a search (it stays while a route is followed), *Save to track* waits for a landed line, the snack action reads *New*, and the fan's *Route (auto)* child went live mid-search to follow the winner at the end with a toast — full unit suite and `assembleDebug` green, no dependency added, the device pass the user's → xTrack/Route/FEAT_HYD_Route.md
@@ -11,8 +13,6 @@
 - [2026-10-18 13:08 UTC] Ui_Menu — the menu's Routing card gained a Go button right of the cruising-speed/slow-water prefs, arming a fresh acquisition on the standing pair through the same single trigger the map square and the fan child share: a new `onGo` on `MenuDrawerOverlay` threaded through `OverlayLayer.onArmRoute` to `MapScreen.armRouteMode(forceFresh = true)`, the button a dedicated `GoButton` wearing the wheel boxes' own height, and `route_go` in both locales — `:app:compileDebugKotlin` green, no dependency added → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-10-18 12:44 UTC] Tracks — the two kinds' ends share one smallest-zone rule: `MarkerMatcher.topNamingMatch` picks the smallest zone (inside before near on equal size, a pin first), read by the track's `endAt` and the route's `routeEndName`, and a track's title body now carries only markers an idle stop stood in, dive-first then longest-idle — `testDebugUnitTest assembleDebug` green, no dependency added, the device pass the user's → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-17 17:40 UTC] Route — Save now serves the followed line: the fan's Save child arms while a route is followed and writes the followed plan, an open early-save draft counts as written and is finalised over that line's own id, one `routeLinkSaved` helper reads the session link across both mirror orientations for the selected and followed facts, the save door carries an in-flight gate against a double tap, and `apk-build.bat` resolves its own `gradlew.bat` — `testDebugUnitTest` and `assembleDebug` green, no dependency added → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-17 15:02 UTC] Route — the tile store's reclaim learned the home area: a `protect` set the app edge derives from the seed ring and installs before the walk, one access-ordered index replacing the listing and sort per save, `list()` left reading the directory with its own regression test, a soft ceiling raised to 96 MiB, and the stray patch marker in `FineTilePrewarm.kt` removed on the user's word — `:app:testDebugUnitTest :app:assembleDebug` green, no dependency added, no entry-format change → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-17 12:37 UTC] UI_Map — inspect mode's anchor is captured once at arming, the quiet ships at 1499 ms, the frozen walk owns the card and the gold, and the viewport cut is gone: the sweep and the walk rank every filtered item the map holds, the live track excepted — `assembleDebug` and the scoped ui.map/config suites green → xTrack/UI_Map/FEAT_HYD_UI_Map.md
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -101,10 +101,10 @@
 - Power management is centralised in `data/power/`: `PowerPolicy` (framework-free) plus `PowerKeeper` hold the screen flag through a single mutation point, and a pushed speed is never read as a fresh one.
 - The map layer cost pass removed the per-layer zoom rebuilds and attaches the contour polylines once, switched by their own `enabled` flag.
 
-**Ui_Settings** · **status:** active · **created:** 2026-06-09 15:28 · **modified:** 2026-10-19 06:35
+**Ui_Settings** · **status:** active · **created:** 2026-06-09 15:28 · **modified:** 2026-10-20 19:40
 - Settings page UI, SharedPreferences persistence and the settings widgets, with all rendering rules deferred to `docs/ui-component-guidelines.md`.
 - The four tabs derive their order, labels and pager from one ordered `SettingsTab` enum, and Position was renamed Routing and took the Route section.
-- The Tracks and Routes card reads Tracks Appearance → Routes Appearance → Speed Arrows Settings → export/import, each Appearance block opening on its own two-chip Speed Display row.
+- The Layers card is titled **Routes and Tracks** and reads Routes Appearance → Tracks Appearance → Speed Arrows Settings → export/import, each Appearance block opening on its own two-chip Speed Display row.
 - The Tracks/Routes appearance settings seed from the unified `path.*` family, and `maro.properties` was taxonomised into eight subject domains.
 - `maro.properties` carries a `# tldr;` line under every technical comment, stating in plain words what the value changes for the user.
 
@@ -151,11 +151,12 @@
 - The open card's item is drawn past the map filter and past the render cap, one id and only while its card stands (reversing 2026-09-28 in part).
 - The GAP-split polyline rendering was extracted into `MapTrackSegments`, and an on-demand GPX off-route cleanup harness ships with four test classes.
 
-**Ui_Menu** · **status:** active · **created:** 2026-07-05 06:57 · **modified:** 2026-10-18 13:08
+**Ui_Menu** · **status:** active · **created:** 2026-07-05 06:57 · **modified:** 2026-10-20 19:40
 - The hamburger menu drawer — the Routing card (ends, quick access and live summary), a Routes list, a Tracks list and marker management.
 - The Routing card's quick-access pair gained a Go button on its right, arming a fresh acquisition on the standing pair through the same trigger the map square and fan child share.
 - The ROUTES and TRACKS headers each carry a map-visibility eye outside the filter gate, and the two lists are hard-separated by a `ListScope` over the one `TrackHistoryOverlay`.
 - The route Speed/Direction switches are subordinate to the master Speed Colors and Arrows chips, and a pinned route stays dashed by its own route identity.
+- The routes list carries no inline pin filter — its All/Pinned/Not pinned choice lives only in the filter popup.
 
 **ArcLayout** · **status:** active · **created:** 2026-06-13 07:34 · **modified:** 2026-09-29 11:35
 - The map's layer toggle is one anchor button fanning out into a pure-Compose arc menu holding the layer toggles.

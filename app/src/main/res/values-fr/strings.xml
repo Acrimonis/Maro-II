@@ -400,7 +400,7 @@
     <string name="settings_reg_info_desc">Afficher le texte d\'info à côté des icônes</string>
     <string name="settings_reg_info_visible">Texte d\'info visible</string>
     <string name="settings_section_tracks">Traces</string>
-    <string name="settings_section_tracks_and_routes">Traces et routes</string>
+    <string name="settings_section_routes_and_tracks">Routes et traces</string>
     <string name="settings_tracks_and_routes_desc">Traces et routes enregistrées sur la carte</string>
     <string name="settings_tracks_transfer_desc">Exporter les traces enregistrées, ou importer des traces depuis un fichier</string>
     <string name="settings_markers_transfer_desc">Exporter tous les repères, ou importer des repères depuis un fichier</string>

@@ -1,20 +1,18 @@
-# Context Hydration — Ui_Settings — 2026-10-19
+# Context Hydration — Ui_Settings — 2026-10-20
 
-**Last Bake:** 2026-10-19 06:35 UTC — written by `#bake`
-**Branch:** feature/props — cut from `origin/develop` this session for the `maro.properties` comment pass
+**Last Bake:** 2026-10-20 19:40 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** no covered action stopped. No dependency was added, no machine-shaped data file was opened, no device was touched, and no build ran — the change is comments only. Every tldr was written from the comment it sits under, never from a guess; the `path.arrow.*` tuning keys, whose meaning no comment states, got none. No git write ran before the `#commit` that closes the session.
+**Directive trace:** no covered action stopped. The rename and the expander swap ran on an explicit implementation order; no dependency was added, no machine-shaped data file was opened, the device was never touched, and every claim rests on a file read. The only git writes are the user's `#commit` and `#push` that close the session.
 
 ## State
 
-**`maro.properties` speaks plainly where it was technical.** 61 `# tldr;` lines stand as the last comment line above their key, each saying in plain words what the value changes for the user — GPS cadence, the routing engines (turns, grids, margins, the three-route ladder, the pre-warm), the recording speed gates, automatic stop pins, inspect mode and the screen-hold staleness. Lines over 100 characters wrap onto `#`-led continuation lines aligned under the text. No key or value moved.
-
-**Open and recorded.** Six comment/value contradictions were found and left unfixed, as unasked: `route.speed.accelMps2` (comment says 1.0 shipped, value 0.666667), `route.turn.lateralAccelMps2` (0.33 and a 28 kn pace in the comment, 0.666667 and 25 kn in the file), `route.turn.transitionSec` (2.5 s vs 3.333333), `route.avoid.speedZone.outsideMarginM` (100 vs 150), `route.follow.arrival.etaSec` (comment says minutes, key is seconds) and the blank-line runs in `route.avoid.*`. The `path.arrow.*` tuning keys still carry no comment of their own, so no tldr.
+The Layers tab's card title reads **Routes and Tracks** (EN; FR "Routes et traces"), its key renamed `settings_section_tracks_and_routes` → `settings_section_routes_and_tracks` in both locales with the one reader and the `TrackRenderStringsTest` expected/retired lists moved together. The two appearance collapsibles swapped so Routes Appearance leads and Tracks Appearance follows, adjacent with no divider; the expand-state keys `routes_appearance` and `track_rendering` are unchanged, so persisted open state survives. `:app:compileDebugKotlin` and the scoped `TrackRenderStringsTest` pass, and the review hop found no code blocker — only prose drift in one KDoc and two doc lines, and the description `settings_tracks_and_routes_desc` still reading "Recorded tracks and routes", a user-owned wording call left open.
 
 ## Target Files
-
-- `app/src/main/assets/maro.properties` — the 61 tldr lines
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — `LayersSettings`: the renamed header and the swapped expanders
+- `app/src/main/res/values/strings.xml` + `values-fr/strings.xml` — the renamed section key
+- `app/src/test/java/ykws/android/maro/ui/map/TrackRenderStringsTest.kt` — expected/retired key lists
 
 ## Next Step
 
-Nothing is owed by this pass; the contradictions above wait on the user's word.
+The device pass is the user's: open Layers and confirm the card reads Routes and Tracks with Routes Appearance first.

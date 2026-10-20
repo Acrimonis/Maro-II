@@ -401,7 +401,7 @@
     <string name="settings_reg_info_desc">Show zone info text beside the icon strip</string>
     <string name="settings_reg_info_visible">Info text visible</string>
     <string name="settings_section_tracks">Tracks</string>
-    <string name="settings_section_tracks_and_routes">Tracks and Routes</string>
+    <string name="settings_section_routes_and_tracks">Routes and Tracks</string>
     <string name="settings_tracks_and_routes_desc">Recorded tracks and routes on the map</string>
     <string name="settings_tracks_transfer_desc">Export and import recorded tracks and routes</string>
     <string name="settings_markers_transfer_desc">Export all markers, or import markers from a file</string>

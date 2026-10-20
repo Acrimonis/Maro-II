@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-10-19 06:35
+modified: 2026-10-20 19:40
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-10-19 06:35
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **layers-section-routes-and-tracks (2026-10-20, `feature/route-list-remove-crap`)** — the Layers tab's section title reads **Routes and Tracks** (EN; FR "Routes et traces") and its two appearance collapsibles are swapped so Routes Appearance leads and Tracks Appearance follows, adjacent with no divider. The key was renamed `settings_section_tracks_and_routes` → `settings_section_routes_and_tracks` in both locales, its one reader and the `TrackRenderStringsTest` expected/retired lists moving together; the expand-state keys `routes_appearance` and `track_rendering` are unchanged, so persisted open/closed state survives the swap. The description key `settings_tracks_and_routes_desc` was left untouched on the title-only request. `:app:compileDebugKotlin` and `TrackRenderStringsTest` pass; the Ask hop found no code blocker, only prose drift in one KDoc and two doc lines.
 
 - **maro-properties-tldr (2026-10-19, `feature/props`)** — 61 `# tldr;` lines added to `maro.properties`, each the last comment line above a key whose comment was too technical, stating in plain words what the value changes for the user and wrapped at 100 characters; comments only, no key or value moved. Still open: six comment/value contradictions (`route.speed.accelMps2`, `route.turn.lateralAccelMps2`, `route.turn.transitionSec`, `route.avoid.speedZone.outsideMarginM`, `route.follow.arrival.etaSec` unit, blank-line runs in `route.avoid.*`) and the uncommented `path.arrow.*` tuning keys, left without a tldr
 
