@@ -70,8 +70,8 @@ class FineTileExtractTest {
     }
 
     /**
-     * **The boundary the carve rests on (P4.5) — and the only guard for it.** A shared tile is immutable,
-     * so the arm's berth carve — `forceFree`, `openEndDisc`, `openCarve` — may only write to the
+     * **The boundary the ends' writes rest on (P4.5) — and the only guard for it.** A shared tile is immutable,
+     * so the arm's own end writes — `forceFree`, `openEndDisc`, `openEndCell` — may only write to the
      * **assembled window grid**, which [`FineTile.writeInto`] fills by **copying** each member. This pins
      * copy-not-alias **across all seven arrays**: a distinct write on the arm's own grid must leave every
      * one of the tile's primitives at member 0 untouched. (The carried cross-arm reuse count cannot catch a
@@ -90,7 +90,7 @@ class FineTileExtractTest {
         val before = memberZero(tile)
 
         tile.writeInto(armGrid, windowRowOffset = 0, windowColOffset = 0)
-        // The carve's own write, aimed at member 0 — which `writeInto` places at the arm grid's (0, 0) —
+        // An end's own write, aimed at member 0 — which `writeInto` places at the arm grid's (0, 0) —
         // and deliberately unlike the tile's own values, so an alias on **any** array would show.
         armGrid.writeMember(0, 0, 1, 99.0, 5.0, 6.0, 7.0, 8.0, 9.0)
 

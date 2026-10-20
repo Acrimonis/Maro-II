@@ -103,7 +103,7 @@ object DepthIsobaths {
         val n = out.size
         for (i in 0 until n) {
             if (out[i].isNaN()) continue
-            if (DepthSource.fromId(grid.source[i].toInt()) == DepthSource.EMODNET && out[i] < cutoffM) {
+            if (DepthSource.isExcludedEmodnet(out[i], grid.source[i].toInt(), cutoffM)) {
                 out[i] = Float.NaN
             }
         }

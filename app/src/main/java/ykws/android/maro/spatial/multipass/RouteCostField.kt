@@ -1,12 +1,8 @@
 package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.max
-import kotlin.math.sin
 
 /**
  * **One world source on the corridor grid, as the unified cost field reads it.**
@@ -250,33 +246,6 @@ fun bandPriceAt(
 fun bandReachM(bandWidthM: Double, marginM: Double): Double = bandWidthM + marginM
 
 /**
- * **The gate's standoff, one ring wide** — true only where [p] and every point of an eight-bearing ring
- * at [marginM] clear the gate. The wall is a per-cell step with **no distance index**, so the margin is
- * sampled rather than measured: a cell, a chord or a bow whose ring touches blocked water is refused,
- * which keeps the line [marginM] off the low depth instead of one cell off it.
- */
-fun gateStandoffClears(
-    p: LatLng,
-    marginM: Double,
-    minDepthM: Double,
-    depthMAt: (LatLng) -> Double
-): Boolean {
-    if (!depthClearsGate(depthMAt(p), minDepthM)) return false
-    if (marginM <= 0.0) return true
-    val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-    val mPerDegLon = mPerDegLat * cos(Math.toRadians(p.latitude))
-    for (i in 0 until 8) {
-        val bearing = i * PI / 4.0
-        val q = LatLng(
-            p.latitude + marginM * cos(bearing) / mPerDegLat,
-            p.longitude + marginM * sin(bearing) / mPerDegLon
-        )
-        if (!depthClearsGate(depthMAt(q), minDepthM)) return false
-    }
-    return true
-}
-
-/**
  * **The depth gate as a hard source** — one home for the rule, so the engine and its tests read the
  * same wall.
  *
@@ -285,10 +254,9 @@ fun gateStandoffClears(
  * penalty. It is a coarse guard on the route being written, not a fine sounding: [depthMAt] answers
  * `NaN` for an unsurveyed point, which this gate does not block.
  *
- * **It is the bare step alone.** The 20 m standoff is no longer sampled here as a ring: the
- * rasterizer turns this wall into a per-grid distance field and paints the margin land (see
- * [`rasterizeFrame`]), which is the one read that serves both the search and the pull. The corner
- * pass, few in number, keeps [`gateStandoffClears`] for its bows.
+ * **It is the bare step alone** — the interior of blocked water. The standoff off its edge is measured
+ * on the traced 3 m line ([`GateRule`], [`ShallowEdgeIndex`]), which the rasterizer paints from, the
+ * search checks its steps against, and the pull and the corner pass read for their chords and bows.
  *
  * The clearance it declares is 0 m where it blocks and nothing everywhere else, so the pull refuses a
  * chord through a shallow cell while the rest of the field's clearance stays the coastline's own.
@@ -302,48 +270,6 @@ fun depthGateSource(
         blockedAt = belowGate,
         distanceAt = { p -> if (belowGate(p)) 0.0 else Double.MAX_VALUE }
     )
-}
-
-/**
- * **The berth's share of its own span, in 0..1** — full at the gate's margin, nothing at the outer
- * edge, one straight fall between the two. [distanceM] is the metres from the point to the nearest
- * gate-blocked cell, so a point on the margin pays the whole rate, one on the outer edge pays nothing,
- * and the metres between fall linearly — never a plateau and never a curve, the 2026-10-17 order's
- * *move me out if there is room* read as the straight gradient it is.
- */
-fun berthShare(distanceM: Double, marginM: Double, outerM: Double): Double {
-    val spanM = outerM - marginM
-    if (spanM <= 0.0) return 0.0
-    if (distanceM <= marginM) return 1.0
-    if (distanceM >= outerM) return 0.0
-    return (outerM - distanceM) / spanM
-}
-
-/**
- * **The berth's one price law** — a cell's λ-free seconds at [distanceM] off the nearest gate-blocked
- * cell: [secPerM] is the full per-metre rate at the margin, [berthShare] scales it, and [cellM] turns
- * the rate into the cell's own seconds. Full at and inside [marginM], zero at and beyond [outerM], a
- * straight fall between the two. A cell the distance field never reached reads `Double.MAX_VALUE`,
- * which [berthShare] answers as zero.
- *
- * **Scaling by [cellM] is what makes the two layers pay alike**: the same distance read at a 20 m
- * ribbon cell and a 100 m interior cell costs five times the seconds on the larger cell and **the same
- * per metre**, so a detour the coarse grid decides is priced as the fine pass would price it.
- *
- * The search and the pull's guard both read this one function — the search on the grid's stored
- * distance and the pull on the walk's own point read — which is what keeps the two pricing one cell
- * identically.
- */
-fun berthPriceSecAt(
-    distanceM: Double,
-    cellM: Double,
-    marginM: Double,
-    outerM: Double,
-    secPerM: Double
-): Double {
-    val share = berthShare(distanceM, marginM, outerM)
-    if (share <= 0.0 || cellM <= 0.0) return 0.0
-    return secPerM * share * cellM
 }
 
 /**
@@ -367,14 +293,12 @@ fun berthPriceSecAt(
  * must declare which of the two it is: a wall that is neither a metric distance nor a clean step makes
  * the walk's own soundness argument untrue, and nothing here can tell the difference for it.
  *
- * **The gate berth is a price of its own road, and never a source.** Its law is [berthPriceSecAt] —
- * a cell's distance off the nearest shallow water times the plan's gradient — and it reaches a cell
- * through the **grid's stored distance field** ([MultipassGrid.gateDistanceM]) rather than through this
- * field, because the distance is one value the rasterizer's BFS computes once and the search, the pull
- * and the fine pass all read. The search scales it by the pass's λ at read ([MultipassSearch]'s
- * `berthK`); the pull's guard reads the same distance from the walk and prices it at the same λ, so
- * the two never disagree; and [armPricesAt] reports it as [PriceArm.DEPTH] rather than lumping its
- * seconds into the residue.
+ * **The gate berth is a price of its own road, and never a source.** Its law is [`BerthLaw`] — one rate
+ * at every distance off the measured 3 m edge — and it reaches the search through the **grid's stored
+ * distance field** ([MultipassGrid.gateDistanceM], written exactly near the edge by the rasterizer) and
+ * the pull's guard through the edge index at the point itself, rather than through this field. Both
+ * scale it by the pass's λ, so the two price one law; and [armPricesAt]'s reader reports it as
+ * [PriceArm.DEPTH] rather than lumping its seconds into the residue.
  */
 class RouteCostField(
     private val sources: List<RouteCostSource> = emptyList(),

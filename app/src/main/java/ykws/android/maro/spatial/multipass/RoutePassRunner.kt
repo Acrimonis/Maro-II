@@ -60,7 +60,6 @@ internal class RoutePassRunner {
         val limitAt = ctx.limitAt
         val zones = ctx.zones
         val sets = ctx.sets
-        val approaches = ctx.approaches
         val refusals = ctx.refusals
         // The guard reads the water the snap guards: for a two-layer walk that is the fine band's own cell,
         // not the interior's, so the tail's prices sit at the resolution the line was resolved at (Phase 6).
@@ -79,21 +78,17 @@ internal class RoutePassRunner {
                 world, tailCellM, pace, withZones = guardZones, withBand = guardBand, zones = zones,
                 lambda = lambda, markerStrength = ctx.markerStrength
             )
-        // The gate's hard standoff (both engines) and the plan's berth law (evolutive alone), read once
+        // The gate's measured rule (both engines) and the plan's berth law (evolutive alone), read once
         // here so the search and the pull share one cursor.
-        val gateMarginM = gateStandoffM(ctx.depthGateActive)
+        val gate = ctx.gate
         val berth = berthLawOf(ctx.plan, ctx.depthGateActive)
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
         val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, guardField, start, aim, approaches,
-            gateDistanceMAt = { p -> windows.gateDistanceMAt(p) },
-            gateMarginM = gateMarginM,
-            berthOuterM = berth?.outerM ?: 0.0,
-            berthSecPerM = berth?.secPerM ?: 0.0,
+            marginM, coarseStepM, priceStepM, guardField, start, aim,
+            gate = gate,
+            berth = berth,
             berthLambda = lambda,
-            gateDepthAt = { p -> depthMAt(world, p) },
-            gateMinDepthM = if (ctx.depthGateActive) ctx.minDepthM else 0.0,
             paceMps = Units.knotsToMps(pace)
         )
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
@@ -102,8 +97,8 @@ internal class RoutePassRunner {
         // whose offset is zero, and the P4.1 fix for a fixed anchor, whose offset is not.
         val search = MultipassSearch.searchWalk(
             windows,
-            windows.latticeCell(grid, startCell.row, startCell.col),
-            windows.latticeCell(grid, aimCell.row, aimCell.col),
+            windows.endCellAt(start, windows.latticeCell(grid, startCell.row, startCell.col)),
+            windows.endCellAt(aim, windows.latticeCell(grid, aimCell.row, aimCell.col)),
             Units.knotsToMps(pace),
             zonePriceSec = { cellSizeM, interiorKn, collarKn, bandCollarKn ->
                 slowWaterPriceAt(
@@ -115,9 +110,9 @@ internal class RoutePassRunner {
             // The berth's own cursor: the grid stores its distance, so the rung's λ is applied here — the
             // same λ the guard field prices the pull's points at.
             berthK = lambda,
-            berthMarginM = gateMarginM,
-            berthOuterM = berth?.outerM ?: 0.0,
-            berthSecPerM = berth?.secPerM ?: 0.0
+            berth = berth,
+            // The gate's step check, so every raw leg the pull may keep already keeps the wall.
+            stepGuard = gate?.let { StepGuard(it, start, aim) }
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)
@@ -153,6 +148,7 @@ internal class RoutePassRunner {
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
                 "priceReads=${pullTiming.priceReads} marks=${pullTiming.marks} " +
                 "memoPriceHits=${pullTiming.memoPriceHits} memoHardHits=${pullTiming.memoHardHits} " +
+                "memoEdgeHits=${pullTiming.memoEdgeHits} farEdgeReads=${pullTiming.farEdgeReads} " +
                 "stepM=${fmt(pullTiming.stepM)} priceStepM=${fmt(pullTiming.priceStepM)}"
         }
         // The provisional pair belongs to this boundary and to the pulled line alone: the line is taut
@@ -182,6 +178,7 @@ internal class RoutePassRunner {
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
                 "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +
                 "memoPriceHits=${finalTiming.memoPriceHits} memoHardHits=${finalTiming.memoHardHits} " +
+                "memoEdgeHits=${finalTiming.memoEdgeHits} farEdgeReads=${finalTiming.farEdgeReads} " +
                 "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
         }
         val timed = timeLineWithLimits(

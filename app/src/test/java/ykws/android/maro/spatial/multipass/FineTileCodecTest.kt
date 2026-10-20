@@ -60,27 +60,6 @@ class FineTileCodecTest {
     }
 
     @Test
-    fun anotherFormatVersionIsAMiss() {
-        val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
-        // The version byte sits immediately after the 8-byte magic word.
-        bytes[8] = (bytes[8] + 1).toByte()
-        assertNull("another version must not be half-read", FineTileCodec.decode(key, bytes))
-    }
-
-    /**
-     * **D7 — v1 is refused, never read.** v1 carried `sourceCostSec` and `baseCostSec`; v2 carries the
-     * pace-free `sourceCostFactor` and no base. There is no migration: a v1 entry is a miss, so it is
-     * discarded and rebuilt rather than mis-parsed as v2's shape.
-     */
-    @Test
-    fun aVersionOneEntryIsRefusedNeverRead() {
-        val bytes = FineTileCodec.encode(key, TileTestFixtures.tile(5))
-        // Force the version byte back to v1 — the byte immediately after the 8-byte magic word.
-        bytes[8] = 1
-        assertNull("a v1 entry is a miss, never a stale tile", FineTileCodec.decode(key, bytes))
-    }
-
-    @Test
     fun aForeignOrGarbageBodyIsAMiss() {
         assertNull(FineTileCodec.decode(key, ByteArray(0)))
         assertNull(FineTileCodec.decode(key, "not a tile at all".toByteArray()))

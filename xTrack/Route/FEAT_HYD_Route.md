@@ -1,22 +1,22 @@
-# Context Hydration — Route — 2026-10-19
+# Context Hydration — Route — 2026-10-20
 
-**Last Bake:** 2026-10-19 19:15 UTC — written by `#bake` on `feature/route-gogo`; the panel work, the landing-order follow-up and the menu/save/snack changes are committed (`8f728c58`, `d187b74f`, `46b72a65`), the fan's *Route (auto)* change is built and not yet committed.
+**Last Bake:** 2026-10-20 19:15 UTC — written by `#bake` on `feature/route-low-depth-check`; everything since `6475d327` is uncommitted.
 
-**Directive trace:** two covered action classes were met and none stopped. Authorisation held — each implementation ran on the user's `#impl` or on their "Implement as described" at the confirmation gate, and `#bake` / `#archive` / `#commit` are their own invocations, the commits confirmed at their scope gates. No dependency was added; no machine-shaped data file was opened; the device was not touched; every claim about the code came from a file read.
+**Directive trace:** since the last bake no covered action class was met: no device touch, no data file opened, no dependency added; the work followed the user's `#impl` and "remove all" orders, and every claim about the code came from a file read.
 
 ## State
 
-**The route search panel reports each route's own search.** Every rung narrates its own stage chain (opening on a `GRID` word) and a landed row prints its live `#rank` where the stage word stood, a merged route counted once; the crown's check waits for the last rung and the header reads `Landed x/n · speed · preference` (the counter only while a route computes). A first provisional pair rides the search → pull boundary. **The rows reorder only when a route lands, is refused or is merged away**; a hand pick holds through the search, the last landing selects the top row and raises a toast when it moved a pick. **The fan's *Route (auto)* child is live mid-search**: a press keeps the search, closes the fan, raises `route_auto_follow_toast` and follows the winner at the end; a too-short pair clears the intent. **The menu drawer shows no summary card during a search** (it stays while a route is followed), **`Save to track` waits for a landed line** (the early-save draft machinery stays in the code, unreachable from the doors), and **the snack's action reads *New* / *Nouvelle***. The full unit suite and `assembleDebug` are green; the device pass is the user's.
+**The berth carve is retired.** The depth gate waives itself only within 20 m of an end; every leg past that is measured, so the 20:01 device case (0.6 m crossed on the carve's 100 m hop) cannot recur. The boxed-in allowance stays as an end's only exit. The route table's moved-start and moved-destination notes are removed, with the `originMoved` flag. 1404 tests green, APK packaged 21:04.
+
+**Open:** an end the 50 m coast margin hems in beyond its disc (a narrow harbour arm) now fails as no path — against the user's only-exit decision, no fallback designed yet. The new engine test guards the outcome but is not proven to fail on the old code.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the order key, `settleSeat`, the fold re-find, `rankView`, `seatMovedAtEnd`
-- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt` — `RoutePage.stage`, the rank view, the order functions, `routeAutoChildEnabled`
-- `app/src/main/java/ykws/android/maro/ui/map/RouteConfirmPanel.kt` — the header line, the slot, the crown gate, the save gate
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the fan's enablement and actions, the summary flag, the toast wiring
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt`, `spatial/multipass/RoutePassRunner.kt` — the per-lookup stage chain and the PULL-boundary pair
-- `xTrack/Route/261019_FEAT_PLN_Route_route-sch-sort-landing-order.md` — the plan that stands where the two sort plans disagree
+- `app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt` — the end disc, now the ends' only allowance
+- `app/src/main/java/ykws/android/maro/spatial/multipass/ShallowEdgeIndex.kt` — `GateRule.waives`, disc only
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt` — the ends' discs on both builders
+- `xTrack/Route/261020_FEAT_PLN_Route_end-approach.md` — the plan, its `## Implemented` and open points
 
 ## Next Step
 
-The device pass on the panel: stage words then ranks on a real ladder, a hand pick holding until the last landing and its toast, the header fitting in portrait, the fan's *Route (auto)* pressed mid-search, and `Save to track` greyed until a line lands.
+The device run on the Bacon start, then the coast-boxed end's fallback.

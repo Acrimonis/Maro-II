@@ -71,22 +71,28 @@ internal data class GridContext(
     val limitAt: (LatLng) -> Double?,
     val zones: List<SpeedZone>,
     val priced: List<ZoneRing>,
-    val approaches: EndApproaches,
     val refusals: PullRefusals,
     val depthGateActive: Boolean,
     val minDepthM: Double,
     val regionSaturated: Boolean,
     /**
      * **The algorithm's own plan** — carried so every arm reads the one berth the plan prices
-     * ([RouteGridPlan.pricesBerth]) rather than a flag, and so `avoid`'s field, grid and line stay
-     * exactly what they were.
+     * ([RouteGridPlan.pricesBerth]) rather than a flag: `avoid` prices none and keeps its wall at the gate's
+     * own margin.
      */
     val plan: RouteGridPlan = UniformGridPlan,
     /**
      * The two-layer first walk's windows, or `null` where the plan answered one tile — the uniform pass's
      * case, whose single grid is its own walk.
      */
-    val windows: WalkWindows? = null
+    val windows: WalkWindows? = null,
+    /**
+     * **The depth gate's rule for this arm** — the measured edge, the wall, the preferred standoff and the
+     * ends' waiver — built once with the grid so every pass, the fine pass and the corner pass read one
+     * rule; `null` where the gate is out of force. **Never defaulted**: a construction site that forgot it
+     * would draw a line no guard measured.
+     */
+    val gate: GateRule?
 )
 
 /**

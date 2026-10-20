@@ -5,6 +5,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import java.util.PriorityQueue
 import kotlin.coroutines.coroutineContext
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
@@ -72,10 +73,13 @@ object MultipassSearch {
      * @param berthK the pass's own λ for the **gate berth** — the grid stores its distance λ-free, so
      *   the cursor is what turns a cell's stored distance into the rung's own. `0.0` reads no berth at
      *   all, which is `avoid`'s case and every pass that prices none.
-     * @param berthMarginM the berth's inner end (the gate's margin), in metres off the nearest shallow
-     *   cell.
-     * @param berthOuterM the berth's outer edge, in metres off the nearest shallow cell.
-     * @param berthSecPerM the berth's full rate at the margin, in seconds per metre of water.
+     * @param berth the berth's law — the rate at each distance off the measured edge — or `null` where
+     *   the pass prices none.
+     * @param stepGuard the depth gate's step check, or `null` where the gate is out of force: a step whose
+     *   straight segment between the two cell centres comes within the gate's wall is no step.
+     * @param waiveEndSlots whether [start] and [aim] are a route's own ends, whose own steps the guard reads past
+     *   the gate's waiver, or waives where an end is boxed in — `false` for a local re-solve between two
+     *   vertices of a line, whose cells are bound like any other.
      */
     suspend fun search(
         grid: MultipassGrid,
@@ -86,13 +90,13 @@ object MultipassSearch {
             { _, _, _, _ -> 0.0 },
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
         berthK: Double = 0.0,
-        berthMarginM: Double = 0.0,
-        berthOuterM: Double = 0.0,
-        berthSecPerM: Double = 0.0
+        berth: BerthLaw? = null,
+        stepGuard: StepGuard? = null,
+        waiveEndSlots: Boolean = true
     ): SearchOutcome =
         searchWalk(
             WalkWindows.of(grid), start, aim, paceMps, zonePriceSec, checkCancelled,
-            berthK, berthMarginM, berthOuterM, berthSecPerM
+            berthK, berth, stepGuard, waiveEndSlots
         )
 
     /**
@@ -109,6 +113,16 @@ object MultipassSearch {
      * supersedes is no same-layer step: the fine cell over the same water is relaxed instead, priced from
      * the two cell centres exactly as a seam crossing is, so the price the fine grid carries can never be
      * bypassed by a free coarse copy of the same water.
+     *
+     * **The ends' own steps keep the wall past the gate's waiver** wherever an end has a way out that does,
+     * each end on its own: the step out of the start's cell is read with the raw start's own leg to that cell,
+     * the step into the aim's with the aim's, and a step with a centre in an end's waiver is read past it
+     * rather than waived whole. An end the shallows box in — no exit of its cell keeps the wall — walks as the
+     * gate always let it, the other end still held; and a held walk that finds nothing is walked again with
+     * both ends waived where the held rule refused a step the waiver would have let through into a cell the
+     * held walk never reached, so the guard never turns a route into no route and a search with no way at
+     * all is walked once.
+     * [SearchOutcome.strictStart] and [SearchOutcome.strictAim] say how the answering walk read each end.
      */
     internal suspend fun searchWalk(
         walk: WalkWindows,
@@ -119,14 +133,136 @@ object MultipassSearch {
             { _, _, _, _ -> 0.0 },
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
         berthK: Double = 0.0,
-        berthMarginM: Double = 0.0,
-        berthOuterM: Double = 0.0,
-        berthSecPerM: Double = 0.0
+        berth: BerthLaw? = null,
+        stepGuard: StepGuard? = null,
+        waiveEndSlots: Boolean = true
+    ): SearchOutcome {
+        val startIdx = walk.slotOfEnd(start)
+        val aimIdx = walk.slotOfEnd(aim)
+        if (startIdx < 0 || aimIdx < 0) return SearchOutcome(null, 0, 0, aimClosed = false)
+        // The start's own reading, for the trace: its layer and how many of its steps lead to water.
+        var startOpen = 0
+        forEachStep(walk, startIdx, { !walk.passable(it) }) { _, _ -> startOpen++ }
+        val startLayer = walk.layerOf(startIdx)
+        // A local re-solve between two line vertices binds its ends like any other cell.
+        if (stepGuard == null || !waiveEndSlots) {
+            return walkOnce(
+                walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard,
+                EndRule.BOUND
+            ).copy(startLayer = startLayer, startOpenSteps = startOpen)
+        }
+        val waived = EndRule(startIdx, aimIdx, strictStart = false, strictAim = false)
+        val rule = if (startIdx == aimIdx) waived else EndRule(
+            startIdx, aimIdx,
+            strictStart = hasExit(
+                walk, stepGuard, EndRule(startIdx, aimIdx, strictStart = true, strictAim = false), startIdx, leaving = true
+            ),
+            strictAim = hasExit(
+                walk, stepGuard, EndRule(startIdx, aimIdx, strictStart = false, strictAim = true), aimIdx, leaving = false
+            )
+        )
+        if (!rule.strictStart && !rule.strictAim) {
+            return walkOnce(
+                walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived
+            ).copy(startLayer = startLayer, startOpenSteps = startOpen)
+        }
+        stepGuard.heldRefused.clear()
+        // A held walk that finds nothing is walked again only where it refused a step the old waiver lets
+        // through **into a cell it never reached**: every other refused step leads nowhere new.
+        var reopens = false
+        val held = walkOnce(
+            walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, rule
+        ) { closed -> reopens = stepGuard.heldRefused.any { !closed[it] } }
+            .copy(
+                strictStart = rule.strictStart, strictAim = rule.strictAim,
+                startLayer = startLayer, startOpenSteps = startOpen
+            )
+        if (held.path != null || !reopens) return held
+        val again = walkOnce(
+            walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived
+        )
+        return again.copy(
+            expansions = held.expansions + again.expansions,
+            startLayer = startLayer, startOpenSteps = startOpen, rewalked = true
+        )
+    }
+
+    /**
+     * Whether the end at [endIdx] has one exit the guard lets through under [ends] — a step out of it where
+     * [leaving], into it otherwise — the boxed end's test, read before any walk. The aim's entries are read
+     * as its own steps reversed, which the seam's one-way crossings make approximate; the waived re-walk
+     * covers what it misses.
+     */
+    private fun hasExit(walk: WalkWindows, guard: StepGuard, ends: EndRule, endIdx: Int, leaving: Boolean): Boolean {
+        var found = false
+        forEachStep(walk, endIdx, { found || !walk.passable(it) }) { other, edgeM ->
+            if (!found) {
+                found = if (leaving) {
+                    guard.allows(walk, endIdx, other, edgeM, ends)
+                } else {
+                    guard.allows(walk, other, endIdx, edgeM, ends)
+                }
+            }
+        }
+        return found
+    }
+
+    /**
+     * **Every step out of [idx]** — the same layer's eight neighbours, the fine cell superseding a coarse
+     * one, and the cells across the seam — handed to [action] with the step's own length, in the one order
+     * the walk's tie-breaks rely on. A destination [skip] names is passed over before its length is read.
+     */
+    private inline fun forEachStep(
+        walk: WalkWindows,
+        idx: Int,
+        skip: (toIdx: Int) -> Boolean,
+        action: (toIdx: Int, edgeM: Double) -> Unit
+    ) {
+        val row = walk.rowOf(idx)
+        val col = walk.colOf(idx)
+        val layer = walk.layerOf(idx)
+        val here = walk.centerOf(idx)
+        for (step in STEPS) {
+            val tr = row + step.dr
+            val tc = col + step.dc
+            // The same layer's own neighbour: one cell of that layer's water, at that layer's cell
+            // size — **unless a passable fine cell supersedes it.** On the coarse layer the fine copy
+            // owns that water, so the coarse cell is not read and the superseding fine cell below
+            // carries the crossing; where the fine grid is land the coarse neighbour keeps its role.
+            val nIdx = walk.rawSlotOf(layer, tr, tc)
+            val over = walk.supersedingSlot(layer, tr, tc)
+            if (nIdx >= 0 && over < 0 && !skip(nIdx)) action(nIdx, step.multiplier * walk.cellSizeM(layer))
+            // The superseding fine cell over the same water — the crossing the coarse copy may not
+            // make, priced from the two cell centres exactly as a seam crossing is.
+            if (over >= 0 && !skip(over)) action(over, SpatialOperations.haversine(here, walk.centerOf(over)))
+            // The seam: the other resolution's cells meeting this cell's face or corner, priced from
+            // the two cell centres — the crossing no same-layer step can make.
+            val cross = walk.crossLayerSlots(layer, row, col, step.dr, step.dc)
+            for (t in 0 until cross.size) {
+                val cIdx = cross[t]
+                if (!skip(cIdx)) action(cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)))
+            }
+        }
+    }
+
+    /**
+     * One A\* walk from [startIdx] to [aimIdx], the guard reading the ends through [ends]. A walk that finds
+     * nothing hands [onExhausted] the cells it closed.
+     */
+    private suspend fun walkOnce(
+        walk: WalkWindows,
+        startIdx: Int,
+        aimIdx: Int,
+        paceMps: Double,
+        zonePriceSec: (Double, Double, Double, Double) -> Double,
+        checkCancelled: suspend () -> Unit,
+        berthK: Double,
+        berth: BerthLaw?,
+        stepGuard: StepGuard?,
+        ends: EndRule,
+        onExhausted: ((closed: BooleanArray) -> Unit)? = null
     ): SearchOutcome {
         val n = walk.size
-        val startIdx = walk.slotOf(start.row, start.col)
-        val aimIdx = walk.slotOf(aim.row, aim.col)
-        if (startIdx < 0 || aimIdx < 0) return SearchOutcome(null, 0, 0, aimClosed = false)
         val aimCenter = walk.centerOf(aimIdx)
 
         val g = DoubleArray(n) { Double.POSITIVE_INFINITY }
@@ -153,52 +289,19 @@ object MultipassSearch {
             expansions++
             if (expansions % CADENCE == 0) checkCancelled()
 
-            val row = walk.rowOf(idx)
-            val col = walk.colOf(idx)
-            val layer = walk.layerOf(idx)
-            val here = walk.centerOf(idx)
-            for (step in STEPS) {
-                val tr = row + step.dr
-                val tc = col + step.dc
-                // The same layer's own neighbour: one cell of that layer's water, at that layer's cell
-                // size — **unless a passable fine cell supersedes it.** On the coarse layer the fine copy
-                // owns that water, so the coarse cell is not read and the superseding fine cell below
-                // carries the crossing; where the fine grid is land the coarse neighbour keeps its role.
-                val nIdx = walk.rawSlotOf(layer, tr, tc)
-                val over = walk.supersedingSlot(layer, tr, tc)
-                if (nIdx >= 0 && over < 0 && !closed[nIdx]) {
-                    relax(
-                        walk, idx, nIdx, step.multiplier * walk.cellSizeM(layer),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec,
-                        berthK, berthMarginM, berthOuterM, berthSecPerM
-                    )
-                }
-                // The superseding fine cell over the same water — the crossing the coarse copy may not
-                // make, priced from the two cell centres exactly as a seam crossing is.
-                if (over >= 0 && !closed[over]) {
-                    relax(
-                        walk, idx, over, SpatialOperations.haversine(here, walk.centerOf(over)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec,
-                        berthK, berthMarginM, berthOuterM, berthSecPerM
-                    )
-                }
-                // The seam: the other resolution's cells meeting this cell's face or corner, priced from
-                // the two cell centres — the crossing no same-layer step can make.
-                val cross = walk.crossLayerSlots(layer, row, col, step.dr, step.dc)
-                for (t in 0 until cross.size) {
-                    val cIdx = cross[t]
-                    if (closed[cIdx]) continue
-                    relax(
-                        walk, idx, cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)),
-                        g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec,
-                        berthK, berthMarginM, berthOuterM, berthSecPerM
-                    )
-                }
+            forEachStep(walk, idx, { closed[it] }) { toIdx, edgeM ->
+                relax(
+                    walk, idx, toIdx, edgeM, g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec,
+                    berthK, berth, stepGuard, ends
+                )
             }
         }
 
         val passable = walk.passableCount()
-        if (!closed[aimIdx]) return SearchOutcome(null, expansions, passable, aimClosed = false)
+        if (!closed[aimIdx]) {
+            onExhausted?.invoke(closed)
+            return SearchOutcome(null, expansions, passable, aimClosed = false)
+        }
         val path = ArrayList<CellIndex>()
         var cur = aimIdx
         while (cur != -1) {
@@ -233,9 +336,9 @@ object MultipassSearch {
         paceMps: Double,
         zonePriceSec: (Double, Double, Double, Double) -> Double,
         berthK: Double,
-        berthMarginM: Double,
-        berthOuterM: Double,
-        berthSecPerM: Double
+        berth: BerthLaw?,
+        stepGuard: StepGuard?,
+        ends: EndRule
     ) {
         if (!walk.passable(toIdx)) return
         val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
@@ -249,14 +352,15 @@ object MultipassSearch {
         }
         // The berth's own read: the grid stores its distance, and the pass's cursor turns it into the
         // rung's seconds — the very law the pull's guard prices a point at.
-        if (berthK > 0.0 && berthSecPerM > 0.0) {
-            val berthSec = berthPriceSecAt(
-                walk.gateDistanceM(toIdx), destCellM, berthMarginM, berthOuterM, berthSecPerM
-            )
+        if (berthK > 0.0 && berth != null) {
+            val berthSec = berth.priceSecAt(walk.gateDistanceM(toIdx), destCellM)
             if (berthSec > 0.0) cellSec += berthK * berthSec
         }
         val newG = g[fromIdx] + (cellSec / destCellM) * edgeM
         if (newG < g[toIdx]) {
+            // The depth gate's own step, asked only of a step that would improve the path: a step whose
+            // straight segment comes within the wall is no step, the ends' own read through [ends].
+            if (stepGuard != null && !stepGuard.allows(walk, fromIdx, toIdx, edgeM, ends)) return
             g[toIdx] = newG
             cameFrom[toIdx] = fromIdx
             if (h[toIdx].isNaN()) {
@@ -292,5 +396,112 @@ data class SearchOutcome(
      * The aim's own `g` when the search reached it — the path's accumulated cost in seconds, the reading a
      * seam-crossing test compares against that path's own timed length. `0.0` where no path was found.
      */
-    val costSec: Double = 0.0
+    val costSec: Double = 0.0,
+    /**
+     * Whether the answering walk held the route's start to the gate's wall past its waiver — `false` where
+     * the start was boxed in, the waived re-walk answered, or no guard ran.
+     */
+    val strictStart: Boolean = false,
+    /** The same for the route's aim. */
+    val strictAim: Boolean = false,
+    /** The start slot's layer (0 the coarse interior), `-1` where no start slot was found — a trace reading. */
+    val startLayer: Int = -1,
+    /** How many of the start slot's own steps lead into passable water — `0` is a start with no way out. */
+    val startOpenSteps: Int = -1,
+    /** Whether the answering walk was the waived re-walk after a held walk found nothing. */
+    val rewalked: Boolean = false
 )
+
+/**
+ * **How the step guard reads a route's own ends** — their two slots, and for each whether its own steps keep
+ * the wall past the waiver ([strictStart], [strictAim]) or are waived whole, the gate's rule before the ends
+ * were held to it. [BOUND] names no end: a local re-solve, whose every step is read alike.
+ */
+internal class EndRule(val startIdx: Int, val aimIdx: Int, val strictStart: Boolean, val strictAim: Boolean) {
+    companion object {
+        val BOUND = EndRule(-1, -1, strictStart = true, strictAim = true)
+    }
+}
+
+/**
+ * **The depth gate's check on one search step** — whether the straight segment between two cell centres
+ * keeps the gate's wall ([GateRule.hardM]) off the measured edge.
+ *
+ * It is what lets every raw leg the A\* hands the pull be trusted: the pull keeps a refused immediate
+ * step rather than lose the path, so a leg between two legal centres that grazes a rock would otherwise
+ * reach the drawn line. **Most steps read nothing**: a step whose two cells both stand at least
+ * `hardM + edgeM / 2` off the edge is clear by the distance's own 1-Lipschitz bound, read from the grid's
+ * stored field — trusted only where the raster wrote it exactly ([GateRule.seedReachM] at the cell's own
+ * size), which every same-layer step is. Only a step near the edge or a step across the seam pays a measured
+ * read: one segment read, or a read cut at the waiver's rim where a centre stands in it.
+ *
+ * A step with a centre inside the gate's waiver — within [GateRule.waiverM] of a raw end — is read past
+ * the waiver ([GateRule.keepsWall]), and a step out of the start's own cell or into
+ * the aim's is read with the raw end's own leg to that cell, so the drawn line keeps the wall from the
+ * waiver's rim on. Where an end is boxed in, the search walks that end under the old rule — a centre in its
+ * waiver waives the whole step and its own steps are free — so the end may stand in shallow-side water and
+ * still be left. **A guard serves one search at a time**: it records where the held rule refused a step the
+ * old waiver would have let through ([heldRefused]), which the search reads to decide a re-walk.
+ */
+class StepGuard(
+    private val gate: GateRule,
+    private val start: LatLng,
+    private val aim: LatLng
+) {
+    /** The destinations of the steps the held rule refused that the old waiver would have let through. */
+    internal val heldRefused = ArrayList<Int>()
+
+    /** The raw end's own leg to its cell's centre, read once per slot: `[slot, verdict]` for each end. */
+    private val startLeg = intArrayOf(-1, 0)
+    private val aimLeg = intArrayOf(-1, 0)
+
+    /** Whether the step [fromIdx] → [toIdx] may be taken, the route's own ends read through [ends]. */
+    internal fun allows(walk: WalkWindows, fromIdx: Int, toIdx: Int, edgeM: Double, ends: EndRule): Boolean {
+        val leavesStart = fromIdx == ends.startIdx
+        val entersAim = toIdx == ends.aimIdx
+        if ((leavesStart && !ends.strictStart) || (entersAim && !ends.strictAim)) return true
+        val allowed = (!leavesStart || endLegClear(walk, fromIdx, start, startLeg)) &&
+            (!entersAim || endLegClear(walk, toIdx, aim, aimLeg)) &&
+            clear(walk, fromIdx, toIdx, edgeM, ends)
+        if (!allowed && ends.startIdx >= 0 &&
+            (leavesStart || entersAim || gate.waives(walk.centerOf(fromIdx), start, aim) ||
+                gate.waives(walk.centerOf(toIdx), start, aim))
+        ) {
+            heldRefused.add(toIdx)
+        }
+        return allowed
+    }
+
+    /**
+     * Whether the straight segment between the two cell centres keeps the wall — the stored distances'
+     * proof first, then one measured read. An end [ends] does not hold keeps the old rule: a step with a
+     * centre in that end's waiver is waived whole rather than read past it.
+     */
+    internal fun clear(walk: WalkWindows, fromIdx: Int, toIdx: Int, edgeM: Double, ends: EndRule = EndRule.BOUND): Boolean {
+        val needM = gate.hardM + edgeM / 2.0
+        val trustedM = min(
+            gate.seedReachM(walk.cellSizeM(walk.layerOf(fromIdx))),
+            gate.seedReachM(walk.cellSizeM(walk.layerOf(toIdx)))
+        )
+        if (needM <= trustedM && min(walk.gateDistanceM(fromIdx), walk.gateDistanceM(toIdx)) >= needM) {
+            return true
+        }
+        val a = walk.centerOf(fromIdx)
+        val b = walk.centerOf(toIdx)
+        if (!ends.strictStart && (gate.waivesNear(a, start) || gate.waivesNear(b, start))) {
+            return true
+        }
+        if (!ends.strictAim && (gate.waivesNear(a, aim) || gate.waivesNear(b, aim))) {
+            return true
+        }
+        return gate.keepsWall(a, b, start, aim)
+    }
+
+    private fun endLegClear(walk: WalkWindows, slot: Int, end: LatLng, memo: IntArray): Boolean {
+        if (memo[0] != slot) {
+            memo[0] = slot
+            memo[1] = if (gate.keepsWall(end, walk.centerOf(slot), start, aim)) 1 else 0
+        }
+        return memo[1] == 1
+    }
+}

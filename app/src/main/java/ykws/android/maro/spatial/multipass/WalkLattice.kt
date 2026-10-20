@@ -300,7 +300,7 @@ internal class WalkSlotIndex(
  * The index — `(layer, row, col)` → slot and its two mirror arrays — is a pure function of the windows'
  * **shape** (each window's layer, its lattice offset and its extent), never of their contents, so an arm
  * whose windows carry the same shape reuses the previous arm's index instead of walking every cell again.
- * The contents differ per arm (the berth carve writes each arm's own cells), so the [`WalkWindows`] itself
+ * The contents differ per arm (the end discs write each arm's own cells), so the [`WalkWindows`] itself
  * is rebuilt over the caller's own windows; only the index is shared, and it is read-only once built. One
  * entry, newest wins, keyed on the shape alone.
  *
@@ -481,6 +481,37 @@ internal class WalkWindows private constructor(
     }
 
     /**
+     * **The cell an end anchors the walk on** — the finest layer's own cell holding [point] where that cell
+     * is passable (the end's own freed cell, in every window that holds the end), so the walk leaves the end
+     * from the water it stands in rather than from the centre of the coarse block around it. [coarse] — the
+     * interior's reading — answers where no finer passable cell holds the point, and always on a single grid.
+     */
+    fun endCellAt(point: LatLng, coarse: CellIndex): CellIndex {
+        val layers = lattices ?: return coarse
+        var best: CellIndex? = null
+        var bestCellM = Double.MAX_VALUE
+        for (index in layers.indices) {
+            val lattice = layers[index]
+            if (lattice.cellM >= bestCellM) continue
+            val row = lattice.rowOf(point.latitude)
+            val col = lattice.colOf(point.longitude)
+            val slot = rawSlotOf(index, row, col)
+            if (slot >= 0 && passable(slot)) {
+                best = CellIndex(row, col, index)
+                bestCellM = lattice.cellM
+            }
+        }
+        return best ?: coarse
+    }
+
+    /**
+     * The slot an end's cell takes: a coarse-layer coordinate through the walk's own reading rule ([slotOf]),
+     * a finer layer's own cell ([endCellAt]) at that layer's own address.
+     */
+    fun slotOfEnd(cell: CellIndex): Int =
+        if (cell.layer == 0 || lattices == null) slotOf(cell.row, cell.col) else rawSlotOf(cell.layer, cell.row, cell.col)
+
+    /**
      * The slot a lattice coordinate takes, resolved through the walk's own reading rule. Where the
      * coordinate is a **coarse-layer** cell and a passable fine cell stands over the same water, the fine
      * cell is the one the walk reads and the coarse copy is not; every other coordinate resolves through
@@ -503,7 +534,7 @@ internal class WalkWindows private constructor(
 
     /**
      * **The walk's own lattice coordinate for a cell of [grid] named locally by `(row, col)`** — the
-     * translation a two-layer walk needs because its seeds and its carve arrive in a window's **local**
+     * translation a two-layer walk needs because its seeds arrive in a window's **local**
      * index space while [`slotOf`] reads the family's lattice coordinates. The window that holds [grid]
      * supplies its offset; a single-window walk holds its grid as window zero, so that offset is zero there
      * and the coordinate is the grid's own. The corridor-anchored family made the two coincide everywhere; a
@@ -548,39 +579,6 @@ internal class WalkWindows private constructor(
             if (slot >= 0 && passable(slot)) local = lattice
         }
         return local.cellM
-    }
-
-    /**
-     * **The gate distance (m) the drawn tail reads at [point]** — the finest layer whose own window holds
-     * passable water where the point stands, read at that layer's cell, so the band's 20 m survives into
-     * the points. The pull's guard reads this, mirroring [cellSizeAt] so the size and the distance agree
-     * about which layer the point resolves on.
-     */
-    fun gateDistanceMAt(point: LatLng): Double {
-        val layers = lattices ?: return windows[0].grid.gateDistanceMAt(point.latitude, point.longitude)
-        var winner = layers[0]
-        var winnerIndex = 0
-        for (index in layers.indices) {
-            if (layers[index].cellM > winner.cellM) {
-                winner = layers[index]
-                winnerIndex = index
-            }
-        }
-        for (index in layers.indices) {
-            val lattice = layers[index]
-            if (lattice.cellM >= winner.cellM) continue
-            val slot = rawSlotOf(index, lattice.rowOf(point.latitude), lattice.colOf(point.longitude))
-            if (slot >= 0 && passable(slot)) {
-                winner = lattice
-                winnerIndex = index
-            }
-        }
-        val row = winner.rowOf(point.latitude)
-        val col = winner.colOf(point.longitude)
-        val slot = rawSlotOf(winnerIndex, row, col)
-        if (slot < 0) return Double.MAX_VALUE
-        val window = windowOf(slot)
-        return window.grid.gateDistanceM(row - window.rowOffset, col - window.colOffset)
     }
 
     /**
@@ -717,7 +715,7 @@ internal class WalkWindows private constructor(
          * layers over the same water each keep their own cells — the identity a coordinate-only key collapses.
          *
          * The index itself comes from [`WalkIndexCache`]; the walk still holds **this** arm's own windows,
-         * so its read cells are the ones the caller has just built and carved.
+         * so its read cells are the ones the caller has just built and opened.
          */
         fun onLattice(lattices: List<WalkLattice>, windows: List<WalkWindow>): WalkWindows {
             val index = WalkIndexCache.getOrBuild(windows)

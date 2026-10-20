@@ -57,7 +57,7 @@ class AvoidPriceWalkTest {
     /**
      * The walk's own context for the price fixtures: the fine step unless the fixture names another,
      * and the two raw ends stand for the chord's own origin — the price walk reads neither them nor
-     * the approaches, so those values are the fixture's own bookkeeping, never the walk's.
+     * anything else of the ends, so those values are the fixture's own bookkeeping, never the walk's.
      */
     private fun walkCtx(
         priceStepM: Double = fineStepM,
@@ -135,9 +135,9 @@ class AvoidPriceWalkTest {
             zoneOutsideMarginM = 0.0, pace = paceKn, grid = walk.grid,
             startCell = walk.startCell, aimCell = walk.aimCell, start = start, aim = aim,
             sets = emptyList(), limitAt = { null }, zones = emptyList(), priced = emptyList(),
-            approaches = EndApproaches.NONE, refusals = PullRefusals(),
+            refusals = PullRefusals(),
             depthGateActive = false, minDepthM = 0.0, regionSaturated = false,
-            windows = walk.windows
+            windows = walk.windows, gate = null
         )
     }
 

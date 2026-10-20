@@ -14,7 +14,7 @@ import ykws.android.maro.spatial.SpatialOperations
  * least `w` and no cell below `w` can slip between them.
  *
  * **The ends are inside by construction**: the first centre is the start and the last is the aim, so the
- * two end discs and the berth carve always land in some box. The box is axis-aligned and the lattice is
+ * two end discs always land in some box. The box is axis-aligned and the lattice is
  * lat/lon-aligned, so an oblique ribbon over-covers by up to `sqrt 2` — the price of a rotated box being
  * unavailable, named in the plan rather than hidden.
  */

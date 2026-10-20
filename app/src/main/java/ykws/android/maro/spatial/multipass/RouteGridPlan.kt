@@ -59,12 +59,12 @@ interface RouteGridPlan {
     fun fineWater(query: FineWaterQuery): FineWater
 
     /**
-     * **Whether this plan prices the gate berth** — the 20→50 m standoff price off the gate edge. It
-     * rides the plan because the berth is a decision about *this* algorithm's own water rather than a
-     * switch any engine may flip: `avoid` answers `false` and its field, its grid and its line are
-     * untouched, while `evolutive` answers `true` and prices the `route.evolutive.berth.*` keys behind
-     * the gate's own switch. A plan still prices nothing by itself — the runner reads the berth law from
-     * [berthLawOf].
+     * **Whether this plan prices the gate berth** — the ramps off the measured 3 m edge. It rides the plan
+     * because the berth is a decision about *this* algorithm's own water rather than a switch any engine
+     * may flip: `avoid` answers `false`, prices nothing and keeps its wall at the gate's own margin, while
+     * `evolutive` answers `true`, prices the `route.evolutive.berth.*` keys behind the gate's own switch and
+     * stands its wall at the berth's floor. A plan still prices nothing by itself — the runner reads the
+     * berth law from [berthLawOf].
      */
     val pricesBerth: Boolean get() = false
 }
@@ -88,7 +88,7 @@ object UniformGridPlan : RouteGridPlan {
     /** One tile is no lattice, and no lattice carries no fine layer: `avoid`'s mask is empty. */
     override fun fineWater(query: FineWaterQuery): FineWater = FineWater()
 
-    /** `avoid` prices no berth: its water, its grid and its line are exactly what they were. */
+    /** `avoid` prices no berth: its wall stands at the gate's own margin, measured off the 3 m edge. */
     override val pricesBerth: Boolean get() = false
 }
 
@@ -151,7 +151,7 @@ object EvolutiveGridPlan : RouteGridPlan {
 }
 
 /**
- * **The low-depth collar's reach (m off a shallow cell)** — the gate's own margin (the 20 m exclusion)
+ * **The low-depth collar's reach (m off the measured edge)** — the gate's own margin
  * plus the same `margin + one coarse cell` the shore ribbon uses, so the fine 20 m cells follow the
  * shallow water out past the weighted band and a ribbon's width beyond it.
  */

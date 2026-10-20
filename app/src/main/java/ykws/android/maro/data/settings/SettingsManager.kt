@@ -52,7 +52,8 @@ import ykws.android.maro.data.regulation.ZoneDisplayCategory
  *                             whole-map repaints = less battery. Default 25.
  * @property emodnetShallowCutoffM  EMODnet shallow cutoff (m): EMODnet point readings shallower
  *                             than this are coarse (115 m cell over rocks/coast) and unreliable →
- *                             presented as no-data. 0 disables the gate. Default 2.0.
+ *                             presented as no-data. 0 keeps every reading but the negative artefacts. Default
+ *                             `depth.emodnetShallowCutoffM` (3.0).
  */
 data class AppSettings(
     val defaultLatitude: Double = 43.55,
@@ -146,7 +147,7 @@ data class AppSettings(
     val boatMarkerAutoMarkerDedupRadiusM: Double = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM,
     /** EMODnet shallow cutoff (m): EMODnet point readings shallower than this are coarse
      *  (115 m cell over rocks/coast) and unreliable → presented as no-data. 0 disables the gate. */
-    val emodnetShallowCutoffM: Float = 2.0f,
+    val emodnetShallowCutoffM: Float = ykws.android.maro.config.AppConfig.depthEmodnetShallowCutoffM,
     /**
      * Free-water pace (kn, 3–40) a route's trip figure plans at until the boat's own observed pace
      * replaces it. Seeded from `route.freeWaterPaceKn`, so the property stays the value's one home.
@@ -657,7 +658,7 @@ class SettingsManager(
         boatMarkerIdleThresholdSec = prefs.getLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec),
         boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
         boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
-        emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f),
+        emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, ykws.android.maro.config.AppConfig.depthEmodnetShallowCutoffM),
         // Clamped on read like every other bounded slider — the `Any` sentinel alone passing through,
         // because the snap's 5 kn floor would turn a stored *no preference* into the slowest boat.
         routeFreeWaterPaceKn = prefs.getFloat(

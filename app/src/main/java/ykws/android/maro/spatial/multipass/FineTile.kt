@@ -29,7 +29,7 @@ internal const val FINE_TILE_CELLS = 64
  *
  * The tile is the same water a per-arm fine window used to carry — its contents come from the existing
  * [`rasterizeWindow`] with the plan's `fineMask` applied — so a shared tile is the marking work done
- * once. The per-arm berth carve and the end discs are per-acquisition writes a tile must **not** carry,
+ * once. The end discs are per-acquisition writes a tile must **not** carry,
  * which is why [writeInto] copies a tile's members into the arm's own mutable [`MultipassGrid`].
  */
 internal class FineTile(

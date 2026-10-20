@@ -39,7 +39,6 @@ class TileKeyTest {
         gateMarginM = 20.0,
         depthGateEnabled = true,
         berthOuterM = 50.0,
-        berthSecPerM = 0.1,
         depthCollarM = 170.0,
         bandWidthM = 300.0,
         bandLimitKn = 5.0,
@@ -53,7 +52,8 @@ class TileKeyTest {
         zoneRings = listOf(ring(4.0)),
         markers = emptyList(),
         markerStrength = 1.0,
-        markerPriceEnabled = true
+        markerPriceEnabled = true,
+        berthFloorM = 10.0
     )
 
     /** Every keyed value, flipped once — one entry per declared field. */
@@ -74,7 +74,6 @@ class TileKeyTest {
         "gateMarginM" to base.copy(gateMarginM = base.gateMarginM + 1.0),
         "depthGateEnabled" to base.copy(depthGateEnabled = !base.depthGateEnabled),
         "berthOuterM" to base.copy(berthOuterM = base.berthOuterM + 1.0),
-        "berthSecPerM" to base.copy(berthSecPerM = base.berthSecPerM + 1.0),
         "depthCollarM" to base.copy(depthCollarM = base.depthCollarM + 1.0),
         "bandWidthM" to base.copy(bandWidthM = base.bandWidthM + 1.0),
         "bandLimitKn" to base.copy(bandLimitKn = base.bandLimitKn + 1.0),
@@ -88,7 +87,8 @@ class TileKeyTest {
         "zoneRings" to base.copy(zoneRings = listOf(ring(6.0))),
         "markers" to base.copy(markers = listOf(marker(3))),
         "markerStrength" to base.copy(markerStrength = base.markerStrength + 1.0),
-        "markerPriceEnabled" to base.copy(markerPriceEnabled = !base.markerPriceEnabled)
+        "markerPriceEnabled" to base.copy(markerPriceEnabled = !base.markerPriceEnabled),
+        "berthFloorM" to base.copy(berthFloorM = base.berthFloorM + 1.0)
     )
 
     /** One costed marker, for the key's own flip cases. */

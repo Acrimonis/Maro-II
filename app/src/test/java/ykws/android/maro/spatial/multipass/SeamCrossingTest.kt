@@ -102,7 +102,7 @@ class SeamCrossingTest {
     /**
      * **Phase 6 — the local size travels with the water.** The size the drawn tail reads at a point is the
      * cell the water there was resolved at: the fine band's 20 m where the fine window holds water, the
-     * interior's 100 m in the open. This is the fact the corner radii, the carve reach and the disc read.
+     * interior's 100 m in the open. This is the fact the corner radii and the disc read.
      */
     @Test
     fun theLocalCellSizeFollowsTheWaterUnderThePoint() = runTest {

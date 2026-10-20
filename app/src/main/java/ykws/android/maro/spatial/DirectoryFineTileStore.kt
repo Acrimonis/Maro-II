@@ -17,8 +17,13 @@ import java.io.File
  * ([`FineTileCache.install`]). It reads **lazily, one file a tile**, and never loads the directory at
  * startup, so a cold process pays only for the tiles the first arm actually reaches.
  *
+ * **One build's tiles, never another's.** The entries live in a folder named by [buildStamp] — the app's own
+ * install instant — and the first access deletes every other build's folder, so a tile a previous build
+ * computed is never read after an install: the store needs no format version, and no change to how a tile
+ * is built has to remember to bump one.
+ *
  * **A miss is the only failure, and a bad entry is discarded.** A read is decoded through
- * [`FineTileCodec`], which verifies the magic, the format version and the **whole key** the entry
+ * [`FineTileCodec`], which verifies the magic and the **whole key** the entry
  * carries; a short, foreign or key-mismatched file answers `null` and is deleted, so a partial or corrupt
  * store falls back to the build rather than half-reading it. A write is **atomic** — a temp file renamed
  * over the target — so a half-written entry is never visible. A served tile **touches** its entry's age,
@@ -56,7 +61,13 @@ import java.io.File
  * [`FineTileMap`]: ykws.android.maro.spatial.multipass.FineTileMap
  */
 internal class DirectoryFineTileStore(
-    private val dir: File,
+    /** The store's root; the entries live in its [buildStamp] folder. */
+    private val root: File,
+    /**
+     * The installed build's own stamp — the app's last install instant at the app edge — or `null`, where
+     * the entries live in [root] itself and nothing is cleared (a caller with one build only, as a test).
+     */
+    private val buildStamp: Long? = null,
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
     /** Raised **once**, on the first reclamation — the app edge surfaces it (D9). Inert by default. */
     private val onReclaim: () -> Unit = {},
@@ -71,6 +82,19 @@ internal class DirectoryFineTileStore(
      * the truth (D4).
      */
     private val index = LinkedHashMap<String, Long>(16, 0.75f, true)
+
+    /**
+     * **This build's entry folder**, resolved on the first access — always off the UI thread — where every
+     * other build's folder, and any entry left loose in [root] by a store from before the folders, is deleted.
+     */
+    private val dir: File by lazy {
+        if (buildStamp == null) return@lazy root
+        val current = File(root, buildStamp.toString())
+        val stale = root.listFiles()?.filter { it.name != current.name } ?: emptyList()
+        for (old in stale) old.deleteRecursively()
+        if (stale.isNotEmpty()) trace("STORE cleared builds=${stale.size} build=$buildStamp")
+        current
+    }
 
     /** The running byte total, primed once by a listing and adjusted per save and delete; `-1` = unprimed. */
     private var dirBytes: Long = -1L

@@ -52,28 +52,36 @@ class RouteDepthReadingTest {
     }
 
     /**
-     * **The gate source keeps the margin, not just the step** — a point ten metres off blocked water is
-     * refused at a twenty-metre margin, while one thirty metres off still clears.
+     * **The measured edge keeps the margin, not just the step** — a point ten metres off blocked water reads
+     * inside a twenty-metre wall, one thirty metres off clears it, and neither reads further than the truth.
      */
     @Test
-    fun theGateSourceKeepsItsOwnMargin() {
+    fun theMeasuredEdgeKeepsItsOwnMargin() {
         val world = ShelfAt(edgeLat)
+        val gate = GateRule(world.shallowEdges(gateMinM), hardM = 20.0, preferredM = 20.0, waiverM = 20.0)
         val mPerDegLat = ykws.android.maro.spatial.SpatialOperations.EARTH_RADIUS_M * Math.PI / 180.0
         val tenM = LatLng(edgeLat + 10.0 / mPerDegLat, 7.001)
         val thirtyM = LatLng(edgeLat + 30.0 / mPerDegLat, 7.001)
 
-        assertTrue(
-            "ten metres off the blocked water is inside a twenty-metre standoff",
-            !gateStandoffClears(tenM, 20.0, gateMinM) { q -> depthMAt(world, q) }
+        assertTrue("ten metres off the blocked water is inside a twenty-metre wall", gate.edgeM(tenM, 50.0) < 20.0)
+        assertTrue("never read further than it stands", gate.edgeM(tenM, 50.0) <= 10.0)
+        assertTrue("thirty metres off it clears", gate.edgeM(thirtyM, 50.0) >= 20.0)
+    }
+
+    /** The index's own reading rides the `LINE` beside the independent scan, and they agree on a shelf. */
+    @Test
+    fun theIndexReadingAgreesWithTheScan() {
+        val world = ShelfAt(edgeLat)
+        val gate = GateRule(world.shallowEdges(gateMinM), hardM = 10.0, preferredM = 20.0, waiverM = 20.0)
+        val reading = RouteDepthReading.edgeReading(
+            world, lineAt(43.5010), gateActive = true, minDepthM = gateMinM, excludeEndsM = 20.0, gate = gate
         )
+        assertTrue("the scan reads about 55-65 m (read ${reading.distanceM})", reading.distanceM in 55.0..65.0)
         assertTrue(
-            "thirty metres off it clears",
-            gateStandoffClears(thirtyM, 20.0, gateMinM) { q -> depthMAt(world, q) }
+            "the index reads under it by no more than the trace's error (read ${reading.indexDistanceM})",
+            reading.indexDistanceM <= reading.distanceM + 0.5 && reading.indexDistanceM >= reading.distanceM - 10.0
         )
-        assertTrue(
-            "and a zero margin restores the bare step",
-            gateStandoffClears(tenM, 0.0, gateMinM) { q -> depthMAt(world, q) }
-        )
+        assertEquals("a line 55 m off spends no metre inside the preferred standoff", 0.0, reading.innerM, 0.0)
     }
 
     @Test

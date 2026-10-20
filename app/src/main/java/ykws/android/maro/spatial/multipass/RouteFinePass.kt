@@ -60,7 +60,6 @@ internal class RouteFinePass {
         val priced = ctx.priced
         val zones = ctx.zones
         val sets = ctx.sets
-        val approaches = ctx.approaches
         val refusals = ctx.refusals
         val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
@@ -76,8 +75,8 @@ internal class RouteFinePass {
             if (!lineEntersZone(out, zone)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
-                lambda, edges, openCoast, capLatNorth, priced, zones, sets, approaches, refusals,
-                ctx.markerStrength, ctx.plan, trace
+                lambda, edges, openCoast, capLatNorth, priced, zones, sets, refusals,
+                ctx.markerStrength, ctx.plan, ctx.gate, trace
             ) ?: out
         }
         val fineGuard =
@@ -85,17 +84,11 @@ internal class RouteFinePass {
                 world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
                 markerStrength = ctx.markerStrength
             )
-        val gateMarginM = gateStandoffM(ctx.depthGateActive)
+        val gate = ctx.gate
         val berth = berthLawOf(ctx.plan, ctx.depthGateActive)
-        val gateDistanceMAt: (LatLng) -> Double = { p ->
-            (ctx.windows ?: WalkWindows.of(ctx.grid)).gateDistanceMAt(p)
-        }
         val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, fineGuard, start, aim, approaches,
-            gateDistanceMAt = gateDistanceMAt, gateMarginM = gateMarginM,
-            berthOuterM = berth?.outerM ?: 0.0, berthSecPerM = berth?.secPerM ?: 0.0, berthLambda = lambda,
-            gateDepthAt = { p -> depthMAt(world, p) },
-            gateMinDepthM = if (ctx.depthGateActive) ctx.minDepthM else 0.0,
+            marginM, coarseStepM, priceStepM, fineGuard, start, aim,
+            gate = gate, berth = berth, berthLambda = lambda,
             paceMps = Units.knotsToMps(pace)
         )
         // Both pulls report the tallies the runner's own PULL and FINAL lines carry, so one pass taken
@@ -129,7 +122,11 @@ internal class RouteFinePass {
         // the same setup the pull walked, so the clearance is one home.
         val straightened = MultipassPull.straightenLine(setup, swept)
         trace { "STRAIGHTEN points=${swept.size}→${straightened.size}" }
-        return straightened
+        // **The medial nudge** — where the line runs through a passage narrower than the gate's preferred
+        // standoff on both sides, its stretch moves to the passage's middle, on the same setup's proofs. It
+        // is the berth's own pass: a plan that prices no inner ramp has no passage to centre.
+        if (gate == null || berth == null || !berth.hasInnerRamp) return straightened
+        return RouteMedialNudge.nudge(setup, gate, straightened, trace)
     }
 
     /**
@@ -157,7 +154,6 @@ internal class RouteFinePass {
         priced: List<ZoneRing>,
         zones: List<SpeedZone>,
         sets: List<CornerSet>,
-        approaches: EndApproaches,
         refusals: PullRefusals?,
         markerStrength: Double = 1.0,
         /**
@@ -166,6 +162,8 @@ internal class RouteFinePass {
          * berth at the pass's λ.
          */
         plan: RouteGridPlan = UniformGridPlan,
+        /** The arm's depth-gate rule — the same measured edge the coarse answer kept off. */
+        gate: GateRule? = null,
         trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
         val zoneStartNs = System.nanoTime()
@@ -200,8 +198,7 @@ internal class RouteFinePass {
             world, fineCellM, pace, withZones = true, withBand = true, zones = zones, lambda = lambda,
             markerStrength = markerStrength
         )
-        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
-        val gateMarginM = gateStandoffM(depthGateActive)
+        val depthGateActive = gate != null
         val berth = berthLawOf(plan, depthGateActive)
         // This crossing walks one fine grid — clearance at its own cell, price at the coarse one, as in
         // `finePass`. The water is built once here, immediately after the field, and never cached.
@@ -210,19 +207,15 @@ internal class RouteFinePass {
         val grid = rasterize(
             box, fineCellM, pace, marginM, edges, openCoast, capLatNorth, base, priced,
             zoneOutsideMarginM = outsideMarginM, band = bandLaw(world),
-            gateMarginM = gateMarginM, berthOuterM = berth?.outerM ?: 0.0
+            gate = gate
         )
         grid.forceFree(from.latitude, from.longitude)
         grid.forceFree(to.latitude, to.longitude)
         val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, guard, start, aim, approaches,
-            gateDistanceMAt = { p -> WalkWindows.of(grid).gateDistanceMAt(p) },
-            gateMarginM = gateMarginM,
-            berthOuterM = berth?.outerM ?: 0.0,
-            berthSecPerM = berth?.secPerM ?: 0.0,
+            marginM, coarseStepM, priceStepM, guard, start, aim,
+            gate = gate,
+            berth = berth,
             berthLambda = lambda,
-            gateDepthAt = { p -> depthMAt(world, p) },
-            gateMinDepthM = if (depthGateActive) AppConfig.routeAvoidDepthGateMinM else 0.0,
             paceMps = Units.knotsToMps(pace)
         )
         val search = MultipassSearch.search(
@@ -240,9 +233,10 @@ internal class RouteFinePass {
             // The berth's own cursor travels with the field: the local grid carries the same distance
             // field the coarse one did, so this re-solve prices one berth exactly as the arm did.
             berthK = lambda,
-            berthMarginM = gateMarginM,
-            berthOuterM = berth?.outerM ?: 0.0,
-            berthSecPerM = berth?.secPerM ?: 0.0
+            berth = berth,
+            stepGuard = gate?.let { StepGuard(it, start, aim) },
+            // The splice's own ends are vertices of the line, not the route's: their cells are bound.
+            waiveEndSlots = false
         )
         val path = search.path
         if (path == null) {

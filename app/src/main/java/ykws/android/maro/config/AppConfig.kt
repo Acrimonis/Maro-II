@@ -239,13 +239,20 @@ object AppConfig {
         private set
 
     /**
-     * The invalid-end repair's maximum sweep radius (m) — `route.repair.maxRadiusM`, default 200.
-     *
-     * The one knob of the repair: a point that is land or shallower than the gate is moved by an
-     * 8-direction ring sweep at a 25 m step growing to this radius, the first valid water winning.
-     * The directions, the step and the sweep are constants of the algorithm, not keys.
+     * The end repair's maximum sweep radius (m) — `route.repair.maxRadiusM`, default 200: how far an end
+     * may be moved, by every rule of the repair. The directions, the steps and the sweep are constants of
+     * the algorithm, not keys.
      */
     var routeRepairMaxRadiusM: Double = 200.0
+        private set
+
+    /**
+     * How far (m) a route's end stands clear of the coast and of the measured 3 m line —
+     * `route.repair.clearanceM`, default 25, clamped 0..100: an end standing nearer is moved to the nearest
+     * clear point. 25 m is the gate's 10 m wall plus a 20 m fine cell's half-diagonal, so the end's own cell
+     * clears the wall. 0 asks no clearance: an end in usable water stays where it is tapped.
+     */
+    var routeRepairClearanceM: Double = 25.0
         private set
 
     /**
@@ -431,14 +438,39 @@ object AppConfig {
         private set
 
     /**
-     * The berth's **full rate** — `route.evolutive.berth.secPerM`, default 0.1, clamped
+     * The berth's **rate at the margin** — `route.evolutive.berth.secPerM`, default 0.1, clamped
      * [ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN]..[ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX]. It is a
-     * **per-metre-of-water rate** at the 20 m margin: a cell's price is
-     * `secPerM × λ × berthShare(distance) × cellM`, so a 20 m ribbon and a 100 m interior pay the same
-     * per metre. **No cap exists beside it**: λ and the law are the whole brake.
+     * **per-metre-of-water rate** at the 20 m margin, falling to nothing at the outer edge: a cell's price is
+     * `λ × BerthLaw.rateSecPerM(distance) × cellM`, so a 20 m ribbon and a 100 m interior pay the same per
+     * metre. **No cap exists beside it**: λ and the law are the whole brake.
      */
     var routeEvolutiveBerthSecPerM: Double = 0.1
         private set
+
+    /**
+     * **The berth's floor — the hard wall (m off the measured 3 m edge)** — `route.evolutive.berth.floorM`,
+     * default 10, clamped [ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MIN]..[ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MAX] and never
+     * above `route.avoid.depthGate.marginM` where it is read (`berthLawOf`). Under the floor no route goes;
+     * between it and the margin the water is the berth's inner ramp, usable but dear, so a narrow passage
+     * stays open and is crossed down its middle. `avoid` prices no berth and keeps its wall at the margin.
+     */
+    var routeEvolutiveBerthFloorM: Double = 10.0
+        private set
+
+    /**
+     * **The inner ramp's rate at the floor** (s per metre of water, before λ) —
+     * `route.evolutive.berth.innerSecPerM`, default 0.5, clamped
+     * [ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN]..[ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX] and never under
+     * [routeEvolutiveBerthSecPerM] where it is read, so the rate never rises with the distance off the edge.
+     */
+    var routeEvolutiveBerthInnerSecPerM: Double = 0.5
+        private set
+
+    /** Lowest berth floor (m) the load accepts — zero, the wall on the edge itself. */
+    const val ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MIN = 0.0
+
+    /** Highest berth floor (m) the load accepts. */
+    const val ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MAX = 200.0
 
     /** Lowest berth outer edge (m) the load accepts — zero, the berth's own off position. */
     const val ROUTE_EVOLUTIVE_BERTH_OUTER_M_MIN = 0.0
@@ -481,6 +513,13 @@ object AppConfig {
      */
     var routeAvoidDepthGateMinM: Double = 3.0
         private set
+    /**
+     * The EMODnet shallow cutoff's shipped default (m) — `depth.emodnetShallowCutoffM`, default 3.0, clamped
+     * 0..5: the slider's starting value, read by the chart and the route search alike. A device keeps the
+     * value it stored.
+     */
+    var depthEmodnetShallowCutoffM: Float = 3.0f
+        private set
 
     /**
      * Whether the 3 m depth gate is armed — `route.avoid.depthGate.enabled`, default true. False runs
@@ -491,13 +530,14 @@ object AppConfig {
         private set
 
     /**
-     * The lateral standoff (m) the curve fitter keeps off the depth gate's wall —
+     * The standoff (m) a route keeps off the depth gate's measured edge —
      * `route.avoid.depthGate.marginM`, default 20, clamped 0.0..200.0.
      *
-     * The fitter reads it as the distance from a sampled cell's **centre** to the nearest cell whose
-     * centre is under the gate, refusing a sample within it — the same 20 m of standoff the gate's own
-     * rule implies, made representable at the grid's resolution without a finer walk. It is the depth
-     * gate's standoff only: the coast's own clearance is [routeAvoidObstacleMarginM].
+     * It is read off the traced 3 m line ([`ShallowEdgeIndex`]), never off sampled cell centres. On `avoid`
+     * it is the wall. On `evolutive` it is the **preferred** standoff: the wall stands at
+     * [routeEvolutiveBerthFloorM] and the water between is the berth's inner ramp. Either way it is also the
+     * disc around each end inside which the gate waives itself, and the standoff the corner pass's bows
+     * keep. It is the depth gate's standoff only: the coast's own clearance is [routeAvoidObstacleMarginM].
      */
     var routeAvoidDepthGateMarginM: Double = 20.0
         private set
@@ -621,17 +661,18 @@ object AppConfig {
     const val ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX = 300.0
 
     /**
-     * The settled lookback's **price allowance** (a share of the legs' own price) —
+     * The settled lookback's **price allowance** (a share of the legs' own field price) —
      * `route.avoid.pull.allowanceShare`, default 0.1, clamped
      * [ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MIN]..[ROUTE_AVOID_PULL_ALLOWANCE_SHARE_MAX].
      *
      * The sweep drops an interior vertex only where the skipping chord is **not dearer** than the two
      * legs it replaces; that strict test pins a vertex on a difference the field's own sampling cannot
-     * justify. The allowance is **relative** — a vertex drops while `chordSec <= pathSec × (1 + share)` —
-     * so where the legs cost nothing the allowance is nothing and a priced chord is never cut by it, and
-     * it adds no field read of its own: the same two seconds it compares are already paid. A share, so a
-     * share of free legs is free; 0 restores the strict test and the ceiling is a drawing licence at half
-     * the legs' own price. It changes a drawn line and never a control, so no `strings.xml` key is owed.
+     * justify. The allowance is **relative** — a vertex drops while `chordSec <= pathSec + share × fieldSec`,
+     * `fieldSec` being the legs' field price without their travel or the gate berth's term — so where the
+     * field charges nothing the allowance is nothing, and the berth's standoff is traded only for a chord
+     * truly cheaper in total. The field read is paid only where the strict test fails. 0 restores the
+     * strict test and the ceiling is a drawing licence at half the legs' own field price. It changes a
+     * drawn line and never a control, so no `strings.xml` key is owed.
      */
     var routeAvoidPullAllowanceShare: Double = 0.1
         private set
@@ -1248,6 +1289,7 @@ object AppConfig {
     /** Dedup radius (m) — skip auto-marker creation if an existing IDLE_AUTO marker is within this distance. */
     var boatMarkerAutoMarkerDedupRadiusM: Double = 25.0
         private set
+
     /** Minimum cumulative track point distance (m) between idle periods at same location to consider them separate stops. */
     var boatMarkerMinTravelBetweenStopsM: Double = 25.0
         private set
@@ -2354,6 +2396,8 @@ object AppConfig {
                 ?.let { routeMinAcquisitionLengthM = it.coerceAtLeast(0.0) }
             props.getProperty("route.repair.maxRadiusM")?.toDoubleOrNull()
                 ?.let { routeRepairMaxRadiusM = it.coerceIn(25.0, 1_000.0) }
+            props.getProperty("route.repair.clearanceM")?.toDoubleOrNull()
+                ?.let { routeRepairClearanceM = it.coerceIn(0.0, 100.0) }
             props.getProperty("route.walk.maxCells")?.toIntOrNull()
                 ?.let { routeWalkMaxCells = it.coerceIn(ROUTE_WALK_MAX_CELLS_MIN, ROUTE_WALK_MAX_CELLS_MAX) }
             props.getProperty("route.fineTile.maxBytes")?.toLongOrNull()
@@ -2431,8 +2475,23 @@ object AppConfig {
                     ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX
                 )
             }
+            props.getProperty("route.evolutive.berth.floorM")?.toDoubleOrNull()?.let {
+                routeEvolutiveBerthFloorM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MIN,
+                    ROUTE_EVOLUTIVE_BERTH_FLOOR_M_MAX
+                )
+            }
+            props.getProperty("route.evolutive.berth.innerSecPerM")?.toDoubleOrNull()?.let {
+                routeEvolutiveBerthInnerSecPerM = it.coerceIn(
+                    ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MIN,
+                    ROUTE_EVOLUTIVE_BERTH_SEC_PER_M_MAX
+                )
+            }
             props.getProperty("route.avoid.depthGate.minM")?.toDoubleOrNull()?.let {
                 routeAvoidDepthGateMinM = it.coerceIn(0.5, 50.0)
+            }
+            props.getProperty("depth.emodnetShallowCutoffM")?.toFloatOrNull()?.let {
+                depthEmodnetShallowCutoffM = it.coerceIn(0f, 5f)
             }
             props.getProperty("route.avoid.depthGate.enabled")?.toBooleanStrictOrNull()?.let {
                 routeAvoidDepthGateEnabled = it

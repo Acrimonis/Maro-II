@@ -22,6 +22,8 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.spatial.multipass.RouteMarker
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.regulation.SpeedZone
@@ -29,6 +31,9 @@ import ykws.android.maro.spatial.multipass.MultipassGrid
 import ykws.android.maro.spatial.multipass.MultipassSearch
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.CellIndex
+import ykws.android.maro.spatial.multipass.GateRule
+import ykws.android.maro.spatial.multipass.gateRuleOf
+import ykws.android.maro.spatial.multipass.StepGuard
 import ykws.android.maro.spatial.multipass.GridContext
 import ykws.android.maro.spatial.multipass.GridWalk
 import ykws.android.maro.spatial.multipass.PassReading
@@ -71,9 +76,9 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * depth gate.**
  *
  * It answers [RouteEngine.routesToCompute] with the ladder's three fixed-aversion rungs — around,
- * balanced and through slow water — after **repairing** the two ends:
- * a point that is land or shallower than the minimum depth is moved to the nearest valid water on the
- * sea side. A pair that cannot be repaired is refused with [RouteReason.CANNOT_REPAIR], and one whose
+ * balanced and through slow water — after **repairing** the two ends: an end is held clear of the coast
+ * and of the measured 3 m line, moved to the nearest clear water where it stands nearer (see *The repair*
+ * below). A pair that cannot be repaired is refused with [RouteReason.CANNOT_REPAIR], and one whose
  * judgement layers are absent is refused with [RouteReason.WORLD_NOT_READY]. The pipeline is
  * corridor-bounded grid A* plus a clearance taut pull, run on the [MultipassWorld] the injected provider
  * supplies.
@@ -103,16 +108,18 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * alike — is ignored, with no confidence floor and no penalty. It is a coarse guard on the route being
  * written, not a fine sounding.
  *
- * **The repair.** The first step of [routesToCompute]: each end that fails the engine's own water
- * test — on the coastline, or shallower than the gate — is moved by an 8-direction ring sweep at a
- * 25 m step growing to `route.repair.maxRadiusM` (default 200 m), the first valid point winning.
- * Because the first valid point is the *nearest*, it is on the sea side by construction. The budget is
- * the acceptance, not a value: the repair must answer in under 50 ms for one point, carried in the
- * KDoc and proven by the step's own test.
+ * **The repair.** The first step of [routesToCompute]: each end is held **clear** — at
+ * `route.repair.clearanceM` from the coast and from the measured 3 m line — and an end standing nearer is
+ * moved to the nearest clear point within twice that, found by 5 m rings of 16 bearings refined along
+ * each bearing, never across land or a shoal. Where none stands that close, the nearest point clear of the
+ * gate's wall within `route.repair.maxRadiusM` is taken, and failing that the old rule: an end on land or
+ * shallower than the gate moved by an 8-direction ring sweep at a 25 m step to the first water. So an end
+ * the old rule accepted is never refused. The budget is the acceptance: under 50 ms for one point, proven by
+ * the step's own test on a cold raster world.
  *
- * **What the answer means.** The emitted polyline starts at the raw start and ends at the raw aim
- * (`destinationMoved = false`, the pin stands on the aim); the snapped cells are only the search's
- * anchor. An exhausted search answers [RouteReason.NO_PATH] on the update flow — retried once with the
+ * **What the answer means.** The emitted polyline starts at the repaired start and ends at the repaired
+ * aim, and the answer says when the aim moved (`destinationMoved`); the snapped cells are
+ * only the search's anchor. An exhausted search answers [RouteReason.NO_PATH] on the update flow — retried once with the
  * corridor reach doubled. Each leg is timed at the pace in force, asked fresh per answer.
  *
  * **The ladder.** Each rung is a full solve at its own fixed λ, over one grid the three share: the grid
@@ -178,7 +185,7 @@ class RouteAvoidEngine(
 
     override val updates: Flow<RouteUpdate> = _updates.asSharedFlow()
 
-    /** The grid builder — the corridor, the harvest, the one rasterize and the ends' berth carve. */
+    /** The grid builder — the corridor, the harvest, the one rasterize and the ends' discs. */
     private val gridBuilder = RouteGridBuilder(plan)
 
     /** One pass's walk — the A*, the taut pull, the corner snap and the clock, composed once. */
@@ -252,17 +259,8 @@ class RouteAvoidEngine(
      */
     private val lastStages = ConcurrentHashMap<RouteId, RouteStage>()
 
-    /**
-     * The instrument's **one gate**: the `MaroRoute` tag's own level, read once and remembered.
-     *
-     * The read is taken through [runCatching] because a plain JVM unit test carries the mockable
-     * `android.util.Log`, whose methods throw: there the read answers `false` and the instrumentation
-     * stays inert rather than failing a test that has nothing to do with the log. On the device it is
-     * the ordinary level, set with `adb shell setprop log.tag.MaroRoute INFO`.
-     */
-    private val logEnabled: Boolean by lazy {
-        runCatching { Log.isLoggable(TAG, Log.INFO) }.getOrDefault(false)
-    }
+    /** The instrument's **one gate** — [RouteTrace]'s, shared with the route mode's view model. */
+    private val logEnabled: Boolean get() = RouteTrace.enabled
 
     override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations {
         val world = worldProvider()
@@ -272,15 +270,19 @@ class RouteAvoidEngine(
         if (AppConfig.routeAvoidDepthGateEnabled && !world.depthReady) {
             return refuse(RouteReason.WORLD_NOT_READY)
         }
-        val from = repair(origin, world) ?: return refuse(RouteReason.CANNOT_REPAIR)
-        val to = repair(destination, world) ?: return refuse(RouteReason.CANNOT_REPAIR)
-        repairedOrigin = from
-        repairedDestination = to
+        val gateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val gate = gateRuleOf(world, plan, gateActive, AppConfig.routeAvoidDepthGateMinM)
+        val from = repair(origin, world, gate) ?: return refuse(RouteReason.CANNOT_REPAIR)
+        val to = repair(destination, world, gate) ?: return refuse(RouteReason.CANNOT_REPAIR)
+        trace { repairLine("start", origin, from, world, gate) }
+        trace { repairLine("aim", destination, to, world, gate) }
+        repairedOrigin = from.point
+        repairedDestination = to.point
         // A fresh arm builds a fresh grid and a fresh ranking: the ladder's three rungs share the one
         // grid built on the first lookup to reach it, and their settled costs are folded afresh. The
         // holder is published with one write, so the arm's rungs single-flight on its own lock. The
         // rungs are the three fixed aversions of [RoutePreference] — around, best and fast.
-        ladderHolder = LadderGridHolder()
+        ladderHolder = LadderGridHolder(destinationMoved = to.moved)
         landedRungs = mutableListOf()
         val computations = listOf(
             Computation(RouteId(++nextComputationId), R.string.route_rung_around, RoutePreference.AROUND),
@@ -408,7 +410,7 @@ class RouteAvoidEngine(
             // the running best and as the settled verdict — so the two can never name two different crowns.
             emitTerminal(
                 lookupId,
-                rung?.result,
+                rung?.result?.copy(destinationMoved = holder.destinationMoved),
                 if (rung == null) RouteReason.NO_PATH else null,
                 verdict?.best,
                 verdict
@@ -582,6 +584,8 @@ class RouteAvoidEngine(
                 "PASS lambda=${fmt(lambda, 2)} NO PATH " +
                     "expansions=${passReading.search.expansions} passable=${passReading.search.passableCells} " +
                     "aimClosed=${passReading.search.aimClosed} " +
+                    "startLayer=${passReading.search.startLayer} startOpen=${passReading.search.startOpenSteps} " +
+                    "rewalked=${passReading.search.rewalked} " +
                     "aimCell=${ctx.grid.state(ctx.aimCell.row, ctx.aimCell.col)} " +
                     "aimLimit=${fmt(ctx.grid.zoneLimitKn(ctx.aimCell.row, ctx.aimCell.col))}kn"
             }
@@ -606,9 +610,7 @@ class RouteAvoidEngine(
         // foul, left standing only where even the 1 kn bottom's radius overshoots the room — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
         // limit stays the hard ceiling throughout.
-        val rounded = RouteCornerPass.round(
-            refined, ctx.pace, ctx.world, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
-        )
+        val rounded = RouteCornerPass.round(refined, ctx.pace, ctx.world, ctx.gate, ctx.marginM)
         // **The corner tally**: what the pass did at each bend, with the speed limit in force there and
         // whether it stands in the 300 m band — the two readings that tell a corner's own speed from the
         // water's.
@@ -620,7 +622,7 @@ class RouteAvoidEngine(
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
             ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
-            ctx.startCell, ctx.aimCell, refined
+            ctx.startCell, ctx.aimCell, refined, ctx.gate
         )
         // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
         // the price. The zones are the world's own, not the grid's switch-gated set, so a crossing the
@@ -633,10 +635,12 @@ class RouteAvoidEngine(
         trace {
             // **The depth gate's own readings** — how shallow the drawn line gets and how close it comes
             // to the wall's edge, the closest point named, and the body separated from the ends by the
-            // pull's own end disc. Built inside the sink so a solve with the tag off pays none of it.
-            val lineMinDepthM = RouteDepthReading.minDepthM(ctx.world, timedLine.points)
+            // gate's own waiver; then the traced line's own readings beside the independent scan. Built
+            // inside the sink so a solve with the tag off pays none of it.
+            val (lineMinDepthM, lineMinDepthAt) = RouteDepthReading.minDepthAt(ctx.world, timedLine.points)
             val edge = RouteDepthReading.edgeReading(
-                ctx.world, timedLine.points, ctx.depthGateActive, ctx.minDepthM, ctx.marginM
+                ctx.world, timedLine.points, ctx.depthGateActive, ctx.minDepthM,
+                ctx.gate?.waiverM ?: ctx.marginM, ctx.gate
             )
             "LINE distance=${fmt(lineLengthM(timedLine.points))}m duration=${fmt(timedLine.durationSec)}s " +
                 "legs=${timedLine.legTimesSec.size} " +
@@ -646,13 +650,23 @@ class RouteAvoidEngine(
                 "zoneShare=${fmt(finalShares.zone, 2)} bandShare=${fmt(finalShares.band, 2)} " +
                 "rampShare=${fmt(finalShares.ramp, 2)} " +
                 "minDepth=${if (lineMinDepthM.isNaN()) "n/a" else fmt(lineMinDepthM) + "m"} " +
+                "minDepthAt=${lineMinDepthAt?.let { pointText(it) } ?: "n/a"} " +
+                "minDepthWaiver=${lineMinDepthAt?.let { at ->
+                    ctx.gate?.waiverOf(at, ctx.from.toLatLng(), ctx.to.toLatLng())
+                } ?: "n/a"} " +
                 "gateEdge=${if (edge.distanceM.isNaN()) "n/a" else fmt(edge.distanceM) + "m"} " +
                 "gateEdgeAt=${pointText(edge.at)} " +
                 "bodyEdge=${if (edge.bodyDistanceM.isNaN()) "n/a" else fmt(edge.bodyDistanceM) + "m"} " +
                 "bodyEdgeAt=${pointText(edge.bodyAt)} " +
+                "edgeIdx=${if (edge.indexDistanceM.isNaN()) "n/a" else fmt(edge.indexDistanceM) + "m"} " +
+                "bodyEdgeIdx=${if (edge.indexBodyDistanceM.isNaN()) "n/a" else fmt(edge.indexBodyDistanceM) + "m"} " +
+                "innerM=${if (edge.innerM.isNaN()) "n/a" else fmt(edge.innerM) + "m"} " +
+                "strictStart=${passReading.search.strictStart} strictAim=${passReading.search.strictAim} " +
                 "forced=[${forced.joinToString(", ")}] " +
                 "crossed=[${crossed.joinToString(", ")}]"
         }
+        // The edge index's own tally — what tracing the 3 m line has cost this session so far.
+        ctx.gate?.let { gate -> trace { gate.edges.statsLine() } }
         // The rung's own cost, exactly the figures the ranking reads: the seconds the line spends under a
         // regulated limit, each bucket weighed by its own limit's shortfall against the pace, plus the
         // ramps riding the limit of the run they serve, and the settled clock. All of it comes from
@@ -675,18 +689,145 @@ class RouteAvoidEngine(
         )
     }
 
+    /** One end after the repair: where it stands, whether it moved, and the rule it settled on. */
+    private class RepairedEnd(val point: RoutePoint, val moved: Boolean, val rule: String)
+
     /**
-     * **The invalid-end repair** — an 8-direction ring sweep outward from [point], tested with the
-     * engine's own water test (on the coastline and deep enough for the gate), growing to
-     * `route.repair.maxRadiusM`. The first valid point wins; because it is the nearest, it is on the
-     * sea side by construction. `null` where no valid water exists within the sweep's radius — the
-     * caller answers [RouteReason.CANNOT_REPAIR].
+     * **The end repair** — three rules tried in turn, each keeping the end where it stands if it already
+     * passes:
      *
-     * **Budget: under 50 ms for one point** — the sweep is at most 8 directions ×
-     * `maxRadiusM / stepM` rings, each a pair of layer reads, which is ~72 water tests at the shipped
-     * 200 m radius; the step's own test proves the ceiling.
+     * 1. **clear** — water at `route.repair.clearanceM` from the coast and from the measured 3 m line, the
+     *    nearest such point found by [nearestWhere], never across land;
+     * 2. **wall** — water clear of the gate's wall plus its pad, the same way;
+     * 3. **water** — the old rule exactly, [legacyRepair], so an end it accepted is never refused.
+     *
+     * `null` where none of the three finds water — the caller answers [RouteReason.CANNOT_REPAIR].
      */
-    private fun repair(point: RoutePoint, world: MultipassWorld): RoutePoint? {
+    private fun repair(point: RoutePoint, world: MultipassWorld, gate: GateRule?): RepairedEnd? {
+        val clearM = AppConfig.routeRepairClearanceM
+        val walls = world.routeMarkers().filter { it.isWall }
+        val clear: (RoutePoint) -> Boolean = { p ->
+            validWater(p, world, walls) && world.distanceToCoastM(p.latitude, p.longitude) >= clearM &&
+                (gate == null || gate.edgeM(p.toLatLng(), clearM) >= clearM)
+        }
+        // The clear point is looked for close by only — about the clearance itself — so a berth on a quay
+        // moves into its basin rather than up to the repair's whole reach along a straight leg of water.
+        val clearReachM = minOf(AppConfig.routeRepairMaxRadiusM, CLEAR_REACH_FACTOR * clearM)
+        nearestWhere(point, world, gate, clearReachM, clear)?.let { return RepairedEnd(it, it != point, "clear") }
+        if (gate != null) {
+            // `edgeM` already takes the pad off, so the wall itself is the bound.
+            val wall: (RoutePoint) -> Boolean = { p ->
+                validWater(p, world, walls) && gate.edgeM(p.toLatLng(), gate.hardM) >= gate.hardM
+            }
+            nearestWhere(point, world, gate, AppConfig.routeRepairMaxRadiusM, wall)
+                ?.let { return RepairedEnd(it, it != point, "wall") }
+        }
+        return legacyRepair(point, world)?.let { RepairedEnd(it, it != point, "water") }
+    }
+
+    /**
+     * **The nearest point [accepts] takes, reached cleanly** ([reachesCleanly]) — [point] itself where it
+     * passes; otherwise 5 m rings of 16 bearings out to [reachM], and on the first ring that holds one, each
+     * passing bearing and its half- and quarter-step neighbours are bisected inward along their own bearing,
+     * the nearest winning. Every point returned passes; the bearing step bounds how near the nearest is.
+     * `null` where no ring holds one.
+     */
+    private fun nearestWhere(
+        point: RoutePoint,
+        world: MultipassWorld,
+        gate: GateRule?,
+        reachM: Double,
+        accepts: (RoutePoint) -> Boolean
+    ): RoutePoint? {
+        if (accepts(point)) return point
+        val reachable: (RoutePoint) -> Boolean = { p -> accepts(p) && reachesCleanly(point, p, world, gate) }
+        val maxRadiusM = reachM
+        val stepDeg = 360.0 / CLEAR_BEARINGS
+        var radiusM = CLEAR_STEP_M
+        while (radiusM <= maxRadiusM) {
+            val hits = (0 until CLEAR_BEARINGS).map { it * stepDeg }.filter { reachable(along(point, it, radiusM)) }
+            if (hits.isNotEmpty()) {
+                var best: RoutePoint? = null
+                var bestM = Double.MAX_VALUE
+                for (hit in hits) {
+                    for (bearing in doubleArrayOf(hit - stepDeg / 2, hit - stepDeg / 4, hit, hit + stepDeg / 4, hit + stepDeg / 2)) {
+                        if (!reachable(along(point, bearing, radiusM))) continue
+                        var inside = radiusM - CLEAR_STEP_M
+                        var outside = radiusM
+                        repeat(CLEAR_BISECTIONS) {
+                            val mid = (inside + outside) / 2.0
+                            if (reachable(along(point, bearing, mid))) outside = mid else inside = mid
+                        }
+                        if (outside < bestM) {
+                            bestM = outside
+                            best = along(point, bearing, outside)
+                        }
+                    }
+                }
+                return best
+            }
+            radiusM += CLEAR_STEP_M
+        }
+        return null
+    }
+
+    private fun along(point: RoutePoint, bearingDeg: Double, distanceM: Double): RoutePoint {
+        val moved = SpatialOperations.pointAlongBearing(point.latitude, point.longitude, bearingDeg, distanceM)
+        return RoutePoint(moved.latitude, moved.longitude)
+    }
+
+    /**
+     * **Whether the move from [from] to [to] is clean** — it crosses the coastline only to leave land it
+     * started on (exactly, against the coast's own edges), and once it first stands outside the gate's blocked
+     * water it never re-enters it. An end tapped on land or on a shoal may therefore walk off it, while a move
+     * never hops a mole, a jetty or a shoal.
+     */
+    private fun reachesCleanly(from: RoutePoint, to: RoutePoint, world: MultipassWorld, gate: GateRule?): Boolean {
+        val a = from.toLatLng()
+        val b = to.toLatLng()
+        val box = BBox(
+            minOf(a.latitude, b.latitude), maxOf(a.latitude, b.latitude),
+            minOf(a.longitude, b.longitude), maxOf(a.longitude, b.longitude)
+        )
+        var crossings = world.segmentsIn(box).count { SpatialOperations.segmentsIntersect(a, b, it.a, it.b) }
+        for (coast in world.openCoastIn(box)) {
+            for (k in 0 until coast.size - 1) {
+                if (SpatialOperations.segmentsIntersect(a, b, coast[k], coast[k + 1])) crossings++
+            }
+        }
+        if (crossings > (if (world.isWater(from.latitude, from.longitude)) 0 else 1)) return false
+        if (!world.isWater(to.latitude, to.longitude)) return false
+        val lengthM = SpatialOperations.haversine(a, b)
+        val pieces = kotlin.math.ceil(lengthM / CLEAR_LEG_SAMPLE_M).toInt().coerceAtLeast(1)
+        var entered = false
+        for (k in 0..pieces) {
+            val t = k.toDouble() / pieces
+            val lat = from.latitude + (to.latitude - from.latitude) * t
+            val lon = from.longitude + (to.longitude - from.longitude) * t
+            val usable = gate == null || !gate.isShallow(LatLng(lat, lon))
+            if (usable) entered = true else if (entered) return false
+        }
+        return entered
+    }
+
+    /** The `REPAIR` trace line: an end raw and repaired, the rule it settled on, and the clearances it reached. */
+    private fun repairLine(end: String, raw: RoutePoint, repaired: RepairedEnd, world: MultipassWorld, gate: GateRule?): String {
+        val at = repaired.point
+        val edge = gate?.edgeM(at.toLatLng(), 100.0)?.takeIf { it != Double.MAX_VALUE }
+        return "REPAIR end=$end raw=${fmt(raw.latitude, 5)},${fmt(raw.longitude, 5)} " +
+            "at=${fmt(at.latitude, 5)},${fmt(at.longitude, 5)} moved=${repaired.moved} rule=${repaired.rule} " +
+            "movedM=${fmt(SpatialOperations.haversine(raw.toLatLng(), at.toLatLng()))} " +
+            "edge=${edge?.let { fmt(it) + "m" } ?: ">100m"} " +
+            "coast=${fmt(world.distanceToCoastM(at.latitude, at.longitude).coerceAtMost(9999.0))}m"
+    }
+
+    /**
+     * **The old repair, kept whole as the last rule** — an 8-direction ring sweep outward from [point],
+     * tested with the engine's own water test (on the coastline and deep enough for the gate), growing to
+     * `route.repair.maxRadiusM`. The first valid point wins; because it is the nearest, it is on the sea side
+     * by construction. `null` where no valid water exists within the sweep's radius.
+     */
+    private fun legacyRepair(point: RoutePoint, world: MultipassWorld): RoutePoint? {
         if (validWater(point, world)) return point
         val maxRadiusM = AppConfig.routeRepairMaxRadiusM
         var ring = 1
@@ -708,10 +849,14 @@ class RouteAvoidEngine(
      * every wall marker** — a Blocked marker is law, so an end standing inside one is moved sea-side by
      * [repair] exactly as a land or shallow end is.
      */
-    private fun validWater(point: RoutePoint, world: MultipassWorld): Boolean {
+    private fun validWater(
+        point: RoutePoint,
+        world: MultipassWorld,
+        walls: List<RouteMarker> = world.routeMarkers().filter { it.isWall }
+    ): Boolean {
         if (!world.isWater(point.latitude, point.longitude)) return false
         val at = LatLng(point.latitude, point.longitude)
-        if (world.routeMarkers().any { it.isWall && it.geometry.contains(at) }) return false
+        if (walls.any { it.geometry.contains(at) }) return false
         val gateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
         val minDepthM = AppConfig.routeAvoidDepthGateMinM
         return depthClearsGate(world.depthAt(point.latitude, point.longitude), gateActive, minDepthM)
@@ -799,7 +944,8 @@ class RouteAvoidEngine(
         to: RoutePoint,
         startCell: CellIndex,
         aimCell: CellIndex,
-        waypoints: List<LatLng>
+        waypoints: List<LatLng>,
+        gate: GateRule?
     ): List<String> {
         val restrictive = priced.filter { zonePriceSec(cellM, pace, it.limitKn, lambda) > 0.0 }
         if (restrictive.isEmpty()) {
@@ -809,7 +955,12 @@ class RouteAvoidEngine(
         val blocked = grid.blockedCopy(pace)
         blocked.forceFree(from.latitude, from.longitude)
         blocked.forceFree(to.latitude, to.longitude)
-        val probe = MultipassSearch.search(blocked, startCell, aimCell, Units.knotsToMps(pace))
+        // The probe walks the same wall the search does, so a gap the guarded search cannot use never
+        // makes a crossing look avoidable.
+        val probe = MultipassSearch.search(
+            blocked, startCell, aimCell, Units.knotsToMps(pace),
+            stepGuard = gate?.let { StepGuard(it, from.toLatLng(), to.toLatLng()) }
+        )
         val avoiding = probe.path != null
         val restrictiveZones = zones.zip(priced)
             .filter { (_, p) -> zonePriceSec(cellM, pace, p.limitKn, lambda) > 0.0 }
@@ -845,8 +996,7 @@ class RouteAvoidEngine(
         legSpeedsMps = timed.legSpeedsMps,
         distanceM = distanceM,
         durationSec = durationSec,
-        // The emitted polyline ends at the raw aim, never a resolved node: the pin stands where the
-        // user dragged, and the snapped cell is only the search's anchor.
+        // The repair's own word on the two ends is set at the terminal, from the arm that moved them.
         destinationMoved = false,
         forcedCrossingZoneNames = forcedCrossingZoneNames,
         crossedSlowZoneNames = crossedSlowZoneNames,
@@ -864,15 +1014,15 @@ class RouteAvoidEngine(
 
     // ── The instrument ─────────────────────────────────────────────────────────
 
+    /** A point as `lat,lon` to five decimals, or `n/a` where it is `NaN`. */
+    private fun pointText(p: LatLng): String =
+        if (p.latitude.isNaN()) "n/a" else "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
+
     /**
      * **Emits one line where the instrument is listening** — the injected sink where one stands, and the
      * device's own `Log.i` channel under the tag's level otherwise; [message] is built only when a line
      * is actually emitted.
      */
-    /** A point as `lat,lon` to five decimals, or `n/a` where it is `NaN`. */
-    private fun pointText(p: LatLng): String =
-        if (p.latitude.isNaN()) "n/a" else "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
-
     private inline fun trace(message: () -> String) {
         val sink = traceSink
         if (sink != null) sink(message()) else if (logEnabled) Log.i(TAG, message())
@@ -1002,7 +1152,10 @@ private data class Rung(
  * so no rung ever starts a build of its own. [inFlight] counts the arm's live lookups so the shared build
  * is disposed once the last of them ends rather than outliving its rungs.
  */
-private class LadderGridHolder {
+private class LadderGridHolder(
+    /** Whether the repair moved the arm's aim, said on every rung's answer. */
+    val destinationMoved: Boolean = false
+) {
     /** Guards the check-build-publish, so exactly one rung starts the arm's rasterise. */
     val lock = Mutex()
 
@@ -1077,9 +1230,24 @@ private const val REPAIR_STEP_M = 25.0
 /** The repair's directions per ring — the 8 compass bearings. */
 private const val REPAIR_DIRECTIONS = 8
 
+/** The clear repair's ring step (m). */
+private const val CLEAR_STEP_M = 5.0
+
+/** How finely (m) a move's straight is read for land and shoal. */
+private const val CLEAR_LEG_SAMPLE_M = 2.0
+
+/** The clear rule looks this many clearances out at most, so a berth is not walked across its harbour. */
+private const val CLEAR_REACH_FACTOR = 2.0
+
+/** The clear repair's bearings per ring. */
+private const val CLEAR_BEARINGS = 16
+
+/** How many halvings refine a clear point inward — 5 m down to under 2 cm. */
+private const val CLEAR_BISECTIONS = 8
+
 /**
  * The route mode's own log tag — the channel the refusals already ride, and the one `adb logcat -s`
  * filters on for a device pass. The instrument's level is the device's own setting:
  * `adb shell setprop log.tag.MaroRoute INFO`.
  */
-private const val TAG = "MaroRoute"
+private const val TAG = RouteTrace.TAG

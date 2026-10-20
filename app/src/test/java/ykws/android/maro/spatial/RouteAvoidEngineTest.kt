@@ -35,7 +35,6 @@ import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.multipass.MultipassEdge
 import ykws.android.maro.spatial.multipass.MultipassWorld
 import ykws.android.maro.spatial.multipass.bandReachM
-import ykws.android.maro.spatial.multipass.EndApproaches
 import ykws.android.maro.spatial.multipass.EvolutiveGridPlan
 import ykws.android.maro.spatial.multipass.FineWater
 import ykws.android.maro.spatial.multipass.FineWaterQuery
@@ -1252,7 +1251,6 @@ class RouteAvoidEngineTest {
             priced = priced,
             zones = listOf(zone),
             sets = emptyList(),
-            approaches = EndApproaches.NONE,
             refusals = null
         )
 
