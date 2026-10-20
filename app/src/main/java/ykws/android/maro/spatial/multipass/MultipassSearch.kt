@@ -112,7 +112,9 @@ object MultipassSearch {
      * **The walk reads the fine cell over the coarse copy.** A coarse neighbour a passable fine cell
      * supersedes is no same-layer step: the fine cell over the same water is relaxed instead, priced from
      * the two cell centres exactly as a seam crossing is, so the price the fine grid carries can never be
-     * bypassed by a free coarse copy of the same water.
+     * bypassed by a free coarse copy of the same water. **That step has its way back**: from a block's fine
+     * copy the coarse neighbours that step into it are stepped to, so an end standing on a copy walled in by
+     * land on the fine layer can be left as well as entered.
      *
      * **The ends' own steps keep the wall past the gate's waiver** wherever an end has a way out that does,
      * each end on its own: the step out of the start's cell is read with the raw start's own leg to that cell,
@@ -209,8 +211,9 @@ object MultipassSearch {
 
     /**
      * **Every step out of [idx]** — the same layer's eight neighbours, the fine cell superseding a coarse
-     * one, and the cells across the seam — handed to [action] with the step's own length, in the one order
-     * the walk's tie-breaks rely on. A destination [skip] names is passed over before its length is read.
+     * one, the cells across the seam, and — from a block's fine copy — the coarse neighbours that step into
+     * it — handed to [action] with the step's own length, in the one order the walk's tie-breaks rely on. A
+     * destination [skip] names is passed over before its length is read.
      */
     private inline fun forEachStep(
         walk: WalkWindows,
@@ -222,6 +225,7 @@ object MultipassSearch {
         val col = walk.colOf(idx)
         val layer = walk.layerOf(idx)
         val here = walk.centerOf(idx)
+        val isCopy = walk.isFineCopyCell(layer, row, col)
         for (step in STEPS) {
             val tr = row + step.dr
             val tc = col + step.dc
@@ -241,6 +245,12 @@ object MultipassSearch {
             for (t in 0 until cross.size) {
                 val cIdx = cross[t]
                 if (!skip(cIdx)) action(cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)))
+            }
+            // The way back out of a block's fine copy: the coarse neighbour that steps into it is stepped to,
+            // priced from the same two centres, so an end standing on a copy can be left as well as entered.
+            if (isCopy) {
+                val back = walk.coarseNeighbourOfCopy(layer, row, col, step.dr, step.dc)
+                if (back >= 0 && !skip(back)) action(back, SpatialOperations.haversine(here, walk.centerOf(back)))
             }
         }
     }

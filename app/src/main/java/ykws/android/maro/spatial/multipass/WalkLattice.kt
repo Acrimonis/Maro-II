@@ -457,6 +457,35 @@ internal class WalkWindows private constructor(
         if (layer == coarseLayerIndex) fineCopyOf(row, col) else -1
 
     /**
+     * Whether the cell on [layer] at `(row, col)` stands where a coarse block's **fine copy** stands — the
+     * block's central fine cell, the one [fineCopyOf] names. A coarse neighbour's step into the block lands
+     * on it ([supersedingSlot]); this is the question the way back asks first.
+     */
+    fun isFineCopyCell(layer: Int, row: Int, col: Int): Boolean {
+        if (layer != fineLayerIndex || layer < 0) return false
+        val ratio = layerRatio
+        val half = ratio / 2
+        return Math.floorMod(row, ratio) == half && Math.floorMod(col, ratio) == half
+    }
+
+    /**
+     * **The step back out of a fine copy** — the coarse cell the walk read at `(dr, dc)` from the copy's own
+     * block, or `-1` where there is none to step to. A coarse cell steps into a neighbouring block's fine copy
+     * ([supersedingSlot]); without this the copy has no step back out, so a copy whose fine neighbours are all
+     * land is an end the walk can enter and never leave, and a pair armed from that end finds no line while
+     * the same pair armed from the other end does. The edge is the existing one reversed, so it is priced from
+     * the same two centres. A coarse cell a fine copy supersedes is not a node the walk reads and is no target.
+     */
+    fun coarseNeighbourOfCopy(layer: Int, row: Int, col: Int, dr: Int, dc: Int): Int {
+        if (!isFineCopyCell(layer, row, col)) return -1
+        val ratio = layerRatio
+        val coarseRow = Math.floorDiv(row, ratio) + dr
+        val coarseCol = Math.floorDiv(col, ratio) + dc
+        val slot = rawSlotOf(coarseLayerIndex, coarseRow, coarseCol)
+        return if (slot >= 0 && fineCopyOf(coarseRow, coarseCol) < 0) slot else -1
+    }
+
+    /**
      * **The raw address of `(row, col)` on one named [layer]** — the layer's own answer, `-1` where no
      * window holds it. It **bypasses the reading rule**, which is why its name says *raw*: it is never the
      * coordinate's read, and a reader must not mistake it for one.

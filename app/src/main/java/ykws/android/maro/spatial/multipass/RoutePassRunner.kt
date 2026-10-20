@@ -142,7 +142,9 @@ internal class RoutePassRunner {
         )
         val pullTiming = PullTiming()
         val pullStartNs = System.nanoTime()
-        val pulled = MultipassPull.pull(setup, full, refusals, pullTiming)
+        // Both pulls read the path from both ends and keep the cheaper, so a pair armed from either end draws
+        // one line from one cell chain (`261020_FEAT_PLN_Route_direction-symmetry.md`).
+        val pulled = MultipassPull.pullBothWays(setup, full, refusals, pullTiming)
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
@@ -172,7 +174,7 @@ internal class RoutePassRunner {
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
-        val final = MultipassPull.pull(setup, snapped, refusals, finalTiming)
+        val final = MultipassPull.pullBothWays(setup, snapped, refusals, finalTiming)
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
