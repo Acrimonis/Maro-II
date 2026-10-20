@@ -298,133 +298,12 @@ private fun LayersSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Tracks and Routes ───────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_tracks_and_routes))
+        // ── Routes and Tracks ───────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_routes_and_tracks))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_tracks_and_routes_desc))
 
-            Expander(
-                label = stringResource(R.string.settings_track_settings_label),
-                expanded = settingsVm.isExpanded("track_rendering"),
-                onToggle = { settingsVm.setExpanded("track_rendering", !settingsVm.isExpanded("track_rendering")) }
-            ) {
-                Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
-                NestedCard {
-                    CardDescription(stringResource(R.string.settings_track_appearance_desc))
-
-                    // The recorded kind's own arrows/colours pair, the card's first control under its
-                    // description (D3). The tuning both kinds' chevrons read left the block for the one
-                    // that now closes the run, above export/import (D1, D5).
-                    SpeedDisplaySubSection(
-                        on = { axis -> trackSpeedDisplayOn(settings, axis) },
-                        onToggle = { axis -> onUpdateSettings { it.toggleTrackSpeedDisplay(axis) } }
-                    )
-                    SectionDivider()
-
-                    // Number of tracks
-                    SliderRow(
-                        label = stringResource(R.string.settings_tracks_count_label),
-                        description = stringResource(R.string.settings_tracks_count_desc),
-                        valueLabel = countValueLabel(settings.trackingRenderNb),
-                        value = settings.trackingRenderNb.toFloat(),
-                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
-                        steps = AppConfig.PATH_COUNT_MAX,
-                        onValueChange = { v ->
-                            onUpdateSettings {
-                                it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, AppConfig.PATH_COUNT_ALL))
-                            }
-                        }
-                    )
-
-                    SectionDivider()
-
-                    // Opacity
-                    RangeSliderRow(
-                        label = stringResource(R.string.settings_transparency_label),
-                        description = stringResource(R.string.settings_transparency_desc),
-                        valueLabel = stringResource(
-                            R.string.settings_transparency_value_fmt,
-                            settings.trackingTransparencyNewest, settings.trackingTransparencyOldest
-                        ),
-                        value = settings.trackingTransparencyNewest.toFloat()..settings.trackingTransparencyOldest.toFloat(),
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChange = { range ->
-                            onUpdateSettings {
-                                it.copy(
-                                    trackingTransparencyNewest = range.start.roundToInt(),
-                                    trackingTransparencyOldest = range.endInclusive.roundToInt()
-                                )
-                            }
-                        }
-                    )
-
-                    SectionDivider()
-
-                    // Pinned tracks opacity
-                    RangeSliderRow(
-                        label = stringResource(R.string.settings_pinned_transparency_label),
-                        description = stringResource(R.string.settings_pinned_transparency_desc),
-                        valueLabel = stringResource(
-                            R.string.settings_transparency_value_fmt,
-                            settings.trackingTransparencyPinnedNewest,
-                            settings.trackingTransparencyPinnedOldest
-                        ),
-                        value = settings.trackingTransparencyPinnedNewest.toFloat()
-                            ..settings.trackingTransparencyPinnedOldest.toFloat(),
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChange = { range ->
-                            onUpdateSettings {
-                                it.copy(
-                                    trackingTransparencyPinnedNewest = range.start.roundToInt(),
-                                    trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
-                                )
-                            }
-                        }
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Colors
-                    Text(
-                        text = stringResource(R.string.settings_colors_label),
-                        color = ComposeColor(AppConfig.uiTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_colors_desc),
-                        color = ComposeColor(AppConfig.uiTextMuted),
-                        fontSize = 12.sp
-                    )
-                    ColorRow(
-                        label = stringResource(R.string.settings_color_active_track),
-                        color = settings.trackingColorActive,
-                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } }
-                    )
-                    ColorPairRow(
-                        label = stringResource(R.string.settings_color_past_tracks),
-                        fromColor = settings.trackingColorPastFrom,
-                        toColor = settings.trackingColorPastTo,
-                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastFrom = c) } },
-                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastTo = c) } }
-                    )
-                    ColorPairRow(
-                        label = stringResource(R.string.settings_color_pinned_tracks),
-                        fromColor = settings.trackingColorPinnedFrom,
-                        toColor = settings.trackingColorPinnedTo,
-                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
-                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
-                    )
-                }
-            }
-
-            // ── The two appearance twins (D5) ───────────────────────────────
-            // Tracks Appearance and Routes Appearance stand adjacent as one group, no divider between
-            // them. The arrow tuning both kinds' chevrons read follows behind a divider, then the
-            // export/import row closes the card (F0).
             Expander(
                 label = stringResource(R.string.settings_routes_appearance_label),
                 expanded = settingsVm.isExpanded("routes_appearance"),
@@ -544,6 +423,125 @@ private fun LayersSettings(
                         toColor = settings.trackingColorPinnedRouteTo,
                         onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedRouteFrom = c) } },
                         onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedRouteTo = c) } }
+                    )
+                }
+            }
+
+            // ── Tracks Appearance — the second twin (D5, reordered) ─────
+            // Routes Appearance leads; the two stand adjacent as one group with no divider between them.
+            Expander(
+                label = stringResource(R.string.settings_track_settings_label),
+                expanded = settingsVm.isExpanded("track_rendering"),
+                onToggle = { settingsVm.setExpanded("track_rendering", !settingsVm.isExpanded("track_rendering")) }
+            ) {
+                Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
+                NestedCard {
+                    CardDescription(stringResource(R.string.settings_track_appearance_desc))
+
+                    // The recorded kind's own arrows/colours pair, the card's first control under its
+                    // description (D3). The tuning both kinds' chevrons read left the block for the one
+                    // that now closes the run, above export/import (D1, D5).
+                    SpeedDisplaySubSection(
+                        on = { axis -> trackSpeedDisplayOn(settings, axis) },
+                        onToggle = { axis -> onUpdateSettings { it.toggleTrackSpeedDisplay(axis) } }
+                    )
+                    SectionDivider()
+
+                    // Number of tracks
+                    SliderRow(
+                        label = stringResource(R.string.settings_tracks_count_label),
+                        description = stringResource(R.string.settings_tracks_count_desc),
+                        valueLabel = countValueLabel(settings.trackingRenderNb),
+                        value = settings.trackingRenderNb.toFloat(),
+                        valueRange = 0f..AppConfig.PATH_COUNT_ALL.toFloat(),
+                        steps = AppConfig.PATH_COUNT_MAX,
+                        onValueChange = { v ->
+                            onUpdateSettings {
+                                it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, AppConfig.PATH_COUNT_ALL))
+                            }
+                        }
+                    )
+
+                    SectionDivider()
+
+                    // Opacity
+                    RangeSliderRow(
+                        label = stringResource(R.string.settings_transparency_label),
+                        description = stringResource(R.string.settings_transparency_desc),
+                        valueLabel = stringResource(
+                            R.string.settings_transparency_value_fmt,
+                            settings.trackingTransparencyNewest, settings.trackingTransparencyOldest
+                        ),
+                        value = settings.trackingTransparencyNewest.toFloat()..settings.trackingTransparencyOldest.toFloat(),
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { range ->
+                            onUpdateSettings {
+                                it.copy(
+                                    trackingTransparencyNewest = range.start.roundToInt(),
+                                    trackingTransparencyOldest = range.endInclusive.roundToInt()
+                                )
+                            }
+                        }
+                    )
+
+                    SectionDivider()
+
+                    // Pinned tracks opacity
+                    RangeSliderRow(
+                        label = stringResource(R.string.settings_pinned_transparency_label),
+                        description = stringResource(R.string.settings_pinned_transparency_desc),
+                        valueLabel = stringResource(
+                            R.string.settings_transparency_value_fmt,
+                            settings.trackingTransparencyPinnedNewest,
+                            settings.trackingTransparencyPinnedOldest
+                        ),
+                        value = settings.trackingTransparencyPinnedNewest.toFloat()
+                            ..settings.trackingTransparencyPinnedOldest.toFloat(),
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { range ->
+                            onUpdateSettings {
+                                it.copy(
+                                    trackingTransparencyPinnedNewest = range.start.roundToInt(),
+                                    trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
+                                )
+                            }
+                        }
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Colors
+                    Text(
+                        text = stringResource(R.string.settings_colors_label),
+                        color = ComposeColor(AppConfig.uiTextPrimary),
+                        fontSize = AppConfig.uiFontToggleSize.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_colors_desc),
+                        color = ComposeColor(AppConfig.uiTextMuted),
+                        fontSize = 12.sp
+                    )
+                    ColorRow(
+                        label = stringResource(R.string.settings_color_active_track),
+                        color = settings.trackingColorActive,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } }
+                    )
+                    ColorPairRow(
+                        label = stringResource(R.string.settings_color_past_tracks),
+                        fromColor = settings.trackingColorPastFrom,
+                        toColor = settings.trackingColorPastTo,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastFrom = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastTo = c) } }
+                    )
+                    ColorPairRow(
+                        label = stringResource(R.string.settings_color_pinned_tracks),
+                        fromColor = settings.trackingColorPinnedFrom,
+                        toColor = settings.trackingColorPinnedTo,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                     )
                 }
             }

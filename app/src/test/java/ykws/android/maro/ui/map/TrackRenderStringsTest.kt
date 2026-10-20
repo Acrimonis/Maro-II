@@ -128,7 +128,7 @@ class TrackRenderStringsTest {
             "settings_section_position_source",
             "settings_section_appearance",
             "settings_section_routing_tuning",
-            "settings_section_tracks_and_routes",
+            "settings_section_routes_and_tracks",
             "settings_depth_cutoff_expander"
         )
         val retired = listOf(
@@ -147,7 +147,8 @@ class TrackRenderStringsTest {
             "settings_depth_label",
             "settings_redisplay_label",
             "settings_map_offset_label",
-            "settings_regenerate_layers"
+            "settings_regenerate_layers",
+            "settings_section_tracks_and_routes"
         )
 
         bothLocales().forEach { (locale, xml) ->
