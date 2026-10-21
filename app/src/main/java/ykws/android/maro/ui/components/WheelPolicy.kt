@@ -82,3 +82,16 @@ internal fun wheelTargetScrollPx(selectedIndex: Int, slotDp: Float): Float = sel
  * sit off the band. The guard applies it once per open, and never fights a clamp it cannot win.
  */
 internal fun wheelCorrectionSlots(targetIndex: Int, centredIndex: Int): Int = targetIndex - centredIndex
+
+/**
+ * **Whether a release keeps the wheel open** (2026-10-21): a pointer lifting at or above the platform's fling
+ * velocity is a flick, and the popup stays open so the list's own snap can carry the band — a long list is
+ * browsed rather than committed on every lift. A slower lift is a deliberate choice and commits the band.
+ *
+ * The threshold is passed in (`viewConfiguration.minimumFlingVelocity` at the call site), never hardcoded, so
+ * the observer and the scrollable that decides whether the list actually flings agree on the boundary.
+ * The design of record is
+ * `xTrack/Ui_General/261021_FEAT_PLN_Ui_General_wheel-flick-stays-open.md`.
+ */
+internal fun wheelFlingKeepsOpen(velocityYPx: Float, minFlingVelocityPx: Float): Boolean =
+    abs(velocityYPx) >= minFlingVelocityPx

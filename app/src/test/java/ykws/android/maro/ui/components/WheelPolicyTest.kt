@@ -1,7 +1,9 @@
 package ykws.android.maro.ui.components
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -155,5 +157,22 @@ class WheelPolicyTest {
     @Test
     fun `nothing visible names no row`() {
         assertNull(wheelCentredIndex(emptyList(), viewportStartOffsetPx = 0, viewportSizePx = 190))
+    }
+
+    @Test
+    fun `a release at or above the fling velocity keeps the wheel open`() {
+        // 50 px/s stands in for the platform's own figure: the comparison is the helper's, not a constant's.
+        val threshold = 50f
+        assertTrue(wheelFlingKeepsOpen(velocityYPx = 50f, minFlingVelocityPx = threshold))
+        assertTrue(wheelFlingKeepsOpen(velocityYPx = 250f, minFlingVelocityPx = threshold))
+        assertTrue(wheelFlingKeepsOpen(velocityYPx = -250f, minFlingVelocityPx = threshold))
+    }
+
+    @Test
+    fun `a release below the fling velocity commits`() {
+        val threshold = 50f
+        assertFalse(wheelFlingKeepsOpen(velocityYPx = 49f, minFlingVelocityPx = threshold))
+        assertFalse(wheelFlingKeepsOpen(velocityYPx = 0f, minFlingVelocityPx = threshold))
+        assertFalse(wheelFlingKeepsOpen(velocityYPx = -49f, minFlingVelocityPx = threshold))
     }
 }
