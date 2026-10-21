@@ -191,6 +191,8 @@ internal fun OverlayLayer(
     settings: SettingsOverlayData,
     onTabChange: (SettingsTab) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
+    /** The seed's "not cruising" guard — drops speed-zone and 300 m band points from a stored track. */
+    routeRestricted: (Double, Double) -> Boolean = { _, _ -> false },
 
     // ── Marker drawer data ───────────────────────────────────────────────
     boatPosition: LatLng?,
@@ -976,7 +978,7 @@ internal fun OverlayLayer(
                 onRegenerateRasters = onRegenerateRasters,
                 onCalculateSpeedHistory = {
                     settingsScope.launch {
-                        val seeded = seedSpeedHistory(trackViewModel, appSettings)
+                        val seeded = seedSpeedHistory(trackViewModel, appSettings, routeRestricted)
                         if (seeded != null) {
                             onUpdateSettings {
                                 it.copy(
@@ -993,9 +995,10 @@ internal fun OverlayLayer(
     }
 }
 
-private suspend fun seedSpeedHistory(
+internal suspend fun seedSpeedHistory(
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
-    appSettings: AppSettings
+    appSettings: AppSettings,
+    restricted: (Double, Double) -> Boolean = { _, _ -> false }
 ): SpeedHistorySeeder.SeedResult? {
     val count = appSettings.routeSpeedHistoryTrackCount
     // The tracks list as it stands filtered — the user's own filter, never the raw library.
@@ -1009,7 +1012,8 @@ private suspend fun seedSpeedHistory(
         val track = trackViewModel.loadTrackDetail(s.id) ?: continue
         val cruise = SpeedHistorySeeder.trackCruiseSpeedKn(
             track.trackPoints,
-            { a, b, c, d -> SpatialOperations.haversine(LatLng(a, b), LatLng(c, d)) }
+            { a, b, c, d -> SpatialOperations.haversine(LatLng(a, b), LatLng(c, d)) },
+            restricted
         ) ?: continue
         speeds.add(cruise)
     }

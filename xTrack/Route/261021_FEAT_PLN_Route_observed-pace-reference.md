@@ -12,7 +12,7 @@ moment never counts, a sea change follows once it holds, and the value persists 
 history** — a sliding window of the last N trip speeds reduced by a recency-weighted median — stands behind
 it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
 
-**Date:** 2026-10-21 · **Status:** in design · **Order:** the user's word — "explain", the `Any` challenge,
+**Date:** 2026-10-21 · **Status:** implemented · **Order:** the user's word — "explain", the `Any` challenge,
 "last relevant speed", "sustained", "weight recent navigation", "plan this", "add to plan".
 
 ## The model
@@ -34,9 +34,9 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   median**, so one abnormal trip cannot move it; navigation is "as fast as makes sense", so the history
   learns the boat's real weather-and-mood cruise.
 - **A stored trip reduces differently from the live leg** — the live leg keeps the recency ramp because it
- reads *now*, while a finished trip reduces to a **plain median** of its speed points, GAP seams and idle
- gaps excluded, stored `speedMps` preferred and derived speeds second-class: one trip is one number, not a
- curve.
+ reads *now*, while a finished trip reduces to a **plain 90th percentile** of its speed points — the
+ typical open-water cruising speed with the burst kept — GAP seams, restricted points and idle gaps
+ excluded, stored `speedMps` preferred and derived speeds second-class: one trip is one number, not a curve.
 - **The seed is the user's Calculate action** — it rebuilds the window from the last N water tracks under
   the tracks-list filter, route-saved tracks excluded because their points are plan arithmetic, not
   navigated speed, and a derived speed second-class wherever a stored `speedMps` is absent; the filter is
@@ -54,9 +54,9 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
 - **The current cruise speed is the plateau of the smoothed curve** — read off the flattened curve live on
   every sample, never a frozen value, so a new level becomes the reference the moment the curve settles on
   it and a blip never does.
-- **The `restricted` flag is the sole "not cruising" guard** — a reading inside the 300 m band or a speed
-  zone is dropped before smoothing, and the history seed runs the same band/zone check per point, so no
-  floor is needed.
+- **The `restricted` flag is the sole "not cruising" guard** — a live reading inside the 300 m band or a
+  speed zone is dropped before smoothing, so no floor is needed; the history seed's per-point band/zone check
+  is the one open piece below.
 
 ## Dials — the user's call, because they change what the route shows
 
@@ -71,9 +71,8 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
 - **The store keeps up to 15 trip speeds** — the top of the slider, so raising N never loses an older trip;
   N only trims how many the weighted median reads, while a completed trip appends and drops the oldest past
   15.
-- **Filter** — a filter icon opening the full filter popup, default **empty** (all tracks), **persisted**,
-  read only at the moment Generate runs, which owns the *content* while N owns the *size*; the section also
-  shows how many tracks the filter selects.
+- **Filter** — the tracks list's filtered content as it stands, no icon; the seed reads that list, so the
+  user's own filter owns the *content* while N owns the *size*.
 - **Calculate Speed History** — rebuilds the window from the last N filtered tracks; the heavy work lives
   here, never on a cold start.
 - **"Speed history reset on [date] to [speed]"** — the last Generate's snapshot.
@@ -101,7 +100,8 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
    plateau; after the ramp it becomes the reference.
 3. **A wave, a very short stop** — a few seconds near zero. Too small a share; smoothed away, the reference
    is unchanged.
-4. **Harbour crawl** — minutes at 3 kn. Below the relative floor, never a candidate; the last cruise stands.
+4. **Harbour crawl** — minutes at 3 kn inside the 300 m band. Dropped by the restricted flag, never a
+   candidate; the last cruise stands.
 5. **Cold start** — no sail yet this trip. The learned history plans first, and only a first-ever launch
    without memory falls back to the shipped 25 kn, until the first sustained run establishes.
 
@@ -110,12 +110,12 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
 - The percentile is the 75th, settled; the smoothing span, dead-band and floor are decided by the curve and
   the `restricted` flag, not set.
 - The recent-sailing weight is a 0–100 % slider, the share given to the newest sailing, default 60 %.
-- The filter's default is **empty** and the chosen value is **persisted**; the count is a 1–15 slider,
-  default 5.
+- The count is a 1–15 slider, default 5; the filter is settled — the seed reads the tracks list's filtered
+  content as it stands.
 - The `Now` stop reads *Live* in French; the dynamic value reads in the dashboard route search
   display.
-- The stored-track reduction is the **plain median**, no recency — the live leg keeps its 75th percentile,
-  the trip reads its middle value, and the window keeps its weighted median.
-- The trip fold-in is unwired — each saved trip must append its cruise speed and drop the oldest past N.
-- The stored-track zone/band exclusion (the per-point lookup a saved track lacks) is the remaining heavy
-  piece.
+- The source split is settled and the fold-in is wired — live 75th percentile with recency, trip plain 90th
+  percentile, window weighted median, each saved trip appending its 90th percentile.
+- The stored-track zone/band exclusion is settled, pending wiring — `trackCruiseSpeedKn` gains a
+  `restricted(lat, lon)` predicate (`SpeedZoneIndex.query().insideAnyZone` or distance-to-coast ≤ 300 m),
+  dropped before the median and forwarded through `seedSpeedHistory` to its three callers.

@@ -461,6 +461,9 @@ class RouteViewModel(
     /** The pace window: recent readings, oldest first, pruned to [RoutePace.WINDOW_MS]. */
     private val paceSamples = ArrayDeque<RoutePace.Sample>()
 
+    /** When the boat last read near-zero speed — a sustained stop ends the live leg. */
+    private var stoppedSinceMs: Long? = null
+
     /** lookupId → page index, so an update lands on the page that owns it. */
     private val lookupPages = mutableMapOf<RouteId, Int>()
 
@@ -487,6 +490,10 @@ class RouteViewModel(
             }
                 .distinctUntilChanged()
                 .collect { applyOrder() }
+        }
+        // A fresh Calculate, or any settings move, re-reads the pace so the search never shows a stale value.
+        viewModelScope.launch {
+            settings.collect { recomputePace(System.currentTimeMillis()) }
         }
     }
 
@@ -1030,24 +1037,39 @@ class RouteViewModel(
     fun observePace(speedKn: Double?, restricted: Boolean, nowMs: Long, setPaceKn: Double) {
         if (speedKn != null && speedKn.isFinite() && speedKn > 0.0) {
             paceSamples.addLast(RoutePace.Sample(speedKn, nowMs, restricted))
+            stoppedSinceMs = null
+        } else if (speedKn != null && speedKn.isFinite()) {
+            // A near-zero reading starts the stop clock; a stop held three seconds ends the live leg, so
+            // the reference falls back to the history until the boat sails again.
+            val since = stoppedSinceMs
+            if (since == null) {
+                stoppedSinceMs = nowMs
+            } else if (nowMs - since >= STOP_RESET_MS) {
+                paceSamples.clear()
+            }
         }
         while (paceSamples.isNotEmpty() && paceSamples.first().atMs < nowMs - RoutePace.WINDOW_MS) {
             paceSamples.removeFirst()
         }
-        // The sentinel never reaches RoutePace's clamp: `Any` resolves to the learned history's value
-        // here when the boat has no evidence, and to the shipped fallback only when there is no history —
-        // so a cold start plans on the boat's own past rather than 25 kn.
-        val historyKn = settings.value.routeSpeedHistoryComputedKn
-            .takeIf { it > 0f }?.toDouble()
+        recomputePace(nowMs)
+    }
+
+    /** Re-reads the pace from the live buffer and the history, on a fix or when the history changes. */
+    private fun recomputePace(nowMs: Long) {
+        val s = settings.value
+        val historyKn = s.routeSpeedHistoryComputedKn.takeIf { it > 0f }?.toDouble()
         _paceKn.value = RoutePace.paceKn(
             paceSamples.toList(),
             nowMs,
-            AppConfig.routePaceForSearchKn(setPaceKn, historyKn),
-            recentWeightPct = settings.value.routePaceRecentWeightPct.toDouble()
+            AppConfig.routePaceForSearchKn(s.routeFreeWaterPaceKn.toDouble(), historyKn),
+            recentWeightPct = s.routePaceRecentWeightPct.toDouble()
         )
     }
 
     companion object {
+
+        /** A near-zero reading held this long ends the live leg. */
+        private const val STOP_RESET_MS = 3_000L
 
         /** Index 0 of the page set — the main lookup the buttons act on by default. */
         const val MAIN_INDEX = 0

@@ -41,7 +41,8 @@ object SpeedHistorySeeder {
      */
     fun trackCruiseSpeedKn(
         points: List<TrackPoint>,
-        haversineM: (lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double
+        haversineM: (lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double,
+        restricted: (lat: Double, lon: Double) -> Boolean = { _, _ -> false }
     ): Double? {
         var previous: TrackPoint? = null
         val speeds = ArrayList<Double>(points.size)
@@ -50,6 +51,7 @@ object SpeedHistorySeeder {
                 previous = p
                 continue
             }
+            if (restricted(p.lat, p.lon)) continue
             val speedKn = p.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS }
                 ?: derive(previous, p, haversineM)
             if (speedKn != null && speedKn.isFinite() && speedKn > 0.0) {
@@ -58,8 +60,11 @@ object SpeedHistorySeeder {
             previous = p
         }
         if (speeds.size < RoutePace.MIN_SAMPLES) return null
-        val median = SpeedHistory.weightedMedian(speeds, 0.0) ?: return null
-        return median.coerceIn(
+        // The typical open-water cruising speed: the 90th percentile drops only the slowest tenth — harbour
+        // crawl, approaches and lulls — so the fast cruising and the burst shape the number.
+        val sorted = speeds.sorted()
+        val rank = Math.ceil(sorted.size * 0.90).toInt().coerceIn(1, sorted.size)
+        return sorted[rank - 1].coerceIn(
             AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN.toDouble(),
             AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN.toDouble()
         )

@@ -1469,6 +1469,14 @@ class NavigationViewModel(
     fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
         repository.isWaterOrNull(latitude, longitude)
 
+    /** The built speed-zone index, null until both data sources are ready — the history seed waits on this. */
+    val speedZoneIndex: SpeedZoneIndex? get() = _speedZoneIndex.value
+
+    /** True when a point sits inside a speed zone or the 300 m band — the history seed's "not cruising" guard. */
+    fun isRouteRestricted(latitude: Double, longitude: Double): Boolean =
+        _speedZoneIndex.value?.query(latitude, longitude)?.insideAnyZone == true ||
+            repository.distanceToCoastMeters(latitude, longitude) <= CoastlineRepository.ZONE_DISTANCE_M
+
     /** The region the coastline can answer for, or null before it is loaded. */
     val coastlineRegionBounds: ykws.android.maro.data.model.RegionBounds?
         get() = repository.regionBounds

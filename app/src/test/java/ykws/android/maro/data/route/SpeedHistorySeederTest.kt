@@ -30,15 +30,15 @@ class SpeedHistorySeederTest {
     }
 
     @Test
-    fun trackCruiseSpeedIsThePlainMedian() {
-        // Speeds 10,20,25,30,35 → the median is 25, not the 75th percentile.
+    fun trackCruiseSpeedIsThePlainQuantile() {
+        // Speeds 10,20,25,30,35 → the 90th percentile is 35, the open-water cruising speed with the burst.
         val points = listOf(
             point(0L, 10.0), point(1_000L, 20.0), point(2_000L, 25.0),
             point(3_000L, 30.0), point(4_000L, 35.0)
         )
         val cruise = SpeedHistorySeeder.trackCruiseSpeedKn(points, noDistance)
         // Stored speeds round-trip through Float, so the tolerance is the float's, not the math's.
-        assertEquals(25.0, cruise!!, 1e-3)
+        assertEquals(35.0, cruise!!, 1e-3)
     }
 
     @Test

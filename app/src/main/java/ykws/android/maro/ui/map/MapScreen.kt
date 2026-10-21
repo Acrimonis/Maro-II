@@ -1621,6 +1621,28 @@ fun MapScreen(
         trackSavedToastAt = SystemClock.elapsedRealtime()
     }
 
+    // ── Seed the speed history from the tracks list on a cold start ──
+    LaunchedEffect(Unit) {
+        if (appSettings.routeSpeedHistoryComputedKn <= 0f) {
+            // Wait for the speed-zone index, so the seed's exclusion actually applies.
+            while (viewModel.speedZoneIndex == null) kotlinx.coroutines.delay(200)
+            val seeded = seedSpeedHistory(
+                trackViewModel,
+                appSettings,
+                { lat, lon -> viewModel.isRouteRestricted(lat, lon) }
+            )
+            if (seeded != null) {
+                viewModel.updateSettings {
+                    it.copy(
+                        routeSpeedHistoryWindow = seeded.window.map { v -> v.toFloat() },
+                        routeSpeedHistoryComputedAtEpochMs = System.currentTimeMillis(),
+                        routeSpeedHistoryComputedKn = (seeded.medianKn ?: 0.0).toFloat()
+                    )
+                }
+            }
+        }
+    }
+
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
@@ -1641,7 +1663,35 @@ fun MapScreen(
                         markersViewModel.closeDrawer()
                     }
                 }
-                is ykws.android.maro.data.track.TrackEvent.Finalized -> toastSaved(event.name)
+                is ykws.android.maro.data.track.TrackEvent.Finalized -> {
+                    toastSaved(event.name)
+                    // Fold the finished trip into the speed history: one trip, its median, appended live.
+                    trackScope.launch {
+                        val track = trackViewModel.loadTrackDetailCached(event.trackId) ?: return@launch
+                        if (track.route) return@launch
+                        val cruise = ykws.android.maro.data.route.SpeedHistorySeeder.trackCruiseSpeedKn(
+                            track.trackPoints,
+                            { a, b, c, d -> SpatialOperations.haversine(LatLng(a, b), LatLng(c, d)) },
+                            { lat, lon -> viewModel.isRouteRestricted(lat, lon) }
+                        ) ?: return@launch
+                        viewModel.updateSettings {
+                            val window = ykws.android.maro.data.route.SpeedHistory.fold(
+                                it.routeSpeedHistoryWindow.map { v -> v.toDouble() },
+                                cruise,
+                                it.routeSpeedHistoryTrackCount
+                            )
+                            val median = ykws.android.maro.data.route.SpeedHistory.weightedMedian(
+                                window,
+                                it.routePaceRecentWeightPct.toDouble()
+                            )
+                            it.copy(
+                                routeSpeedHistoryWindow = window.map { v -> v.toFloat() },
+                                routeSpeedHistoryComputedKn = (median ?: cruise).toFloat(),
+                                routeSpeedHistoryComputedAtEpochMs = System.currentTimeMillis()
+                            )
+                        }
+                    }
+                }
                 is ykws.android.maro.data.track.TrackEvent.Resumed -> {
                     // Restore checkpoint points to the live polyline on Continue.
                     // The polyline may not exist yet (Compose hasn't recomposed after state→ON),
@@ -3948,6 +3998,7 @@ fun MapScreen(
             // it replaces instead of snapping through the floor (2026-10-07).
             initialDashboardHeight = dashboardBand.lastShown,
             onDashboardMeasuredHeight = { dashboardBand.measuredBottom = it; dashboardBand.lastShown = it },
+            routeRestricted = { lat, lon -> viewModel.isRouteRestricted(lat, lon) },
             onDismissSettings = { chrome.showSettings = false },
             onDismissMenu = { chrome.showTrackDrawer = false },
             onDismissTrackHistory = { chrome.showTrackHistory = false },
