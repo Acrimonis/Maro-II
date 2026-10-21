@@ -50,7 +50,7 @@ class DirectionSymmetryRepairsTest {
      * neighbours are land, the coarse cell over it is superseded, and the coarse neighbours around it read as
      * themselves. The only edges that touch the cell are the coarse cells stepping in.
      */
-    private fun walledCopyWalk(): WalkWindows {
+    internal fun walledCopyWalk(): WalkWindows {
         val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
         val coarse = windowOn(family.coarse, 0, 0, rows = 3, cols = 10, layer = 0)
         val fine = windowOn(family.fine, 0, 10, rows = 15, cols = 15, layer = 1)

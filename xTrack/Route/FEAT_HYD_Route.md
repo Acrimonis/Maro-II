@@ -1,22 +1,22 @@
-# Context Hydration — Route — 2026-10-20
+# Context Hydration — Route — 2026-10-21
 
-**Last Bake:** 2026-10-20 22:18 UTC — written by `#bake` on `feature/route-sym-2` (cut from `origin/develop` by the user's `#new route-sym-2`), before the search tie-break work the same session then took up; everything since `6dfc6cbc` is uncommitted.
+**Last Bake:** 2026-10-21 08:16 UTC — written by `#bake` on `feature/route-sym-2` (cut from `origin/develop` by the user's `#new route-sym-2`); the first bake's commit is `b64a060e`, the canonical-end search and this bake come after it.
 
-**Directive trace:** one covered action class was met and it stopped: the user's `#impl` met an unsettled design choice, so the pipeline asked which repairs it authorised before it started. No dependency was added; the baked coastline, depth and zone files were read only by the app's own deserialisers inside a gated test, never opened by the agent; the device was not touched; and every claim about the code came from a file read.
+**Directive trace:** one covered action class was met and it stopped: the user's first `#impl` met an unsettled design choice, so the pipeline asked which repairs it authorised before it started. No dependency was added; the baked coastline, depth and zone files were read only by the app's own deserialisers inside gated tests, never opened by the agent; the device was not touched; and every claim about the code came from a file read. The user's `#bake`, `#commit` and `#push` were their own invocations.
 
 ## State
 
-**A pair armed from either end now agrees in the drawing stages (2026-10-20).** The pass's two pulls run both ways and keep the cheaper line ([`MultipassPull.pullBothWays`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt)), and a coarse block's fine copy has its step back out ([`WalkWindows.coarseNeighbourOfCopy`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt)), which makes the napoule → cannes pair route from both ends on `evolutive`. The instrument is [`RouteDirectionSymmetryTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/RouteDirectionSymmetryTest.kt) over [`BakedRegionWorld`](../../app/src/test/java/ykws/android/maro/spatial/multipass/BakedRegionWorld.kt), gated by `-Dmaro.prebake=true`. The whole unit suite is green and `assembleDebug` packages; the bar is **not** met — 4 of 48 plan-pair runs still miss it and three got worse — because the A\*'s two cell chains differ on cost ties.
+**A pair arms as one line from either end, within the bar (2026-10-21).** The pass's search leaves the end that sorts first ([`RoutePassRunner.searchFromCanonicalEnd`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt), the other way once if it lands no path), the two pulls run both ways and keep the cheaper ([`MultipassPull.pullBothWays`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt)), and a coarse block's fine copy has its step back out. On the gated 24-pair survey the plan-pair runs over the bar went 5 → 0 and the worst line gap is 0.4 m; the whole unit suite is green and `assembleDebug` packages. **The cost:** the two-sided pull doubles the pull, so a ladder is 64 % (`avoid`) to 79 % (`evolutive`) slower on a desktop JVM — the device's `PULL ms` / `FINAL ms` are owed.
 
-**Open from the berth-carve session:** an end the 50 m coast margin hems in beyond its disc fails as no path; the Bacon start's device run is owed.
+**Open:** one `evolutive` pair still crowns a different rung each way on equal lines (the rungs' scores are unprinted); the guard swap and the fallback walk have no unit test. From the berth-carve session: an end the 50 m coast margin hems in beyond its disc fails as no path, and the Bacon start's device run is owed.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt` — `forEachStep` (the back-edge) and the tie-break the next change targets
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `pullBothWays`, `PullSetup.reversed`
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — the two pulls now two-sided
-- `xTrack/Route/261020_FEAT_PLN_Route_direction-symmetry.md` — the plan, with measurements and `## Implemented`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — `searchFromCanonicalEnd`, the two-sided pulls
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `pullBothWays`, where a cheaper two-sided pull would go
+- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteDirectionSymmetryTest.kt` — the gated instrument (`-Dmaro.prebake=true`)
+- `xTrack/Route/261020_FEAT_PLN_Route_direction-symmetry.md` — the plan, with measurements, cost and `## Implemented`
 
 ## Next Step
 
-A symmetric tie-break in the search, so both directions hand the pull one cell chain; read the pass's four-pull cost on a device pair alongside.
+Read `PULL ms` and `FINAL ms` on a device pair; if the phone feels the doubled pull, make the two-sided pull cheaper (the backward walk is the half to economise).

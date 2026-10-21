@@ -419,7 +419,13 @@ data class SearchOutcome(
     /** How many of the start slot's own steps lead into passable water — `0` is a start with no way out. */
     val startOpenSteps: Int = -1,
     /** Whether the answering walk was the waived re-walk after a held walk found nothing. */
-    val rewalked: Boolean = false
+    val rewalked: Boolean = false,
+    /**
+     * Whether the pass ran this walk **from the aim's end** (`RoutePassRunner.searchFromCanonicalEnd`), the path
+     * handed back already turned to the caller's direction. [strictStart], [strictAim], [startLayer] and
+     * [startOpenSteps] stay in the walk's own frame — the end it left is the one they name.
+     */
+    val reversed: Boolean = false
 )
 
 /**

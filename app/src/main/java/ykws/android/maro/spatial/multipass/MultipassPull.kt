@@ -541,11 +541,7 @@ object MultipassPull {
 
     /** [line] turned so its first point sorts before its last by latitude, then longitude. */
     private fun canonicalDirection(line: List<LatLng>): List<LatLng> {
-        val first = line.first()
-        val last = line.last()
-        val keepsOrder = first.latitude < last.latitude ||
-            (first.latitude == last.latitude && first.longitude <= last.longitude)
-        return if (keepsOrder) line else line.asReversed()
+        return if (sortsFirst(line.first(), line.last())) line else line.asReversed()
     }
 
     /** The line's whole seconds in the direction it is handed — travel plus water, or its length where neither is read. */

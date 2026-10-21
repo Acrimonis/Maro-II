@@ -139,11 +139,85 @@ either direction on survey pair 9, where `avoid` does — a robustness gap outsi
   proposed: it would move every engine's answers, `avoid` included, for a 0.35–0.62 % cost gap seen once, in
   a channel, at λ 1. Open until a device pair shows it changing a crown.
 
+## The search's tie-break (2026-10-21)
+
+Ordered by the user on 2026-10-21 (`plan search tie break`) after the repairs above left 4 of 48 plan-pair
+runs over the bar. **This is the reserved option, taken for the search alone.**
+
+- **The cause, stated once.** An island on the line leaves two detours of equal cost; the A\* breaks the tie
+  by `f`, then `g`, then slot index ([`MultipassSearch.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt))
+  from whichever end it starts, so A→B and B→A can take the two sides. The two-sided pull then keeps the
+  cheaper of two pulls *of each chain*, which cannot reconcile two topologies.
+- **The change.** The pass runs its search from a **canonical end**: of the two raw ends, the one that sorts
+  first by latitude, then longitude. When that is the aim, the roles are swapped for the walk — the two cells,
+  and the [`StepGuard`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassSearch.kt)'s two
+  raw points, **together**, since the guard's end legs and the walk's `EndRule` slots must name the same end —
+  and the cell path is reversed back before anything reads it. Both directions then run the one search, so they
+  hand the pull one chain; the stages after it measured symmetric on one input over the 24-pair survey (pull
+  0.0 m bar one `avoid` pair at 48 m, fine pass 0.0 m bar one named case at 21.8 m, corner pass 0.4 m bar one
+  named case at 2.3 m), which is the claim this change is judged on, not a proof for tie fixtures.
+  Where it lives: [`RoutePassRunner.runPass`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt),
+  the one caller that builds the guard and names the ends, through **one small internal function** a test can
+  call without a `GridContext`; `MultipassSearch.searchWalk` stays role-neutral, its direct callers
+  (`GateEndStepTest`, `DirectionSymmetryRepairsTest`, `RouteFinePass`'s local re-solves, the forced-crossing
+  probe) untouched.
+- **One home for the rule.** The canonical direction is already written in
+  [`MultipassPull.canonicalDirection`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt)
+  (private, latitude then longitude, `<=` keeping the order). It becomes one internal predicate on two points
+  that both the pull and the search read, so the two cannot disagree about which end is first.
+- **A fallback, because the graph is not perfectly reversible.** Seam crossings are one-way in places
+  (`crossLayerSlots` redirects a face cell to a neighbouring block's fine copy; a copy is not on a face), and
+  the held-end test reads the aim's entries as reversed steps. So a pair routable in only one orientation could
+  fail in both under a fixed canonical end — and the end that sorts first is the one the napoule → cannes pair
+  failed from. **When the canonical search lands no path, the natural orientation is walked once**
+  (`reversed = false`); on success, which is nearly always, no second search runs.
+- **What it costs, honestly.**
+  - *The edge price is the destination cell's rate* — the zone, limit and berth prices included, and a seam
+    edge by its centre distance, so a coarse → fine step pays the fine rate and fine → coarse the coarse one. A
+    reversed walk therefore prices each edge by its other neighbour, at any λ and not only the λ 1 channel
+    where 0.35–0.62 % was measured. A route is planned on the price the *reverse* trip would pay in the pairs
+    whose canonical end is the aim. That is the convention the user accepted.
+  - *The ends' rules follow the canonical end, not the boat.* The held-start and held-aim readings
+    (`strictStart`, `strictAim`, `hasExit`) swap with the roles. The geometry they test is symmetric, and a
+    false "has an exit" is caught (the refused step is recorded and the waived re-walk triggers), a false
+    "no exit" only waives — an extra re-walk at worst, not a lost route.
+  - *Gate legs.* `keepsWall` cuts its pieces from the segment's first point, so a step's verdict near the
+    waiver rim can differ by one fine sample per direction; the pull re-checks, so it is harmless.
+  - *Diagnostics speak of the canonical frame.* `strictStart`, `strictAim`, `startLayer` and `startOpenSteps`
+    describe the end the walk left. `SearchOutcome` gains a `reversed` flag (set by `runPass`, never by
+    `searchWalk`) and the `NO PATH` trace prints it with the walk's own end cells, so the `aimCell` and
+    `aimLimit` it names and the counts beside them are of one end.
+  - *No extra work on success.* One search, as before; a second only when the canonical one lands no path.
+- **Not touched.** The fine pass's local re-solves (bound ends, orientation by the line, already 0.0 m
+  isolated), the clock and the speed profile (they run along the real travel direction, so deceleration and
+  acceleration stay physically ordered), and the pull, which keeps both walks.
+- **Success is the instrument's.** The survey's bar misses (`avoid` 2, `evolutive` 2 of 24) go to zero, the
+  named pairs' crown flips go, no pair gets worse than it is, the engine suite stays green, and
+  **napoule → cannes still routes on `evolutive` in both directions** — its first-sorting end is the one that
+  failed before the fine copy's step back, so it is the case the swap could break.
+- **A test shown red first.** The fixture is a single-layer `MultipassGrid` with `markLand` blocks as an
+  island, handed to the swap function with a gate taken from `GateTestFixtures.gateOver` over a deep
+  `RasterWorld` (a `null` gate skips the guard altogether; over uniform deep water it never refuses a step, so
+  the guard's *swap* is carried by the instrument and the review, not pinned by this test). A tie is not guaranteed by
+  symmetry alone — the search resolves ties by first arrival, ordered by `f = g + h` with `h` the haversine to
+  the aim, and the `cos φ` term can make both directions pick the same side — so the test loops several
+  island offsets and diagonal end placements and **first asserts the precondition**: for at least one fixture
+  the plain search from A and the reverse of the plain search from B disagree. If no fixture shows that, the
+  test is not red on the old code and the plan says so rather than pretending. Then it asserts the swap
+  returns one chain from both ends, and the walled-copy fixture of `DirectionSymmetryRepairsTest` is run
+  through it (without a gate, and without asserting which end sorts first).
+- **Strongest objection.** Symmetry bought by convention hides, rather than removes, the search's real
+  directional pricing: if the destination-rate law ever grows (a one-way water, a current), the canonical end
+  would price it wrongly in half the pairs. After this change both directions report the *same* walk's
+  `costSec`, so the instrument's cost column reads zero by construction and is no tripwire; one that catches
+  the law moving would have to price the natural orientation separately, and is not part of this change.
+
 ## Reserved option
 
 - One fixed traversal end makes both directions byte-identical in one decision, at the cost of being a
-  convention and of binding the boat-side end's water to the canonical end's rule. Declined by the user;
-  kept as the fallback if the measured repairs do not reach the bar.
+  convention and of binding the boat-side end's water to the canonical end's rule. Declined by the user on
+  2026-10-20 for the whole pipeline; **taken for the search alone on 2026-10-21** (above). The pull, which
+  already keeps both walks, and the later stages are not bound to it.
 
 ## Open questions
 
@@ -152,9 +226,8 @@ either direction on survey pair 9, where `avoid` does — a robustness gap outsi
   the bar is still owed. A crown flip between two lines inside the 30 s tolerance may not be a defect.
 - **Newly open, from the repairs' measurement:** the pairs still over the bar differ because the A\*'s two
   cell chains differ on cost ties, so the pull is handed two different inputs and picks two near-equal
-  topologies (for instance either side of an island). A symmetric tie-break — the search run from a canonical
-  end — would close it, and is the declined fixed-end option applied to the search alone, binding the boat-side
-  end's rule to the canonical end's. The user's call.
+  topologies (for instance either side of an island). **Answered 2026-10-21:** the search runs from a
+  canonical end — see *The search's tie-break*.
 - ~~Is a canonical orientation acceptable for the pull alone, or must the pull become two-sided?~~ Answered
   2026-10-21: two-sided.
 - **Closed by the measurement:** whether repairs 4–5 are justified (no — isolated 0.0 m) and whether the
@@ -197,3 +270,43 @@ covers odd and even ratios; the pull test runs with and without a pace so the pr
 `landRefusals`/`priceRefusals` in the engine's `DEVICE PASS` trace now count both walks; the sweep's
 "no refusals" gate opens a little more often; each pass pays four pulls where it paid two — compare `PULL ms`
 and `FINAL ms` on a device pair; `hasExit`'s "approximate" KDoc is a little stale for a coarse end beside a copy.
+
+### The search's tie-break (2026-10-20, `feature/route-sym-2`)
+
+**Shipped on the user's `#impl`, after `plan search tie break` and a review of the plan** (the review's
+blocking points — a fallback walk, a one-home rule, a stale tripwire claim, a fixture shown red first — are in
+the plan section above).
+
+- **`RoutePassRunner.searchFromCanonicalEnd`** — the pass's one search now leaves the end that
+  [`sortsFirst`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassPrimitives.kt), the cells
+  and the guard's two points swapped together, the cell path turned back to the caller's direction; a walk that
+  lands no path is walked once the other way, in the same order from either end. `MultipassPull`'s canonical
+  direction reads the same predicate. `SearchOutcome.reversed` and the `NO PATH` trace's `reversed=` and
+  walk-side aim cell say which end a walk left.
+- **Tests** — `SearchCanonicalEndTest`: over twelve island fixtures with a gate, the plain search disagrees
+  with itself on at least one (the precondition, so the test is red on the code it replaces) and the canonical
+  one never does; the outcome's `reversed` is false for the western start and true for the eastern; a copy
+  walled in by land routes both ways as one chain.
+- **Measured after** (the same 24 seeded pairs and 5 named, 15 kn): pairs over the bar **4 → 0** across both
+  plans; the engine's line gap, worst rung, **median 0.0 m, max 0.4 m** (was 298 / 985 m); crown flips 0 of 48
+  in the survey; napoule → cannes routes on `evolutive` from both ends; no pair got worse. The whole unit
+  suite is green and `assembleDebug` packaged.
+- **One residue:** cannes-bay → baie-des-anges on `evolutive` still crowns `fast` one way and `around` the
+  other, on lines equal to 0.4 m and ETAs 2.3 s apart inside the 30 s tolerance — the ranking's own near-tie,
+  not geometry.
+- **Ask hop:** no blocking finding. Taken: a fallback now sums both walks' expansions; the `reversed`
+  assertion is exact. Left, stated: the guard's swap and the fallback have no unit test (the first needs an end
+  near a wall, the second a one-way crossing); the `LINE` trace's `strictStart` / `strictAim` are in the walk's
+  frame without saying so; a failing pair now costs up to four exhaustive walks instead of two (eight with the
+  engine's grown-corridor retry) — latency on failing pairs only.
+
+### What the symmetry costs (2026-10-21)
+
+Measured with a throw-away timing probe (engine API only, so it ran on both trees) over 12 pairs, both
+directions, median of three, desktop JVM, real baked region, 15 kn, against the commit before the work
+(`6dfc6cbc`). Per plan, 24 ladders: `avoid` wall time **6.9 s → 11.3 s (+64 %)**, `evolutive` **24.3 s →
+43.4 s (+79 %)**. The pull went ×2.05 (3.95 → 8.10 s and 17.9 → 36.5 s) and equals the whole rise of the coarse
+pass, since the pull was already 75–90 % of it; the canonical-end search and the fine copy's step back add
+nothing measurable, and the fine pass and corner pass are unchanged. About 0.29 → 0.47 s a ladder on `avoid`,
+1.0 → 1.8 s on `evolutive`. Desktop time, not phone time: the ratio travels, and the device's `PULL ms` /
+`FINAL ms` are the real check. A pair with no path walks up to four searches instead of two.

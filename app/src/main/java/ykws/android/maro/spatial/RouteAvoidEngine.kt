@@ -580,14 +580,17 @@ class RouteAvoidEngine(
         val coarseMs = msSince(coarseStartNs)
         val timed = passReading.timed
         if (timed == null) {
+            val walkAim = if (passReading.search.reversed) ctx.startCell else ctx.aimCell
             trace {
                 "PASS lambda=${fmt(lambda, 2)} NO PATH " +
                     "expansions=${passReading.search.expansions} passable=${passReading.search.passableCells} " +
                     "aimClosed=${passReading.search.aimClosed} " +
                     "startLayer=${passReading.search.startLayer} startOpen=${passReading.search.startOpenSteps} " +
-                    "rewalked=${passReading.search.rewalked} " +
-                    "aimCell=${ctx.grid.state(ctx.aimCell.row, ctx.aimCell.col)} " +
-                    "aimLimit=${fmt(ctx.grid.zoneLimitKn(ctx.aimCell.row, ctx.aimCell.col))}kn"
+                    "rewalked=${passReading.search.rewalked} reversed=${passReading.search.reversed} " +
+                    // The walk's own aim: the caller's start when the walk ran from the aim's end, so the
+                    // cell named here and the counts beside it belong to one walk.
+                    "aimCell=${ctx.grid.state(walkAim.row, walkAim.col)} " +
+                    "aimLimit=${fmt(ctx.grid.zoneLimitKn(walkAim.row, walkAim.col))}kn"
             }
             return null
         }
