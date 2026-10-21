@@ -95,7 +95,7 @@ runs the after-the-loop refinement. In order:
 11. **Clock** — `timeLineWithProfile` times the drawn line with anticipation and bounded acceleration, the enforced limit the hard ceiling.
 
 Around those: a **forced-crossing probe** (a second A\* over a copy of the grid with the restrictive zones
-blocked) decides whether the line had no way around, and a **corridor growth** retries once with the reach
+blocked, except the water of any zone a route end stands in) decides whether the line had no way around, and a **corridor growth** retries once with the reach
 doubled on no path or forced crossing, keeping the wider answer only where it forces fewer crossings.
 
 ## The plan seam

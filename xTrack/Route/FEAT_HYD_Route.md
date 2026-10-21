@@ -1,22 +1,23 @@
 # Context Hydration — Route — 2026-10-21
 
-**Last Bake:** 2026-10-21 08:16 UTC — written by `#bake` on `feature/route-sym-2` (cut from `origin/develop` by the user's `#new route-sym-2`); the first bake's commit is `b64a060e`, the canonical-end search and this bake come after it.
+**Last Bake:** 2026-10-21 13:18 UTC — written by `#bake` on `feature/route-sym-pull` (cut from `origin/develop` by the user's `#new route-sym-pull`); nothing of this branch is committed before this bake.
 
-**Directive trace:** one covered action class was met and it stopped: the user's first `#impl` met an unsettled design choice, so the pipeline asked which repairs it authorised before it started. No dependency was added; the baked coastline, depth and zone files were read only by the app's own deserialisers inside gated tests, never opened by the agent; the device was not touched; and every claim about the code came from a file read. The user's `#bake`, `#commit` and `#push` were their own invocations.
+**Directive trace:** two covered action classes were met and neither stopped. The device was read twice on the user's word (`adb logcat -d`, `dumpsys package`, after "grab the last searches" and "done fetch") and never written to, deployed or launched. A `#impl` order stood behind the code change, so no work started without one. No dependency was added; no baked spatial file was opened (the saved logs are text); and every claim about the code came from a file read. The user's `#bake` and `#commit` were their own invocations.
 
 ## State
 
-**A pair arms as one line from either end, within the bar (2026-10-21).** The pass's search leaves the end that sorts first ([`RoutePassRunner.searchFromCanonicalEnd`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt), the other way once if it lands no path), the two pulls run both ways and keep the cheaper ([`MultipassPull.pullBothWays`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt)), and a coarse block's fine copy has its step back out. On the gated 24-pair survey the plan-pair runs over the bar went 5 → 0 and the worst line gap is 0.4 m; the whole unit suite is green and `assembleDebug` packages. **The cost:** the two-sided pull doubles the pull, so a ladder is 64 % (`avoid`) to 79 % (`evolutive`) slower on a desktop JVM — the device's `PULL ms` / `FINAL ms` are owed.
+**The phone's cost of the two-sided pull is measured, and the larger cost was a different one (2026-10-21).** An instrumented build (`PULL2` / `FINAL2` per-walk lines, `RUNG` per-rung line) put the pull at 24–36 % of a search; overlapping its two walks (F1, **unbuilt**) would save 0.83–0.87 s an attempt, 9–13 % of a plain search, and the memo shared between the walks is worth only 2–7 % of reads. The retry beside it was the real cost: with a route end inside a speed zone the forced-crossing probe walled the end in by its own zone, every rung read a forced crossing and grew a corridor that gave the same line, ~10 s of a 19–21 s search. **Fixed** (fix (b) of [`261021_FEAT_PLN_Route_pull-cost.md`](../../xTrack/Route/261021_FEAT_PLN_Route_pull-cost.md)): `RouteAvoidEngine.forcedCrossingNames` leaves open and never names the zones containing an end, through `MultipassGrid.blockedCopy`'s new `stayOpen` predicate. The full unit suite (1418) and `assembleDebug` are green; the instrument stays in the working tree beside the fix.
 
-**Open:** one `evolutive` pair still crowns a different rung each way on equal lines (the rungs' scores are unprinted); the guard swap and the fallback walk have no unit test. From the berth-carve session: an end the 50 m coast margin hems in beyond its disc fails as no path, and the Bacon start's device run is owed.
+**Open:** the device pass on the zone pair (`RUNG reason=NONE grew=false`, `endZones=[…]`); F1 and its CPU-for-wall trade; the ask hop's left findings (the restrictive predicate written twice, the unmeasured `stayOpen` cost, three unpinned cases, the avoidable-crossing test's reliance on the 3704 m reach); `FINAL`'s input differing with the arming direction; one `evolutive` pair crowning a different rung each way.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — `searchFromCanonicalEnd`, the two-sided pulls
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `pullBothWays`, where a cheaper two-sided pull would go
-- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteDirectionSymmetryTest.kt` — the gated instrument (`-Dmaro.prebake=true`)
-- `xTrack/Route/261020_FEAT_PLN_Route_direction-symmetry.md` — the plan, with measurements, cost and `## Implemented`
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — `forcedCrossingNames` (end zones), `searchRung` + `RungReading` (the `RUNG` line)
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt` — `blockedCopy(paceKn, stayOpen)`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt`, `RoutePassRunner.kt` — `PullSplit`, `pullBothWays(split=)`, `splitText`: the `PULL2` / `FINAL2` instrument
+- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteZonePhase4Test.kt` — five tests pinning the end-zone rule
+- `xTrack/Route/261021_FEAT_PLN_Route_pull-cost.md` — the plan, with the device results, the review rounds and `## Implemented`
 
 ## Next Step
 
-Read `PULL ms` and `FINAL ms` on a device pair; if the phone feels the doubled pull, make the two-sided pull cheaper (the backward walk is the half to economise).
+Run the zone pair both ways on the device and read `RUNG` / `PROBE endZones=`; then decide F1 (parallel pull walks) on its 0.83–0.87 s.

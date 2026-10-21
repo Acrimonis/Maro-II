@@ -379,6 +379,91 @@ class RouteZonePhase4Test {
         )
     }
 
+    /**
+     * **A zone an end stands in is no forced crossing.** Blocking it walls the end in at any corridor width,
+     * so the probe used to answer "no way around" for a route that merely starts inside a zone and every
+     * rung grew a corridor for nothing. The start here stands in the only zone, so nothing is forced.
+     */
+    @Test
+    fun aZoneTheRouteStartsInIsNoForcedCrossing() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
+        val world = ZoneWorld(listOf(zone))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.06), rungIndex = 0)
+
+        assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+        assertEquals(
+            "while the water's own fact still names the slow water the line leaves",
+            listOf("Cap"),
+            route?.crossedSlowZoneNames
+        )
+    }
+
+    /** The same holds from the other end: the aim standing in the zone makes no crossing either. */
+    @Test
+    fun aZoneTheRouteEndsInIsNoForcedCrossing() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.015, 7.045))
+        val world = ZoneWorld(listOf(zone))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.06), RoutePoint(43.5, 7.03), rungIndex = 0)
+
+        assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+    }
+
+    /**
+     * **The end's zone must not wall the probe in.** The start stands in `Home`; `Wall` spans the corridor but
+     * for a gap to the north, so a way around it exists — a dear one, the line crosses `Wall` on the fast rung
+     * — and the crossing is not forced. Blocking `Home` too would wall the start in and name `Wall` anyway.
+     */
+    @Test
+    fun anEndZoneDoesNotMakeAnAvoidableCrossingForced() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val home = SpeedZone("h", "Home", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
+        val wall = SpeedZone(
+            "w", "Wall", 5.0, rectRing(43.40, 43.522, 7.045, 7.055)
+        )
+        val world = ZoneWorld(listOf(home, wall))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.07), rungIndex = 2)
+
+        assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+    }
+
+    /** A crossing forced away from the ends is still reported, without the zone the start stands in. */
+    @Test
+    fun aCrossingForcedAwayFromTheEndsIsStillReportedWithoutTheEndsZone() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val home = SpeedZone("h", "Home", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
+        val wall = SpeedZone("w", "Wall", 5.0, rectRing(43.40, 43.60, 7.045, 7.055))
+        val world = ZoneWorld(listOf(home, wall))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.07), rungIndex = 0)
+
+        assertEquals(listOf("Wall"), route?.forcedCrossingZoneNames)
+    }
+
     // ── The collar ────────────────────────────────────────────────────────────
 
     @Test
@@ -639,6 +724,28 @@ class RouteZonePhase4Test {
             "and the grid the search built is untouched",
             grid.passable(inSlow.row, inSlow.col)
         )
+    }
+
+    /**
+     * The probe's end-zone exemption: a cell [stayOpen] names keeps its water however slow its zone, and every
+     * other restrictive cell stays blocked, so an end can be freed without freeing the zone beside it.
+     */
+    @Test
+    fun theForcedCrossingProbeKeepsOpenOnlyTheCellsItIsToldTo() {
+        val here = ZoneRing(rectRing(43.49, 43.51, 7.02, 7.04), emptyList(), 5.0)
+        val there = ZoneRing(rectRing(43.49, 43.51, 7.06, 7.08), emptyList(), 5.0)
+        val grid = rasterize(
+            BBox(43.45, 43.55, 7.00, 7.10), cellM = 50.0, paceKn = 28.0, marginM = 25.0,
+            edges = emptyList(), openCoast = emptyList(), capLatNorth = 43.55,
+            field = RouteCostField.EMPTY,
+            zones = listOf(here, there)
+        )
+        val inHere = grid.cellOf(43.5, 7.03)
+        val inThere = grid.cellOf(43.5, 7.07)
+        val blocked = grid.blockedCopy(28.0) { p -> p.longitude < 7.05 }
+
+        assertTrue("the cell it names keeps its water", blocked.passable(inHere.row, inHere.col))
+        assertFalse("the zone it does not name stays blocked", blocked.passable(inThere.row, inThere.col))
     }
 
     /** A water-everywhere world whose only source is its speed zones — the corridor reads no land or depth. */

@@ -364,8 +364,13 @@ class MultipassGrid(
      * the grid the search already built rather than off a second raster sweep of the corridor, which
      * was the dearer half of a solve. The copy leaves this grid untouched, so the answer's own grid
      * still carries its limits, and a zone slower than the pace is exactly a zone the search prices.
+     *
+     * [stayOpen] names the cells that keep their water whatever their limit: the probe hands it the water of
+     * the zones a route end stands in, since an end walled in by its own zone makes the answer "no way around"
+     * at any corridor width — the end's, not the route's. It is asked of a restrictive cell's centre only, and
+     * `null` blocks every restrictive cell as before.
      */
-    fun blockedCopy(paceKn: Double): MultipassGrid {
+    fun blockedCopy(paceKn: Double, stayOpen: ((LatLng) -> Boolean)? = null): MultipassGrid {
         val copy = MultipassGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
         cellState.copyInto(copy.cellState)
         cellSourceCostSec.copyInto(copy.cellSourceCostSec)
@@ -376,7 +381,9 @@ class MultipassGrid(
         gateDistanceM.copyInto(copy.gateDistanceM)
         for (i in 0 until rows * cols) {
             val limit = zoneLimitKn[i]
-            if (cellState[i] != LAND_ORDINAL && limit > 0.0 && limit < paceKn) {
+            if (cellState[i] != LAND_ORDINAL && limit > 0.0 && limit < paceKn &&
+                (stayOpen == null || !stayOpen(center(i / cols, i % cols)))
+            ) {
                 copy.cellState[i] = LAND_ORDINAL
             }
         }
