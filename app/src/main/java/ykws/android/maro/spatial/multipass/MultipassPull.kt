@@ -336,6 +336,15 @@ internal class PullSetup(
         gate, berth, berthLambda, paceMps,
         refusals, timing, memo
     )
+
+    /**
+     * **The same water read from the other end** — the two raw ends swapped and every other value kept, so a
+     * walk over the reversed path is the setup's own, mirrored. The ends' discs are symmetric in the two, so
+     * nothing but the direction moves.
+     */
+    internal fun reversed(): PullSetup = PullSetup(
+        marginM, coarseStepM, priceStepM, field, aim, start, gate, berth, berthLambda, paceMps
+    )
 }
 
 /**
@@ -487,6 +496,67 @@ object MultipassPull {
         if (result.last() != path.last()) result.add(path.last())
         ctx.timing?.recordWalk(setup, memo)
         return result
+    }
+
+    /**
+     * **The pull read from both ends, one answer for the pair.** [pull] is a forward greedy: it commits a
+     * waypoint at the first refused chord from the start, so the same cell chain pulled from its other end
+     * can land on a different taut line, and a route armed from A and from B drew two lines for one pair.
+     * This walks the path forward and its reverse backward — the reverse under [PullSetup.reversed], so the
+     * walk is the same one mirrored — and keeps the cheaper of the two.
+     *
+     * **The choice is symmetric by construction.** Each candidate is turned to a canonical direction (the
+     * end that sorts first by latitude, then longitude, leading) and priced there, so the number each carries
+     * is the same whichever way the caller armed; the cheaper wins, and on an exact tie the lexicographically
+     * smaller canonical line does. The caller's own direction therefore never reaches the decision: handed
+     * `path` or `path.reversed()` with the mirrored setup, the answer is the same line, reversed.
+     *
+     * The line comes back in the caller's direction, ends first and last as in [pull]. A path of two points
+     * or fewer, and a pair of candidates that agree, are answered at once. [refusals] and [timing] count
+     * both walks, which is what they cost; [memo] is shared, the field being the same.
+     */
+    internal fun pullBothWays(
+        setup: PullSetup,
+        path: List<LatLng>,
+        refusals: PullRefusals? = null,
+        timing: PullTiming? = null,
+        memo: MarkMemo? = MarkMemo()
+    ): List<LatLng> {
+        val forward = pull(setup, path, refusals, timing, memo)
+        if (path.size <= 2) return forward
+        val backward = pull(setup.reversed(), path.asReversed(), refusals, timing, memo).asReversed()
+        if (forward == backward) return forward
+        val ctx = setup.context(memo = memo)
+        val forwardCanonical = canonicalDirection(forward)
+        val backwardCanonical = canonicalDirection(backward)
+        val forwardSec = canonicalTotalSec(forwardCanonical, ctx)
+        val backwardSec = canonicalTotalSec(backwardCanonical, ctx)
+        val forwardWins = if (forwardSec != backwardSec) {
+            forwardSec < backwardSec
+        } else {
+            compareLines(forwardCanonical, backwardCanonical) <= 0
+        }
+        return if (forwardWins) forward else backward
+    }
+
+    /** [line] turned so its first point sorts before its last by latitude, then longitude. */
+    private fun canonicalDirection(line: List<LatLng>): List<LatLng> {
+        return if (sortsFirst(line.first(), line.last())) line else line.asReversed()
+    }
+
+    /** The line's whole seconds in the direction it is handed — travel plus water, or its length where neither is read. */
+    private fun canonicalTotalSec(line: List<LatLng>, ctx: PullContext): Double =
+        if (ctx.hasSoftPrice || ctx.paceMps > 0.0) totalPrefix(line, ctx).last() else polylineLengthM(line)
+
+    /** Point-by-point order of two lines, latitude then longitude, the shorter first on a shared prefix. */
+    private fun compareLines(a: List<LatLng>, b: List<LatLng>): Int {
+        for (i in 0 until min(a.size, b.size)) {
+            val byLat = a[i].latitude.compareTo(b[i].latitude)
+            if (byLat != 0) return byLat
+            val byLon = a[i].longitude.compareTo(b[i].longitude)
+            if (byLon != 0) return byLon
+        }
+        return a.size.compareTo(b.size)
     }
 
     /** The deviation (m) under which a run of waypoints reads as one straight line. */

@@ -1,22 +1,22 @@
-# Context Hydration — Route — 2026-10-20
+# Context Hydration — Route — 2026-10-21
 
-**Last Bake:** 2026-10-20 19:15 UTC — written by `#bake` on `feature/route-low-depth-check`; everything since `6475d327` is uncommitted.
+**Last Bake:** 2026-10-21 08:16 UTC — written by `#bake` on `feature/route-sym-2` (cut from `origin/develop` by the user's `#new route-sym-2`); the first bake's commit is `b64a060e`, the canonical-end search and this bake come after it.
 
-**Directive trace:** since the last bake no covered action class was met: no device touch, no data file opened, no dependency added; the work followed the user's `#impl` and "remove all" orders, and every claim about the code came from a file read.
+**Directive trace:** one covered action class was met and it stopped: the user's first `#impl` met an unsettled design choice, so the pipeline asked which repairs it authorised before it started. No dependency was added; the baked coastline, depth and zone files were read only by the app's own deserialisers inside gated tests, never opened by the agent; the device was not touched; and every claim about the code came from a file read. The user's `#bake`, `#commit` and `#push` were their own invocations.
 
 ## State
 
-**The berth carve is retired.** The depth gate waives itself only within 20 m of an end; every leg past that is measured, so the 20:01 device case (0.6 m crossed on the carve's 100 m hop) cannot recur. The boxed-in allowance stays as an end's only exit. The route table's moved-start and moved-destination notes are removed, with the `originMoved` flag. 1404 tests green, APK packaged 21:04.
+**A pair arms as one line from either end, within the bar (2026-10-21).** The pass's search leaves the end that sorts first ([`RoutePassRunner.searchFromCanonicalEnd`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt), the other way once if it lands no path), the two pulls run both ways and keep the cheaper ([`MultipassPull.pullBothWays`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt)), and a coarse block's fine copy has its step back out. On the gated 24-pair survey the plan-pair runs over the bar went 5 → 0 and the worst line gap is 0.4 m; the whole unit suite is green and `assembleDebug` packages. **The cost:** the two-sided pull doubles the pull, so a ladder is 64 % (`avoid`) to 79 % (`evolutive`) slower on a desktop JVM — the device's `PULL ms` / `FINAL ms` are owed.
 
-**Open:** an end the 50 m coast margin hems in beyond its disc (a narrow harbour arm) now fails as no path — against the user's only-exit decision, no fallback designed yet. The new engine test guards the outcome but is not proven to fail on the old code.
+**Open:** one `evolutive` pair still crowns a different rung each way on equal lines (the rungs' scores are unprinted); the guard swap and the fallback walk have no unit test. From the berth-carve session: an end the 50 m coast margin hems in beyond its disc fails as no path, and the Bacon start's device run is owed.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/BerthCarve.kt` — the end disc, now the ends' only allowance
-- `app/src/main/java/ykws/android/maro/spatial/multipass/ShallowEdgeIndex.kt` — `GateRule.waives`, disc only
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt` — the ends' discs on both builders
-- `xTrack/Route/261020_FEAT_PLN_Route_end-approach.md` — the plan, its `## Implemented` and open points
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — `searchFromCanonicalEnd`, the two-sided pulls
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `pullBothWays`, where a cheaper two-sided pull would go
+- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteDirectionSymmetryTest.kt` — the gated instrument (`-Dmaro.prebake=true`)
+- `xTrack/Route/261020_FEAT_PLN_Route_direction-symmetry.md` — the plan, with measurements, cost and `## Implemented`
 
 ## Next Step
 
-The device run on the Bacon start, then the coast-boxed end's fallback.
+Read `PULL ms` and `FINAL ms` on a device pair; if the phone feels the doubled pull, make the two-sided pull cheaper (the backward walk is the half to economise).

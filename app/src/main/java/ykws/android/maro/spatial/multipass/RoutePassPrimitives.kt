@@ -477,3 +477,12 @@ internal fun polylineLengthM(points: List<LatLng>): Double {
     }
     return total
 }
+
+/**
+ * **A pair's canonical direction, one definition** — whether [first] sorts at or before [second] by
+ * latitude, then longitude. The two-sided pull turns its candidates to it before pricing them, and the pass
+ * runs its search from the end that sorts first, so both read the same rule and a pair armed from either end
+ * is the same pair to each.
+ */
+internal fun sortsFirst(first: LatLng, second: LatLng): Boolean =
+    first.latitude < second.latitude || (first.latitude == second.latitude && first.longitude <= second.longitude)

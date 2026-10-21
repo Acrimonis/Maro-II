@@ -95,10 +95,11 @@ internal class RoutePassRunner {
         // The search reads the family's **lattice** coordinates; the seeds arrive as cells of the interior
         // grid's own local space, so they are translated onto the walk first — a no-op for the single grid,
         // whose offset is zero, and the P4.1 fix for a fixed anchor, whose offset is not.
-        val search = MultipassSearch.searchWalk(
+        val search = searchFromCanonicalEnd(
             windows,
             windows.endCellAt(start, windows.latticeCell(grid, startCell.row, startCell.col)),
             windows.endCellAt(aim, windows.latticeCell(grid, aimCell.row, aimCell.col)),
+            start, aim,
             Units.knotsToMps(pace),
             zonePriceSec = { cellSizeM, interiorKn, collarKn, bandCollarKn ->
                 slowWaterPriceAt(
@@ -112,7 +113,7 @@ internal class RoutePassRunner {
             berthK = lambda,
             berth = berth,
             // The gate's step check, so every raw leg the pull may keep already keeps the wall.
-            stepGuard = gate?.let { StepGuard(it, start, aim) }
+            gate = gate
         )
         val path = search.path
             ?: return PassReading(search, emptyList(), null, SlowShares(0.0, 0.0, 0.0), 0, 0)
@@ -142,7 +143,9 @@ internal class RoutePassRunner {
         )
         val pullTiming = PullTiming()
         val pullStartNs = System.nanoTime()
-        val pulled = MultipassPull.pull(setup, full, refusals, pullTiming)
+        // Both pulls read the path from both ends and keep the cheaper, so a pair armed from either end draws
+        // one line from one cell chain (`261020_FEAT_PLN_Route_direction-symmetry.md`).
+        val pulled = MultipassPull.pullBothWays(setup, full, refusals, pullTiming)
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
@@ -172,7 +175,7 @@ internal class RoutePassRunner {
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
-        val final = MultipassPull.pull(setup, snapped, refusals, finalTiming)
+        val final = MultipassPull.pullBothWays(setup, snapped, refusals, finalTiming)
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
@@ -186,6 +189,53 @@ internal class RoutePassRunner {
         )
         val shares = slowShares(timed, pace, inZone = inZone(zones), inBand = inBand(world))
         return PassReading(search, final, timed, shares, pulled.size, snapped.size)
+    }
+
+    /**
+     * **The search, run from the pair's canonical end so a pair is one search from either end.** The A\* breaks
+     * a cost tie by arrival order from wherever it starts, so an island on the line, with two equal detours,
+     * could be taken on opposite sides by A→B and B→A, and the pull was then handed two chains it could not
+     * reconcile. Here the walk always leaves the end that [sortsFirst] — the aim's end, when the start sorts
+     * after it, with the two cells **and** the guard's two raw points swapped together — and the cell path is
+     * turned back to the caller's direction, so nothing downstream sees the swap but [SearchOutcome.reversed].
+     *
+     * **A walk that lands no path is walked once the other way** — the graph is not perfectly reversible (a seam
+     * crossing is one-way in places), so a pair routable in one orientation only must not fail in both. Both
+     * directions' calls make the same two walks in the same order, so the fallback is as symmetric as the
+     * first. On success, which is nearly always, no second walk runs.
+     *
+     * The edge price is the destination cell's rate, so a reversed walk prices each edge by its other
+     * neighbour: a route is planned on the price the reverse trip would pay, in the pairs whose canonical end
+     * is the aim. That is the convention (`261020_FEAT_PLN_Route_direction-symmetry.md`, *The search's
+     * tie-break*). [MultipassSearch.searchWalk] stays role-neutral and its other callers are untouched.
+     */
+    internal suspend fun searchFromCanonicalEnd(
+        windows: WalkWindows,
+        startCell: CellIndex,
+        aimCell: CellIndex,
+        start: LatLng,
+        aim: LatLng,
+        paceMps: Double,
+        zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double,
+        berthK: Double,
+        berth: BerthLaw?,
+        gate: GateRule?
+    ): SearchOutcome {
+        suspend fun walk(fromAim: Boolean): SearchOutcome {
+            val from = if (fromAim) aimCell else startCell
+            val to = if (fromAim) startCell else aimCell
+            val guard = gate?.let { if (fromAim) StepGuard(it, aim, start) else StepGuard(it, start, aim) }
+            val outcome = MultipassSearch.searchWalk(
+                windows, from, to, paceMps, zonePriceSec = zonePriceSec,
+                berthK = berthK, berth = berth, stepGuard = guard
+            )
+            return if (fromAim) outcome.copy(path = outcome.path?.asReversed()?.toList(), reversed = true) else outcome
+        }
+        val canonicalFromAim = !sortsFirst(start, aim)
+        val canonical = walk(canonicalFromAim)
+        if (canonical.path != null) return canonical
+        val other = walk(!canonicalFromAim)
+        return other.copy(expansions = canonical.expansions + other.expansions)
     }
 
     /** The pulled polyline's own length (m) — the provisional distance, the shared sum, never a staircase's. */
