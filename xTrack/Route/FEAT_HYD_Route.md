@@ -1,23 +1,24 @@
 # Context Hydration — Route — 2026-10-21
 
-**Last Bake:** 2026-10-21 13:56 UTC — written by `#bake` on `feature/route-sym-pull` (cut from `origin/develop` by the user's `#new route-sym-pull`); nothing of this branch is committed before this bake.
+**Last Bake:** 2026-10-21 20:14 UTC — written by `#bake` on `feature/whatEver` (cut from `origin/develop` by the user's `#new whatEver`); nothing of this branch is committed before this bake.
 
-**Directive trace:** two covered action classes were met and neither stopped. The device was read twice on the user's word (`adb logcat -d`, `dumpsys package`, after "grab the last searches" and "done fetch") and never written to, deployed or launched. A `#impl` order stood behind the code change, so no work started without one. No dependency was added; no baked spatial file was opened (the saved logs are text); and every claim about the code came from a file read. The user's `#bake` and `#commit` were their own invocations.
+**Directive trace:** no covered action class was met. No code changed — the session was discussion, one plan file written on the user's "plan this", and the git write on the user's own `#commit`. No dependency was added, no binary file was read, the device was never touched, and every claim about the code came from a file read.
 
 ## State
 
-**The phone's cost of the two-sided pull is measured, and the larger cost was a different one (2026-10-21).** An instrumented build (`PULL2` / `FINAL2` per-walk lines, `RUNG` per-rung line) put the pull at 24–36 % of a search; overlapping its two walks (F1, **unbuilt**) would save 0.83–0.87 s an attempt, 9–13 % of a plain search, and the memo shared between the walks is worth only 2–7 % of reads. The retry beside it was the real cost: with a route end inside a speed zone the forced-crossing probe walled the end in by its own zone, every rung read a forced crossing and grew a corridor that gave the same line, ~10 s of a 19–21 s search. **Fixed** (fix (b) of [`261021_FEAT_PLN_Route_pull-cost.md`](../../xTrack/Route/261021_FEAT_PLN_Route_pull-cost.md)): `RouteAvoidEngine.forcedCrossingNames` leaves open and never names the zones containing an end, through `MultipassGrid.blockedCopy`'s new `stayOpen` predicate. The leftovers are taken too: the probe names no `priced` list and reports `probeMs=`, four more tests pin the end-zone rule (two ends in two zones, a crossing inside an end zone, a routing override), and two mutations confirm the exemption and its crossing clause are each pinned. The full unit suite (1421) and `assembleDebug` are green. The leftovers are uncommitted at this bake; the commit `c662726c` predates them.
+**The `Any` pace's observed-speed source is redesigned in a plan (2026-10-21).** The discussion settled a new model: the reference becomes the last sustained free-water cruise speed, read off the recency-weighted smoothed speed curve of the current leg, with no wall-clock expiry — a wife's moment never counts, a sea change follows once it holds, and the value persists past idle. A **learned history** of earned speeds stands behind it, seeded from the last five water tracks, and the shipped 25 kn stays only as the first-ever floor. Nothing implemented — captured in [`261021_FEAT_PLN_Route_observed-pace-reference.md`](261021_FEAT_PLN_Route_observed-pace-reference.md).
 
-**Open:** the device pass on the zone pair (`RUNG reason=NONE grew=false`, `endZones=[…]`); F1 and its CPU-for-wall trade; the unmeasured `stayOpen` cost (now read as `probeMs=` on the device); `FINAL`'s input differing with the arming direction; one `evolutive` pair crowning a different rung each way.
+**Open:** the four dials (percentile level, window/weight timescale, dead-band, relative floor), the history's adaptation rate, and the settings surface the user is still discussing — a System/Navigation section with a track-count look-back, the tracks-list filter, a Calculate action and two status lines.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — `forcedCrossingNames` (end zones), `searchRung` + `RungReading` (the `RUNG` line)
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassGrid.kt` — `blockedCopy(paceKn, stayOpen)`
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt`, `RoutePassRunner.kt` — `PullSplit`, `pullBothWays(split=)`, `splitText`: the `PULL2` / `FINAL2` instrument
-- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteZonePhase4Test.kt` — five tests pinning the end-zone rule
-- `xTrack/Route/261021_FEAT_PLN_Route_pull-cost.md` — the plan, with the device results, the review rounds and `## Implemented`
+- `app/src/main/java/ykws/android/maro/data/route/RoutePace.kt` — the window/quantile today; becomes the smoothed-curve reference
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — `observePace` feeds it
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `routePaceForSearchKn` and the fallback
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the persisted learned value
+- `app/src/main/java/ykws/android/maro/data/track/` — the track store read to seed the history
+- `xTrack/Route/261021_FEAT_PLN_Route_observed-pace-reference.md` — the design
 
 ## Next Step
 
-Run the zone pair both ways on the device and read `RUNG` / `PROBE endZones=`; then decide F1 (parallel pull walks) on its 0.83–0.87 s.
+Settle the settings surface (the System/Navigation section), then the four dials, before any implementation.

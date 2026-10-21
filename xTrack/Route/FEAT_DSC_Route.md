@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-21 13:56
+modified: 2026-10-21 20:14
 ---
 
 # Feature: Route
@@ -195,6 +195,7 @@ The live numbered requirements — added after the master book was retired; the 
 - [`261017_FEAT_PLN_Route_gate-standoff-sampling.md`](261017_FEAT_PLN_Route_gate-standoff-sampling.md) — **the depth gate measured**: the traced 3 m line every guard reads, the 10 m floor and the berth's inner ramp, the 20 m end waiver, the corner pass's relative floor and the medial nudge; its `## Implemented` records what shipped, the two reviews and what stays open (implemented, device pass owed)
 - [`261019_FEAT_PLN_Route_route-sch-sort-landing-order.md`](261019_FEAT_PLN_Route_route-sch-sort-landing-order.md) — **the route search panel's order and selection**: the order moves only on landings, refusals and merges, a hand pick holds through the search and the last landing selects the winner with a toast; the stage words, the search-summary header, the early provisional figures and the live ranks counting a merged route once were its predecessor's, now archived (implemented, device pass owed)
 - [`261021_FEAT_PLN_Route_pull-cost.md`](261021_FEAT_PLN_Route_pull-cost.md) — **what the two-sided pull costs on the phone, and the retry beside it**: the instrumented device run (`PULL2` / `FINAL2` / `RUNG`), the end-zone probe fix that removes ~10 s from a zone search (implemented, device pass owed), and the parallel pull walks that would save 0.83–0.87 s an attempt (in design, unbuilt)
+- [`261021_FEAT_PLN_Route_observed-pace-reference.md`](261021_FEAT_PLN_Route_observed-pace-reference.md) — the `Any` pace's observed-speed source redesigned: the reference becomes the last sustained free-water cruise speed read off the recency-weighted smoothed curve, with a learned history seeded from the last water tracks and the shipped 25 kn only as the first-ever floor (in design)
 - [`261020_FEAT_PLN_Route_direction-symmetry.md`](261020_FEAT_PLN_Route_direction-symmetry.md) — **one pair, one line**: the stage-by-stage measurement over the baked region (the pull and one boxed end are the asymmetry; the corner pass, sweep and straightener are symmetric to under a metre), the step back out of a fine copy, the two-sided pull and the canonical-end search that shipped, and what the pull now costs (implemented, device pass owed)
 - Retired plans and docs live in `xTrack/Route/xxArchive/` with their index rows, and `#archive` is the only way into that folder
 
