@@ -698,7 +698,7 @@
          landed out of those started, then the cruising speed — under `Any` the pace the search
          evaluated, in brackets — then the preference; `settings_route_pace_value_fmt` renders the pace. -->
     <string name="route_header_landed_fmt">Landed %1$d/%2$d</string>
-    <string name="route_header_pace_any_fmt">Any (%1$s)</string>
+    <string name="route_header_pace_any_fmt">Now (%1$s)</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -770,10 +770,10 @@
     <string name="settings_route_pace_label">Cruising speed</string>
     <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow. At Any, the route plans at your boat\'s own pace.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
-    <string name="settings_route_pace_any">Any</string>
+    <string name="settings_route_pace_any">Now</string>
     <!-- The quick-access wheel's own word for the same stop: the wheel is a list of values, so the -->
     <!-- sentinel reads with dashes there and plain words on the Settings row. -->
-    <string name="settings_route_pace_any_wheel">--Any--</string>
+    <string name="settings_route_pace_any_wheel">--Now--</string>
     <!-- The verdict's dial: how much a second in slow water counts against a second of driving. Its stops
          are the weight's own chips and the track's two ends, and its top stop is the sentinel that weighs
          the slow seconds alone — named, never numbered. -->

@@ -178,6 +178,25 @@ data class AppSettings(
      */
     val routeEngineId: String = ykws.android.maro.config.AppConfig.routeEngineId,
     /**
+     * The recency ramp's share (0–100 %): how much the newest sailing counts against the oldest when the
+     * live reference and the speed history are reduced. Seeded from `route.pace.recentWeightPct`.
+     */
+    val routePaceRecentWeightPct: Float = ykws.android.maro.config.AppConfig.routePaceRecentWeightPct,
+    /**
+     * How many recent water tracks the speed-history window holds (1–15). Seeded from
+     * `route.speedHistory.trackCount`.
+     */
+    val routeSpeedHistoryTrackCount: Int = ykws.android.maro.config.AppConfig.routeSpeedHistoryTrackCount,
+    /**
+     * The learned speed-history window — one cruise speed per recent trip, oldest first, capped at 15.
+     * Persisted so a cold start plans on the boat's own past rather than the shipped pace.
+     */
+    val routeSpeedHistoryWindow: List<Float> = emptyList(),
+    /** When the history's displayed value was last computed (epoch ms), 0 when never. */
+    val routeSpeedHistoryComputedAtEpochMs: Long = 0L,
+    /** The history's displayed value (kn) — the recency-weighted median of the window, 0 when none. */
+    val routeSpeedHistoryComputedKn: Float = 0f,
+    /**
      * The speed-zone ids the user has excluded from route planning, default empty. Persisted so an
      * exclusion survives a restart; the avoid engine drops these ids before the fill, the ETA and the
      * forced-crossing report alike.
@@ -684,6 +703,21 @@ class SettingsManager(
             KEY_ROUTE_ENGINE_ID,
             ykws.android.maro.config.AppConfig.routeEngineId
         ) ?: ykws.android.maro.config.AppConfig.routeEngineId,
+        routePaceRecentWeightPct = prefs.getFloat(
+            KEY_ROUTE_PACE_RECENT_WEIGHT_PCT,
+            ykws.android.maro.config.AppConfig.routePaceRecentWeightPct
+        ).coerceIn(0f, 100f),
+        routeSpeedHistoryTrackCount = prefs.getInt(
+            KEY_ROUTE_SPEED_HISTORY_TRACK_COUNT,
+            ykws.android.maro.config.AppConfig.routeSpeedHistoryTrackCount
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN,
+            ykws.android.maro.config.AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX
+        ),
+        routeSpeedHistoryWindow = prefs.getString(KEY_ROUTE_SPEED_HISTORY_WINDOW, "")
+            ?.split('|')?.mapNotNull { it.toFloatOrNull() } ?: emptyList(),
+        routeSpeedHistoryComputedAtEpochMs = prefs.getLong(KEY_ROUTE_SPEED_HISTORY_AT, 0L),
+        routeSpeedHistoryComputedKn = prefs.getFloat(KEY_ROUTE_SPEED_HISTORY_KN, 0f),
         excludedSpeedZoneIds = prefs.getStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, emptySet())?.toSet()
             ?: emptySet(),
         routeStartSelectionGps = prefs.getString(KEY_ROUTE_START_SELECTION_GPS, "") ?: "",
@@ -900,6 +934,11 @@ class SettingsManager(
             .putInt(KEY_ROUTE_SLOW_WATER_STOP, updated.routeSlowWaterStop)
             .putFloat(KEY_ROUTE_MARKER_STRENGTH, updated.routeMarkerStrength)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
+            .putFloat(KEY_ROUTE_PACE_RECENT_WEIGHT_PCT, updated.routePaceRecentWeightPct)
+            .putInt(KEY_ROUTE_SPEED_HISTORY_TRACK_COUNT, updated.routeSpeedHistoryTrackCount)
+            .putString(KEY_ROUTE_SPEED_HISTORY_WINDOW, updated.routeSpeedHistoryWindow.joinToString("|"))
+            .putLong(KEY_ROUTE_SPEED_HISTORY_AT, updated.routeSpeedHistoryComputedAtEpochMs)
+            .putFloat(KEY_ROUTE_SPEED_HISTORY_KN, updated.routeSpeedHistoryComputedKn)
             .putStringSet(KEY_EXCLUDED_SPEED_ZONE_IDS, updated.excludedSpeedZoneIds)
             .putString(KEY_ROUTE_START_SELECTION_GPS, updated.routeStartSelectionGps)
             .putString(KEY_ROUTE_START_SELECTION_DEMO, updated.routeStartSelectionDemo)
@@ -1110,6 +1149,16 @@ class SettingsManager(
         private const val KEY_ROUTE_MARKER_STRENGTH = "route_marker_strength"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
         private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
+        /** The persisted recency ramp share (0–100). */
+        private const val KEY_ROUTE_PACE_RECENT_WEIGHT_PCT = "route_pace_recent_weight_pct"
+        /** The persisted speed-history track count (1–15). */
+        private const val KEY_ROUTE_SPEED_HISTORY_TRACK_COUNT = "route_speed_history_track_count"
+        /** The persisted speed-history window, pipe-joined cruise speeds. */
+        private const val KEY_ROUTE_SPEED_HISTORY_WINDOW = "route_speed_history_window"
+        /** When the speed-history value was last computed (epoch ms). */
+        private const val KEY_ROUTE_SPEED_HISTORY_AT = "route_speed_history_at"
+        /** The speed-history's displayed value (kn). */
+        private const val KEY_ROUTE_SPEED_HISTORY_KN = "route_speed_history_kn"
         /** The persisted set of speed-zone ids the user excluded from route planning. */
         private const val KEY_EXCLUDED_SPEED_ZONE_IDS = "excluded_speed_zone_ids"
         /** The persisted start the drawer arms on in GPS mode — a `RouteEndSelection` token. */

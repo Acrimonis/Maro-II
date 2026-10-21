@@ -47,6 +47,14 @@ object AppConfig {
     var routeFreeWaterPaceKn = 25f
         private set
 
+    /** The share (0–100 %) the newest sailing carries against the oldest in the pace's recency ramp — `route.pace.recentWeightPct`. */
+    var routePaceRecentWeightPct = 60f
+        private set
+
+    /** How many recent water tracks the speed-history window holds — `route.speedHistory.trackCount`, default 5. */
+    var routeSpeedHistoryTrackCount = 5
+        private set
+
     /**
      * Whether a marker's **price** (1–9) is armed for the route search. Set via `route.marker.enabled`.
      * It prices water and **never lifts a wall**: a Blocked marker (10) blocks whatever this says.
@@ -89,6 +97,12 @@ object AppConfig {
 
     /** **The `Any` stop** — the scale's first position, the absence of a preference and never a speed. */
     const val ROUTE_FREE_WATER_PACE_ANY = 0f
+
+    /** Lowest track count the speed-history window accepts. */
+    const val ROUTE_SPEED_HISTORY_TRACKS_MIN = 1
+
+    /** Highest track count the speed-history window accepts. */
+    const val ROUTE_SPEED_HISTORY_TRACKS_MAX = 15
 
     /**
      * The one ordered option list both doors read — the sentinel first, then the numbered stops lowest
@@ -1946,6 +1960,15 @@ object AppConfig {
             }
             props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
                 routeEngineId = it
+            }
+            props.getProperty("route.pace.recentWeightPct")?.toFloatOrNull()?.let {
+                routePaceRecentWeightPct = it.coerceIn(0f, 100f)
+            }
+            props.getProperty("route.speedHistory.trackCount")?.toIntOrNull()?.let {
+                routeSpeedHistoryTrackCount = it.coerceIn(
+                    ROUTE_SPEED_HISTORY_TRACKS_MIN,
+                    ROUTE_SPEED_HISTORY_TRACKS_MAX
+                )
             }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)

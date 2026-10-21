@@ -9,11 +9,11 @@ which forgets a cruise the moment the boat idles and lets harbour crawl into the
 settled a different model: **the reference is the most recently sustained free-water cruise speed, read as
 an abstraction off the smoothed speed curve of the current leg, with no wall-clock expiry** — so a wife's
 moment never counts, a sea change follows once it holds, and the value persists past idle. A **learned
-history** of those earned speeds stands behind it, so a cold start plans on the boat's own past rather than
-the shipped 25 kn.
+history** — a sliding window of the last N trip speeds reduced by a recency-weighted median — stands behind
+it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
 
 **Date:** 2026-10-21 · **Status:** in design · **Order:** the user's word — "explain", the `Any` challenge,
-"last relevant speed", "sustained", "weight recent navigation", "plan this".
+"last relevant speed", "sustained", "weight recent navigation", "plan this", "add to plan".
 
 ## The model
 
@@ -26,31 +26,52 @@ the shipped 25 kn.
   in until the first one does, and the shipped 25 kn is the floor beneath both.
 - **The cold start reads the history** — with no current reference yet, the learned history stands in, and
   only the very first sail, or a missing memory, falls back to the shipped 25 kn.
-- **Only earned references enter the history** — each sustained speed folds into a slow average, so a blip
-  or a harbour crawl never teaches it; navigation is "as fast as makes sense", so the history learns the
-  boat's real weather-and-mood cruise and the fishing-crawl objection is moot.
-- **The history can be seeded from the last water tracks** — the five most recent recorded water tracks
-  each reduce to one cruise speed by the same abstraction and average into the first learned value;
-  route-saved tracks are excluded because their points are plan arithmetic, not navigated speed, and a
-  derived speed is second-class wherever a stored `speedMps` is absent.
+- **`Any` resolves to the computed speed and is renamed to `-- Now --`** — the wheel and the Settings
+  slider carry the static word, and the dynamic computed speed reads in the dashboard route search display
+  (the panel header) and the Speed History section.
+- **The history is a sliding window of the last N trip speeds** — each completed trip reduces to one cruise
+  speed and enters the window, the oldest falls off past N, and the number is the window's **recency-weighted
+  median**, so one abnormal trip cannot move it; navigation is "as fast as makes sense", so the history
+  learns the boat's real weather-and-mood cruise.
+- **The seed is the user's Calculate action** — it rebuilds the window from the last N water tracks under
+  the tracks-list filter, route-saved tracks excluded because their points are plan arithmetic, not
+  navigated speed, and a derived speed second-class wherever a stored `speedMps` is absent; the filter is
+  one-shot, read only at the moment Generate runs.
 
 ## The gate as a smoothed curve
 
-- **Flatten** with a moving high percentile (median or 75th), recency-weighted by a linear ramp from 0 at
-  the oldest sample to 1 at the newest, over a window of about 60 s.
-- **A dip shorter than the window is a small weight share** and cannot cross the percentile alone — the
-  wife's blip vanishes by construction, with no separate "ignore" rule.
-- **A new level held long enough to outweigh the older plateau becomes the reference** — the duration test,
-  expressed as weight instead of a timer.
-- **The new reference is the plateau's central value**, not the spread around it.
-- **A separation dead-band** (~2 kn) stops throttle jitter from constantly re-establishing the reference.
-- **A relative cruise floor** (max of 5 kn and half the current reference) keeps harbour crawl out and a
-  slow cruiser in.
+- **Flatten** with a moving 75th percentile, recency-weighted by a linear ramp from 0 at the oldest sample
+  to 1 at the newest; the span adapts to the curve — no fixed window.
+- **A dip too short to be a real level is a small weight share** and cannot cross the percentile alone —
+  the wife's blip vanishes by construction, with no separate "ignore" rule and no dead-band.
+- **The current cruise speed is the plateau of the smoothed curve** — read off the flattened curve, so a
+  new level becomes the reference the moment the curve settles on it.
+- **The `restricted` flag is the sole "not cruising" guard** — a reading inside the 300 m band or a speed
+  zone is dropped before smoothing, and the history seed runs the same band/zone check per point, so no
+  floor is needed.
 
 ## Dials — the user's call, because they change what the route shows
 
-- The percentile level (robustness), the window length / weight timescale (lag versus moment), the dead-band,
-  and the relative floor.
+- The percentile (75th) and the recent-sailing weight (the recency ramp, 0–100 %) are the two remaining
+  knobs; the window, the dead-band and the floor are all read off the smoothed curve and the restricted flag,
+  not set.
+
+## Settings surface — System / Navigation
+
+- **Track count** — a slider from 1 to 15, default 5; the N is a **live read** over the stored trip
+  speeds, so moving the slider re-slices the history instantly, no Generate needed.
+- **The store keeps up to 15 trip speeds** — the top of the slider, so raising N never loses an older trip;
+  N only trims how many the weighted median reads, while a completed trip appends and drops the oldest past
+  15.
+- **Filter** — a filter icon opening the full filter popup, default **empty** (all tracks), **persisted**,
+  read only at the moment Generate runs, which owns the *content* while N owns the *size*; the section also
+  shows how many tracks the filter selects.
+- **Calculate Speed History** — rebuilds the window from the last N filtered tracks; the heavy work lives
+  here, never on a cold start.
+- **"Speed history reset on [date] to [speed]"** — the last Generate's snapshot.
+- **"Speed History today at [speed]"** — the window's current value, every fold since Generate included.
+- The action title, both status lines and the pace stop's `-- Now --` label are user-facing strings in both
+  locales, read through `@StringRes` ids.
 
 ## Files
 
@@ -78,8 +99,10 @@ the shipped 25 kn.
 
 ## Open points
 
-- The dial values (60 s, ±10 %, 2 kn, half-reference floor) are proposals, not settled.
-- Whether the abstraction is a median or a high quantile, and how steep the recency ramp, follow the two
-  dials moving together: more recency weight demands a higher percentile.
-- How fast the history adapts — the EWMA's α, or a plain average capped at some reference count — sets how
-  long an old habit lingers after the boat's behaviour changes.
+- The percentile is the 75th, settled; the smoothing span, dead-band and floor are decided by the curve and
+  the `restricted` flag, not set.
+- The recent-sailing weight is a 0–100 % slider, the share given to the newest sailing, default 60 %.
+- The filter's default is **empty** and the chosen value is **persisted**; the count is a 1–15 slider,
+  default 5.
+- The `Now` stop reads *Live* in French; the dynamic value reads in the dashboard route search
+  display.

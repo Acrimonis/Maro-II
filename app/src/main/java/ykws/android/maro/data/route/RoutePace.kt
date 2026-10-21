@@ -3,46 +3,36 @@ package ykws.android.maro.data.route
 import ykws.android.maro.config.AppConfig
 
 /**
- * The pace a route's trip figure plans at.
+ * The pace a route's trip figure plans at — the reference read off the smoothed speed curve of the
+ * current leg.
  *
- * A route's ETA starts on the set free-water pace, because a boat that has not moved yet has no
- * evidence to offer. Once it has been under way, the boat's own speed over ground is the better
- * answer — but only where that speed means something: taken inside a regulated zone or inside the
- * 300 m band, the reading is the speed the *limit* allowed, not the speed the boat will hold, so
- * those samples are dropped by the caller's [Sample.restricted] flag rather than averaged in.
+ * The model: the boat's own free-water speed-over-ground readings are reduced to a **recency-weighted
+ * 75th percentile**. The percentile drops the slowest quarter, so a lull never drags the cruise down; the
+ * recency ramp gives the newest sailing more weight ([recentWeightPct]), so a genuine change of pace takes
+ * over once it fills the recent end of the curve, while a blip too short to be a real level stays too small
+ * a share to move it. There is no fixed window and no dead-band: the weighted percentile is the smoothed
+ * curve's plateau, read live.
  *
- * The window is reduced by a **high quantile, not a mean**: a boat's average is dragged down by
- * every swell, turn and idle minute, and a mean-paced ETA that promises more than the boat delivers
- * is the one error a navigator notices. A quantile near the top of the window is the pace the boat
- * actually holds when it is going well, which is the honest number to promise.
+ * Restricted readings — taken inside a regulated speed zone or the 300 m band, where the limit rather than
+ * the boat sets the number — are dropped by the caller's [Sample.restricted] flag before the reduction.
  *
- * Thin windows fall back to the set pace: below [MIN_SAMPLES] there is no pace to speak of, and a
- * guess dressed as a measurement is worse than the setting the user chose.
+ * Thin buffers fall back to the set pace: below [MIN_SAMPLES] there is no plateau to read, and a guess
+ * dressed as a measurement is worse than the value the caller already chose.
  *
  * Pure Kotlin, no Android dependency, so the reduction is a unit test rather than a device run.
  */
 object RoutePace {
 
-    /** How far back the window reaches (ms): the last ten minutes of sailing. */
+    /** How far back the buffer reaches (ms): the last ten minutes of sailing. */
     const val WINDOW_MS: Long = 10 * 60 * 1_000L
 
-    /**
-     * The quantile the window is reduced by — 0.75, the pace held for three quarters of the window
-     * or better. High enough to be the boat's real pace, low enough not to be its best moment.
-     */
+    /** The quantile the curve is reduced by — 0.75, the pace held for three quarters of the buffer or better. */
     const val QUANTILE: Double = 0.75
 
-    /** Below this many eligible samples the window is too thin to trust and the set pace stands. */
+    /** Below this many eligible samples the buffer is too thin to trust and the set pace stands. */
     const val MIN_SAMPLES: Int = 5
 
-    /**
-     * One speed reading.
-     *
-     * @property speedKn    speed over ground (kn).
-     * @property atMs       when it was taken (epoch millis).
-     * @property restricted true when the reading was taken inside a regulated zone or the 300 m
-     *                      band, where it measures the limit rather than the boat.
-     */
+    /** One speed reading. */
     data class Sample(
         val speedKn: Double,
         val atMs: Long,
@@ -50,28 +40,46 @@ object RoutePace {
     )
 
     /**
-     * @param samples   the recent readings, oldest first or in any order.
-     * @param nowMs     the moment the pace is asked for.
-     * @param setPaceKn the pace the user set, used whenever the window has nothing to say.
+     * @param samples          the recent readings, oldest first or in any order.
+     * @param nowMs            the moment the pace is asked for.
+     * @param setPaceKn        the pace the user set, used whenever the buffer has nothing to say.
+     * @param recentWeightPct  0–100: the extra share the newest sailing carries against the oldest, linear.
      * @return the pace to plan with (kn), always inside the setting's own span.
      */
-    fun paceKn(samples: List<Sample>, nowMs: Long, setPaceKn: Double): Double {
+    fun paceKn(
+        samples: List<Sample>,
+        nowMs: Long,
+        setPaceKn: Double,
+        recentWeightPct: Double = 0.0
+    ): Double {
         val eligible = samples
             .filter { !it.restricted && it.speedKn.isFinite() && it.speedKn > 0.0 }
             .filter { it.atMs <= nowMs && it.atMs >= nowMs - WINDOW_MS }
-            .map { it.speedKn }
-            .sorted()
+            .sortedBy { it.atMs }
         if (eligible.size < MIN_SAMPLES) return clamp(setPaceKn)
-        return clamp(quantile(eligible))
+        return clamp(weightedQuantile(eligible, QUANTILE, recentWeightPct))
     }
 
     /**
-     * The nearest-rank quantile: the smallest sample at or above which [QUANTILE] of the window
-     * sits. Sorting has already happened, so this is one index, not a second pass.
+     * The recency-weighted quantile: each sample's weight is `1 + (recentWeightPct / 100) × rank`, rank
+     * running 0 at the oldest to 1 at the newest, so 0 % is the plain quantile and 100 % doubles the
+     * newest sample's weight against the oldest. Sorted by speed, the answer is the first speed whose
+     * cumulative weight crosses [quantile] of the total.
      */
-    private fun quantile(sorted: List<Double>): Double {
-        val rank = Math.ceil(sorted.size * QUANTILE).toInt().coerceIn(1, sorted.size)
-        return sorted[rank - 1]
+    private fun weightedQuantile(byTime: List<Sample>, quantile: Double, recentWeightPct: Double): Double {
+        val n = byTime.size
+        val denom = (n - 1).coerceAtLeast(1)
+        val weighted = byTime.mapIndexed { i, s ->
+            s.speedKn to (1.0 + (recentWeightPct / 100.0) * (i.toDouble() / denom))
+        }
+        val total = weighted.sumOf { it.second }
+        val target = total * quantile
+        var acc = 0.0
+        for ((speed, weight) in weighted.sortedBy { it.first }) {
+            acc += weight
+            if (acc >= target) return speed
+        }
+        return byTime.last().speedKn
     }
 
     /** A pace outside the setting's span is a bad sample, not a new range. */

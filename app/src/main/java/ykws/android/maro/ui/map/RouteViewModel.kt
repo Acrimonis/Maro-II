@@ -1034,12 +1034,16 @@ class RouteViewModel(
         while (paceSamples.isNotEmpty() && paceSamples.first().atMs < nowMs - RoutePace.WINDOW_MS) {
             paceSamples.removeFirst()
         }
-        // The sentinel never reaches RoutePace's clamp: `Any` resolves to the shipped fallback here, so
-        // a cold start plans at 25 kn rather than being snapped into the slowest boat on the scale.
+        // The sentinel never reaches RoutePace's clamp: `Any` resolves to the learned history's value
+        // here when the boat has no evidence, and to the shipped fallback only when there is no history —
+        // so a cold start plans on the boat's own past rather than 25 kn.
+        val historyKn = settings.value.routeSpeedHistoryComputedKn
+            .takeIf { it > 0f }?.toDouble()
         _paceKn.value = RoutePace.paceKn(
             paceSamples.toList(),
             nowMs,
-            AppConfig.routePaceForSearchKn(setPaceKn, null)
+            AppConfig.routePaceForSearchKn(setPaceKn, historyKn),
+            recentWeightPct = settings.value.routePaceRecentWeightPct.toDouble()
         )
     }
 
