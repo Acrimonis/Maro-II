@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-21 13:56
+modified: 2026-10-21 18:53
 ---
 
 # Feature: Route
@@ -53,6 +53,8 @@ an ordinary track.
 - **The corner pass rounds a line's bends from what the line gives it** — the fit is a clothoid → arc → clothoid whose reach takes the whole **significant** leg, a kink too flat to be a corner keeping its own point and taking no room, and the corner floor is a **target rather than a refusal**: the room may draw a bend under it, down to the pass's own 1 kn bottom. A close pair of bends turning the **same way** within the tangent a pace-speed curve needs for their summed angle is read as **one turn**, over the crossing of its two outer legs; two bends on one leg **share** it, each weighted by its own angle; and the overlap guard measures bow to bow, a bow taking back the points it has passed on either side so the drawn line never folds back. The coast test is **relative to the corner it replaces** — a bow may not come closer to the shore than the corner itself — and so is the depth gate's, at its preferred standoff, the blocked water itself staying absolute and a point outside the ends' waiver never under the wall; every straight the pass draws that no earlier stage measured — a bow's chords, the chords joining it past the kinks it passes, a merged pair's extensions to their crossing — is measured against the same walls; and every bend's answer, its room, its share, the limit in force at it and whether it stands in the band are named by the `CORNERS` and `CORNER` lines the pass prints on the `MaroRoute` trace. Design, measurements and the device evidence live in [`261013_FEAT_PLN_Route_corner-pass-fixes.md`](261013_FEAT_PLN_Route_corner-pass-fixes.md); [`RouteCornerPassTest`](../../app/src/test/java/ykws/android/maro/spatial/multipass/RouteCornerPassTest.kt) pins each rule.
 
 - **A pair arms as one line from either end, within the bar** — three changes, measured over the baked region by the gated `RouteDirectionSymmetryTest` over `BakedRegionWorld` (`-Dmaro.prebake=true`): the pass's **search leaves the end that sorts first** by latitude, then longitude, the cells and the guard's points swapped together and the path turned back, walking the other way once if that lands no path ([`RoutePassRunner.searchFromCanonicalEnd`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt), the rule read from `sortsFirst`); the two pulls run **both ways** and keep the cheaper line, priced in a canonical direction ([`MultipassPull.pullBothWays`](../../app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt)); and a coarse block's fine copy has its **step back out** ([`WalkWindows.coarseNeighbourOfCopy`](../../app/src/main/java/ykws/android/maro/spatial/multipass/WalkLattice.kt)). The 24-pair survey went from 5 plan-pair runs over the bar (same crown, 100 m, 30 s) to 0, the line gap to a worst 0.4 m. **It costs:** the two-sided pull doubles the pull, which is 75–90 % of the coarse pass, so a ladder takes 64 % (`avoid`) to 79 % (`evolutive`) longer on a desktop JVM, and a pair with no path walks up to four searches instead of two. Record: [`261020_FEAT_PLN_Route_direction-symmetry.md`](261020_FEAT_PLN_Route_direction-symmetry.md).
+
+- **An end beyond the fine ribbon anchors on the coarse layer** (2026-10-21) — the fine layer is the coastal ribbon only (`gateDistanceM <= depthCollarM`); an end standing past it keeps its fine cell land and anchors on the coarse cell, so a destination in open water beyond the ribbon is no longer walled by a manufactured one-cell fine island ([`RouteGridBuilder.kt`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteGridBuilder.kt:303)).
 
 ### Placement and the three seams
 
@@ -175,6 +177,8 @@ The live numbered requirements — added after the master book was retired; the 
 - `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — the index pass that projects the flag and the two end ids into every summary
 
 ## Docs
+
+- [`261021_FEAT_PLN_Route_end-fine-island.md`](261021_FEAT_PLN_Route_end-fine-island.md) — **an end beyond the fine ribbon**: the destination anchored on a manufactured one-cell fine island (the fine layer is the coastal ribbon only), and the fix that leaves a no-water fine cell land so the end anchors on the coarse cell (implemented, device pass owed)
 
 - [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) — **the central reference for the acquisition engines as they stand**: the seam, the three shipped rows, the ladder and its ranking, the pipeline, the plan seam, the shared `multipass` layer, the water they price, the readings and the known gaps — present tense, no history
 - [`260929_FEAT_DOC_Route_engine-interface.md`](260929_FEAT_DOC_Route_engine-interface.md) — the engine interface's spec: the types, the repair, the reason set, the computations and the disposals
