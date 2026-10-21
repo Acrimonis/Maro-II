@@ -145,7 +145,9 @@ internal class RoutePassRunner {
         val pullStartNs = System.nanoTime()
         // Both pulls read the path from both ends and keep the cheaper, so a pair armed from either end draws
         // one line from one cell chain (`261020_FEAT_PLN_Route_direction-symmetry.md`).
-        val pulled = MultipassPull.pullBothWays(setup, full, refusals, pullTiming)
+        val pullSplit = PullSplit()
+        val pulled = MultipassPull.pullBothWays(setup, full, refusals, pullTiming, split = pullSplit)
+        trace { splitText("PULL2", pullSplit) }
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
@@ -175,7 +177,9 @@ internal class RoutePassRunner {
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
-        val final = MultipassPull.pullBothWays(setup, snapped, refusals, finalTiming)
+        val finalSplit = PullSplit()
+        val final = MultipassPull.pullBothWays(setup, snapped, refusals, finalTiming, split = finalSplit)
+        trace { splitText("FINAL2", finalSplit) }
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
@@ -236,6 +240,28 @@ internal class RoutePassRunner {
         if (canonical.path != null) return canonical
         val other = walk(!canonicalFromAim)
         return other.copy(expansions = canonical.expansions + other.expansions)
+    }
+
+    /**
+     * **One two-sided pull's walks, told apart** — the forward and backward walk's wall clock, clearance and
+     * price clocks, paid price reads and the memo hits each ran under, then the choice's clock and verdict.
+     * The `PULL` / `FINAL` line beside it keeps the sum; this line is what overlapping the two walks would
+     * save (the slower walk against the two) and what the first walk's memo handed the second (`bwd` hits
+     * against `fwd`). A walk the path was too short to run reads `-`.
+     */
+    private fun splitText(label: String, split: PullSplit): String {
+        fun walkText(side: String, walk: PullSplit.Walk?): String {
+            if (walk == null) return "${side}Ms=- "
+            val t = walk.tally
+            return "${side}Ms=${fmt(walk.ms)} ${side}ClearMs=${fmt(t.clearanceNanos / NANOS_PER_MS)} " +
+                "${side}PriceMs=${fmt(t.priceNanos / NANOS_PER_MS)} ${side}PriceReads=${t.priceReads} " +
+                "${side}Marks=${t.marks} ${side}PriceHits=${t.priceHits} ${side}HardHits=${t.hardHits} " +
+                "${side}EdgeHits=${t.edgeHits} "
+        }
+        return "$label kept=${split.kept ?: "-"} " +
+            walkText("fwd", split.forwardWalk) + walkText("bwd", split.backwardWalk) +
+            "choiceMs=${fmt(split.choiceMs)} " +
+            "fwdSec=${split.forwardSec?.let { fmt(it) } ?: "-"} bwdSec=${split.backwardSec?.let { fmt(it) } ?: "-"}"
     }
 
     /** The pulled polyline's own length (m) — the provisional distance, the shared sum, never a staircase's. */

@@ -50,9 +50,9 @@ import ykws.android.maro.spatial.multipass.RoutePassRunner
 import ykws.android.maro.spatial.multipass.RoutePreference
 import ykws.android.maro.spatial.multipass.TimedLine
 import ykws.android.maro.spatial.multipass.UniformGridPlan
-import ykws.android.maro.spatial.multipass.ZoneRing
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.clockSampleM
+import ykws.android.maro.spatial.multipass.contains
 import ykws.android.maro.spatial.multipass.crossedSlowZoneNames
 import ykws.android.maro.spatial.multipass.depthClearsGate
 import ykws.android.maro.spatial.multipass.fmt
@@ -492,18 +492,96 @@ class RouteAvoidEngine(
         lambda: Double,
         lookupId: RouteId
     ): Rung? {
+        val reading = RungReading()
+        val firstStartNs = System.nanoTime()
         val first = solveAtLambda(grid, lambda, lookupId)
+        reading.firstMs = msSince(firstStartNs)
+        reading.first = first
         if (first == null) {
-            if (grid.regionSaturated) return null
-            val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace) ?: return null
-            return solveAtLambda(grown, lambda, lookupId)
+            if (grid.regionSaturated) return reading.settle(grid, lambda, null)
+            val grown = grownGrid(grid, reading) ?: return reading.settle(grid, lambda, null)
+            return reading.settle(grid, lambda, solveGrown(grown, lambda, lookupId, reading), grown = true)
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
         // the "around" rung's whole job. The wider answer is kept only where it forces fewer crossings.
-        if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) return first
-        val grown = gridBuilder.buildGrid(grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace) ?: return first
-        val grownRung = solveAtLambda(grown, lambda, lookupId) ?: return first
-        return if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
+        if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) {
+            return reading.settle(grid, lambda, first, grown = false)
+        }
+        val grown = grownGrid(grid, reading) ?: return reading.settle(grid, lambda, first, grown = false)
+        val grownRung = solveGrown(grown, lambda, lookupId, reading)
+            ?: return reading.settle(grid, lambda, first, grown = false)
+        val kept =
+            if (grownRung.result.forcedCrossingZoneNames.size < first.result.forcedCrossingZoneNames.size) grownRung else first
+        return reading.settle(grid, lambda, kept, grown = true)
+    }
+
+    /** The growth escalation's corridor — twice the shipped reach — with its rasterise timed into [reading]. */
+    private suspend fun grownGrid(grid: GridContext, reading: RungReading): GridContext? {
+        val startNs = System.nanoTime()
+        val grown = gridBuilder.buildGrid(
+            grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace
+        )
+        reading.growBuildMs = msSince(startNs)
+        return grown
+    }
+
+    /** The grown corridor's solve, its clock and its answer kept in [reading] beside the first attempt's. */
+    private suspend fun solveGrown(
+        grown: GridContext,
+        lambda: Double,
+        lookupId: RouteId,
+        reading: RungReading
+    ): Rung? {
+        val startNs = System.nanoTime()
+        val rung = solveAtLambda(grown, lambda, lookupId)
+        reading.grownMs = msSince(startNs)
+        reading.grown = rung
+        return rung
+    }
+
+    /**
+     * **What one rung's search spent and why it grew, or did not** — the first attempt's clock and answer,
+     * the growth's rasterise and solve, and whether the wider answer was the one kept. It exists to tell the
+     * retry that changed nothing from the one that found a way around; it steers nothing.
+     */
+    private inner class RungReading {
+        var first: Rung? = null
+        var grown: Rung? = null
+        var firstMs = 0.0
+        var growBuildMs = 0.0
+        var grownMs = 0.0
+
+        /**
+         * Emits the rung's one `RUNG` line and hands [answer] back, so every exit of [searchRung] reads the same.
+         * The two ends' own zone limit is read here and only when the line is wanted: a route end standing in
+         * a speed zone is the case the growth cannot help.
+         */
+        fun settle(grid: GridContext, lambda: Double, answer: Rung?, grown: Boolean = false): Rung? {
+            val firstAnswer = first
+            val reason = when {
+                firstAnswer == null -> "NO_PATH"
+                firstAnswer.result.forcedCrossingZoneNames.isNotEmpty() -> "FORCED"
+                else -> "NONE"
+            }
+            trace {
+                fun zoneKn(p: RoutePoint): String =
+                    grid.world.zoneLimitKnAt(p.latitude, p.longitude)?.let { fmt(it) } ?: "-"
+                fun rungText(side: String, rung: Rung?): String =
+                    if (rung == null) {
+                        "${side}Forced=- ${side}Sec=- ${side}M=-"
+                    } else {
+                        "${side}Forced=[${rung.result.forcedCrossingZoneNames.joinToString(", ")}] " +
+                            "${side}Sec=${fmt(rung.result.durationSec)} ${side}M=${fmt(rung.result.distanceM)}"
+                    }
+                "RUNG lambda=${fmt(lambda, 2)} reason=$reason grew=$grown " +
+                    "kept=${if (answer == null) "NONE" else if (answer === this.grown) "GROWN" else "FIRST"} " +
+                    "regionSaturated=${grid.regionSaturated} " +
+                    "firstMs=${fmt(firstMs)} growBuildMs=${fmt(growBuildMs)} grownMs=${fmt(grownMs)} " +
+                    "startZoneKn=${zoneKn(grid.from)} aimZoneKn=${zoneKn(grid.to)} " +
+                    rungText("first", first) + " " + rungText("grown", this.grown)
+            }
+            return answer
+        }
     }
 
     /**
@@ -624,7 +702,7 @@ class RouteAvoidEngine(
         )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
-            ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
+            ctx.grid, ctx.zones, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
             ctx.startCell, ctx.aimCell, refined, ctx.gate
         )
         // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
@@ -935,11 +1013,15 @@ class RouteAvoidEngine(
      * Whether the route was forced through a priced zone: with every restrictive zone's interior
      * blocked the corridor has no avoiding path, and the names reported are the restrictive zones the
      * drawn line enters. An ordinary priced crossing — a way around exists — reports nothing.
+     *
+     * **A zone a route end stands in is no crossing.** Its water is left open in the probe and its name is
+     * never reported: blocking it walls the end in at any corridor width, so every rung read the end's own
+     * zone as a forced crossing and grew a corridor that could not change the answer
+     * (`261021_FEAT_PLN_Route_pull-cost.md`). A zone the line must cross elsewhere still counts.
      */
     private suspend fun forcedCrossingNames(
         grid: MultipassGrid,
         zones: List<SpeedZone>,
-        priced: List<ZoneRing>,
         cellM: Double,
         pace: Double,
         lambda: Double,
@@ -950,12 +1032,23 @@ class RouteAvoidEngine(
         waypoints: List<LatLng>,
         gate: GateRule?
     ): List<String> {
-        val restrictive = priced.filter { zonePriceSec(cellM, pace, it.limitKn, lambda) > 0.0 }
-        if (restrictive.isEmpty()) {
-            trace { "PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]" }
+        val restrictiveZones = zones.filter { zonePriceSec(cellM, pace, it.routeLimitKn, lambda) > 0.0 }
+        val (endZones, crossingZones) = restrictiveZones.partition {
+            it.contains(from.latitude, from.longitude) || it.contains(to.latitude, to.longitude)
+        }
+        fun probeText(tail: String): String =
+            "PROBE restrictive=[${restrictiveZones.joinToString(", ") { it.name }}] " +
+                "endZones=[${endZones.joinToString(", ") { it.name }}] $tail"
+        if (crossingZones.isEmpty()) {
+            trace { probeText("avoiding=n/a expansions=0 forced=[]") }
             return emptyList()
         }
-        val blocked = grid.blockedCopy(pace)
+        // A cell stays open when it lies in an end's zone and in no zone the line must keep out of.
+        fun stayOpenAt(p: LatLng): Boolean =
+            endZones.any { it.contains(p.latitude, p.longitude) } &&
+                crossingZones.none { it.contains(p.latitude, p.longitude) }
+        val probeStartNs = System.nanoTime()
+        val blocked = grid.blockedCopy(pace, ::stayOpenAt.takeIf { endZones.isNotEmpty() })
         blocked.forceFree(from.latitude, from.longitude)
         blocked.forceFree(to.latitude, to.longitude)
         // The probe walks the same wall the search does, so a gap the guarded search cannot use never
@@ -964,16 +1057,14 @@ class RouteAvoidEngine(
             blocked, startCell, aimCell, Units.knotsToMps(pace),
             stepGuard = gate?.let { StepGuard(it, from.toLatLng(), to.toLatLng()) }
         )
+        val probeMs = msSince(probeStartNs)
         val avoiding = probe.path != null
-        val restrictiveZones = zones.zip(priced)
-            .filter { (_, p) -> zonePriceSec(cellM, pace, p.limitKn, lambda) > 0.0 }
-            .map { (z, _) -> z }
-        val names = forcedCrossingZoneNames(waypoints, restrictiveZones, avoiding)
+        val names = forcedCrossingZoneNames(waypoints, crossingZones, avoiding)
         trace {
-            "PROBE restrictive=[${restrictiveZones.joinToString(", ") { it.name }}] " +
-                "avoiding=$avoiding expansions=${probe.expansions} " +
-                "passable=${probe.passableCells} aimClosed=${probe.aimClosed} " +
-                "forced=[${names.joinToString(", ")}]"
+            probeText(
+                "avoiding=$avoiding expansions=${probe.expansions} passable=${probe.passableCells} " +
+                    "aimClosed=${probe.aimClosed} probeMs=${fmt(probeMs)} forced=[${names.joinToString(", ")}]"
+            )
         }
         return names
     }

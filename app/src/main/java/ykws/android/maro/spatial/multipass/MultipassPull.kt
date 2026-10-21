@@ -514,18 +514,29 @@ object MultipassPull {
      * The line comes back in the caller's direction, ends first and last as in [pull]. A path of two points
      * or fewer, and a pair of candidates that agree, are answered at once. [refusals] and [timing] count
      * both walks, which is what they cost; [memo] is shared, the field being the same.
+     *
+     * [split] is the instrument's seat: where one is handed in, each walk's own clock and tallies, the
+     * choice's clock and the verdict are written into it, so a reader can tell the two walks apart where
+     * [timing] and [memo] only hold their sum. It reads and never steers.
      */
     internal fun pullBothWays(
         setup: PullSetup,
         path: List<LatLng>,
         refusals: PullRefusals? = null,
         timing: PullTiming? = null,
-        memo: MarkMemo? = MarkMemo()
+        memo: MarkMemo? = MarkMemo(),
+        split: PullSplit? = null
     ): List<LatLng> {
-        val forward = pull(setup, path, refusals, timing, memo)
+        val forward = split.read(timing, memo) { pull(setup, path, refusals, timing, memo) }
         if (path.size <= 2) return forward
-        val backward = pull(setup.reversed(), path.asReversed(), refusals, timing, memo).asReversed()
-        if (forward == backward) return forward
+        val backward = split.read(timing, memo, forward = false) {
+            pull(setup.reversed(), path.asReversed(), refusals, timing, memo).asReversed()
+        }
+        if (forward == backward) {
+            split?.settle(PullSplit.Kept.SAME, 0.0, null, null)
+            return forward
+        }
+        val choiceStartNs = System.nanoTime()
         val ctx = setup.context(memo = memo)
         val forwardCanonical = canonicalDirection(forward)
         val backwardCanonical = canonicalDirection(backward)
@@ -536,7 +547,32 @@ object MultipassPull {
         } else {
             compareLines(forwardCanonical, backwardCanonical) <= 0
         }
+        split?.settle(
+            if (forwardWins) PullSplit.Kept.FORWARD else PullSplit.Kept.BACKWARD,
+            (System.nanoTime() - choiceStartNs) / NANOS_PER_MS, forwardSec, backwardSec
+        )
         return if (forwardWins) forward else backward
+    }
+
+    /**
+     * One walk of [pullBothWays] run under the instrument: with no [PullSplit] it is the walk and nothing
+     * else; with one, the walk's clock and the **deltas** of the tallies it ran under — the memo's hits
+     * included, so the backward walk's count is what the forward walk's entries did not already answer.
+     */
+    private inline fun PullSplit?.read(
+        timing: PullTiming?,
+        memo: MarkMemo?,
+        forward: Boolean = true,
+        walk: () -> List<LatLng>
+    ): List<LatLng> {
+        if (this == null) return walk()
+        val before = PullSplit.Tally.of(timing, memo)
+        val startNs = System.nanoTime()
+        val line = walk()
+        val ms = (System.nanoTime() - startNs) / NANOS_PER_MS
+        val walked = PullSplit.Walk(ms, PullSplit.Tally.of(timing, memo) - before)
+        if (forward) forwardWalk = walked else backwardWalk = walked
+        return line
     }
 
     /** [line] turned so its first point sorts before its last by latitude, then longitude. */
@@ -1471,5 +1507,82 @@ class PullTiming {
         memoPriceHits = memo?.priceHits ?: 0L
         memoHardHits = memo?.hardHits ?: 0L
         memoEdgeHits = memo?.edgeHits ?: 0L
+    }
+}
+
+/**
+ * **What each walk of one [MultipassPull.pullBothWays] call spent, told apart** — [PullTiming] and
+ * [MarkMemo] hold the two walks' sum, and the sum cannot say what overlapping them would save or how much
+ * of the second walk the first one's memo answered. This holds the forward walk and the backward walk
+ * apiece, the choice's own clock and the verdict, and is handed in where a reader wants it, exactly like
+ * [PullTiming]: the answer does not depend on carrying one, and nothing is emitted per chord.
+ *
+ * A walk's hits are the memo's **deltas over that walk**, so the backward walk's price hits are the reads
+ * it did not pay, its own retraced stretches and the forward walk's entries together; its paid reads fall
+ * against the forward walk's by what the first walk's memo handed it.
+ */
+class PullSplit {
+
+    /** The verdict: both walks drew one line, or the cheaper of two lines was the forward or the backward. */
+    enum class Kept { SAME, FORWARD, BACKWARD }
+
+    /** One walk's counters over its own span — a delta of [PullTiming] and [MarkMemo], never a running total. */
+    data class Tally(
+        val clearanceNanos: Long,
+        val priceNanos: Long,
+        val priceReads: Long,
+        val marks: Long,
+        val priceHits: Long,
+        val hardHits: Long,
+        val edgeHits: Long
+    ) {
+        operator fun minus(other: Tally): Tally = Tally(
+            clearanceNanos - other.clearanceNanos, priceNanos - other.priceNanos,
+            priceReads - other.priceReads, marks - other.marks,
+            priceHits - other.priceHits, hardHits - other.hardHits, edgeHits - other.edgeHits
+        )
+
+        companion object {
+            /** The counters as they stand now; a tally the call carries none of reads zero. */
+            internal fun of(timing: PullTiming?, memo: MarkMemo?): Tally = Tally(
+                timing?.clearanceNanos ?: 0L, timing?.priceNanos ?: 0L,
+                timing?.priceReads ?: 0L, timing?.marks ?: 0L,
+                memo?.priceHits ?: 0L, memo?.hardHits ?: 0L, memo?.edgeHits ?: 0L
+            )
+        }
+    }
+
+    /** One walk's wall clock (ms) and the counters it ran under. */
+    data class Walk(val ms: Double, val tally: Tally)
+
+    /** The forward walk, or `null` until the call has run it. */
+    var forwardWalk: Walk? = null
+        internal set
+
+    /** The backward walk, or `null` where the path was too short to walk it. */
+    var backwardWalk: Walk? = null
+        internal set
+
+    /** Which line the call kept, or `null` for a path too short to walk twice. */
+    var kept: Kept? = null
+        private set
+
+    /** The choice's own clock (ms): the two canonical lines' priced totals, `0.0` where the lines agreed. */
+    var choiceMs: Double = 0.0
+        private set
+
+    /** The forward line's total seconds in the canonical direction, `null` where no choice was made. */
+    var forwardSec: Double? = null
+        private set
+
+    /** The backward line's total seconds in the canonical direction, `null` where no choice was made. */
+    var backwardSec: Double? = null
+        private set
+
+    internal fun settle(kept: Kept, choiceMs: Double, forwardSec: Double?, backwardSec: Double?) {
+        this.kept = kept
+        this.choiceMs = choiceMs
+        this.forwardSec = forwardSec
+        this.backwardSec = backwardSec
     }
 }
