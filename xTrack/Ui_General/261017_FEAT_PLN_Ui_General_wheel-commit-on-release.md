@@ -3,6 +3,12 @@
 **Feature:** Ui_General · **Date:** 2026-10-17 · **Branch:** `feature/sp-ui` · **Status:** implemented — build and scoped suite green; the device pass on the release timing is owed
 **Owner surface:** the one dropdown control, [`DropdownRow`](../../app/src/main/java/ykws/android/maro/ui/components/DropdownRow.kt:87) with its popup body [`DropdownWheel`](../../app/src/main/java/ykws/android/maro/ui/components/DropdownWheel.kt:75) and the pure arithmetic in [`WheelPolicy`](../../app/src/main/java/ykws/android/maro/ui/components/WheelPolicy.kt:1).
 
+> **Superseded 2026-10-21 where it states the commit rule**, by
+> [`261021_FEAT_PLN_Ui_General_wheel-flick-stays-open.md`](261021_FEAT_PLN_Ui_General_wheel-flick-stays-open.md):
+> a release at or above the platform's fling velocity now keeps the popup open and the band a candidate, so
+> "the release is the only commit" and "there is no cancel" hold only for a slower lift or a tap. The mechanism
+> history, the popup transition and the observer's split stand.
+
 ## 1. The order, as given
 
 The user's word (2026-10-17), then the answer to the fork it contained:

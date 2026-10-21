@@ -421,10 +421,11 @@ arithmetic is in
 is §2.15's. **It lands the entry it is given**: the popup scrolls by that entry's own distance on
 the slot grid, from the rest frame it opens in, and then compares the row the band names with the entry the
 caller holds — once per open, keyed on the open.
-**The release is the commit** (2026-10-17): a drag's pointer-up writes the row the band names at that instant
-and the popup closes with that write — the fling is cut by the close rather than carried — a tap on a row is
-the degenerate release, and an outside tap writes the band it finds. **Back alone closes without a write**,
-and a cancelled drag writes nothing. §2.12 states what the control shows.
+**The release commits, unless it is a flick** (2026-10-21): a pointer lifting at or above the platform's fling
+velocity leaves the popup open so the list's snap carries the band — a long list browsed rather than committed
+— while a slower lift writes the row the band names and closes with that write. A tap on a row is the
+degenerate release, and an outside tap writes the band it finds. **Back alone closes without a write**, and a
+cancelled drag writes nothing. §2.12 states what the control shows.
 
 **Overflow.** A popup wraps its own height and **scrolls** once its content exceeds the space it can
 occupy — a popup whose content fits stays exactly as tall as that content, and nothing is pushed past
@@ -509,9 +510,10 @@ For a single choice whose option list may grow past the two or three segments a 
   `✓` box in `uiAccent` on the current option are one implementation for all three lists. **Its body is a
   wheel**, so that sentence is narrowed: `DropdownWheel` draws a snapped column of three to five rows whose
   centre slot is the choice — `uiSelectContainer` behind an accent rule above and below, only the centred
-  label bold — **the band being the value, committed on release** (2026-10-17): the row the band names at the
-  instant the pointer lifts is written and the popup closes with that write, a tap on a row is the degenerate
-  release, and an outside tap commits the band, so no exit is a cancel. `PopupSurface` is its outer
+  label bold — **the band being the value, committed on release except a flick** (2026-10-21): a pointer lifting
+  at or above the platform's fling velocity keeps the popup open so the snap carries the band and the list can be
+  browsed, while a slower lift writes the row the band names and closes with that write; a tap on a row is the
+  degenerate release, and an outside tap commits the band. `PopupSurface` is its outer
   surface with `scrollable = false` and `contentPadding = 0.dp`, the wheel owning the only scroll; its
   arithmetic lives in `WheelPolicy.kt`, unit-tested beside it. **The popup fades and rises as it opens and
   mirrors that as it closes** (2026-10-17): a 120 ms fade with a 4 dp rise in, alpha 1 → 0 with the same
@@ -628,24 +630,26 @@ sections divided by the vertical rule (§2.6), each side taking the share of the
 ### 2.15 Rule of Entry — a wheel in a popup
 
 The dropdown's list is a **wheel** ([§2.12](#212-dropdown-row--dropdownrow)): a snapped column of three to
-five rows inside a popup, and **the release is the commit** (2026-10-17, revision 2) — the row the band names
-at the instant the pointer lifts is written through `onSelect` and the popup closes with that write, so the
-band is **the value, not a candidate** and the box carries it from the moment the finger leaves. A tap on a
-row is the degenerate release, and **an outside tap commits the band**, writing the entry it already shows.
+five rows inside a popup, and **the release commits unless it is a flick** (2026-10-21) — a pointer lifting at
+or above the platform's fling velocity leaves the popup open so the list's snap carries the band, and the band
+is a candidate until a slower lift or a tap commits it and closes; a normal lift writes the row the band names
+through `onSelect` and closes with that write, and **an outside tap commits the band**, writing the entry it
+already shows.
 
 - **Opening is a drag or a tap, and the drag is taken unconditionally** (2026-10-05): a vertical drag
   beginning on the box opens the popup and that same drag spins the wheel — the popup being a separate window,
-  the field's own detector scrolls the hoisted wheel state, and its `onDragEnd` writes the band and closes.
+  the field's own detector scrolls the hoisted wheel state, and **its release splits by velocity** (2026-10-21):
+  a slow lift writes the band and closes, a flick keeps the popup open so a long list can be browsed.
   **A tap on the box still opens it**, so the control is never drag-only.
 - **The enclosing scroller loses that drag, by decision:** the page under a finger that lands on a box does
   not scroll with it. The lost scroll is the accepted cost, not a defect.
 - **The band is the box's rectangle:** the popup is centred on the box and its centre slot is the same width
   and height as the box and covers it exactly, so the chosen entry is drawn *on* the control and the rows
   either side spill over the panel.
-- **There is no cancel** (2026-10-17): every pointer gesture writes on its lift, so the popup has no revert
-  and a mistaken gesture is undone by opening it again. **Back alone closes without a write**, because it can
-  only arrive before the wheel moved and would write the entry already stored; a **cancelled drag** closes
-  with nothing written, having no finger lifted.
+- **Back cancels a browse** (2026-10-21): after a flick the band is a candidate, so back closes without writing
+  it — the popup's one revert — while a slow lift or a tap is the commit that ends a browse, and because a
+  fly-through leaves the stored entry untouched, opening again re-lands on the value already held. A
+  **cancelled drag** closes with nothing written, having no finger lifted.
 
 So a list of choices is **a dropdown, a bar, or a wheel in a popup**, and the wheel's commit is **the release
 of the band it shows**. **A drag that commits on its own no longer stays out** — the guard is that the release

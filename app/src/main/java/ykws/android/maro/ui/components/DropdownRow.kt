@@ -3,7 +3,8 @@ package ykws.android.maro.ui.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import ykws.android.maro.config.AppConfig
 
@@ -96,12 +102,14 @@ private enum class DropdownPhase { Closed, Open, Closing }
  * so the control keeps a non-drag path. The slot is the box's own measured height, so the two surfaces cannot
  * drift at any font scale.
  *
- * **The release is the commit, and nothing cancels** (2026-10-17, revision 2): the field drag's `onDragEnd`
- * writes the row the band names at that instant and closes in place of the retired snap, the wheel's own
- * pointer-up does the same inside the popup, and a tap on a row is the degenerate release of the row tapped.
- * An outside tap writes the band it finds — the scrim means exactly what tapping the banded row does — while
- * **back closes without a write**, since it can only arrive before the wheel moved, and a cancelled drag
- * closes with nothing written. The band is therefore the value, not a candidate.
+ * **The release commits, unless it is a flick** (2026-10-21): the field drag's `onDragEnd` writes the row the
+ * band names at that instant and closes in place of the retired snap — the box path still commits on any
+ * release this pass — and a tap on a row is the degenerate release of the row tapped. **Inside the wheel a
+ * flick keeps the popup open**: a pointer lifting at or above the platform's fling velocity hands the gesture
+ * to the list's own snap, so a long list can be browsed and the band is a candidate while it scrolls; a
+ * slower lift commits it and closes. An outside tap writes the band it finds — the scrim means exactly what
+ * tapping the banded row does — while **back closes without a write**, its cancel of a band a flick left a
+ * candidate, and a cancelled drag closes with nothing written.
  *
  * The generic [T] is the option value the caller persists (the `CustomSortField` shape): the row never holds
  * user-facing text, the caller hands in already-resolved labels for each option and the selected value.
@@ -206,27 +214,42 @@ internal fun <T> DropdownRow(
                     DropdownSizing.Content -> Modifier.width(dropdownBoxWidth(labels))
                     DropdownSizing.Fill -> Modifier.fillMaxWidth()
                 }.pointerInput(Unit) {
-                    // **The opening drag owns the popup's scroll** (§4). The pointer is the field's, so the
-                    // field scrolls the hoisted state by hand; the library's snap belongs to a drag begun
-                    // inside the open popup and cannot be borrowed here. The drag is taken unconditionally,
-                    // so the page underneath does not scroll under that finger, and **its release is the
-                    // commit** (2026-10-17): the band the finger leaves is written and the popup closes, in
-                    // place of the retired snap.
-                    detectVerticalDragGestures(
-                        onDragStart = { open() },
-                        onDragEnd = {
-                            // The commit stays where it was, before the close — and only an open popup
-                            // answers it, so a release inside the held fade writes nothing.
+                    // **The opening drag owns the popup's scroll, and its release splits by velocity**
+                    // (2026-10-21). The pointer is the field's, so the field scrolls the hoisted state by
+                    // hand; the library's snap belongs to a drag begun inside the open popup. The drag is
+                    // taken unconditionally, so the page underneath does not scroll under that finger. A
+                    // flick — a release at or above the platform's fling velocity — keeps the popup open so
+                    // a long list can be browsed; a slower lift commits the band it leaves and closes.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
+                        val velocity = VelocityTracker()
+                        var started = false
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            velocity.addPosition(change.uptimeMillis, change.position)
+                            if (!started && abs(change.position.y - down.position.y) > viewConfiguration.touchSlop) {
+                                started = true
+                                open()
+                            }
+                            if (started) {
+                                val dy = change.positionChange().y
+                                if (dy != 0f) {
+                                    change.consume()
+                                    val wheel = wheelState
+                                    if (wheel != null) scope.launch { wheel.scrollBy(-dy) }
+                                }
+                            }
+                            if (change.changedToUpIgnoreConsumed()) break
+                        }
+                        if (!started) return@awaitEachGesture
+                        val flingVelocityY = velocity.calculateVelocity().y
+                        val keepsOpen = wheelFlingKeepsOpen(flingVelocityY, viewConfiguration.minimumFlingVelocity)
+                        if (!keepsOpen) {
                             if (phase == DropdownPhase.Open) currentCommitBand(wheelState)
                             close()
-                        },
-                        onDragCancel = { close() },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            val wheel = wheelState
-                            if (wheel != null) scope.launch { wheel.scrollBy(-dragAmount) }
                         }
-                    )
+                    }
                 },
                 onMeasured = { anchorSize = it }
             )
