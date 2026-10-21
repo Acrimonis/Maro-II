@@ -115,6 +115,7 @@ internal fun SettingsOverlay(
     navigationScrollState: ScrollState,
     routingScrollState: ScrollState,
     systemScrollState: ScrollState,
+    onCalculateSpeedHistory: () -> Unit = {},
 ) {
     val pagerState = rememberPagerState(pageCount = { SettingsTab.entries.size })
 
@@ -200,7 +201,7 @@ internal fun SettingsOverlay(
                             onExportAllMarkers = onExportAllMarkers,
                             scrollState = layersScrollState
                         )
-                        SettingsTab.ROUTING -> RoutingSettings(settings, onUpdateSettings, routingScrollState)
+                        SettingsTab.ROUTING -> RoutingSettings(settings, onUpdateSettings, routingScrollState, onCalculateSpeedHistory)
                         SettingsTab.NAVIGATION -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
                         SettingsTab.SYSTEM -> SystemSettings(
                             settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState
@@ -1545,7 +1546,8 @@ private fun NavigationSettings(
 private fun RoutingSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    scrollState: ScrollState
+    scrollState: ScrollState,
+    onCalculateSpeedHistory: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1614,6 +1616,65 @@ private fun RoutingSettings(
                     onUpdateSettings { it.copy(routeSlowWaterStop = v.roundToInt()) }
                 }
             )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Speed History ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_speed_history))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            SliderRow(
+                label = stringResource(R.string.settings_speed_history_track_count_label),
+                description = stringResource(R.string.settings_speed_history_track_count_desc),
+                valueLabel = settings.routeSpeedHistoryTrackCount.toString(),
+                value = settings.routeSpeedHistoryTrackCount.toFloat(),
+                valueRange = AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN.toFloat()..
+                    AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX.toFloat(),
+                steps = AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX - AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN - 1,
+                onValueChange = { v ->
+                    onUpdateSettings { it.copy(routeSpeedHistoryTrackCount = v.roundToInt()) }
+                }
+            )
+
+            SectionDivider()
+
+            val historyKn = settings.routeSpeedHistoryComputedKn
+            CardDescription(
+                if (historyKn <= 0f) {
+                    stringResource(R.string.settings_speed_history_none)
+                } else {
+                    stringResource(
+                        R.string.settings_speed_history_reset_fmt,
+                        java.text.DateFormat.getDateInstance()
+                            .format(settings.routeSpeedHistoryComputedAtEpochMs),
+                        stringResource(R.string.settings_route_pace_value_fmt, historyKn)
+                    )
+                }
+            )
+            if (historyKn > 0f) {
+                CardDescription(
+                    stringResource(
+                        R.string.settings_speed_history_today_fmt,
+                        stringResource(R.string.settings_route_pace_value_fmt, historyKn)
+                    )
+                )
+            }
+
+            SectionDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.settings_speed_history_calculate),
+                        role = ConfirmActionRole.SECONDARY,
+                        onClick = onCalculateSpeedHistory
+                    )
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))

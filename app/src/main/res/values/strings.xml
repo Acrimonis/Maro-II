@@ -774,6 +774,14 @@
     <!-- The quick-access wheel's own word for the same stop: the wheel is a list of values, so the -->
     <!-- sentinel reads with dashes there and plain words on the Settings row. -->
     <string name="settings_route_pace_any_wheel">--Now--</string>
+    <!-- The Speed History section: the learned cruise-speed window and its seed. -->
+    <string name="settings_section_speed_history">Speed History</string>
+    <string name="settings_speed_history_track_count_label">Tracks to look back</string>
+    <string name="settings_speed_history_track_count_desc">How many recent trips the history remembers.</string>
+    <string name="settings_speed_history_calculate">Calculate Speed History</string>
+    <string name="settings_speed_history_reset_fmt">Speed history reset on %1$s to %2$s.</string>
+    <string name="settings_speed_history_today_fmt">Speed History today at %1$s.</string>
+    <string name="settings_speed_history_none">No history yet — press Calculate.</string>
     <!-- The verdict's dial: how much a second in slow water counts against a second of driving. Its stops
          are the weight's own chips and the track's two ends, and its top stop is the sentinel that weighs
          the slow seconds alone — named, never numbered. -->

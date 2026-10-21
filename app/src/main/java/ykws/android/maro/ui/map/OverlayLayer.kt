@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -42,12 +43,15 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.route.SpeedHistorySeeder
+import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.icons.Speed
+import kotlinx.coroutines.launch
 
 /**
  * Returns the step sequence for the given marker type (mirror of the VM method for UI use). An auto
@@ -284,6 +288,7 @@ internal fun OverlayLayer(
     val markerListState = markerList.markerListState
 
     // ── Collect track ViewModel state ────────────────────────────────────
+    val settingsScope = rememberCoroutineScope()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val routeSummaries by trackViewModel.routeSummaries.collectAsState()
@@ -968,10 +973,47 @@ internal fun OverlayLayer(
                 navigationScrollState = navigationScrollState,
                 routingScrollState = routingScrollState,
                 systemScrollState = systemScrollState,
-                onRegenerateRasters = onRegenerateRasters
+                onRegenerateRasters = onRegenerateRasters,
+                onCalculateSpeedHistory = {
+                    settingsScope.launch {
+                        val seeded = seedSpeedHistory(trackViewModel, appSettings)
+                        if (seeded != null) {
+                            onUpdateSettings {
+                                it.copy(
+                                    routeSpeedHistoryWindow = seeded.window.map { v -> v.toFloat() },
+                                    routeSpeedHistoryComputedAtEpochMs = System.currentTimeMillis(),
+                                    routeSpeedHistoryComputedKn = (seeded.medianKn ?: 0.0).toFloat()
+                                )
+                            }
+                        }
+                    }
+                }
             )
         }
     }
+}
+
+private suspend fun seedSpeedHistory(
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel,
+    appSettings: AppSettings
+): SpeedHistorySeeder.SeedResult? {
+    val count = appSettings.routeSpeedHistoryTrackCount
+    // The tracks list as it stands filtered — the user's own filter, never the raw library.
+    val summaries = trackViewModel.summaries.value
+        .filter { !it.route }
+        .sortedByDescending { it.updatedAtEpochMs }
+        .take(count)
+    if (summaries.isEmpty()) return null
+    val speeds = ArrayList<Double>(summaries.size)
+    for (s in summaries) {
+        val track = trackViewModel.loadTrackDetail(s.id) ?: continue
+        val cruise = SpeedHistorySeeder.trackCruiseSpeedKn(
+            track.trackPoints,
+            { a, b, c, d -> SpatialOperations.haversine(LatLng(a, b), LatLng(c, d)) }
+        ) ?: continue
+        speeds.add(cruise)
+    }
+    return SpeedHistorySeeder.seed(speeds, count, appSettings.routePaceRecentWeightPct.toDouble())
 }
 
 /**

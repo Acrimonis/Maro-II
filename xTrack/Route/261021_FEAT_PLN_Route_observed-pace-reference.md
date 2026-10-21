@@ -33,10 +33,17 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   speed and enters the window, the oldest falls off past N, and the number is the window's **recency-weighted
   median**, so one abnormal trip cannot move it; navigation is "as fast as makes sense", so the history
   learns the boat's real weather-and-mood cruise.
+- **A stored trip reduces differently from the live leg** — the live leg keeps the recency ramp because it
+ reads *now*, while a finished trip reduces to a **plain median** of its speed points, GAP seams and idle
+ gaps excluded, stored `speedMps` preferred and derived speeds second-class: one trip is one number, not a
+ curve.
 - **The seed is the user's Calculate action** — it rebuilds the window from the last N water tracks under
   the tracks-list filter, route-saved tracks excluded because their points are plan arithmetic, not
   navigated speed, and a derived speed second-class wherever a stored `speedMps` is absent; the filter is
   one-shot, read only at the moment Generate runs.
+- **Each completed trip folds into the window** — a saved trip appends its cruise speed and drops the oldest
+ past N, so the history builds itself without a Calculate press; Calculate only re-seeds the window from the
+ filtered list.
 
 ## The gate as a smoothed curve
 
@@ -44,8 +51,9 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   to 1 at the newest; the span adapts to the curve — no fixed window.
 - **A dip too short to be a real level is a small weight share** and cannot cross the percentile alone —
   the wife's blip vanishes by construction, with no separate "ignore" rule and no dead-band.
-- **The current cruise speed is the plateau of the smoothed curve** — read off the flattened curve, so a
-  new level becomes the reference the moment the curve settles on it.
+- **The current cruise speed is the plateau of the smoothed curve** — read off the flattened curve live on
+  every sample, never a frozen value, so a new level becomes the reference the moment the curve settles on
+  it and a blip never does.
 - **The `restricted` flag is the sole "not cruising" guard** — a reading inside the 300 m band or a speed
   zone is dropped before smoothing, and the history seed runs the same band/zone check per point, so no
   floor is needed.
@@ -106,3 +114,8 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   default 5.
 - The `Now` stop reads *Live* in French; the dynamic value reads in the dashboard route search
   display.
+- The stored-track reduction is the **plain median**, no recency — the live leg keeps its 75th percentile,
+  the trip reads its middle value, and the window keeps its weighted median.
+- The trip fold-in is unwired — each saved trip must append its cruise speed and drop the oldest past N.
+- The stored-track zone/band exclusion (the per-point lookup a saved track lacks) is the remaining heavy
+  piece.

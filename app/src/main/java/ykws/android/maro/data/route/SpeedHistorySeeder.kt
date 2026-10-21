@@ -1,5 +1,6 @@
 package ykws.android.maro.data.route
 
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
 import ykws.android.maro.spatial.Units
@@ -40,11 +41,10 @@ object SpeedHistorySeeder {
      */
     fun trackCruiseSpeedKn(
         points: List<TrackPoint>,
-        recentWeightPct: Double,
         haversineM: (lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double
     ): Double? {
         var previous: TrackPoint? = null
-        val samples = ArrayList<RoutePace.Sample>(points.size)
+        val speeds = ArrayList<Double>(points.size)
         for (p in points) {
             if (p.type == PointType.GAP) {
                 previous = p
@@ -53,13 +53,16 @@ object SpeedHistorySeeder {
             val speedKn = p.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS }
                 ?: derive(previous, p, haversineM)
             if (speedKn != null && speedKn.isFinite() && speedKn > 0.0) {
-                samples.add(RoutePace.Sample(speedKn, p.timeOffsetMs))
+                speeds.add(speedKn)
             }
             previous = p
         }
-        if (samples.size < RoutePace.MIN_SAMPLES) return null
-        val maxAt = samples.maxOf { it.atMs }
-        return RoutePace.paceKn(samples, maxAt, 25.0, recentWeightPct)
+        if (speeds.size < RoutePace.MIN_SAMPLES) return null
+        val median = SpeedHistory.weightedMedian(speeds, 0.0) ?: return null
+        return median.coerceIn(
+            AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN.toDouble(),
+            AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN.toDouble()
+        )
     }
 
     private fun derive(

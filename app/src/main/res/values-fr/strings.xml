@@ -778,6 +778,14 @@
     <!-- Le mot propre au sélecteur rapide pour ce même arrêt : la roue liste des valeurs, la sentinelle -->
     <!-- s\'y lit donc entre tirets, alors que la ligne des réglages garde le mot simple. -->
     <string name="settings_route_pace_any_wheel">--Live--</string>
+    <!-- La section Historique de vitesse : la fenêtre apprise et son calcul. -->
+    <string name="settings_section_speed_history">Historique de vitesse</string>
+    <string name="settings_speed_history_track_count_label">Trajets à retenir</string>
+    <string name="settings_speed_history_track_count_desc">Combien de trajets récents l\'historique retient.</string>
+    <string name="settings_speed_history_calculate">Calculer l\'historique</string>
+    <string name="settings_speed_history_reset_fmt">Historique réinitialisé le %1$s à %2$s.</string>
+    <string name="settings_speed_history_today_fmt">Vitesse aujourd\'hui : %1$s.</string>
+    <string name="settings_speed_history_none">Pas encore d\'historique — appuyez sur Calculer.</string>
     <!-- Le cadran du verdict : le poids d\'une seconde d\'eau lente face à une seconde de trajet. Ses
          arrêts sont les pastilles du poids et les deux extrémités de la piste, et son arrêt du haut est
          le sentinelle qui ne pèse que les secondes lentes — nommé, jamais numéroté. -->
