@@ -50,7 +50,6 @@ import ykws.android.maro.spatial.multipass.RoutePassRunner
 import ykws.android.maro.spatial.multipass.RoutePreference
 import ykws.android.maro.spatial.multipass.TimedLine
 import ykws.android.maro.spatial.multipass.UniformGridPlan
-import ykws.android.maro.spatial.multipass.ZoneRing
 import ykws.android.maro.spatial.multipass.bandReachM
 import ykws.android.maro.spatial.multipass.clockSampleM
 import ykws.android.maro.spatial.multipass.contains
@@ -703,7 +702,7 @@ class RouteAvoidEngine(
         )
         val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
-            ctx.grid, ctx.zones, ctx.priced, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
+            ctx.grid, ctx.zones, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
             ctx.startCell, ctx.aimCell, refined, ctx.gate
         )
         // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
@@ -1023,7 +1022,6 @@ class RouteAvoidEngine(
     private suspend fun forcedCrossingNames(
         grid: MultipassGrid,
         zones: List<SpeedZone>,
-        priced: List<ZoneRing>,
         cellM: Double,
         pace: Double,
         lambda: Double,
@@ -1034,30 +1032,23 @@ class RouteAvoidEngine(
         waypoints: List<LatLng>,
         gate: GateRule?
     ): List<String> {
-        val restrictive = priced.filter { zonePriceSec(cellM, pace, it.limitKn, lambda) > 0.0 }
-        if (restrictive.isEmpty()) {
-            trace { "PROBE restrictive=[] avoiding=n/a expansions=0 forced=[]" }
-            return emptyList()
-        }
-        val restrictiveZones = zones.zip(priced)
-            .filter { (_, p) -> zonePriceSec(cellM, pace, p.limitKn, lambda) > 0.0 }
-            .map { (z, _) -> z }
+        val restrictiveZones = zones.filter { zonePriceSec(cellM, pace, it.routeLimitKn, lambda) > 0.0 }
         val (endZones, crossingZones) = restrictiveZones.partition {
             it.contains(from.latitude, from.longitude) || it.contains(to.latitude, to.longitude)
         }
+        fun probeText(tail: String): String =
+            "PROBE restrictive=[${restrictiveZones.joinToString(", ") { it.name }}] " +
+                "endZones=[${endZones.joinToString(", ") { it.name }}] $tail"
         if (crossingZones.isEmpty()) {
-            trace {
-                "PROBE restrictive=[${restrictiveZones.joinToString(", ") { it.name }}] " +
-                    "endZones=[${endZones.joinToString(", ") { it.name }}] avoiding=n/a expansions=0 forced=[]"
-            }
+            trace { probeText("avoiding=n/a expansions=0 forced=[]") }
             return emptyList()
         }
         // A cell stays open when it lies in an end's zone and in no zone the line must keep out of.
-        val stayOpen: ((LatLng) -> Boolean)? = if (endZones.isEmpty()) null else { p ->
+        fun stayOpenAt(p: LatLng): Boolean =
             endZones.any { it.contains(p.latitude, p.longitude) } &&
                 crossingZones.none { it.contains(p.latitude, p.longitude) }
-        }
-        val blocked = grid.blockedCopy(pace, stayOpen)
+        val probeStartNs = System.nanoTime()
+        val blocked = grid.blockedCopy(pace, ::stayOpenAt.takeIf { endZones.isNotEmpty() })
         blocked.forceFree(from.latitude, from.longitude)
         blocked.forceFree(to.latitude, to.longitude)
         // The probe walks the same wall the search does, so a gap the guarded search cannot use never
@@ -1066,14 +1057,14 @@ class RouteAvoidEngine(
             blocked, startCell, aimCell, Units.knotsToMps(pace),
             stepGuard = gate?.let { StepGuard(it, from.toLatLng(), to.toLatLng()) }
         )
+        val probeMs = msSince(probeStartNs)
         val avoiding = probe.path != null
         val names = forcedCrossingZoneNames(waypoints, crossingZones, avoiding)
         trace {
-            "PROBE restrictive=[${restrictiveZones.joinToString(", ") { it.name }}] " +
-                "endZones=[${endZones.joinToString(", ") { it.name }}] " +
-                "avoiding=$avoiding expansions=${probe.expansions} " +
-                "passable=${probe.passableCells} aimClosed=${probe.aimClosed} " +
-                "forced=[${names.joinToString(", ")}]"
+            probeText(
+                "avoiding=$avoiding expansions=${probe.expansions} passable=${probe.passableCells} " +
+                    "aimClosed=${probe.aimClosed} probeMs=${fmt(probeMs)} forced=[${names.joinToString(", ")}]"
+            )
         }
         return names
     }

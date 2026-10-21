@@ -215,3 +215,15 @@ doc now state the end-zone rule. Left, stated: the restrictive predicate is writ
 the trace; unpinned cases are a cell in both an end zone and a crossing zone, two ends in different zones, and
 an end zone whose `routeLimitKn` sits at the pace; the avoidable-crossing test relies on the 3704 m default
 reach and no test asserts that growth does not fire.
+
+**Left findings taken (2026-10-21, after the commit).** `forcedCrossingNames` computes the restrictive zones
+once from the zones' own `routeLimitKn` (the `priced` parameter and the `zip` are gone — the grid builders
+make the rings from that same limit), the three `PROBE` shapes became one `probeText`, the exemption is a
+local `stayOpenAt`, and the line gained `probeMs=` so the `stayOpen` cost is read on the device rather than
+guessed. Four tests were added: two ends in two different zones with a dear gap between, a crossing zone
+lying wholly inside an end's zone (stays blocked), and a zone the routing override frees. The avoidable-crossing
+tests now derive their gap from `route.avoid.corridor.reach` and assert that no corridor growth fires
+(`ZoneWorld` records its boxes). Two mutations were run: dropping the exemption fails the avoidable-crossing
+and two-ends tests, and dropping the crossing-zone clause fails the inside-an-end-zone test. Full suite 1421
+green, `assembleDebug` packaged. One incremental run failed `GateGuardsTest` twice and passed after
+`--rerun-tasks` and on repeat; the cause is not identified and nothing in these files touches it.

@@ -398,6 +398,7 @@ class RouteZonePhase4Test {
         val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.06), rungIndex = 0)
 
         assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+        assertEquals("and the corridor is built once, with no growth", 1, world.boxes.size)
         assertEquals(
             "while the water's own fact still names the slow water the line leaves",
             listOf("Cap"),
@@ -431,9 +432,9 @@ class RouteZonePhase4Test {
     fun anEndZoneDoesNotMakeAnAvoidableCrossingForced() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
         val home = SpeedZone("h", "Home", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
-        val wall = SpeedZone(
-            "w", "Wall", 5.0, rectRing(43.40, 43.522, 7.045, 7.055)
-        )
+        // The gap sits at two thirds of the corridor's reach north of the line, so it stays inside the corridor box.
+        val gapLat = 43.5 + 0.66 * AppConfig.routeAvoidCorridorReachM / 111_320.0
+        val wall = SpeedZone("w", "Wall", 5.0, rectRing(43.40, gapLat, 7.045, 7.055))
         val world = ZoneWorld(listOf(home, wall))
         val engine = RouteAvoidEngine(
             paceKn = { 28.0 },
@@ -444,6 +445,67 @@ class RouteZonePhase4Test {
         val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.07), rungIndex = 2)
 
         assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+        assertEquals("and no corridor growth fires", 1, world.boxes.size)
+    }
+
+    /** Two ends in two different zones, with the dear gap between them: neither end's zone is a crossing. */
+    @Test
+    fun twoEndsInTwoZonesMakeNoForcedCrossing() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val here = SpeedZone("a", "Here", 5.0, rectRing(43.49, 43.51, 7.02, 7.04))
+        val there = SpeedZone("b", "There", 5.0, rectRing(43.49, 43.51, 7.07, 7.09))
+        val gapLat = 43.5 + 0.66 * AppConfig.routeAvoidCorridorReachM / 111_320.0
+        val wall = SpeedZone("w", "Wall", 5.0, rectRing(43.40, gapLat, 7.05, 7.06))
+        val world = ZoneWorld(listOf(here, there, wall))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.08), rungIndex = 2)
+
+        assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+        assertEquals("and no corridor growth fires", 1, world.boxes.size)
+    }
+
+    /**
+     * A zone that lies wholly inside an end's zone is still a crossing: the end's zone opens only the water no
+     * other restrictive zone holds. `Over` spans the corridor inside `Home`, so it is forced and named alone.
+     */
+    @Test
+    fun aCrossingZoneInsideAnEndZoneStaysBlocked() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val home = SpeedZone("h", "Home", 5.0, rectRing(43.40, 43.60, 7.02, 7.06))
+        val over = SpeedZone("o", "Over", 3.0, rectRing(43.40, 43.60, 7.04, 7.05))
+        val world = ZoneWorld(listOf(home, over))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.03), RoutePoint(43.5, 7.07), rungIndex = 0)
+
+        assertEquals(listOf("Over"), route?.forcedCrossingZoneNames)
+    }
+
+    /** A zone the routing override lets the pace through is no restrictive zone, an end's or a crossing's. */
+    @Test
+    fun aZoneTheRoutingOverrideFreesIsNeverNamed() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val quiet = SpeedZone("q", "Quiet", 5.0, rectRing(43.40, 43.60, 7.015, 7.045), routeLimitKn = 30.0)
+        val world = ZoneWorld(listOf(quiet))
+        val engine = RouteAvoidEngine(
+            paceKn = { 28.0 },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world }
+        )
+
+        val route = solve(engine, RoutePoint(43.5, 7.00), RoutePoint(43.5, 7.06), rungIndex = 0)
+
+        assertEquals(emptyList<String>(), route?.forcedCrossingZoneNames)
+        assertEquals("the water's own fact still names it", listOf("Quiet"), route?.crossedSlowZoneNames)
     }
 
     /** A crossing forced away from the ends is still reported, without the zone the start stands in. */
@@ -750,12 +812,18 @@ class RouteZonePhase4Test {
 
     /** A water-everywhere world whose only source is its speed zones — the corridor reads no land or depth. */
     private class ZoneWorld(private val zones: List<SpeedZone>) : MultipassWorld {
+        /** Every corridor box the engine asked for — one per grid build, so a corridor growth shows as a second. */
+        val boxes = mutableListOf<BBox>()
+
         override val coastlineReady: Boolean get() = true
         override val depthReady: Boolean get() = true
         override val bandWidthM: Double get() = 0.0
         override val regionBounds: BBox? get() = null
 
-        override fun segmentsIn(box: BBox): List<MultipassEdge> = emptyList()
+        override fun segmentsIn(box: BBox): List<MultipassEdge> {
+            boxes.add(box)
+            return emptyList()
+        }
         override fun openCoastIn(box: BBox): List<List<LatLng>> = emptyList()
         override fun isWater(latitude: Double, longitude: Double): Boolean = true
         override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE

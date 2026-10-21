@@ -48,7 +48,7 @@
 
 ## Feature Summaries
 
-**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-21 13:18
+**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-21 13:56
 - The fan's *Route (auto)* child is live while a search runs: a press keeps the search, closes the fan, raises a toast and follows the winner when the last route lands; the menu drawer shows no summary card during a search, *Save to track* waits for a landed line, and the snack action reads *New*.
 - Each route in the search panel reports its own stage (bold italic) until it lands, then its live rank — a merged route counted once — under a `Landed x/n · speed · preference` header; the rows reorder only when a route lands, is refused or is merged away, a hand pick holds until the last landing selects the top row with a toast, and the crown's check waits for the end.
 - A saved route's two ends resolve through the smallest-zone rule shared with tracks, the home port excluded, so the name reads `A to B`, `To B` or `From A`, falling back to `Route <instant>` when neither end is named.
