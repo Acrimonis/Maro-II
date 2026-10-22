@@ -146,12 +146,15 @@ object MultipassSearch {
         var startOpen = 0
         forEachStep(walk, startIdx, { !walk.passable(it) }) { _, _ -> startOpen++ }
         val startLayer = walk.layerOf(startIdx)
+        val aimLayer = walk.layerOf(aimIdx)
+        var aimOpen = 0
+        forEachStep(walk, aimIdx, { !walk.passable(it) }) { _, _ -> aimOpen++ }
         // A local re-solve between two line vertices binds its ends like any other cell.
         if (stepGuard == null || !waiveEndSlots) {
             return walkOnce(
                 walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard,
                 EndRule.BOUND
-            ).copy(startLayer = startLayer, startOpenSteps = startOpen)
+            ).copy(startLayer = startLayer, startOpenSteps = startOpen, aimLayer = aimLayer, aimOpenSteps = aimOpen)
         }
         val waived = EndRule(startIdx, aimIdx, strictStart = false, strictAim = false)
         val rule = if (startIdx == aimIdx) waived else EndRule(
@@ -166,7 +169,7 @@ object MultipassSearch {
         if (!rule.strictStart && !rule.strictAim) {
             return walkOnce(
                 walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived
-            ).copy(startLayer = startLayer, startOpenSteps = startOpen)
+            ).copy(startLayer = startLayer, startOpenSteps = startOpen, aimLayer = aimLayer, aimOpenSteps = aimOpen)
         }
         stepGuard.heldRefused.clear()
         // A held walk that finds nothing is walked again only where it refused a step the old waiver lets
@@ -177,7 +180,8 @@ object MultipassSearch {
         ) { closed -> reopens = stepGuard.heldRefused.any { !closed[it] } }
             .copy(
                 strictStart = rule.strictStart, strictAim = rule.strictAim,
-                startLayer = startLayer, startOpenSteps = startOpen
+                startLayer = startLayer, startOpenSteps = startOpen,
+                aimLayer = aimLayer, aimOpenSteps = aimOpen
             )
         if (held.path != null || !reopens) return held
         val again = walkOnce(
@@ -185,7 +189,8 @@ object MultipassSearch {
         )
         return again.copy(
             expansions = held.expansions + again.expansions,
-            startLayer = startLayer, startOpenSteps = startOpen, rewalked = true
+            startLayer = startLayer, startOpenSteps = startOpen,
+            aimLayer = aimLayer, aimOpenSteps = aimOpen, rewalked = true
         )
     }
 
@@ -418,6 +423,10 @@ data class SearchOutcome(
     val startLayer: Int = -1,
     /** How many of the start slot's own steps lead into passable water — `0` is a start with no way out. */
     val startOpenSteps: Int = -1,
+    /** The aim slot's layer, `-1` where no aim slot was found — the aim's own cell, for the trace. */
+    val aimLayer: Int = -1,
+    /** How many of the aim slot's own steps lead into passable water — `0` is an aim with no way in. */
+    val aimOpenSteps: Int = -1,
     /** Whether the answering walk was the waived re-walk after a held walk found nothing. */
     val rewalked: Boolean = false,
     /**

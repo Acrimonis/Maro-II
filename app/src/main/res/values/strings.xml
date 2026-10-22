@@ -754,6 +754,8 @@
     <string name="route_summary_distance_unit">NM</string>
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
     <string name="route_summary_eta_unit">min</string>
+    <string name="route_summary_speed_value_fmt">%1$.1f</string>
+    <string name="route_summary_speed_unit">kn</string>
     <!-- The drawer band's routing tail: whole minutes, or seconds below a minute. -->
     <string name="route_band_eta_min_fmt">ETA: %1$d min</string>
     <string name="route_band_eta_sec_fmt">ETA: %1$d sec</string>
@@ -820,10 +822,9 @@
     <string name="route_comparison_more">more</string>
     <!-- The acquisition panel's Speed limits table: the time the route spends slowed, one short reading per
          regulated limit — the 300 m zone labelled "300M", a limit as its speed in knots — the ramp into and
-         out of each counted in, and each value carrying its own unit ("5 min"). -->
+         out of each counted in, and each value reading as "1:05 min", rounded to the second. -->
     <string name="route_slow_band_label">300M</string>
     <string name="route_slow_limit_label_fmt">%1$.0f kn</string>
-    <string name="route_slow_minutes_fmt">%1$d min</string>
     <!-- One page row in the panel: which route it is, its description and its own duration. -->
     <string name="route_page_fmt">Route #%1$d · %2$s · %3$s</string>
 </resources>

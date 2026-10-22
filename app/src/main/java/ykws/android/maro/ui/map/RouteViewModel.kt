@@ -99,9 +99,9 @@ data class RoutePlan(
     /** The plan's length in nautical miles — the trip figure's own unit. */
     val distanceNm: Double get() = Units.metresToNauticalMiles(distanceM)
 
-    /** The pace the plan itself holds (kn) — the distance it covers over the time it allots. */
+    /** The pace the plan itself holds (kn) — the distance it covers over the time it allots, one home with the row. */
     val plannedPaceKn: Double
-        get() = if (durationSec > 0.0) Units.mpsToKnots(distanceM / durationSec) else 0.0
+        get() = routeAvgSpeedKn(distanceNm, durationSec)
 
     /**
      * **The name a track built from this route takes** (R25): the route's own
