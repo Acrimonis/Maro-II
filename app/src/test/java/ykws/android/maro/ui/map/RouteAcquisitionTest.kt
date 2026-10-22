@@ -389,26 +389,42 @@ class RouteAcquisitionTest {
         )
     }
 
-    /** **A row's two figures, in the panel's own order** (2026-10-07): the time leads, the distance follows. */
+    /** **A row's three figures, in the panel's own order**: the time leads, the speed follows, the distance last. */
     @Test
-    fun routeRowLinesPrintTheTimeFirstForALandedRowAndAPendingOneAlike() {
+    fun routeRowLinesPrintTimeSpeedDistanceForALandedRowAndAPendingOneAlike() {
         val landed = routeRowLines(RouteRowFigures(distanceNm = 3.5, durationSec = 726.0))
         assertEquals(
             "the time leads a landed row",
-            listOf(RouteRowKind.DURATION, RouteRowKind.DISTANCE),
+            listOf(RouteRowKind.DURATION, RouteRowKind.SPEED, RouteRowKind.DISTANCE),
             landed.map { it.kind }
         )
-        assertEquals("and carries the settled seconds", 726.0, landed.first().value!!, 1e-9)
-        assertEquals("with the distance second", 3.5, landed.last().value!!, 1e-9)
+        assertEquals("and carries the settled seconds", 726.0, landed[0].value!!, 1e-9)
+        assertEquals("with the speed second", routeAvgSpeedKn(3.5, 726.0), landed[1].value!!, 1e-9)
+        assertEquals("and the distance last", 3.5, landed[2].value!!, 1e-9)
 
         val pending = routeRowLines(null)
         assertEquals(
-            "a waiting row reverses with it",
-            listOf(RouteRowKind.DURATION, RouteRowKind.DISTANCE),
+            "a waiting row keeps the same order",
+            listOf(RouteRowKind.DURATION, RouteRowKind.SPEED, RouteRowKind.DISTANCE),
             pending.map { it.kind }
         )
-        assertNull("and its time line prints nothing yet", pending.first().value)
-        assertNull("and neither does its distance line", pending.last().value)
+        assertNull("and its time line prints nothing yet", pending[0].value)
+        assertNull("and neither does its speed line", pending[1].value)
+        assertNull("and neither does its distance line", pending[2].value)
+    }
+
+    /** **The row's own average, all inclusive**: distance over the whole time, in knots; zero without time. */
+    @Test
+    fun routeAvgSpeedKnReadsDistanceOverTimeInKnots() {
+        assertEquals(17.355, routeAvgSpeedKn(3.5, 726.0), 1e-3)
+        assertEquals(0.0, routeAvgSpeedKn(3.5, 0.0), 0.0)
+    }
+
+    /** **The plan's pace reads the row's own helper**: one formula, one home. */
+    @Test
+    fun plannedPaceKnReadsTheRowHelper() {
+        val plan = timedPlan(726.0)
+        assertEquals(routeAvgSpeedKn(plan.distanceNm, plan.durationSec), plan.plannedPaceKn, 1e-9)
     }
 
     private fun timedPlan(seconds: Double) = RoutePlan(

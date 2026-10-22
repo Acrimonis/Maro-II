@@ -3481,7 +3481,15 @@ fun MapScreen(
                         paceSetKn = appSettings.routeFreeWaterPaceKn,
                         rankView = routeRankView,
                         dialLabel = routeDialLabel,
-                        onMeasuredHeight = { dashboardBand.measuredRoute = it; dashboardBand.lastShown = it },
+                        onMeasuredHeight = { h ->
+                            // Hold the band while the search runs: the table grows as rungs land, so the
+                            // band only ever grows mid-search and settles once when the search ends.
+                            val searching = (routeState as? RouteState.Choosing)?.searching == true
+                            if (!searching || h > dashboardBand.measuredRoute) {
+                                dashboardBand.measuredRoute = h
+                                dashboardBand.lastShown = h
+                            }
+                        },
                         panelMaxHeight = bandCeiling,
                         // The card this panel replaced in the slot, if any: a swap into the route panel
                         // starts where the screen already is rather than at the floor (2026-10-07).
