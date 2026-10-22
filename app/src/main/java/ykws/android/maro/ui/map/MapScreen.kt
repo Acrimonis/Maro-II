@@ -3453,6 +3453,8 @@ fun MapScreen(
                         distanceToShore = distanceToShore,
                         depthSample = depthRaster.depthReadout,
                         speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        gpsIconState = gpsIconState,
+                        gpsAccuracyM = gpsAccuracy,
                         zoneSituation = zoneSituation,
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
@@ -3504,6 +3506,8 @@ fun MapScreen(
                         distanceToShore = distanceToShore,
                         depthSample = depthRaster.depthReadout,
                         speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        gpsIconState = gpsIconState,
+                        gpsAccuracyM = gpsAccuracy,
                         zoneSituation = zoneSituation,
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
@@ -5389,12 +5393,12 @@ private fun MapContent(
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean, Boolean) -> Unit>(
-                                { isActive, _ -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive, _ -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) }
                             ),
                             activeStates = listOf(
                                 markerLayerState != MarkerLayerState.HIDDEN,

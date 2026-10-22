@@ -110,9 +110,10 @@ class NavigationViewModel(
     /** The coastline repository backing this view model — the same instance the map reads its water and band from. */
     val coastlineRepository: CoastlineRepository get() = repository
 
-    /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
+    /** Persisted settings — the process's one store ([ykws.android.maro.MaroApp]), so the service reads what the UI writes. */
     private val settingsManager: SettingsManager =
-        SettingsManager(application, AppConfig.zoneAutoRevealDistanceM, AppConfig.zoneAutoRevealTimeS)
+        ykws.android.maro.MaroApp.of(application)?.settingsManager
+            ?: SettingsManager(application, AppConfig.zoneAutoRevealDistanceM, AppConfig.zoneAutoRevealTimeS)
 
     /** Device GPS + compass sources (framework-only, no Google Play Services) for GPS mode. */
     private val gpsSource: GpsLocationSource = GpsLocationSource(application)

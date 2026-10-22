@@ -1,5 +1,6 @@
 package ykws.android.maro.data.track
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,11 +10,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,13 +31,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import ykws.android.maro.MainActivity
+import ykws.android.maro.MaroApp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.location.AcquisitionMode
@@ -81,14 +89,17 @@ class TrackRecordingService : Service() {
     /** Dynamically registered receiver for [ACTION_QUERY_WATER_STATE]. */
     private var waterQueryReceiver: BroadcastReceiver? = null
 
-    /** Independent settings reader (same SharedPreferences as NavigationViewModel). */
-    private val settingsManager by lazy { SettingsManager(this) }
+    /**
+     * The process's one settings store ([MaroApp]), so a setting written by the UI reaches the
+     * recorder's live configuration (see [observeSettings]) instead of a private copy frozen at start.
+     */
+    private val settingsManager by lazy { MaroApp.of(this)?.settingsManager ?: SettingsManager(this) }
 
-    /** Track persistence layer. */
-    private val repository by lazy { TrackRepository(this) }
+    /** The process's one track store — the same instance the ViewModels write through. */
+    private val repository by lazy { MaroApp.of(this)?.trackRepository ?: TrackRepository(this) }
 
-    /** Auto-marker lifecycle owner (shared with the service-owned recorder). */
-    private val autoMarkerManager by lazy { AutoMarkerManager(this) }
+    /** Auto-marker lifecycle owner over the process's one marker store. */
+    private val autoMarkerManager by lazy { MaroApp.of(this)?.autoMarkerManager ?: AutoMarkerManager(this) }
 
     /** Process-scoped recording engine coroutines (GPS sampling + flow forwarding). */
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -123,9 +134,10 @@ class TrackRecordingService : Service() {
         val prefs = getSharedPreferences("maro_service_prefs", Context.MODE_PRIVATE)
         lastKnownOnWater = prefs.getBoolean("pref_last_water_state", false)
 
-        // Lightweight orphan checkpoint scan (no protobuf deserialization)
-        val trackDir = File(filesDir, "tracks")
-        hasOrphans = trackDir.listFiles(java.io.FileFilter { it.extension == "checkpoint" })?.isNotEmpty() == true
+        // Lightweight orphan checkpoint scan (no protobuf deserialization) — the repository writes
+        // `<id>_checkpoint.bin`, so the name suffix is what identifies one.
+        val trackDir = File(filesDir, TrackRepository.TRACKS_DIR_NAME)
+        hasOrphans = trackDir.listFiles(java.io.FileFilter { it.name.endsWith("_checkpoint.bin") })?.isNotEmpty() == true
 
         // Register query receiver so Tasker can poll water state on demand
         waterQueryReceiver = object : BroadcastReceiver() {
@@ -143,6 +155,53 @@ class TrackRecordingService : Service() {
 
         demoMode.value = !settingsManager.settings.value.gpsMode
         ensureRecorder()
+        observeSettings()
+    }
+
+    /**
+     * Keep the recorder's tunables and the GPS gate in step with the settings store for the service's
+     * whole life: a geofence, accuracy, simplify or idle threshold changed in Settings is applied to
+     * the live recorder, and leaving GPS mode stops the sampler as the UI's intent does.
+     */
+    private fun observeSettings() {
+        serviceScope.launch {
+            settingsManager.settings
+                .map { it.gpsMode to TrackRecorderConfig.from(it) }
+                .distinctUntilChanged()
+                .collect { (gpsMode, config) ->
+                    recorder?.applyConfig(config)
+                    demoMode.value = !gpsMode
+                }
+        }
+    }
+
+    /** Whether a location grant stands — the one prerequisite a location-typed foreground start has. */
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Promote to a location-typed foreground service, but only while a location grant stands: from
+     * Android 14 the platform refuses the promotion without one, and a fresh install has none until
+     * the user enables GPS mode. Without the grant the service stays an ordinary started service —
+     * alive while the app is in front, which is all demo mode needs — and the notification waits.
+     */
+    private fun promoteToForeground(notification: Notification) {
+        if (!hasLocationPermission()) {
+            Log.i(TAG, "foreground promotion deferred: no location permission yet")
+            return
+        }
+        try {
+            ServiceCompat.startForeground(
+                this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            )
+        } catch (e: SecurityException) {
+            Log.w(TAG, "foreground promotion refused by the platform", e)
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "foreground promotion not allowed from this state", e)
+        }
     }
 
     override fun onDestroy() {
@@ -203,7 +262,7 @@ class TrackRecordingService : Service() {
         ensureGpsSampling()
 
         val notification = buildNotification(intent, lastKnownOnWater, recording = recordingNow)
-        startForeground(NOTIFICATION_ID, notification)
+        promoteToForeground(notification)
         return START_STICKY
     }
 
@@ -214,22 +273,10 @@ class TrackRecordingService : Service() {
     /** Create and start the recorder (OFF state, collecting samples) if not already active. */
     private fun ensureRecorder() {
         if (recorder != null) return
-        val s = settingsManager.settings.value
         val rec = TrackRecorder(
             repository = repository,
-            gpsMode = s.gpsMode,
-            maxRecordingAccuracyM = s.maxRecordingAccuracyM,
-            geofenceOriginLat = s.trackOriginLat,
-            geofenceOriginLon = s.trackOriginLon,
-            geofenceRadiusM = s.trackGeofenceRadiusM,
-            geofenceEnabled = s.trackGeofenceEnabled,
+            config = TrackRecorderConfig.from(settingsManager.settings.value),
             isStopped = _stopped,
-            simplifyEnabled = s.trackSimplifyEnabled,
-            simplifyEpsilonM = s.trackSimplifyEpsilonM,
-            simplifySpeedDeltaKn = s.trackSimplifySpeedDeltaKn,
-            idleThresholdSec = s.boatMarkerIdleThresholdSec,
-            autoMarkerMinDurationSec = s.boatMarkerAutoMarkerMinDurationSec,
-            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM,
             idleThresholdCallback = object : IdleThresholdCallback {
                 override suspend fun onIdleThresholdReached(position: LatLng): IdleCaptureResult =
                     WhereAmIProvider.idleCapture?.invoke(position)

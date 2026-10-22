@@ -12,6 +12,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,7 @@ import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
@@ -71,10 +73,12 @@ internal fun InspectToggleButton(
     modifier: Modifier = Modifier
 ) {
     val face = inspectFace(armed)
+    val stateWord = stringResource(if (armed) R.string.cd_state_on else R.string.cd_state_off)
     MapToggleSquare(
         face = face.toSurfaceFace(),
         onClick = if (enabled || armed) onToggle else null,
-        modifier = modifier
+        modifier = modifier,
+        contentDescription = stringResource(R.string.cd_inspect_state, stateWord)
     ) {
         // Hard-coded like the row's other glyphs.
         Text(text = INSPECT_GLYPH, fontSize = TOP_TOGGLE_ICON_SIZE)

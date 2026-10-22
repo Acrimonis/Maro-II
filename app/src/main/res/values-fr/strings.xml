@@ -201,6 +201,12 @@
     <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
     <string name="dash_speed_title">Vitesse</string>
     <string name="dash_demo_mode">mode démo</string>
+    <!-- Le sous-titre de la carte vitesse quand la lecture est vide en mode GPS, une ligne par état
+         GPS ; `dash_demo_mode` ci-dessus garde le cas démo. -->
+    <string name="dash_gps_no_fix">Pas de position GPS</string>
+    <string name="dash_gps_stale">GPS obsolète</string>
+    <string name="dash_gps_weak">GPS faible (±%1$d m)</string>
+    <string name="dash_gps_estimating">Estimation</string>
     <string name="dash_5kn_in_zone">5 kn max en zone</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolé</string>
@@ -501,6 +507,33 @@
     <string name="cd_collapse_speed_scale">Réduire l\'échelle de vitesse</string>
     <string name="cd_expand_speed_scale">Déplier l\'échelle de vitesse</string>
     <string name="cd_find_markers_at_position">Rechercher les repères à votre position</string>
+    <!-- Les commandes de la carte, pour TalkBack : l\'action, puis son état. Les trois mots d\'état
+         remplissent chaque `%1$s` ci-dessous ; le carré GPS lit son propre mot d\'état. -->
+    <string name="cd_state_on">activé</string>
+    <string name="cd_state_off">désactivé</string>
+    <string name="cd_state_standby">en attente</string>
+    <string name="cd_gps_state">GPS : %1$s</string>
+    <string name="cd_gps_demo">mode démo</string>
+    <string name="cd_gps_acquiring">acquisition</string>
+    <string name="cd_gps_active">actif</string>
+    <string name="cd_gps_stale">obsolète</string>
+    <string name="cd_gps_weak">signal faible</string>
+    <string name="cd_gps_estimating">estimation</string>
+    <string name="cd_recording_state">Enregistrement : %1$s</string>
+    <string name="cd_inspect_state">Mode inspection : %1$s</string>
+    <string name="cd_recenter">Recentrer sur la position</string>
+    <string name="cd_zoom_in">Zoom avant</string>
+    <string name="cd_zoom_out">Zoom arrière</string>
+    <string name="cd_layer_fan">Couches de la carte</string>
+    <string name="cd_layer_markers">Couche des repères : %1$s</string>
+    <string name="cd_layer_tracks">Couche des traces : %1$s</string>
+    <string name="cd_layer_depth">Couche de profondeur : %1$s</string>
+    <string name="cd_layer_regulated">Couche des zones réglementées : %1$s</string>
+    <string name="cd_layer_zone300">Couche de la zone des 300 m : %1$s</string>
+    <string name="cd_layer_low_depth">Alerte faible profondeur : %1$s</string>
+    <string name="cd_filter_link_tracks">Lier les filtres de la liste des traces et de la carte : %1$s</string>
+    <string name="cd_filter_link_markers">Lier les filtres de la liste des repères et de la carte : %1$s</string>
+    <string name="cd_filter_link_routes">Lier les filtres de la liste des routes et de la carte : %1$s</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d sélectionnés</string>

@@ -16,8 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.location.GpsLocationSource
@@ -34,6 +35,7 @@ import ykws.android.maro.spatial.WhereAmIResult
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.io.IOException
 import java.util.UUID
 import kotlin.math.abs
 
@@ -115,6 +117,54 @@ data class TrackRecorderUiState(
 )
 
 /**
+ * The recorder's user-tunable parameters, read from [ykws.android.maro.data.settings.AppSettings]
+ * and replaced as one immutable snapshot whenever a setting moves (see [TrackRecorder.applyConfig]),
+ * so a threshold changed in Settings reaches the live recorder rather than waiting for the next
+ * process.
+ */
+data class TrackRecorderConfig(
+    /** Port Salis geofence origin latitude. */
+    val geofenceOriginLat: Double = 43.55,
+    /** Port Salis geofence origin longitude. */
+    val geofenceOriginLon: Double = 7.00,
+    /** Geofence radius in metres. */
+    val geofenceRadiusM: Double = 500.0,
+    /** When false, recording starts on movement alone. */
+    val geofenceEnabled: Boolean = true,
+    /** GPS mode arms the spike-rejection gates; demo mode bypasses them. */
+    val gpsMode: Boolean = true,
+    /** Maximum self-reported accuracy (m) for a fix to be recorded. */
+    val maxRecordingAccuracyM: Float = 30f,
+    /** When true, simplify track points on finalize (Douglas-Peucker + speed-aware). */
+    val simplifyEnabled: Boolean = true,
+    /** Douglas-Peucker tolerance (metres). Lower = more points kept. */
+    val simplifyEpsilonM: Double = 3.0,
+    /** Speed deviation threshold (knots) to re-insert a point during simplification. */
+    val simplifySpeedDeltaKn: Double = 3.0,
+    val idleThresholdSec: Long = 60,
+    val autoMarkerMinDurationSec: Long = AppConfig.boatMarkerAutoMarkerMinDurationSec,
+    val autoMarkerDedupRadiusM: Double = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+) {
+    companion object {
+        /** The snapshot a settings value maps to — the one place the two shapes meet. */
+        fun from(s: ykws.android.maro.data.settings.AppSettings): TrackRecorderConfig = TrackRecorderConfig(
+            geofenceOriginLat = s.trackOriginLat,
+            geofenceOriginLon = s.trackOriginLon,
+            geofenceRadiusM = s.trackGeofenceRadiusM,
+            geofenceEnabled = s.trackGeofenceEnabled,
+            gpsMode = s.gpsMode,
+            maxRecordingAccuracyM = s.maxRecordingAccuracyM,
+            simplifyEnabled = s.trackSimplifyEnabled,
+            simplifyEpsilonM = s.trackSimplifyEpsilonM,
+            simplifySpeedDeltaKn = s.trackSimplifySpeedDeltaKn,
+            idleThresholdSec = s.boatMarkerIdleThresholdSec,
+            autoMarkerMinDurationSec = s.boatMarkerAutoMarkerMinDurationSec,
+            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM
+        )
+    }
+}
+
+/**
  * Coroutine-based track recording state machine.
  *
  * Two states: OFF (not tracking) and ON (tracking). Within ON, point capture
@@ -124,16 +174,16 @@ data class TrackRecorderUiState(
  * Auto-start on geofence exit (Port Salis) with 10s movement debounce.
  * Auto-stop on geofence entrance with 15s debounce.
  *
+ * **Threading.** Every mutation of the recorder's state runs on one serial dispatcher
+ * ([dispatcher] limited to a parallelism of one): the sample collector, the timers, the idle
+ * session and every public command — which only *post* their work there and return at once. Nothing
+ * blocks a caller's thread, and no two mutations ever interleave. Disk work hops to IO inside that
+ * confinement and comes back to it.
+ *
  * @param repository              Track persistence layer.
- * @param geofenceOriginLat       Port Salis geofence origin latitude.
- * @param geofenceOriginLon       Port Salis geofence origin longitude.
- * @param geofenceRadiusM         Geofence radius in metres.
- * @param geofenceEnabled         When false, recording starts on movement alone.
+ * @param config                  The tunables, replaced live through [applyConfig].
  * @param isStopped               True when the boat is stationary (from NavigationVM adaptive policy). Default false.
- * @param simplifyEnabled         When true, simplify track points on finalize (Douglas-Peucker + speed-aware).
- * @param simplifyEpsilonM        Douglas-Peucker tolerance (metres). Lower = more points kept.
- * @param simplifySpeedDeltaKn    Speed deviation threshold (knots) to re-insert a point during simplification.
- * @param dispatcher              Coroutine dispatcher for the state machine loop.
+ * @param dispatcher              Coroutine dispatcher the state machine's serial lane is cut from.
  * @param whereAmI                Synchronous whereAmI lookup — nullable; when null the feature is dormant.
  * @param markerChangeNotifier    Flow that emits when external markers change — nullable.
  * @param gapDistanceThresholdM   Distance threshold (metres) to insert a GAP marker on resume.
@@ -141,20 +191,9 @@ data class TrackRecorderUiState(
  */
 class TrackRecorder(
     private val repository: TrackRepository,
-    private val geofenceOriginLat: Double = 43.55,
-    private val geofenceOriginLon: Double = 7.00,
-    private val geofenceRadiusM: Double = 500.0,
-    private val geofenceEnabled: Boolean = true,
-    private val gpsMode: Boolean = true,
-    private val maxRecordingAccuracyM: Float = 30f,
+    config: TrackRecorderConfig = TrackRecorderConfig(),
     val isStopped: StateFlow<Boolean> = MutableStateFlow(false),
-    private val simplifyEnabled: Boolean = true,
-    private val simplifyEpsilonM: Double = 3.0,
-    private val simplifySpeedDeltaKn: Double = 3.0,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val idleThresholdSec: Long = 60,
-    private val autoMarkerMinDurationSec: Long = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec,
-    private val autoMarkerDedupRadiusM: Double = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM,
     private val idleThresholdCallback: IdleThresholdCallback? = null,
     private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
     private val markerChangeNotifier: Flow<Unit>? = null,
@@ -164,6 +203,28 @@ class TrackRecorder(
     private val gapTimeThresholdSec: Long = 120L,
     private val autoMarkerManager: AutoMarkerManager? = null
 ) {
+    /** The live tunables — an immutable snapshot swapped whole, so a reader never sees a half-applied change. */
+    @Volatile
+    private var config: TrackRecorderConfig = config
+
+    /** Replace the tunables; the next sample, finalize or idle timer reads the new values. */
+    fun applyConfig(newConfig: TrackRecorderConfig) {
+        config = newConfig
+    }
+
+    private val geofenceOriginLat: Double get() = config.geofenceOriginLat
+    private val geofenceOriginLon: Double get() = config.geofenceOriginLon
+    private val geofenceRadiusM: Double get() = config.geofenceRadiusM
+    private val geofenceEnabled: Boolean get() = config.geofenceEnabled
+    private val gpsMode: Boolean get() = config.gpsMode
+    private val maxRecordingAccuracyM: Float get() = config.maxRecordingAccuracyM
+    private val simplifyEnabled: Boolean get() = config.simplifyEnabled
+    private val simplifyEpsilonM: Double get() = config.simplifyEpsilonM
+    private val simplifySpeedDeltaKn: Double get() = config.simplifySpeedDeltaKn
+    private val idleThresholdSec: Long get() = config.idleThresholdSec
+    private val autoMarkerMinDurationSec: Long get() = config.autoMarkerMinDurationSec
+    private val autoMarkerDedupRadiusM: Double get() = config.autoMarkerDedupRadiusM
+
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
 
@@ -174,9 +235,11 @@ class TrackRecorder(
     private val _newPoint = MutableSharedFlow<TrackPoint>(extraBufferCapacity = 64)
     val newPoint: SharedFlow<TrackPoint> = _newPoint.asSharedFlow()
 
-    // Internal mutable state
+    // Internal mutable state — written only on the serial lane; the two volatiles are the fields
+    // a caller may read from another thread ([snapshotPoints], the service's recording flag).
     @Volatile
     private var state: TrackRecorderState = TrackRecorderState.OFF
+    @Volatile
     private var currentTrack: Track? = null
     private var pointsSinceLastCheckpoint = 0
     private var recordingStartTimeMs = 0L
@@ -246,7 +309,12 @@ class TrackRecorder(
     /** Inter-session gap in seconds when resuming a finalized track (D10). */
     private var resumeGapDurationSec: Long = 0L
 
-    private var scope: CoroutineScope? = null
+    /**
+     * The one lane every mutation runs on: [dispatcher] cut down to a single worker, so coroutines
+     * on it never run in parallel. Lives from construction to [dispose].
+     */
+    private val scope: CoroutineScope =
+        CoroutineScope(dispatcher.limitedParallelism(1) + SupervisorJob())
     private var collectingJob: Job? = null
     private var checkpointJob: Job? = null
     private var elapsedTimerJob: Job? = null
@@ -258,6 +326,10 @@ class TrackRecorder(
      * Used by the boat-marker button in MapScreen (MANUAL trigger).
      */
     fun addManualBoatMarker(snapshots: List<MarkerSnapshot>) {
+        scope.launch { addManualBoatMarkerOnLane(snapshots) }
+    }
+
+    private fun addManualBoatMarkerOnLane(snapshots: List<MarkerSnapshot>) {
         val track = currentTrack ?: return
         if (snapshots.isEmpty()) return
         val now = System.currentTimeMillis()
@@ -273,7 +345,7 @@ class TrackRecorder(
             sequenceIndex = seqIdx
         )
         currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
-        scope?.launch {
+        scope.launch {
             currentTrack?.let { repository.saveCheckpoint(it) }
         }
         recomputeDescription()
@@ -285,12 +357,13 @@ class TrackRecorder(
      * Call from viewModelScope or similar.
      */
     fun start(sampleFlow: Flow<TrackSample>) {
-        collectingJob?.cancel()
-        scope = CoroutineScope(dispatcher + SupervisorJob())
-        collectingJob = scope?.launch {
-            sampleFlow.collect { sample -> processSample(sample) }
+        scope.launch {
+            collectingJob?.cancel()
+            collectingJob = scope.launch {
+                sampleFlow.collect { sample -> processSample(sample) }
+            }
+            startElapsedTimer()
         }
-        startElapsedTimer()
     }
 
     /**
@@ -305,10 +378,15 @@ class TrackRecorder(
      * @param sampleFlow   The sample flow to start processing.
      */
     fun resume(track: Track, sampleFlow: Flow<TrackSample>, fromCheckpoint: Boolean = true) {
+        scope.launch { resumeOnLane(track, sampleFlow, fromCheckpoint) }
+    }
+
+    private fun resumeOnLane(track: Track, sampleFlow: Flow<TrackSample>, fromCheckpoint: Boolean) {
         if (state != TrackRecorderState.OFF) {
             Log.w(TAG, "resume: ignored — state=$state (not OFF)")
             return
         }
+        isFinalizing = false
 
         val now = System.currentTimeMillis()
         val points = track.trackPoints
@@ -383,12 +461,11 @@ class TrackRecorder(
         Log.d(TAG, "resume: id=${track.id} name=${track.name} existingPoints=${points.size} isResuming=$isResuming")
 
         collectingJob?.cancel()
-        scope = CoroutineScope(dispatcher + SupervisorJob())
         // Emit Resumed event with existing points so MapScreen restores the polyline
         if (points.isNotEmpty()) {
             _events.tryEmit(Resumed(points))
         }
-        collectingJob = scope?.launch {
+        collectingJob = scope.launch {
             sampleFlow.collect { sample -> processSample(sample) }
         }
         startElapsedTimer()
@@ -398,12 +475,19 @@ class TrackRecorder(
         _events.tryEmit(Started)
     }
 
-    /** Stop the recorder — finalizes the current track if recording. */
+    /**
+     * Stop the recorder — finalizes the current track if recording. Returns at once; the finalize
+     * runs on the lane and the recorder reads ON until the track is on disk. A stop while OFF is a
+     * no-op: sample collection stays live, so a later start still records (it used to tear the
+     * collector down and leave the next recording deaf).
+     */
     fun stop() {
-        if (state == TrackRecorderState.ON) {
-            finalizeTrack()
-        } else {
-            cleanup()
+        scope.launch {
+            if (state == TrackRecorderState.ON) {
+                finalizeTrack()
+            } else {
+                Log.d(TAG, "stop: ignored — state=$state (not ON)")
+            }
         }
     }
 
@@ -415,29 +499,37 @@ class TrackRecorder(
      * Deletes the current track file and its checkpoint, then returns to OFF.
      */
     fun discard() {
-        if (state == TrackRecorderState.ON) {
+        scope.launch {
+            if (state != TrackRecorderState.ON) {
+                Log.d(TAG, "discard: ignored — state=$state (not ON)")
+                return@launch
+            }
             val trackId = currentTrack?.id
             stopCheckpointJob()
             stopPolling()
             cancelIdleTimer()
             stopDebounceStartTime = null
-            scope?.launch {
-                if (trackId != null) {
-                    repository.delete(trackId)
-                    repository.deleteCheckpoint(trackId)
-                }
-                _events.tryEmit(Stopped)
-            }
             transitionTo(TrackRecorderState.OFF)
             currentTrack = null
             _uiState.update { TrackRecorderUiState() }
-        } else {
-            cleanup()
+            if (trackId != null) {
+                try {
+                    repository.delete(trackId)
+                    repository.deleteCheckpoint(trackId)
+                } catch (e: IOException) {
+                    Log.w(TAG, "discard: delete failed for $trackId", e)
+                }
+            }
+            _events.tryEmit(Stopped)
         }
     }
 
     /** Update the current track's name and/or comment in memory and checkpoint. */
     fun updateCurrentTrackMeta(name: String? = null, comment: String? = null) {
+        scope.launch { updateCurrentTrackMetaOnLane(name, comment) }
+    }
+
+    private fun updateCurrentTrackMetaOnLane(name: String?, comment: String?) {
         val track = currentTrack ?: return
         currentTrack = track.copy(
             name = name ?: track.name,
@@ -450,7 +542,7 @@ class TrackRecorder(
             )
         }
         if (!isFinalizing) {
-            scope?.launch {
+            scope.launch {
                 currentTrack?.let { repository.saveCheckpoint(it) }
             }
         }
@@ -464,15 +556,20 @@ class TrackRecorder(
 
     /** Manually start recording (bypasses auto-detection). */
     fun startManual() {
-        if (state != TrackRecorderState.OFF) {
-            Log.d(TAG, "startManual: ignored — state=$state (not OFF)")
-            return
+        scope.launch {
+            if (state != TrackRecorderState.OFF) {
+                Log.d(TAG, "startManual: ignored — state=$state (not OFF)")
+                return@launch
+            }
+            Log.d(TAG, "startManual: → beginRecording")
+            beginRecording(isManual = true)
         }
-        Log.d(TAG, "startManual: → beginRecording")
-        beginRecording(isManual = true)
     }
 
-    private fun processSample(sample: TrackSample) {
+    private suspend fun processSample(sample: TrackSample) {
+        // A finalize in flight owns the track: a sample landing during its IO hop is dropped rather
+        // than appended to a track that is being written.
+        if (isFinalizing) return
         val insideGeofence = geofenceEnabled && TrackGeofenceChecker.isInsideGeofence(
             posLat = sample.position.latitude,
             posLon = sample.position.longitude,
@@ -565,6 +662,7 @@ class TrackRecorder(
         activeSession = null
         isResuming = false
         checkpointFileDeleted = false
+        isFinalizing = false
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
@@ -629,7 +727,7 @@ class TrackRecorder(
             // Delete checkpoint after first new point is captured (resume is confirmed)
             if (!checkpointFileDeleted) {
                 checkpointFileDeleted = true
-                scope?.launch { repository.deleteCheckpoint(track.id) }
+                scope.launch { repository.deleteCheckpoint(track.id) }
             }
         }
 
@@ -666,7 +764,7 @@ class TrackRecorder(
             val lon = sample.position.longitude
             val session = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
             activeSession = session
-            session.autoMarkerJob = scope?.launch {
+            session.autoMarkerJob = scope.launch {
                 val id = autoMarkerManager?.createTemp(lat, lon, now, currentTrack?.id, autoMarkerDedupRadiusM).orEmpty()
                 session.autoMarkerId = id.ifEmpty { null }
             }
@@ -688,7 +786,7 @@ class TrackRecorder(
                     if (session.drawerAutoOpened) {
                         _events.tryEmit(DrawerAutoCloseRequested)
                     }
-                    scope?.launch {
+                    scope.launch {
                         session.autoMarkerJob?.join()
                         resolveAutoMarker(session, now, delta, finalized = false)
                     }
@@ -993,7 +1091,7 @@ class TrackRecorder(
 
     private fun startCheckpointJob() {
         checkpointJob?.cancel()
-        checkpointJob = scope?.launch {
+        checkpointJob = scope.launch {
             while (true) {
                 delay(CHECKPOINT_INTERVAL_MS)
                 val track = currentTrack ?: continue
@@ -1009,7 +1107,7 @@ class TrackRecorder(
 
     private fun startElapsedTimer() {
         elapsedTimerJob?.cancel()
-        elapsedTimerJob = scope?.launch {
+        elapsedTimerJob = scope.launch {
             var lastTick = System.currentTimeMillis()
             while (true) {
                 delay(1_000L)
@@ -1023,9 +1121,14 @@ class TrackRecorder(
         }
     }
 
-    private fun finalizeTrack() {
+    /**
+     * Finalize the current track on the lane: simplify, title, then persist on IO and only then
+     * leave ON. A save that fails keeps the checkpoint on disk and reports through [TrackRecorderUiState.infoError],
+     * so the next launch offers the recording for recovery instead of the recorder claiming it saved.
+     */
+    private suspend fun finalizeTrack() {
         isFinalizing = true
-        val track = currentTrack ?: return
+        val track = currentTrack ?: run { isFinalizing = false; return }
         stopCheckpointJob()
         stopPolling()
         cancelIdleTimer()
@@ -1102,12 +1205,13 @@ class TrackRecorder(
         recomputeDescription()
         val finalizedTrack = currentTrack ?: finalizedWithTitle
 
-        // D: transactional finalize — persist the finalized track and remove the checkpoint
-        // synchronously on IO so the Stop tap is durable before the recorder leaves ON state.
-        // A: save before delete, so a crash leaves a complete copy (finalized .bin or checkpoint).
-        // Resolve the final open idle's auto-marker: confirm on success, fallback delete on failure (§4).
-        // The marker's trackId was set at creation — no BoatMarker link to persist here.
-        runBlocking(Dispatchers.IO) {
+        // D: transactional finalize — persist the finalized track and remove the checkpoint on IO,
+        // suspending the lane (never blocking a thread) so the Stop tap is durable before the
+        // recorder leaves ON state. A: save before delete, so a crash leaves a complete copy
+        // (finalized .bin or checkpoint). Resolve the final open idle's auto-marker: confirm on
+        // success, fallback delete on failure (§4). The marker's trackId was set at creation.
+        // Null when the track landed; the failure's own words otherwise.
+        val saveError: String? = withContext(Dispatchers.IO) {
             val mgr = autoMarkerManager
             if (mgr != null && session != null) {
                 session.autoMarkerJob?.join()
@@ -1125,15 +1229,29 @@ class TrackRecorder(
                     }
                 }
             }
-            repository.save(finalizedTrack)
-            repository.deleteCheckpoint(finalizedTrack.id)
+            try {
+                repository.save(finalizedTrack)
+                repository.deleteCheckpoint(finalizedTrack.id)
+                null
+            } catch (e: IOException) {
+                Log.e(TAG, "finalizeTrack: save failed — checkpoint kept for recovery", e)
+                e.message ?: e.javaClass.simpleName
+            }
         }
-        _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name))
+        val saved = saveError == null
+        if (saved) {
+            _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name))
+        }
         _events.tryEmit(Stopped)
 
         transitionTo(TrackRecorderState.OFF)
         currentTrack = null
-        _uiState.update { TrackRecorderUiState() }
+        isFinalizing = false
+        _uiState.update {
+            // A failed save is the one fact that outlives the reset: the exception's own words,
+            // surfaced through the existing error channel, with the raw recording still on disk.
+            if (saved) TrackRecorderUiState() else TrackRecorderUiState(infoError = saveError)
+        }
     }
 
     /** The new-recording name, from its one home beside [Track] — see [trackAutoName]. */
@@ -1192,7 +1310,7 @@ class TrackRecorder(
     private fun startIdleTimer(lat: Double, lon: Double, startMs: Long) {
         idleTimerJob?.cancel()
         val callback = idleThresholdCallback ?: return
-        idleTimerJob = scope?.launch {
+        idleTimerJob = scope.launch {
             delay(idleThresholdSec * 1000)
             try {
                 val result = callback.onIdleThresholdReached(LatLng(lat, lon))
@@ -1279,7 +1397,7 @@ class TrackRecorder(
             currentTrack = track.copy(
                 boatMarkers = track.boatMarkers.toMutableList().also { it[idx] = closed }
             )
-            scope?.launch {
+            scope.launch {
                 currentTrack?.let { repository.saveCheckpoint(it) }
             }
         }
@@ -1329,14 +1447,14 @@ class TrackRecorder(
         collectingJob = null
         checkpointJob = null
         elapsedTimerJob = null
-        scope = null
         activeSession = null
         wasInsideGeofence = false
     }
 
-    /** Release all resources. */
+    /** Release all resources — the lane itself is cancelled, so the recorder is finished for good. */
     fun dispose() {
         cleanup()
+        scope.cancel()
     }
 
     // ── Track info: description + title ──────────────────────────────────
@@ -1474,7 +1592,7 @@ class TrackRecorder(
     private fun startPolling() {
         val wia = whereAmI ?: return
         titlePollJob?.cancel()
-        titlePollJob = scope?.launch {
+        titlePollJob = scope.launch {
             while (true) {
                 delay(TITLE_POLL_INTERVAL_MS)
                 recomputeDescription()
@@ -1483,7 +1601,7 @@ class TrackRecorder(
         }
         markerObserverJob?.cancel()
         markerObserverJob = markerChangeNotifier?.let { flow ->
-            scope?.launch {
+            scope.launch {
                 flow.collect {
                     if (state == TrackRecorderState.ON && currentTrack != null) {
                         recomputeDescription()

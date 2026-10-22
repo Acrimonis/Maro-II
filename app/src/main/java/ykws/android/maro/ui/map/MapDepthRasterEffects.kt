@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
+import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.Isobath
@@ -59,18 +60,27 @@ internal fun MapDepthRasterEffects(
     val waterTest: (Double, Double) -> Boolean =
         if (coastlineReady) viewModel::isOnWater else { _, _ -> false }
 
+    // Per step: each raster's key carries its own palette hash, so one layer's colour change
+    // never discards the other layer's cache file.
+    fun cached(grid: DepthGrid, step: RasterCache.Step): Boolean = RasterCache.has(
+        context, step,
+        RasterCache.keyFor(
+            step, grid, appSettings.emodnetShallowCutoffM,
+            appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM
+        )
+    )
+
     // Rasterise the colour map once per grid, off the main thread (~7 M cells).
     val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
         appSettings.emodnetShallowCutoffM) {
-        // If cache exists, skip the expensive live build
-        val cached = depthGrid?.let {
-            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
+        // A cache file on disk means the cached producer below supplies this layer: skip the live build
+        // rather than decode the same raster twice.
+        val g = depthGrid
+        if (g == null || withContext(Dispatchers.IO) { cached(g, RasterCache.Step.DEPTH_COLOUR) }) {
+            value = null; return@produceState
         }
-        if (cached != null) { value = cached; return@produceState }
-        value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) {
-                DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, AppConfig.mapDepthNodataColor)
-            }
+        value = withContext(Dispatchers.Default) {
+            DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, AppConfig.mapDepthNodataColor)
         }
     }
 
@@ -81,18 +91,16 @@ internal fun MapDepthRasterEffects(
         appSettings.lowDepthStartWarningM, coastlineReady,
         appSettings.emodnetShallowCutoffM
     ) {
-        // If cache exists, skip the expensive live build
-        val cached = depthGrid?.let {
-            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
+        // Same skip as the colour map: a cache file on disk means the cached producer supplies it.
+        val g = depthGrid
+        if (g == null || withContext(Dispatchers.IO) { cached(g, RasterCache.Step.LOW_DEPTH_WARNING) }) {
+            value = null; return@produceState
         }
-        if (cached != null) { value = cached; return@produceState }
         val crashM = appSettings.lowDepthCrashDepthM
         val startM = appSettings.lowDepthStartWarningM
-        value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) {
-                LowDepthWarningBitmap.build(g, crashM, startM, waterTest,
-                    appSettings.emodnetShallowCutoffM)
-            }
+        value = withContext(Dispatchers.Default) {
+            LowDepthWarningBitmap.build(g, crashM, startM, waterTest,
+                appSettings.emodnetShallowCutoffM)
         }
     }
 
@@ -107,19 +115,10 @@ internal fun MapDepthRasterEffects(
                    appSettings.lowDepthStartWarningM, coastlineReady,
                    appSettings.emodnetShallowCutoffM) {
         val grid = depthGrid ?: return@LaunchedEffect
-        // Per step: each raster's key carries its own palette hash, so one layer's colour change
-        // never discards the other layer's cache file.
-        fun cached(step: RasterCache.Step): Boolean = RasterCache.has(
-            context, step,
-            RasterCache.keyFor(
-                step, grid, appSettings.emodnetShallowCutoffM,
-                appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM
-            )
-        )
         val missing = mutableListOf<RasterCache.Step>()
-        if (!cached(RasterCache.Step.DEPTH_COLOUR))
+        if (!cached(grid, RasterCache.Step.DEPTH_COLOUR))
             missing.add(RasterCache.Step.DEPTH_COLOUR)
-        if (coastlineReady && !cached(RasterCache.Step.LOW_DEPTH_WARNING))
+        if (coastlineReady && !cached(grid, RasterCache.Step.LOW_DEPTH_WARNING))
             missing.add(RasterCache.Step.LOW_DEPTH_WARNING)
         if (missing.isNotEmpty()) {
             val waterTest: (Double, Double) -> Boolean =

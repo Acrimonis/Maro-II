@@ -202,6 +202,12 @@
     <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
     <string name="dash_speed_title">Speed</string>
     <string name="dash_demo_mode">demo mode</string>
+    <!-- The speed card's subtitle while the reading is empty in GPS mode, one line per GPS state;
+         `dash_demo_mode` above keeps the demo case. -->
+    <string name="dash_gps_no_fix">No GPS fix</string>
+    <string name="dash_gps_stale">GPS stale</string>
+    <string name="dash_gps_weak">GPS weak (±%1$d m)</string>
+    <string name="dash_gps_estimating">Estimating</string>
     <string name="dash_5kn_in_zone">5 kn max in zone</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolated</string>
@@ -502,6 +508,33 @@
     <string name="cd_collapse_speed_scale">Collapse the speed scale</string>
     <string name="cd_expand_speed_scale">Expand the speed scale</string>
     <string name="cd_find_markers_at_position">Find markers at your position</string>
+    <!-- The map chrome's controls, for TalkBack: the action, then the state it is in. The three state
+         words fill every `%1$s` below; the GPS square reads its own state word. -->
+    <string name="cd_state_on">on</string>
+    <string name="cd_state_off">off</string>
+    <string name="cd_state_standby">standing by</string>
+    <string name="cd_gps_state">GPS: %1$s</string>
+    <string name="cd_gps_demo">demo mode</string>
+    <string name="cd_gps_acquiring">acquiring</string>
+    <string name="cd_gps_active">active</string>
+    <string name="cd_gps_stale">stale</string>
+    <string name="cd_gps_weak">weak signal</string>
+    <string name="cd_gps_estimating">estimating</string>
+    <string name="cd_recording_state">Recording: %1$s</string>
+    <string name="cd_inspect_state">Inspect mode: %1$s</string>
+    <string name="cd_recenter">Recenter on position</string>
+    <string name="cd_zoom_in">Zoom in</string>
+    <string name="cd_zoom_out">Zoom out</string>
+    <string name="cd_layer_fan">Map layers</string>
+    <string name="cd_layer_markers">Markers layer: %1$s</string>
+    <string name="cd_layer_tracks">Tracks layer: %1$s</string>
+    <string name="cd_layer_depth">Depth layer: %1$s</string>
+    <string name="cd_layer_regulated">Regulated zones layer: %1$s</string>
+    <string name="cd_layer_zone300">300 m zone layer: %1$s</string>
+    <string name="cd_layer_low_depth">Low-depth warning: %1$s</string>
+    <string name="cd_filter_link_tracks">Link track list and map filters: %1$s</string>
+    <string name="cd_filter_link_markers">Link marker list and map filters: %1$s</string>
+    <string name="cd_filter_link_routes">Link route list and map filters: %1$s</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d selected</string>

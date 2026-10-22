@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -255,7 +256,7 @@ fun MenuDrawerOverlay(
                 ) {
                     Icon(
                         imageVector = if (routeFilterLinked) Link else LinkOff,
-                        contentDescription = null,
+                        contentDescription = filterLinkDescription(R.string.cd_filter_link_routes, routeFilterLinked),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
@@ -313,7 +314,7 @@ fun MenuDrawerOverlay(
                 ) {
                     Icon(
                         imageVector = if (trackFilterLinked) Link else LinkOff,
-                        contentDescription = null,
+                        contentDescription = filterLinkDescription(R.string.cd_filter_link_tracks, trackFilterLinked),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
@@ -497,7 +498,7 @@ fun MenuDrawerOverlay(
                 ) {
                     Icon(
                         imageVector = if (markerFilterLinked) Link else LinkOff,
-                        contentDescription = null,
+                        contentDescription = filterLinkDescription(R.string.cd_filter_link_markers, markerFilterLinked),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
@@ -915,6 +916,11 @@ private fun RoutesRow(
         }
     }
 }
+
+/** A section header's link toggle, for TalkBack: the kind's own line, then whether the link is on. */
+@Composable
+private fun filterLinkDescription(@StringRes kind: Int, linked: Boolean): String =
+    stringResource(kind, stringResource(if (linked) R.string.cd_state_on else R.string.cd_state_off))
 
 /**
  * One kind's **map-visibility eye** (2026-10-05): the leftmost control of a section header's trailing

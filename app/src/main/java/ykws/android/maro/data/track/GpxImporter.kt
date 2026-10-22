@@ -286,6 +286,8 @@ object GpxImporter {
         var inName = false
         var inCmt = false
         var inTrkpt = false
+        // The `<trkpt>` child whose text is being read: a TEXT event carries no element name of its own.
+        var trkptChild: String? = null
         var currentLat = 0.0
         var currentLon = 0.0
         var currentSpeed: Float? = null
@@ -297,18 +299,20 @@ object GpxImporter {
         while (eventType != XmlPullParser.END_DOCUMENT) {
             when (eventType) {
                 XmlPullParser.START_TAG -> {
-                    when (parser.name.lowercase()) {
+                    when (val tag = parser.name.lowercase()) {
                         "trk" -> inTrk = true
                         "name" -> if (inTrk) inName = true
                         "cmt" -> if (inTrk) inCmt = true
                         "trkpt" -> {
                             inTrkpt = true
+                            trkptChild = null
                             currentLat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull() ?: 0.0
                             currentLon = parser.getAttributeValue(null, "lon")?.toDoubleOrNull() ?: 0.0
                             currentSpeed = null
                             currentBearing = null
                             currentTimeMs = 0L
                         }
+                        else -> if (inTrkpt) trkptChild = tag
                     }
                 }
                 XmlPullParser.TEXT -> {
@@ -316,12 +320,10 @@ object GpxImporter {
                     if (inName) { trackName = text; inName = false }
                     if (inCmt) { trackComment = text; inCmt = false }
                     if (inTrkpt) {
-                        when {
-                            parser.name.equals("speed", ignoreCase = true) ->
-                                currentSpeed = text.toFloatOrNull()
-                            parser.name.equals("course", ignoreCase = true) ->
-                                currentBearing = text.toFloatOrNull()
-                            parser.name.equals("time", ignoreCase = true) -> {
+                        when (trkptChild) {
+                            "speed" -> currentSpeed = text.toFloatOrNull()
+                            "course" -> currentBearing = text.toFloatOrNull()
+                            "time" -> {
                                 currentTimeMs = parseIsoTime(text) ?: 0L
                                 if (firstTimeMs == null) firstTimeMs = currentTimeMs
                             }
@@ -346,6 +348,7 @@ object GpxImporter {
                             }
                             inTrkpt = false
                         }
+                        else -> trkptChild = null
                     }
                 }
             }
@@ -375,14 +378,11 @@ object GpxImporter {
             comment = std.comment,
             startTimeMs = startMs,
             endTimeMs = endMs,
-            lastPointTimeMs = endMs,
             trackPoints = std.points,
             trackColorArgb = 0xFFFF6F00.toInt(),
             pinned = false,
-            distanceNm = 0f,
-            navigatingDurationSec = (endMs - startMs) / 1000,
             updatedAtEpochMs = now
-        )
+        ).withDerivedStats()
     }
 
     /**
