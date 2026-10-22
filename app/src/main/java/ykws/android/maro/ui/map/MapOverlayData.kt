@@ -65,12 +65,14 @@ internal fun buildSettingsOverlayData(
     navigationScrollState: ScrollState,
     routingScrollState: ScrollState,
     systemScrollState: ScrollState,
+    paceNow: ykws.android.maro.data.route.PaceReading,
 ): SettingsOverlayData = SettingsOverlayData(
     selectedTab = selectedTab,
     layersScrollState = layersScrollState,
     navigationScrollState = navigationScrollState,
     routingScrollState = routingScrollState,
     systemScrollState = systemScrollState,
+    paceNow = paceNow,
 )
 
 /** The marker-management surface's data bundle, moved verbatim from the `OverlayLayer` call site. */

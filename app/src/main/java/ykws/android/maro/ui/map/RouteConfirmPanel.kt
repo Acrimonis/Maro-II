@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.route.PaceSource
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
@@ -109,6 +110,7 @@ private val ROUTE_CELL_LINE_HEIGHT get() = AppConfig.uiRouteTableCellLineHeight.
  * @param dashboardBaseHeight the dashboard's base height — the floor the panel uses in portrait.
  * @param paceKn          the cruising speed the search plans at (kn) — the evaluated pace under `Any`.
  * @param paceSetKn       the cruising-speed **setting** (kn), `Any` included, so the header can say both.
+ * @param paceSource      where the evaluated pace comes from, named beside it in the header under `Any`.
  * @param onMeasuredHeight optional report of the open panel's measured height (Phase 2).
  * @param panelMaxHeight  the portrait frame's own ceiling (F5) — the band cap the map leaves,
  *                        under which a taller panel's body scrolls instead of covering the map
@@ -139,6 +141,7 @@ internal fun RouteConfirmationPanel(
     dashboardBaseHeight: Dp,
     paceKn: Double,
     paceSetKn: Float,
+    paceSource: PaceSource,
     /**
      * **The ranks and the crown** — the engine's own fold read through the folds and counted over the
      * pages that stand ([RouteRankView]). A landed row prints its rank at once, live as others land; the
@@ -188,7 +191,8 @@ internal fun RouteConfirmationPanel(
     val paceText = if (AppConfig.isFreeWaterPaceAny(paceSetKn)) {
         stringResource(
             R.string.route_header_pace_any_fmt,
-            stringResource(R.string.settings_route_pace_value_fmt, paceKn)
+            stringResource(R.string.settings_route_pace_value_fmt, paceKn),
+            stringResource(paceSource.labelRes())
         )
     } else {
         stringResource(R.string.settings_route_pace_value_fmt, paceSetKn)

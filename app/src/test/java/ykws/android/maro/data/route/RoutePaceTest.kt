@@ -1,68 +1,60 @@
 package ykws.android.maro.data.route
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoutePaceTest {
 
-    private val now = 1_000_000L
-
-    private fun samples(vararg pairs: Pair<Double, Long>) =
-        pairs.map { RoutePace.Sample(it.first, it.second) }
+    private fun starting(
+        dayKn: Double? = null,
+        dayDate: String = "",
+        tripDate: String = "2026-10-22",
+        historyKn: Double? = null
+    ) = RoutePace.starting(dayKn, dayDate, tripDate, historyKn, defaultKn = 25.0)
 
     @Test
-    fun allEqualReturnsThatSpeed() {
-        val result = RoutePace.paceKn(
-            samples(22.0 to now - 4, 22.0 to now - 3, 22.0 to now - 2, 22.0 to now - 1, 22.0 to now),
-            now, 25.0, recentWeightPct = 60.0
+    fun theDaysPaceStartsATripOnItsOwnDate() {
+        assertEquals(
+            PaceReading(29.0, PaceSource.TODAY),
+            starting(dayKn = 29.0, dayDate = "2026-10-22", historyKn = 31.0)
         )
-        assertEquals(22.0, result, 1e-9)
     }
 
     @Test
-    fun zeroWeightIsThePlainQuantile() {
-        // Sorted 10,20,25,30,35 → nearest-rank 75th percentile = 30.
-        val result = RoutePace.paceKn(
-            samples(
-                10.0 to now - 5, 20.0 to now - 4, 25.0 to now - 3,
-                30.0 to now - 2, 35.0 to now - 1
-            ),
-            now, 25.0, recentWeightPct = 0.0
+    fun aPaceFromAnotherDateFallsToTheHistory() {
+        assertEquals(
+            PaceReading(31.0, PaceSource.HISTORY),
+            starting(dayKn = 29.0, dayDate = "2026-10-21", historyKn = 31.0)
         )
-        assertEquals(30.0, result, 1e-9)
     }
 
     @Test
-    fun restrictedSamplesAreDropped() {
-        val result = RoutePace.paceKn(
-            listOf(
-                RoutePace.Sample(4.0, now - 5, restricted = true),
-                RoutePace.Sample(30.0, now - 4),
-                RoutePace.Sample(30.0, now - 3),
-                RoutePace.Sample(30.0, now - 2),
-                RoutePace.Sample(30.0, now - 1),
-                RoutePace.Sample(30.0, now)
-            ),
-            now, 25.0
-        )
-        assertEquals(30.0, result, 1e-9)
+    fun anEmptyHistoryFallsToTheShippedDefault() {
+        assertEquals(PaceReading(25.0, PaceSource.DEFAULT), starting())
+        assertEquals(PaceReading(25.0, PaceSource.DEFAULT), starting(historyKn = 0.0))
     }
 
     @Test
-    fun belowMinSamplesFallsBackToSetPace() {
-        val result = RoutePace.paceKn(
-            samples(22.0 to now - 1, 22.0 to now),
-            now, 25.0, recentWeightPct = 60.0
-        )
-        assertEquals(25.0, result, 1e-9)
+    fun aThinHistoryStillReadsAsHistory() {
+        assertEquals(PaceReading(18.0, PaceSource.HISTORY), starting(historyKn = 18.0))
     }
 
     @Test
-    fun resultIsClampedToTheSettingSpan() {
-        val tooFast = RoutePace.paceKn(
-            samples(99.0 to now - 4, 99.0 to now - 3, 99.0 to now - 2, 99.0 to now - 1, 99.0 to now),
-            now, 25.0
-        )
-        assertEquals(35.0, tooFast, 1e-9)
+    fun cruisingIsARealSpeedAtOrAboveTheStopSpeed() {
+        assertTrue(RoutePace.isCruising(4.0, stopKn = 4.0))
+        assertTrue(RoutePace.isCruising(30.0, stopKn = 4.0))
+        assertFalse(RoutePace.isCruising(3.9, stopKn = 4.0))
+        assertFalse(RoutePace.isCruising(0.0, stopKn = 0.0))
+        assertFalse(RoutePace.isCruising(Double.NaN, stopKn = 4.0))
+    }
+
+    @Test
+    fun liveSwitchesOnAtAQuarterOfTheWindow() {
+        val window = 240_000L
+        assertFalse(RoutePace.isLive(0L, window))
+        assertFalse(RoutePace.isLive(59_999L, window))
+        assertTrue(RoutePace.isLive(60_000L, window))
     }
 }
