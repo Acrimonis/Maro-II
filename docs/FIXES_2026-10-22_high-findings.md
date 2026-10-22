@@ -81,7 +81,18 @@ also closes N11 and the window-background-before-init slip.
   `<gpxtpx:speed>` children still do not match; both are one-liners if wanted, left out as beyond the
   agreed High.
 
-## 5. Strongest objection
+## 5. Review round one (PR noahb/Maro-II#1)
+
+Four findings, all accepted and fixed.
+
+| Finding | Fix |
+|---|---|
+| P1 Save-and-exit stopped the service 300 ms after Stop, cancelling the now-asynchronous finalize | The exit waits for the recorder's own OFF (`awaitRecorderOff`, bounded at 20 s) before `stopService`; a save that failed leaves the recorder ON with its error shown and the app stays open. The finalize's persistence block runs under `NonCancellable`, so a service torn down mid-write no longer cuts it short. Discard deletes before reading OFF, under the same guard. |
+| P1 A single worker does not serialise across suspension points | A `lifecycleMutex` held for the whole of every transition: Stop, Discard, start, resume, meta update, manual marker and every sample. A second Stop or a Discard now waits for a finalize in flight and then finds the recorder OFF. |
+| P1 A failed final save cleared the only complete copy | On failure the recorder stays ON holding the finalised snapshot, writes it as a checkpoint (best effort), restarts the periodic checkpoint job and reports through `infoError`; the next Stop retries from the snapshot and only a successful save or an explicit Discard clears it. Every checkpoint write is now failure-tolerant (`checkpointQuietly`), and a coroutine that dies on the recorder's lane is logged rather than crashing the process. |
+| P2 A corrupt cache file left the layer absent | The cached producers note when a cache file existed but did not decode (the reader evicts it) and bump a tick the live producers and the lazy-init effect are keyed on, so the layer is built live and the cache regenerated. |
+
+## 6. Strongest objection
 
 The recorder and service changes are the riskiest edits in the set and they were made without a
 compiler or a device. The serial-lane design is simple on purpose, but a recorder characterisation

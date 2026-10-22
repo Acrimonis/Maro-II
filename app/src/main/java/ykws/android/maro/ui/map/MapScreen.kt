@@ -173,6 +173,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
@@ -4329,9 +4330,14 @@ fun MapScreen(
                 showExitDialog = false
                 trackViewModel.stopRecording()
                 kotlinx.coroutines.MainScope().launch {
-                    kotlinx.coroutines.delay(300)
-                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                    context.findActivity()?.finishAffinity()
+                    // The finalize runs asynchronously now and the service's destroy would cut it
+                    // short, so the exit waits for the recorder's own OFF. A save that failed leaves
+                    // the recorder ON with its error shown: then the app stays open and the recording
+                    // stays in hand, rather than being torn down with the service.
+                    if (awaitRecorderOff()) {
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
+                    }
                 }
             },
             onExitSheetContinue = {
@@ -4342,9 +4348,11 @@ fun MapScreen(
                 showExitDialog = false
                 trackViewModel.discardRecording()
                 kotlinx.coroutines.MainScope().launch {
-                    kotlinx.coroutines.delay(300)
-                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                    context.findActivity()?.finishAffinity()
+                    // Same wait as the save: the discard's delete lands before the service goes.
+                    if (awaitRecorderOff()) {
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
+                    }
                 }
             },
             onExitSheetDismiss = { showExitDialog = false },
@@ -4843,6 +4851,22 @@ private fun regenerateRasterLayers(
 }
 
 /** The marker drawer's close, held inert while an inspect open is in flight. */
+/** How long an exit waits for the recorder to finish writing before giving up on leaving. */
+private const val EXIT_FINALIZE_TIMEOUT_MS = 20_000L
+
+/**
+ * Wait for the service-owned recorder to read OFF — the one signal that a Stop's finalize or a
+ * Discard's delete has landed — bounded by [EXIT_FINALIZE_TIMEOUT_MS]. True when it did; false when
+ * the recorder is still ON (a save that failed and was retained, or a write that is taking too long),
+ * in which case the caller must not tear the service down.
+ */
+private suspend fun awaitRecorderOff(): Boolean {
+    withTimeoutOrNull(EXIT_FINALIZE_TIMEOUT_MS) {
+        ykws.android.maro.data.track.TrackRecordingService.isRecording.first { !it }
+    }
+    return !ykws.android.maro.data.track.TrackRecordingService.isRecording.value
+}
+
 private fun closeMarkerDrawerUnlessHandoff(
     inspectHandoff: InspectHandoff?,
     markersViewModel: MarkersViewModel

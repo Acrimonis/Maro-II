@@ -16,8 +16,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
@@ -311,10 +315,22 @@ class TrackRecorder(
 
     /**
      * The one lane every mutation runs on: [dispatcher] cut down to a single worker, so coroutines
-     * on it never run in parallel. Lives from construction to [dispose].
+     * on it never run in parallel. Lives from construction to [dispose]. A coroutine that dies on
+     * it is logged, never allowed to take the process down mid-trip.
      */
-    private val scope: CoroutineScope =
-        CoroutineScope(dispatcher.limitedParallelism(1) + SupervisorJob())
+    private val scope: CoroutineScope = CoroutineScope(
+        dispatcher.limitedParallelism(1) + SupervisorJob() +
+            CoroutineExceptionHandler { _, e -> Log.e(TAG, "recorder coroutine failed", e) }
+    )
+
+    /**
+     * The lifecycle lock: a single worker keeps coroutines from running in parallel but not from
+     * interleaving at suspension points, so a Stop, a Discard, a start and every sample hold this
+     * for their whole transition — a finalize that is waiting on disk is never overlapped by a
+     * second command that would clear or delete the track it is about to write. Never reentrant:
+     * [finalizeTrack] and [beginRecording] are called only by holders.
+     */
+    private val lifecycleMutex = Mutex()
     private var collectingJob: Job? = null
     private var checkpointJob: Job? = null
     private var elapsedTimerJob: Job? = null
@@ -326,7 +342,16 @@ class TrackRecorder(
      * Used by the boat-marker button in MapScreen (MANUAL trigger).
      */
     fun addManualBoatMarker(snapshots: List<MarkerSnapshot>) {
-        scope.launch { addManualBoatMarkerOnLane(snapshots) }
+        scope.launch { lifecycleMutex.withLock { addManualBoatMarkerOnLane(snapshots) } }
+    }
+
+    /** A checkpoint write that cannot fail the caller: the next one retries, and the finalize reports. */
+    private suspend fun checkpointQuietly(track: Track) {
+        try {
+            repository.saveCheckpoint(track)
+        } catch (e: IOException) {
+            Log.w(TAG, "checkpoint write failed for ${track.id}", e)
+        }
     }
 
     private fun addManualBoatMarkerOnLane(snapshots: List<MarkerSnapshot>) {
@@ -346,7 +371,7 @@ class TrackRecorder(
         )
         currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
         scope.launch {
-            currentTrack?.let { repository.saveCheckpoint(it) }
+            currentTrack?.let { checkpointQuietly(it) }
         }
         recomputeDescription()
         pollTitle()
@@ -378,7 +403,7 @@ class TrackRecorder(
      * @param sampleFlow   The sample flow to start processing.
      */
     fun resume(track: Track, sampleFlow: Flow<TrackSample>, fromCheckpoint: Boolean = true) {
-        scope.launch { resumeOnLane(track, sampleFlow, fromCheckpoint) }
+        scope.launch { lifecycleMutex.withLock { resumeOnLane(track, sampleFlow, fromCheckpoint) } }
     }
 
     private fun resumeOnLane(track: Track, sampleFlow: Flow<TrackSample>, fromCheckpoint: Boolean) {
@@ -483,10 +508,12 @@ class TrackRecorder(
      */
     fun stop() {
         scope.launch {
-            if (state == TrackRecorderState.ON) {
-                finalizeTrack()
-            } else {
-                Log.d(TAG, "stop: ignored — state=$state (not ON)")
+            lifecycleMutex.withLock {
+                if (state == TrackRecorderState.ON) {
+                    finalizeTrack()
+                } else {
+                    Log.d(TAG, "stop: ignored — state=$state (not ON)")
+                }
             }
         }
     }
@@ -500,33 +527,40 @@ class TrackRecorder(
      */
     fun discard() {
         scope.launch {
-            if (state != TrackRecorderState.ON) {
-                Log.d(TAG, "discard: ignored — state=$state (not ON)")
-                return@launch
-            }
-            val trackId = currentTrack?.id
-            stopCheckpointJob()
-            stopPolling()
-            cancelIdleTimer()
-            stopDebounceStartTime = null
-            transitionTo(TrackRecorderState.OFF)
-            currentTrack = null
-            _uiState.update { TrackRecorderUiState() }
-            if (trackId != null) {
-                try {
-                    repository.delete(trackId)
-                    repository.deleteCheckpoint(trackId)
-                } catch (e: IOException) {
-                    Log.w(TAG, "discard: delete failed for $trackId", e)
+            lifecycleMutex.withLock {
+                if (state != TrackRecorderState.ON) {
+                    Log.d(TAG, "discard: ignored — state=$state (not ON)")
+                    return@withLock
                 }
+                val trackId = currentTrack?.id
+                stopCheckpointJob()
+                stopPolling()
+                cancelIdleTimer()
+                stopDebounceStartTime = null
+                // The delete lands before the recorder reads OFF, so an exit that waits for OFF
+                // cannot tear the service down with the discarded files still on disk; and it is
+                // not cancellable once begun, for the same reason as the finalize's write.
+                if (trackId != null) {
+                    withContext(NonCancellable) {
+                        try {
+                            repository.delete(trackId)
+                            repository.deleteCheckpoint(trackId)
+                        } catch (e: IOException) {
+                            Log.w(TAG, "discard: delete failed for $trackId", e)
+                        }
+                    }
+                }
+                transitionTo(TrackRecorderState.OFF)
+                currentTrack = null
+                _uiState.update { TrackRecorderUiState() }
+                _events.tryEmit(Stopped)
             }
-            _events.tryEmit(Stopped)
         }
     }
 
     /** Update the current track's name and/or comment in memory and checkpoint. */
     fun updateCurrentTrackMeta(name: String? = null, comment: String? = null) {
-        scope.launch { updateCurrentTrackMetaOnLane(name, comment) }
+        scope.launch { lifecycleMutex.withLock { updateCurrentTrackMetaOnLane(name, comment) } }
     }
 
     private fun updateCurrentTrackMetaOnLane(name: String?, comment: String?) {
@@ -543,7 +577,7 @@ class TrackRecorder(
         }
         if (!isFinalizing) {
             scope.launch {
-                currentTrack?.let { repository.saveCheckpoint(it) }
+                currentTrack?.let { checkpointQuietly(it) }
             }
         }
         Log.d(TAG, "updateCurrentTrackMeta: name=${currentTrack?.name} comment=${currentTrack?.comment}")
@@ -557,16 +591,23 @@ class TrackRecorder(
     /** Manually start recording (bypasses auto-detection). */
     fun startManual() {
         scope.launch {
-            if (state != TrackRecorderState.OFF) {
-                Log.d(TAG, "startManual: ignored — state=$state (not OFF)")
-                return@launch
+            lifecycleMutex.withLock {
+                if (state != TrackRecorderState.OFF) {
+                    Log.d(TAG, "startManual: ignored — state=$state (not OFF)")
+                    return@withLock
+                }
+                Log.d(TAG, "startManual: → beginRecording")
+                beginRecording(isManual = true)
             }
-            Log.d(TAG, "startManual: → beginRecording")
-            beginRecording(isManual = true)
         }
     }
 
-    private suspend fun processSample(sample: TrackSample) {
+    /** One sample, under the lifecycle lock: a sample never lands while a transition is in flight. */
+    private suspend fun processSample(sample: TrackSample) = lifecycleMutex.withLock {
+        processSampleLocked(sample)
+    }
+
+    private suspend fun processSampleLocked(sample: TrackSample) {
         // A finalize in flight owns the track: a sample landing during its IO hop is dropped rather
         // than appended to a track that is being written.
         if (isFinalizing) return
@@ -727,7 +768,13 @@ class TrackRecorder(
             // Delete checkpoint after first new point is captured (resume is confirmed)
             if (!checkpointFileDeleted) {
                 checkpointFileDeleted = true
-                scope.launch { repository.deleteCheckpoint(track.id) }
+                scope.launch {
+                    try {
+                        repository.deleteCheckpoint(track.id)
+                    } catch (e: IOException) {
+                        Log.w(TAG, "resume: checkpoint delete failed for ${track.id}", e)
+                    }
+                }
             }
         }
 
@@ -1095,7 +1142,7 @@ class TrackRecorder(
             while (true) {
                 delay(CHECKPOINT_INTERVAL_MS)
                 val track = currentTrack ?: continue
-                repository.saveCheckpoint(track)
+                checkpointQuietly(track)
             }
         }
     }
@@ -1210,8 +1257,10 @@ class TrackRecorder(
         // recorder leaves ON state. A: save before delete, so a crash leaves a complete copy
         // (finalized .bin or checkpoint). Resolve the final open idle's auto-marker: confirm on
         // success, fallback delete on failure (§4). The marker's trackId was set at creation.
+        // NonCancellable: a service torn down mid-finalize (Save-and-exit, task removal) must not
+        // cut the write short once it has begun.
         // Null when the track landed; the failure's own words otherwise.
-        val saveError: String? = withContext(Dispatchers.IO) {
+        val saveError: String? = withContext(NonCancellable + Dispatchers.IO) {
             val mgr = autoMarkerManager
             if (mgr != null && session != null) {
                 session.autoMarkerJob?.join()
@@ -1234,24 +1283,35 @@ class TrackRecorder(
                 repository.deleteCheckpoint(finalizedTrack.id)
                 null
             } catch (e: IOException) {
-                Log.e(TAG, "finalizeTrack: save failed — checkpoint kept for recovery", e)
+                Log.e(TAG, "finalizeTrack: save failed — recording retained for retry", e)
+                // Best effort: put the complete snapshot on disk as a checkpoint, so a crash before
+                // the retry still leaves the whole recording recoverable. A failure here is the same
+                // disk failing twice; the in-memory copy below is then the only one, and it is kept.
+                checkpointQuietly(finalizedTrack)
                 e.message ?: e.javaClass.simpleName
             }
         }
-        val saved = saveError == null
-        if (saved) {
-            _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name))
+
+        if (saveError != null) {
+            // Retain: the recorder stays ON holding the finalized snapshot, the checkpoint job
+            // resumes so the disk is retried every interval, and the error channel says why. The
+            // next Stop finalizes again from this snapshot; only a successful save or an explicit
+            // Discard ever clears it. The idle clock restarts so a retry does not count the same
+            // idle time twice.
+            idleStartMs = if (wasStopped) System.currentTimeMillis() else 0L
+            isFinalizing = false
+            startCheckpointJob()
+            _uiState.update { it.copy(infoError = saveError) }
+            return
         }
+
+        _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name))
         _events.tryEmit(Stopped)
 
         transitionTo(TrackRecorderState.OFF)
         currentTrack = null
         isFinalizing = false
-        _uiState.update {
-            // A failed save is the one fact that outlives the reset: the exception's own words,
-            // surfaced through the existing error channel, with the raw recording still on disk.
-            if (saved) TrackRecorderUiState() else TrackRecorderUiState(infoError = saveError)
-        }
+        _uiState.update { TrackRecorderUiState() }
     }
 
     /** The new-recording name, from its one home beside [Track] — see [trackAutoName]. */
@@ -1349,7 +1409,7 @@ class TrackRecorder(
                             )
                             session.boatMarkerIndex = idx
                             session.boatMarkerMerged = true
-                            repository.saveCheckpoint(currentTrack!!)
+                            checkpointQuietly(currentTrack!!)
                             recomputeDescription()
                             pollTitle()
                             return@launch
@@ -1368,7 +1428,7 @@ class TrackRecorder(
                     )
                     currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
                     session.boatMarkerIndex = currentTrack!!.boatMarkers.lastIndex
-                    repository.saveCheckpoint(currentTrack!!)
+                    checkpointQuietly(currentTrack!!)
                     recomputeDescription()
                     pollTitle()
                 }
@@ -1398,7 +1458,7 @@ class TrackRecorder(
                 boatMarkers = track.boatMarkers.toMutableList().also { it[idx] = closed }
             )
             scope.launch {
-                currentTrack?.let { repository.saveCheckpoint(it) }
+                currentTrack?.let { checkpointQuietly(it) }
             }
         }
     }
