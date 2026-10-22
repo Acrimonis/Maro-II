@@ -1,5 +1,7 @@
 package ykws.android.maro.ui.map
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,18 +16,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -158,6 +167,17 @@ internal fun RouteConfirmationPanel(
 ) {
     val acquiring = state as? RouteState.Choosing ?: return
     val clampedIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+    // The pager is recreated on every seat change so a row tap moves the page in the same recomposition
+    // as the seat — one size change for animateContentSize to ease, never two stacked ones.
+    val pagerState = key(clampedIndex) {
+        rememberPagerState(initialPage = clampedIndex) { pages.size.coerceAtLeast(1) }
+    }
+    val density = LocalDensity.current
+    // The body height the panel held at rest — captured while the pager is still and held as a floor
+    // while it scrolls, so a page turn can grow the panel but never shrink it mid-swipe. The floor is
+    // released when the swipe settles and animateContentSize eases the panel to the settled page's height.
+    var restBodyHeight by remember { mutableStateOf<Dp?>(null) }
+    val scrolling = pagerState.isScrollInProgress
     val selected = pages.getOrNull(clampedIndex)
     val selectedPlan = selected?.plan
     // The header's one line: a committed early select reads its own word; otherwise the search summary —
@@ -274,7 +294,20 @@ internal fun RouteConfirmationPanel(
             }
         }
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .animateContentSize(tween(durationMillis = 250))
+                .then(
+                    if (scrolling) Modifier.heightIn(min = restBodyHeight ?: 0.dp)
+                    else Modifier
+                )
+                .onSizeChanged { size ->
+                    if (!pagerState.isScrollInProgress) {
+                        restBodyHeight = with(density) { size.height.toDp() }
+                    }
+                }
+        ) {
             refusal?.let {
                 PanelSentence(stringResource(it.labelResId))
             }
@@ -282,6 +315,7 @@ internal fun RouteConfirmationPanel(
                 RouteTablePager(
                     pages = pages,
                     selectedIndex = clampedIndex,
+                    pagerState = pagerState,
                     onSelectPage = onSelectPage,
                     crownLookupId = crownLookupId,
                     ranks = rankView.ranks
@@ -312,12 +346,13 @@ private fun PanelSentence(text: String) {
 private fun RouteTablePager(
     pages: List<RoutePage>,
     selectedIndex: Int,
+    pagerState: PagerState,
     onSelectPage: (Int) -> Unit,
     crownLookupId: RouteId?,
     ranks: Map<RouteId, Int>
 ) {
     SwipePager(
-        pageCount = pages.size,
+        pagerState = pagerState,
         currentIndex = selectedIndex,
         onSettled = onSelectPage
     ) { index ->

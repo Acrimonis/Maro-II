@@ -101,3 +101,8 @@ read through `AppConfig`.
 - Build: `:app:compileDebugKotlin`, the two `ui.map` test classes and `:app:assembleDebug` green.
 - Owed to the device: the crown glyph not clipped at the tight line height, and the 50/25/25 shares with
   column 3's growth reading well across portrait and landscape.
+- The resize jump is fixed: the old freeze is removed, the panel body animates its height over 250 ms
+  (`animateContentSize`), the map band grows only while the search runs, and while the pager scrolls the body
+  is floored at its rest height so the panel can grow but never shrink mid-swipe, releasing at settle; the
+  pager is recreated on the seat so a row tap lands as one size change. A small bounce on selection change
+  still remains (open).

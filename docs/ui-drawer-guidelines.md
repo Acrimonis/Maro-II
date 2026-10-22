@@ -283,6 +283,13 @@ All drawer headers share these tokens, canonically implemented in [`DrawerHeader
 > time · speed · distance lines prints the numeric value right-aligned in the fixed value box and the unit
 > label left-aligned on the same line, so the value column never shifts as the unit width changes.
 >
+> **Route panel resize (2026-10-22):** the route panel's body animates its height with
+> `animateContentSize(tween(250))`, and the map band only ever grows while the route search runs, settling
+> once when the search ends. While the pager scrolls the body is floored at its rest height so the panel can
+> grow but never shrink mid-swipe, the floor releasing at settle so the body eases to the settled page, and
+> the pager is recreated on the seat so a row tap lands as one size change. A small bounce on selection
+> change still remains (open).
+>
 > **Post-header gap (uniform):** the header→first-content gap is the header's own bottom `verticalPadding`
 > (`ui.padding.header.vertical`, 6dp). Drawers add **no extra** spacer/padding after the header — Menu, Marker,
 > Track (landscape + portrait), and Settings all share this single 6dp gap. The `DrawerHeader`/`DrawerScaffold`
