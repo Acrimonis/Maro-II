@@ -10,9 +10,10 @@ import org.junit.Test
  * [`OverlayZOrder.reorder`] used to pin the list's first entry as the map's tile; this app's list holds
  * no tile, so that first line — the route pool's slot 0 — was painted under every base layer (the
  * device's own log, 2026-09-29). The fix is a single pure function,
- * [OverlayZOrder.paintRankOf]`: the order the list is painted in is
- * `BASE 0 → STORED 1 → ROUTE 2 → LIVE 3 → MARKER 4`, and the sort over it is stable so each group keeps
- * the sequence it already had.
+ * [OverlayZOrder.paintKeyOf]`: the order the list is painted in is
+ * `BASE 0 → TRACK 1 → ROUTE 2 → LIVE 3 → MARKER 4`, with the base band's six data layers ranked
+ * beneath it as `depth raster → low-depth warning → isobath → regulated zones → zone300 → coastline`,
+ * and the sort over it is stable so each group keeps the sequence it already had.
  *
  * It takes a title and the one type test osmdroid forces — the events overlay, whose classification
  * never lived in a title — precisely so this file can exist: the app's JVM tests construct no osmdroid
@@ -70,6 +71,26 @@ class OverlayPaintRankTest {
     }
 
     @Test
+    fun `the six base layers rank bottom to top`() {
+        assertEquals(
+            listOf(0, 1, 2, 3, 4, 5),
+            listOf(
+                OverlayZOrder.LAYER_DEPTH_RASTER,
+                OverlayZOrder.LAYER_LOW_DEPTH_WARNING,
+                OverlayZOrder.LAYER_ISOBATH,
+                OverlayZOrder.LAYER_REGULATED_ZONE,
+                OverlayZOrder.LAYER_ZONE300,
+                OverlayZOrder.LAYER_COASTLINE
+            ).map { OverlayZOrder.baseLayerRankOf(it) }
+        )
+        // The base band, in full, still paints below the first track tier.
+        assertTrue(
+            OverlayZOrder.paintKeyOf(OverlayZOrder.LAYER_COASTLINE, false) <
+                OverlayZOrder.paintKeyOf("track_hist_42", false)
+        )
+    }
+
+    @Test
     fun `stored titles interleaved between two route ones regroup by rank, each group keeping its own sequence`() {
         // Several stored titles sit between the two route lines, with the live recording and a marker
         // after — the interleaving that had a stored track land above the route's own line.
@@ -89,18 +110,20 @@ class OverlayPaintRankTest {
     }
 
     @Test
-    fun `a shuffled list sorted by rank groups base through markers, each group keeping its own sequence`() {
+    fun `a shuffled list sorted by key orders the base layers then each band`() {
         val shuffled = listOf(
-            "marker_boat", "route_line_2", "track_hist_9", "coastline", "track_recording",
-            "route_line_1", "track_pin_3", "track_trailing", "marker_route_dest", "depth_raster",
-            "track_hist_7"
+            "marker_boat", "route_line_2", "track_hist_9", OverlayZOrder.LAYER_COASTLINE,
+            "track_recording", "route_line_1", "track_pin_3", "track_trailing",
+            "marker_route_dest", OverlayZOrder.LAYER_DEPTH_RASTER, "track_hist_7"
         )
-        // `sortedBy` is stable, so within each rank the list's own order survives — which is exactly the
+        // `sortedBy` is stable, so within each band the list's own order survives — which is exactly the
         // guarantee `reorder` leans on: a tier's writers, not the sort, set the order inside a tier.
-        val ordered = shuffled.sortedBy { OverlayZOrder.paintRankOf(it, false) }
+        // The base band is the exception: its six layers have a fixed order of their own, so the depth
+        // raster lands beneath the coastline no matter which one was appended first.
+        val ordered = shuffled.sortedBy { OverlayZOrder.paintKeyOf(it, false) }
         assertEquals(
             listOf(
-                "coastline", "depth_raster",
+                OverlayZOrder.LAYER_DEPTH_RASTER, OverlayZOrder.LAYER_COASTLINE,
                 "track_hist_9", "track_pin_3", "track_hist_7",
                 "route_line_2", "route_line_1",
                 "track_recording", "track_trailing",
