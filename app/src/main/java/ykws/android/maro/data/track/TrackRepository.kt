@@ -103,6 +103,7 @@ class TrackRepository(
      * read that fails with an [IOException] leaves the file where it is and answers null.
      */
     suspend fun load(id: String): Track? = withContext(Dispatchers.IO) {
+        if (!isSafeId(id)) return@withContext null
         val file = trackFile(id)
         if (!file.exists()) return@withContext null
         decodeTrackOrQuarantine(file)
@@ -146,6 +147,7 @@ class TrackRepository(
      * recording track's temp marker).
      */
     suspend fun delete(id: String, excludeActiveTrackId: String? = null) = withContext(Dispatchers.IO) {
+        if (!isSafeId(id)) return@withContext
         markerRepo?.let { repo ->
             if (id != excludeActiveTrackId) {
                 val markers = repo.loadAll()
@@ -210,6 +212,11 @@ class TrackRepository(
                 ?.filter { it.name.endsWith("_checkpoint.bin") }
                 ?.mapNotNull { file ->
                     val checkpoint = decodeTrackOrQuarantine(file) ?: return@mapNotNull null
+                    // A checkpoint naming an id that is not a file name cannot be finalised under it.
+                    if (!isSafeId(checkpoint.id)) {
+                        quarantine(file, IllegalArgumentException("unsafe track id '${checkpoint.id}'"))
+                        return@mapNotNull null
+                    }
                     val finalFile = trackFile(checkpoint.id)
                     if (!finalFile.exists()) return@mapNotNull checkpoint
                     val finalized = decodeTrackOrQuarantine(finalFile)
@@ -347,8 +354,16 @@ class TrackRepository(
 
     // ── Internal helpers ──────────────────────────────────────────────────
 
-    private fun trackFile(id: String): File = File(tracksDir, "${id}.bin")
-    private fun checkpointFile(id: String): File = File(tracksDir, "${id}_checkpoint.bin")
+    private fun trackFile(id: String): File {
+        require(isSafeId(id)) { "track id is not a safe file name: '$id'" }
+        return File(tracksDir, "${id}.bin")
+    }
+
+    private fun checkpointFile(id: String): File {
+        require(isSafeId(id)) { "track id is not a safe file name: '$id'" }
+        return File(tracksDir, "${id}_checkpoint.bin")
+    }
+
     private fun indexFile(): File = File(tracksDir, INDEX_FILE_NAME)
 
     /**
@@ -542,6 +557,21 @@ class TrackRepository(
         internal const val TRACKS_DIR_NAME = "tracks"
         private const val INDEX_FILE_NAME = "index.bin"
         private const val QUARANTINE_DIR_NAME = "quarantine"
+
+        /** The one shape a track id may take to name a file here: one plain path segment. */
+        private val SAFE_ID = Regex("[A-Za-z0-9._-]{1,128}")
+
+        /**
+         * Whether [id] may name a file in the tracks directory: a single segment of `[A-Za-z0-9._-]`,
+         * 1 to 128 long, not hidden (no leading `.`), and not one of the directory's own reserved
+         * names. An id that arrives from outside — a decoded import blob — is checked here before it
+         * reaches a path; every file accessor refuses one that fails.
+         */
+        fun isSafeId(id: String): Boolean =
+            SAFE_ID.matches(id) &&
+                !id.startsWith(".") &&
+                id != INDEX_FILE_NAME.removeSuffix(".bin") &&
+                id != QUARANTINE_DIR_NAME
     }
 }
 

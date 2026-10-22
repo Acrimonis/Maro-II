@@ -37,7 +37,7 @@
     <string name="settings_redisplay_dist_desc">How close before the zone reappears</string>
     <string name="settings_redisplay_time_label">Reveal time</string>
     <string name="settings_redisplay_time_desc">How many seconds away (at current speed) before it reappears</string>
-    <string name="settings_gps_mode_label">GPS mode</string>
+    <string name="settings_map_offset_gps_label">Shift map in GPS mode</string>
     <string name="settings_recenter_label">Recenter delay</string>
     <string name="settings_recenter_desc">Time before GPS recenters after a manual pan</string>
     <string name="settings_tab_layers">Layers</string>
@@ -300,6 +300,10 @@
     <plurals name="import_result_ignored">
         <item quantity="one">%d track ignored</item>
         <item quantity="other">%d tracks ignored</item>
+    </plurals>
+    <plurals name="import_result_invalid">
+        <item quantity="one">%d file unreadable</item>
+        <item quantity="other">%d files unreadable</item>
     </plurals>
     <plurals name="import_result_marker_imported">
         <item quantity="one">%d marker imported</item>
@@ -712,12 +716,13 @@
     <string name="route_acq_discard">Discard</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
-         CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
-         update flow. -->
+         CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH, OFF_WATER and FAILED on
+         the update flow. -->
     <string name="route_reason_cannot_repair">No valid water near this point</string>
     <string name="route_reason_world_not_ready">Water data is still loading</string>
     <string name="route_reason_no_path">No route found</string>
     <string name="route_reason_off_water">Outside the covered water</string>
+    <string name="route_reason_failed">Route search failed</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
     <!-- The drawer's status with the stage the engine published while a search runs — `Pull #2`, the

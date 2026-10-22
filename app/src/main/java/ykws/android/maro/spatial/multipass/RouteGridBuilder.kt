@@ -17,6 +17,13 @@ import kotlin.math.min
 internal data class FineTileSide(val latDeg: Double, val lonDeg: Double)
 
 /**
+ * **An end of the pair stands outside the region the world covers** — thrown by [RouteGridBuilder.buildGrid]
+ * instead of clamping the end onto the grid's edge, so the engine answers the pair by name
+ * ([ykws.android.maro.spatial.RouteReason.OFF_WATER]) rather than searching to the wrong point.
+ */
+internal class RouteOffWaterException : RuntimeException("an end of the pair stands outside the covered region")
+
+/**
  * **One grid build** — the corridor → the harvest → the grid, **once** → the ends' discs → the
  * corner sets, lifted out of the pass pipeline so the context build and its instrument readers are a
  * named seat of their own.
@@ -44,7 +51,13 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
      * share it and each rung prices its own pass. `null` where the corridor is empty.
      *
      * The pace is the engine's own and is asked at its call, like its instrument: [trace] is handed in
-     * rather than owned here, so the seat never owns the emission sequence.
+     * rather than owned here, so the seat never owns the emission sequence — and so is [checkCancelled],
+     * the calling job's own cancel read, handed to the raster's plain loops.
+     *
+     * **An end outside the region is refused, never clamped.** The corridor is cut to the region's bounds,
+     * and the end cells used to be clamped onto the grid's edge with it, so a pair with an end off the baked
+     * water was searched to the wrong point in silence. It now throws [RouteOffWaterException], which the
+     * engine answers as [ykws.android.maro.spatial.RouteReason.OFF_WATER].
      */
     internal suspend fun buildGrid(
         world: MultipassWorld,
@@ -53,9 +66,15 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         reach: Double,
         pace: Double,
         markerStrength: Double,
-        trace: (() -> String) -> Unit = {}
+        trace: (() -> String) -> Unit = {},
+        checkCancelled: () -> Unit = {}
     ): GridContext? {
-        val corridor = corridorBox(from, to, world.regionBounds, reach)
+        val region = world.regionBounds
+        if (region != null && (!region.holds(from) || !region.holds(to))) {
+            trace { "CORRIDOR reach=${fmt(reach)}m box=n/a offWater=true region=${boxText(region)}" }
+            throw RouteOffWaterException()
+        }
+        val corridor = corridorBox(from, to, region, reach)
         if (corridor == null) {
             trace { "CORRIDOR reach=${fmt(reach)}m box=empty clampedByRegion=n/a" }
             return null
@@ -77,7 +96,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         if (tiles.size > 1) {
             return buildLayeredGrid(
                 world, from, to, box, regionSaturated, edges, openCoast, capLatNorth, tiles, pace,
-                markerStrength, trace
+                markerStrength, trace, checkCancelled
             )
         }
         val cellM = tiles.first().cellM
@@ -118,7 +137,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val grid = rasterize(
             box, cellM, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
             zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            gate = gate
+            gate = gate, checkCancelled = checkCancelled
         )
         val startCell = grid.cellOf(from.latitude, from.longitude)
         val aimCell = grid.cellOf(to.latitude, to.longitude)
@@ -195,7 +214,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         tiles: List<GridTile>,
         pace: Double,
         markerStrength: Double,
-        trace: (() -> String) -> Unit
+        trace: (() -> String) -> Unit,
+        checkCancelled: () -> Unit = {}
     ): GridContext? {
         val coarseTile = tiles.maxByOrNull { it.cellM }!!
         val fineTile = tiles.minByOrNull { it.cellM }!!
@@ -262,7 +282,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val interiorGrid = rasterizeWindow(
             coarseBox, family.coarse, pace, marginM, edges, openCoast, capLatNorth, gridField, priced,
             zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            gate = gate, collarReachM = fineWater.depthCollarM
+            gate = gate, collarReachM = fineWater.depthCollarM, checkCancelled = checkCancelled
         )
         val fineStartNs = System.nanoTime()
         val windows = ArrayList<WalkWindow>(fineBoxes.size + 1)
@@ -650,6 +670,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
 
     /** A corridor box and whether the region's own bounds cut it short — the instrument's own reading. */
     private data class Corridor(val box: BBox, val clampedByRegion: Boolean)
+
+    /** Whether [p] stands inside this box, its edges included — the region test the ends are held to. */
+    private fun BBox.holds(p: RoutePoint): Boolean =
+        p.latitude in latSouth..latNorth && p.longitude in lonWest..lonEast
 
     /** The start-aim bounding box inflated by [reach], clamped to the region's bounds — a truncated box is accepted. */
     private fun corridorBox(from: RoutePoint, to: RoutePoint, bounds: BBox?, reach: Double): Corridor? {

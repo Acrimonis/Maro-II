@@ -501,12 +501,14 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Import tracks from a GPX file or ZIP archive.
      * Saves each imported track via [TrackRepository.saveOrReplace]: UPDATE keeps the
-     * matched id (replacing in place), NEW/foreign imports get fresh ids.
+     * matched id (replacing in place), NEW/foreign imports get fresh ids — and a NEW import's
+     * bundled markers arrive under fresh ids too, so the `update` branch below only ever fires for
+     * a SKIP or matched UPDATE import, the two paths that deliberately keep a marker's id.
      *
      * @param input     File bytes from the file picker URI (read once).
      * @param extension "gpx" or "zip".
      * @param mode      How to treat matches. ZIP input is always SKIP_EXISTING.
-     * @return Aggregate counts: tracks imported vs. duplicates ignored.
+     * @return Aggregate counts: tracks imported, duplicates ignored, files or entries refused.
      */
     suspend fun importTracks(input: ByteArray, extension: String, mode: ImportMode): ImportResult {
         val summaries = _allSummaries.value

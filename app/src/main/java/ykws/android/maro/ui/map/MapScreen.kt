@@ -414,7 +414,9 @@ internal sealed interface ImportBannerState {
     data class Result(
         val imported: Int,
         val ignored: Int,
-        val kind: TransferKind = TransferKind.TRACK
+        val kind: TransferKind = TransferKind.TRACK,
+        /** Files or archive entries that could not be read at all — said when non-zero, never hidden. */
+        val invalid: Int = 0
     ) : ImportBannerState
     data object Failed : ImportBannerState
 }
@@ -694,7 +696,7 @@ fun MapScreen(
     // mode's own — the acquired candidate the sweep publishes, the merged ladder's cursor (frozen at
     // the pause), the demo centre captured at arming, and the two marks that tell the mode's own
     // recentre from the user's own move.
-    var inspectArmed by rememberSaveable { mutableStateOf(false) }
+    var inspectArmed by remember { mutableStateOf(false) }
     var inspectCandidate by remember { mutableStateOf<InspectRank?>(null) }
     var inspectCursor by remember { mutableStateOf<InspectCursor?>(null) }
     // The cursor as it stood before a step, kept for the whole of that step's open: the cursor
@@ -802,7 +804,7 @@ fun MapScreen(
             routePaceKn
         )
     }
-    var routeArmed by rememberSaveable { mutableStateOf(false) }
+    var routeArmed by remember { mutableStateOf(false) }
     val routeSaveScope = rememberCoroutineScope()
     // The pin the saves start with and the one exit dialog's open flag. Held by the screen rather than
     // by the panel because the dialog's **three doors** — the toggle's off, the panel's own Exit and
@@ -1153,7 +1155,8 @@ fun MapScreen(
     }
     LaunchedEffect(importBannerAt) {
         if (importBanner != null) {
-            delay(2_000L)
+            // Long enough to read a count and a reason; the lock banner keeps its own 2 s.
+            delay(6_000L)
             importBanner = null
         }
     }
@@ -3229,7 +3232,6 @@ fun MapScreen(
                 // The tag stack's marker point is the map centre (§5.6 of the tag-stack plan),
                 // and the band sign it shows is the marker's own band result.
                 markerInZone300 = markerInZone300,
-                headingDeg = effectiveHeadingDeg,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -3255,11 +3257,7 @@ fun MapScreen(
                 // selection survives it and returns when the menu closes (OverlayLayer stands the detail
                 // slots down while a panel is open).
                 onOpenTrackDrawer = { chrome.showTrackDrawer = !chrome.showTrackDrawer },
-                showTrackDrawer = chrome.showTrackDrawer,
-                showTrackHistory = chrome.showTrackHistory,
                 trackRecorderState = trackRecorderState,
-                trackSummaries = trackSummaries,
-                recoveryTrack = recoveryTrack,
                 onStartRecording = {
                     val startRecordingWithBatteryCheck: () -> Unit = {
                         if (BatteryExemption.shouldPrompt(context, appSettings)) {
@@ -3284,37 +3282,6 @@ fun MapScreen(
                     }
                 },
                 onStopRecording = { showStopRecordingSheet = true },
-                onDismissTrackHistory = { chrome.showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, pinned ->
-                    pinned?.let { trackViewModel.setPinned(id, it) }
-                    if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
-                },
-                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
-                onShareGpx = { id ->
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetail(id)
-                        if (track != null) {
-                            val gpx = track.toGpx(trackViewModel.ownedMarkers(track.id))
-                            val file = java.io.File(context.cacheDir, "${id}.gpx")
-                            file.writeText(gpx)
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/gpx+xml"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(
-                                android.content.Intent.createChooser(intent, context.getString(R.string.share_gpx_title))
-                            )
-                        }
-                    }
-                },
-                onDiscardRecovery = { recoveryTrack?.let { trackViewModel.discardOrphanedCheckpoint(it) } },
-                onSaveRecovery = { recoveryTrack?.let { trackViewModel.saveOrphanedCheckpoint(it) } },
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
@@ -4914,7 +4881,6 @@ private fun MapContent(
     /** True while the last fix is considered stale — the cap arrow's colour-mode tell. */
     gpsStale: Boolean = false,
     markerInZone300: Boolean = false,
-    headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -4923,19 +4889,9 @@ private fun MapContent(
     onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
-    showTrackDrawer: Boolean = false,
-    showTrackHistory: Boolean = false,
     trackRecorderState: ykws.android.maro.data.track.TrackRecorderUiState = ykws.android.maro.data.track.TrackRecorderUiState(),
-    trackSummaries: List<ykws.android.maro.data.track.TrackSummary> = emptyList(),
-    recoveryTrack: ykws.android.maro.data.track.Track? = null,
     onStartRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
-    onDismissTrackHistory: () -> Unit = {},
-    onUpdateTrack: (String, String?, String?, Boolean?) -> Unit = { _, _, _, _ -> },
-    onDeleteTrack: (String) -> Unit = {},
-    onShareGpx: (String) -> Unit = {},
-    onDiscardRecovery: () -> Unit = {},
-    onSaveRecovery: () -> Unit = {},
     onToggleZone300: () -> Unit,
     zone300OverlayVisible: Boolean = false,
     regulatedZoneOverlayVisible: Boolean = false,
@@ -5484,7 +5440,7 @@ private fun MapContent(
         importBanner?.let { banner ->
             val message = when (banner) {
                 is ImportBannerState.Result ->
-                    if (banner.imported == 0 && banner.ignored == 0) {
+                    if (banner.imported == 0 && banner.ignored == 0 && banner.invalid == 0) {
                         stringResource(R.string.import_failed)
                     } else {
                         val (importedPlural, ignoredPlural) = when (banner.kind) {
@@ -5495,7 +5451,12 @@ private fun MapContent(
                         }
                         val importedText = pluralStringResource(importedPlural, banner.imported, banner.imported)
                         val ignoredText = pluralStringResource(ignoredPlural, banner.ignored, banner.ignored)
-                        stringResource(R.string.import_result_format, importedText, ignoredText)
+                        val counts = stringResource(R.string.import_result_format, importedText, ignoredText)
+                        // An unreadable file is a reason the user must see, not a count folded into "ignored".
+                        if (banner.invalid > 0) {
+                            val invalidText = pluralStringResource(R.plurals.import_result_invalid, banner.invalid, banner.invalid)
+                            stringResource(R.string.import_result_format, counts, invalidText)
+                        } else counts
                     }
                 ImportBannerState.Failed -> stringResource(R.string.import_failed)
             }

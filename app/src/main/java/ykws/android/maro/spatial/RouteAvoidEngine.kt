@@ -13,11 +13,15 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.coroutineContext
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
@@ -45,6 +49,7 @@ import ykws.android.maro.spatial.multipass.RouteDepthReading
 import ykws.android.maro.spatial.multipass.RouteFinePass
 import ykws.android.maro.spatial.multipass.RouteGridBuilder
 import ykws.android.maro.spatial.multipass.RouteGridPlan
+import ykws.android.maro.spatial.multipass.RouteOffWaterException
 import ykws.android.maro.spatial.multipass.RoutePassRanking
 import ykws.android.maro.spatial.multipass.RoutePassRunner
 import ykws.android.maro.spatial.multipass.RoutePreference
@@ -139,8 +144,10 @@ import ykws.android.maro.spatial.multipass.zoneSlowShare
  * its *Ignore time* stop) and [AppConfig.routeAvoidLadderTieToleranceSec]; the answer carries no
  * instrumentation vocabulary, which is why the ranking lives here and never on an emitted line.
  *
- * Coroutines and `Flow` only: no thread of its own, and the search checks the calling job between its
- * expansions so a flung map never queues behind a computation nobody wants any more.
+ * Coroutines and `Flow` only: no thread of its own, and every long stage checks the calling job — the
+ * search between its expansions, the raster, the pulls and the corner pass through the plain
+ * `checkCancelled` read [cancelRead] hands them — so a flung map never queues behind a computation
+ * nobody wants any more. [close] ends the lane itself, for the engine a fresh selection supersedes.
  */
 class RouteAvoidEngine(
     /** The pace in force (kn), asked fresh on every answer so a slider move reaches the next line. */
@@ -180,7 +187,12 @@ class RouteAvoidEngine(
     private val traceSink: ((String) -> Unit)? = null
 ) : RouteEngine {
 
-    /** One per-engine channel, buffered so a stage emission never waits on the collector. */
+    /**
+     * One per-engine channel, buffered so a stage emission never waits on the collector. A boundary update
+     * is offered with `tryEmit` from the pass's plain callback and a drop is logged ([publish]); a terminal
+     * is `emit`ted from the lookup's own coroutine ([emitTerminal]), so under a slow collector it waits
+     * rather than being lost and the mode never has to time out on an answer the engine gave.
+     */
     private val _updates = MutableSharedFlow<RouteUpdate>(extraBufferCapacity = 64)
 
     override val updates: Flow<RouteUpdate> = _updates.asSharedFlow()
@@ -309,8 +321,10 @@ class RouteAvoidEngine(
     override fun startLookup(computationId: RouteId): RouteId {
         val lookupId = RouteId(++nextLookupId)
         // An id the current declarations do not hold — a stale arm's, or one from before a refusal cleared
-        // them (D24) — starts nothing: the lookup id is minted, but no job and no stale holder run.
+        // them (D24) — starts nothing: the lookup id is minted, but no job and no stale holder run. A closed
+        // engine starts nothing either: its lane is cancelled, and a job launched on it would never run.
         val computation = declarations[computationId] ?: return lookupId
+        if (!computeScope.isActive) return lookupId
         // The arm's holder and its repaired pair are captured here, at the moment the lookup is declared, so
         // every rung of the arm runs the arm it was asked for and a later arm's fresh state cannot be
         // retargeted under it.
@@ -341,6 +355,36 @@ class RouteAvoidEngine(
     }
 
     /**
+     * **Whether lookup [id] still runs** — its job present and active. A test seam for the lane's disposal
+     * and nothing else: the seam's own contract is the absent terminal, which no test can wait for.
+     */
+    internal fun isLookupActive(id: RouteId): Boolean = jobs[id]?.isActive == true
+
+    /**
+     * **Ends the engine.** The compute lane is cancelled — every running lookup and the arm's shared build
+     * with it — and the arm's state is dropped, so a superseded engine holds no job and no grid. The lane is
+     * never restarted: a later [startLookup] mints an id and runs nothing, exactly as a stale arm's does.
+     */
+    override fun close() {
+        computeScope.cancel()
+        jobs.clear()
+        ladderHolder = null
+        declarations = emptyMap()
+    }
+
+    /**
+     * **The calling job's cancel read, as a plain lambda** — the one the long plain loops consult (the
+     * raster, the pulls, the sweep, the corner pass), since none of them suspends and [Job.ensureActive]
+     * needs no suspension. Captured once per stage from the coroutine that runs it: for a rung that is the
+     * lookup's own job, for the arm's shared build the build's `async`, whose job is what the arm's last
+     * disposal cancels.
+     */
+    private suspend fun cancelRead(): () -> Unit {
+        val job = coroutineContext[Job]
+        return { job?.ensureActive() }
+    }
+
+    /**
      * **One lookup, run on the engine's own lane.** Every rung publishes its own stage pairs and its
      * settled result, each row printing the stage of the rung it describes. The [holder] and the [from]/[to] pair are the ones captured when the
      * lookup was declared, so a rung always runs the arm it was asked for.
@@ -348,9 +392,10 @@ class RouteAvoidEngine(
      * **A failed build is answered, a cancel is not (D36).** A non-cancellation exception inside the arm's
      * one build fails the shared `Deferred`, which every awaiting rung rethrows from `await()`; without a
      * handler no rung would ever reach its terminal, so the mode would wait out its own timeout rather than
-     * being told. The lookup therefore catches such a failure and answers the same [RouteReason.NO_PATH]
-     * surface an unanswered search shows — the failure is deliberately **conflated** with a search that found
-     * nothing, because this fix introduces no new reason and no new user-visible text. A
+     * being told. The lookup therefore catches such a failure, logs its stack trace and answers
+     * [RouteReason.FAILED] — its own reason, so a crash is told apart from a search that found nothing and
+     * [RouteReason.NO_PATH] keeps meaning the genuine no-route result. An end standing outside the region
+     * ([RouteOffWaterException], thrown by the build) is answered [RouteReason.OFF_WATER] by name. A
      * [CancellationException] is rethrown untouched: the seam says no update may arrive after a cancel, so an
      * abandoned lookup stays silent.
      *
@@ -399,11 +444,17 @@ class RouteAvoidEngine(
                 // rethrown rather than answered. The handler is ordered before the general one below because
                 // a CancellationException is itself an Exception.
                 throw cancelled
+            } catch (offWater: RouteOffWaterException) {
+                // The build's own refusal: an end off the covered region is answered by name, not searched
+                // to the grid's edge.
+                emitTerminal(lookupId, null, RouteReason.OFF_WATER)
+                return
             } catch (failure: Exception) {
-                // D36's answer, and only that — the reason and the conflation are stated once, in this
-                // method's KDoc above. No second trace: `emitTerminal`'s own `DONE` line is the record, so a
-                // broken sink cannot swallow the answer by throwing here a second time.
-                emitTerminal(lookupId, null, RouteReason.NO_PATH)
+                // D36's answer: the stack trace goes to the device log — the record a defect needs — and the
+                // terminal names the failure. No trace line here: `emitTerminal`'s own `DONE` line is the
+                // sink's record, so a broken sink cannot swallow the answer by throwing a second time.
+                Log.e(TAG, "FAILED lookup=${lookupId.value} ${failure.javaClass.simpleName}: ${failure.message}", failure)
+                emitTerminal(lookupId, null, RouteReason.FAILED)
                 return
             }
             // The success path's terminal, emitted **outside** the catch. The one fold rides it twice — as
@@ -442,7 +493,12 @@ class RouteAvoidEngine(
         // body execution, so a build that exists implies a published deferred; the await stays outside the
         // lock, so the rungs single-flight only the start and then run over the one build concurrently.
         val deferred = computeScope.async(start = CoroutineStart.LAZY) {
-            gridBuilder.buildGrid(world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), markerStrength(), seatTrace)
+            // The build reads its own job: the arm's last disposal cancels this `async`, and the raster's
+            // plain loops stop on that read rather than running the corridor out for nobody.
+            gridBuilder.buildGrid(
+                world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn(), markerStrength(), seatTrace,
+                checkCancelled = cancelRead()
+            )
         }
         holder.deferred = deferred
         deferred.start()
@@ -519,7 +575,8 @@ class RouteAvoidEngine(
     private suspend fun grownGrid(grid: GridContext, reading: RungReading): GridContext? {
         val startNs = System.nanoTime()
         val grown = gridBuilder.buildGrid(
-            grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace
+            grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace,
+            checkCancelled = cancelRead()
         )
         reading.growBuildMs = msSince(startNs)
         return grown
@@ -641,6 +698,9 @@ class RouteAvoidEngine(
         lookupId: RouteId
     ): Rung? {
         val coarseStartNs = System.nanoTime()
+        // The rung's own cancel read, handed to every plain loop of the solve — the pulls, the fine pass's
+        // rasters and sweep, the corner pass — so a cancelled rung stops inside whichever stage it is in.
+        val checkCancelled = cancelRead()
         // The plan's own two-layer walk where it answered more than one tile; `avoid`'s plan answers one, so
         // `ctx.windows` is null and the walk is the single grid it has always been.
         val passReading = runner.runPass(
@@ -653,7 +713,8 @@ class RouteAvoidEngine(
             },
             trace = seatTrace,
             guardZones = true,
-            guardBand = true
+            guardBand = true,
+            checkCancelled = checkCancelled
         )
         val coarseMs = msSince(coarseStartNs)
         val timed = passReading.timed
@@ -678,7 +739,7 @@ class RouteAvoidEngine(
         // closed at SNAP and the word must name the refinement rather than a pull already done.
         publish(lookupId, RouteStage.FINE)
         val fineStartNs = System.nanoTime()
-        val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace)
+        val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace, checkCancelled)
         val fineMs = msSince(fineStartNs)
 
         // **The device reading** — the coarse walk's own A* cost and duration, with the fine stage's
@@ -691,7 +752,7 @@ class RouteAvoidEngine(
         // foul, left standing only where even the 1 kn bottom's radius overshoots the room — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
         // limit stays the hard ceiling throughout.
-        val rounded = RouteCornerPass.round(refined, ctx.pace, ctx.world, ctx.gate, ctx.marginM)
+        val rounded = RouteCornerPass.round(refined, ctx.pace, ctx.world, ctx.gate, ctx.marginM, checkCancelled)
         // **The corner tally**: what the pass did at each bend, with the speed limit in force there and
         // whether it stands in the 300 m band — the two readings that tell a corner's own speed from the
         // water's.
@@ -950,6 +1011,10 @@ class RouteAvoidEngine(
      * and moves only its own entry of [lastStages], so a concurrent rung can never corrupt another's chain.
      * The row prints the word of the rung it describes, and the provisional pair replaces its `--` until
      * the settled answer lands.
+     *
+     * The pass's callback is plain, so the update is **offered** (`tryEmit`); a boundary the buffer cannot
+     * take under a slow collector is dropped and logged — a dropped stage word costs a row one step, while a
+     * dropped terminal would cost the mode its answer, which is why [emitTerminal] suspends instead.
      */
     private fun publish(
         lookupId: RouteId,
@@ -960,7 +1025,7 @@ class RouteAvoidEngine(
     ) {
         if (stage == null) return
         val done = lastStages.put(lookupId, stage)
-        _updates.tryEmit(
+        val offered = _updates.tryEmit(
             RouteUpdate(
                 routeId = lookupId,
                 stageDone = done,
@@ -972,6 +1037,9 @@ class RouteAvoidEngine(
                 provisional = provisional
             )
         )
+        if (!offered) {
+            Log.w(TAG, "DROPPED stage update lookup=${lookupId.value} done=${done?.name ?: "none"} next=${stage.name}")
+        }
         trace {
             "STAGE done=${done?.name ?: "none"} next=${stage.name}" +
                 if (points != null) " points=${points.size}" else ""
@@ -982,8 +1050,12 @@ class RouteAvoidEngine(
      * The terminal update: the last stage finished, `nextStage` null, the result or the reason. The one
      * fold rides it twice — [runningBest] as the running best and [verdict] as the settled verdict — so a
      * surface that follows the seat and one that states the verdict read the same crown.
+     *
+     * It **suspends**: the terminal is the one update the mode cannot do without, so under a slow collector
+     * it waits for the buffer rather than being dropped, and a cancel while it waits stays silent as the
+     * seam says. With no collector it returns at once, as `emit` does.
      */
-    private fun emitTerminal(
+    private suspend fun emitTerminal(
         lookupId: RouteId,
         result: RouteResult.Success?,
         reason: RouteReason?,
@@ -991,7 +1063,7 @@ class RouteAvoidEngine(
         verdict: RouteVerdict? = null
     ) {
         val done = lastStages[lookupId]
-        _updates.tryEmit(
+        _updates.emit(
             RouteUpdate(
                 routeId = lookupId,
                 stageDone = done,

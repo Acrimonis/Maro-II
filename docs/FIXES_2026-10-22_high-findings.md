@@ -92,7 +92,41 @@ Four findings, all accepted and fixed.
 | P1 A failed final save cleared the only complete copy | On failure the recorder stays ON holding the finalised snapshot, writes it as a checkpoint (best effort), restarts the periodic checkpoint job and reports through `infoError`; the next Stop retries from the snapshot and only a successful save or an explicit Discard clears it. Every checkpoint write is now failure-tolerant (`checkpointQuietly`), and a coroutine that dies on the recorder's lane is logged rather than crashing the process. |
 | P2 A corrupt cache file left the layer absent | The cached producers note when a cache file existed but did not decode (the reader evicts it) and bump a tick the live producers and the lazy-init effect are keyed on, so the layer is built live and the cache regenerated. |
 
-## 6. Strongest objection
+## 6. Round two: the next tier of high-impact fixes
+
+The Medium findings with the largest user impact, chosen after the Highs; the contested alarm channel
+stays out as a product decision.
+
+| Finding | Fix | Files |
+|---|---|---|
+| N06 Imported ids as file paths | `TrackRepository.isSafeId` (`[A-Za-z0-9._-]{1,128}`, no leading dot, not `index`/`quarantine`); `trackFile`/`checkpointFile` require it; `load`/`delete`/recovery skip or quarantine an unsafe id; the importer mints a UUID for an unsafe one in every mode | `TrackRepository.kt`, `GpxImporter.kt` |
+| N07 Copying a trip stole its markers | IMPORT_NEW and the unmatched UPDATE branch mint a fresh id per bundled marker and rewrite every reference the track carries (boat-marker snapshots, route end ids) | `GpxImporter.kt` |
+| N08 Import budget | 64 MB input, 500 archive entries, 64 MB per entry (bounded copy loop), 500 000 points per track; a breach is counted, never thrown | `GpxImporter.kt` |
+| U17 Import feedback | `ImportResult.invalid` counts unreadable files; the banner says "N files unreadable" and dwells 6 s instead of 2 | `GpxImporter.kt`, `MapScreen.kt`, `MapImportConflictHost.kt`, both `strings.xml` |
+| O1 Compass wrong in landscape | The rotation vector is remapped to the display rotation before `getOrientation` (`remapAxesFor`) | `data/location/CompassSource.kt` |
+| O2 Magnetic vs true heading | The ViewModel adds the declination from `GeomagneticField` at the last fix (cached, recomputed past 10 km or a new day) before rotating the map (`trueFromMagnetic`) | `ui/map/NavigationViewModel.kt` |
+| S04 Cancellation only in the A* | A plain `checkCancelled` lambda threaded through the raster, gate relaxation, both pulls, the sweep, the corner and fine passes; the engine passes `job.ensureActive()` | `spatial/multipass/*`, `RouteAvoidEngine.kt` |
+| S05 Replaced engine kept running | `RouteEngine.close()`; the ViewModel closes a superseded selection unless an armed session still runs on it, closes the session engine when the session ends, and in `onCleared` | `spatial/RouteEngine.kt`, `RouteAvoidEngine.kt`, `RouteEvolutiveEngine.kt`, `ui/map/RouteViewModel.kt` |
+| S10 Crashes reported as no route | `RouteReason.FAILED` with its label in both locales; a non-cancellation exception logs its stack and lands as FAILED | `RouteEngine.kt`, `RouteAvoidEngine.kt`, both `strings.xml` |
+| A14 Dropped updates | Terminal updates are emitted suspending; a dropped stage update is logged | `RouteAvoidEngine.kt` |
+| S07 Ends outside the region | `OFF_WATER` is emitted instead of silently clamping the end to the edge cell | `RouteGridBuilder.kt`, `RouteAvoidEngine.kt` |
+| A09 Dead ViewModel closures in the service | The where-am-I bridge is cleared when its composition leaves | `ui/map/MapMarkerEffects.kt` |
+| A11 Restored armed flags with an idle ViewModel | `routeArmed` and `inspectArmed` are session-only (`remember`), so a restored process starts consistent | `MapScreen.kt` |
+| U07 Mislabelled "GPS mode" row | The map-offset row is labelled "Shift map in GPS mode" in both locales; the old key is gone | `MapScreenSettingsOverlay.kt`, both `strings.xml` |
+| C02 Dead parameters | Eleven unused `MapContent` parameters removed at both ends, including a dead share-GPX lambda | `MapScreen.kt` |
+| E03 Hot-path logging | The per-sample speed-zone logs are gated on `Log.isLoggable` | `NavigationViewModel.kt` |
+| A04/A05 Docs contradict code | `MARO_ARCHITECTURE.md` now states the heap-resident grid and the coastline generation fallback as they are | `docs/MARO_ARCHITECTURE.md` |
+
+New tests: `TrackRepositorySafeIdTest`, `GpxImporterSafetyTest`, `CompassHeadingTest`,
+`RouteCancellationHooksTest`, and three cases in `RouteAvoidEngineTest` (failed build → FAILED,
+close cancels, off-region end → OFF_WATER). One existing assertion changed by design:
+`TrackMarkerCarriageTest` now expects a copied trip's markers to carry new ids.
+
+Left for a later round, deliberately: the alarm channel (product design), the marker overlay's
+wholesale rebuild on selection, the Back-handler ladder, the full-settings rewrite on every pan, the
+service's always-on GPS subscription, and the god-composable split.
+
+## 7. Strongest objection
 
 The recorder and service changes are the riskiest edits in the set and they were made without a
 compiler or a device. The serial-lane design is simple on purpose, but a recorder characterisation
