@@ -48,8 +48,8 @@
 
 ## Feature Summaries
 
-**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-21 23:19
-- The `Any` pace's observed-speed source is redesigned (2026-10-21): the live leg reads a recency-weighted 75th-percentile plateau live, a stored trip reads its 90th-percentile open-water cruise, and the history is a weighted median of the last N trip speeds — seeded from the filtered tracks list, folded in on each completed trip and imported at startup, with speed-zone and 300 m band water excluded, a three-second stop ending the live leg, and the stop renamed `-- Now --` / *Live*.
+**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-22 11:54
+- The `Any` pace's observed-speed source is redesigned (2026-10-21): the live leg reads a recency-weighted 75th-percentile plateau live, a stored trip reads its 90th-percentile open-water cruise, and the history is a weighted median of the last N trip speeds — seeded from the filtered tracks list, folded in on each completed trip and imported at startup, with speed-zone and 300 m band water excluded, the last viable plateau sticking through a stop, and the stop renamed `-- Now --` / *Live*.
 - The fan's *Route (auto)* child is live while a search runs: a press keeps the search, closes the fan, raises a toast and follows the winner when the last route lands; the menu drawer shows no summary card during a search, *Save to track* waits for a landed line, and the snack action reads *New*.
 - Each route in the search panel reports its own stage (bold italic) until it lands, then its live rank — a merged route counted once — under a `Landed x/n · speed · preference` header; the rows reorder only when a route lands, is refused or is merged away, a hand pick holds until the last landing selects the top row with a toast, and the crown's check waits for the end.
 - A saved route's two ends resolve through the smallest-zone rule shared with tracks, the home port excluded, so the name reads `A to B`, `To B` or `From A`, falling back to `Route <instant>` when neither end is named.

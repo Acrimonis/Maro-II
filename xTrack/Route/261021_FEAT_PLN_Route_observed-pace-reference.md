@@ -24,6 +24,9 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
 - **The abstraction**: flatten the leg's speed curve, then read its plateau as the current cruise speed.
 - **No expiry**: the reference stands until a newer sustained speed establishes, the learned history stands
   in until the first one does, and the shipped 25 kn is the floor beneath both.
+- **A stop is ignored, never a leg end** — a near-zero reading adds no sample, so the last viable plateau
+  sticks; the history applies only when there is no live track (demo mode or no fix), never because the boat
+  paused.
 - **The cold start reads the history** — with no current reference yet, the learned history stands in, and
   only the very first sail, or a missing memory, falls back to the shipped 25 kn.
 - **`Any` resolves to the computed speed and is renamed to `-- Now --`** — the wheel and the Settings
@@ -34,9 +37,10 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   median**, so one abnormal trip cannot move it; navigation is "as fast as makes sense", so the history
   learns the boat's real weather-and-mood cruise.
 - **A stored trip reduces differently from the live leg** — the live leg keeps the recency ramp because it
- reads *now*, while a finished trip reduces to a **plain 90th percentile** of its speed points — the
- typical open-water cruising speed with the burst kept — GAP seams, restricted points and idle gaps
- excluded, stored `speedMps` preferred and derived speeds second-class: one trip is one number, not a curve.
+  reads *now*, while a finished trip reduces to a **plain 90th percentile** of its speed points — the
+  typical open-water cruising speed, the burst sitting in the top tenth and nudging the plateau a touch over
+  the fast band — GAP seams, restricted points and idle gaps excluded, stored `speedMps` preferred and
+  derived speeds second-class: one trip is one number, not a curve.
 - **The seed is the user's Calculate action** — it rebuilds the window from the last N water tracks under
   the tracks-list filter, route-saved tracks excluded because their points are plan arithmetic, not
   navigated speed, and a derived speed second-class wherever a stored `speedMps` is absent; the filter is
@@ -51,12 +55,11 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   to 1 at the newest; the span adapts to the curve — no fixed window.
 - **A dip too short to be a real level is a small weight share** and cannot cross the percentile alone —
   the wife's blip vanishes by construction, with no separate "ignore" rule and no dead-band.
-- **The current cruise speed is the plateau of the smoothed curve** — read off the flattened curve live on
-  every sample, never a frozen value, so a new level becomes the reference the moment the curve settles on
-  it and a blip never does.
+- **The current cruise speed is the plateau of the smoothed curve** — read off the flattened curve live
+  while samples flow, and the last viable plateau held through a stop, so a new level becomes the reference
+  the moment the curve settles on it and a blip never does.
 - **The `restricted` flag is the sole "not cruising" guard** — a live reading inside the 300 m band or a
-  speed zone is dropped before smoothing, so no floor is needed; the history seed's per-point band/zone check
-  is the one open piece below.
+  speed zone is dropped before smoothing, and the seed's per-point check is wired, so no floor is needed.
 
 ## Dials — the user's call, because they change what the route shows
 
@@ -116,6 +119,6 @@ it, so a cold start plans on the boat's own past rather than the shipped 25 kn.
   display.
 - The source split is settled and the fold-in is wired — live 75th percentile with recency, trip plain 90th
   percentile, window weighted median, each saved trip appending its 90th percentile.
-- The stored-track zone/band exclusion is settled, pending wiring — `trackCruiseSpeedKn` gains a
-  `restricted(lat, lon)` predicate (`SpeedZoneIndex.query().insideAnyZone` or distance-to-coast ≤ 300 m),
-  dropped before the median and forwarded through `seedSpeedHistory` to its three callers.
+- The stored-track zone/band exclusion is **wired** — `isRouteRestricted` drops the points, forwarded
+  through `seedSpeedHistory` to the Calculate, the startup import and the fold-in, the startup seed waiting on
+  the speed-zone index.

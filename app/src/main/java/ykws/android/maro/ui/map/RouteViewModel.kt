@@ -461,8 +461,11 @@ class RouteViewModel(
     /** The pace window: recent readings, oldest first, pruned to [RoutePace.WINDOW_MS]. */
     private val paceSamples = ArrayDeque<RoutePace.Sample>()
 
-    /** When the boat last read near-zero speed — a sustained stop ends the live leg. */
-    private var stoppedSinceMs: Long? = null
+    /** The last viable plateau read off the live leg — it sticks through a stop instead of being wiped. */
+    private var lastPlateauKn: Double? = null
+
+    /** Whether a live GPS track is feeding the window; only then does the plateau outrank the history. */
+    private var liveTrackActive = false
 
     /** lookupId → page index, so an update lands on the page that owns it. */
     private val lookupPages = mutableMapOf<RouteId, Int>()
@@ -493,7 +496,7 @@ class RouteViewModel(
         }
         // A fresh Calculate, or any settings move, re-reads the pace so the search never shows a stale value.
         viewModelScope.launch {
-            settings.collect { recomputePace(System.currentTimeMillis()) }
+            settings.collect { recomputePace() }
         }
     }
 
@@ -1035,41 +1038,39 @@ class RouteViewModel(
 
     /** One pace reading for the window. */
     fun observePace(speedKn: Double?, restricted: Boolean, nowMs: Long, setPaceKn: Double) {
+        liveTrackActive = speedKn != null
         if (speedKn != null && speedKn.isFinite() && speedKn > 0.0) {
             paceSamples.addLast(RoutePace.Sample(speedKn, nowMs, restricted))
-            stoppedSinceMs = null
-        } else if (speedKn != null && speedKn.isFinite()) {
-            // A near-zero reading starts the stop clock; a stop held three seconds ends the live leg, so
-            // the reference falls back to the history until the boat sails again.
-            val since = stoppedSinceMs
-            if (since == null) {
-                stoppedSinceMs = nowMs
-            } else if (nowMs - since >= STOP_RESET_MS) {
-                paceSamples.clear()
-            }
         }
         while (paceSamples.isNotEmpty() && paceSamples.first().atMs < nowMs - RoutePace.WINDOW_MS) {
             paceSamples.removeFirst()
         }
-        recomputePace(nowMs)
+        // A stop adds no samples — it is ignored — so a thick buffer refreshes the plateau while a thin one
+        // leaves the last viable plateau standing.
+        if (paceSamples.size >= RoutePace.MIN_SAMPLES) {
+            lastPlateauKn = RoutePace.paceKn(
+                paceSamples.toList(),
+                nowMs,
+                25.0,
+                recentWeightPct = settings.value.routePaceRecentWeightPct.toDouble()
+            )
+        }
+        recomputePace()
     }
 
-    /** Re-reads the pace from the live buffer and the history, on a fix or when the history changes. */
-    private fun recomputePace(nowMs: Long) {
+    /** Re-reads the pace: the live plateau sticks while a live track exists, the history otherwise. */
+    private fun recomputePace() {
         val s = settings.value
         val historyKn = s.routeSpeedHistoryComputedKn.takeIf { it > 0f }?.toDouble()
-        _paceKn.value = RoutePace.paceKn(
-            paceSamples.toList(),
-            nowMs,
-            AppConfig.routePaceForSearchKn(s.routeFreeWaterPaceKn.toDouble(), historyKn),
-            recentWeightPct = s.routePaceRecentWeightPct.toDouble()
-        )
+        val fallback = AppConfig.routePaceForSearchKn(s.routeFreeWaterPaceKn.toDouble(), historyKn)
+        _paceKn.value = if (AppConfig.isFreeWaterPaceAny(s.routeFreeWaterPaceKn)) {
+            if (liveTrackActive) lastPlateauKn ?: fallback else fallback
+        } else {
+            s.routeFreeWaterPaceKn.toDouble()
+        }
     }
 
     companion object {
-
-        /** A near-zero reading held this long ends the live leg. */
-        private const val STOP_RESET_MS = 3_000L
 
         /** Index 0 of the page set — the main lookup the buttons act on by default. */
         const val MAIN_INDEX = 0
