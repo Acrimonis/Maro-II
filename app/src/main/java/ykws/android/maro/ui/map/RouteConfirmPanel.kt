@@ -60,6 +60,9 @@ private val ROUTE_CROWN_GLYPH_SIZE = 20.sp
 /** The middle dot joining the header's segments — punctuation, not user-facing text. */
 private const val ROUTE_HEADER_SEPARATOR = " · "
 
+/** The compact line height the table's cells share — tighter than the 13 sp default, so the rows sit closer. */
+private val ROUTE_CELL_LINE_HEIGHT = 14.sp
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The route acquisition's own dashboard — the panel the slot carries while a route is being acquired
 //
@@ -322,11 +325,25 @@ private fun RouteTablePager(
     }
 }
 
+/** One plan's Speed limits readings — each limit's label and its `mm:ss min` time, one line per reading. */
+@Composable
+private fun routeSpeedReadings(plan: RoutePlan): List<Pair<String, String>> =
+    routeSlowLimitEntries(plan).map { entry ->
+        val label = if (entry.isBand) {
+            stringResource(R.string.route_slow_band_label)
+        } else {
+            stringResource(R.string.route_slow_limit_label_fmt, entry.limitKn)
+        }
+        val time = stringResource(R.string.route_summary_eta_value_fmt, entry.seconds / 60, entry.seconds % 60)
+        label to "$time ${stringResource(R.string.route_summary_eta_unit)}"
+    }
+
 /**
  * **The summary table** — one line per route, three columns. Column 1 is the engine's own description;
- * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's delta
- * against the selected route. Columns are fixed weights so the boundaries stay consistent across rows,
- * a hairline separates the columns, and rows are top-aligned and wrap.
+ * column 2 is the route's time, its own average speed and its Dist as bare values, one per line;
+ * column 3 is a page's delta against the selected route. Each column takes an equal third of the row,
+ * so the boundaries stay consistent across rows, a hairline separates the columns, and rows are
+ * top-aligned and wrap.
  * The selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent`
  * edge, white bold text — with corners that adapt to the row's position in the bar.
  *
@@ -401,8 +418,8 @@ private fun RouteSummaryTable(
                 // `IntrinsicSize.Min` would claim the whole row and distort the columns.
                 Row(
                     modifier = Modifier
-                        .weight(0.75f)
-                        .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                        .weight(1f)
+                        .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.Top
                 ) {
                     Column {
@@ -423,6 +440,7 @@ private fun RouteSummaryTable(
                                 text = label,
                                 color = textColor,
                                 fontSize = 13.sp,
+                                lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                 fontWeight = weight,
                                 modifier = Modifier.weight(1f, fill = false)
                             )
@@ -432,6 +450,7 @@ private fun RouteSummaryTable(
                                     text = ROUTE_CROWN_GLYPH,
                                     color = Color(AppConfig.routeNavigateColor),
                                     fontSize = ROUTE_CROWN_GLYPH_SIZE,
+                                    lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -445,6 +464,7 @@ private fun RouteSummaryTable(
                                 text = "#$rank",
                                 color = textColor,
                                 fontSize = 13.sp,
+                                lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                 fontWeight = FontWeight.Bold
                             )
                         } else {
@@ -453,6 +473,7 @@ private fun RouteSummaryTable(
                                     text = stringResource(stage.labelResId),
                                     color = textColor,
                                     fontSize = 13.sp,
+                                    lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                     fontWeight = FontWeight.Bold,
                                     fontStyle = FontStyle.Italic
                                 )
@@ -462,13 +483,15 @@ private fun RouteSummaryTable(
                 }
                 ColumnDivider()
                 Column(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalAlignment = Alignment.Start
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // The settled pair on a landed page, the provisional pair the boundary update carried
-                    // while it waits, or the `--` placeholder where neither stands — one home for the
-                    // reading, so the row prints the same way whichever it holds. The two lines come in
-                    // one order for both (routeRowLines): the time first, the distance second.
+                    // The settled figures on a landed page, the provisional figures the boundary update
+                    // carried while it waits, or the `--` placeholder where neither stands — one home for
+                    // the reading, so the row prints the same way whichever it holds. The three lines
+                    // come in one order for both (routeRowLines): the time, the speed, the distance.
                     for (line in routeRowLines(routeRowFigures(page))) {
                         when (line.kind) {
                             RouteRowKind.DURATION -> RouteValueLine(
@@ -480,6 +503,14 @@ private fun RouteSummaryTable(
                                     )
                                 } ?: stringResource(R.string.route_value_pending),
                                 unit = stringResource(R.string.route_summary_eta_unit),
+                                color = textColor,
+                                fontWeight = weight
+                            )
+                            RouteRowKind.SPEED -> RouteValueLine(
+                                value = line.value?.let {
+                                    stringResource(R.string.route_summary_speed_value_fmt, it)
+                                } ?: stringResource(R.string.route_value_pending),
+                                unit = stringResource(R.string.route_summary_speed_unit),
                                 color = textColor,
                                 fontWeight = weight
                             )
@@ -529,15 +560,17 @@ private fun RouteValueLine(
             text = value,
             color = color,
             fontSize = 13.sp,
+            lineHeight = ROUTE_CELL_LINE_HEIGHT,
             fontWeight = fontWeight,
             textAlign = TextAlign.End,
-            modifier = Modifier.width(48.dp)
+            modifier = Modifier.width(42.dp)
         )
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(2.dp))
         Text(
             text = unit,
             color = color,
             fontSize = 13.sp,
+            lineHeight = ROUTE_CELL_LINE_HEIGHT,
             fontWeight = fontWeight,
             textAlign = TextAlign.Start
         )
@@ -574,37 +607,19 @@ private fun routeDeltaText(
 }
 
 /**
- * **The Speed limits table** — one route's slow time, one reading per regulated limit, the 300 m zone
- * first then the limits ascending (the engine's own order), wrapped into its lines by
- * [routeSlowLimitRows] in the shared [StatCell] over one label column measured once from every label. It
- * stands in the summary table's third column, under that page's own bold delta, so each route's row
- * carries its own figures.
+ * **The Speed limits table** — one route's slow time, one reading per regulated limit on its own line,
+ * the 300 m zone first then the limits ascending (the engine's own order), each in the shared [StatCell]
+ * over one label column measured from its own labels. It stands in the summary table's third column,
+ * under that page's own bold delta, so each route's row carries its own figures.
  */
 @Composable
 private fun SpeedLimitsGrid(plan: RoutePlan) {
-    val rows = routeSlowLimitRows(routeSlowLimitEntries(plan)).map { row ->
-        row.map { entry ->
-            val label = if (entry.isBand) {
-                stringResource(R.string.route_slow_band_label)
-            } else {
-                stringResource(R.string.route_slow_limit_label_fmt, entry.limitKn)
-            }
-            label to stringResource(R.string.route_slow_minutes_fmt, entry.minutes)
-        }
-    }
-    if (rows.isEmpty()) return
-    val labelWidth = rememberLabelColumnWidth(rows.flatten().map { it.first })
+    val readings = routeSpeedReadings(plan)
+    if (readings.isEmpty()) return
+    val labelWidth = rememberLabelColumnWidth(readings.map { it.first })
     Column(modifier = Modifier.fillMaxWidth()) {
-        rows.forEach { rowCells ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                rowCells.forEach { (label, value) ->
-                    Box(Modifier.weight(1f)) {
-                        StatCell(label = label, value = value, labelWidth = labelWidth)
-                    }
-                }
-                // A lone tail cell keeps its own column rather than stretching across both.
-                if (rowCells.size == 1) Spacer(Modifier.weight(1f))
-            }
+        readings.forEach { (label, value) ->
+            StatCell(label = label, value = value, labelWidth = labelWidth)
         }
     }
 }

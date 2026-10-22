@@ -759,6 +759,8 @@
     <string name="route_summary_distance_unit">NM</string>
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
     <string name="route_summary_eta_unit">min</string>
+    <string name="route_summary_speed_value_fmt">%1$.1f</string>
+    <string name="route_summary_speed_unit">kn</string>
     <!-- La fin de bande du tiroir en routage : des minutes entières, ou des secondes sous la minute. -->
     <string name="route_band_eta_min_fmt">ETA : %1$d min</string>
     <string name="route_band_eta_sec_fmt">ETA : %1$d sec</string>
@@ -816,10 +818,10 @@
     <string name="route_comparison_more">de plus</string>
     <!-- Le tableau Limites de vitesse du panneau : le temps passé ralenti, une lecture courte par limite
          réglementée — la zone des 300 m étiquetée "300M", une limite comme sa vitesse en nœuds — le
-         ralentissement d\'entrée et l\'accélération de sortie comptés, chaque valeur portant son unité. -->
+         ralentissement d\'entrée et l\'accélération de sortie comptés, chaque valeur lue « 1:05 min »,
+         arrondie à la seconde. -->
     <string name="route_slow_band_label">300M</string>
     <string name="route_slow_limit_label_fmt">%1$.0f kn</string>
-    <string name="route_slow_minutes_fmt">%1$d min</string>
     <!-- Une ligne de page dans le panneau : quelle route c\'est, sa description et sa propre durée. -->
     <string name="route_page_fmt">Route n°%1$d · %2$s · %3$s</string>
 </resources>
