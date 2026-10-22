@@ -1,23 +1,22 @@
-# Context Hydration — Route — 2026-10-21
+# Context Hydration — Route — 2026-10-22
 
-**Last Bake:** 2026-10-22 11:54 UTC — written by `#bake` on `feature/whatEver`; the stop behavior corrected to the sticky plateau, reviewed and re-baked.
+**Last Bake:** 2026-10-22 16:26 UTC — written by `#bake` on `feature/speed-history-2` (renamed from `feature/whatEver`, never published); the session closed the `Any` pace's functional review and built nothing.
 
-**Directive trace:** every covered action class was met and none stopped. Code changed only on the user's `#impl` orders; the device was never touched; no dependency was added; no binary read; the git writes were the user's own `#commit`s.
+**Directive trace:** no dependency was added, no binary file opened and the device never touched; every write was the plan, the Route feature file, the code map, the routing file and this file, plus the branch rename, on the user's word — D7, D8 and D12 recorded on the user's answer alone, following the session's "plan this" pattern — and each claim about the code had a read behind it, one (saved routes excluded from the history) flagged unverified rather than asserted; none stopped.
 
 ## State
 
-**The `Any` pace's observed-speed source is redesigned and shipped (2026-10-21).** The live leg reads a recency-weighted 75th-percentile plateau live; a stored trip reads its 90th-percentile open-water cruise, speed-zone and 300 m band points excluded; the history is a weighted median of the last N trip speeds, seeded from the filtered tracks list, folded in on each completed trip and imported at startup; the last viable plateau sticks through a stop, and the stop reads `-- Now --` / *Live*. Full unit suite and `testDebugUnitTest` green.
-
-**Open:** nothing outstanding — the filter is the filtered tracks list, the weight default is 60 %, and the plan's three open points are all closed.
+The `Any` pace shipped on this branch (`ed18e5cd..2fffc8e5`, its unit tests green; the branch is `feature/speed-history-2`) and is reopened. **Every functional decision is taken** (D1–D15 in the plan's `## Review fixes`, 2026-10-22) and **nothing is built**. The plan is the build order: F (the live window average, the 4 kn stop, the day's pace, the source label), A (bugs), B (parts of the plan the code lacks), G (the demo flag and its switch), C (text), E (tests). `## Settings surface` holds the Speed History section's row order and both locales' strings, and `## Files` the whole file list. `## Review fixes` wins over the plan's upper sections, which still describe the shipped model under "superseded" notes (C7). Two code checks come first where named: how a never-classified track gets its water share (B5), and how the recorder knows it took a demo sample (G1).
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/route/RoutePace.kt`, `SpeedHistory.kt`, `SpeedHistorySeeder.kt` — the reference, the window, the seed
-- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — the live feed, the stop reset, the history fallback
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `OverlayLayer.kt`, `NavigationViewModel.kt` — the seed, fold-in, startup import, exclusion
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/maro.properties`, `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the keys and persistence
-- `app/src/main/res/values*/strings.xml` — the `-- Now --` / Live rename and the Speed History section
+- `xTrack/Route/261021_FEAT_PLN_Route_observed-pace-reference.md` — `## Review fixes` (F, A, B, G, C, D, E, order of work), `## Settings surface`, `## Files`
+- `app/src/main/java/ykws/android/maro/data/route/` — `RoutePace.kt`, `SpeedHistory.kt`, `SpeedHistorySeeder.kt`, and the new `PacePlateau.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt`, `RouteHost.kt`, `RouteConfirmPanel.kt` — the pace feed, the day's pace, the source
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `OverlayLayer.kt`, `MapScreenSettingsOverlay.kt` — the seed, the fold-in, the Speed History section
+- `app/src/main/java/ykws/android/maro/data/track/Track.kt`, `TrackRepository.kt`, `TrackRecorder.kt`, `TrackRecordingService.kt` — the demo flag
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/maro.properties`, `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`, `app/src/main/res/values*/strings.xml` — keys, persistence, strings
 
 ## Next Step
 
-None — the feature is complete and built; the device pass is the user's.
+Step 1 of the plan's order of work: `PacePlateau` with its worked-cases table as tests (F1, E2), `observePace` feeding it (F2), and the window and stop-speed keys with the window slider (F5).
