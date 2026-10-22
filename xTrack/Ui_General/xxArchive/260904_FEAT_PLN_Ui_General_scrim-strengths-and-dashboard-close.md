@@ -1,0 +1,55 @@
+---
+feature: Ui_General
+topic: Scrim strengths + dashboard close behaviour
+created: 2026-09-04 20:53 UTC
+status: planned
+---
+
+# Plan: Scrim strengths + dashboard close behaviour
+
+> **Partly superseded 2026-09-17.** The scrim matrix above stands unchanged. Of the dashboard close
+> behaviour, the fan arm stands and the menu arm is superseded: the menu now keeps the selection, since
+> it is a panel over the map rather than an occupant of the dashboard slot. Current rules and the
+> action table live in `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`.
+
+## Scrim matrix (final)
+
+| Surface | Scrim | Tap outside | Map |
+|---|---|---|---|
+| Menu, Settings, Track history, Marker mgmt | 0.50 | closes panel | blocked |
+| Marker view, Track view | none | no-op | interactive |
+| Wizard — keyboard open | 0.50 | dismiss keyboard, keep form | blocked |
+| Wizard — keyboard closed | none | n/a | interactive |
+| Fan | transparent | closes fan | blocked |
+| Screen lock | transparent | ignored | fully visible |
+
+## Dashboard close behaviour
+
+- Back → closes marker + track view (already handled).
+- Menu open → closes both (already handled).
+- Create marker → closes both (to add).
+- Fan open → does NOT close them (revert earlier behaviour).
+
+## Panel sizing
+
+- Track history + marker management → landscape width = settings width (`landscapeDashboardWidth * uiLandscapePanelWidthScale`).
+
+## Code changes
+
+1. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)
+   - Unified scrim alpha `0.32` → `0.50`.
+   - `showScrim` = settings, menu, track history, marker management, plus `showWizard && imeHeightDp > 0.dp`.
+   - `scrimDismiss` = close settings/menu/track-history/marker-management; wizard branch → clear focus + hide keyboard (not cancel).
+   - TrackHistory + MarkerManagement `DrawerSlot` → landscape width like settings.
+2. [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
+   - Remove `closeSelectedItemDashboards()` from `onToggleFan`.
+   - Call `closeSelectedItemDashboards()` before `startWizard` in `onAddZone` + `onCreateFirst`.
+
+## Verify
+
+- Build `apk-build.bat`; verify the matrix on device in landscape and portrait.
+
+## Outcome
+
+Archived 2026-10-21 — shipped as described in the matching ## Implemented one-liner of FEAT_DSC_Ui_General; its rules and decisions now live in docs/ui-component-guidelines.md and this feature's ## Rules and ## Implemented. Nothing unique is lost.
+
