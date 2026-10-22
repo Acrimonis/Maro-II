@@ -86,17 +86,18 @@ rule, and `StatCell` itself.
 
 ## Implemented
 
-Shipped on `feature/route-dash` (2026-10-22): columns 1 and 2 compact on one `ROUTE_CELL_LINE_HEIGHT` with
-their 4 dp cell padding kept, column 2's speed line seating second via one `routeAvgSpeedKn` read by the
-row and the plan, and column 3 keeping its measured label column and centred `:`, one reading per line
-with the full `1:05 min` value. Each of the three columns takes an equal `weight(1f)` share, so the
-boundaries stay consistent across rows; the two-per-line pairing and its `routeSlowLimitRows` helper are
-removed.
+Shipped on `feature/route-dash` (2026-10-22): the three-column table is rebuilt — column 1 takes a 50
+share, column 2 is vertically centered with its time · speed · distance lines (value right-aligned, unit
+left-aligned) at a 25 share, and column 3 takes a 25 share that grows to its content so each
+`label : m:ss min` reading shows its `min` unit. The two-per-line pairing and its `routeSlowLimitRows`
+helper are removed, and the table's UI-specific values live in `ui.properties` under `ui.route.table.*`,
+read through `AppConfig`.
 
-- Target files: `RouteOverlay.kt`, `RouteConfirmPanel.kt`, `RouteViewModel.kt`, both `strings.xml`,
-  `RouteSlowLimitTest.kt`, `RouteAcquisitionTest.kt`, `StatCell.kt` (doc only).
+- Target files: `RouteOverlay.kt`, `RouteConfirmPanel.kt`, `RouteViewModel.kt`, `AppConfig.kt`,
+  `ui.properties`, `ui-drawer-guidelines.md`, both `strings.xml`, `RouteSlowLimitTest.kt`,
+  `RouteAcquisitionTest.kt`, `StatCell.kt` (doc only).
 - Review: the four asks verified; two doc drifts fixed, the `plannedPaceKn` test added, the inline formula
   re-read through the helper.
 - Build: `:app:compileDebugKotlin`, the two `ui.map` test classes and `:app:assembleDebug` green.
-- Owed to the device: the crown glyph not clipped at the tight line height, and the auto-sized columns
-  reading well across portrait and landscape.
+- Owed to the device: the crown glyph not clipped at the tight line height, and the 50/25/25 shares with
+  column 3's growth reading well across portrait and landscape.
