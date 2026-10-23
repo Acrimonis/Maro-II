@@ -6,9 +6,11 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthIsobaths
 import ykws.android.maro.data.depth.DepthRepository
 import ykws.android.maro.data.depth.RasterCache
+import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.DepthRenderModel
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
@@ -88,9 +91,30 @@ class DepthViewModel(
     private val _generatingStep = MutableStateFlow<RasterCache.Step?>(null)
     val generatingStep: StateFlow<RasterCache.Step?> = _generatingStep.asStateFlow()
 
-    /** Incremented after each successful cache write; triggers produceState re-read. */
-    private val _rasterCacheVersion = MutableStateFlow(0)
-    val rasterCacheVersion: StateFlow<Int> = _rasterCacheVersion.asStateFlow()
+    private val _rasterLayers = MutableStateFlow<Map<RasterCache.Step, Bitmap>>(emptyMap())
+    /**
+     * The display rasters this view model holds — at most one bitmap per step, filled by a cache
+     * read and a live build alike, so the screen never rasterises on its own. A step is absent
+     * until produced, and dropped the moment a request for another key supersedes it.
+     */
+    val rasterLayers: StateFlow<Map<RasterCache.Step, Bitmap>> = _rasterLayers.asStateFlow()
+
+    /** A raster held for display, with the key it was built or read for. */
+    private class ProducedRaster(val key: RasterCache.Key, val bitmap: Bitmap)
+
+    /** A build in flight, with the key it will produce — none while the grid it keys on is not loaded. */
+    private class RasterJob(val key: RasterCache.Key?, val job: Job)
+
+    // Single-flight bookkeeping, touched on the main thread only: every entry point runs there and
+    // every job returns there before it reads or writes these maps.
+    private val produced = mutableMapOf<RasterCache.Step, ProducedRaster>()
+    private val running = mutableMapOf<RasterCache.Step, RasterJob>()
+
+    /**
+     * The loaded coastline's identity the warning raster's key carries, recorded by
+     * [ensureRasterLayers], so a Settings regeneration writes the file the lazy path looks for.
+     */
+    private var coastStamp = 0L
 
     private var stepIndex = 0
     private var totalSteps = 0
@@ -114,110 +138,193 @@ class DepthViewModel(
         viewModelScope.launch { repository.refreshDepth() }
     }
 
-    // ── Raster generation with caching ─────────────────────────────────────
+    // ── Raster production: this view model is the single owner ─────────────
 
     /**
-     * Self-contained 4-step pipeline executed sequentially. For each selected step:
-     * 1. Set [generatingStep] → UI hides that layer's bitmap
-     * 2. Execute the step (load grid / derive isobaths / build raster)
-     * 3. Write cache (raster steps only)
-     * 4. Increment [rasterCacheVersion] → UI re-reads cache
-     * 5. Clear [generatingStep] → UI shows new bitmap
-     *
-     * Reports weighted progress across all selected steps via [_rasterProgress].
-     * Only called from the settings "Regenerate" button — no lazy auto-trigger.
+     * The screen's lazy path: make sure each of [steps] is held in [rasterLayers] for the current
+     * key — reading the cache when a file is there, building silently (no overlay, no hide/show)
+     * when it is not, and writing the build to the cache. A step already held or already being
+     * produced for that key is left alone; a different key supersedes the step's running job
+     * and drops the raster it holds. [coastStamp] is the loaded coastline's identity (0 when none).
      */
+    fun ensureRasterLayers(
+        context: Context,
+        steps: List<RasterCache.Step>,
+        settings: AppSettings,
+        isWater: (Double, Double) -> Boolean,
+        coastStamp: Long
+    ) {
+        this.coastStamp = coastStamp
+        val grid = repository.getGrid() ?: return
+        for (step in steps) {
+            val key = keyFor(step, grid, settings)
+            if (produced[step]?.key == key || running[step]?.key == key) continue
+            launchSingleFlight(listOf(step), key) {
+                produceStep(context, step, key, grid, settings, isWater, forced = false)
+            }
+        }
+    }
+
     /**
-     * @param silent when true, suppresses progress reporting and hide/show — used for
-     *               background lazy-init where no LoadingOverlay should appear.
+     * The Settings "Regenerate" path: the 4-step pipeline executed sequentially. For each selected step:
+     * 1. Set [generatingStep] → UI hides that layer's bitmap
+     * 2. Execute the step (load grid / derive isobaths / build raster, the cache evicted first)
+     * 3. Write cache and hand the bitmap to [rasterLayers] (raster steps only)
+     * 4. Clear [generatingStep] → UI shows new bitmap
+     *
+     * Reports weighted progress across all selected steps via [_rasterProgress]. A new call
+     * supersedes whatever is running for its steps, lazy build or earlier regeneration.
      */
     fun generateRasterLayers(
         context: Context,
         steps: List<RasterCache.Step>,
         settings: AppSettings,
-        isWater: (Double, Double) -> Boolean,
-        silent: Boolean = false
+        isWater: (Double, Double) -> Boolean
     ) {
         if (steps.isEmpty()) return
-        viewModelScope.launch {
+        // One job carries every step; it registers under the colour map's key, so a lazy request for
+        // the same colour key waits on it rather than starting a second build.
+        val key = repository.getGrid()?.let { keyFor(RasterCache.Step.DEPTH_COLOUR, it, settings) }
+        launchSingleFlight(steps, key, onRelease = {
+            _rasterProgress.value = null
+            _generatingStep.value = null
+        }) {
             totalSteps = steps.size
             stepIndex = 0
-            if (!silent) _rasterProgress.value = RasterProgress("", 0, 0)
-            val grid = withContext(Dispatchers.IO) {
-                repository.loadGridFromAssets()
-            } ?: run { _rasterProgress.value = null; return@launch }
-
-            val cutoffM = settings.emodnetShallowCutoffM
-            val nodataColor = AppConfig.mapDepthNodataColor
-
-            withContext(Dispatchers.Default) {
-                for (step in steps) {
-                    stepIndex++
-                    if (!silent) _generatingStep.value = step
-                    // Per step: each raster's key carries its own palette hash, so changing one
-                    // layer's colours no longer discards the other layer's cache file.
-                    val key = RasterCache.keyFor(
-                        step, grid, cutoffM, settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM
-                    )
-
-                    when (step) {
-                        RasterCache.Step.GRID -> {
-                            report(RasterStep.GRID_LOAD, "Depth grid", 0)
-                            // grid already loaded above — no-op
-                            report(RasterStep.GRID_LOAD, "Depth grid", 100)
-                        }
-                        RasterCache.Step.ISOBATH -> {
-                            report(RasterStep.ISOBATH, "Isobath contours", 0)
-                            DepthIsobaths.build(grid, emodnetCutoffM = cutoffM)
-                            report(RasterStep.ISOBATH, "Isobath contours", 100)
-                        }
-                        RasterCache.Step.DEPTH_COLOUR -> {
-                            RasterCache.evict(context, step) // force rebuild
-                            report(RasterStep.COLOUR_RASTER, "Depth colour map", 0)
-                            val bmp = DepthBitmap.build(grid, cutoffM, nodataColor) { stepProgress ->
-                                report(RasterStep.COLOUR_RASTER, "Depth colour map", stepProgress)
-                            }
-                            val pixels = IntArray(grid.cols * grid.rows)
-                            bmp.getPixels(pixels, 0, grid.cols, 0, 0, grid.cols, grid.rows)
-                            RasterCache.write(context, step, key, pixels, grid.cols, grid.rows)
-                            bmp.recycle()
-                        }
-                        RasterCache.Step.LOW_DEPTH_WARNING -> {
-                            RasterCache.evict(context, step)
-                            report(RasterStep.WARNING_RASTER, "Shallow warning overlay", 0)
-                            val crashM = settings.lowDepthCrashDepthM
-                            val startM = settings.lowDepthStartWarningM
-                            val bmp = LowDepthWarningBitmap.build(grid, crashM, startM, isWater, cutoffM) { stepProgress ->
-                                report(RasterStep.WARNING_RASTER, "Shallow warning overlay", stepProgress)
-                            }
-                            val pixels = IntArray(grid.cols * grid.rows)
-                            bmp.getPixels(pixels, 0, grid.cols, 0, 0, grid.cols, grid.rows)
-                            RasterCache.write(context, step, key, pixels, grid.cols, grid.rows)
-                            bmp.recycle()
-                        }
-                    }
-
-                    _rasterCacheVersion.value++   // trigger produceState re-read
-                    if (!silent) _generatingStep.value = null
-                }
+            _rasterProgress.value = RasterProgress("", 0, 0)
+            val loaded = withContext(Dispatchers.IO) { repository.loadGridFromAssets() } ?: return@launchSingleFlight
+            for (step in steps) {
+                stepIndex++
+                produceStep(context, step, keyFor(step, loaded, settings), loaded, settings, isWater, forced = true)
             }
-            if (!silent) _rasterProgress.value = null
         }
     }
 
     /**
-     * Best-effort cache read for a single raster step; returns the cached bitmap or null.
-     * The file read and bitmap decode run on IO — callers are produceState blocks on Main.
+     * Single flight per step: cancels whatever is running for any of [steps], registers one job
+     * under all of them, runs [body], and on completion releases the entries that are still its own.
+     * [onRelease] runs only when the job finished as owner — a superseded job leaves the shared
+     * progress to its successor. Lazily started so the entries exist before the body runs.
      */
-    suspend fun readCached(context: Context, step: RasterCache.Step, settings: AppSettings): Bitmap? =
-        withContext(Dispatchers.IO) {
-            val grid = repository.getGrid() ?: return@withContext null
-            val key = RasterCache.keyFor(
-                step, grid, settings.emodnetShallowCutoffM,
-                settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM
-            )
-            RasterCache.read(context, step, key)
+    private fun launchSingleFlight(
+        steps: List<RasterCache.Step>,
+        key: RasterCache.Key?,
+        onRelease: () -> Unit = {},
+        body: suspend () -> Unit
+    ) {
+        steps.forEach { running.remove(it)?.job?.cancel() }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val self = coroutineContext[Job]
+            try {
+                body()
+            } finally {
+                val owned = steps.filter { running[it]?.job === self }
+                owned.forEach { running.remove(it) }
+                if (owned.isNotEmpty()) onRelease()
+            }
         }
+        steps.forEach { running[it] = RasterJob(key, job) }
+        job.start()
+    }
+
+    /**
+     * Runs one step to completion: the in-memory steps report only; a raster step is read from
+     * the cache (lazy path) or built, written to the cache and handed to [rasterLayers] — one
+     * bitmap per layer, the built one kept for display rather than decoded back. A corrupt cache
+     * file is evicted by the reader and simply falls through to the build. [forced] is the
+     * Settings path: evict first, report progress, hide the layer while it is rebuilt.
+     */
+    private suspend fun produceStep(
+        context: Context,
+        step: RasterCache.Step,
+        key: RasterCache.Key,
+        grid: DepthGrid,
+        settings: AppSettings,
+        isWater: (Double, Double) -> Boolean,
+        forced: Boolean
+    ) {
+        if (forced) _generatingStep.value = step
+        if (forced || produced[step]?.key != key) dropProduced(step)
+        val cutoffM = settings.emodnetShallowCutoffM
+        val bitmap = withContext(Dispatchers.Default) {
+            when (step) {
+                RasterCache.Step.GRID -> {
+                    // Loaded by the caller — the step only reports.
+                    progressSink(forced, RasterStep.GRID_LOAD, "Depth grid")?.let { it(0); it(100) }
+                    null
+                }
+                RasterCache.Step.ISOBATH -> {
+                    val onProgress = progressSink(forced, RasterStep.ISOBATH, "Isobath contours")
+                    onProgress?.invoke(0)
+                    DepthIsobaths.build(grid, emodnetCutoffM = cutoffM)
+                    onProgress?.invoke(100)
+                    null
+                }
+                RasterCache.Step.DEPTH_COLOUR -> {
+                    val onProgress = progressSink(forced, RasterStep.COLOUR_RASTER, "Depth colour map")
+                    cachedOrBuilt(context, step, key, grid, forced) {
+                        onProgress?.invoke(0)
+                        DepthBitmap.build(grid, cutoffM, AppConfig.mapDepthNodataColor, onProgress)
+                    }
+                }
+                RasterCache.Step.LOW_DEPTH_WARNING -> {
+                    val onProgress = progressSink(forced, RasterStep.WARNING_RASTER, "Shallow warning overlay")
+                    cachedOrBuilt(context, step, key, grid, forced) {
+                        onProgress?.invoke(0)
+                        LowDepthWarningBitmap.build(
+                            grid, settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM,
+                            isWater, cutoffM, onProgress
+                        )
+                    }
+                }
+            }
+        }
+        if (bitmap != null) {
+            produced[step] = ProducedRaster(key, bitmap)
+            publishRasters()
+        }
+        if (forced) _generatingStep.value = null
+    }
+
+    /** The cache's bitmap for [key] unless [forced] (which evicts the step first); else [build], written to the cache. */
+    private suspend fun cachedOrBuilt(
+        context: Context,
+        step: RasterCache.Step,
+        key: RasterCache.Key,
+        grid: DepthGrid,
+        forced: Boolean,
+        build: () -> Bitmap
+    ): Bitmap {
+        val cached = withContext(Dispatchers.IO) {
+            if (forced) { RasterCache.evict(context, step); null } else RasterCache.read(context, step, key)
+        }
+        if (cached != null) return cached
+        val bmp = build()
+        val pixels = IntArray(grid.cols * grid.rows)
+        bmp.getPixels(pixels, 0, grid.cols, 0, 0, grid.cols, grid.rows)
+        RasterCache.write(context, step, key, pixels, grid.cols, grid.rows)
+        return bmp
+    }
+
+    /** A builder's progress sink on the Settings path; none on the lazy path. */
+    private fun progressSink(forced: Boolean, step: RasterStep, phase: String): ((Int) -> Unit)? {
+        if (!forced) return null
+        return { p -> report(step, phase, p) }
+    }
+
+    private fun keyFor(step: RasterCache.Step, grid: DepthGrid, settings: AppSettings): RasterCache.Key =
+        RasterCache.keyFor(
+            step, grid, settings.emodnetShallowCutoffM,
+            settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM, coastStamp
+        )
+
+    private fun dropProduced(step: RasterCache.Step) {
+        if (produced.remove(step) != null) publishRasters()
+    }
+
+    private fun publishRasters() {
+        _rasterLayers.value = produced.mapValues { it.value.bitmap }
+    }
 
     /** Progress title: "Generating Layer" (1 step) or "Generating Layers (x/y)" (multiple). */
     fun progressTitle(): String =

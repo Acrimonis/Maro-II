@@ -503,8 +503,8 @@
     <string name="cd_pin">Épingler</string>
     <string name="cd_unpin">Désépingler</string>
     <string name="cd_lock_screen">Verrouiller l\'écran</string>
-    <string name="cd_unlock_screen">Déverrouiller l\'écran</string>
-    <string name="toast_screen_locked">Écran verrouillé</string>
+    <string name="cd_unlock_screen">Maintenir pour déverrouiller l\'écran</string>
+    <string name="toast_screen_locked">Écran verrouillé — maintenir pour déverrouiller</string>
     <string name="toast_screen_unlocked">Écran déverrouillé</string>
     <string name="cd_selected">Sélectionné</string>
     <string name="cd_select">Sélectionner</string>

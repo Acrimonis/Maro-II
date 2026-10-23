@@ -1302,6 +1302,18 @@ object AppConfig {
         private set
 
     /**
+     * The service's GPS cadence while **nothing records** (ms between fixes) — enough for the
+     * geofence auto-start and the stop detector, a fraction of the recording rate's battery. Set via
+     * `tracking.standbyIntervalMs`.
+     */
+    var trackingStandbyIntervalMs: Long = 5_000L
+        private set
+
+    /** The standby cadence's minimum movement between fixes (m). Set via `tracking.standbyMinDistanceM`. */
+    var trackingStandbyMinDistanceM: Float = 10f
+        private set
+
+    /**
      * The cap a recorded trip's marker-derived name may reach, beyond which every token is cut in
      * proportion to its own length, marked with an ellipsis (settled 2026-10-10). Set via
      * `track.name.maxLength` in maro.properties. The exported file name is capped separately, at
@@ -1791,6 +1803,10 @@ object AppConfig {
     var uiDividerHeight: Float = 1f; private set
     var uiDividerGap: Float = 6f; private set
 
+    // Touch (dp)
+    /** Minimum side of a tappable control's hit area. Default 48. Set via `ui.touch.min`. */
+    var uiTouchMin: Float = 48f; private set
+
     /**
      * Hash of the colours **one** raster step is painted from, folded into [RasterCache.Key] by
      * `RasterCache.keyFor` — taken per step, so touching one raster's palette misses that raster
@@ -2011,6 +2027,13 @@ object AppConfig {
             }
             props.getProperty("tracking.gapTimeThresholdSec")?.toLongOrNull()?.let {
                 trackingGapTimeThresholdSec = it.coerceAtLeast(0L)
+            }
+            // ── The service's standby GPS cadence (nothing recording) ───────────
+            props.getProperty("tracking.standbyIntervalMs")?.toLongOrNull()?.let {
+                trackingStandbyIntervalMs = it.coerceAtLeast(1_000L)
+            }
+            props.getProperty("tracking.standbyMinDistanceM")?.toFloatOrNull()?.let {
+                trackingStandbyMinDistanceM = it.coerceAtLeast(0f)
             }
             props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
                 trackNameMaxLength = it.coerceIn(8, 254)
@@ -2671,6 +2694,9 @@ object AppConfig {
             // Divider
             uiDividerHeight = dp("ui.divider.height", uiDividerHeight)
             uiDividerGap = dp("ui.divider.gap", uiDividerGap)
+
+            // Touch
+            uiTouchMin = dp("ui.touch.min", uiTouchMin)
 
             // R42's runtime channel, published once the whole family has been walked: the colour keys
             // the cascade met but could not read, in order. The app reports them at start.

@@ -1367,13 +1367,13 @@ class NavigationViewModel(
         val newCenter = LatLng(latitude, longitude)
         if (_mapCenter.value == newCenter) return
         _mapCenter.value = newCenter
-        // Throttle settings persistence to ~1 Hz — every scroll event (60 fps) would trigger
-        // appSettings StateFlow → Compose recomposition at 60 fps, bypassing uiMapCenter throttle.
-        // Full position is persisted via savePosition() at ON_PAUSE for crash recovery.
+        // Throttle the write to ~1 Hz, and write the viewport alone: the settings object is not
+        // touched, so a pan never re-emits every setting to every collector. The full position is
+        // persisted via savePosition() at ON_PAUSE for crash recovery.
         val nowMs = SystemClock.elapsedRealtime()
         if (nowMs - lastPersistMs >= 1_000L) {
             lastPersistMs = nowMs
-            settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
+            settingsManager.persistViewport(centerLat = latitude, centerLon = longitude)
         }
         // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
         // **The route mode suspends nothing here any more** (R71): the arming reads the standing pair
@@ -1465,7 +1465,7 @@ class NavigationViewModel(
         val nowMs = SystemClock.elapsedRealtime()
         if (nowMs - lastPersistMs >= 1_000L) {
             lastPersistMs = nowMs
-            settingsManager.update { it.copy(zoomLevel = zoom) }
+            settingsManager.persistViewport(zoom = zoom)
         }
     }
 
@@ -1478,18 +1478,13 @@ class NavigationViewModel(
      */
     fun savePosition() {
         val center = _mapCenter.value
-        val zoom = _zoomLevel.value
-        val water = _isWater.value
-        val dist = _distanceToShore.value
-        settingsManager.update {
-            it.copy(
-                mapCenterLat = center.latitude,
-                mapCenterLon = center.longitude,
-                zoomLevel = zoom,
-                isWater = water,
-                distanceToShore = dist ?: Double.NaN
-            )
-        }
+        settingsManager.persistViewport(
+            centerLat = center.latitude,
+            centerLon = center.longitude,
+            zoom = _zoomLevel.value,
+            isWater = _isWater.value,
+            distanceToShoreM = _distanceToShore.value ?: Double.NaN
+        )
     }
 
     /**

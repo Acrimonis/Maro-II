@@ -5,20 +5,23 @@ import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.WhereAmIResult
@@ -40,9 +43,6 @@ private const val OVERLAY_PREFIX = "marker_"
 
 /** Marker dot radius in dp (converted to px at ~48dp density). */
 private const val DOT_RADIUS_DP = 6
-
-/** Confirmed marker colour (semantic.info blue). */
-private val COLOR_CONFIRMED = AppConfig.semanticInfo
 
 /** Dark under-stroke for selected markers (dual-outline consistency with track). */
 private val COLOR_HIGHLIGHT_UNDER = 0xCC000000.toInt()
@@ -73,11 +73,15 @@ private const val CORRIDOR_CONNECTING_STROKE_DP = 2f / 3f
 internal const val MARKER_DASH_ON_DP = 4f
 internal const val MARKER_DASH_OFF_DP = 8f / 3f
 
+/** Icon glyph bitmap edge and text size at marker zoom 100 %. */
+private const val ICON_BITMAP_PX = 64
+private const val ICON_TEXT_PX = 48f
+
 // ── Public composable ─────────────────────────────────────────────────────────
 
 /**
  * Composable that renders user-defined markers as OSMdroid native overlays
- * ([Polyline] + [Marker]) added to [mapView.overlays] via [LaunchedEffect].
+ * ([Polyline] + [Marker]) added to [mapView.overlays] via two [DisposableEffect]s.
  *
  * Marker rendering:
  * - **Pin:** [Marker] at geo position with a filled-circle icon.
@@ -99,8 +103,14 @@ internal const val MARKER_DASH_OFF_DP = 8f / 3f
  * **Match result highlighting (P6):** When [matchResult] is non-null, matched
  * markers render brighter/thicker; non-matched markers render dimmed (lower alpha).
  *
- * Lifecycle: [LaunchedEffect] removes old overlays tagged with [OVERLAY_PREFIX],
- * adds new ones, then calls [MapView.invalidate].
+ * Lifecycle — two passes (C05). The **structural pass** is keyed on the markers and the marker-wide
+ * settings: it removes the overlays tagged with [OVERLAY_PREFIX], builds every marker's overlays and
+ * records them per marker with the [MarkerPaintState] they were drawn with. The **selection pass** is
+ * keyed on [selectedMarkerId] and [matchResult] alone: it rebuilds only the markers whose paint state
+ * moved — the one unselected and the one selected, or the match's own set — and splices them where
+ * their old overlays stood. A tap on one marker therefore no longer re-rasterises every marker. Both
+ * passes end on [OverlayZOrder.reorder] and one [MapView.invalidate]; the bitmaps every pass draws from
+ * are pooled ([MarkerBitmaps]), so a selection toggle swaps a dot or halo rather than drawing it.
  *
  * @param markers                List of all confirmed user markers to render.
  * @param mapView                The OSMdroid [MapView]; null → nothing drawn.
@@ -136,339 +146,453 @@ fun MarkerOverlay(
 ) {
     val mv = mapView ?: return
 
-    // Helper to remove all marker overlays
-    fun removeAllMarkerOverlays() {
-        // **This pass owns `marker_*` — except the route's destination pin.** That pin wears the prefix
-        // only to ride the same band (`OverlayZOrder.isMarkerOverlay`) while its object belongs to
-        // `RouteHost`; sweeping it left the route's lines undrawn, because the host's repaint asked for
-        // the pin and bailed once it was gone (the device's own log, 2026-09-23). A title another home
-        // owns is not this pass's to remove.
-        val toRemove = mv.overlays.filter { overlay ->
-            val ownedByThisPass = (overlay as? Marker)?.title != ROUTE_PIN_TITLE
-            ownedByThisPass && (
-                (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
-                    (overlay as? Polygon)?.title?.startsWith(OVERLAY_PREFIX) == true ||
-                    (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
-                )
-        }
-        mv.overlays.removeAll(toRemove)
-    }
+    // The marker-wide inputs, bundled: the structural pass keys on this one value and the builders read it.
+    val settings = MarkerDrawSettings(
+        proximityZoneMultiplier = proximityZoneMultiplier,
+        zonesVisible = markerZonesVisible,
+        haloSize = markerHaloSize,
+        pointIconZoom = markerPointIconZoom,
+        haloPinnedColor = markerHaloPinnedColor,
+        haloUnpinnedColor = markerHaloUnpinnedColor,
+        haloPinnedFillPct = markerHaloPinnedFillTransparencyPct,
+        haloPinnedBorderPct = markerHaloPinnedBorderTransparencyPct,
+        haloUnpinnedFillPct = markerHaloUnpinnedFillTransparencyPct,
+        haloUnpinnedBorderPct = markerHaloUnpinnedBorderTransparencyPct
+    )
 
     // ── P6: Build set of matched marker IDs for highlighting ──────────────────
     // The match-marker rule has one home (plan §3), read here through it rather than a `when` of its
     // own at each of the four readers.
+    val matchActive = matchResult != null
     val matchedIds: Set<String> =
         matchResult?.allMatches?.map { it.matchedMarker().id }?.toSet() ?: emptySet()
 
-    DisposableEffect(
-        markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible,
-        markerHaloSize, markerPointIconZoom, markerHaloPinnedColor, markerHaloUnpinnedColor,
-        markerHaloPinnedFillTransparencyPct, markerHaloPinnedBorderTransparencyPct,
-        markerHaloUnpinnedFillTransparencyPct, markerHaloUnpinnedBorderTransparencyPct
-    ) {
-        Log.d("MaroMapRefresh", "MarkerOverlay DisposableEffect restart: markers=${markers.size} mv=${mv.hashCode()} zonesVisible=$markerZonesVisible")
-        // Marker point/icon rendering zoom % (50-150, 100 = current). Uniform scale applied
-        // to the dot radius, the icon glyph and the halo ring (rule of three).
-        val zoomFactor = markerPointIconZoom.coerceIn(50, 150) / 100f
-        // ── Remove old marker overlays, then add new ones ─────────────────────
-        removeAllMarkerOverlays()
-
-        // Build combined marker list: unconfirmed first (renders underneath)
-        // so the original confirmed marker stays visible on top during edit.
-        // Confirmed markers are ordered by pinned so pinned render last (top of the
-        // marker band; OverlayZOrder preserves intra-band order).
-        val allMarkers = if (unconfirmedMarker != null) {
+    // Build combined marker list: unconfirmed first (renders underneath)
+    // so the original confirmed marker stays visible on top during edit.
+    // Confirmed markers are ordered by pinned so pinned render last (top of the
+    // marker band; OverlayZOrder preserves intra-band order).
+    val allMarkers = remember(markers, unconfirmedMarker) {
+        if (unconfirmedMarker != null) {
             listOf(unconfirmedMarker) + markers.sortedBy { it.pinned }
         } else {
             markers.sortedBy { it.pinned }
         }
+    }
 
-        val dotBitmap = createDotBitmap(COLOR_CONFIRMED, mv.paintDensity, radiusMultiplier = zoomFactor)
+    // What the structural pass built, kept across selection passes — per MapView, like the overlays.
+    val cache = remember(mv) { MarkerOverlayCache(mv) }
 
+    // ── The structural pass: every marker, rebuilt when the markers or the settings move ──────────
+    // Selection and the match result are read here but are not keys (C05): the pass below owns them.
+    DisposableEffect(allMarkers, mv, settings) {
+        Log.d("MaroMapRefresh", "MarkerOverlay structural pass: markers=${allMarkers.size} mv=${mv.hashCode()} zonesVisible=${settings.zonesVisible}")
+        removeAllMarkerOverlays(mv)
+        cache.built.clear()
         for (marker in allMarkers) {
-            val confirmed = marker.confirmed
-            val isMatched = matchResult != null && matchedIds.contains(marker.id)
-            val markerColor = MarkerColors.of(marker.colorIndex)
-            val appearance = MarkerAppearance.of(
-                marker = marker,
-                markerColor = markerColor,
-                isMatched = isMatched,
-                matchActive = matchResult != null,
-                selectedMarkerId = selectedMarkerId,
-                pinnedColor = markerHaloPinnedColor,
-                unpinnedColor = markerHaloUnpinnedColor,
-                pinnedFillPct = markerHaloPinnedFillTransparencyPct,
-                pinnedBorderPct = markerHaloPinnedBorderTransparencyPct,
-                unpinnedFillPct = markerHaloUnpinnedFillTransparencyPct,
-                unpinnedBorderPct = markerHaloUnpinnedBorderTransparencyPct
-            )
-            val baseColor = appearance.baseColor
-            val strokeMultiplier = appearance.strokeMultiplier
-            val isSelected = appearance.isSelected
-            val haloSpec = appearance.halo
-            // Halo fades together with a search non-match.
-            val haloDimFraction = if (appearance.isDimmed) DIMMED_ALPHA_FRACTION else 1f
-            val proxColor = dimColor(markerColor, AppConfig.markerProximityOutlineAlpha)
-            val proxFillColor = dimColor(markerColor, AppConfig.markerProximityFillAlpha)
-
-            // Zone shapes gated by markerZonesVisible for confirmed markers;
-            // unconfirmed (creating/editing) always show full geometry; the selected
-            // marker forces its zones visible.
-            val drawZones = !confirmed || markerZonesVisible || isSelected
-
-            // Suppress center/p1/p2 dots when an icon is set — icon replaces the point marker.
-            // Only applies to confirmed markers; unconfirmed always shows dots.
-            val skipDots = marker.icon != null && confirmed
-
-            // Auto-markers (IDLE_AUTO) never show proximity rings — they keep
-            // proximity for whereAmI matching but suppress visual clutter.
-            val showProximity = drawZones && marker.origin != ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
-
-            // The strokes the loop hands its helpers are px: the conversion happens once, here, from
-            // the dp constants above at the map's own density.
-            val density = mv.paintDensity
-            val markerStrokePx = dpToPx(MARKER_STROKE_DP, density)
-            val corridorConnectingStrokePx = dpToPx(CORRIDOR_CONNECTING_STROKE_DP, density)
-            val highlightUnderStrokeAddPx = dpToPx(HIGHLIGHT_UNDER_STROKE_ADD_DP, density)
-            val corridorUnderlineHaloAddPx = dpToPx(CORRIDOR_UNDERLINE_HALO_ADD_DP, density)
-
-            when (val geom = marker.geometry) {
-                is MarkerGeometry.Pin -> {
-                    if (!skipDots) {
-                        addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap,
-                            isSelected = isSelected, haloSpec = haloSpec,
-                            haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction,
-                            markerPointIconZoom = markerPointIconZoom)
-                    }
-
-                    // Proximity range preview (fill + stroke)
-                    if (showProximity) {
-                        val previewRadiusM = marker.proximityOverrideM
-                            ?: AppConfig.markerProximityPinM
-                        // Fill
-                        val proxFill = Polygon().apply {
-                            title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
-                            fillPaint.color = proxFillColor
-                            fillPaint.isAntiAlias = true
-                            if (appearance.isRoutingOnly) {
-                                fillPaint.shader = hatchShader(proxFillColor, mv.paintDensity)
-                            }
-                            outlinePaint.strokeWidth = 0f
-                            points = Polygon.pointsAsCircle(
-                                GeoPoint(geom.position.latitude, geom.position.longitude),
-                                previewRadiusM
-                            )
-                        }
-                        mv.overlays.add(proxFill)
-                        // Stroke
-                        addCirclePolyline(
-                            mv, geom.position, previewRadiusM,
-                            "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, corridorConnectingStrokePx,
-                            dashed = appearance.isRoutingOnly
-                        )
-                    }
-                }
-
-                is MarkerGeometry.Circle -> {
-                    if (drawZones) {
-                        addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier,
-                            strokePx = markerStrokePx,
-                            underStrokeAddPx = highlightUnderStrokeAddPx,
-                            dashed = appearance.isRoutingOnly,
-                            skipDots = skipDots,
-                            isSelected = isSelected, haloSpec = haloSpec,
-                            haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction,
-                            markerPointIconZoom = markerPointIconZoom)
-                    } else if (!skipDots) {
-                        // Center dot only
-                        addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap,
-                            isSelected = isSelected, haloSpec = haloSpec,
-                            haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction,
-                            markerPointIconZoom = markerPointIconZoom)
-                    }
-
-                    // Proximity range preview (fill + stroke) — drawn from zone boundary outward
-                    if (showProximity) {
-                        val proximityM = marker.proximityOverrideM
-                            ?: (geom.radiusM * proximityZoneMultiplier)
-                        val totalRadiusM = geom.radiusM + proximityM
-                        // Fill
-                        val proxFill = Polygon().apply {
-                            title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
-                            fillPaint.color = proxFillColor
-                            fillPaint.isAntiAlias = true
-                            if (appearance.isRoutingOnly) {
-                                fillPaint.shader = hatchShader(proxFillColor, mv.paintDensity)
-                            }
-                            outlinePaint.strokeWidth = 0f
-                            points = Polygon.pointsAsCircle(
-                                GeoPoint(geom.center.latitude, geom.center.longitude),
-                                totalRadiusM
-                            )
-                        }
-                        mv.overlays.add(proxFill)
-                        // Stroke
-                        addCirclePolyline(
-                            mv, geom.center, totalRadiusM,
-                            "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, corridorConnectingStrokePx,
-                            dashed = appearance.isRoutingOnly
-                        )
-                    }
-                }
-
-                is MarkerGeometry.Corridor -> {
-                    // Always-on colored connecting line (both zone states, regardless of icon).
-                    addCorridorConnectingLine(
-                        mv, geom, marker.id, appearance, haloSpec, haloDimFraction,
-                        strokePx = corridorConnectingStrokePx,
-                        underStrokeAddPx = highlightUnderStrokeAddPx,
-                        haloAddPx = corridorUnderlineHaloAddPx
-                    )
-
-                    // Full pill band (fill + parallels + caps) only when zones shown.
-                    if (drawZones) {
-                        addCorridorBand(mv, geom, marker.id, baseColor, strokeMultiplier, isSelected, markerStrokePx, highlightUnderStrokeAddPx,
-                            dashed = appearance.isRoutingOnly)
-                    }
-
-                    // Endpoint dots (or icons) with halo rings.
-                    if (!skipDots) {
-                        addPinOverlay(mv, MarkerGeometry.Pin(geom.p1), "${marker.id}_p1", baseColor, dotBitmap,
-                            isSelected = isSelected, haloSpec = haloSpec,
-                            haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction,
-                            markerPointIconZoom = markerPointIconZoom)
-                        addPinOverlay(mv, MarkerGeometry.Pin(geom.p2), "${marker.id}_p2", baseColor, dotBitmap,
-                            isSelected = isSelected, haloSpec = haloSpec,
-                            haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction,
-                            markerPointIconZoom = markerPointIconZoom)
-                    }
-
-                    // Proximity range preview (fill + stroke) — drawn from zone boundary outward
-                    if (showProximity) {
-                        val proximityM = marker.proximityOverrideM
-                            ?: (geom.widthM * proximityZoneMultiplier)
-                        val halfProx = geom.widthM / 2.0 + proximityM
-                        // Fill
-                        val proxBearing = SpatialOperations.initialBearing(geom.p1, geom.p2)
-                        val proxFillPts = buildCorridorFillPoints(geom.p1, geom.p2, halfProx, proxBearing)
-                        val proxFill = Polygon().apply {
-                            title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
-                            fillPaint.color = proxFillColor
-                            fillPaint.isAntiAlias = true
-                            if (appearance.isRoutingOnly) {
-                                fillPaint.shader = hatchShader(proxFillColor, mv.paintDensity)
-                            }
-                            outlinePaint.strokeWidth = 0f
-                            points = proxFillPts
-                        }
-                        mv.overlays.add(proxFill)
-                        // Parallel lines at ±halfProx (dashed stadium shape)
-                        addCorridorParallels(
-                            mv, geom.p1, geom.p2, halfProx,
-                            "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, corridorConnectingStrokePx,
-                            dashed = true,
-                            isSelected = false
-                        )
-                        // Semi-circle endcaps at p1 and p2 (matching main corridor band)
-                        addSemiCircleCaps(
-                            mv, geom.p1, geom.p2, halfProx, proxBearing,
-                            "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, corridorConnectingStrokePx,
-                            dashed = true,
-                            isSelected = false
-                        )
-                    }
-                }
-            }
+            val paint = paintStateOf(marker, selectedMarkerId, matchActive, matchedIds)
+            cache.built[entryKeyOf(marker)] = buildMarkerEntry(mv, cache.bitmaps, marker, paint, settings)
         }
-
-        // ── Icon markers for markers with an icon (halo rings the icon) ──────
-        for (marker in allMarkers) {
-            val iconText = marker.icon ?: continue
-            val isMatched = matchResult != null && matchedIds.contains(marker.id)
-            val markerColor = MarkerColors.of(marker.colorIndex)
-            val appearance = MarkerAppearance.of(
-                marker = marker,
-                markerColor = markerColor,
-                isMatched = isMatched,
-                matchActive = matchResult != null,
-                selectedMarkerId = selectedMarkerId,
-                pinnedColor = markerHaloPinnedColor,
-                unpinnedColor = markerHaloUnpinnedColor,
-                pinnedFillPct = markerHaloPinnedFillTransparencyPct,
-                pinnedBorderPct = markerHaloPinnedBorderTransparencyPct,
-                unpinnedFillPct = markerHaloUnpinnedFillTransparencyPct,
-                unpinnedBorderPct = markerHaloUnpinnedBorderTransparencyPct
-            )
-            val haloSpec = appearance.halo
-            val haloDimFraction = if (appearance.isDimmed) DIMMED_ALPHA_FRACTION else 1f
-            val positions = when (marker.geometry) {
-                is MarkerGeometry.Pin -> listOf(marker.geometry.position)
-                is MarkerGeometry.Circle -> listOf(marker.geometry.center)
-                is MarkerGeometry.Corridor -> listOf(
-                    marker.geometry.p1,
-                    LatLng(
-                        (marker.geometry.p1.latitude + marker.geometry.p2.latitude) / 2.0,
-                        (marker.geometry.p1.longitude + marker.geometry.p2.longitude) / 2.0
-                    ),
-                    marker.geometry.p2
-                )
-            }
-            for (pos in positions) {
-                val geo = GeoPoint(pos.latitude, pos.longitude)
-                // Halo ring behind the icon (sized to the larger icon anchor).
-                if (haloSpec != null) {
-                    addHaloOverlay(mv, geo, haloSpec, dpToPx(MarkerHalo.ICON_ANCHOR_RADIUS_DP, mv.paintDensity),
-                        markerHaloSize, haloDimFraction, marker.id, "icon", markerPointIconZoom)
-                }
-                val iconMarker = Marker(mv).apply {
-                    position = geo
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    title = "${OVERLAY_PREFIX}icon_${marker.id}_${pos.latitude}_${pos.longitude}"
-                    // Icon bitmap and glyph scale with the marker zoom (100 % = 64px / 48f glyph).
-                    val iconSizePx = (64 * zoomFactor).roundToInt().coerceAtLeast(8)
-                    val iconCenter = iconSizePx / 2f
-                    val bitmap = android.graphics.Bitmap.createBitmap(iconSizePx, iconSizePx, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bitmap)
-                    val paint = android.graphics.Paint().apply {
-                        color = MarkerColors.of(marker.colorIndex)
-                        textSize = 48f * zoomFactor
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    // Auto-marker icons at reduced opacity
-                    if (marker.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) {
-                        paint.alpha = 255 * (100 - ykws.android.maro.config.AppConfig.boatMarkerIdleTransparencyPct) / 100
-                    }
-                    // Center the glyph vertically on the bitmap center. drawText's y is the text
-                    // BASELINE, not the glyph center, so measure the glyph bounds and shift the
-                    // baseline so the glyph's visual center == iconCenter.
-                    val bounds = android.graphics.Rect()
-                    paint.getTextBounds(iconText, 0, iconText.length, bounds)
-                    val baseline = iconCenter - (bounds.top + bounds.bottom) / 2f
-                    canvas.drawText(iconText, iconCenter, baseline, paint)
-                    icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
-                }
-                mv.overlays.add(iconMarker)
-            }
-        }
+        // Every marker's shapes first, then every icon group, so an icon sits above all zone shapes.
+        cache.built.values.forEach { mv.overlays.addAll(it.shapes) }
+        cache.built.values.forEach { mv.overlays.addAll(it.icons) }
+        cache.bitmaps.prune()
 
         OverlayZOrder.reorder(mv)
         mv.invalidate()
 
         onDispose {
-            removeAllMarkerOverlays()
+            removeAllMarkerOverlays(mv)
+            cache.clear()
             mv.invalidate()
         }
     }
+
+    // ── The selection pass: only the markers whose selection or match standing moved ─────────────
+    DisposableEffect(mv, selectedMarkerId, matchResult) {
+        val wanted = allMarkers.associate {
+            entryKeyOf(it) to paintStateOf(it, selectedMarkerId, matchActive, matchedIds)
+        }
+        val moved = changedPaintKeys(cache.built.mapValues { it.value.paint }, wanted)
+        if (moved.isNotEmpty()) {
+            for (marker in allMarkers) {
+                val key = entryKeyOf(marker)
+                if (key !in moved) continue
+                val fresh = buildMarkerEntry(mv, cache.bitmaps, marker, wanted.getValue(key), settings)
+                val old = cache.built[key]
+                splice(mv, old?.shapes.orEmpty(), fresh.shapes)
+                splice(mv, old?.icons.orEmpty(), fresh.icons)
+                cache.built[key] = fresh
+            }
+            OverlayZOrder.reorder(mv)
+            mv.invalidate()
+        }
+        onDispose { }
+    }
+}
+
+// ── The two passes' state ─────────────────────────────────────────────────────
+
+/**
+ * The selection-and-match half of a marker's look — the inputs the selection pass alone changes. The
+ * structural pass records the one each marker was drawn with; the selection pass rebuilds only the
+ * markers whose state moved ([changedPaintKeys]).
+ */
+internal data class MarkerPaintState(
+    val isSelected: Boolean,
+    val matchActive: Boolean,
+    val isMatched: Boolean
+)
+
+/** The paint state [marker] wants under [selectedMarkerId] and the match ([matchedIds] when active). */
+internal fun paintStateOf(
+    marker: UserMarker,
+    selectedMarkerId: String?,
+    matchActive: Boolean,
+    matchedIds: Set<String>
+): MarkerPaintState = MarkerPaintState(
+    isSelected = marker.id == selectedMarkerId,
+    matchActive = matchActive,
+    isMatched = matchActive && marker.id in matchedIds
+)
+
+/**
+ * The keys of [wanted] whose state differs from what [drawn] holds — a key the last build never drew
+ * counts as moved. Pure, so a JVM test pins the diff a selection or a match result produces.
+ */
+internal fun changedPaintKeys(
+    drawn: Map<String, MarkerPaintState>,
+    wanted: Map<String, MarkerPaintState>
+): Set<String> = wanted.filter { (key, state) -> drawn[key] != state }.keys
+
+/**
+ * The marker-wide inputs every marker is drawn with — the structural pass's key, short of the markers
+ * themselves, and the one parameter the builders read them through.
+ */
+private data class MarkerDrawSettings(
+    val proximityZoneMultiplier: Double,
+    val zonesVisible: Boolean,
+    val haloSize: Int,
+    val pointIconZoom: Int,
+    val haloPinnedColor: Int,
+    val haloUnpinnedColor: Int,
+    val haloPinnedFillPct: Int,
+    val haloPinnedBorderPct: Int,
+    val haloUnpinnedFillPct: Int,
+    val haloUnpinnedBorderPct: Int
+)
+
+/**
+ * One marker's overlays as built: its zone shapes, dots and rings ([shapes]) and the icon group — halo
+ * ring plus glyph per position — that every marker's shapes paint under ([icons]), with the paint state
+ * they were drawn in.
+ */
+private class MarkerEntry(val shapes: List<Overlay>, val icons: List<Overlay>, val paint: MarkerPaintState)
+
+/** What the structural pass leaves behind for the selection pass: the entries, and the bitmaps they share. */
+private class MarkerOverlayCache(mv: MapView) {
+    /** Entry key ([entryKeyOf]) → the marker's last build, in the marker band's own order. */
+    val built = LinkedHashMap<String, MarkerEntry>()
+    val bitmaps = MarkerBitmaps(mv)
+
+    fun clear() {
+        built.clear()
+        bitmaps.clear()
+    }
+}
+
+/**
+ * The entry key of [marker]: its id, except for the unconfirmed copy drawn under the confirmed one during
+ * an edit, which shares that id and takes its own slot.
+ */
+private fun entryKeyOf(marker: UserMarker): String =
+    if (marker.confirmed) marker.id else "unconfirmed:${marker.id}"
+
+/**
+ * Remove every `marker_*` overlay — except the route's destination pin. That pin wears the prefix only to
+ * ride the same band (`OverlayZOrder.isMarkerOverlay`) while its object belongs to `RouteHost`; sweeping
+ * it left the route's lines undrawn, because the host's repaint asked for the pin and bailed once it was
+ * gone (the device's own log, 2026-09-23). A title another home owns is not this pass's to remove.
+ */
+private fun removeAllMarkerOverlays(mv: MapView) {
+    val toRemove = mv.overlays.filter { overlay ->
+        val ownedByThisPass = (overlay as? Marker)?.title != ROUTE_PIN_TITLE
+        ownedByThisPass && (
+            (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
+                (overlay as? Polygon)?.title?.startsWith(OVERLAY_PREFIX) == true ||
+                (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
+            )
+    }
+    mv.overlays.removeAll(toRemove)
+}
+
+/**
+ * Swap one marker's [old] overlays for its [fresh] ones where the old ones stood, so the band's intra-order
+ * — unconfirmed under confirmed, pinned on top — survives the swap; with nothing to stand on, they go last.
+ */
+private fun splice(mv: MapView, old: List<Overlay>, fresh: List<Overlay>) {
+    val at = old.firstOrNull()?.let { mv.overlays.indexOf(it) }?.takeIf { it >= 0 } ?: mv.overlays.size
+    if (old.isNotEmpty()) mv.overlays.removeAll(old.toSet())
+    fresh.forEachIndexed { i, overlay -> mv.overlays.add(at + i, overlay) }
+}
+
+// ── Per-marker build ──────────────────────────────────────────────────────────
+
+/** Build one marker's overlays — zone shapes, dots or icons, halo rings, proximity preview — into a [MarkerEntry]. */
+private fun buildMarkerEntry(
+    mv: MapView,
+    bitmaps: MarkerBitmaps,
+    marker: UserMarker,
+    paint: MarkerPaintState,
+    settings: MarkerDrawSettings
+): MarkerEntry {
+    val shapes = mutableListOf<Overlay>()
+    val icons = mutableListOf<Overlay>()
+
+    // Marker point/icon rendering zoom % (50-150, 100 = current). Uniform scale applied
+    // to the dot radius, the icon glyph and the halo ring (rule of three).
+    val zoomFactor = settings.pointIconZoom.coerceIn(50, 150) / 100f
+
+    val confirmed = marker.confirmed
+    val markerColor = MarkerColors.of(marker.colorIndex)
+    val appearance = MarkerAppearance.of(
+        marker = marker,
+        markerColor = markerColor,
+        isMatched = paint.isMatched,
+        matchActive = paint.matchActive,
+        // `of` derives the selection from the id; the paint state already holds the answer.
+        selectedMarkerId = marker.id.takeIf { paint.isSelected },
+        pinnedColor = settings.haloPinnedColor,
+        unpinnedColor = settings.haloUnpinnedColor,
+        pinnedFillPct = settings.haloPinnedFillPct,
+        pinnedBorderPct = settings.haloPinnedBorderPct,
+        unpinnedFillPct = settings.haloUnpinnedFillPct,
+        unpinnedBorderPct = settings.haloUnpinnedBorderPct
+    )
+    val baseColor = appearance.baseColor
+    val strokeMultiplier = appearance.strokeMultiplier
+    val isSelected = appearance.isSelected
+    val haloSpec = appearance.halo
+    // Halo fades together with a search non-match.
+    val haloDimFraction = if (appearance.isDimmed) DIMMED_ALPHA_FRACTION else 1f
+    val proxColor = dimColor(markerColor, AppConfig.markerProximityOutlineAlpha)
+    val proxFillColor = dimColor(markerColor, AppConfig.markerProximityFillAlpha)
+
+    // Zone shapes gated by markerZonesVisible for confirmed markers;
+    // unconfirmed (creating/editing) always show full geometry; the selected
+    // marker forces its zones visible.
+    val drawZones = !confirmed || settings.zonesVisible || isSelected
+
+    // Suppress center/p1/p2 dots when an icon is set — icon replaces the point marker.
+    // Only applies to confirmed markers; unconfirmed always shows dots.
+    val skipDots = marker.icon != null && confirmed
+
+    // Auto-markers (IDLE_AUTO) never show proximity rings — they keep
+    // proximity for whereAmI matching but suppress visual clutter.
+    val showProximity = drawZones && marker.origin != MarkerOrigin.IDLE_AUTO
+
+    // The strokes the builder hands its helpers are px: the conversion happens once, here, from
+    // the dp constants above at the map's own density.
+    val density = mv.paintDensity
+    val markerStrokePx = dpToPx(MARKER_STROKE_DP, density)
+    val corridorConnectingStrokePx = dpToPx(CORRIDOR_CONNECTING_STROKE_DP, density)
+    val highlightUnderStrokeAddPx = dpToPx(HIGHLIGHT_UNDER_STROKE_ADD_DP, density)
+    val corridorUnderlineHaloAddPx = dpToPx(CORRIDOR_UNDERLINE_HALO_ADD_DP, density)
+
+    when (val geom = marker.geometry) {
+        is MarkerGeometry.Pin -> {
+            if (!skipDots) {
+                addPinOverlay(mv, shapes, bitmaps, geom, marker.id, baseColor,
+                    isSelected = isSelected, haloSpec = haloSpec,
+                    haloSizePct = settings.haloSize,
+                    haloDimFraction = haloDimFraction,
+                    markerPointIconZoom = settings.pointIconZoom)
+            }
+
+            // Proximity range preview (fill + stroke)
+            if (showProximity) {
+                val previewRadiusM = marker.proximityOverrideM
+                    ?: AppConfig.markerProximityPinM
+                // Fill
+                val proxFill = Polygon().apply {
+                    title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
+                    fillPaint.color = proxFillColor
+                    fillPaint.isAntiAlias = true
+                    if (appearance.isRoutingOnly) {
+                        fillPaint.shader = hatchShader(proxFillColor, density)
+                    }
+                    outlinePaint.strokeWidth = 0f
+                    points = Polygon.pointsAsCircle(
+                        GeoPoint(geom.position.latitude, geom.position.longitude),
+                        previewRadiusM
+                    )
+                }
+                shapes.add(proxFill)
+                // Stroke
+                addCirclePolyline(
+                    mv, shapes, geom.position, previewRadiusM,
+                    "$OVERLAY_PREFIX${marker.id}_prox",
+                    proxColor, corridorConnectingStrokePx,
+                    dashed = appearance.isRoutingOnly
+                )
+            }
+        }
+
+        is MarkerGeometry.Circle -> {
+            if (drawZones) {
+                addCircleOverlay(mv, shapes, bitmaps, geom, marker.id, baseColor, strokeMultiplier,
+                    strokePx = markerStrokePx,
+                    underStrokeAddPx = highlightUnderStrokeAddPx,
+                    dashed = appearance.isRoutingOnly,
+                    skipDots = skipDots,
+                    isSelected = isSelected, haloSpec = haloSpec,
+                    haloSizePct = settings.haloSize,
+                    haloDimFraction = haloDimFraction,
+                    markerPointIconZoom = settings.pointIconZoom)
+            } else if (!skipDots) {
+                // Center dot only
+                addPinOverlay(mv, shapes, bitmaps, MarkerGeometry.Pin(geom.center), marker.id, baseColor,
+                    isSelected = isSelected, haloSpec = haloSpec,
+                    haloSizePct = settings.haloSize,
+                    haloDimFraction = haloDimFraction,
+                    markerPointIconZoom = settings.pointIconZoom)
+            }
+
+            // Proximity range preview (fill + stroke) — drawn from zone boundary outward
+            if (showProximity) {
+                val proximityM = marker.proximityOverrideM
+                    ?: (geom.radiusM * settings.proximityZoneMultiplier)
+                val totalRadiusM = geom.radiusM + proximityM
+                // Fill
+                val proxFill = Polygon().apply {
+                    title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
+                    fillPaint.color = proxFillColor
+                    fillPaint.isAntiAlias = true
+                    if (appearance.isRoutingOnly) {
+                        fillPaint.shader = hatchShader(proxFillColor, density)
+                    }
+                    outlinePaint.strokeWidth = 0f
+                    points = Polygon.pointsAsCircle(
+                        GeoPoint(geom.center.latitude, geom.center.longitude),
+                        totalRadiusM
+                    )
+                }
+                shapes.add(proxFill)
+                // Stroke
+                addCirclePolyline(
+                    mv, shapes, geom.center, totalRadiusM,
+                    "$OVERLAY_PREFIX${marker.id}_prox",
+                    proxColor, corridorConnectingStrokePx,
+                    dashed = appearance.isRoutingOnly
+                )
+            }
+        }
+
+        is MarkerGeometry.Corridor -> {
+            // Always-on colored connecting line (both zone states, regardless of icon).
+            addCorridorConnectingLine(
+                mv, shapes, geom, marker.id, appearance, haloSpec, haloDimFraction,
+                strokePx = corridorConnectingStrokePx,
+                underStrokeAddPx = highlightUnderStrokeAddPx,
+                haloAddPx = corridorUnderlineHaloAddPx
+            )
+
+            // Full pill band (fill + parallels + caps) only when zones shown.
+            if (drawZones) {
+                addCorridorBand(mv, shapes, geom, marker.id, baseColor, strokeMultiplier, isSelected, markerStrokePx, highlightUnderStrokeAddPx,
+                    dashed = appearance.isRoutingOnly)
+            }
+
+            // Endpoint dots (or icons) with halo rings.
+            if (!skipDots) {
+                addPinOverlay(mv, shapes, bitmaps, MarkerGeometry.Pin(geom.p1), "${marker.id}_p1", baseColor,
+                    isSelected = isSelected, haloSpec = haloSpec,
+                    haloSizePct = settings.haloSize,
+                    haloDimFraction = haloDimFraction,
+                    markerPointIconZoom = settings.pointIconZoom)
+                addPinOverlay(mv, shapes, bitmaps, MarkerGeometry.Pin(geom.p2), "${marker.id}_p2", baseColor,
+                    isSelected = isSelected, haloSpec = haloSpec,
+                    haloSizePct = settings.haloSize,
+                    haloDimFraction = haloDimFraction,
+                    markerPointIconZoom = settings.pointIconZoom)
+            }
+
+            // Proximity range preview (fill + stroke) — drawn from zone boundary outward
+            if (showProximity) {
+                val proximityM = marker.proximityOverrideM
+                    ?: (geom.widthM * settings.proximityZoneMultiplier)
+                val halfProx = geom.widthM / 2.0 + proximityM
+                // Fill
+                val proxBearing = SpatialOperations.initialBearing(geom.p1, geom.p2)
+                val proxFillPts = buildCorridorFillPoints(geom.p1, geom.p2, halfProx, proxBearing)
+                val proxFill = Polygon().apply {
+                    title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
+                    fillPaint.color = proxFillColor
+                    fillPaint.isAntiAlias = true
+                    if (appearance.isRoutingOnly) {
+                        fillPaint.shader = hatchShader(proxFillColor, density)
+                    }
+                    outlinePaint.strokeWidth = 0f
+                    points = proxFillPts
+                }
+                shapes.add(proxFill)
+                // Parallel lines at ±halfProx (dashed stadium shape)
+                addCorridorParallels(
+                    mv, shapes, geom.p1, geom.p2, halfProx,
+                    "$OVERLAY_PREFIX${marker.id}_prox",
+                    proxColor, corridorConnectingStrokePx,
+                    dashed = true,
+                    isSelected = false
+                )
+                // Semi-circle endcaps at p1 and p2 (matching main corridor band)
+                addSemiCircleCaps(
+                    mv, shapes, geom.p1, geom.p2, halfProx, proxBearing,
+                    "$OVERLAY_PREFIX${marker.id}_prox",
+                    proxColor, corridorConnectingStrokePx,
+                    dashed = true,
+                    isSelected = false
+                )
+            }
+        }
+    }
+
+    // ── Icon group for a marker with an icon (halo rings the icon) ───────────
+    val iconText = marker.icon
+    if (iconText != null) {
+        val positions = when (val geom = marker.geometry) {
+            is MarkerGeometry.Pin -> listOf(geom.position)
+            is MarkerGeometry.Circle -> listOf(geom.center)
+            is MarkerGeometry.Corridor -> listOf(
+                geom.p1,
+                LatLng(
+                    (geom.p1.latitude + geom.p2.latitude) / 2.0,
+                    (geom.p1.longitude + geom.p2.longitude) / 2.0
+                ),
+                geom.p2
+            )
+        }
+        // Auto-marker icons at reduced opacity
+        val iconAlpha = if (marker.origin == MarkerOrigin.IDLE_AUTO) {
+            255 * (100 - AppConfig.boatMarkerIdleTransparencyPct) / 100
+        } else {
+            255
+        }
+        for (pos in positions) {
+            val geo = GeoPoint(pos.latitude, pos.longitude)
+            // Halo ring behind the icon (sized to the larger icon anchor).
+            if (haloSpec != null) {
+                addHaloOverlay(mv, icons, bitmaps, geo, haloSpec, dpToPx(MarkerHalo.ICON_ANCHOR_RADIUS_DP, density),
+                    settings.haloSize, haloDimFraction, marker.id, "icon", settings.pointIconZoom)
+            }
+            icons.add(Marker(mv).apply {
+                position = geo
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                title = "${OVERLAY_PREFIX}icon_${marker.id}_${pos.latitude}_${pos.longitude}"
+                icon = BitmapDrawable(mv.context.resources, bitmaps.icon(iconText, markerColor, iconAlpha, zoomFactor))
+            })
+        }
+    }
+
+    return MarkerEntry(shapes, icons, paint)
 }
 
 // ── Overlay builders ──────────────────────────────────────────────────────────
@@ -476,6 +600,8 @@ fun MarkerOverlay(
 /** Add a halo ring [Marker] at [geo] behind a dot/icon anchor. */
 private fun addHaloOverlay(
     mv: MapView,
+    out: MutableList<Overlay>,
+    bitmaps: MarkerBitmaps,
     geo: GeoPoint,
     haloSpec: MarkerHaloSpec,
     anchorRadiusPx: Float,
@@ -485,8 +611,8 @@ private fun addHaloOverlay(
     suffix: String,
     zoomPct: Int = 100
 ) {
-    val bitmap = MarkerHalo.createBitmap(haloSpec, anchorRadiusPx, mv.paintDensity, sizePct, zoomPct, dimFraction)
-    mv.overlays.add(Marker(mv).apply {
+    val bitmap = bitmaps.halo(haloSpec, anchorRadiusPx, sizePct, zoomPct, dimFraction)
+    out.add(Marker(mv).apply {
         position = geo
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         icon = BitmapDrawable(mv.context.resources, bitmap)
@@ -501,10 +627,11 @@ private fun addHaloOverlay(
  */
 private fun addPinOverlay(
     mv: MapView,
+    out: MutableList<Overlay>,
+    bitmaps: MarkerBitmaps,
     geom: MarkerGeometry.Pin,
     markerId: String,
     color: Int,
-    dotBitmap: Bitmap,
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
     haloSizePct: Int = 50,
@@ -517,13 +644,13 @@ private fun addPinOverlay(
 
     // Halo ring behind the dot (sized to the dot anchor)
     if (haloSpec != null) {
-        addHaloOverlay(mv, geo, haloSpec, dpToPx(MarkerHalo.DOT_ANCHOR_RADIUS_DP, mv.paintDensity), haloSizePct, haloDimFraction, markerId, "dot", markerPointIconZoom)
+        addHaloOverlay(mv, out, bitmaps, geo, haloSpec, dpToPx(MarkerHalo.DOT_ANCHOR_RADIUS_DP, mv.paintDensity), haloSizePct, haloDimFraction, markerId, "dot", markerPointIconZoom)
     }
 
     // Dark under-stroke dot for selected markers (rendered before gold dot)
     if (isSelected) {
-        val underDot = createDotBitmap(COLOR_HIGHLIGHT_UNDER, mv.paintDensity, radiusMultiplier = 1.5f * markerZoom)
-        mv.overlays.add(Marker(mv).apply {
+        val underDot = bitmaps.dot(COLOR_HIGHLIGHT_UNDER, radiusMultiplier = 1.5f * markerZoom)
+        out.add(Marker(mv).apply {
             position = geo
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
             icon = BitmapDrawable(mv.context.resources, underDot)
@@ -535,19 +662,20 @@ private fun addPinOverlay(
     val marker = Marker(mv).apply {
         position = geo
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color, mv.paintDensity, radiusMultiplier = markerZoom))
+        icon = BitmapDrawable(mv.context.resources, bitmaps.dot(color, radiusMultiplier = markerZoom))
         title = "${OVERLAY_PREFIX}pin_$markerId"
     }
-    mv.overlays.add(marker)
+    out.add(marker)
 }
 
 /** Add a circle [Polyline] (closed polygon) + center [Marker]. */
 private fun addCircleOverlay(
     mv: MapView,
+    out: MutableList<Overlay>,
+    bitmaps: MarkerBitmaps,
     geom: MarkerGeometry.Circle,
     markerId: String,
     color: Int,
-    dotBitmap: Bitmap,
     strokeMultiplier: Float = 1.0f,
     /** The circle's own stroke in px, and the selection's under-stroke add in px. */
     strokePx: Float,
@@ -576,21 +704,21 @@ private fun addCircleOverlay(
             geom.radiusM
         )
     }
-    mv.overlays.add(fillPoly)
+    out.add(fillPoly)
 
     // Dark under-stroke circle for selected markers
     if (isSelected) {
         val underStrokeW = strokePx * strokeMultiplier + underStrokeAddPx
-        addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_${markerId}_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed = dashed)
+        addCirclePolyline(mv, out, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_${markerId}_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed = dashed)
     }
 
     // Circle outline as closed Polyline
     val strokeW = strokePx * strokeMultiplier
-    addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", outlineColor, strokeW, dashed = dashed)
+    addCirclePolyline(mv, out, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", outlineColor, strokeW, dashed = dashed)
 
     // Center dot (suppressed when skipDots — icon replaces it)
     if (!skipDots) {
-        addPinOverlay(mv, MarkerGeometry.Pin(geom.center), markerId, color, dotBitmap,
+        addPinOverlay(mv, out, bitmaps, MarkerGeometry.Pin(geom.center), markerId, color,
             isSelected = isSelected, haloSpec = haloSpec,
             haloSizePct = haloSizePct,
             haloDimFraction = haloDimFraction,
@@ -608,6 +736,7 @@ private fun addCircleOverlay(
  */
 private fun addCorridorConnectingLine(
     mv: MapView,
+    out: MutableList<Overlay>,
     geom: MarkerGeometry.Corridor,
     markerId: String,
     appearance: MarkerAppearance,
@@ -623,19 +752,19 @@ private fun addCorridorConnectingLine(
 
     if (appearance.isSelected) {
         // Dark under-stroke + gold line
-        mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_ul",
+        out.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_ul",
             COLOR_HIGHLIGHT_UNDER, mainW + underStrokeAddPx, false, density = mv.paintDensity))
-        mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
+        out.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
             appearance.baseColor, mainW, false, density = mv.paintDensity))
     } else if (haloSpec != null) {
         // Pinned under-line halo (thicker colored line beneath) + colored line on top
         val underColor = MarkerHalo.colorWithTransparency(haloSpec.color, haloSpec.borderTransparencyPct, haloDimFraction)
-        mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_halo",
+        out.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_halo",
             underColor, mainW + haloAddPx, false, density = mv.paintDensity))
-        mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
+        out.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
             appearance.baseColor, mainW, false, density = mv.paintDensity))
     } else {
-        mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
+        out.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
             appearance.baseColor, mainW, false, density = mv.paintDensity))
     }
 }
@@ -643,6 +772,7 @@ private fun addCorridorConnectingLine(
 /** Add the corridor pill band (fill + parallels + caps) when zones are shown. */
 private fun addCorridorBand(
     mv: MapView,
+    out: MutableList<Overlay>,
     geom: MarkerGeometry.Corridor,
     markerId: String,
     color: Int,
@@ -670,14 +800,14 @@ private fun addCorridorBand(
         outlinePaint.strokeWidth = 0f
         points = corridorFillPts
     }
-    mv.overlays.add(fillPoly)
+    out.add(fillPoly)
 
     // Two parallel lines at ±halfW
-    addCorridorParallels(mv, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", outlineColor,
+    addCorridorParallels(mv, out, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", outlineColor,
         strokePx * strokeMultiplier, dashed = dashed, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
 
     // Semi-circle caps at each end (close the band into a pill shape)
-    addSemiCircleCaps(mv, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", outlineColor,
+    addSemiCircleCaps(mv, out, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", outlineColor,
         strokePx * strokeMultiplier, dashed = dashed, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
 }
 
@@ -733,6 +863,7 @@ private fun buildCorridorFillPoints(
 /** Add a circle as a closed [Polyline] with [radiusM] around [center]. */
 private fun addCirclePolyline(
     mv: MapView,
+    out: MutableList<Overlay>,
     center: LatLng,
     radiusM: Double,
     title: String,
@@ -745,12 +876,13 @@ private fun addCirclePolyline(
     // Close the polygon by appending the first point
     val closed = points + points.first()
     val polyline = buildPolyline(closed, title, color, strokeWidth, dashed, density = mv.paintDensity)
-    mv.overlays.add(polyline)
+    out.add(polyline)
 }
 
 /** Add two parallel [Polyline]s offset by [halfWidthM] from the centerline. */
 private fun addCorridorParallels(
     mv: MapView,
+    out: MutableList<Overlay>,
     p1: LatLng,
     p2: LatLng,
     halfWidthM: Double,
@@ -775,12 +907,12 @@ private fun addCorridorParallels(
     // Dark under-stroke parallels for selected markers
     if (isSelected) {
         val underStrokeW = strokeWidth + underStrokeAddPx
-        mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
-        mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
+        out.add(buildPolyline(leftPts, "${titleBase}_left_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
+        out.add(buildPolyline(rightPts, "${titleBase}_right_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
     }
 
-    mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
-    mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
+    out.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
+    out.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
 }
 
 /** Add semi-circle caps at p1 and p2 to close the corridor band.
@@ -788,6 +920,7 @@ private fun addCorridorParallels(
  *  curving outward (away from the corridor center). */
 private fun addSemiCircleCaps(
     mv: MapView,
+    out: MutableList<Overlay>,
     p1: LatLng,
     p2: LatLng,
     halfWidthM: Double,
@@ -821,12 +954,12 @@ private fun addSemiCircleCaps(
     // Dark under-stroke caps for selected markers
     if (isSelected) {
         val underStrokeW = strokeWidth + underStrokeAddPx
-        mv.overlays.add(buildPolyline(p1Arc, "${titleBase}_cap_p1_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
-        mv.overlays.add(buildPolyline(p2Arc, "${titleBase}_cap_p2_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
+        out.add(buildPolyline(p1Arc, "${titleBase}_cap_p1_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
+        out.add(buildPolyline(p2Arc, "${titleBase}_cap_p2_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
     }
 
-    mv.overlays.add(buildPolyline(p1Arc, "${titleBase}_cap_p1", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
-    mv.overlays.add(buildPolyline(p2Arc, "${titleBase}_cap_p2", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
+    out.add(buildPolyline(p1Arc, "${titleBase}_cap_p1", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
+    out.add(buildPolyline(p2Arc, "${titleBase}_cap_p2", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
 }
 
 /** Build a [Polyline] with the given [geoPoints], [title], [color], and [strokeWidth].
@@ -913,8 +1046,79 @@ private fun destinationPoint(start: LatLng, distanceM: Double, bearingDeg: Doubl
 // ── Bitmap helpers ────────────────────────────────────────────────────────────
 
 /**
+ * A keyed bitmap store: [take] rasterises once per key and hands the same [Bitmap] back after, and
+ * [prune] drops every key no [take] touched since the last prune — the structural pass's way of letting
+ * a settings change retire the old sizes without a build re-drawing what it already holds.
+ */
+private class BitmapPool<K> {
+    private val built = HashMap<K, Bitmap>()
+    private val touched = HashSet<K>()
+
+    fun take(key: K, build: () -> Bitmap): Bitmap {
+        touched.add(key)
+        return built.getOrPut(key, build)
+    }
+
+    fun prune() {
+        built.keys.retainAll(touched)
+        touched.clear()
+    }
+
+    fun clear() {
+        built.clear()
+        touched.clear()
+    }
+}
+
+/**
+ * The bitmaps one map's markers share. A dot, a halo ring or an icon glyph is rasterised once per distinct
+ * shape — colour and size, not marker — and every marker wearing it gets its own [BitmapDrawable] over the
+ * same pixels, so a selection toggle swaps a marker's gold dot or its halo for one already drawn. The
+ * pools are per [MapView] because the density is.
+ */
+private class MarkerBitmaps(private val mv: MapView) {
+    private data class DotKey(val color: Int, val radiusMultiplier: Float)
+    private data class HaloKey(
+        val spec: MarkerHaloSpec,
+        val anchorRadiusPx: Float,
+        val sizePct: Int,
+        val zoomPct: Int,
+        val dimFraction: Float
+    )
+    private data class IconKey(val text: String, val color: Int, val alpha: Int, val zoomFactor: Float)
+
+    private val dots = BitmapPool<DotKey>()
+    private val halos = BitmapPool<HaloKey>()
+    private val icons = BitmapPool<IconKey>()
+
+    fun dot(color: Int, radiusMultiplier: Float): Bitmap =
+        dots.take(DotKey(color, radiusMultiplier)) { createDotBitmap(color, mv.paintDensity, radiusMultiplier) }
+
+    fun halo(spec: MarkerHaloSpec, anchorRadiusPx: Float, sizePct: Int, zoomPct: Int, dimFraction: Float): Bitmap =
+        halos.take(HaloKey(spec, anchorRadiusPx, sizePct, zoomPct, dimFraction)) {
+            MarkerHalo.createBitmap(spec, anchorRadiusPx, mv.paintDensity, sizePct, zoomPct, dimFraction)
+        }
+
+    fun icon(text: String, color: Int, alpha: Int, zoomFactor: Float): Bitmap =
+        icons.take(IconKey(text, color, alpha, zoomFactor)) { createIconBitmap(text, color, alpha, zoomFactor) }
+
+    /** Drop what the structural build just finished did not use. */
+    fun prune() {
+        dots.prune()
+        halos.prune()
+        icons.prune()
+    }
+
+    fun clear() {
+        dots.clear()
+        halos.clear()
+        icons.clear()
+    }
+}
+
+/**
  * Create a simple filled-circle [Bitmap] to use as a marker icon.
- * Cached statically for the confirmed color to avoid repeated allocations.
+ * Pooled by colour and radius in [MarkerBitmaps] to avoid repeated allocations.
  * @param radiusMultiplier Scale factor for the dot radius (1.0 = normal, 1.5 = under-stroke).
  */
 private fun createDotBitmap(color: Int, density: Float, radiusMultiplier: Float = 1.0f): Bitmap {
@@ -928,6 +1132,32 @@ private fun createDotBitmap(color: Int, density: Float, radiusMultiplier: Float 
         style = Paint.Style.FILL
     }
     canvas.drawCircle(size / 2f, size / 2f, radiusPx.toFloat(), paint)
+    return bitmap
+}
+
+/**
+ * Rasterise an icon glyph [text] in [color] at [alpha] (255 = opaque; an auto-marker's reduced opacity
+ * is below it). Icon bitmap and glyph scale with the marker zoom (100 % = 64px / 48f glyph).
+ */
+private fun createIconBitmap(text: String, color: Int, alpha: Int, zoomFactor: Float): Bitmap {
+    val iconSizePx = (ICON_BITMAP_PX * zoomFactor).roundToInt().coerceAtLeast(8)
+    val iconCenter = iconSizePx / 2f
+    val bitmap = Bitmap.createBitmap(iconSizePx, iconSizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint().apply {
+        this.color = color
+        textSize = ICON_TEXT_PX * zoomFactor
+        textAlign = Paint.Align.CENTER
+        isAntiAlias = true
+    }
+    if (alpha < 255) paint.alpha = alpha
+    // Center the glyph vertically on the bitmap center. drawText's y is the text
+    // BASELINE, not the glyph center, so measure the glyph bounds and shift the
+    // baseline so the glyph's visual center == iconCenter.
+    val bounds = Rect()
+    paint.getTextBounds(text, 0, text.length, bounds)
+    val baseline = iconCenter - (bounds.top + bounds.bottom) / 2f
+    canvas.drawText(text, iconCenter, baseline, paint)
     return bitmap
 }
 

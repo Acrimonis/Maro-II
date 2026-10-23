@@ -504,8 +504,8 @@
     <string name="cd_pin">Pin</string>
     <string name="cd_unpin">Unpin</string>
     <string name="cd_lock_screen">Lock screen</string>
-    <string name="cd_unlock_screen">Unlock screen</string>
-    <string name="toast_screen_locked">Screen locked</string>
+    <string name="cd_unlock_screen">Hold to unlock screen</string>
+    <string name="toast_screen_locked">Screen locked — hold to unlock</string>
     <string name="toast_screen_unlocked">Screen unlocked</string>
     <string name="cd_selected">Selected</string>
     <string name="cd_select">Select</string>

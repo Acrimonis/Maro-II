@@ -852,6 +852,28 @@ class SettingsManager(
      *
      * Usage: `settingsManager.update { it.copy(coastlineVisible = false) }`
      */
+    /**
+     * Persist the map viewport — and nothing else. A pan or a zoom used to go through [update],
+     * which rewrites every key and re-emits the whole settings object to every collector once a
+     * second while the map moves; the viewport is read only once, by [load] at start, so it needs
+     * no emission and no company. Absent values keep what is stored.
+     */
+    fun persistViewport(
+        centerLat: Double? = null,
+        centerLon: Double? = null,
+        zoom: Double? = null,
+        isWater: Boolean? = null,
+        distanceToShoreM: Double? = null
+    ) {
+        prefs.edit().apply {
+            centerLat?.let { putFloat(KEY_MAP_CENTER_LAT, it.toFloat()) }
+            centerLon?.let { putFloat(KEY_MAP_CENTER_LON, it.toFloat()) }
+            zoom?.let { putFloat(KEY_ZOOM_LEVEL, it.toFloat()) }
+            isWater?.let { putBoolean(KEY_IS_WATER, it) }
+            distanceToShoreM?.let { putFloat(KEY_DISTANCE_TO_SHORE, it.toFloat()) }
+        }.apply()
+    }
+
     fun update(transform: (AppSettings) -> AppSettings) {
         val current = _settings.value
         val updated = transform(current)
@@ -882,11 +904,8 @@ class SettingsManager(
             .putInt(KEY_STOP_DETECTION_DISTANCE_M, updated.stopDetectionDistanceM)
             .putBoolean(KEY_STOP_DETECTION_DELAY_GPS, updated.stopDetectionDelayGps)
             .putInt(KEY_MAP_REFRESH_FPS, updated.mapRefreshFps)
-            .putFloat(KEY_MAP_CENTER_LAT, updated.mapCenterLat.toFloat())
-            .putFloat(KEY_MAP_CENTER_LON, updated.mapCenterLon.toFloat())
-            .putFloat(KEY_ZOOM_LEVEL, updated.zoomLevel.toFloat())
-            .putBoolean(KEY_IS_WATER, updated.isWater)
-            .putFloat(KEY_DISTANCE_TO_SHORE, updated.distanceToShore.toFloat())
+            // The viewport keys (centre, zoom, water, shore distance) are deliberately absent: they
+            // have one writer, [persistViewport], and are read only by [load] at start.
             .putString(KEY_LANGUAGE_CODE, updated.languageCode)
             .putBoolean(KEY_KEEP_SCREEN_ON, updated.keepScreenOn)
             .putBoolean(KEY_KEEP_SCREEN_ON_MOVEMENT_GATE, updated.keepScreenOnMovementGate)

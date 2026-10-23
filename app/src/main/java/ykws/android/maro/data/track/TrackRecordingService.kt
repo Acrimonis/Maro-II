@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -332,9 +333,20 @@ class TrackRecordingService : Service() {
         gpsJob?.cancel()
         adaptivePolicy.reset()
         gpsJob = serviceScope.launch {
-            demoMode
-                .flatMapLatest { demo ->
-                    if (demo) emptyFlow<GpsFix>() else gpsSource.locationUpdates(1_000L, 1f)
+            // The rate follows the recorder: one fix a second while a track records, the standby
+            // cadence while nothing does — enough for the geofence auto-start and the stop detector,
+            // and a fraction of the battery the recording rate used to spend all day.
+            combine(demoMode, _isRecording) { demo, recording -> demo to recording }
+                .distinctUntilChanged()
+                .flatMapLatest { (demo, recording) ->
+                    when {
+                        demo -> emptyFlow<GpsFix>()
+                        recording -> gpsSource.locationUpdates(1_000L, 1f)
+                        else -> gpsSource.locationUpdates(
+                            AppConfig.trackingStandbyIntervalMs,
+                            AppConfig.trackingStandbyMinDistanceM
+                        )
+                    }
                 }
                 .flowOn(Dispatchers.Main.immediate)
                 .catch { e ->
