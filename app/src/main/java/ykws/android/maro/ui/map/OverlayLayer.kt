@@ -263,8 +263,7 @@ internal fun OverlayLayer(
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
     val trackWalkHeld = trackInfo.walkHeld
-    val trackInfoColours = trackInfo.trackColours
-    val eyeOverride = trackInfo.eyeOverride
+    val bandedOn = trackInfo.bandedOn
     val onToggleEyeOverride = trackInfo.onToggleEyeOverride
 
     // ── Opened track's accent bar ────────────────────────────────────────
@@ -623,7 +622,7 @@ internal fun OverlayLayer(
                         shape = RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                bandedOn = eyeOverride ?: trackInfoColours,
+                                bandedOn = bandedOn,
                                 onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
@@ -759,7 +758,7 @@ internal fun OverlayLayer(
                         shape = RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                bandedOn = eyeOverride ?: trackInfoColours,
+                                bandedOn = bandedOn,
                                 onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
@@ -1013,12 +1012,12 @@ internal fun OverlayLayer(
  * The track drawer's header actions: the speed toggle, then the trash.
  *
  * The toggle carries no label — its state rides the icon convention, the accent at full alpha while the
- * selected track is banded and the inactive alpha token otherwise — and it wears the same speedometer
+ * selected item is banded and the inactive alpha token otherwise — and it wears the same speedometer
  * the speed scale's collapsed face does, so the control that reads the ramp and the one that flips it
- * for a single track speak one visual language. It moves that one track's fill and never the stored
- * flags (D10), and the map's legend doubles as its readout in that direction: the legend is drawn while
- * a banded stroke is on the map *and*, once a track is open, while that track's own fill is the ramp —
- * so the scale follows the very fill this toggle owns.
+ * for a single item speak one visual language. It moves that one item's fill and never the stored
+ * flags (D10; the route's twin 2026-10-23), and the map's legend doubles as its readout in that
+ * direction: the legend is drawn while a banded stroke is on the map *and*, once an item is open, while
+ * that item's own fill is the ramp — so the scale follows the very fill this toggle owns.
  */
 @Composable
 private fun TrackDrawerHeaderActions(
