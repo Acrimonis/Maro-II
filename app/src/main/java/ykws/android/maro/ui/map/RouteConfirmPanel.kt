@@ -1,10 +1,13 @@
 package ykws.android.maro.ui.map
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,17 +16,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,10 +70,13 @@ private const val ROUTE_CROWN_GLYPH = "\u2713"
  * The crown's glyph size — **one step up from the 18 sp this mark stood at** (2026-10-15), so the check
  * leads the row's first line beside the 13 sp name rather than sitting level with it.
  */
-private val ROUTE_CROWN_GLYPH_SIZE = 20.sp
+private val ROUTE_CROWN_GLYPH_SIZE get() = AppConfig.uiRouteTableCrownSize.sp
 
 /** The middle dot joining the header's segments — punctuation, not user-facing text. */
 private const val ROUTE_HEADER_SEPARATOR = " · "
+
+/** The compact line height the table's cells share — tighter than the 13 sp default, so the rows sit closer. */
+private val ROUTE_CELL_LINE_HEIGHT get() = AppConfig.uiRouteTableCellLineHeight.sp
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The route acquisition's own dashboard — the panel the slot carries while a route is being acquired
@@ -149,6 +167,17 @@ internal fun RouteConfirmationPanel(
 ) {
     val acquiring = state as? RouteState.Choosing ?: return
     val clampedIndex = selectedIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+    // The pager is recreated on every seat change so a row tap moves the page in the same recomposition
+    // as the seat — one size change for animateContentSize to ease, never two stacked ones.
+    val pagerState = key(clampedIndex) {
+        rememberPagerState(initialPage = clampedIndex) { pages.size.coerceAtLeast(1) }
+    }
+    val density = LocalDensity.current
+    // The body height the panel held at rest — captured while the pager is still and held as a floor
+    // while it scrolls, so a page turn can grow the panel but never shrink it mid-swipe. The floor is
+    // released when the swipe settles and animateContentSize eases the panel to the settled page's height.
+    var restBodyHeight by remember { mutableStateOf<Dp?>(null) }
+    val scrolling = pagerState.isScrollInProgress
     val selected = pages.getOrNull(clampedIndex)
     val selectedPlan = selected?.plan
     // The header's one line: a committed early select reads its own word; otherwise the search summary —
@@ -265,7 +294,20 @@ internal fun RouteConfirmationPanel(
             }
         }
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .animateContentSize(tween(durationMillis = 250))
+                .then(
+                    if (scrolling) Modifier.heightIn(min = restBodyHeight ?: 0.dp)
+                    else Modifier
+                )
+                .onSizeChanged { size ->
+                    if (!pagerState.isScrollInProgress) {
+                        restBodyHeight = with(density) { size.height.toDp() }
+                    }
+                }
+        ) {
             refusal?.let {
                 PanelSentence(stringResource(it.labelResId))
             }
@@ -273,6 +315,7 @@ internal fun RouteConfirmationPanel(
                 RouteTablePager(
                     pages = pages,
                     selectedIndex = clampedIndex,
+                    pagerState = pagerState,
                     onSelectPage = onSelectPage,
                     crownLookupId = crownLookupId,
                     ranks = rankView.ranks
@@ -303,12 +346,13 @@ private fun PanelSentence(text: String) {
 private fun RouteTablePager(
     pages: List<RoutePage>,
     selectedIndex: Int,
+    pagerState: PagerState,
     onSelectPage: (Int) -> Unit,
     crownLookupId: RouteId?,
     ranks: Map<RouteId, Int>
 ) {
     SwipePager(
-        pageCount = pages.size,
+        pagerState = pagerState,
         currentIndex = selectedIndex,
         onSettled = onSelectPage
     ) { index ->
@@ -322,11 +366,25 @@ private fun RouteTablePager(
     }
 }
 
+/** One plan's Speed limits readings — each limit's label and its `mm:ss min` time, one line per reading. */
+@Composable
+private fun routeSpeedReadings(plan: RoutePlan): List<Pair<String, String>> =
+    routeSlowLimitEntries(plan).map { entry ->
+        val label = if (entry.isBand) {
+            stringResource(R.string.route_slow_band_label)
+        } else {
+            stringResource(R.string.route_slow_limit_label_fmt, entry.limitKn)
+        }
+        val time = stringResource(R.string.route_summary_eta_value_fmt, entry.seconds / 60, entry.seconds % 60)
+        label to "$time ${stringResource(R.string.route_summary_eta_unit)}"
+    }
+
 /**
  * **The summary table** — one line per route, three columns. Column 1 is the engine's own description;
- * column 2 is the route's Dist and ETA as bare values, one per line; column 3 is a page's delta
- * against the selected route. Columns are fixed weights so the boundaries stay consistent across rows,
- * a hairline separates the columns, and rows are top-aligned and wrap.
+ * column 2 is the route's time, its own average speed and its Dist as bare values, one per line;
+ * column 3 is a page's delta against the selected route. Each column takes an equal third of the row,
+ * so the boundaries stay consistent across rows, a hairline separates the columns, and rows are
+ * top-aligned and wrap.
  * The selected row takes the app's taken-choice face — a `ui.select.container` fill, its `ui.accent`
  * edge, white bold text — with corners that adapt to the row's position in the bar.
  *
@@ -354,12 +412,42 @@ private fun RouteSummaryTable(
 ) {
     val selectedDurationSec = pages.getOrNull(selectedIndex)?.plan?.durationSec
     val radius = AppConfig.uiRadiusCard.dp
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(radius))
-            .border(1.dp, Color(AppConfig.uiDividerColor), RoundedCornerShape(radius))
-    ) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val deltaStyle = LocalTextStyle.current.merge(
+        TextStyle(fontSize = 13.sp, lineHeight = ROUTE_CELL_LINE_HEIGHT, fontWeight = FontWeight.Bold)
+    )
+    val valueStyle = LocalTextStyle.current.merge(
+        TextStyle(fontSize = 12.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium)
+    )
+    val readings = pages.mapNotNull { it.plan }.flatMap { routeSpeedReadings(it) }
+    val deltaTexts = pages.mapIndexedNotNull { index, page ->
+        routeDeltaText(page.plan?.durationSec, selectedDurationSec, index == selectedIndex)
+    }
+    // Column 3 is sized to its content so `m:ss min` never clips, while columns 1 and 2 share the rest 2:1.
+    val labelWidth = if (readings.isEmpty()) 0.dp else rememberLabelColumnWidth(readings.map { it.first })
+    val valueColWidth = remember(readings.joinToString("\u0000") { it.second }) {
+        with(density) { (readings.maxOfOrNull { measurer.measure(it.second, valueStyle).size.width } ?: 0).toDp() }
+    }
+    val maxDeltaWidth = remember(deltaTexts.joinToString("\u0000")) {
+        with(density) { (deltaTexts.maxOfOrNull { measurer.measure(it, deltaStyle).size.width } ?: 0).toDp() }
+    }
+    val limitColWidth = maxOf(labelWidth + 6.dp + valueColWidth + AppConfig.uiRouteTableReadingSlack.dp, maxDeltaWidth) + 16.dp
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val nameShare = AppConfig.uiRouteTableColNameShare
+        val figuresShare = AppConfig.uiRouteTableColFiguresShare
+        val limitsShare = AppConfig.uiRouteTableColLimitsShare
+        val totalShare = nameShare + figuresShare + limitsShare
+        val col3Width = maxOf(limitColWidth, maxWidth * (limitsShare / totalShare))
+        val restWidth = maxWidth - col3Width - 2.dp
+        val col1Width = restWidth * (nameShare / (nameShare + figuresShare))
+        val col2Width = restWidth * (figuresShare / (nameShare + figuresShare))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(radius))
+                .border(1.dp, Color(AppConfig.uiDividerColor), RoundedCornerShape(radius))
+        ) {
         pages.forEachIndexed { index, page ->
             val selected = index == selectedIndex
             val first = index == 0
@@ -401,8 +489,13 @@ private fun RouteSummaryTable(
                 // `IntrinsicSize.Min` would claim the whole row and distort the columns.
                 Row(
                     modifier = Modifier
-                        .weight(0.75f)
-                        .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                        .width(col1Width)
+                        .padding(
+                            start = AppConfig.uiRouteTablePaddingHorizontal.dp,
+                            end = AppConfig.uiRouteTablePaddingHorizontal.dp,
+                            top = AppConfig.uiRouteTablePaddingVertical.dp,
+                            bottom = AppConfig.uiRouteTablePaddingVertical.dp
+                        ),
                     verticalAlignment = Alignment.Top
                 ) {
                     Column {
@@ -423,6 +516,7 @@ private fun RouteSummaryTable(
                                 text = label,
                                 color = textColor,
                                 fontSize = 13.sp,
+                                lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                 fontWeight = weight,
                                 modifier = Modifier.weight(1f, fill = false)
                             )
@@ -432,6 +526,7 @@ private fun RouteSummaryTable(
                                     text = ROUTE_CROWN_GLYPH,
                                     color = Color(AppConfig.routeNavigateColor),
                                     fontSize = ROUTE_CROWN_GLYPH_SIZE,
+                                    lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -445,6 +540,7 @@ private fun RouteSummaryTable(
                                 text = "#$rank",
                                 color = textColor,
                                 fontSize = 13.sp,
+                                lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                 fontWeight = FontWeight.Bold
                             )
                         } else {
@@ -453,6 +549,7 @@ private fun RouteSummaryTable(
                                     text = stringResource(stage.labelResId),
                                     color = textColor,
                                     fontSize = 13.sp,
+                                    lineHeight = ROUTE_CELL_LINE_HEIGHT,
                                     fontWeight = FontWeight.Bold,
                                     fontStyle = FontStyle.Italic
                                 )
@@ -461,15 +558,24 @@ private fun RouteSummaryTable(
                     }
                 }
                 ColumnDivider()
-                Column(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalAlignment = Alignment.Start
+                Box(
+                    modifier = Modifier
+                        .width(col2Width)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // The settled pair on a landed page, the provisional pair the boundary update carried
-                    // while it waits, or the `--` placeholder where neither stands — one home for the
-                    // reading, so the row prints the same way whichever it holds. The two lines come in
-                    // one order for both (routeRowLines): the time first, the distance second.
-                    for (line in routeRowLines(routeRowFigures(page))) {
+                    Column(
+                        modifier = Modifier.padding(
+                            horizontal = AppConfig.uiRouteTablePaddingHorizontal.dp,
+                            vertical = AppConfig.uiRouteTablePaddingVertical.dp
+                        ),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                    // The settled figures on a landed page, or the provisional figures the boundary update
+                    // carried while it waits; nothing is printed until one of them stands. The three lines
+                    // come in one order (routeRowLines): the time, the speed, the distance.
+                    val figures = routeRowFigures(page)
+                    for (line in if (figures != null) routeRowLines(figures) else emptyList()) {
                         when (line.kind) {
                             RouteRowKind.DURATION -> RouteValueLine(
                                 value = line.value?.let {
@@ -483,6 +589,14 @@ private fun RouteSummaryTable(
                                 color = textColor,
                                 fontWeight = weight
                             )
+                            RouteRowKind.SPEED -> RouteValueLine(
+                                value = line.value?.let {
+                                    stringResource(R.string.route_summary_speed_value_fmt, it)
+                                } ?: stringResource(R.string.route_value_pending),
+                                unit = stringResource(R.string.route_summary_speed_unit),
+                                color = textColor,
+                                fontWeight = weight
+                            )
                             RouteRowKind.DISTANCE -> RouteValueLine(
                                 value = line.value?.let {
                                     stringResource(R.string.route_summary_distance_value_fmt, it)
@@ -493,12 +607,18 @@ private fun RouteSummaryTable(
                             )
                         }
                     }
+                    }
                 }
                 ColumnDivider()
                 Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                        .width(col3Width)
+                        .padding(
+                            start = AppConfig.uiRouteTablePaddingHorizontal.dp,
+                            end = AppConfig.uiRouteTablePaddingHorizontal.dp,
+                            top = AppConfig.uiRouteTablePaddingVertical.dp,
+                            bottom = AppConfig.uiRouteTablePaddingVertical.dp
+                        ),
                     horizontalAlignment = Alignment.Start
                 ) {
                     routeDeltaText(page.plan?.durationSec, selectedDurationSec, index == selectedIndex)?.let {
@@ -506,12 +626,14 @@ private fun RouteSummaryTable(
                             text = it,
                             color = textColor,
                             fontSize = 13.sp,
+                            lineHeight = ROUTE_CELL_LINE_HEIGHT,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    page.plan?.let { plan -> SpeedLimitsGrid(plan) }
+                    page.plan?.let { plan -> SpeedLimitsGrid(plan, labelWidth) }
                 }
             }
+        }
         }
     }
 }
@@ -529,15 +651,17 @@ private fun RouteValueLine(
             text = value,
             color = color,
             fontSize = 13.sp,
+            lineHeight = ROUTE_CELL_LINE_HEIGHT,
             fontWeight = fontWeight,
             textAlign = TextAlign.End,
-            modifier = Modifier.width(48.dp)
+            modifier = Modifier.width(AppConfig.uiRouteTableValueBoxWidth.dp)
         )
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(AppConfig.uiRouteTableValueUnitGap.dp))
         Text(
             text = unit,
             color = color,
             fontSize = 13.sp,
+            lineHeight = ROUTE_CELL_LINE_HEIGHT,
             fontWeight = fontWeight,
             textAlign = TextAlign.Start
         )
@@ -574,37 +698,18 @@ private fun routeDeltaText(
 }
 
 /**
- * **The Speed limits table** — one route's slow time, one reading per regulated limit, the 300 m zone
- * first then the limits ascending (the engine's own order), wrapped into its lines by
- * [routeSlowLimitRows] in the shared [StatCell] over one label column measured once from every label. It
- * stands in the summary table's third column, under that page's own bold delta, so each route's row
- * carries its own figures.
+ * **The Speed limits table** — one route's slow time, one reading per regulated limit on its own line,
+ * the 300 m zone first then the limits ascending (the engine's own order), each in the shared [StatCell]
+ * over the table's one measured label column. It stands in the summary table's third column, under that
+ * page's own bold delta, so each route's row carries its own figures.
  */
 @Composable
-private fun SpeedLimitsGrid(plan: RoutePlan) {
-    val rows = routeSlowLimitRows(routeSlowLimitEntries(plan)).map { row ->
-        row.map { entry ->
-            val label = if (entry.isBand) {
-                stringResource(R.string.route_slow_band_label)
-            } else {
-                stringResource(R.string.route_slow_limit_label_fmt, entry.limitKn)
-            }
-            label to stringResource(R.string.route_slow_minutes_fmt, entry.minutes)
-        }
-    }
-    if (rows.isEmpty()) return
-    val labelWidth = rememberLabelColumnWidth(rows.flatten().map { it.first })
+private fun SpeedLimitsGrid(plan: RoutePlan, labelWidth: Dp) {
+    val readings = routeSpeedReadings(plan)
+    if (readings.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        rows.forEach { rowCells ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                rowCells.forEach { (label, value) ->
-                    Box(Modifier.weight(1f)) {
-                        StatCell(label = label, value = value, labelWidth = labelWidth)
-                    }
-                }
-                // A lone tail cell keeps its own column rather than stretching across both.
-                if (rowCells.size == 1) Spacer(Modifier.weight(1f))
-            }
+        readings.forEach { (label, value) ->
+            StatCell(label = label, value = value, labelWidth = labelWidth)
         }
     }
 }

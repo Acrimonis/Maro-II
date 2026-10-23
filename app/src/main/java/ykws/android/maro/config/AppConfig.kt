@@ -1785,6 +1785,18 @@ object AppConfig {
     var uiRadiusCard: Float = 12f; private set
     var uiRadiusExpander: Float = 8f; private set
 
+    // ── Route search table (sp/dp; shares are percentages) ────────────────────
+    var uiRouteTableCellLineHeight: Float = 14f; private set
+    var uiRouteTableCrownSize: Float = 20f; private set
+    var uiRouteTablePaddingHorizontal: Float = 8f; private set
+    var uiRouteTablePaddingVertical: Float = 4f; private set
+    var uiRouteTableValueBoxWidth: Float = 42f; private set
+    var uiRouteTableValueUnitGap: Float = 2f; private set
+    var uiRouteTableReadingSlack: Float = 2f; private set
+    var uiRouteTableColNameShare: Float = 50f; private set
+    var uiRouteTableColFiguresShare: Float = 25f; private set
+    var uiRouteTableColLimitsShare: Float = 25f; private set
+
     // Font sizes (sp)
     var uiFontSectionSize: Float = 18f; private set
     var uiFontSubsectionSize: Float = 16f; private set
@@ -2694,6 +2706,18 @@ object AppConfig {
             // Divider
             uiDividerHeight = dp("ui.divider.height", uiDividerHeight)
             uiDividerGap = dp("ui.divider.gap", uiDividerGap)
+
+            // Route search table
+            uiRouteTableCellLineHeight = sp("ui.route.table.cell.lineHeight", uiRouteTableCellLineHeight)
+            uiRouteTableCrownSize = sp("ui.route.table.crown.size", uiRouteTableCrownSize)
+            uiRouteTablePaddingHorizontal = dp("ui.route.table.padding.horizontal", uiRouteTablePaddingHorizontal)
+            uiRouteTablePaddingVertical = dp("ui.route.table.padding.vertical", uiRouteTablePaddingVertical)
+            uiRouteTableValueBoxWidth = dp("ui.route.table.value.box.width", uiRouteTableValueBoxWidth)
+            uiRouteTableValueUnitGap = dp("ui.route.table.value.unit.gap", uiRouteTableValueUnitGap)
+            uiRouteTableReadingSlack = dp("ui.route.table.reading.slack", uiRouteTableReadingSlack)
+            uiRouteTableColNameShare = props.getProperty("ui.route.table.col.name.share")?.trim()?.toFloatOrNull() ?: uiRouteTableColNameShare
+            uiRouteTableColFiguresShare = props.getProperty("ui.route.table.col.figures.share")?.trim()?.toFloatOrNull() ?: uiRouteTableColFiguresShare
+            uiRouteTableColLimitsShare = props.getProperty("ui.route.table.col.limits.share")?.trim()?.toFloatOrNull() ?: uiRouteTableColLimitsShare
 
             // Touch
             uiTouchMin = dp("ui.touch.min", uiTouchMin)

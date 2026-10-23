@@ -104,49 +104,35 @@ internal fun routeDeltaSec(
 }
 
 /**
- * **One printable entry of the Speed limits line** — the limit's whole-minute figure, the 300 m band
- * standing apart ([isBand]). The seconds a route reports per limit, as the panel reads them: whole
- * minutes only, an entry under a minute dropped so the line never prints a zero.
+ * **A route's own average speed, all inclusive** — the distance it covers over the whole time it allots,
+ * so slow zones, ramps and every cap are already inside it. Nautical miles per hour are knots, so the
+ * reading is [distanceNm] over [durationSec]; zero where there is no time to average over. One home for
+ * the row's speed line and the plan's [RoutePlan.plannedPaceKn].
  */
-internal data class RouteSlowLimitEntry(val limitKn: Double, val minutes: Int, val isBand: Boolean)
+internal fun routeAvgSpeedKn(distanceNm: Double, durationSec: Double): Double =
+    if (durationSec > 0.0) distanceNm / (durationSec / 3600.0) else 0.0
 
 /**
- * **The Speed limits entries of a plan** — [RoutePlan.slowLimitSeconds] in whole minutes, sub-minute
- * entries dropped and the band kept apart. Empty when nothing slowed the route, which is what leaves
- * the line off the panel.
+ * **One printable entry of the Speed limits line** — the limit's whole-second figure, the 300 m band
+ * standing apart ([isBand]). The seconds a route reports per limit, rounded to the second, an entry
+ * rounding to zero dropped so the line never prints a zero.
+ */
+internal data class RouteSlowLimitEntry(val limitKn: Double, val seconds: Int, val isBand: Boolean)
+
+/**
+ * **The Speed limits entries of a plan** — [RoutePlan.slowLimitSeconds] rounded to the second, a zero
+ * dropped and the band kept apart. Empty when nothing slowed the route, which is what leaves the line
+ * off the panel.
  */
 internal fun routeSlowLimitEntries(plan: RoutePlan): List<RouteSlowLimitEntry> =
     plan.slowLimitSeconds
-        .map { RouteSlowLimitEntry(it.limitKn, (it.seconds / 60.0).toInt(), it.isBand) }
-        .filter { it.minutes >= 1 }
+        .map { RouteSlowLimitEntry(it.limitKn, it.seconds.roundToInt(), it.isBand) }
+        .filter { it.seconds >= 1 }
+
 
 /**
- * **The Speed limits entries wrapped into the table's lines** — a zone shares the 300 m band's first
- * line only when it makes the table no longer than it must be: with an **odd** count of three or more
- * the first line carries the band and the first zone and every line after is a full pair, while a
- * **single** zone and every **even** count leave the band alone on the first line, the zones then two
- * per line. The entries arrive band first then ascending limit ([routeSlowLimitEntries]); this fixes
- * only how they wrap — empty in, empty out, and a list carrying no band falls back to plain pairs.
- */
-internal fun routeSlowLimitRows(
-    entries: List<RouteSlowLimitEntry>
-): List<List<RouteSlowLimitEntry>> {
-    if (entries.isEmpty()) return emptyList()
-    val band = entries.firstOrNull { it.isBand } ?: return entries.chunked(2)
-    val zones = entries.filterNot { it.isBand }
-    // A lone zone stays on its own line, and an even count leaves the band alone: only an odd count of
-    // three or more pairs the first zone with the band, so every zone line below is a full pair.
-    return if (zones.size > 1 && zones.size % 2 == 1) {
-        listOf(listOf(band, zones.first())) + zones.drop(1).chunked(2)
-    } else {
-        listOf(listOf(band)) + zones.chunked(2)
-    }
-}
-
-/**
- * **One acquisition row's own figures, settled or provisional** — the pair the table's middle column
- * prints, in the units its two lines carry: the route's length in nautical miles and the time it takes
- * over the whole line.
+ * **One acquisition row's own figures, settled or provisional** — what the table's middle column
+ * prints: the time the line takes, its own average speed and its length in nautical miles.
  *
  * A landed [RoutePage.plan] wins outright: its own length and its `remainingFrom` time are the settled
  * answer, and any provisional pair the page still carries is ignored — *replaced*, never merged. A page
@@ -154,7 +140,10 @@ internal fun routeSlowLimitRows(
  * table falls back to its `--` placeholder. One home for the settled and the provisional reading alike,
  * so the panel never branches on which it holds.
  */
-internal data class RouteRowFigures(val distanceNm: Double, val durationSec: Double)
+internal data class RouteRowFigures(val distanceNm: Double, val durationSec: Double) {
+    /** The route's own average speed (kn), all inclusive — one [routeAvgSpeedKn] for the row and the plan. */
+    val avgSpeedKn: Double get() = routeAvgSpeedKn(distanceNm, durationSec)
+}
 
 internal fun routeRowFigures(page: RoutePage): RouteRowFigures? {
     val plan = page.plan
@@ -165,19 +154,20 @@ internal fun routeRowFigures(page: RoutePage): RouteRowFigures? {
     return RouteRowFigures(Units.metresToNauticalMiles(provisional.distanceM), provisional.durationSec)
 }
 
-/** Which of a row's two figures a line carries — the time or the distance. */
-internal enum class RouteRowKind { DURATION, DISTANCE }
+/** Which of a row's figures a line carries — the time, the average speed or the distance. */
+internal enum class RouteRowKind { DURATION, SPEED, DISTANCE }
 
 /** One line of a row's figures column, with its value — or `null` where the row is still waiting. */
 internal data class RouteRowLine(val kind: RouteRowKind, val value: Double?)
 
 /**
- * **A row's two figure lines, in the panel's own order — the time first, the distance second**
- * (the user's word of 2026-10-07), so the swap leaves the row's own emphasis untouched. A waiting row
- * ([figures] null) reverses with it, so no pending row reads in the old order beside a landed one.
+ * **A row's three figure lines, in the panel's own order — the time, the average speed, the distance**
+ * (the speed seated second on 2026-10-22). A waiting row ([figures] null) holds the same order, so no
+ * pending row reads in a different one beside a landed row.
  */
 internal fun routeRowLines(figures: RouteRowFigures?): List<RouteRowLine> = listOf(
     RouteRowLine(RouteRowKind.DURATION, figures?.durationSec),
+    RouteRowLine(RouteRowKind.SPEED, figures?.avgSpeedKn),
     RouteRowLine(RouteRowKind.DISTANCE, figures?.distanceNm)
 )
 

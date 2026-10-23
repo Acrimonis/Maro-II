@@ -324,6 +324,14 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             val lattice = family.layers[window.layer]
             for (end in listOf(from.toLatLng(), to.toLatLng())) {
                 if (!window.holds(lattice.rowOf(end.latitude), lattice.colOf(end.longitude))) continue
+                // **The fine layer is the coastal ribbon only.** A LAND cell there means "no fine water",
+                // never the shore margin `forceFree` waives, so an end standing beyond the ribbon is left
+                // land and `endCellAt` anchors it on the coarse cell instead of a manufactured one-cell
+                // fine island. Layer 0 keeps its unconditional free — its LAND is the margin.
+                if (window.layer != 0) {
+                    val cell = window.grid.cellOf(end.latitude, end.longitude)
+                    if (!window.grid.passable(cell.row, cell.col)) continue
+                }
                 window.grid.forceFree(end.latitude, end.longitude)
                 openEndDisc(
                     window.grid, world, end, marginM, depthGateActive, minDepthM, reachCellM = lattice.cellM,
