@@ -124,3 +124,6 @@ private fun zoneSizeOf(geometry: MarkerGeometry): Double = when (geometry) {
 | Circle at 60m / 600m (10%) | 1 + 1.0×0.10 = **1.10** | Tie with pin → Pin 0 < Circle 200 → Pin wins |
 | Pin at 150m / 200m (75%) | 1 + 0.5×0.75 = **1.375** | Far pin |
 | Circle at 30m / 600m (5%) | 1 + 1.0×0.05 = **1.05** | Very close circle → beats far pin |
+
+## Outcome
+Shipped: sortScore (categoryBase plus typeWeight times percentage) with the zoneSize tie-breaker in depthFirstLeavesFirst, read from maro.properties.

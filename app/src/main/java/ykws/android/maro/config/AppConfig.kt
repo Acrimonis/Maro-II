@@ -47,6 +47,22 @@ object AppConfig {
     var routeFreeWaterPaceKn = 25f
         private set
 
+    /** How far back the `Now` pace looks, in minutes (2–10) — `route.pace.windowMin`, default 4; the Settings slider starts here. */
+    var routePaceWindowMin = 4
+        private set
+
+    /** The speed (kn) below which a reading is ignored as a stop — `route.pace.stopKn`, default 4. */
+    var routePaceStopKn = 4.0
+        private set
+
+    /** The most open-water minutes one trip votes with in the Speed History — `route.pace.tripWeightCapMin`, default 30. */
+    var routePaceTripWeightCapMin = 30
+        private set
+
+    /** How many recent water tracks the speed-history window holds — `route.speedHistory.trackCount`, default 5. */
+    var routeSpeedHistoryTrackCount = 5
+        private set
+
     /**
      * Whether a marker's **price** (1–9) is armed for the route search. Set via `route.marker.enabled`.
      * It prices water and **never lifts a wall**: a Blocked marker (10) blocks whatever this says.
@@ -56,8 +72,8 @@ object AppConfig {
 
     /**
      * **The marker price's linear strength** — the per-step factor the marker law scales the base
-     * per-metre cost by (`base × step × this`). The Routing row seeds from it and raises it live. Set
-     * via `route.marker.costPerStep`.
+     * per-metre cost by (`base × step × this`). Set via `route.marker.costPerStep`, which is its only
+     * home: no screen exposes it, so a marker's own rating is the whole of the user's say.
      */
     var routeMarkerCostPerStep = 1.0
         private set
@@ -89,6 +105,18 @@ object AppConfig {
 
     /** **The `Any` stop** — the scale's first position, the absence of a preference and never a speed. */
     const val ROUTE_FREE_WATER_PACE_ANY = 0f
+
+    /** Shortest pace window (min) the Settings slider offers. */
+    const val ROUTE_PACE_WINDOW_MIN_MIN = 2
+
+    /** Longest pace window (min) the Settings slider offers. */
+    const val ROUTE_PACE_WINDOW_MIN_MAX = 10
+
+    /** Lowest track count the speed-history window accepts. */
+    const val ROUTE_SPEED_HISTORY_TRACKS_MIN = 1
+
+    /** Highest track count the speed-history window accepts. */
+    const val ROUTE_SPEED_HISTORY_TRACKS_MAX = 15
 
     /**
      * The one ordered option list both doors read — the sentinel first, then the numbered stops lowest
@@ -736,12 +764,6 @@ object AppConfig {
      */
     var routeTurnReachFraction: Double = 1.0
         private set
-
-    /** Lowest marker price strength the Routing row accepts — one home for that end. */
-    const val ROUTE_MARKER_STRENGTH_MIN = 0.0
-
-    /** Highest marker price strength the Routing row accepts — one home for that end. */
-    const val ROUTE_MARKER_STRENGTH_MAX = 5.0
 
     /**
      * The speed zone's outside-margin price as a fraction of the interior's —
@@ -1568,6 +1590,9 @@ object AppConfig {
     /** Settings panel accent colour. Default #FF1565C0. Set via `ui.accent` in colors.properties. */
     var uiAccent: Int = 0xFF1565C0.toInt()
         private set
+    /** Dialog frame highlight. Default #FF48A7F5. Set via `ui.highlight` in colors.properties. */
+    var uiHighlight: Int = 0xFF48A7F5.toInt()
+        private set
     /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.value.text` in colors.properties. */
     var uiValueText: Int = 0xFF48a7f5.toInt()
         private set
@@ -1975,6 +2000,21 @@ object AppConfig {
             props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
                 routeEngineId = it
             }
+            props.getProperty("route.pace.windowMin")?.toIntOrNull()?.let {
+                routePaceWindowMin = it.coerceIn(ROUTE_PACE_WINDOW_MIN_MIN, ROUTE_PACE_WINDOW_MIN_MAX)
+            }
+            props.getProperty("route.pace.stopKn")?.toDoubleOrNull()?.let {
+                routePaceStopKn = it.coerceIn(0.0, 10.0)
+            }
+            props.getProperty("route.pace.tripWeightCapMin")?.toIntOrNull()?.let {
+                routePaceTripWeightCapMin = it.coerceAtLeast(1)
+            }
+            props.getProperty("route.speedHistory.trackCount")?.toIntOrNull()?.let {
+                routeSpeedHistoryTrackCount = it.coerceIn(
+                    ROUTE_SPEED_HISTORY_TRACKS_MIN,
+                    ROUTE_SPEED_HISTORY_TRACKS_MAX
+                )
+            }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
             }
@@ -2357,6 +2397,7 @@ object AppConfig {
             props.getProperty("ui.text.muted")?.let { parseColorOrNull(it) }?.let { uiTextMuted = it }
             props.getProperty("ui.text.secondary")?.let { parseColorOrNull(it) }?.let { uiTextSecondary = it }
             props.getProperty("ui.accent")?.let { parseColorOrNull(it) }?.let { uiAccent = it }
+            props.getProperty("ui.highlight")?.let { parseColorOrNull(it) }?.let { uiHighlight = it }
             // ── The route line and pin, and the whole family's seeds (path.*) ───
             // The followed line's colour and transparency, its width and casing, the dimming beside
             // the plan, the pin, the two stored pairs and their fades, the count and the two route

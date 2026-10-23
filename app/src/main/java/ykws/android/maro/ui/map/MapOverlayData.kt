@@ -65,12 +65,14 @@ internal fun buildSettingsOverlayData(
     navigationScrollState: ScrollState,
     routingScrollState: ScrollState,
     systemScrollState: ScrollState,
+    paceNow: ykws.android.maro.data.route.PaceReading,
 ): SettingsOverlayData = SettingsOverlayData(
     selectedTab = selectedTab,
     layersScrollState = layersScrollState,
     navigationScrollState = navigationScrollState,
     routingScrollState = routingScrollState,
     systemScrollState = systemScrollState,
+    paceNow = paceNow,
 )
 
 /** The marker-management surface's data bundle, moved verbatim from the `OverlayLayer` call site. */
@@ -90,9 +92,8 @@ internal fun buildTrackInfoOverlayData(
     trackDrawerState: TrackDrawerState,
     trackListIds: List<String>,
     inspectHandoff: InspectHandoff?,
-    appSettings: AppSettings,
-    /** The card-local eye value (2026-10-07); the caller owns its state, this bundle only carries it. */
-    eyeOverride: Boolean?,
+    /** The eye readout already resolved for the open item's kind (2026-10-23); the caller owns the eye. */
+    bandedOn: Boolean,
     onToggleEyeOverride: () -> Unit,
 ): TrackInfoOverlayData = TrackInfoOverlayData(
     showTrackInfoDrawer = trackDrawerState.isOpen,
@@ -104,7 +105,6 @@ internal fun buildTrackInfoOverlayData(
     // not that — one frame, and no gesture asked for it — so the caller hands the hand-off over only for
     // a step, which is what keeps the pills from flashing grey on every change of nearest (2026-10-07).
     walkHeld = inspectHandoff != null,
-    trackColours = appSettings.trackColours,
-    eyeOverride = eyeOverride,
+    bandedOn = bandedOn,
     onToggleEyeOverride = onToggleEyeOverride,
 )

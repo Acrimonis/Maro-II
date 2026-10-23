@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.markers.wizard.steps
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,7 +44,9 @@ import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.icons.Conversion_path
 import ykws.android.maro.ui.map.ButtonColors
 import ykws.android.maro.ui.map.IconPickerDialog
+import ykws.android.maro.ui.map.MarkerColors
 import ykws.android.maro.ui.map.MarkerType
+import ykws.android.maro.ui.map.ShowMarkerColorPicker
 import ykws.android.maro.ui.map.MarkersViewModel
 
 /**
@@ -112,33 +117,71 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
 
             SectionDivider()
 
-            // ── Section 2: the icon (purely decorative — no pin semantics) ──
+            // ── Section 2: the icon and the marker's colour, one row (2026-10-23) ──
+            // The icon action keeps the left and its own tap; the trailing pair is the caption and the
+            // swatch, so the row grows by zero and the step's tight frame is untouched.
             var showIconPicker by remember { mutableStateOf(false) }
+            var showColorPicker by remember { mutableStateOf(false) }
+            val colorLabel = stringResource(R.string.marker_color_title)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { showIconPicker = true }
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (form.icon != null) {
-                    Text(form.icon!!, fontSize = 20.sp)
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.LocationOff,
-                        contentDescription = stringResource(R.string.cd_change_icon),
-                        tint = ButtonColors.icon,
-                        modifier = Modifier.size(24.dp)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showIconPicker = true },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (form.icon != null) {
+                        Text(form.icon!!, fontSize = 20.sp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.LocationOff,
+                            contentDescription = stringResource(R.string.cd_change_icon),
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (form.icon != null) stringResource(R.string.cd_change_icon) else stringResource(R.string.cd_set_icon),
+                        color = mutedText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (form.icon != null) stringResource(R.string.cd_change_icon) else stringResource(R.string.cd_set_icon),
+                    text = colorLabel,
                     color = mutedText,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.width(8.dp))
+                // A 40 dp tap box around the 24 dp swatch: the split must not shrink the target the
+                // whole row used to give.
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showColorPicker = true }
+                        .semantics { contentDescription = colorLabel },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(ComposeColor(MarkerColors.of(form.colorIndex)))
+                            .border(1.dp, divider, RoundedCornerShape(4.dp))
+                    )
+                }
             }
             if (showIconPicker) {
                 IconPickerDialog(
@@ -148,6 +191,17 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
                         showIconPicker = false
                     },
                     onDismiss = { showIconPicker = false }
+                )
+            }
+            if (showColorPicker) {
+                ShowMarkerColorPicker(
+                    visible = true,
+                    currentColorIndex = form.colorIndex,
+                    onColorSelected = { index ->
+                        viewModel.updateForm { it.copy(colorIndex = index) }
+                        showColorPicker = false
+                    },
+                    onDismiss = { showColorPicker = false }
                 )
             }
         }

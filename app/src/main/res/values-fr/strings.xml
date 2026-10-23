@@ -387,7 +387,6 @@
     <string name="marker_delete_confirm">Supprimer \"%1$s\" ? Action irréversible.</string>
     <string name="marker_unnamed">ce repère</string>
     <!-- Le nom sous lequel un repère est enregistré quand son formulaire a laissé le nom vide. -->
-    <string name="marker_default_name">Repère</string>
     <string name="action_delete">Supprimer</string>
     <string name="action_cancel">Annuler</string>
     <string name="action_resume">Reprendre</string>
@@ -399,6 +398,27 @@
     <string name="cd_resume_recording">Reprendre l\'enregistrement</string>
     <string name="cd_follow_route">Suivre la route</string>
     <string name="marker_color_title">Couleur du repère</string>
+    <string name="color_picker_title">Choisir une couleur</string>
+    <string name="marker_color_name_black">Noir</string>
+    <string name="marker_color_name_gold">Or</string>
+    <string name="marker_color_name_green">Vert</string>
+    <string name="marker_color_name_lime">Citron vert</string>
+    <string name="marker_color_name_orange">Orange</string>
+    <string name="marker_color_name_grey">Gris</string>
+    <string name="marker_color_name_vivid_violet">Violet vif</string>
+    <string name="marker_color_name_red">Rouge</string>
+    <string name="marker_color_name_spring_green">Vert printemps</string>
+    <string name="marker_color_name_purple">Violet</string>
+    <string name="marker_color_name_light_green">Vert clair</string>
+    <string name="marker_color_name_amber">Ambre</string>
+    <string name="marker_color_name_azure">Azur</string>
+    <string name="marker_color_name_cyan">Cyan</string>
+    <string name="marker_color_name_hot_magenta">Magenta vif</string>
+    <string name="marker_color_name_white">Blanc</string>
+    <string name="marker_color_name_pale_yellow">Jaune pâle</string>
+    <string name="marker_color_name_coral">Corail</string>
+    <string name="marker_color_name_silver">Argent</string>
+    <string name="marker_color_name_heavy_blue">Bleu intense</string>
     <string name="marker_icon_title">Icône du repère</string>
     <string name="marker_icon_none">Aucune (✕)</string>
     <string name="marker_empty">Aucun repère</string>
@@ -430,7 +450,6 @@
     <string name="filter_option_no_route_role">Aucun</string>
     <string name="filter_option_routing_only">Routage seul</string>
     <string name="filter_option_normal">Normal</string>
-    <string name="color_picker_title">Choisir une couleur</string>
     <string name="settings_section_depth_map">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
     <string name="action_regenerate">Régénérer</string>
@@ -778,7 +797,13 @@
          le pas que la recherche a évalué, entre parenthèses — puis la préférence ; `settings_route_pace_value_fmt`
          rend le pas. -->
     <string name="route_header_landed_fmt">Calculées %1$d/%2$d</string>
-    <string name="route_header_pace_any_fmt">Indifférent (%1$s)</string>
+    <string name="route_header_pace_any_fmt">Live (%1$s, %2$s)</string>
+    <!-- D\'où vient la vitesse que « Live » planifie : les relevés de ce trajet, la vitesse enregistrée du jour,
+         l\'historique appris, ou la valeur livrée par défaut. -->
+    <string name="route_pace_source_live">Direct</string>
+    <string name="route_pace_source_today">Du jour</string>
+    <string name="route_pace_source_history">Historique</string>
+    <string name="route_pace_source_default">Par défaut</string>
     <!-- L\'étape de l\'acquisition, telle que l\'ensemble fermé du moteur la publie : un mot par
          frontière traversée, dans l\'ordre où elles le sont. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -847,12 +872,32 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Vitesse de croisière</string>
-    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent. Sur Indifférent, la route planifie à la vitesse de votre bateau.</string>
+    <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent. Sur Live, la route planifie à la vitesse de votre bateau.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f nd</string>
-    <string name="settings_route_pace_any">Indifférent</string>
+    <string name="settings_route_pace_any">Live</string>
     <!-- Le mot propre au sélecteur rapide pour ce même arrêt : la roue liste des valeurs, la sentinelle -->
     <!-- s\'y lit donc entre tirets, alors que la ligne des réglages garde le mot simple. -->
-    <string name="settings_route_pace_any_wheel">--Indifférent--</string>
+    <string name="settings_route_pace_any_wheel">--Live--</string>
+    <!-- La section Historique de vitesse : la fenêtre apprise et son calcul. -->
+    <string name="settings_section_speed_history">Historique de vitesse</string>
+    <string name="settings_speed_history_track_count_label">Trajets à retenir</string>
+    <string name="settings_speed_history_track_count_desc">Combien de trajets récents l\'historique retient.</string>
+    <string name="settings_speed_history_calculate">Calculer l\'historique</string>
+    <string name="settings_speed_history_reset_fmt">Historique réinitialisé le %1$s à %2$s.</string>
+    <string name="settings_speed_history_today_fmt">Vitesse aujourd\'hui : %1$s.</string>
+    <string name="settings_speed_history_none">Pas encore d\'historique — appuyez sur Calculer.</string>
+    <string name="settings_speed_history_pace_now_fmt">Vitesse actuelle : %1$s · %2$s</string>
+    <string name="settings_speed_history_window_label">Fenêtre de vitesse</string>
+    <string name="settings_speed_history_window_desc">Combien de temps un changement de vitesse doit durer avant que Live le suive : moins d\'un quart de la fenêtre est ignoré, à partir des trois quarts il est suivi entièrement.</string>
+    <string name="settings_speed_history_window_value_fmt">%1$d min</string>
+    <string name="settings_speed_history_demo_label">Inclure les trajets démo</string>
+    <string name="settings_speed_history_demo_desc">Compter dans l\'historique les trajets enregistrés en mode démo.</string>
+    <!-- Le retour de Calculer, une fois le calcul fini : combien de trajets il a lus, ou qu\'aucun ne convenait. -->
+    <plurals name="settings_speed_history_calculated">
+        <item quantity="one">Historique de vitesse calculé à partir de %d trajet.</item>
+        <item quantity="other">Historique de vitesse calculé à partir de %d trajets.</item>
+    </plurals>
+    <string name="settings_speed_history_none_eligible">Aucun trajet éligible — historique de vitesse inchangé.</string>
     <!-- Le cadran du verdict : le poids d\'une seconde d\'eau lente face à une seconde de trajet. Ses
          arrêts sont les pastilles du poids et les deux extrémités de la piste, et son arrêt du haut est
          le sentinelle qui ne pèse que les secondes lentes — nommé, jamais numéroté. -->
@@ -861,10 +906,6 @@
     <string name="settings_route_slow_water_value_fmt">%1$sx</string>
     <string name="settings_route_slow_water_fastest">Plus rapide</string>
     <string name="settings_route_slow_water_ignore_time">Ignorer le temps</string>
-    <string name="settings_section_route_marker">Tarification des repères</string>
-    <string name="settings_route_marker_strength_label">Force des repères</string>
-    <string name="settings_route_marker_strength_desc">L\'intensité avec laquelle un repère à coût écarte la route de sa zone. Un repère bloqué est un mur et l\'ignore.</string>
-    <string name="settings_route_marker_strength_value_fmt">%1$.1f\u00d7</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les trois lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>

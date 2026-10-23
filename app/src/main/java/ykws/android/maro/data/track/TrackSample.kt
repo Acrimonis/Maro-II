@@ -16,5 +16,7 @@ data class TrackSample(
     val bearingDeg: Float?,
     val hasLock: Boolean,
     val timestampEpochMs: Long,
-    val accuracyM: Float? = null
+    val accuracyM: Float? = null,
+    /** True for a sample the UI assembled from the simulated demo boat; a GPS sample is never one. */
+    val isDemo: Boolean = false
 )

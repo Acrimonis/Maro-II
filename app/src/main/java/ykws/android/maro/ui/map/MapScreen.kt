@@ -194,6 +194,7 @@ import ykws.android.maro.data.route.MarkerRouteFlags
 import ykws.android.maro.data.route.RouteEndSelection
 import ykws.android.maro.data.route.routeEndEntries
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.settings.SelectionEyeStore
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
@@ -681,15 +682,12 @@ fun MapScreen(
     // ── Selected-track rendering override ──────────────────────────────
     // Each kind's two axes are stored state (`appSettings.trackArrows` / `trackColours` for tracks,
     // `routeSpeedArrows` / `routeSpeedColor` for routes), written by their own surfaces, so the map only
-    // reads them — no kind is master over another (2026-10-07). The drawer eye's own value (D10) is
-    // **local to the open card since 2026-10-07**: keyed on the open id, null while it has never been
-    // tapped so the selection mirrors its kind's colours axis, true bands that one track, false paints it
-    // gold, and the card's close clears it. Nothing is written to disk, so it outlives neither the card
-    // nor the session; it moves that track's fill alone, since the chevrons follow the arrows axis.
-    var eyeOverride by remember(highlightedTrackId) { mutableStateOf<Boolean?>(null) }
+    // reads them — no kind is master over another (2026-10-07). The selected item's own toggle is the
+    // per-kind persisted eye declared beside the local context below (2026-10-23): on bands the fill,
+    // off paints the gold highlight, and it never touches either kind's axes.
+    var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
-    var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
 
     // ── Inspect mode (plan §1) ───────────────────────────────────────────
     // Session-lived and never persisted. The sleuth square arms the mode; the state below is the
@@ -781,7 +779,7 @@ fun MapScreen(
                     { routeSearchPaceKn.value },
                     { viewModel.settings.value.verdictWeight },
                     avoidWorldProvider,
-                    { viewModel.settings.value.routeMarkerStrength.toDouble() }
+                    { AppConfig.routeMarkerCostPerStep }
                 )
         )
     }
@@ -798,6 +796,7 @@ fun MapScreen(
         )
     val routeState by routeViewModel.state.collectAsState()
     val routePaceKn by routeViewModel.paceKn.collectAsState()
+    val routeNowPace by routeViewModel.nowPace.collectAsState()
     LaunchedEffect(appSettings.routeFreeWaterPaceKn, routePaceKn) {
         routeSearchPaceKn.value = AppConfig.routePaceForSearchKn(
             appSettings.routeFreeWaterPaceKn.toDouble(),
@@ -1140,6 +1139,13 @@ fun MapScreen(
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
+    // ── The selected-item speed toggle, persisted per kind (2026-10-23) ──
+    // Two private prefs booleans, not part of AppSettings and seeded by no properties key; off by
+    // default. On bands the selected item's fill, off paints its gold highlight — the chevrons stay the
+    // arrows axis' business either way.
+    val selectionEyeStore = remember { SelectionEyeStore(context) }
+    var trackEyeOverride by remember { mutableStateOf(selectionEyeStore.trackEye()) }
+    var routeEyeOverride by remember { mutableStateOf(selectionEyeStore.routeEye()) }
     // ── Screen-lock toggle: flip state + toast ──────────────────────────
     val onToggleScreenLock = {
         val newLocked = !screenLocked
@@ -1196,7 +1202,7 @@ fun MapScreen(
         heavyJob = depthRasterGenerating != null,
         position = gpsPosition,
         avoidWorldProvider = avoidWorldProvider,
-        markerStrength = { appSettings.routeMarkerStrength.toDouble() }
+        markerStrength = { AppConfig.routeMarkerCostPerStep }
     )
     /**
      * The position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — and
@@ -1636,6 +1642,45 @@ fun MapScreen(
         trackSavedToastAt = SystemClock.elapsedRealtime()
     }
 
+    // ── First launch: seed the speed history from the tracks list, once, when no history exists yet ──
+    LaunchedEffect(Unit) {
+        if (viewModel.settings.value.routeSpeedHistoryTrips.isNotEmpty()) return@LaunchedEffect
+        // Wait, bounded, for both the speed-zone index (so the seed's exclusion applies) and the loaded
+        // track list; the list arriving is the retry.
+        val ready = kotlinx.coroutines.withTimeoutOrNull(SPEED_HISTORY_SEED_WAIT_MS) {
+            kotlinx.coroutines.flow.combine(
+                viewModel.speedZoneIndexState,
+                trackViewModel.summaries
+            ) { index, list -> index != null && list.isNotEmpty() }.first { it }
+        }
+        if (ready == null) return@LaunchedEffect
+        val store = seedSpeedHistory(trackViewModel) { lat, lon -> viewModel.isRouteRestricted(lat, lon) }
+        // A seed never overwrites a history that appeared while it ran (a Calculate, a finished trip).
+        if (store.isNotEmpty()) {
+            viewModel.updateSettings {
+                if (it.routeSpeedHistoryTrips.isEmpty()) it.withSeededHistory(store, System.currentTimeMillis()) else it
+            }
+        }
+    }
+
+    // ── A recorded trip starts or ends: the pace restarts from the day's saved live pace, else the history ──
+    LaunchedEffect(trackRecorderState.state) {
+        if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
+            routeViewModel.startTrip()
+        } else {
+            routeViewModel.endTrip()
+        }
+    }
+
+    // ── The day's pace: the live pace is saved under its trip's date, while it is Live ──
+    LaunchedEffect(routeViewModel) {
+        saveDayPace(
+            pace = routeViewModel.nowPace,
+            tripDate = { routeViewModel.tripDateIso },
+            clockMs = SystemClock::elapsedRealtime
+        ) { kn, date -> viewModel.updateSettings { it.withDayPace(kn, date) } }
+    }
+
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
@@ -1656,7 +1701,19 @@ fun MapScreen(
                         markersViewModel.closeDrawer()
                     }
                 }
-                is ykws.android.maro.data.track.TrackEvent.Finalized -> toastSaved(event.name)
+                is ykws.android.maro.data.track.TrackEvent.Finalized -> {
+                    toastSaved(event.name)
+                    // Fold the finished trip into the speed history: one trip, its cruising speed and its
+                    // open-water minutes, appended live. The Calculate snapshot is left as it stood.
+                    trackScope.launch {
+                        val track = trackViewModel.loadTrackDetailCached(event.trackId) ?: return@launch
+                        val summaries = trackViewModel.allSummaries.value
+                        val trip = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                            finishedTripForHistory(track, summaries) { lat, lon -> viewModel.isRouteRestricted(lat, lon) }
+                        } ?: return@launch
+                        viewModel.updateSettings { it.withFoldedTrip(trip) }
+                    }
+                }
                 is ykws.android.maro.data.track.TrackEvent.Resumed -> {
                     // Restore checkpoint points to the live polyline on Continue.
                     // The polyline may not exist yet (Compose hasn't recomposed after state→ON),
@@ -1763,10 +1820,8 @@ fun MapScreen(
     MapTrackOverlayHistoryDiff(
         mapView = mapView,
         showSettings = chrome.showSettings,
-        highlightedTrackId = highlightedTrackId,
         trackArrows = appSettings.trackArrows,
         trackColours = appSettings.trackColours,
-        eyeOverride = eyeOverride,
         allTrackSummaries = allTrackSummaries,
         // The card doors' deferred deletes, hidden from the drawn set while the snackbar waits.
         hiddenTrackIds = hiddenTrackIds,
@@ -1775,6 +1830,22 @@ fun MapScreen(
         paintedTrackIds = paintedTrackIds,
         trackViewModel = trackViewModel,
         rebuildGeneration = trackRebuildGeneration
+    )
+
+    // ── The selected item's own line (2026-10-23) ────────────────────────
+    // Keyed on the selection alone, so a selection change swaps this one overlay instead of rebuilding
+    // every stored line — that is what removes the flicker. It re-stacks on each bulk rebuild.
+    MapTrackSelectionOverlay(
+        mapView = mapView,
+        highlightedTrackId = highlightedTrackId,
+        trackArrows = appSettings.trackArrows,
+        trackColours = appSettings.trackColours,
+        trackEyeOverride = trackEyeOverride,
+        routeEyeOverride = routeEyeOverride,
+        allTrackSummaries = allTrackSummaries,
+        appSettings = appSettings,
+        trackViewModel = trackViewModel,
+        rebuildGeneration = trackRebuildGeneration.value
     )
 
     // ── Live-recording overlay effects (extracted to MapTrackOverlayEffects) ──
@@ -2179,6 +2250,7 @@ fun MapScreen(
                     // and a hand-off left standing here would swallow every close and hold the centre
                     // until the toggle (plan §5).
                     if (inspectHandoff != null) abandonInspectOpen()
+                    Log.d(INSPECT_LOG_TAG, "marker not found id=${id}")
                     return
                 }
                 // R1: one selected item at a time — opening a marker detail closes the track detail
@@ -2723,7 +2795,7 @@ fun MapScreen(
                         id = id,
                         walkWorld = cursor?.ladderIds,
                         closeTrackCard = held == null,
-                        markerLookup = cursor?.resolveMarker,
+                        markerLookup = cursor?.resolveMarker ?: { lookupId -> markersViewModel.mapMarkers.value.find { it.id == lookupId } },
                         walkWorldSource = DrawerSource.INSPECT,
                         frame = frame
                     )
@@ -2749,6 +2821,7 @@ fun MapScreen(
                 inspectCursor = cursor
                 inspectCandidate = null
                 openInspectCard(next.id, next.kind, cursor, frame = true)
+                Log.d(INSPECT_LOG_TAG, "step idx=${cursor.index} ${next.kind}:${next.id.take(8)} dist=${next.distanceM.toInt()}")
             }
 
             /**
@@ -2850,10 +2923,14 @@ fun MapScreen(
                         }
                         UserMarker(
                             id = "__unconfirmed__",
-                            name = createForm.name.ifBlank { "New Marker" },
+                            name = createForm.name,
                             geometry = geometry,
                             description = createForm.description,
                             proximityOverrideM = createForm.proximityOverrideM.toDoubleOrNull(),
+                            // The form's colour rides on the preview: the overlay draws it as the
+                            // marker's own colour (MarkerAppearance.isPreview), so a swatch picked in
+                            // the wizard shows on the map before Finish.
+                            colorIndex = createForm.colorIndex,
                             confirmed = false
                         )
                     } else null
@@ -2999,7 +3076,7 @@ fun MapScreen(
                 // sweep shows is gold only where a selection would be gold (plan §4).
                 trackArrows = appSettings.trackArrows,
                 trackColours = appSettings.trackColours,
-                eyeOverride = eyeOverride,
+                eyeOverride = trackEyeOverride,
                 // The live acquire (plan §1): every sweep publishes the true closest, and the panel's
                 // presence is that answer's presence — opened at once, swapped on a change of nearest,
                 // closed when the anchor loses its target. A panel of the map's own (the menu, the
@@ -3344,9 +3421,8 @@ fun MapScreen(
                             gpsMode = appSettings.gpsMode,
                             speedKn = navigationState.speedKnots,
                             // A reading taken inside a zone or the band measures the limit, not the
-                            // boat, and RoutePace drops it for that reason.
+                            // boat, and the pace ignores it for that reason.
                             positionRestricted = inZone300 || zoneSituation?.currentZone != null,
-                            setPaceKn = appSettings.routeFreeWaterPaceKn,
                             // The followed line's colour: the same settings value the toggle's
                             // acquiring face wears, so the two cannot drift (R51).
                             routeLineColor = appSettings.routeLineColor,
@@ -3411,6 +3487,7 @@ fun MapScreen(
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
                         paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        paceSource = routeNowPace.source,
                         rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },
@@ -3460,6 +3537,7 @@ fun MapScreen(
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
                         paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        paceSource = routeNowPace.source,
                         rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onMeasuredHeight = { h ->
@@ -3526,14 +3604,15 @@ fun MapScreen(
             // object, whose fields are plain values no recomposition alone can invalidate, and on the eye
             // as well — its state is recreated with the open card, so a key the settings object alone
             // would miss and the retained derivation would close over the discarded state (R6).
-            val legendVisible by remember(appSettings, eyeOverride) {
+            val legendVisible by remember(appSettings, trackEyeOverride, routeEyeOverride) {
                 derivedStateOf {
                     legendVisibleForState(
                         paintedIds = paintedTrackIds.value,
                         arrowAxis = appSettings.trackArrows,
                         coloursAxis = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
-                        eyeOverride = eyeOverride,
+                        trackEyeOverride = trackEyeOverride,
+                        routeEyeOverride = routeEyeOverride,
                         tracksVisible = appSettings.tracksVisible,
                         routesVisible = appSettings.routesVisible,
                         // The painted routes, so the planner reads each of them as the role it is; read
@@ -3715,6 +3794,7 @@ fun MapScreen(
             inspectCursor = InspectCursor.at(ladder, target.id) { id ->
                 markersViewModel.mapMarkers.value.find { it.id == id }
             }
+            Log.d(INSPECT_LOG_TAG, "recentre target=${target.kind}:${target.id.take(8)} idx=${inspectCursor?.index} head=${ladder.take(8).joinToString { "${it.kind}:${it.id.take(8)}:${it.distanceM.toInt()}" }}")
             inspectRecentring = true
             when (target.kind) {
                 InspectKind.MARKER -> markersViewModel.mapMarkers.value
@@ -3913,6 +3993,37 @@ fun MapScreen(
             pendingDeletions = pendingDeleteIds
         )
 
+        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
+        // Composed before OverlayLayer so the menu drawer and its scrim paint above it: a toast can
+        // never display over the open menu.
+        MapSnackbarHost(
+            activeSnacks = activeSnacks,
+            isLandscape = isLandscape,
+            dashboardBandHeight = dashboardBandHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            tagsDrawn = bandTagsDrawn,
+            // The route ending's toast is answered here, inside the route block where the disposal
+            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
+            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
+            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
+            // of disposing a restored route. Every other snack keeps its own handler.
+            onUndo = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
+                } else onSnackUndo(snack)
+            },
+            onTimeout = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
+                } else onSnackTimeout(snack)
+            },
+            onSecondAction = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
+                }
+            }
+        )
+
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
         OverlayLayer(
             chrome = OverlayChrome(
@@ -3939,6 +4050,7 @@ fun MapScreen(
             // it replaces instead of snapping through the floor (2026-10-07).
             initialDashboardHeight = dashboardBand.lastShown,
             onDashboardMeasuredHeight = { dashboardBand.measuredBottom = it; dashboardBand.lastShown = it },
+            routeRestricted = { lat, lon -> viewModel.isRouteRestricted(lat, lon) },
             onDismissSettings = { chrome.showSettings = false },
             onDismissMenu = { chrome.showTrackDrawer = false },
             onDismissTrackHistory = { chrome.showTrackHistory = false },
@@ -4067,6 +4179,7 @@ fun MapScreen(
                 navigationScrollState = navigationScrollState,
                 routingScrollState = routingScrollState,
                 systemScrollState = systemScrollState,
+                paceNow = routeNowPace,
             ),
             onTabChange = { chrome.selectedTab = it },
             onRegenerateRasters = { steps -> regenerateRasterLayers(state, viewModel, depthViewModel, context, appSettings, steps) },
@@ -4154,12 +4267,17 @@ fun MapScreen(
                 // Only a step's open holds the card: a live acquire's swap must not grey the walk
                 // buttons, or they flash on every change of nearest (2026-10-07).
                 inspectHandoff = inspectHandoff.takeIf { inspectCursorBeforeStep != null },
-                appSettings = appSettings,
-                eyeOverride = eyeOverride,
-                // The eye lives only while this card is open (2026-10-07): the tap flips the local value,
-                // which is cleared with the card, and nothing is written to disk.
+                bandedOn = if (trackDrawerState.track?.route == true) routeEyeOverride else trackEyeOverride,
+                // The tap flips the open kind's own persisted boolean (2026-10-23): on bands the fill,
+                // off paints its gold highlight, and the kind's stored axes are never touched.
                 onToggleEyeOverride = {
-                    eyeOverride = selectionBandedAfterTap(eyeOverride, appSettings.trackColours)
+                    if (trackDrawerState.track?.route == true) {
+                        routeEyeOverride = !routeEyeOverride
+                        selectionEyeStore.setRouteEye(routeEyeOverride)
+                    } else {
+                        trackEyeOverride = !trackEyeOverride
+                        selectionEyeStore.setTrackEye(trackEyeOverride)
+                    }
                 },
             ),
             onTrackDrawerClose = { closeTrackDrawer() },
@@ -4276,35 +4394,6 @@ fun MapScreen(
             val savedMarker = userMarkers.find { it.id == id }
             enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: context.getString(R.string.name_unknown)))
         }
-
-        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
-        MapSnackbarHost(
-            activeSnacks = activeSnacks,
-            isLandscape = isLandscape,
-            dashboardBandHeight = dashboardBandHeight,
-            landscapeDashboardWidth = landscapeDashboardWidth,
-            tagsDrawn = bandTagsDrawn,
-            // The route ending's toast is answered here, inside the route block where the disposal
-            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
-            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
-            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
-            // of disposing a restored route. Every other snack keeps its own handler.
-            onUndo = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
-                } else onSnackUndo(snack)
-            },
-            onTimeout = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
-                } else onSnackTimeout(snack)
-            },
-            onSecondAction = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
-                }
-            }
-        )
 
         // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
         MapDialogHost(
