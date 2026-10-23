@@ -27,6 +27,13 @@ const val REGULATED_ZONE_MIN_ZOOM = 10.0
 /** Number of horizontal strips per depth raster overlay — see [addBandedOverlay]. ~8 ⇒ sub-metre. */
 const val DEPTH_OVERLAY_BANDS = 8
 
+/**
+ * A [GroundOverlay] carrying a base-layer tag. osmdroid's [GroundOverlay] has no `title`, so the two
+ * raster layers (depth colour map, low-depth warning) ride a tiny subclass instead; [OverlayZOrder]
+ * reads [layerTag] through its own `titleOf`.
+ */
+internal class TitledGroundOverlay(val layerTag: String) : GroundOverlay()
+
 // ── The baked strokes below, in dp ───────────────────────────────────────────────────────────────
 // These strokes have no caller to hand them over, so each is a dp constant this file converts with the
 // map view's own density. The reference density is 3×: every value is the px it used to be, over three.
@@ -136,6 +143,7 @@ fun drawCoastline(
             // where the px the paint takes is written.
             val hazardDensity = mapView.paintDensity
             val disc = Polygon().apply {
+                title = OverlayZOrder.LAYER_COASTLINE
                 setPoints(osmPoints)
                 fillPaint.color = AppConfig.mapHazardDiscFill   // vivid yellow (#FFE800) — full circle
                 fillPaint.isAntiAlias = true
@@ -149,6 +157,7 @@ fun drawCoastline(
             val cLon = (osmPoints.minOf { it.longitude } + osmPoints.maxOf { it.longitude }) / 2.0
             // Outer black ring, concentric with the disc (~1.6× radius).
             val outerRing = Polyline().apply {
+                title = OverlayZOrder.LAYER_COASTLINE
                 setPoints(osmPoints.map {
                     GeoPoint(cLat + (it.latitude - cLat) * 1.6, cLon + (it.longitude - cLon) * 1.6)
                 })
@@ -164,6 +173,7 @@ fun drawCoastline(
             val hLat = (osmPoints.maxOf { it.latitude } - osmPoints.minOf { it.latitude }) / 2.0 * 1.8
             val hLon = (osmPoints.maxOf { it.longitude } - osmPoints.minOf { it.longitude }) / 2.0 * 1.8
             val crossH = Polyline().apply {
+                title = OverlayZOrder.LAYER_COASTLINE
                 setPoints(listOf(GeoPoint(cLat, cLon - hLon), GeoPoint(cLat, cLon + hLon)))
                 outlinePaint.apply {
                     color = Color.BLACK
@@ -174,6 +184,7 @@ fun drawCoastline(
             mapView.overlays.add(crossH)
             sink.add(crossH)
             val crossV = Polyline().apply {
+                title = OverlayZOrder.LAYER_COASTLINE
                 setPoints(listOf(GeoPoint(cLat - hLat, cLon), GeoPoint(cLat + hLat, cLon)))
                 outlinePaint.apply {
                     color = Color.BLACK
@@ -187,6 +198,7 @@ fun drawCoastline(
         }
 
         val polyline = Polyline().apply {
+            title = OverlayZOrder.LAYER_COASTLINE
             setPoints(osmPoints)
             outlinePaint.apply {
                 color = if (segment.isMainland) mainlandColor else islandColor
@@ -228,6 +240,7 @@ fun drawZone300(
     for (poly in zone.fillPolygons) {
         if (poly.outer.size < 3) continue
         val fill = Polygon().apply {
+            title = OverlayZOrder.LAYER_ZONE300
             setPoints(poly.outer.map { GeoPoint(it.latitude, it.longitude) })
             val validHoles = poly.holes.filter { it.size >= 3 }
             if (validHoles.isNotEmpty()) {
@@ -245,6 +258,7 @@ fun drawZone300(
     for (line in zone.seawardLines) {
         if (line.size < 2) continue
         val redLine = Polyline().apply {
+            title = OverlayZOrder.LAYER_ZONE300
             setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
             outlinePaint.apply {
                 color = Color.argb(boundaryAlpha, Color.red(zoneColor), Color.green(zoneColor), Color.blue(zoneColor))
@@ -285,6 +299,7 @@ fun drawRegulatedZones(
 
         val color = regulatedZoneColor(zone.zoneType)
         val fill = Polygon().apply {
+            title = OverlayZOrder.LAYER_REGULATED_ZONE
             setPoints(zone.outerRing.map { GeoPoint(it.latitude, it.longitude) })
             val validHoles = zone.holes.filter { it.size >= 3 }
             if (validHoles.isNotEmpty()) {
@@ -315,6 +330,7 @@ fun addBandedOverlay(
     bitmap: Bitmap,
     box: BoundingBox,
     bands: Int,
+    layerTag: String,
     sink: MutableList<GroundOverlay>
 ) {
     val w = bitmap.width
@@ -329,7 +345,7 @@ fun addBandedOverlay(
         // Bitmap row 0 = north; latitude is linear in pixel row, so split proportionally.
         val latNorthStrip = box.latNorth - latSpan * (y0.toDouble() / h)
         val latSouthStrip = box.latNorth - latSpan * (y1.toDouble() / h)
-        val overlay = GroundOverlay().apply {
+        val overlay = TitledGroundOverlay(layerTag).apply {
             setImage(Bitmap.createBitmap(bitmap, 0, y0, w, sliceH))
             setPosition(
                 GeoPoint(latNorthStrip, box.lonWest),
@@ -358,7 +374,7 @@ fun drawDepthMap(
 ) {
     sink.clear()
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, sink)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, OverlayZOrder.LAYER_DEPTH_RASTER, sink)
 }
 
 /**
@@ -376,7 +392,7 @@ fun drawLowDepthWarning(
 ) {
     sink.clear()
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, sink)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, OverlayZOrder.LAYER_LOW_DEPTH_WARNING, sink)
 }
 
 /**
@@ -406,6 +422,7 @@ fun drawIsobaths(
         for (line in iso.lines) {
             if (line.points.size < 2) continue
             val poly = Polyline().apply {
+                title = OverlayZOrder.LAYER_ISOBATH
                 setPoints(line.points.map { GeoPoint(it.latitude, it.longitude) })
                 outlinePaint.apply {
                     color = AppConfig.isobarColor(line.source)   // colour by data source

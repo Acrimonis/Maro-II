@@ -9,7 +9,7 @@ import ykws.android.maro.ui.map.OverlayZOrder.TrackTier
  * **The track band's three tiers, as far as the JVM can honestly see them.**
  *
  * The band is one list of prefixes to [OverlayZOrder], and since 2026-09-28 it is three tiers applied in
- * a fixed order: **stored tracks → the route's own overlays → the live recording**, so the route green
+ * a fixed order: **tracks → the route's own overlays → the live recording**, so the route green
  * paints over every track but the one being recorded.
  *
  * The classification is a **pure function of the title** precisely so this file can exist:
@@ -23,10 +23,10 @@ class OverlayTrackTierTest {
 
     @Test
     fun `every stored track sits in the tier the route paints over`() {
-        assertEquals(TrackTier.STORED, OverlayZOrder.trackTierOf("track_hist_42"))
-        assertEquals(TrackTier.STORED, OverlayZOrder.trackTierOf("track_pin_42"))
-        assertEquals(TrackTier.STORED, OverlayZOrder.trackTierOf("track_arrow_42"))
-        assertEquals(TrackTier.STORED, OverlayZOrder.trackTierOf("track_inspect_42"))
+        assertEquals(TrackTier.TRACK, OverlayZOrder.trackTierOf("track_hist_42"))
+        assertEquals(TrackTier.TRACK, OverlayZOrder.trackTierOf("track_pin_42"))
+        assertEquals(TrackTier.TRACK, OverlayZOrder.trackTierOf("track_arrow_42"))
+        assertEquals(TrackTier.TRACK, OverlayZOrder.trackTierOf("track_inspect_42"))
     }
 
     @Test
@@ -43,9 +43,9 @@ class OverlayTrackTierTest {
     }
 
     @Test
-    fun `the tier order is stored, then route, then live`() {
+    fun `the tier order is track, then route, then live`() {
         // The enum's declaration order is the order `reorder` sorts by, so this is the rule itself.
-        assertTrue(TrackTier.STORED.ordinal < TrackTier.ROUTE.ordinal)
+        assertTrue(TrackTier.TRACK.ordinal < TrackTier.ROUTE.ordinal)
         assertTrue(TrackTier.ROUTE.ordinal < TrackTier.LIVE.ordinal)
     }
 
