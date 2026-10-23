@@ -55,9 +55,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
@@ -2077,7 +2074,9 @@ private fun ColorRow(
 }
 
 /**
- * A reusable color picker dialog showing a grid of preset colors.
+ * The settings rows' door onto the one colour picker: a raw ARGB in and out, mapped to the palette
+ * index the grid works in. A stored colour that is not a palette member maps to null, so no swatch
+ * reads as selected — the picker's own documented behaviour.
  */
 @Composable
 private fun ColorPickerDialog(
@@ -2085,42 +2084,11 @@ private fun ColorPickerDialog(
     onColorSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.color_picker_title)) },
-        text = {
-            Column {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier.height(216.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(MarkerColors.all) { presetColor ->
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ComposeColor(presetColor))
-                                .border(
-                                    width = if (presetColor == currentColor) 3.dp else 1.dp,
-                                    color = if (presetColor == currentColor) ComposeColor(AppConfig.uiAccent)
-                                        else ComposeColor(AppConfig.uiDividerColor),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .clickable {
-                                    onColorSelected(presetColor)
-                                }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
-            }
-        }
+    ShowMarkerColorPicker(
+        visible = true,
+        currentColorIndex = MarkerColors.indexOf(currentColor),
+        onColorSelected = { index -> onColorSelected(MarkerColors.all[index]) },
+        onDismiss = onDismiss
     )
 }
 
