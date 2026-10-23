@@ -54,15 +54,16 @@ class TrackRecorderLifecycleTest {
         }
     }
 
-    private class Harness(dir: File) {
+    private class Harness(dir: File, clock: () -> Long = { System.nanoTime() / 1_000_000 }) {
         val repo = GatedRepository(dir)
         val samples = MutableSharedFlow<TrackSample>(extraBufferCapacity = 64)
         val recorder = TrackRecorder(
             repository = repo,
             config = TrackRecorderConfig(gpsMode = false, geofenceEnabled = false, simplifyEnabled = false),
             dispatcher = Dispatchers.Default,
-            // The platform's monotonic clock answers 0 in a plain JVM test; a real one drives the intervals.
-            monotonicNowMs = { System.nanoTime() / 1_000_000 }
+            // The platform's monotonic clock answers 0 in a plain JVM test; a real one drives the
+            // intervals unless a test hands in its own.
+            monotonicNowMs = clock
         )
         val events = CopyOnWriteArrayList<TrackEvent>()
         private val eventsSubscribed = CompletableDeferred<Unit>()
@@ -249,6 +250,41 @@ class TrackRecorderLifecycleTest {
             val recoverable = h.repo.recoverOrphanedCheckpoints().single()
             assertEquals("the checkpoint carries every point, not the stale two", 5, recoverable.trackPoints.size)
             assertEquals("renamed", recoverable.name)
+        } finally {
+            h.close()
+        }
+    }
+
+    @Test
+    fun pointOffsetsAndSavedTotalsFollowTheMonotonicClock() = runBlocking {
+        var mono = 10_000L
+        val h = Harness(temp.root) { mono }
+        try {
+            h.awaitSubscribed()
+            h.recorder.startManual()
+            h.awaitState(TrackRecorderState.ON)
+            // Three points a second apart on the recorder's own clock; the wall clock is not consulted.
+            repeat(3) { i ->
+                mono = 10_000L + i * 1_000L
+                h.samples.emit(
+                    TrackSample(
+                        position = LatLng(43.50 + i * 0.002, 7.00),
+                        speedMps = 3f, bearingDeg = 0f, hasLock = true,
+                        timestampEpochMs = 1_700_000_000_000L + i * 1_000L
+                    )
+                )
+                withTimeout(5_000) { h.recorder.uiState.first { it.pointCount >= i + 1 } }
+            }
+            mono = 12_000L
+            h.repo.gate.complete(Unit)
+            h.recorder.stop()
+            h.awaitState(TrackRecorderState.OFF)
+            h.awaitEvents { list -> list.any { it is TrackEvent.Finalized } }
+            val id = h.events.filterIsInstance<TrackEvent.Finalized>().single().trackId
+            val saved = checkNotNull(h.repo.load(id))
+            assertEquals(listOf(0L, 1_000L, 2_000L), saved.trackPoints.map { it.timeOffsetMs })
+            assertEquals("two seconds on the session clock, none idle", 2L, saved.navigatingDurationSec)
+            assertEquals(0L, saved.idleDurationSec)
         } finally {
             h.close()
         }

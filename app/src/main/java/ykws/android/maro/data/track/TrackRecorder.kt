@@ -259,6 +259,13 @@ class TrackRecorder(
     private var sessionStartMonoMs = 0L
     /** Seconds a resumed track had already spanned before this session, gap excluded. */
     private var priorElapsedSec = 0L
+    /**
+     * The offset (ms from the track's start) the first point of this session is measured from: 0 for a
+     * fresh track, the wall-clock distance from the track's start taken **once** at resume for a
+     * resumed one. Every later offset is this base plus monotonic time since the session began, so a
+     * clock correction mid-trip cannot stretch or fold the points' timeline.
+     */
+    private var offsetBaseMs = 0L
     private var cumulativeDistanceNm = 0f
     private var lastPointLat: Double? = null
     private var lastPointLon: Double? = null
@@ -449,6 +456,7 @@ class TrackRecorder(
         // resumed finalized track's gap between then and now is not time it was recording.
         val priorEndMs = track.endTimeMs ?: track.lastRealPointTimeMsOrNull() ?: track.startTimeMs
         priorElapsedSec = ((priorEndMs - track.startTimeMs) / 1000).coerceAtLeast(0L)
+        offsetBaseMs = (now - resumedTrack.startTimeMs).coerceAtLeast(0L)
         cumulativeDistanceNm = track.distanceNm
         speedSumMps = track.averageSpeedMps * track.trackPoints.size.coerceAtLeast(1)
         speedCount = track.trackPoints.size
@@ -694,6 +702,7 @@ class TrackRecorder(
         recordingStartTimeMs = now
         sessionStartMonoMs = monotonicNowMs()
         priorElapsedSec = 0L
+        offsetBaseMs = 0L
         cumulativeDistanceNm = 0f
         speedSumMps = 0f
         speedCount = 0
@@ -1064,9 +1073,10 @@ class TrackRecorder(
     private fun captureAcceptedPoint(sample: TrackSample) {
         val track = currentTrack ?: return
 
-        val now = System.currentTimeMillis()
-        val timeOffsetSec = ((now - recordingStartTimeMs) / 1000).toInt()
-        val rawMs = now - recordingStartTimeMs
+        // The point's place on the track's timeline: the session's base plus monotonic time since the
+        // session began — never the wall clock, which a GPS or network time resync can move mid-trip.
+        val rawMs = offsetBaseMs + (monotonicNowMs() - sessionStartMonoMs)
+        val timeOffsetSec = (rawMs / 1000).toInt()
         val timeOffsetMs = if (rawMs <= lastTimeOffsetMs) lastTimeOffsetMs + 1 else rawMs
         lastTimeOffsetMs = timeOffsetMs
         val point = TrackPoint(
