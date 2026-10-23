@@ -255,6 +255,10 @@ class TrackRecorder(
     private var currentTrack: Track? = null
     private var pointsSinceLastCheckpoint = 0
     private var recordingStartTimeMs = 0L
+    /** Monotonic time this recording session began — the base every saved total is measured from. */
+    private var sessionStartMonoMs = 0L
+    /** Seconds a resumed track had already spanned before this session, gap excluded. */
+    private var priorElapsedSec = 0L
     private var cumulativeDistanceNm = 0f
     private var lastPointLat: Double? = null
     private var lastPointLon: Double? = null
@@ -440,6 +444,11 @@ class TrackRecorder(
         // Restore track state
         currentTrack = resumedTrack
         recordingStartTimeMs = resumedTrack.startTimeMs
+        sessionStartMonoMs = monotonicNowMs()
+        // What the track already spanned: to its end when finalized, else to its last point; a
+        // resumed finalized track's gap between then and now is not time it was recording.
+        val priorEndMs = track.endTimeMs ?: track.lastRealPointTimeMsOrNull() ?: track.startTimeMs
+        priorElapsedSec = ((priorEndMs - track.startTimeMs) / 1000).coerceAtLeast(0L)
         cumulativeDistanceNm = track.distanceNm
         speedSumMps = track.averageSpeedMps * track.trackPoints.size.coerceAtLeast(1)
         speedCount = track.trackPoints.size
@@ -487,7 +496,7 @@ class TrackRecorder(
                 distanceNm = resumedTrack.distanceNm,
                 avgSpeedKn = resumedTrack.averageSpeedMps * Units.KNOTS_PER_MPS.toFloat(),
                 maxSpeedKn = resumedTrack.fastestSpeedMps * Units.KNOTS_PER_MPS.toFloat(),
-                elapsedSeconds = (now - resumedTrack.startTimeMs - resumeGapDurationSec) / 1000
+                elapsedSeconds = priorElapsedSec
             )
         }
 
@@ -677,6 +686,8 @@ class TrackRecorder(
             trackPoints = mutableListOf()
         )
         recordingStartTimeMs = now
+        sessionStartMonoMs = monotonicNowMs()
+        priorElapsedSec = 0L
         cumulativeDistanceNm = 0f
         speedSumMps = 0f
         speedCount = 0
@@ -1194,8 +1205,11 @@ class TrackRecorder(
         val finalizeTimeMs = System.currentTimeMillis()
 
         val avgMps = if (speedCount > 0) speedSumMps / speedCount else 0f
-        val totalElapsedSec = if (recordingStartTimeMs > 0) {
-            (finalizeTimeMs - recordingStartTimeMs) / 1000
+        // The total a track saves is measured on the monotonic session clock, prior span included,
+        // so a wall-clock correction during the trip cannot stretch or shrink it; the wall clock
+        // stamps only the end time stored beside it.
+        val totalElapsedSec = if (sessionStartMonoMs > 0) {
+            priorElapsedSec + (monotonicNowMs() - sessionStartMonoMs) / 1000
         } else 0L
         val simplifiedPoints = if (simplifyEnabled && track.trackPoints.size >= 3) {
             try {
@@ -1241,7 +1255,8 @@ class TrackRecorder(
             idleDurationSec = reconciledIdleSec,
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
-            navigatingDurationSec = (totalElapsedSec - reconciledIdleSec - resumeGapDurationSec).coerceAtLeast(0),
+            // The total already excludes a resume gap, so nothing is subtracted twice.
+            navigatingDurationSec = (totalElapsedSec - reconciledIdleSec).coerceAtLeast(0),
             updatedAtEpochMs = finalizeTimeMs
         ).let { it.copy(lastPointTimeMs = it.lastRealPointTimeMsOrNull() ?: 0L) }
 

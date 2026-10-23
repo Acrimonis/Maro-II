@@ -230,7 +230,7 @@
     <string name="dash_speed_zone_limit">Limite %.0f nd</string>
     <!-- Le sous-titre de la carte vitesse quand la lecture dépasse la limite de zone : la ligne de la
          limite, puis le dépassement dit en mots pour ne jamais reposer sur la seule couleur. -->
-    <string name="dash_speed_over_limit_fmt">%1$s · au-dessus de la limite</string>
+    <string name="dash_speed_over_limit_fmt">au-dessus de la limite · %1$s</string>
     <!-- Les repères de zone de la case distance : ce qui s\'étend au-delà de la zone quittée, et le cap
          vers la côte à l\'intérieur de la zone des 300 m. -->
     <string name="dash_beyond_open_water">eau libre</string>

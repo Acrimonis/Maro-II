@@ -231,7 +231,7 @@
     <string name="dash_speed_zone_limit">Limit %.0f kn</string>
     <!-- The speed card's subtitle once the reading is over the zone limit: the limit line, then the
          breach said in a word so it never rides on the colour alone. -->
-    <string name="dash_speed_over_limit_fmt">%1$s · over limit</string>
+    <string name="dash_speed_over_limit_fmt">over limit · %1$s</string>
     <!-- The distance cell's zone cues: what lies beyond the zone being left, and the inward heading
          inside the 300 m zone. -->
     <string name="dash_beyond_open_water">open water</string>

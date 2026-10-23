@@ -391,13 +391,15 @@ private fun AutoSizeValue(
     var contentSize by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
     val fontSize = if (contentSize != IntSize.Zero) {
-        val heightDp = with(density) { contentSize.height.toDp().value }
-        val widthDp = with(density) { contentSize.width.toDp().value }
-        val byHeight = heightDp * 0.70f
-        val byWidth = widthDp * 1.5f / text.length.coerceAtLeast(1)
-        // The fit is computed in dp; dividing by the font scale before `.sp` keeps it a fit under
-        // a large system font, the 14 sp floor standing as an sp floor.
-        (minOf(byHeight, byWidth) / density.fontScale).coerceAtLeast(14f)
+        // The fit is a size in dp; it becomes a text size through the density's own dp→sp, which is
+        // the platform's font scaling (non-linear from Android 14) rather than a flat division, so
+        // the fitted value stays a fit at every accessibility font size. The 14 sp floor stands.
+        val heightDp = with(density) { contentSize.height.toDp() }
+        val widthDp = with(density) { contentSize.width.toDp() }
+        val byHeightSp = with(density) { (heightDp * 0.70f).toSp() }
+        val byWidthSp = with(density) { (widthDp * 1.5f / text.length.coerceAtLeast(1)).toSp() }
+        val fitSp = if (byHeightSp.value <= byWidthSp.value) byHeightSp else byWidthSp
+        maxOf(fitSp.value, 14f)
     } else 32f
 
     Box(
