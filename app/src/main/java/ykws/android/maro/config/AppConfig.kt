@@ -56,8 +56,8 @@ object AppConfig {
 
     /**
      * **The marker price's linear strength** — the per-step factor the marker law scales the base
-     * per-metre cost by (`base × step × this`). The Routing row seeds from it and raises it live. Set
-     * via `route.marker.costPerStep`.
+     * per-metre cost by (`base × step × this`). Set via `route.marker.costPerStep`, which is its only
+     * home: no screen exposes it, so a marker's own rating is the whole of the user's say.
      */
     var routeMarkerCostPerStep = 1.0
         private set
@@ -736,12 +736,6 @@ object AppConfig {
      */
     var routeTurnReachFraction: Double = 1.0
         private set
-
-    /** Lowest marker price strength the Routing row accepts — one home for that end. */
-    const val ROUTE_MARKER_STRENGTH_MIN = 0.0
-
-    /** Highest marker price strength the Routing row accepts — one home for that end. */
-    const val ROUTE_MARKER_STRENGTH_MAX = 5.0
 
     /**
      * The speed zone's outside-margin price as a fraction of the interior's —

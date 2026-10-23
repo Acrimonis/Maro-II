@@ -778,7 +778,7 @@ fun MapScreen(
                     { routeSearchPaceKn.value },
                     { viewModel.settings.value.verdictWeight },
                     avoidWorldProvider,
-                    { viewModel.settings.value.routeMarkerStrength.toDouble() }
+                    { AppConfig.routeMarkerCostPerStep }
                 )
         )
     }
@@ -1192,7 +1192,7 @@ fun MapScreen(
         heavyJob = depthRasterGenerating != null,
         position = gpsPosition,
         avoidWorldProvider = avoidWorldProvider,
-        markerStrength = { appSettings.routeMarkerStrength.toDouble() }
+        markerStrength = { AppConfig.routeMarkerCostPerStep }
     )
     /**
      * The position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — and
