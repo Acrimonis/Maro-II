@@ -821,39 +821,39 @@ class MarkersViewModel(
             else _markers.value.find { it.id == markerId }) ?: return
         wizardDoor = door
         editingMarkerId = markerId
-        // Populate form from marker if not already populated by Viewing → Edit flow
-        if (_createForm.value.position == null || _createForm.value.name != marker.name) {
-            val pos = when (val g = marker.geometry) {
-                is MarkerGeometry.Pin -> g.position
-                is MarkerGeometry.Circle -> g.center
-                is MarkerGeometry.Corridor -> g.p1
-            }
-            val type = when (marker.geometry) {
-                is MarkerGeometry.Pin -> MarkerType.PIN
-                is MarkerGeometry.Circle -> MarkerType.CIRCLE
-                is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
-            }
-            val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 100.0
-            val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 100.0
-            val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
-            _createForm.value = CreateFormState(
-                name = marker.name,
-                type = type,
-                position = pos,
-                radiusM = radiusM,
-                widthM = widthM,
-                proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
-                description = marker.description,
-                colorIndex = marker.colorIndex ?: 0,
-                icon = marker.icon,
-                corridorP2 = corridorP2,
-                routingCost = validRoutingCost(marker.routingCost),
-                routeOrigin = marker.routeOrigin,
-                routeDestination = marker.routeDestination,
-                routingOnly = marker.routingOnly,
-                origin = marker.origin
-            )
+        // The form is always rebuilt from the marker being edited: the Viewing card may have moved
+        // Prev/Next since [openEditDrawer] populated it, and the old name-based reuse gate let a
+        // same-named neighbour carry the first marker's form into the edit (2026-10-23).
+        val pos = when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> g.position
+            is MarkerGeometry.Circle -> g.center
+            is MarkerGeometry.Corridor -> g.p1
         }
+        val type = when (marker.geometry) {
+            is MarkerGeometry.Pin -> MarkerType.PIN
+            is MarkerGeometry.Circle -> MarkerType.CIRCLE
+            is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
+        }
+        val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 100.0
+        val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 100.0
+        val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
+        _createForm.value = CreateFormState(
+            name = marker.name,
+            type = type,
+            position = pos,
+            radiusM = radiusM,
+            widthM = widthM,
+            proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
+            description = marker.description,
+            colorIndex = marker.colorIndex ?: 0,
+            icon = marker.icon,
+            corridorP2 = corridorP2,
+            routingCost = validRoutingCost(marker.routingCost),
+            routeOrigin = marker.routeOrigin,
+            routeDestination = marker.routeDestination,
+            routingOnly = marker.routingOnly,
+            origin = marker.origin
+        )
         // An edit never re-names its marker: whichever form the Viewing→Edit flow prepared, the stored
         // name is the user's. This also strips a stale nameIsAuto left by a create that was not reset.
         _createForm.value = _createForm.value.copy(nameIsAuto = false)

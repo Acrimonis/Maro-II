@@ -135,3 +135,6 @@ Standard format on drawer + management:
 ## 14. Build
 
 assembleDebug expected ✅
+
+## Outcome
+Shipped: the icon POI field, the embedded picker and IconPickerDialog, on-map rendering and timestamps; the icon-implies-pinned decision was later superseded by icon-pin-decoupling.

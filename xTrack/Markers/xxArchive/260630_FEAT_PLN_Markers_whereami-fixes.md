@@ -287,3 +287,6 @@ Steps 6-7 are accuracy/optimization improvements.
 4. Verify bearing display: "NW of MarkerName" now shows correct direction
 5. Verify no NPE with newly-created markers
 6. Rapid-tap boat marker: only last result displayed, no flicker
+
+## Outcome
+Superseded: the angular-shadow fixes were overtaken by the whereami-zone-los segment-intersection rewrite, which removed the angular pipeline; the bearing-direction and NPE fixes shipped through it.
