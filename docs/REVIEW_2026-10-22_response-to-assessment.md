@@ -15,6 +15,13 @@ happened since. All work is on [noahb/Maro-II#1](https://github.com/noahb/Maro-I
 commits (`299cfdb8`, `fa561bb4`, `84f185c0`, `4ded8c30`), reviewed twice with every reported code
 defect resolved; the full change record is `FIXES_2026-10-22_high-findings.md`.
 
+**Compiled and tested, 2026-10-23.** Two more pull requests stack on the first — #2 (battery and
+responsiveness on the water) and #4 (a GitHub Actions workflow, recorder lifecycle regression
+tests, release keep rules). The workflow's runs build the debug APK and pass the unit suite on every
+branch of the stack: 1 469 tests, zero failures, 18 skipped (the regional harness tier, whose baked
+assets are not in the repository), the five recorder lifecycle tests among the passes. Every code
+finding from five review rounds is resolved; what remains unverified is what needs a device.
+
 **Done**
 
 - Fifteen of the sixteen Highs (§5): H1 startup, H2–H9 recording durability and the importer, H10–H11
@@ -30,11 +37,10 @@ defect resolved; the full change record is `FIXES_2026-10-22_high-findings.md`.
 
 **Remaining, and what blocks the merge**
 
-- Validation, which the reviewer rightly holds the merge on and which needs a machine with a JDK and a
-  device: `:app:assembleDebug`, `:app:testDebugUnitTest`, a clean-install launch with no grants on
-  Android 14+, recorder regression tests (delayed persistence at exit, overlapping Stop and Discard,
-  a failed save with no or a stale checkpoint then retry, the corrupt-raster fallback), a landscape
-  compass check, and one cancelled large raster on a device.
+- Device validation: a clean-install launch with no grants on Android 14+, a landscape compass
+  check, marker z-order after a selection, the long-press unlock, a geofence auto-start at the
+  standby cadence, one cancelled large raster, and the raster owner's suspended-build takeover.
+  The build, the unit suite and the recorder regression tests are done (see above).
 - Two decisions: a `kxml2` test dependency so the ignored standard-GPX test can run, and whether the
   alarm channel (H14, §3) is in scope.
 - Medium findings not taken up, by area. UI: the marker overlay's wholesale rebuild on selection
