@@ -126,7 +126,15 @@ class DepthViewModel(
      * not cancellation-cooperative, so a superseded job keeps calling back for a while; its reports
      * are dropped here rather than restoring a progress the supersede already cleared.
      */
+    @Volatile
     private var progressOwner: Job? = null
+
+    /**
+     * Held for every read-then-write of the progress overlay: a builder's callback checks the owner
+     * and writes on a worker thread while a supersede clears both on Main, so the pair is one step
+     * under this lock or the stale write could land after the clear.
+     */
+    private val progressLock = Any()
 
     /**
      * The loaded coastline's identity the warning raster's key carries, recorded by
@@ -245,8 +253,10 @@ class DepthViewModel(
                 val owned = steps.filter { running[it]?.job === self }
                 owned.forEach { running.remove(it) }
                 if (forced && owned.isNotEmpty()) {
-                    if (progressOwner === self) progressOwner = null
-                    _rasterProgress.value = null
+                    synchronized(progressLock) {
+                        if (progressOwner === self) progressOwner = null
+                        _rasterProgress.value = null
+                    }
                     _generatingStep.value = null
                 }
             }
@@ -270,9 +280,11 @@ class DepthViewModel(
             val survivors = running.filterValues { it.job === previous.job }.keys.toList()
             survivors.forEach { running.remove(it) }
             if (previous.forced) {
-                if (progressOwner === previous.job) progressOwner = null
+                synchronized(progressLock) {
+                    if (progressOwner === previous.job) progressOwner = null
+                    if (survivors.isEmpty()) _rasterProgress.value = null
+                }
                 if (_generatingStep.value?.let { it in steps } == true) _generatingStep.value = null
-                if (survivors.isEmpty()) _rasterProgress.value = null
             }
             if (survivors.isNotEmpty()) previous.requeue(survivors)
         }
@@ -365,7 +377,7 @@ class DepthViewModel(
      */
     private fun progressSink(forced: Boolean, owner: Job?, step: RasterStep, phase: String): ((Int) -> Unit)? {
         if (!forced) return null
-        return { p -> if (progressOwner === owner) report(step, phase, p) }
+        return { p -> synchronized(progressLock) { if (progressOwner === owner) report(step, phase, p) } }
     }
 
     private fun keyFor(step: RasterCache.Step, grid: DepthGrid, settings: AppSettings): RasterCache.Key =
