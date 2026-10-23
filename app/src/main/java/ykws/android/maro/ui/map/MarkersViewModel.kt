@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.markers.markerAutoName
@@ -240,8 +241,11 @@ class MarkersViewModel(
 
     // ── Dependencies ──────────────────────────────────────────────────────
 
+    // The process's one marker store ([ykws.android.maro.MaroApp]), shared with the recorder's
+    // auto-marker manager and the track store's delete cascade, so one mutex serialises every writer.
     private val repo: UserMarkerRepository =
-        UserMarkerRepository(java.io.File(application.filesDir, "markers"))
+        ykws.android.maro.MaroApp.of(application)?.userMarkerRepository
+            ?: UserMarkerRepository(java.io.File(application.filesDir, "markers"))
 
     /**
      * Shared map-selection policy — the marker map set is filter-only **plus the open card's one id**

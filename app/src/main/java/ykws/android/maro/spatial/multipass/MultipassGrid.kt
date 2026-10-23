@@ -438,7 +438,8 @@ fun rasterize(
     zoneOutsideMarginM: Double = 0.0,
     band: BandLaw? = null,
     gate: GateRule? = null,
-    collarReachM: Double = 0.0
+    collarReachM: Double = 0.0,
+    checkCancelled: () -> Unit = {}
 ): MultipassGrid {
     val midLat = (box.latSouth + box.latNorth) / 2.0
     val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
@@ -446,7 +447,7 @@ fun rasterize(
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, cellM / mPerDegLat, cellM / mPerDegLon, mPerDegLat, mPerDegLon,
         cellM, paceKn, marginM, edges, openCoast, capLatNorth, field, zones, blockZones,
-        zoneOutsideMarginM, band, gate, collarReachM
+        zoneOutsideMarginM, band, gate, collarReachM, checkCancelled = checkCancelled
     )
 }
 
@@ -465,6 +466,11 @@ fun rasterize(
  * [baseCostSecOverride] replaces the frame's own `baseCostSec(cellM, paceKn)` grid base where it is
  * non-null — the fine tile's **unit base** alone uses it, so the raster's own source cost *is* the
  * pace-free factor its build stores. `null` — every other caller — keeps the derived base.
+ *
+ * [checkCancelled] is consulted every [RASTER_CANCEL_ROWS] rows of the per-cell pass and every
+ * [RELAX_CANCEL_POPS] pops of the gate relaxation — a plain lambda, so a coroutine hands in its own
+ * `ensureActive` and an abandoned lookup stops inside the raster rather than after it. The default does
+ * nothing, which is every caller that runs no lookup (a test, the warm-up).
  */
 internal fun rasterizeWindow(
     box: BBox,
@@ -482,14 +488,15 @@ internal fun rasterizeWindow(
     gate: GateRule? = null,
     collarReachM: Double = 0.0,
     fineMask: FineMask? = null,
-    baseCostSecOverride: Double? = null
+    baseCostSecOverride: Double? = null,
+    checkCancelled: () -> Unit = {}
 ): MultipassGrid {
     val (mPerDegLat, mPerDegLon) = lattice.metresPerDegree()
     return rasterizeFrame(
         box, box.latSouth, box.lonWest, lattice.cellSizeDegLat, lattice.cellSizeDegLon,
         mPerDegLat, mPerDegLon, lattice.cellM, paceKn, marginM, edges, openCoast, capLatNorth, field,
         zones, blockZones, zoneOutsideMarginM, band, gate, collarReachM,
-        fineMask, baseCostSecOverride
+        fineMask, baseCostSecOverride, checkCancelled
     )
 }
 
@@ -516,7 +523,8 @@ private fun rasterizeFrame(
     gate: GateRule? = null,
     collarReachM: Double = 0.0,
     fineMask: FineMask? = null,
-    baseCostSecOverride: Double? = null
+    baseCostSecOverride: Double? = null,
+    checkCancelled: () -> Unit = {}
 ): MultipassGrid {
     val cols = ceil((box.lonEast - lonWest) / cellSizeDegLon).toInt().coerceAtLeast(1)
     val rows = ceil((box.latNorth - latSouth) / cellSizeDegLat).toInt().coerceAtLeast(1)
@@ -562,6 +570,9 @@ private fun rasterizeFrame(
     val wallBodies = ArrayList<Int>()
     if (field.hasBlocking || field.hasSoft) {
         for (row in 0 until grid.rows) {
+            // The per-cell pass is the raster's long loop — a field read per centre over the whole
+            // corridor — so the lookup's cancel is read here, once per block of rows, row 0 included.
+            if (row % RASTER_CANCEL_ROWS == 0) checkCancelled()
             for (col in 0 until grid.cols) {
                 if (!grid.passable(row, col)) continue
                 val centre = grid.center(row, col)
@@ -583,7 +594,7 @@ private fun rasterizeFrame(
     //     its distance and never walls the field in.
     if (gate != null) {
         seedShallowEdge(grid, gate, box, mPerDegLat, mPerDegLon)
-        relaxGateDistance(grid, maxOf(gate.preferredM, gate.berthOuterM, collarReachM))
+        relaxGateDistance(grid, maxOf(gate.preferredM, gate.berthOuterM, collarReachM), checkCancelled)
         paintWallBodyStandoff(grid, wallBodies, gate.preferredM)
     }
 
@@ -698,9 +709,9 @@ private fun paintWallBodyStandoff(grid: MultipassGrid, bodies: List<Int>, stando
  * inequality forbids it), so the field stays exact where it was written and reads at or above the truth
  * beyond. The walk stops at [capM] — the berth's outer edge or the collar, beyond which no reader asks.
  * Land never relaxes: a coast cell is never stepped into, so a shallow on the far side of a landmass does
- * not price water it cannot see.
+ * not price water it cannot see. [checkCancelled] is read every [RELAX_CANCEL_POPS] pops of the queue.
  */
-private fun relaxGateDistance(grid: MultipassGrid, capM: Double) {
+private fun relaxGateDistance(grid: MultipassGrid, capM: Double, checkCancelled: () -> Unit = {}) {
     val orth = grid.cellM
     val diag = grid.cellM * sqrt(2.0)
     val queue = CellHeap()
@@ -710,7 +721,9 @@ private fun relaxGateDistance(grid: MultipassGrid, capM: Double) {
             if (d < Double.MAX_VALUE) queue.push(d, r * grid.cols + c)
         }
     }
+    var pops = 0
     while (queue.isNotEmpty()) {
+        if (++pops % RELAX_CANCEL_POPS == 0) checkCancelled()
         val dist = queue.peekKey()
         val idx = queue.pop()
         val row = idx / grid.cols
@@ -733,6 +746,12 @@ private fun relaxGateDistance(grid: MultipassGrid, capM: Double) {
         }
     }
 }
+
+/** The raster's cancel cadence: the per-cell pass reads `checkCancelled` once every this many rows. */
+private const val RASTER_CANCEL_ROWS = 64
+
+/** The relaxation's cancel cadence: the queue reads `checkCancelled` once every this many pops. */
+private const val RELAX_CANCEL_POPS = 256
 
 /** A binary min-heap of `(distance, cell)` pairs in two primitive arrays — the relaxation's queue, unboxed. */
 private class CellHeap {

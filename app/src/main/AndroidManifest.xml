@@ -15,6 +15,7 @@
          start dies before the raster caches are written. Budget and stages:
          xTrack/DepthMapping/260921_FEAT_PLN_DepthMapping_cold-start-heap.md -->
     <application
+        android:name=".MaroApp"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="true"

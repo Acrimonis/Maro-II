@@ -5,6 +5,7 @@ import ykws.android.maro.config.AppConfig
 import android.app.Application
 import kotlin.math.abs
 import android.content.Context
+import android.hardware.GeomagneticField
 import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -110,9 +111,10 @@ class NavigationViewModel(
     /** The coastline repository backing this view model — the same instance the map reads its water and band from. */
     val coastlineRepository: CoastlineRepository get() = repository
 
-    /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
+    /** Persisted settings — the process's one store ([ykws.android.maro.MaroApp]), so the service reads what the UI writes. */
     private val settingsManager: SettingsManager =
-        SettingsManager(application, AppConfig.zoneAutoRevealDistanceM, AppConfig.zoneAutoRevealTimeS)
+        ykws.android.maro.MaroApp.of(application)?.settingsManager
+            ?: SettingsManager(application, AppConfig.zoneAutoRevealDistanceM, AppConfig.zoneAutoRevealTimeS)
 
     /** Device GPS + compass sources (framework-only, no Google Play Services) for GPS mode. */
     private val gpsSource: GpsLocationSource = GpsLocationSource(application)
@@ -120,6 +122,12 @@ class NavigationViewModel(
 
     /** Initial settings snapshot — used to seed StateFlow initial values. */
     private val initialAppSettings: AppSettings = settingsManager.settings.value
+
+    /**
+     * The viewport as last persisted, read fresh: the settings store outlives an Activity, so a
+     * ViewModel built for a reopened app must not seed from the snapshot taken at process start.
+     */
+    private val initialViewport: SettingsManager.Viewport = settingsManager.loadViewport()
 
     /** Reactive settings StateFlow — seeded from the snapshot above, so the first composition already
      *  reads the persisted values, then bridged to [SettingsManager.settings] after init. */
@@ -143,7 +151,7 @@ class NavigationViewModel(
             repository.loadCoastline()
 
             // Only fall back to coastline centroid if no persisted position was ever saved
-            if (initialAppSettings.mapCenterLat.isNaN()) {
+            if (initialViewport.centerLat.isNaN()) {
                 val data = repository.getCoastlineData()
                 if (data != null) {
                     val allPoints = data.allSegments.flatMap { it.points }
@@ -180,8 +188,8 @@ class NavigationViewModel(
 
     /** Center point of the map — seeded from persisted settings or default (Cannes). */
     private val _mapCenter: MutableStateFlow<LatLng> = MutableStateFlow(
-        if (initialAppSettings.mapCenterLat.isNaN().not())
-            LatLng(initialAppSettings.mapCenterLat, initialAppSettings.mapCenterLon)
+        if (initialViewport.centerLat.isNaN().not())
+            LatLng(initialViewport.centerLat, initialViewport.centerLon)
         else
             LatLng(43.55, 7.00)
     )
@@ -195,26 +203,26 @@ class NavigationViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), _mapCenter.value)
 
     /** True if the current map center is on the water side of the coastline. */
-    private val _isWater: MutableStateFlow<Boolean> = MutableStateFlow(initialAppSettings.isWater)
+    private val _isWater: MutableStateFlow<Boolean> = MutableStateFlow(initialViewport.isWater)
     val isWater: StateFlow<Boolean> = _isWater.asStateFlow()
 
     /** True when the boat's GPS fix position is on water (land/water test against the
      * boat's actual position, not the map centre). Exposed for Tasker integration.
      * Seeded from persisted settings so the notification is correct before first GPS fix. */
-    private val _boatIsWater = MutableStateFlow(initialAppSettings.isWater)
+    private val _boatIsWater = MutableStateFlow(initialViewport.isWater)
     val boatIsWater: StateFlow<Boolean> = _boatIsWater.asStateFlow()
 
     /** Distance (meters) from the current map center to the nearest coastline point.
      * `null` when no coastline is loaded or distance cannot be computed. */
     private val _distanceToShore: MutableStateFlow<Double?> = MutableStateFlow(
-        if (initialAppSettings.distanceToShore.isNaN()) null
-        else initialAppSettings.distanceToShore
+        if (initialViewport.distanceToShoreM.isNaN()) null
+        else initialViewport.distanceToShoreM
     )
     val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
 
     /** Current map zoom level (the shipped 11.0–20.0 range) — seeded from persisted settings or default 11.0. */
     private val _zoomLevel: MutableStateFlow<Double> = MutableStateFlow(
-        if (initialAppSettings.zoomLevel > 0.0) initialAppSettings.zoomLevel else 11.0
+        if (initialViewport.zoom > 0.0) initialViewport.zoom else 11.0
     )
     val zoomLevel: StateFlow<Double> = _zoomLevel.asStateFlow()
 
@@ -613,6 +621,32 @@ class NavigationViewModel(
         }
     }
 
+    /** Magnetic declination cache: the value, the position it was computed at and its UTC day. */
+    private var declinationDeg = 0f
+    private var declinationOrigin: LatLng? = null
+    private var declinationDay = -1L
+
+    /**
+     * Magnetic declination (degrees, east positive) at [position], from [GeomagneticField] at sea
+     * level. The field drifts slowly, so it is recomputed only when the position has moved more
+     * than [DECLINATION_RECOMPUTE_M] from the last origin or the day has changed.
+     */
+    private fun declinationAt(position: LatLng): Float {
+        val now = System.currentTimeMillis()
+        val day = now / DAY_MS
+        val origin = declinationOrigin
+        val stale = origin == null || day != declinationDay ||
+            SpatialOperations.haversine(origin, position) > DECLINATION_RECOMPUTE_M
+        if (stale) {
+            declinationDeg = GeomagneticField(
+                position.latitude.toFloat(), position.longitude.toFloat(), 0f, now
+            ).declination
+            declinationOrigin = position
+            declinationDay = day
+        }
+        return declinationDeg
+    }
+
     /** Update heading only past a small threshold so sensor jitter doesn't churn the map. */
     private fun setMapBearing(deg: Float) {
         _navigationState.update { current ->
@@ -661,14 +695,19 @@ class NavigationViewModel(
                 val szIndex = _speedZoneIndex.value
                 val szQuery = if (szIndex != null && water) {
                     val q = szIndex.query(center.latitude, center.longitude)
-                    Log.d(TAG, "SZI query at (${"%.4f".format(center.latitude)}, ${"%.4f".format(center.longitude)}): " +
-                            "insideAny=${q.insideAnyZone} nearest=${q.nearestZone?.name ?: "null"} " +
-                            "distToBoundary=${q.distanceToBoundaryM?.let { "%.1f".format(it) } ?: "null"} " +
-                            "mostRestrictive=${q.mostRestrictiveSpeedKn?.let { "%.1f".format(it) } ?: "null"} " +
-                            "nInside=${q.allInsideZones.size} hasData=${szIndex.hasData}")
+                    // Hot path (~6 Hz): build the message only when debug logging is on for TAG.
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        Log.d(TAG, "SZI query at (${"%.4f".format(center.latitude)}, ${"%.4f".format(center.longitude)}): " +
+                                "insideAny=${q.insideAnyZone} nearest=${q.nearestZone?.name ?: "null"} " +
+                                "distToBoundary=${q.distanceToBoundaryM?.let { "%.1f".format(it) } ?: "null"} " +
+                                "mostRestrictive=${q.mostRestrictiveSpeedKn?.let { "%.1f".format(it) } ?: "null"} " +
+                                "nInside=${q.allInsideZones.size} hasData=${szIndex.hasData}")
+                    }
                     q
                 } else {
-                    Log.d(TAG, "SZI query SKIPPED: index=${szIndex != null} water=$water")
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        Log.d(TAG, "SZI query SKIPPED: index=${szIndex != null} water=$water")
+                    }
                     SpeedZoneQuery()
                 }
 
@@ -1040,12 +1079,15 @@ class NavigationViewModel(
         // Registered ONLY while actually needed (_needsCompass) so the magnetometer path is
         // unpowered whenever GPS course is good; the 3 s fallback gives the on→off hysteresis.
         // azimuthUpdates() now samples at SENSOR_DELAY_NORMAL; sample() further caps it to ~5 Hz.
+        // The azimuth is magnetic while the GPS course is true: add the local declination so the
+        // hand-over between the two does not jump by it (~2.5°E around Nice).
         combine(enabled, _needsCompass) { on, needs -> on && needs }
             .distinctUntilChanged()
             .flatMapLatest { on -> if (on) compass.azimuthUpdates().sample(HEADING_SAMPLE_MS) else emptyFlow() }
             .onEach { azimuth ->
                 if (SystemClock.elapsedRealtime() - lastGpsBearingMs > HEADING_FALLBACK_MS) {
-                    setMapBearing(azimuth)
+                    val here = _gpsPosition.value ?: _mapCenter.value
+                    setMapBearing(trueFromMagnetic(azimuth, declinationAt(here)))
                 }
             }
             .launchIn(viewModelScope)
@@ -1333,13 +1375,13 @@ class NavigationViewModel(
         val newCenter = LatLng(latitude, longitude)
         if (_mapCenter.value == newCenter) return
         _mapCenter.value = newCenter
-        // Throttle settings persistence to ~1 Hz — every scroll event (60 fps) would trigger
-        // appSettings StateFlow → Compose recomposition at 60 fps, bypassing uiMapCenter throttle.
-        // Full position is persisted via savePosition() at ON_PAUSE for crash recovery.
+        // Throttle the write to ~1 Hz, and write the viewport alone: the settings object is not
+        // touched, so a pan never re-emits every setting to every collector. The full position is
+        // persisted via savePosition() at ON_PAUSE for crash recovery.
         val nowMs = SystemClock.elapsedRealtime()
         if (nowMs - lastPersistMs >= 1_000L) {
             lastPersistMs = nowMs
-            settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
+            settingsManager.persistViewport(centerLat = latitude, centerLon = longitude)
         }
         // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
         // **The route mode suspends nothing here any more** (R71): the arming reads the standing pair
@@ -1431,7 +1473,7 @@ class NavigationViewModel(
         val nowMs = SystemClock.elapsedRealtime()
         if (nowMs - lastPersistMs >= 1_000L) {
             lastPersistMs = nowMs
-            settingsManager.update { it.copy(zoomLevel = zoom) }
+            settingsManager.persistViewport(zoom = zoom)
         }
     }
 
@@ -1444,18 +1486,13 @@ class NavigationViewModel(
      */
     fun savePosition() {
         val center = _mapCenter.value
-        val zoom = _zoomLevel.value
-        val water = _isWater.value
-        val dist = _distanceToShore.value
-        settingsManager.update {
-            it.copy(
-                mapCenterLat = center.latitude,
-                mapCenterLon = center.longitude,
-                zoomLevel = zoom,
-                isWater = water,
-                distanceToShore = dist ?: Double.NaN
-            )
-        }
+        settingsManager.persistViewport(
+            centerLat = center.latitude,
+            centerLon = center.longitude,
+            zoom = _zoomLevel.value,
+            isWater = _isWater.value,
+            distanceToShoreM = _distanceToShore.value ?: Double.NaN
+        )
     }
 
     /**
@@ -1804,6 +1841,12 @@ class NavigationViewModel(
         /** Rate-limit for the compass heading (~5 Hz) so turning doesn't churn the map. */
         private const val HEADING_SAMPLE_MS = 200L
 
+        /** Displacement (m) past which the cached magnetic declination is recomputed. */
+        private const val DECLINATION_RECOMPUTE_M = 10_000.0
+
+        /** One day in ms — the declination cache also expires on a day change. */
+        private const val DAY_MS = 86_400_000L
+
         /** Minimum interval (ms) between demo speed computations — throttles the 60 fps scroll stream. */
         private const val MIN_DEMO_SPEED_INTERVAL_MS = 333L
 
@@ -2030,3 +2073,10 @@ internal fun zoneAutoShowDecision(
         )
     }
 }
+
+/**
+ * True heading from a magnetic [azimuthDeg] and an east-positive [declinationDeg]
+ * ([GeomagneticField.getDeclination] sign), normalised to [0, 360).
+ */
+internal fun trueFromMagnetic(azimuthDeg: Float, declinationDeg: Float): Float =
+    ((azimuthDeg + declinationDeg) % 360f + 360f) % 360f

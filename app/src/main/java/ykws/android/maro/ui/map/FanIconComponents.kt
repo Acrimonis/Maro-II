@@ -51,11 +51,20 @@ private const val ICON_SIZE_DP = 28
 
 // ── Arc menu fan icons ────────────────────────────────────────────────────────
 
+/**
+ * A layer-fan child's TalkBack line — the layer's name, then on or off. It rides the icon because the
+ * clickable circle is [FanLayout]'s own and merges its descendants' descriptions.
+ */
 @Composable
-fun WarningTriangleIcon(alpha: Float) {
+private fun layerToggleDescription(@StringRes layer: Int, active: Boolean): String =
+    stringResource(layer, stringResource(if (active) R.string.cd_state_on else R.string.cd_state_off))
+
+/** Low-depth warning child. */
+@Composable
+fun WarningTriangleIcon(alpha: Float, active: Boolean) {
     Icon(
         imageVector = Icons.Filled.Warning,
-        contentDescription = null,
+        contentDescription = layerToggleDescription(R.string.cd_layer_low_depth, active),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
@@ -96,7 +105,7 @@ fun GearIcon() {
 fun ThreeStripeLayerIcon(alpha: Float) {
     Icon(
         imageVector = Stacks,
-        contentDescription = null,
+        contentDescription = stringResource(R.string.cd_layer_fan),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
@@ -104,10 +113,10 @@ fun ThreeStripeLayerIcon(alpha: Float) {
 
 /** Depth layer child: area_chart → AreaChart */
 @Composable
-fun DepthBarIcon(alpha: Float) {
+fun DepthBarIcon(alpha: Float, active: Boolean) {
     Icon(
         imageVector = Icons.Filled.AreaChart,
-        contentDescription = null,
+        contentDescription = layerToggleDescription(R.string.cd_layer_depth, active),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
@@ -115,10 +124,10 @@ fun DepthBarIcon(alpha: Float) {
 
 /** Regulated zones child: activity_zone */
 @Composable
-fun RegulatedZoneIcon(alpha: Float) {
+fun RegulatedZoneIcon(alpha: Float, active: Boolean) {
     Icon(
         imageVector = Activity_zone,
-        contentDescription = null,
+        contentDescription = layerToggleDescription(R.string.cd_layer_regulated, active),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
@@ -126,10 +135,10 @@ fun RegulatedZoneIcon(alpha: Float) {
 
 /** 300m zone child: output_circle */
 @Composable
-fun DoubleCircleIcon(alpha: Float) {
+fun DoubleCircleIcon(alpha: Float, active: Boolean) {
     Icon(
         imageVector = Output_circle,
-        contentDescription = null,
+        contentDescription = layerToggleDescription(R.string.cd_layer_zone300, active),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
@@ -137,10 +146,10 @@ fun DoubleCircleIcon(alpha: Float) {
 
 /** Tracks child: conversion_path */
 @Composable
-fun TrackLayerIcon(alpha: Float) {
+fun TrackLayerIcon(alpha: Float, active: Boolean) {
     Icon(
         imageVector = Conversion_path,
-        contentDescription = null,
+        contentDescription = layerToggleDescription(R.string.cd_layer_tracks, active),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
@@ -249,10 +258,10 @@ fun RouteFanDiscardIcon(enabled: Boolean) = RouteFanChildIcon(
 
 /** User markers layer toggle: LocationOn (outlined map pin). */
 @Composable
-fun LocationOnIcon(alpha: Float) {
+fun LocationOnIcon(alpha: Float, active: Boolean) {
     Icon(
         imageVector = LocationOn,
-        contentDescription = null,
+        contentDescription = layerToggleDescription(R.string.cd_layer_markers, active),
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )

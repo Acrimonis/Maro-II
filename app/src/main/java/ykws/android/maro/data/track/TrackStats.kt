@@ -16,14 +16,20 @@ const val IDLE_MAX_DRIFT_M = 500.0
  * by the displacement vs duration across the gap (idle if the boat stayed put).
  */
 fun timelineIdleSec(points: List<TrackPoint>): Long {
-    val real = points.filter { it.type != PointType.GAP }
+    // A GAP seam ends the run: the two real points on either side of it are not a stretch the boat
+    // sat through, they are a resume after the recorder was away, so no idle is read across one.
     var idle = 0L
-    for (i in 1 until real.size) {
-        val dtSec = (real[i].timeOffsetMs - real[i - 1].timeOffsetMs) / 1000.0
+    var previous: TrackPoint? = null
+    for (point in points) {
+        if (point.type == PointType.GAP) { previous = null; continue }
+        val prev = previous
+        previous = point
+        if (prev == null) continue
+        val dtSec = (point.timeOffsetMs - prev.timeOffsetMs) / 1000.0
         if (dtSec <= 0) continue
         val dM = SpatialOperations.haversine(
-            LatLng(real[i - 1].lat, real[i - 1].lon),
-            LatLng(real[i].lat, real[i].lon)
+            LatLng(prev.lat, prev.lon),
+            LatLng(point.lat, point.lon)
         )
         if (dM / dtSec < IDLE_MAX_SPEED_MPS && dM < IDLE_MAX_DRIFT_M) {
             idle += dtSec.toLong()

@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import ykws.android.maro.data.regulation.contains
@@ -261,10 +262,10 @@ fun RegulatedZoneInfoText(
                     rawName
                 }
             } else {
-                "300 m Zone"
+                stringResource(R.string.regulated_zone300_name)
             }
             val keyInfo = when {
-                speedKn != null -> "${speedKn.toInt()} nds"
+                speedKn != null -> stringResource(R.string.regulated_speed_kn_fmt, speedKn.toInt())
                 zone != null && zone.description.isNotBlank() -> zone.description.replace("\n", " ")
                 else -> ""
             }
@@ -303,7 +304,7 @@ internal fun CategoryToggleGroup(
     ) {
         categoryToggleItems.forEach { item ->
             ToggleRow(
-                label = item.label,
+                label = stringResource(item.labelRes),
                 checked = item.isVisible(settings),
                 onCheckedChange = { visible ->
                     onUpdateSettings { item.setter(it, visible) }
@@ -368,7 +369,7 @@ fun BoatSizeSlider(
 
 data class CategoryToggleItem(
     val emoji: String,
-    val label: String,
+    @StringRes val labelRes: Int,
     val iconIsRedBox: Boolean = false,
     val hasStrike: Boolean = false,
     val isVisible: (AppSettings) -> Boolean,
@@ -376,35 +377,35 @@ data class CategoryToggleItem(
 )
 
 val categoryToggleItems = listOf(
-    CategoryToggleItem("", "Speed limit", iconIsRedBox = true,
+    CategoryToggleItem("", R.string.zone_category_speed_limit, iconIsRedBox = true,
         isVisible = { it.showCategorySpeedLimit },
         setter = { s, v -> s.copy(showCategorySpeedLimit = v) }),
-    CategoryToggleItem("\uD83D\uDEA4", "No access",
+    CategoryToggleItem("\uD83D\uDEA4", R.string.zone_category_no_access,
         hasStrike = true,
         isVisible = { it.showCategoryNoAccess },
         setter = { s, v -> s.copy(showCategoryNoAccess = v) }),
-    CategoryToggleItem("\u2693\uFE0F", "No anchor",
+    CategoryToggleItem("\u2693\uFE0F", R.string.zone_category_no_anchor,
         hasStrike = true,
         isVisible = { it.showCategoryNoAnchor },
         setter = { s, v -> s.copy(showCategoryNoAnchor = v) }),
-    CategoryToggleItem("\uD83E\uDD3F", "No diving",
+    CategoryToggleItem("\uD83E\uDD3F", R.string.zone_category_no_diving,
         hasStrike = true,
         isVisible = { it.showCategoryNoDiving },
         setter = { s, v -> s.copy(showCategoryNoDiving = v) }),
-    CategoryToggleItem("\uD83D\uDC1F", "Fishing prohibited",
+    CategoryToggleItem("\uD83D\uDC1F", R.string.zone_category_fishing_prohibited,
         hasStrike = true,
         isVisible = { it.showCategoryFishingProhibited },
         setter = { s, v -> s.copy(showCategoryFishingProhibited = v) }),
-    CategoryToggleItem("\uD83D\uDEA4", "Mooring",
+    CategoryToggleItem("\uD83D\uDEA4", R.string.zone_category_mooring,
         isVisible = { it.showCategoryMooring },
         setter = { s, v -> s.copy(showCategoryMooring = v) }),
-    CategoryToggleItem("\u2708\uFE0F", "Seaplane",
+    CategoryToggleItem("\u2708\uFE0F", R.string.zone_category_seaplane,
         isVisible = { it.showCategorySeaplane },
         setter = { s, v -> s.copy(showCategorySeaplane = v) }),
-    CategoryToggleItem("\uD83C\uDF3F", "Environmental",
+    CategoryToggleItem("\uD83C\uDF3F", R.string.zone_category_environmental,
         isVisible = { it.showCategoryEnvironmental },
         setter = { s, v -> s.copy(showCategoryEnvironmental = v) }),
-    CategoryToggleItem("\u2139\uFE0F", "Information",
+    CategoryToggleItem("\u2139\uFE0F", R.string.zone_category_information,
         isVisible = { it.showCategoryInformation },
         setter = { s, v -> s.copy(showCategoryInformation = v) }),
 )
