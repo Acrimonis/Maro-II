@@ -1,27 +1,37 @@
-# Context Hydration — Markers — 2026-10-12
+# Context Hydration — Markers — 2026-10-23
 
-**Last Bake:** 2026-10-12 07:53 UTC — written by `#bake`. Two passes landed today: the marker filter popup grouped its three routing axes under one `Routing` title, and then all 26 of the feature's landed plans were retired into `xxArchive/` with a promotion pass first.
+**Last Bake:** 2026-10-23 15:13 UTC — written by `#bake`. One session on `feature/color-picker`: the marker colour palette grew to twenty hues under a new perceptual rule, the two colour pickers became one raised onto the overlay ladder, and the selection was made legible in daylight.
 
-**Directive trace:** All five covered action classes were met and none stopped the session — no dependency was added, no machine-shaped data file was opened, the work ran only on the user's own `#focus`, `#impl`, `#archive`, `#bake`, `#commit` and `#push` rather than without an order, no device was touched by the agent (the device pass stays the user's), and every claim written here about the code carries a file read behind it, save the Code hops' build and test results, which are carried forward as their own reports rather than as reads of this session's.
+**Directive trace:** All five covered action classes were met and none stopped the session — no dependency was added, no machine-shaped data file was opened, the work ran only on the user's own `#new`, `#impl`, `#bake`, `#commit`, `#merge` and `#push` rather than without an order, no device was touched by the agent (the device pass stays the user's), and every claim written here about the code carries a file read behind it, save the build and test results, which are carried forward as their own reports.
 
 ## State
 
-**The three routing filters now share one title (2026-10-12).** The marker filter popup's three routing axes stand under one `Routing` heading while each keeps its own card. No field joined `FilterAxisSpec`: the three axes carry the one `filter_group_routing` key and `FilterControl` draws a `PopupSectionTitle` only when the key differs from the one drawn last, so a repeated key is one group. The order is role, cost, Only, the role axis' negative option reads `None` / `Aucun`, and `filter_axis_route_cost`, `filter_axis_route_role` and `filter_axis_routing_only` retired from both locales. Presentational only — `matchesFilter`, the persistence, the map filter, the wizard, the card marks and `maro.properties` are untouched, and the track, route and menu popups render as before.
+**The palette's criterion became perceived difference (2026-10-23).** "40° of hue or 0.10 of lightness" was a proxy, and it had shipped a near-black ΔE 13 from Black and three entries inside one hue family. `MarkerColors` now states five clauses: every pair clears **ΔE ≥ 25** in CIELAB (CIE76); a hue family may carry more than one entry only as a **named** tier (Green/Light Green, Gold/Pale Yellow, Purple/Hot Magenta, Heavy Blue/Azure); nothing may read as water, which is the clause that now admits blues — a heavy navy and an azure, and no pale cyan; vivid over muted; and the eye overrules every number. Four hexes moved to satisfy it: Charcoal → **Heavy Blue `#0D47A1`**, Pale Pink → **Azure `#42A5F5`**, Coral back to `#FF5252`, Silver to `#A8A8A8`. `MarkerColorsTest` computes Lab from the shipped hexes and asserts the floor over all 190 pairs; the water clause is prose because the depth ramp is not a value this repo holds.
 
-**The archive swept clean (2026-10-12).** All 26 landed plans are retired into `xTrack/Markers/xxArchive/` with one row each in its `INDEX.md`, and none was refused — no plan in the set held an open `## Walk`. The promotion pass ran first, as ordered: 28 rules the shipped code still obeys now live in the feature's new `## Rules` section, and six decision groups with their rationale joined `FEAT_DOC_Markers_decisions.md`. Fourteen Outcomes were written without knowing what shipped and say so in one line; the other seven were written from the plans' own evidence. The three superseded decisions in the decisions doc were reviewed and validated by the user, and the doc's header brought current.
+**One picker, raised rather than drawn (2026-10-23).** `MarkerColorPicker.kt` paints nothing itself: it hands a `ConfirmRequest` to `LocalConfirmDialogHost`, so the panel is composited above every drawer and cannot be clipped by the settings overlay or the wizard that opened it. The grid is 4×5 in portrait and 5×4 in landscape, its cells square and sized by whichever of panel width and screen height is tighter — portrait fills the panel edge to edge, landscape stays inside its cap — with `selectableGroup()` and a radio role per swatch. The panel's title is generic (`color_picker_title`, restored), while `marker_color_title` is the wizard row's caption and nothing else.
 
-**What is owed.** The device pass is the user's: the three cards under the one `Routing` title in the list overlay and in the menu drawer, in both locales, and whether three cards each leading with an "All" row read clearly with no per-card title. One code item stayed open from the review — nothing pins `markerFilterAxes()`, so a future axis reusing a neighbour's `labelResId` would merge silently. And the sweep exposed one record gap: about eleven live plans still in `xTrack/Markers/` carry no `## Docs` row.
+**The wizard sets a marker's colour for the first time (2026-10-23).** `TypeSelectStep`'s icon row splits into a weighted icon action and a trailing `Marker color` caption plus a 24 dp swatch in a 40 dp tap box, writing the `form.colorIndex` that no control had ever written — until now a marker's colour was only ever the `randomIndex()` drawn at creation.
+
+**The orphan and the frame (2026-10-23).** `MarkerColorPickerDialog` — which had no call site at all — is deleted with its imports; its `color_picker_title` key outlived it once the generic title came back. `ConfirmDialog`'s frame was a `drawBehind` path painted **under** the Surface's own background, so only the two top arcs showed through the corner cut-outs; it now draws above the content, inset half a stroke, 2 dp thick in the new `ui.highlight` token.
+
+**Selection is legible in daylight (2026-10-23).** The picked swatch wears a two-tone ring — pure white over the cell's 0–2.5 dp, `ui.highlight` over 2.5–4.5 dp, the tile starting at 6 dp so it loses only 2 dp — with the accent alone pulsing to a quarter, and the app's own `ListSelectionCheck` disc stamped at the tile's top-left, 12 dp in and 8 dp on a cell under 64 dp, silent because the swatch already announces its radio state.
+
+**What is owed.** The device pass is the user's: the picker in both orientations, the palette in sun, the wizard row, and the pulsing ring. Two code items stand open from the review — `ShowMarkerColorPicker` raises a request with no dispose path, so a surface leaving composition while the panel is open leaves it standing; and the wizard swatch announces only its caption, never the current colour's name.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/model/ListFilter.kt` — the three routing axes reordered and sharing `filter_group_routing`
-- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `FilterControl`'s title dedup, the rule's code-local home
-- `app/src/main/res/values/strings.xml` · `app/src/main/res/values-fr/strings.xml` — `filter_group_routing` added, `filter_option_no_route_role` revalued, the three axis keys retired
-- `docs/ui-lists-guidelines.md` · `docs/ui-component-guidelines.md` — the six-row marker axes table, and §2.10's shared-title rule pointing at `FilterControl`
-- `xTrack/Markers/FEAT_DSC_Markers.md` — the shipped entry, the new `## Rules` section, the pointer drops and the `## Docs` detachments
-- `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — the promoted decisions and the validated supersessions
-- `xTrack/Markers/xxArchive/` — the 26 retired plans and their `INDEX.md`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt` — the twenty hues, the rule's KDoc, `nameResOf` and `indexOf`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerColorPicker.kt` — the one picker, the grid, the ring and the disc
+- `app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt` — the frame drawn above the panel, the `dense` chrome
+- `app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt` — the optional `announceSelection`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` · `MarkerDrawer.kt` · `MarkersViewModel.kt` · `IconPickerDialog.kt` — the settings door, the orphan's removal, the name lookup, the KDoc
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/TypeSelectStep.kt` — the `Marker color` row
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` · `app/src/main/assets/colors.properties` — `ui.highlight`
+- `app/src/main/res/values/strings.xml` · `values-fr/strings.xml` — twenty colour names, the generic title
+- `app/src/test/java/ykws/android/maro/ui/map/MarkerColorsTest.kt` — the ΔE gate
+- `docs/color-scheme.md` · `docs/ui-component-guidelines.md` — the rule, the token, the picker paragraph
+- `xTrack/Markers/261023_FEAT_PLN_Markers_color-picker-palette.md` — the plan of record
 
 ## Next Step
 
-The device pass is the user's, over the three cards under the one `Routing` title in both surfaces and both locales. The one open code item is the owed assertion pinning `markerFilterAxes()`, and the one open record item is the live plans in `xTrack/Markers/` that no `## Docs` row points at.
+The device pass is the user's, over the picker in both orientations and the palette in daylight. The two open code items are the missing dispose effect and the swatch description that names only its caption.

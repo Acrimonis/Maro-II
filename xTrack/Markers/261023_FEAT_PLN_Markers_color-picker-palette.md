@@ -1,7 +1,7 @@
 # Plan — marker colour palette: 20 hues, one picker, two grid shapes
 
 **Feature:** Markers · **Branch:** `feature/color-picker` · **Created:** 2026-10-23
-**Status:** in design — nothing written yet
+**Status:** shipped on `feature/color-picker` — §2–§11 built and green, the device pass the user's
 
 ## 1. Scope
 
@@ -232,6 +232,34 @@ Black, and let both fuchsias through on a lightness gap the eye does not read as
   White by 31 and Grey by 28.
 
 - W11 (§9, the generic picker title) rides the same build.
+
+## 11. Making the selection obvious in daylight (ordered 2026-10-23)
+
+**Assessment.** The current cue fails in sun for two structural reasons: it is hue-against-hue (a blue ring a
+few dp from a swatch that may itself be blue), and the pulse fades it towards invisible exactly when it should
+be loudest. Shape and a constant-contrast backing beat both, and this app already has that face.
+
+- **The checkmark is the app's own.** [`ListSelectionCheck`](../../app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt:33)
+  is the canonical selection face — a 24 dp `uiAccent` disc bearing a white 16 dp `Check`, with
+  `MultiSelectRow` and `SegmentedRow` wearing the bare glyph beside their labels. Reusing the disc is both the
+  consistency the user asked for and the daylight answer: the white glyph always sits on a known dark disc,
+  so no swatch colour can swallow it and no luminance rule is needed.
+- **Its placement.** Top-left of the tile, inset by **half the disc** (12 dp), so the mark is a corner stamp
+  rather than a cross over the colour. On a landscape cell the tile is ≈ 55 dp, where a 12 dp inset would push
+  the disc near the middle — so the inset is clamped to 8 dp below a 64 dp tile, and that clamp is the one
+  judgement the plan takes rather than passes on.
+- **One shared tweak.** `ListSelectionCheck` announces `cd_selected`, which our swatch would then say twice
+  beside its own radio state; it gains an optional description defaulted to today's string and the picker
+  passes null.
+- **The two-tone ring.** White **outside**, accent inside: the white path covers 0–2.5 dp of the cell, the
+  accent path 2.5–4.5 dp, and the tile starts at 6 dp, so the ring gains its white edge while the tile loses
+  only **2 dp in total** (margin 5 → 6 dp, 1 dp per side) — not 3.
+- **The pulse rides the accent only**, white steady, so the ring breathes without ever fading to nothing.
+
+- **W13 — selection made obvious.** `MarkerColorPicker.kt` gains the two-tone ring and the top-left
+  `ListSelectionCheck`; `ListSelectionCheck.kt` gains the optional description. Nothing else moves: the cell
+  arithmetic, the grid shapes and the chrome budget are untouched, so landscape still clears its cap.
+- Not included: the colour's name in the title, parked until the glyph and ring have been seen on the water.
 - **R8 — the caption rescues a key W8 would have deleted (resolved).** `marker_color_title` is "Marker Color" /
   "Couleur du repère" in both locales and the W10 order gives it a second life, so the deletion list shrinks and the
   caption needs no new key — the same string then serves the picker's own dialog title, one home, two readers.

@@ -46,15 +46,21 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.ConfirmRequest
+import ykws.android.maro.ui.components.ListSelectionCheck
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
 
-/** The tile's own margin inside its cell — the band the selection ring is drawn into. */
-private val CELL_MARGIN = 5.dp
+/** The tile's own margin inside its cell — the band the two-tone selection ring is drawn into. */
+private val CELL_MARGIN = 6.dp
 
-/** The selection ring's resting and peak stroke widths; the pulse rides between them. */
-private val RING_WIDTH_MIN = 3.dp
-private val RING_WIDTH_MAX = 4.6.dp
-private val RING_PULSE_MS = 900
+/** Room between the tile's corner and the selection disc: half the disc, clamped on a small tile. */
+private val CHECK_INSET = 12.dp
+private val CHECK_INSET_SMALL = 8.dp
+private val SMALL_CELL = 64.dp
+
+/** The selection ring's fixed weight, and the trough its brightness falls to on each beat. */
+private val RING_WIDTH = 4.dp
+private const val RING_ALPHA_MIN = 0.25f
+private const val RING_PULSE_MS = 900
 
 private const val PORTRAIT_COLUMNS = 4
 private const val LANDSCAPE_COLUMNS = 5
@@ -153,17 +159,18 @@ internal fun ColumnScope.MarkerColorGrid(
     val rows = (colors.size + columns - 1) / columns
     val highlight = ComposeColor(AppConfig.uiHighlight)
     val divider = ComposeColor(AppConfig.uiDividerColor)
-    // The picked swatch's ring breathes between two widths, never two opacities: the highlight stays fully
-    // opaque and only its weight moves, which is what makes it catch the eye without looking disabled.
+    // The picked swatch's ring keeps one weight and pulses its **brightness**, from solid down to a quarter:
+    // a width beat was too quiet to read on a 5 dp band, while a full-to-quarter fade is unmistakable and
+    // still leaves the ring visible at its trough (2026-10-23).
     val pulse = rememberInfiniteTransition(label = "markerColorPulse")
-    val ringWidth by pulse.animateFloat(
-        initialValue = RING_WIDTH_MIN.value,
-        targetValue = RING_WIDTH_MAX.value,
+    val ringAlpha by pulse.animateFloat(
+        initialValue = 1f,
+        targetValue = RING_ALPHA_MIN,
         animationSpec = infiniteRepeatable(
             animation = tween(RING_PULSE_MS, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "markerColorRingWidth"
+        label = "markerColorRingAlpha"
     )
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -194,23 +201,33 @@ internal fun ColumnScope.MarkerColorGrid(
                             onClick = { onPick(index) }
                         )
                         .semantics { contentDescription = name }
-                        // The ring's path sits 2.5 dp in from the cell edge, so its widest pulse reaches
-                        // 0.2 dp from that edge and never touches the tile 5 dp in.
+                        // Two-tone ring: pure white covers the cell's outer 0–2.5 dp and the accent the
+                        // 2.5–4.5 dp inside it, so one of the two always contrasts the panel and the swatch
+                        // (2026-10-23). The tile starts at 6 dp, leaving a 1.5 dp gap. Only the accent
+                        // pulses, so the white edge never fades.
                         .drawWithContent {
                             drawContent()
                             if (selected) {
-                                val inset = 2.5.dp.toPx()
+                                val whiteInset = 1.25.dp.toPx()
                                 drawRoundRect(
-                                    color = highlight,
-                                    topLeft = Offset(inset, inset),
-                                    size = Size(size.width - 2 * inset, size.height - 2 * inset),
+                                    color = ComposeColor.White,
+                                    topLeft = Offset(whiteInset, whiteInset),
+                                    size = Size(size.width - 2 * whiteInset, size.height - 2 * whiteInset),
                                     cornerRadius = CornerRadius(10.dp.toPx()),
-                                    style = Stroke(width = ringWidth.dp.toPx())
+                                    style = Stroke(width = 2.5.dp.toPx())
+                                )
+                                val accentInset = 3.5.dp.toPx()
+                                drawRoundRect(
+                                    color = highlight.copy(alpha = ringAlpha),
+                                    topLeft = Offset(accentInset, accentInset),
+                                    size = Size(size.width - 2 * accentInset, size.height - 2 * accentInset),
+                                    cornerRadius = CornerRadius(9.dp.toPx()),
+                                    style = Stroke(width = RING_WIDTH.toPx())
                                 )
                             }
                         },
-                    contentAlignment = Alignment.Center
-                ) {
+                contentAlignment = Alignment.Center
+            ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -223,6 +240,17 @@ internal fun ColumnScope.MarkerColorGrid(
                                 shape = RoundedCornerShape(8.dp)
                             )
                     )
+                    // The app's own selection face, stamped in the tile's top-left corner: a 24 dp accent
+                    // disc with a white 16 dp check, so the mark is shape on a known backing rather than a
+                    // second hue. Silent, because the swatch itself already announces its radio state.
+                    if (selected) {
+                        ListSelectionCheck(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(if (cell < SMALL_CELL) CHECK_INSET_SMALL else CHECK_INSET),
+                            announceSelection = false
+                        )
+                    }
                 }
             }
         }

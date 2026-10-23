@@ -30,7 +30,15 @@ import ykws.android.maro.config.AppConfig
  * selected branch held it, is gone with the type glyph itself.
  */
 @Composable
-fun ListSelectionCheck(modifier: Modifier = Modifier) {
+fun ListSelectionCheck(
+    modifier: Modifier = Modifier,
+    /**
+     * Whether the disc announces itself as "selected". A host whose own control already states its
+     * selected state — a radio swatch in the colour picker — passes false so the reader hears it once.
+     */
+    announceSelection: Boolean = true
+) {
+    val selectedDescription = stringResource(R.string.cd_selected)
     Box(
         modifier = modifier
             .size(24.dp)
@@ -40,7 +48,7 @@ fun ListSelectionCheck(modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = Icons.Filled.Check,
-            contentDescription = stringResource(R.string.cd_selected),
+            contentDescription = if (announceSelection) selectedDescription else null,
             tint = Color.White,
             modifier = Modifier.size(16.dp)
         )
