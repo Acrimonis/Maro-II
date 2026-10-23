@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-18 12:44
+modified: 2026-10-23 19:03
 ---
 
 # Feature: Tracks
@@ -335,6 +335,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **selection-eye-persisted-per-kind (2026-10-23, `feature/route-toggle-color-like-track`)** — the selected-item speed toggle became two disk-persisted per-kind booleans, off by default, reversing the 2026-10-07 card-local non-persisted eye: [`SelectionEyeStore`](../../app/src/main/java/ykws/android/maro/data/settings/SelectionEyeStore.kt) holds them in their own prefs file outside `AppSettings` and `maro.properties`; on bands the selected item's fill, off paints its gold highlight, and the kind's stored axes are never touched. `MapScreen` seeds `trackEyeOverride` / `routeEyeOverride` from the store and persists each flip, the history/route/pinned loops and the legend helpers read the open kind's own boolean, `lineRenderPlan` keeps the one banded/gold decision, and `selectionColoursAxis` / `selectionBandedAfterTap` retire with the axis fallback. `compileDebugKotlin` plus `TrackRouteRoleTest` and `TrackRenderFlagsPathTest` green; the device pass is owed
 
 - **render-count-30-all (2026-10-14, `feature/tracks`)** — the map's render count of either kind went from 0..20 to **0..30 plus one All value** that drops the cap, so every not-pinned track or route is drawn while a pinned one still escapes it. `AppConfig` holds the band's one home — `PATH_COUNT_MAX = 30`, the `PATH_COUNT_ALL = 31` sentinel and the pure `pathRenderCap()` (All → `Int.MAX_VALUE`, else `coerceIn(0, 30)`) — read by the `path.count` load clamp, `SettingsManager`'s two, both `MapScreenSettingsOverlay` sliders (`valueRange = 0f..31f`, `steps = 30` for 32 integer stops, the value label reading `settings_count_all` at the sentinel), the map pass's `nbToRender`/`routeNb` and `storedTrackSelection`'s two `cap =` arguments, and `TrackHistoryOverlay`'s `renderCount`/`routeCount`. The recorded fade's denominator became `historyList.size` so the ladder spans the **drawn not-pinned set** under All and whenever fewer items exist than the count asks — the route pass already read its own set, and a raw uncapped denominator would have flattened every line to the newest look. Both descs read 0-30 and `settings_count_all` (All / Tous) joined both locales; `MapSelectionPolicyTest` gained the uncapped case and `PathRenderCapTest` the helper's four, the scoped `ui.map` + `config` run and `assembleDebug` are green, and the device pass is owed → [`261014_FEAT_PLN_Tracks_render-count-30-all.md`](261014_FEAT_PLN_Tracks_render-count-30-all.md)
 

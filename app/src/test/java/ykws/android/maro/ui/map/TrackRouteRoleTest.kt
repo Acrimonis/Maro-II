@@ -58,13 +58,13 @@ class TrackRouteRoleTest {
             summary = route,
             trackArrows = false, trackColours = false,
             routeArrows = true, routeColours = false,
-            selected = false, eyeOverride = null
+            selected = false, trackEyeOverride = false, routeEyeOverride = false
         )
         val pinnedRecorded = pinnedLineRenderPlan(
             summary = summary("recording-pinned", pinned = true),
             trackArrows = false, trackColours = false,
             routeArrows = true, routeColours = false,
-            selected = false, eyeOverride = null
+            selected = false, trackEyeOverride = false, routeEyeOverride = false
         )
         val routeRole = routeLineRenderPlan(routeArrows = true, routeColours = false, selected = false)
 
@@ -94,6 +94,17 @@ class TrackRouteRoleTest {
     }
 
     @Test
+    fun aSelectedRouteTakesTheTrackGoldFace() {
+        // 2026-10-23: a selected route reads its own persisted eye exactly as a selected track does — the
+        // eye's off face is the gold highlight, not the route role's plain colours.
+        val gold = routeLineRenderPlan(routeArrows = false, routeColours = true, selected = true, eyeOverride = false)
+        val banded = routeLineRenderPlan(routeArrows = false, routeColours = true, selected = true, eyeOverride = true)
+
+        assertEquals(LineRenderPath.GOLD_HIGHLIGHT, gold.path)
+        assertEquals(LineRenderPath.BANDED, banded.path)
+    }
+
+    @Test
     fun eachKindsAxesGovernTheirOwnLinesAlone() {
         // The kinds' independence at the one entry point that reads both: a track id is asked of the
         // track pair and a route id of the route pair, so neither kind's axis can band the other's lines.
@@ -103,7 +114,8 @@ class TrackRouteRoleTest {
                 arrowAxis = false,
                 coloursAxis = trackColours,
                 highlightedTrackId = null,
-                eyeOverride = null,
+                trackEyeOverride = false,
+                routeEyeOverride = false,
                 tracksVisible = true,
                 routeIds = routeIds,
                 routeSpeedColour = routeColours

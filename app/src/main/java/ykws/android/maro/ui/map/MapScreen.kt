@@ -193,6 +193,7 @@ import ykws.android.maro.data.route.MarkerRouteFlags
 import ykws.android.maro.data.route.RouteEndSelection
 import ykws.android.maro.data.route.routeEndEntries
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.settings.SelectionEyeStore
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
@@ -678,15 +679,12 @@ fun MapScreen(
     // ── Selected-track rendering override ──────────────────────────────
     // Each kind's two axes are stored state (`appSettings.trackArrows` / `trackColours` for tracks,
     // `routeSpeedArrows` / `routeSpeedColor` for routes), written by their own surfaces, so the map only
-    // reads them — no kind is master over another (2026-10-07). The drawer eye's own value (D10) is
-    // **local to the open card since 2026-10-07**: keyed on the open id, null while it has never been
-    // tapped so the selection mirrors its kind's colours axis, true bands that one track, false paints it
-    // gold, and the card's close clears it. Nothing is written to disk, so it outlives neither the card
-    // nor the session; it moves that track's fill alone, since the chevrons follow the arrows axis.
-    var eyeOverride by remember(highlightedTrackId) { mutableStateOf<Boolean?>(null) }
+    // reads them — no kind is master over another (2026-10-07). The selected item's own toggle is the
+    // per-kind persisted eye declared beside the local context below (2026-10-23): on bands the fill,
+    // off paints the gold highlight, and it never touches either kind's axes.
+    var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
-    var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
 
     // ── Inspect mode (plan §1) ───────────────────────────────────────────
     // Session-lived and never persisted. The sleuth square arms the mode; the state below is the
@@ -1138,6 +1136,13 @@ fun MapScreen(
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
+    // ── The selected-item speed toggle, persisted per kind (2026-10-23) ──
+    // Two private prefs booleans, not part of AppSettings and seeded by no properties key; off by
+    // default. On bands the selected item's fill, off paints its gold highlight — the chevrons stay the
+    // arrows axis' business either way.
+    val selectionEyeStore = remember { SelectionEyeStore(context) }
+    var trackEyeOverride by remember { mutableStateOf(selectionEyeStore.trackEye()) }
+    var routeEyeOverride by remember { mutableStateOf(selectionEyeStore.routeEye()) }
     // ── Screen-lock toggle: flip state + toast ──────────────────────────
     val onToggleScreenLock = {
         val newLocked = !screenLocked
@@ -1803,7 +1808,8 @@ fun MapScreen(
         highlightedTrackId = highlightedTrackId,
         trackArrows = appSettings.trackArrows,
         trackColours = appSettings.trackColours,
-        eyeOverride = eyeOverride,
+        trackEyeOverride = trackEyeOverride,
+        routeEyeOverride = routeEyeOverride,
         allTrackSummaries = allTrackSummaries,
         // The card doors' deferred deletes, hidden from the drawn set while the snackbar waits.
         hiddenTrackIds = hiddenTrackIds,
@@ -3042,7 +3048,7 @@ fun MapScreen(
                 // sweep shows is gold only where a selection would be gold (plan §4).
                 trackArrows = appSettings.trackArrows,
                 trackColours = appSettings.trackColours,
-                eyeOverride = eyeOverride,
+                eyeOverride = trackEyeOverride,
                 // The live acquire (plan §1): every sweep publishes the true closest, and the panel's
                 // presence is that answer's presence — opened at once, swapped on a change of nearest,
                 // closed when the anchor loses its target. A panel of the map's own (the menu, the
@@ -3602,14 +3608,15 @@ fun MapScreen(
             // object, whose fields are plain values no recomposition alone can invalidate, and on the eye
             // as well — its state is recreated with the open card, so a key the settings object alone
             // would miss and the retained derivation would close over the discarded state (R6).
-            val legendVisible by remember(appSettings, eyeOverride) {
+            val legendVisible by remember(appSettings, trackEyeOverride, routeEyeOverride) {
                 derivedStateOf {
                     legendVisibleForState(
                         paintedIds = paintedTrackIds.value,
                         arrowAxis = appSettings.trackArrows,
                         coloursAxis = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
-                        eyeOverride = eyeOverride,
+                        trackEyeOverride = trackEyeOverride,
+                        routeEyeOverride = routeEyeOverride,
                         tracksVisible = appSettings.tracksVisible,
                         routesVisible = appSettings.routesVisible,
                         // The painted routes, so the planner reads each of them as the role it is; read
@@ -4264,12 +4271,17 @@ fun MapScreen(
                 // Only a step's open holds the card: a live acquire's swap must not grey the walk
                 // buttons, or they flash on every change of nearest (2026-10-07).
                 inspectHandoff = inspectHandoff.takeIf { inspectCursorBeforeStep != null },
-                appSettings = appSettings,
-                eyeOverride = eyeOverride,
-                // The eye lives only while this card is open (2026-10-07): the tap flips the local value,
-                // which is cleared with the card, and nothing is written to disk.
+                bandedOn = if (trackDrawerState.track?.route == true) routeEyeOverride else trackEyeOverride,
+                // The tap flips the open kind's own persisted boolean (2026-10-23): on bands the fill,
+                // off paints its gold highlight, and the kind's stored axes are never touched.
                 onToggleEyeOverride = {
-                    eyeOverride = selectionBandedAfterTap(eyeOverride, appSettings.trackColours)
+                    if (trackDrawerState.track?.route == true) {
+                        routeEyeOverride = !routeEyeOverride
+                        selectionEyeStore.setRouteEye(routeEyeOverride)
+                    } else {
+                        trackEyeOverride = !trackEyeOverride
+                        selectionEyeStore.setTrackEye(trackEyeOverride)
+                    }
                 },
             ),
             onTrackDrawerClose = { closeTrackDrawer() },

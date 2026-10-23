@@ -35,14 +35,13 @@ internal fun MapTrackOverlayHistoryDiff(
      */
     trackColours: Boolean,
     /**
-     * The drawer eye's own value (D10), **local to the open card since 2026-10-07**: null follows
-     * [trackColours] — a freshly opened card starts there — true bands the selected track, false paints
-     * it gold. It is not persisted and is cleared when the card closes, so it decides this session's
-     * selection alone. It moves that one track's *fill* and nothing else: the chevrons follow
-     * [trackArrows] alone (see [lineRenderPlan]), and because the value rides the selection rather than a
-     * track id, it applies to whichever track the drawer has open — never to a route.
+     * The selected-item speed toggle, one persisted boolean per kind (2026-10-23): [trackEyeOverride] for
+     * a recorded track, [routeEyeOverride] for a route, each off by default. On bands the selected item's
+     * fill, off paints its gold highlight; non-selected items never read these, and the chevrons follow
+     * the arrows axis alone (see [lineRenderPlan]).
      */
-    eyeOverride: Boolean?,
+    trackEyeOverride: Boolean,
+    routeEyeOverride: Boolean,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
     /**
      * The stored items a card's deferred delete is hiding while it waits (2026-10-10), prefix already
@@ -81,7 +80,8 @@ internal fun MapTrackOverlayHistoryDiff(
         add(highlightedTrackId)
         add(trackArrows)
         add(trackColours)
-        add(eyeOverride)
+        add(trackEyeOverride)
+        add(routeEyeOverride)
         add(appSettings.routeTracksVisible)
         add(appSettings.tracksVisible)
         add(appSettings.routesVisible)
@@ -246,7 +246,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val rendering = storedTrackRendering(
                 points = track.trackPoints.toRenderPoints(),
                 title = "track_hist_${summary.id}",
-                plan = lineRenderPlan(trackArrows, trackColours, selected, eyeOverride),
+                plan = lineRenderPlan(trackArrows, trackColours, selected, trackEyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
                 density = densityScale,
@@ -306,7 +306,8 @@ internal fun MapTrackOverlayHistoryDiff(
                 plan = routeLineRenderPlan(
                     routeArrows = appSettings.routeSpeedArrows,
                     routeColours = appSettings.routeSpeedColor,
-                    selected = selected
+                    selected = selected,
+                    eyeOverride = routeEyeOverride
                 ),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
@@ -396,7 +397,8 @@ internal fun MapTrackOverlayHistoryDiff(
                     routeArrows = appSettings.routeSpeedArrows,
                     routeColours = appSettings.routeSpeedColor,
                     selected = selected,
-                    eyeOverride = eyeOverride
+                    trackEyeOverride = trackEyeOverride,
+                    routeEyeOverride = routeEyeOverride
                 ),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
@@ -618,18 +620,19 @@ internal fun storedTrackSelection(
  * The plan an **unpinned route** draws by: the route role reading its **own two axes**, with no master
  * switch above it (2026-10-07). The route's colours axis bands it and its arrows axis draws its
  * chevrons, exactly as the tracks kind's pair does for a recorded track — so neither kind's chips can
- * govern the other's lines. The drawer eye never reaches a route: it is the open track's override alone.
- * One home, so the counted pass and the test that pins the role read the same arguments.
+ * govern the other's lines. The selected route reads its own persisted eye exactly as a selected track
+ * does. One home, so the counted pass and the test that pins the role read the same arguments.
  */
 internal fun routeLineRenderPlan(
     routeArrows: Boolean,
     routeColours: Boolean,
-    selected: Boolean
+    selected: Boolean,
+    eyeOverride: Boolean? = null
 ): LineRenderPlan = lineRenderPlan(
     arrowAxis = routeArrows,
     coloursAxis = routeColours,
     selected = selected,
-    eyeOverride = null,
+    eyeOverride = eyeOverride,
     route = true
 )
 
@@ -643,8 +646,8 @@ internal fun routeLineRenderPlan(
  * kind, and that choice lives at the effect's one branch, never here.
  *
  * **Kind-scoped axes (2026-10-07):** the pinned face reads its own kind's axis pair — a pinned recorded
- * track the track pair and the drawer eye, a pinned route the route pair and no eye — so a pinned route
- * obeys the route kind's switches like every other route and a pinned track is untouched by them.
+ * track the track pair and its own persisted eye, a pinned route the route pair and its own — so a pinned
+ * route obeys the route kind's switches like every other route and a pinned track is untouched by them.
  */
 internal fun pinnedLineRenderPlan(
     summary: TrackSummary,
@@ -653,14 +656,15 @@ internal fun pinnedLineRenderPlan(
     routeArrows: Boolean,
     routeColours: Boolean,
     selected: Boolean,
-    eyeOverride: Boolean?
+    trackEyeOverride: Boolean,
+    routeEyeOverride: Boolean
 ): LineRenderPlan {
     val route = summary.route
     return lineRenderPlan(
         arrowAxis = if (route) routeArrows else trackArrows,
         coloursAxis = if (route) routeColours else trackColours,
         selected = selected,
-        eyeOverride = if (route) null else eyeOverride,
+        eyeOverride = if (route) routeEyeOverride else trackEyeOverride,
         route = false
     ).copy(dashed = route)
 }
@@ -768,7 +772,7 @@ internal enum class LineRenderPath { PLAIN, GOLD_HIGHLIGHT, BANDED, ROUTE }
  *
  * [dashed] is the summary's own `route` **identity**, not the render role its [path] was chosen by
  * (D12): a saved route draws dashed pinned or not, while the pinned path passes `route = false` for
- * its role. The dispatcher reads this one field on every path, so the dash keeps one home.
+ * its role. The dispatcher reads this one field on every path but the gold face, which is always solid.
  */
 internal data class LineRenderPlan(
     val path: LineRenderPath,
@@ -789,16 +793,17 @@ internal data class LineRenderPlan(
  * track passes the track pair, a route the route pair, so a route's banding and chevrons no longer hang
  * on the tracks kind's chips.
  *
- * The selected track's own override — the drawer eye, [eyeOverride] — moves that one track's *fill* and
- * nothing else: true bands it whatever the axis says, false paints it gold, null follows [coloursAxis].
- * The chevrons are [arrowAxis]' alone: a gold selection with the axis on still carries them and a banded
- * selection with it off does not, whatever the eye says. In every combination the selected track keeps
- * its z-lift and its casing.
+ * The selected line's own override — the per-kind persisted eye, [eyeOverride] — moves that one line's
+ * fill and nothing else: true bands it, false paints it gold, and null (the pure function's untapped
+ * case) follows [coloursAxis]. The chevrons are [arrowAxis]' alone: a gold selection with the axis on
+ * still carries them and a banded selection with it off does not, whatever the eye says. In every
+ * combination the selected line keeps its z-lift and its casing.
  *
- * A **route** is decided before all of this: it takes the route role from its own [coloursAxis] alone,
- * and the eye never reaches it. A **pinned** route never lands here: it takes the shared pinned path
- * through [pinnedLineRenderPlan] with `route = false` (D5), so the pin changes both its stroke and its
- * face.
+ * **One decision for both kinds (2026-10-23):** a selected route takes the same gold face a selected
+ * track does, and its non-banded fallback is the route role's own plain colours rather than the recorded
+ * kind's. The `route` flag selects only that fallback path and the dash, so the two kinds share the whole
+ * banded/gold decision. A **pinned** route never lands here: it takes the shared pinned path through
+ * [pinnedLineRenderPlan] with `route = false` (D5), so the pin changes both its stroke and its face.
  */
 internal fun lineRenderPlan(
     arrowAxis: Boolean,
@@ -807,39 +812,21 @@ internal fun lineRenderPlan(
     eyeOverride: Boolean?,
     route: Boolean = false
 ): LineRenderPlan {
-    if (route) {
-        return LineRenderPlan(
-            path = if (coloursAxis) LineRenderPath.BANDED else LineRenderPath.ROUTE,
-            drawArrows = arrowAxis,
-            selected = selected,
-            dashed = true
-        )
-    }
-    val banded = if (selected) {
-        eyeOverride ?: coloursAxis
-    } else coloursAxis
+    val banded = if (selected) eyeOverride ?: coloursAxis else coloursAxis
     val path = when {
         banded -> LineRenderPath.BANDED
         selected -> LineRenderPath.GOLD_HIGHLIGHT
+        route -> LineRenderPath.ROUTE
         else -> LineRenderPath.PLAIN
     }
     return LineRenderPlan(
         path = path,
         drawArrows = arrowAxis,
         selected = selected,
-        dashed = false
+        dashed = route
     )
 }
 
-/**
- * What a tap on the drawer eye writes: the selection's banded value *after* that tap. Before the first
- * one [current] is null and the selection mirrors its kind's colours axis, so the tap turns that reading
- * around; afterwards it flips its own value and the axis no longer reaches it. The answer is never null,
- * and since 2026-10-07 it lands in the open card's **local** state — the eye persists nothing, so this
- * is the tap's whole algebra and the key it once wrote is gone.
- */
-internal fun selectionBandedAfterTap(current: Boolean?, trackColours: Boolean): Boolean =
-    !(current ?: trackColours)
 
 /**
  * Whether the speed legend belongs on the map. It keys the fill the ramp paints and nothing else, so it
@@ -853,7 +840,7 @@ internal fun selectionBandedAfterTap(current: Boolean?, trackColours: Boolean): 
  * the flags say.
  *
  * [selectionOpen] and [selectionBanded] are the second half, and they follow the fill the drawer has
- * open: with a track selected the scale lives and dies with *that* track's fill — read by
+ * open: with an item selected the scale lives and dies with *that* item's own eye — read by
  * [selectionBandedFor] — while with nothing selected the painted strokes are the whole answer, every
  * banded stroke hanging on its own kind's colours axis (2026-10-07).
  */
@@ -864,19 +851,18 @@ private fun legendVisibleFor(
 ): Boolean = storedOnMap && (!selectionOpen || selectionBanded)
 
 /**
- * The fill the open item wears, read exactly as the map paints it: a selected **route** bands on its own
- * colours axis alone (2026-10-07, no master chip above it), the eye never reaching it; every other
- * selection is banded by the eye's own value, or by [trackColours] while the eye has not been tapped.
+ * The fill the open item wears, read exactly as the map paints it: the open route's persisted eye for a
+ * route, the open track's for a track (2026-10-23) — each kind's own boolean, so the two never leak
+ * across a mixed ladder.
  */
 private fun selectionBandedFor(
     highlightedTrackId: String?,
-    eyeOverride: Boolean?,
-    trackColours: Boolean,
-    routeIds: Set<String>,
-    routeSpeedColour: Boolean
+    trackEyeOverride: Boolean,
+    routeEyeOverride: Boolean,
+    routeIds: Set<String>
 ): Boolean = if (highlightedTrackId != null && highlightedTrackId in routeIds) {
-    routeSpeedColour
-} else eyeOverride ?: trackColours
+    routeEyeOverride
+} else trackEyeOverride
 
 /**
  * The same gate taken from the map's own state rather than from its parts, so the composition that
@@ -896,7 +882,8 @@ internal fun legendVisibleForState(
     arrowAxis: Boolean,
     coloursAxis: Boolean,
     highlightedTrackId: String?,
-    eyeOverride: Boolean?,
+    trackEyeOverride: Boolean,
+    routeEyeOverride: Boolean,
     tracksVisible: Boolean,
     routesVisible: Boolean = tracksVisible,
     routeIds: Set<String> = emptySet(),
@@ -908,7 +895,8 @@ internal fun legendVisibleForState(
         arrowAxis = arrowAxis,
         coloursAxis = coloursAxis,
         highlightedTrackId = highlightedTrackId,
-        eyeOverride = eyeOverride,
+        trackEyeOverride = trackEyeOverride,
+        routeEyeOverride = routeEyeOverride,
         tracksVisible = tracksVisible,
         routesVisible = routesVisible,
         routeIds = routeIds,
@@ -918,10 +906,9 @@ internal fun legendVisibleForState(
     selectionOpen = highlightedTrackId != null,
     selectionBanded = selectionBandedFor(
         highlightedTrackId = highlightedTrackId,
-        eyeOverride = eyeOverride,
-        trackColours = coloursAxis,
-        routeIds = routeIds,
-        routeSpeedColour = routeSpeedColour
+        trackEyeOverride = trackEyeOverride,
+        routeEyeOverride = routeEyeOverride,
+        routeIds = routeIds
     )
 )
 
@@ -934,16 +921,17 @@ internal fun legendVisibleForState(
  * failed to load — or a set whose only banded candidate is a selection the eye has flipped gold all
  * answer false, whatever the flags say.
  *
- * [routeIds] names the painted routes, so each id is read as the role it really is: a route bands on
- * its own colours axis alone (2026-10-07, no master chip above it) — the reading the map paints by —
- * and takes [routesVisible] where a recorded track takes [tracksVisible].
+ * [routeIds] names the painted routes, so each id is read as the role it really is: a route bands on its
+ * own colours axis or its own persisted eye (2026-10-23) — the reading the map paints by — and takes
+ * [routesVisible] where a recorded track takes [tracksVisible].
  */
 internal fun bandedStrokeOnMap(
     paintedIds: Set<String>,
     arrowAxis: Boolean,
     coloursAxis: Boolean,
     highlightedTrackId: String?,
-    eyeOverride: Boolean?,
+    trackEyeOverride: Boolean,
+    routeEyeOverride: Boolean,
     tracksVisible: Boolean,
     routesVisible: Boolean = tracksVisible,
     routeIds: Set<String> = emptySet(),
@@ -956,7 +944,7 @@ internal fun bandedStrokeOnMap(
         arrowAxis = if (isRoute) routeSpeedArrows else arrowAxis,
         coloursAxis = if (isRoute) routeSpeedColour else coloursAxis,
         selected = id == highlightedTrackId,
-        eyeOverride = eyeOverride,
+        eyeOverride = if (isRoute) routeEyeOverride else trackEyeOverride,
         route = isRoute
     ).path == LineRenderPath.BANDED
 }
@@ -1021,7 +1009,8 @@ internal fun storedTrackRendering(
         LineRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth, density)
         // The route role's own pair arrives through the same lazily-built appearance the plain path
         // takes — the caller owns which pair a route paints from — and the dash follows the summary's
-        // identity on every path (D12), so a saved route reads apart from a recorded track.
+        // identity on every path but the gold face (D12, which is always solid), so a saved route reads
+        // apart from a recorded track.
         LineRenderPath.ROUTE -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
         LineRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density, dashed = plan.dashed)
     }
