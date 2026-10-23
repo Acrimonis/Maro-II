@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthIsobaths
 import ykws.android.maro.data.depth.DepthRepository
@@ -119,6 +120,13 @@ class DepthViewModel(
     // every job returns there before it reads or writes these maps.
     private val produced = mutableMapOf<RasterCache.Step, ProducedRaster>()
     private val running = mutableMapOf<RasterCache.Step, RasterJob>()
+
+    /**
+     * The one Settings job whose builders may write the progress overlay. A builder's pixel loop is
+     * not cancellation-cooperative, so a superseded job keeps calling back for a while; its reports
+     * are dropped here rather than restoring a progress the supersede already cleared.
+     */
+    private var progressOwner: Job? = null
 
     /**
      * The loaded coastline's identity the warning raster's key carries, recorded by
@@ -237,12 +245,14 @@ class DepthViewModel(
                 val owned = steps.filter { running[it]?.job === self }
                 owned.forEach { running.remove(it) }
                 if (forced && owned.isNotEmpty()) {
+                    if (progressOwner === self) progressOwner = null
                     _rasterProgress.value = null
                     _generatingStep.value = null
                 }
             }
         }
         steps.forEach { running[it] = RasterJob(keys[it], job, forced, requeue) }
+        if (forced) progressOwner = job
         job.start()
     }
 
@@ -260,6 +270,7 @@ class DepthViewModel(
             val survivors = running.filterValues { it.job === previous.job }.keys.toList()
             survivors.forEach { running.remove(it) }
             if (previous.forced) {
+                if (progressOwner === previous.job) progressOwner = null
                 if (_generatingStep.value?.let { it in steps } == true) _generatingStep.value = null
                 if (survivors.isEmpty()) _rasterProgress.value = null
             }
@@ -283,6 +294,7 @@ class DepthViewModel(
         isWater: (Double, Double) -> Boolean,
         forced: Boolean
     ) {
+        val self = coroutineContext[Job]
         if (forced) _generatingStep.value = step
         if (forced || produced[step]?.key != key) dropProduced(step)
         val cutoffM = settings.emodnetShallowCutoffM
@@ -290,25 +302,25 @@ class DepthViewModel(
             when (step) {
                 RasterCache.Step.GRID -> {
                     // Loaded by the caller — the step only reports.
-                    progressSink(forced, RasterStep.GRID_LOAD, "Depth grid")?.let { it(0); it(100) }
+                    progressSink(forced, self, RasterStep.GRID_LOAD, "Depth grid")?.let { it(0); it(100) }
                     null
                 }
                 RasterCache.Step.ISOBATH -> {
-                    val onProgress = progressSink(forced, RasterStep.ISOBATH, "Isobath contours")
+                    val onProgress = progressSink(forced, self, RasterStep.ISOBATH, "Isobath contours")
                     onProgress?.invoke(0)
                     DepthIsobaths.build(grid, emodnetCutoffM = cutoffM)
                     onProgress?.invoke(100)
                     null
                 }
                 RasterCache.Step.DEPTH_COLOUR -> {
-                    val onProgress = progressSink(forced, RasterStep.COLOUR_RASTER, "Depth colour map")
+                    val onProgress = progressSink(forced, self, RasterStep.COLOUR_RASTER, "Depth colour map")
                     cachedOrBuilt(context, step, key, grid, forced) {
                         onProgress?.invoke(0)
                         DepthBitmap.build(grid, cutoffM, AppConfig.mapDepthNodataColor, onProgress)
                     }
                 }
                 RasterCache.Step.LOW_DEPTH_WARNING -> {
-                    val onProgress = progressSink(forced, RasterStep.WARNING_RASTER, "Shallow warning overlay")
+                    val onProgress = progressSink(forced, self, RasterStep.WARNING_RASTER, "Shallow warning overlay")
                     cachedOrBuilt(context, step, key, grid, forced) {
                         onProgress?.invoke(0)
                         LowDepthWarningBitmap.build(
@@ -346,10 +358,14 @@ class DepthViewModel(
         return bmp
     }
 
-    /** A builder's progress sink on the Settings path; none on the lazy path. */
-    private fun progressSink(forced: Boolean, step: RasterStep, phase: String): ((Int) -> Unit)? {
+    /**
+     * A builder's progress sink on the Settings path; none on the lazy path. It reports only while
+     * [owner] still owns the overlay, so a callback from a superseded build — its loop runs on after
+     * the cancel — cannot put back a progress the supersede cleared.
+     */
+    private fun progressSink(forced: Boolean, owner: Job?, step: RasterStep, phase: String): ((Int) -> Unit)? {
         if (!forced) return null
-        return { p -> report(step, phase, p) }
+        return { p -> if (progressOwner === owner) report(step, phase, p) }
     }
 
     private fun keyFor(step: RasterCache.Step, grid: DepthGrid, settings: AppSettings): RasterCache.Key =
