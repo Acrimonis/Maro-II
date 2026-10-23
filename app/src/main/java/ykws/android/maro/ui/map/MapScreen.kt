@@ -795,6 +795,7 @@ fun MapScreen(
         )
     val routeState by routeViewModel.state.collectAsState()
     val routePaceKn by routeViewModel.paceKn.collectAsState()
+    val routeNowPace by routeViewModel.nowPace.collectAsState()
     LaunchedEffect(appSettings.routeFreeWaterPaceKn, routePaceKn) {
         routeSearchPaceKn.value = AppConfig.routePaceForSearchKn(
             appSettings.routeFreeWaterPaceKn.toDouble(),
@@ -1621,6 +1622,45 @@ fun MapScreen(
         trackSavedToastAt = SystemClock.elapsedRealtime()
     }
 
+    // ── First launch: seed the speed history from the tracks list, once, when no history exists yet ──
+    LaunchedEffect(Unit) {
+        if (viewModel.settings.value.routeSpeedHistoryTrips.isNotEmpty()) return@LaunchedEffect
+        // Wait, bounded, for both the speed-zone index (so the seed's exclusion applies) and the loaded
+        // track list; the list arriving is the retry.
+        val ready = kotlinx.coroutines.withTimeoutOrNull(SPEED_HISTORY_SEED_WAIT_MS) {
+            kotlinx.coroutines.flow.combine(
+                viewModel.speedZoneIndexState,
+                trackViewModel.summaries
+            ) { index, list -> index != null && list.isNotEmpty() }.first { it }
+        }
+        if (ready == null) return@LaunchedEffect
+        val store = seedSpeedHistory(trackViewModel) { lat, lon -> viewModel.isRouteRestricted(lat, lon) }
+        // A seed never overwrites a history that appeared while it ran (a Calculate, a finished trip).
+        if (store.isNotEmpty()) {
+            viewModel.updateSettings {
+                if (it.routeSpeedHistoryTrips.isEmpty()) it.withSeededHistory(store, System.currentTimeMillis()) else it
+            }
+        }
+    }
+
+    // ── A recorded trip starts or ends: the pace restarts from the day's saved live pace, else the history ──
+    LaunchedEffect(trackRecorderState.state) {
+        if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
+            routeViewModel.startTrip()
+        } else {
+            routeViewModel.endTrip()
+        }
+    }
+
+    // ── The day's pace: the live pace is saved under its trip's date, while it is Live ──
+    LaunchedEffect(routeViewModel) {
+        saveDayPace(
+            pace = routeViewModel.nowPace,
+            tripDate = { routeViewModel.tripDateIso },
+            clockMs = SystemClock::elapsedRealtime
+        ) { kn, date -> viewModel.updateSettings { it.withDayPace(kn, date) } }
+    }
+
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
@@ -1641,7 +1681,19 @@ fun MapScreen(
                         markersViewModel.closeDrawer()
                     }
                 }
-                is ykws.android.maro.data.track.TrackEvent.Finalized -> toastSaved(event.name)
+                is ykws.android.maro.data.track.TrackEvent.Finalized -> {
+                    toastSaved(event.name)
+                    // Fold the finished trip into the speed history: one trip, its cruising speed and its
+                    // open-water minutes, appended live. The Calculate snapshot is left as it stood.
+                    trackScope.launch {
+                        val track = trackViewModel.loadTrackDetailCached(event.trackId) ?: return@launch
+                        val summaries = trackViewModel.allSummaries.value
+                        val trip = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                            finishedTripForHistory(track, summaries) { lat, lon -> viewModel.isRouteRestricted(lat, lon) }
+                        } ?: return@launch
+                        viewModel.updateSettings { it.withFoldedTrip(trip) }
+                    }
+                }
                 is ykws.android.maro.data.track.TrackEvent.Resumed -> {
                     // Restore checkpoint points to the live polyline on Continue.
                     // The polyline may not exist yet (Compose hasn't recomposed after state→ON),
@@ -3371,9 +3423,8 @@ fun MapScreen(
                             gpsMode = appSettings.gpsMode,
                             speedKn = navigationState.speedKnots,
                             // A reading taken inside a zone or the band measures the limit, not the
-                            // boat, and RoutePace drops it for that reason.
+                            // boat, and the pace ignores it for that reason.
                             positionRestricted = inZone300 || zoneSituation?.currentZone != null,
-                            setPaceKn = appSettings.routeFreeWaterPaceKn,
                             // The followed line's colour: the same settings value the toggle's
                             // acquiring face wears, so the two cannot drift (R51).
                             routeLineColor = appSettings.routeLineColor,
@@ -3438,6 +3489,7 @@ fun MapScreen(
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
                         paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        paceSource = routeNowPace.source,
                         rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onSelectPage = { index -> routeViewModel.selectPage(index) },
@@ -3485,6 +3537,7 @@ fun MapScreen(
                         dashboardBaseHeight = dashboardBaseHeight,
                         paceKn = routePaceKn,
                         paceSetKn = appSettings.routeFreeWaterPaceKn,
+                        paceSource = routeNowPace.source,
                         rankView = routeRankView,
                         dialLabel = routeDialLabel,
                         onMeasuredHeight = { h ->
@@ -3994,6 +4047,7 @@ fun MapScreen(
             // it replaces instead of snapping through the floor (2026-10-07).
             initialDashboardHeight = dashboardBand.lastShown,
             onDashboardMeasuredHeight = { dashboardBand.measuredBottom = it; dashboardBand.lastShown = it },
+            routeRestricted = { lat, lon -> viewModel.isRouteRestricted(lat, lon) },
             onDismissSettings = { chrome.showSettings = false },
             onDismissMenu = { chrome.showTrackDrawer = false },
             onDismissTrackHistory = { chrome.showTrackHistory = false },
@@ -4122,6 +4176,7 @@ fun MapScreen(
                 navigationScrollState = navigationScrollState,
                 routingScrollState = routingScrollState,
                 systemScrollState = systemScrollState,
+                paceNow = routeNowPace,
             ),
             onTabChange = { chrome.selectedTab = it },
             onRegenerateRasters = { steps -> regenerateRasterLayers(state, viewModel, depthViewModel, context, appSettings, steps) },

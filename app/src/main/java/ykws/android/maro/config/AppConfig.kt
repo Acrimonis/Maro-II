@@ -47,6 +47,22 @@ object AppConfig {
     var routeFreeWaterPaceKn = 25f
         private set
 
+    /** How far back the `Now` pace looks, in minutes (2–10) — `route.pace.windowMin`, default 4; the Settings slider starts here. */
+    var routePaceWindowMin = 4
+        private set
+
+    /** The speed (kn) below which a reading is ignored as a stop — `route.pace.stopKn`, default 4. */
+    var routePaceStopKn = 4.0
+        private set
+
+    /** The most open-water minutes one trip votes with in the Speed History — `route.pace.tripWeightCapMin`, default 30. */
+    var routePaceTripWeightCapMin = 30
+        private set
+
+    /** How many recent water tracks the speed-history window holds — `route.speedHistory.trackCount`, default 5. */
+    var routeSpeedHistoryTrackCount = 5
+        private set
+
     /**
      * Whether a marker's **price** (1–9) is armed for the route search. Set via `route.marker.enabled`.
      * It prices water and **never lifts a wall**: a Blocked marker (10) blocks whatever this says.
@@ -89,6 +105,18 @@ object AppConfig {
 
     /** **The `Any` stop** — the scale's first position, the absence of a preference and never a speed. */
     const val ROUTE_FREE_WATER_PACE_ANY = 0f
+
+    /** Shortest pace window (min) the Settings slider offers. */
+    const val ROUTE_PACE_WINDOW_MIN_MIN = 2
+
+    /** Longest pace window (min) the Settings slider offers. */
+    const val ROUTE_PACE_WINDOW_MIN_MAX = 10
+
+    /** Lowest track count the speed-history window accepts. */
+    const val ROUTE_SPEED_HISTORY_TRACKS_MIN = 1
+
+    /** Highest track count the speed-history window accepts. */
+    const val ROUTE_SPEED_HISTORY_TRACKS_MAX = 15
 
     /**
      * The one ordered option list both doors read — the sentinel first, then the numbered stops lowest
@@ -1955,6 +1983,21 @@ object AppConfig {
             }
             props.getProperty("route.engine.id")?.trim()?.takeIf { it.isNotEmpty() }?.let {
                 routeEngineId = it
+            }
+            props.getProperty("route.pace.windowMin")?.toIntOrNull()?.let {
+                routePaceWindowMin = it.coerceIn(ROUTE_PACE_WINDOW_MIN_MIN, ROUTE_PACE_WINDOW_MIN_MAX)
+            }
+            props.getProperty("route.pace.stopKn")?.toDoubleOrNull()?.let {
+                routePaceStopKn = it.coerceIn(0.0, 10.0)
+            }
+            props.getProperty("route.pace.tripWeightCapMin")?.toIntOrNull()?.let {
+                routePaceTripWeightCapMin = it.coerceAtLeast(1)
+            }
+            props.getProperty("route.speedHistory.trackCount")?.toIntOrNull()?.let {
+                routeSpeedHistoryTrackCount = it.coerceIn(
+                    ROUTE_SPEED_HISTORY_TRACKS_MIN,
+                    ROUTE_SPEED_HISTORY_TRACKS_MAX
+                )
             }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)

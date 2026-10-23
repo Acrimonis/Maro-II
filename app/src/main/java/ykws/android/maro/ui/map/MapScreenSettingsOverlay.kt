@@ -85,6 +85,8 @@ import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
+import ykws.android.maro.data.route.PaceReading
+import ykws.android.maro.data.route.speedHistoryProfileKn
 
 /**
  * The two render-count sliders' shared value label: the All word at the sentinel, the plain count
@@ -112,6 +114,9 @@ internal fun SettingsOverlay(
     navigationScrollState: ScrollState,
     routingScrollState: ScrollState,
     systemScrollState: ScrollState,
+    onCalculateSpeedHistory: () -> Unit = {},
+    speedHistoryCalculating: Boolean = false,
+    paceNow: PaceReading,
 ) {
     val pagerState = rememberPagerState(pageCount = { SettingsTab.entries.size })
 
@@ -197,7 +202,10 @@ internal fun SettingsOverlay(
                             onExportAllMarkers = onExportAllMarkers,
                             scrollState = layersScrollState
                         )
-                        SettingsTab.ROUTING -> RoutingSettings(settings, onUpdateSettings, routingScrollState)
+                        SettingsTab.ROUTING -> RoutingSettings(
+                        settings, onUpdateSettings, routingScrollState, onCalculateSpeedHistory,
+                        speedHistoryCalculating, paceNow
+                    )
                         SettingsTab.NAVIGATION -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
                         SettingsTab.SYSTEM -> SystemSettings(
                             settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState
@@ -1542,7 +1550,10 @@ private fun NavigationSettings(
 private fun RoutingSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    scrollState: ScrollState
+    scrollState: ScrollState,
+    onCalculateSpeedHistory: () -> Unit,
+    speedHistoryCalculating: Boolean,
+    paceNow: PaceReading
 ) {
     Column(
         modifier = Modifier
@@ -1611,6 +1622,103 @@ private fun RoutingSettings(
                     onUpdateSettings { it.copy(routeSlowWaterStop = v.roundToInt()) }
                 }
             )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Speed History ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_speed_history))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            // The pace in force and where it comes from, whatever stop the Cruising speed row holds.
+            CardDescription(
+                stringResource(
+                    R.string.settings_speed_history_pace_now_fmt,
+                    stringResource(R.string.settings_route_pace_value_fmt, paceNow.kn.toFloat()),
+                    stringResource(paceNow.source.labelRes())
+                )
+            )
+            SliderRow(
+                label = stringResource(R.string.settings_speed_history_window_label),
+                description = stringResource(R.string.settings_speed_history_window_desc),
+                valueLabel = stringResource(
+                    R.string.settings_speed_history_window_value_fmt, settings.routePaceWindowMin
+                ),
+                value = settings.routePaceWindowMin.toFloat(),
+                valueRange = AppConfig.ROUTE_PACE_WINDOW_MIN_MIN.toFloat()..
+                    AppConfig.ROUTE_PACE_WINDOW_MIN_MAX.toFloat(),
+                steps = AppConfig.ROUTE_PACE_WINDOW_MIN_MAX - AppConfig.ROUTE_PACE_WINDOW_MIN_MIN - 1,
+                onValueChange = { v ->
+                    onUpdateSettings { it.copy(routePaceWindowMin = v.roundToInt()) }
+                }
+            )
+
+            SectionDivider()
+
+            SliderRow(
+                label = stringResource(R.string.settings_speed_history_track_count_label),
+                description = stringResource(R.string.settings_speed_history_track_count_desc),
+                valueLabel = settings.routeSpeedHistoryTrackCount.toString(),
+                value = settings.routeSpeedHistoryTrackCount.toFloat(),
+                valueRange = AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN.toFloat()..
+                    AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX.toFloat(),
+                steps = AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX - AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN - 1,
+                onValueChange = { v ->
+                    onUpdateSettings { it.copy(routeSpeedHistoryTrackCount = v.roundToInt()) }
+                }
+            )
+            ToggleRow(
+                label = stringResource(R.string.settings_speed_history_demo_label),
+                description = stringResource(R.string.settings_speed_history_demo_desc),
+                checked = settings.routeSpeedHistoryIncludeDemo,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedHistoryIncludeDemo = on) } }
+            )
+
+            SectionDivider()
+
+            // Two lines: the last Calculate's snapshot, and the profile today — that plus every trip folded
+            // since, derived from the store at once whenever N or the demo switch moves.
+            val snapshotKn = settings.routeSpeedHistoryComputedKn
+            val todayKn = settings.speedHistoryProfileKn()
+            if (todayKn == null && snapshotKn <= 0f) {
+                CardDescription(stringResource(R.string.settings_speed_history_none))
+            } else {
+                if (snapshotKn > 0f) {
+                    CardDescription(
+                        stringResource(
+                            R.string.settings_speed_history_reset_fmt,
+                            java.text.DateFormat.getDateInstance()
+                                .format(settings.routeSpeedHistoryComputedAtEpochMs),
+                            stringResource(R.string.settings_route_pace_value_fmt, snapshotKn)
+                        )
+                    )
+                }
+                if (todayKn != null) {
+                    CardDescription(
+                        stringResource(
+                            R.string.settings_speed_history_today_fmt,
+                            stringResource(R.string.settings_route_pace_value_fmt, todayKn.toFloat())
+                        )
+                    )
+                }
+            }
+
+            SectionDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.settings_speed_history_calculate),
+                        role = ConfirmActionRole.SECONDARY,
+                        // Off from the press until the rebuild is done, so one Calculate runs at a time.
+                        enabled = !speedHistoryCalculating,
+                        onClick = onCalculateSpeedHistory
+                    )
+                )
+            }
         }
 
     }

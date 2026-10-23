@@ -718,7 +718,13 @@
          landed out of those started, then the cruising speed — under `Any` the pace the search
          evaluated, in brackets — then the preference; `settings_route_pace_value_fmt` renders the pace. -->
     <string name="route_header_landed_fmt">Landed %1$d/%2$d</string>
-    <string name="route_header_pace_any_fmt">Any (%1$s)</string>
+    <string name="route_header_pace_any_fmt">Now (%1$s, %2$s)</string>
+    <!-- Where the pace `Now` plans at comes from: this trip's own readings, the day's saved pace, the learned
+         history, or the shipped default. -->
+    <string name="route_pace_source_live">Live</string>
+    <string name="route_pace_source_today">Today</string>
+    <string name="route_pace_source_history">History</string>
+    <string name="route_pace_source_default">Default</string>
     <!-- The acquisition's stage, as the engine's closed set publishes it: one word per boundary the
          search crosses, in the order it crosses them. -->
     <string name="route_stage_corridor">Corridor</string>
@@ -790,12 +796,32 @@
     <string name="route_age_sec">%1$d s</string>
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Cruising speed</string>
-    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow. At Any, the route plans at your boat\'s own pace.</string>
+    <string name="settings_route_pace_desc">How fast your boat goes in open water — it sets the trip time and what the route counts as slow. At Now, the route plans at your boat\'s own pace.</string>
     <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
-    <string name="settings_route_pace_any">Any</string>
+    <string name="settings_route_pace_any">Now</string>
     <!-- The quick-access wheel's own word for the same stop: the wheel is a list of values, so the -->
     <!-- sentinel reads with dashes there and plain words on the Settings row. -->
-    <string name="settings_route_pace_any_wheel">--Any--</string>
+    <string name="settings_route_pace_any_wheel">--Now--</string>
+    <!-- The Speed History section: the learned cruise-speed window and its seed. -->
+    <string name="settings_section_speed_history">Speed History</string>
+    <string name="settings_speed_history_track_count_label">Tracks to look back</string>
+    <string name="settings_speed_history_track_count_desc">How many recent trips the history remembers.</string>
+    <string name="settings_speed_history_calculate">Calculate Speed History</string>
+    <string name="settings_speed_history_reset_fmt">Speed history reset on %1$s to %2$s.</string>
+    <string name="settings_speed_history_today_fmt">Speed History today at %1$s.</string>
+    <string name="settings_speed_history_none">No history yet — press Calculate.</string>
+    <string name="settings_speed_history_pace_now_fmt">Pace now: %1$s · %2$s</string>
+    <string name="settings_speed_history_window_label">Pace window</string>
+    <string name="settings_speed_history_window_desc">How long a change of speed must last before Now follows it: under a quarter of the window is ignored, from three quarters on it is followed in full.</string>
+    <string name="settings_speed_history_window_value_fmt">%1$d min</string>
+    <string name="settings_speed_history_demo_label">Include demo tracks</string>
+    <string name="settings_speed_history_demo_desc">Let trips recorded in demo mode count in the history.</string>
+    <!-- Calculate's own feedback, once the rebuild is done: how many trips it read, or that nothing qualified. -->
+    <plurals name="settings_speed_history_calculated">
+        <item quantity="one">Speed History calculated from %d trip.</item>
+        <item quantity="other">Speed History calculated from %d trips.</item>
+    </plurals>
+    <string name="settings_speed_history_none_eligible">No eligible track — Speed History unchanged.</string>
     <!-- The verdict's dial: how much a second in slow water counts against a second of driving. Its stops
          are the weight's own chips and the track's two ends, and its top stop is the sentinel that weighs
          the slow seconds alone — named, never numbered. -->

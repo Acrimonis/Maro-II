@@ -26,7 +26,11 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.RouteResult
 import ykws.android.maro.data.model.RouteSlowLimit
+import ykws.android.maro.data.route.PacePlateau
+import ykws.android.maro.data.route.PaceReading
+import ykws.android.maro.data.route.PaceSource
 import ykws.android.maro.data.route.RoutePace
+import ykws.android.maro.data.route.speedHistoryProfileKn
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.RouteDeclarations
@@ -334,7 +338,10 @@ class RouteViewModel(
      * Where the engine declares an arm's routes: its end repair reads the coast and the measured depth
      * line, a cold read the screen's own thread must not pay.
      */
-    private val declareDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val declareDispatcher: CoroutineDispatcher = Dispatchers.Default,
+
+    /** Today's local date (`yyyy-MM-dd`) — read when a recorded trip starts, and at each reading while none runs. */
+    private val localDate: () -> String = { java.time.LocalDate.now().toString() }
 ) : ViewModel() {
 
     /** The engine the running session was armed with, or null while the mode is idle. */
@@ -458,8 +465,39 @@ class RouteViewModel(
     private val _sessionLinks = MutableStateFlow<Map<RoutePlan, String?>>(emptyMap())
     val sessionLinks: StateFlow<Map<RoutePlan, String?>> = _sessionLinks.asStateFlow()
 
-    /** The pace window: recent readings, oldest first, pruned to [RoutePace.WINDOW_MS]. */
-    private val paceSamples = ArrayDeque<RoutePace.Sample>()
+    /*
+     * The pace's state below — the plateau, the trip's date, the cached starting pace — is confined to the
+     * main thread: the feed and the refresh arrive from composition, and the settings collector runs on
+     * `viewModelScope`, whose dispatcher is the main one. `PacePlateau` is not synchronised and relies on it.
+     */
+
+    /** The reduction `Now` reads: created on first need and again at every trip start; the view model only feeds it. */
+    private var plateau: PacePlateau? = null
+
+    /**
+     * The local date (`yyyy-MM-dd`) the day's saved pace is written under and read against. A recorded trip
+     * pins it when it starts and never re-reads it, so a trip past midnight keeps its pace; with no recorded
+     * trip running there is no trip to pin it, and it follows the calendar.
+     */
+    var tripDateIso: String = ""
+        private set
+
+    /** Whether a recorded trip is running — the one thing that pins [tripDateIso]. */
+    private var tripRecording = false
+
+    /** The instant of the last reading, refresh or trip start, so a settings move re-reads the pace on the feed's own clock. */
+    private var lastFeedMs = 0L
+
+    /** The starting pace, cached against the settings object and the date it was read for: a reading costs no profile. */
+    private var startingFor: Pair<AppSettings, String>? = null
+    private var starting = PaceReading(AppConfig.routeFreeWaterPaceKn.toDouble(), PaceSource.DEFAULT)
+
+    private val _nowPace = MutableStateFlow(
+        PaceReading(AppConfig.routeFreeWaterPaceKn.toDouble(), PaceSource.DEFAULT)
+    )
+
+    /** The pace `Now` plans at and where it comes from — whatever stop the Cruising speed row holds. */
+    val nowPace: StateFlow<PaceReading> = _nowPace.asStateFlow()
 
     /** lookupId → page index, so an update lands on the page that owns it. */
     private val lookupPages = mutableMapOf<RouteId, Int>()
@@ -487,6 +525,10 @@ class RouteViewModel(
             }
                 .distinctUntilChanged()
                 .collect { applyOrder() }
+        }
+        // A fresh Calculate, or any settings move, re-reads the pace so the search never shows a stale value.
+        viewModelScope.launch {
+            settings.collect { recomputePace(lastFeedMs.takeIf { it > 0L } ?: System.currentTimeMillis()) }
         }
     }
 
@@ -1026,21 +1068,96 @@ class RouteViewModel(
         _sessionLinks.value = session.toMap()
     }
 
-    /** One pace reading for the window. */
-    fun observePace(speedKn: Double?, restricted: Boolean, nowMs: Long, setPaceKn: Double) {
-        if (speedKn != null && speedKn.isFinite() && speedKn > 0.0) {
-            paceSamples.addLast(RoutePace.Sample(speedKn, nowMs, restricted))
+    /**
+     * A trip begins: the pace restarts from the day's saved pace while its date is today's, else the learned
+     * history, else the shipped default. The trip pins the date here until [endTrip], so a trip past
+     * midnight keeps its pace.
+     */
+    fun startTrip(nowMs: Long = System.currentTimeMillis()) {
+        tripRecording = true
+        tripDateIso = localDate()
+        plateau = null
+        lastFeedMs = nowMs
+        recomputePace(nowMs)
+    }
+
+    /** The recorded trip has ended: the day's date follows the calendar again until the next one starts. */
+    fun endTrip() {
+        tripRecording = false
+    }
+
+    /** One speed reading for the pace — null when the feed has nothing to say, which a demo drive never does otherwise. */
+    fun observePace(speedKn: Double?, restricted: Boolean, nowMs: Long) {
+        lastFeedMs = nowMs
+        followCalendar()
+        plateauOf().observe(speedKn, restricted, nowMs)
+        recomputePace(nowMs)
+    }
+
+    /**
+     * Re-reads the pace at [nowMs] with no new reading. The feed speaks only when the speed value changes, so
+     * a speed that holds still — a stop at 0 — would otherwise leave the pace and its Live word as they were
+     * when the value last moved.
+     */
+    fun refreshPace(nowMs: Long) {
+        lastFeedMs = nowMs
+        followCalendar()
+        recomputePace(nowMs)
+    }
+
+    /** With no recorded trip pinning it, the day's date is today's. */
+    private fun followCalendar() {
+        if (!tripRecording) tripDateIso = localDate()
+    }
+
+    private fun plateauOf(): PacePlateau = plateau ?: run {
+        if (tripDateIso.isEmpty()) tripDateIso = localDate()
+        val s = settings.value
+        PacePlateau(s.paceWindowMs(), AppConfig.routePaceStopKn, startingPace().kn)
+            .also { plateau = it }
+    }
+
+    /**
+     * What a trip starts on, and the source that names it while no reading of this trip can yet move the
+     * number. Read again only when the settings or the date move.
+     */
+    private fun startingPace(): PaceReading {
+        val s = settings.value
+        val key = startingFor
+        if (key == null || key.first !== s || key.second != tripDateIso) {
+            starting = RoutePace.starting(
+                dayKn = s.routePaceDayKn.toDouble(),
+                dayDate = s.routePaceDayDate,
+                tripDate = tripDateIso,
+                historyKn = s.speedHistoryProfileKn(),
+                defaultKn = AppConfig.routeFreeWaterPaceKn.toDouble()
+            )
+            startingFor = s to tripDateIso
         }
-        while (paceSamples.isNotEmpty() && paceSamples.first().atMs < nowMs - RoutePace.WINDOW_MS) {
-            paceSamples.removeFirst()
+        return starting
+    }
+
+    /** The pace window the settings ask for, in ms. */
+    private fun AppSettings.paceWindowMs(): Long = routePaceWindowMin * 60_000L
+
+    /** Re-reads the pace from the plateau and the settings: `Now` always, the planning pace only at `Any`. */
+    private fun recomputePace(nowMs: Long) {
+        val s = settings.value
+        val p = plateauOf()
+        p.windowMs = s.paceWindowMs()
+        val start = startingPace()
+        // The starting pace stays revisable only until the trip's first reading, after which the window is
+        // made of it and revising it would feed the pace back into itself.
+        if (!p.hasReadings) p.startKn = start.kn
+        val read = p.read(nowMs)
+        val kn = read.kn
+        val live = RoutePace.isLive(read.readingMs, p.windowMs)
+        _nowPace.value = PaceReading(kn, if (live) PaceSource.LIVE else start.source)
+        _paceKn.value = if (AppConfig.isFreeWaterPaceAny(s.routeFreeWaterPaceKn)) {
+            kn
+        } else {
+            s.routeFreeWaterPaceKn.toDouble()
         }
-        // The sentinel never reaches RoutePace's clamp: `Any` resolves to the shipped fallback here, so
-        // a cold start plans at 25 kn rather than being snapped into the slowest boat on the scale.
-        _paceKn.value = RoutePace.paceKn(
-            paceSamples.toList(),
-            nowMs,
-            AppConfig.routePaceForSearchKn(setPaceKn, null)
-        )
     }
 
     companion object {

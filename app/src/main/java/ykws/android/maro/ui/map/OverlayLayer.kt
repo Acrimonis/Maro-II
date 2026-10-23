@@ -27,6 +27,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -48,6 +53,7 @@ import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.icons.Speed
+import kotlinx.coroutines.launch
 
 /**
  * Returns the step sequence for the given marker type (mirror of the VM method for UI use). An auto
@@ -187,6 +193,8 @@ internal fun OverlayLayer(
     settings: SettingsOverlayData,
     onTabChange: (SettingsTab) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
+    /** The seed's "not cruising" guard — drops speed-zone and 300 m band points from a stored track. */
+    routeRestricted: (Double, Double) -> Boolean,
 
     // ── Marker drawer data ───────────────────────────────────────────────
     boatPosition: LatLng?,
@@ -284,6 +292,10 @@ internal fun OverlayLayer(
     val markerListState = markerList.markerListState
 
     // ── Collect track ViewModel state ────────────────────────────────────
+    val settingsScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // Calculate runs once at a time: the button is off from the press until the store is rebuilt.
+    var speedHistoryCalculating by remember { mutableStateOf(false) }
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val routeSummaries by trackViewModel.routeSummaries.collectAsState()
@@ -968,7 +980,30 @@ internal fun OverlayLayer(
                 navigationScrollState = navigationScrollState,
                 routingScrollState = routingScrollState,
                 systemScrollState = systemScrollState,
-                onRegenerateRasters = onRegenerateRasters
+                onRegenerateRasters = onRegenerateRasters,
+                onCalculateSpeedHistory = {
+                    if (!speedHistoryCalculating) {
+                        speedHistoryCalculating = true
+                        settingsScope.launch {
+                            try {
+                                val store = seedSpeedHistory(trackViewModel, routeRestricted)
+                                // No eligible track leaves the history as it stood; the toast says which.
+                                if (store.isNotEmpty()) {
+                                    onUpdateSettings { it.withSeededHistory(store, System.currentTimeMillis()) }
+                                }
+                                android.widget.Toast.makeText(
+                                    context,
+                                    speedHistoryCalculatedMessage(context.resources, store.size),
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            } finally {
+                                speedHistoryCalculating = false
+                            }
+                        }
+                    }
+                },
+                speedHistoryCalculating = speedHistoryCalculating,
+                paceNow = settings.paceNow
             )
         }
     }

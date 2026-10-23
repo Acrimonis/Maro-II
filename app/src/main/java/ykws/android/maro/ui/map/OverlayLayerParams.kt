@@ -85,6 +85,8 @@ data class SettingsOverlayData(
     val navigationScrollState: ScrollState,
     val routingScrollState: ScrollState,
     val systemScrollState: ScrollState,
+    /** The pace `Now` plans at and its source, for the Speed History section's "Pace now" line. */
+    val paceNow: ykws.android.maro.data.route.PaceReading,
 )
 
 /**
