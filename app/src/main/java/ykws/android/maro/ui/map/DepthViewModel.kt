@@ -205,15 +205,19 @@ class DepthViewModel(
         }
     }
 
-    /** Best-effort cache read for a single raster step; returns the cached bitmap or null. */
-    fun readCached(context: Context, step: RasterCache.Step, settings: AppSettings): Bitmap? {
-        val grid = repository.getGrid() ?: return null
-        val key = RasterCache.keyFor(
-            step, grid, settings.emodnetShallowCutoffM,
-            settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM
-        )
-        return RasterCache.read(context, step, key)
-    }
+    /**
+     * Best-effort cache read for a single raster step; returns the cached bitmap or null.
+     * The file read and bitmap decode run on IO — callers are produceState blocks on Main.
+     */
+    suspend fun readCached(context: Context, step: RasterCache.Step, settings: AppSettings): Bitmap? =
+        withContext(Dispatchers.IO) {
+            val grid = repository.getGrid() ?: return@withContext null
+            val key = RasterCache.keyFor(
+                step, grid, settings.emodnetShallowCutoffM,
+                settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM
+            )
+            RasterCache.read(context, step, key)
+        }
 
     /** Progress title: "Generating Layer" (1 step) or "Generating Layers (x/y)" (multiple). */
     fun progressTitle(): String =

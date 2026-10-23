@@ -37,7 +37,7 @@
     <string name="settings_redisplay_dist_desc">How close before the zone reappears</string>
     <string name="settings_redisplay_time_label">Reveal time</string>
     <string name="settings_redisplay_time_desc">How many seconds away (at current speed) before it reappears</string>
-    <string name="settings_gps_mode_label">GPS mode</string>
+    <string name="settings_map_offset_gps_label">Shift map in GPS mode</string>
     <string name="settings_recenter_label">Recenter delay</string>
     <string name="settings_recenter_desc">Time before GPS recenters after a manual pan</string>
     <string name="settings_tab_layers">Layers</string>
@@ -202,6 +202,12 @@
     <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
     <string name="dash_speed_title">Speed</string>
     <string name="dash_demo_mode">demo mode</string>
+    <!-- The speed card's subtitle while the reading is empty in GPS mode, one line per GPS state;
+         `dash_demo_mode` above keeps the demo case. -->
+    <string name="dash_gps_no_fix">No GPS fix</string>
+    <string name="dash_gps_stale">GPS stale</string>
+    <string name="dash_gps_weak">GPS weak (±%1$d m)</string>
+    <string name="dash_gps_estimating">Estimating</string>
     <string name="dash_5kn_in_zone">5 kn max in zone</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolated</string>
@@ -294,6 +300,10 @@
     <plurals name="import_result_ignored">
         <item quantity="one">%d track ignored</item>
         <item quantity="other">%d tracks ignored</item>
+    </plurals>
+    <plurals name="import_result_invalid">
+        <item quantity="one">%d file unreadable</item>
+        <item quantity="other">%d files unreadable</item>
     </plurals>
     <plurals name="import_result_marker_imported">
         <item quantity="one">%d marker imported</item>
@@ -522,6 +532,33 @@
     <string name="cd_collapse_speed_scale">Collapse the speed scale</string>
     <string name="cd_expand_speed_scale">Expand the speed scale</string>
     <string name="cd_find_markers_at_position">Find markers at your position</string>
+    <!-- The map chrome's controls, for TalkBack: the action, then the state it is in. The three state
+         words fill every `%1$s` below; the GPS square reads its own state word. -->
+    <string name="cd_state_on">on</string>
+    <string name="cd_state_off">off</string>
+    <string name="cd_state_standby">standing by</string>
+    <string name="cd_gps_state">GPS: %1$s</string>
+    <string name="cd_gps_demo">demo mode</string>
+    <string name="cd_gps_acquiring">acquiring</string>
+    <string name="cd_gps_active">active</string>
+    <string name="cd_gps_stale">stale</string>
+    <string name="cd_gps_weak">weak signal</string>
+    <string name="cd_gps_estimating">estimating</string>
+    <string name="cd_recording_state">Recording: %1$s</string>
+    <string name="cd_inspect_state">Inspect mode: %1$s</string>
+    <string name="cd_recenter">Recenter on position</string>
+    <string name="cd_zoom_in">Zoom in</string>
+    <string name="cd_zoom_out">Zoom out</string>
+    <string name="cd_layer_fan">Map layers</string>
+    <string name="cd_layer_markers">Markers layer: %1$s</string>
+    <string name="cd_layer_tracks">Tracks layer: %1$s</string>
+    <string name="cd_layer_depth">Depth layer: %1$s</string>
+    <string name="cd_layer_regulated">Regulated zones layer: %1$s</string>
+    <string name="cd_layer_zone300">300 m zone layer: %1$s</string>
+    <string name="cd_layer_low_depth">Low-depth warning: %1$s</string>
+    <string name="cd_filter_link_tracks">Link track list and map filters: %1$s</string>
+    <string name="cd_filter_link_markers">Link marker list and map filters: %1$s</string>
+    <string name="cd_filter_link_routes">Link route list and map filters: %1$s</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d selected</string>
@@ -699,12 +736,13 @@
     <string name="route_acq_discard">Discard</string>
     <string name="route_pin_label">Pin the track</string>
     <!-- The closed set of reasons a pair or a lookup cannot be answered with, one full sentence each:
-         CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH and OFF_WATER on the
-         update flow. -->
+         CANNOT_REPAIR and WORLD_NOT_READY answer at routesToCompute, NO_PATH, OFF_WATER and FAILED on
+         the update flow. -->
     <string name="route_reason_cannot_repair">No valid water near this point</string>
     <string name="route_reason_world_not_ready">Water data is still loading</string>
     <string name="route_reason_no_path">No route found</string>
     <string name="route_reason_off_water">Outside the covered water</string>
+    <string name="route_reason_failed">Route search failed</string>
     <!-- The following phase's own words: its sentence, its three statuses and its actions. -->
     <string name="route_following_active">Routing active</string>
     <!-- The drawer's status with the stage the engine published while a search runs — `Pull #2`, the

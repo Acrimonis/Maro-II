@@ -158,13 +158,18 @@ object RouteCornerPass {
      * that no earlier stage measured — a bow's chords, the chords joining a bow past the kinks it passes on
      * either side, a merged corner's extensions — is measured against the same walls, and a kink a bow has
      * passed is not drawn again on either side of it.
+     *
+     * [checkCancelled] is read once every [CANCEL_CADENCE] bends — a plain lambda the calling job hands
+     * in, so an abandoned lookup stops inside the pass. The cadence is lower than the raster's because a
+     * line carries tens of bends, each priced by several wall reads; the default does nothing.
      */
     fun round(
         line: List<LatLng>,
         paceKn: Double,
         world: MultipassWorld,
         gate: GateRule?,
-        marginM: Double
+        marginM: Double,
+        checkCancelled: () -> Unit = {}
     ): RoundedLine {
         if (line.size < 3) return RoundedLine(line, { null })
         val paceMps = Units.knotsToMps(paceKn)
@@ -207,6 +212,7 @@ object RouteCornerPass {
         // The last index a drawn bow has passed ahead of its corner: those kinks are not drawn again.
         var passedThrough = -1
         for (i in 1 until corners.lastIndex) {
+            if (i % CANCEL_CADENCE == 0) checkCancelled()
             val at = corners[i]
             val prev = corners[i - 1]
             val next = corners[i + 1]
@@ -841,3 +847,6 @@ object RouteCornerPass {
 
     private data class Vec2(val x: Double, val y: Double)
 }
+
+/** The corner pass's cancel cadence: `round` reads `checkCancelled` once every this many bends. */
+private const val CANCEL_CADENCE = 16

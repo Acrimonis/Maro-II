@@ -36,7 +36,7 @@
     <string name="settings_redisplay_dist_desc">À quelle distance la zone réapparaît</string>
     <string name="settings_redisplay_time_label">Délai de réaffichage</string>
     <string name="settings_redisplay_time_desc">Combien de secondes avant (à la vitesse actuelle) la zone réapparaît</string>
-    <string name="settings_gps_mode_label">Mode GPS</string>
+    <string name="settings_map_offset_gps_label">Décaler la carte en mode GPS</string>
     <string name="settings_recenter_label">Délai de recentrage</string>
     <string name="settings_recenter_desc">Temps avant recentrage GPS après un déplacement manuel</string>
     <string name="settings_tab_layers">Calques</string>
@@ -201,6 +201,12 @@
     <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
     <string name="dash_speed_title">Vitesse</string>
     <string name="dash_demo_mode">mode démo</string>
+    <!-- Le sous-titre de la carte vitesse quand la lecture est vide en mode GPS, une ligne par état
+         GPS ; `dash_demo_mode` ci-dessus garde le cas démo. -->
+    <string name="dash_gps_no_fix">Pas de position GPS</string>
+    <string name="dash_gps_stale">GPS obsolète</string>
+    <string name="dash_gps_weak">GPS faible (±%1$d m)</string>
+    <string name="dash_gps_estimating">Estimation</string>
     <string name="dash_5kn_in_zone">5 kn max en zone</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolé</string>
@@ -293,6 +299,10 @@
     <plurals name="import_result_ignored">
         <item quantity="one">%d piste ignorée</item>
         <item quantity="other">%d pistes ignorées</item>
+    </plurals>
+    <plurals name="import_result_invalid">
+        <item quantity="one">%d fichier illisible</item>
+        <item quantity="other">%d fichiers illisibles</item>
     </plurals>
     <plurals name="import_result_marker_imported">
         <item quantity="one">%d repère importé</item>
@@ -521,6 +531,33 @@
     <string name="cd_collapse_speed_scale">Réduire l\'échelle de vitesse</string>
     <string name="cd_expand_speed_scale">Déplier l\'échelle de vitesse</string>
     <string name="cd_find_markers_at_position">Rechercher les repères à votre position</string>
+    <!-- Les commandes de la carte, pour TalkBack : l\'action, puis son état. Les trois mots d\'état
+         remplissent chaque `%1$s` ci-dessous ; le carré GPS lit son propre mot d\'état. -->
+    <string name="cd_state_on">activé</string>
+    <string name="cd_state_off">désactivé</string>
+    <string name="cd_state_standby">en attente</string>
+    <string name="cd_gps_state">GPS : %1$s</string>
+    <string name="cd_gps_demo">mode démo</string>
+    <string name="cd_gps_acquiring">acquisition</string>
+    <string name="cd_gps_active">actif</string>
+    <string name="cd_gps_stale">obsolète</string>
+    <string name="cd_gps_weak">signal faible</string>
+    <string name="cd_gps_estimating">estimation</string>
+    <string name="cd_recording_state">Enregistrement : %1$s</string>
+    <string name="cd_inspect_state">Mode inspection : %1$s</string>
+    <string name="cd_recenter">Recentrer sur la position</string>
+    <string name="cd_zoom_in">Zoom avant</string>
+    <string name="cd_zoom_out">Zoom arrière</string>
+    <string name="cd_layer_fan">Couches de la carte</string>
+    <string name="cd_layer_markers">Couche des repères : %1$s</string>
+    <string name="cd_layer_tracks">Couche des traces : %1$s</string>
+    <string name="cd_layer_depth">Couche de profondeur : %1$s</string>
+    <string name="cd_layer_regulated">Couche des zones réglementées : %1$s</string>
+    <string name="cd_layer_zone300">Couche de la zone des 300 m : %1$s</string>
+    <string name="cd_layer_low_depth">Alerte faible profondeur : %1$s</string>
+    <string name="cd_filter_link_tracks">Lier les filtres de la liste des traces et de la carte : %1$s</string>
+    <string name="cd_filter_link_markers">Lier les filtres de la liste des repères et de la carte : %1$s</string>
+    <string name="cd_filter_link_routes">Lier les filtres de la liste des routes et de la carte : %1$s</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d sélectionnés</string>
@@ -706,11 +743,12 @@
     <string name="route_pin_label">Épingler la trace</string>
     <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
          une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,
-         NO_PATH et OFF_WATER sur le flux de mises à jour. -->
+         NO_PATH, OFF_WATER et FAILED sur le flux de mises à jour. -->
     <string name="route_reason_cannot_repair">Aucune eau valide à proximité de ce point</string>
     <string name="route_reason_world_not_ready">Les données d\'eau se chargent encore</string>
     <string name="route_reason_no_path">Aucune route trouvée</string>
     <string name="route_reason_off_water">Hors de la zone d\'eau couverte</string>
+    <string name="route_reason_failed">La recherche d\'itinéraire a échoué</string>
     <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
     <string name="route_following_active">Route active</string>
     <!-- Le statut du tiroir avec l'étape que le moteur publie pendant une recherche — « Trait #2 », le

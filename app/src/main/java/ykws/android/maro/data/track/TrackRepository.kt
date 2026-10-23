@@ -1,7 +1,10 @@
 package ykws.android.maro.data.track
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -10,8 +13,12 @@ import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.RegionBounds
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import java.io.File
+import java.io.IOException
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+
+private const val TAG = "MaroII_TrackRepo"
 
 /**
  * Protobuf file CRUD for [Track] persistence.
@@ -23,6 +30,12 @@ import java.nio.file.StandardCopyOption
  * - `tracks/{id}.bin` — serialised [Track] protobuf
  * - `tracks/{id}_checkpoint.bin` — mid-recording checkpoint
  * - `tracks/index.bin` — serialised [TrackSummaryList] for fast listing
+ * - `tracks/quarantine/` — files that failed to decode, moved aside rather than deleted
+ *
+ * **Write discipline.** Every write (track, checkpoint, index) goes through a temp file and an
+ * atomic replace, and every public mutator holds [writeMutex] for its whole read-modify-write, so
+ * two writers — the service-owned recorder and a ViewModel — can never interleave on one file. A
+ * replace that fails throws: a caller is never told a save succeeded when no file landed.
  */
 class TrackRepository(
     private val tracksDir: File,
@@ -38,6 +51,12 @@ class TrackRepository(
     )
 
     private val proto = ProtoBuf.Default
+
+    /**
+     * Serialises every write and every index rebuild. Not reentrant: public entry points lock,
+     * the `*Locked` internals never do.
+     */
+    private val writeMutex = Mutex()
 
     /**
      * The water test a position classification may use, and the region it can answer for. Both stay null
@@ -60,15 +79,16 @@ class TrackRepository(
         positionPassDone = false
     }
 
-    /** Save a completed track. */
+    /**
+     * Save a completed track. Throws [IOException] when the file could not be written or replaced —
+     * the caller decides what a failed save means (the recorder keeps its checkpoint).
+     */
     suspend fun save(track: Track) = withContext(Dispatchers.IO) {
-        val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
-        val file = trackFile(stamped.id)
-        // Atomic write: temp + atomic move so a crash never leaves a corrupt .bin.
-        val tmp = File(file.parentFile, "${file.name}.${java.util.UUID.randomUUID()}.tmp")
-        tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), stamped))
-        atomicReplace(tmp, file)
-        updateIndex()
+        writeMutex.withLock {
+            val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
+            writeAtomically(trackFile(stamped.id), proto.encodeToByteArray(Track.serializer(), stamped))
+            rebuildIndexLocked()
+        }
     }
 
     /**
@@ -78,21 +98,20 @@ class TrackRepository(
      */
     suspend fun saveOrReplace(track: Track) = save(track)
 
-    /** Load a single track by ID. */
+    /**
+     * Load a single track by ID. A file that cannot be decoded is quarantined, never deleted; a
+     * read that fails with an [IOException] leaves the file where it is and answers null.
+     */
     suspend fun load(id: String): Track? = withContext(Dispatchers.IO) {
+        if (!isSafeId(id)) return@withContext null
         val file = trackFile(id)
         if (!file.exists()) return@withContext null
-        try {
-            proto.decodeFromByteArray(Track.serializer(), file.readBytes())
-        } catch (e: Exception) {
-            file.delete()
-            null
-        }
+        decodeTrackOrQuarantine(file)
     }
 
     /** List all track summaries from the index, sampling any whose position counts are still absent. */
     suspend fun listTracks(): List<TrackSummary> = withContext(Dispatchers.IO) {
-        classifyUnclassified(readIndex())
+        writeMutex.withLock { classifyUnclassified(readIndex()) }
     }
 
     /**
@@ -106,14 +125,15 @@ class TrackRepository(
      */
     private suspend fun readIndex(): List<TrackSummary> = withContext(Dispatchers.IO) {
         val indexFile = indexFile()
-        if (!indexFile.exists()) return@withContext rebuildIndex()
+        if (!indexFile.exists()) return@withContext rebuildIndexLocked()
         try {
             val summaryList = proto.decodeFromByteArray(TrackSummaryList.serializer(), indexFile.readBytes())
-            if (summaryList.version != SUMMARY_INDEX_VERSION) return@withContext rebuildIndex()
+            if (summaryList.version != SUMMARY_INDEX_VERSION) return@withContext rebuildIndexLocked()
             summaryList.tracks
         } catch (e: Exception) {
+            // The index is derived from the track files, so an unreadable one is simply rebuilt.
             indexFile.delete()
-            rebuildIndex()
+            rebuildIndexLocked()
         }
     }
 
@@ -127,6 +147,7 @@ class TrackRepository(
      * recording track's temp marker).
      */
     suspend fun delete(id: String, excludeActiveTrackId: String? = null) = withContext(Dispatchers.IO) {
+        if (!isSafeId(id)) return@withContext
         markerRepo?.let { repo ->
             if (id != excludeActiveTrackId) {
                 val markers = repo.loadAll()
@@ -136,9 +157,11 @@ class TrackRepository(
                 if (remaining.size != markers.size) repo.saveAll(remaining)
             }
         }
-        trackFile(id).delete()
-        deleteCheckpoint(id)
-        updateIndex()
+        writeMutex.withLock {
+            trackFile(id).delete()
+            checkpointFile(id).delete()
+            rebuildIndexLocked()
+        }
     }
 
     /** Update track metadata (name, comment). */
@@ -157,33 +180,62 @@ class TrackRepository(
         save(track.copy(pinned = pinned))
     }
 
-    /** Save a mid-recording checkpoint (fast: writes only current state). */
+    /**
+     * Save a mid-recording checkpoint. Written through the same temp-and-replace path as a track,
+     * under the mutex, so a crash mid-write can never leave a truncated checkpoint and two
+     * checkpoint writers can never interleave on one file. Throws [IOException] on failure.
+     */
     suspend fun saveCheckpoint(track: Track) = withContext(Dispatchers.IO) {
-        val file = checkpointFile(track.id)
-        file.writeBytes(proto.encodeToByteArray(Track.serializer(), track))
+        writeMutex.withLock {
+            writeAtomically(checkpointFile(track.id), proto.encodeToByteArray(Track.serializer(), track))
+        }
     }
 
-    /** Delete a checkpoint file. */
+    /** Delete a checkpoint file — ordered after any checkpoint write in flight by the mutex. */
     suspend fun deleteCheckpoint(id: String) = withContext(Dispatchers.IO) {
-        checkpointFile(id).delete()
+        writeMutex.withLock { checkpointFile(id).delete() }
     }
 
-    /** Scan for orphaned checkpoint files (from a crash) and return them. */
+    /**
+     * Scan for orphaned checkpoint files (from a crash) and return them.
+     *
+     * A checkpoint beside a finalised file of the same id is stale only when the finalised file
+     * already covers everything in it: a crash *after* finalisation but before the checkpoint's
+     * delete. A resumed recording reuses the finalised track's id and checkpoints under it, so a
+     * checkpoint whose last point lies **after** the finalised file's last point is the newer
+     * generation and is offered for recovery; the stale case is deleted. A checkpoint that cannot
+     * be decoded is quarantined, never deleted.
+     */
     suspend fun recoverOrphanedCheckpoints(): List<Track> = withContext(Dispatchers.IO) {
-        tracksDir.listFiles()
-            ?.filter { it.name.endsWith("_checkpoint.bin") }
-            ?.mapNotNull { file ->
-                try {
-                    val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
-                    // Guard: if the finalized .bin already exists, this checkpoint was already
-                    // persisted — delete it to avoid a duplicate recovery prompt.
-                    if (trackFile(track.id).exists()) { file.delete(); null } else track
-                } catch (e: Exception) {
-                    file.delete()
-                    null
+        writeMutex.withLock {
+            tracksDir.listFiles()
+                ?.filter { it.name.endsWith("_checkpoint.bin") }
+                ?.mapNotNull { file ->
+                    val checkpoint = decodeTrackOrQuarantine(file) ?: return@mapNotNull null
+                    // A checkpoint naming an id that is not a file name cannot be finalised under it.
+                    if (!isSafeId(checkpoint.id)) {
+                        quarantine(file, IllegalArgumentException("unsafe track id '${checkpoint.id}'"))
+                        return@mapNotNull null
+                    }
+                    val finalFile = trackFile(checkpoint.id)
+                    if (!finalFile.exists()) return@mapNotNull checkpoint
+                    val finalized = decodeTrackOrQuarantine(finalFile)
+                    val finalLastMs = finalized?.let { f ->
+                        f.lastPointTimeMs.takeIf { it != 0L }
+                            ?: f.lastRealPointTimeMsOrNull()
+                            ?: f.endTimeMs
+                            ?: 0L
+                    } ?: 0L
+                    val checkpointLastMs = checkpoint.lastRealPointTimeMsOrNull() ?: 0L
+                    if (checkpointLastMs > finalLastMs) {
+                        checkpoint
+                    } else {
+                        file.delete()
+                        null
+                    }
                 }
-            }
-            ?: emptyList()
+                ?: emptyList()
+        }
     }
 
     /** Finalize an orphaned checkpoint into a complete track. */
@@ -205,6 +257,10 @@ class TrackRepository(
      * idempotent. Returns the number of tracks updated.
      */
     suspend fun migrateTrackStats(): Int = withContext(Dispatchers.IO) {
+        writeMutex.withLock { migrateTrackStatsLocked() }
+    }
+
+    private suspend fun migrateTrackStatsLocked(): Int {
         var updated = 0
         tracksDir.listFiles()
             ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
@@ -244,17 +300,15 @@ class TrackRepository(
                     }
 
                     if (changed) {
-                        val tmp = File(file.parentFile, "${file.name}.tmp")
-                        tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), repaired))
-                        atomicReplace(tmp, file)
+                        writeAtomically(file, proto.encodeToByteArray(Track.serializer(), repaired))
                         updated++
                     }
                 } catch (_: Exception) {
-                    // Skip corrupt files — load/rebuildIndex already delete those on read.
+                    // Skip unreadable files — the read paths quarantine those.
                 }
             }
-        if (updated > 0) rebuildIndex()
-        updated
+        if (updated > 0) rebuildIndexLocked()
+        return updated
     }
 
     /**
@@ -280,7 +334,7 @@ class TrackRepository(
                         linkMap[markerId] = legacy.id
                     }
                 } catch (_: Exception) {
-                    // Skip corrupt files — load/rebuildIndex already delete those on read.
+                    // Skip unreadable files — the read paths quarantine those.
                 }
             }
 
@@ -300,18 +354,58 @@ class TrackRepository(
 
     // ── Internal helpers ──────────────────────────────────────────────────
 
-    private fun trackFile(id: String): File = File(tracksDir, "${id}.bin")
-    private fun checkpointFile(id: String): File = File(tracksDir, "${id}_checkpoint.bin")
+    private fun trackFile(id: String): File {
+        require(isSafeId(id)) { "track id is not a safe file name: '$id'" }
+        return File(tracksDir, "${id}.bin")
+    }
+
+    private fun checkpointFile(id: String): File {
+        require(isSafeId(id)) { "track id is not a safe file name: '$id'" }
+        return File(tracksDir, "${id}${CHECKPOINT_SUFFIX}.bin")
+    }
+
     private fun indexFile(): File = File(tracksDir, INDEX_FILE_NAME)
 
+    /**
+     * Decode a track file. A decode failure moves the file to `quarantine/` and answers null — the
+     * bytes stay recoverable by hand. An [IOException] on the read is transient and leaves the file
+     * untouched.
+     */
+    private fun decodeTrackOrQuarantine(file: File): Track? {
+        val bytes = try {
+            file.readBytes()
+        } catch (e: IOException) {
+            Log.w(TAG, "read failed, leaving file in place: ${file.name}", e)
+            return null
+        }
+        return try {
+            proto.decodeFromByteArray(Track.serializer(), bytes)
+        } catch (e: Exception) {
+            quarantine(file, e)
+            null
+        }
+    }
+
+    /** Move an undecodable file aside, timestamped, so nothing a user recorded is ever deleted on a read. */
+    private fun quarantine(file: File, cause: Exception) {
+        val dir = File(tracksDir, QUARANTINE_DIR_NAME).also { it.mkdirs() }
+        val target = File(dir, "${file.name}.${System.currentTimeMillis()}")
+        try {
+            Files.move(file.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            Log.w(TAG, "quarantined undecodable ${file.name} → ${target.name}", cause)
+        } catch (e: IOException) {
+            Log.w(TAG, "could not quarantine ${file.name}; leaving it in place", e)
+        }
+    }
+
     /** Rebuild the index by scanning all `.bin` files, position counts carried or sampled per track. */
-    private suspend fun rebuildIndex(): List<TrackSummary> = withContext(Dispatchers.IO) {
+    private suspend fun rebuildIndexLocked(): List<TrackSummary> = withContext(Dispatchers.IO) {
         val carried = carriedSummaries()
         val summaries = tracksDir.listFiles()
             ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
             ?.mapNotNull { file ->
-                try {
-                    val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
+                val track = decodeTrackOrQuarantine(file) ?: return@mapNotNull null
+                run {
                     val counts = classifyOrCarry(track, carried[track.id])
                     TrackSummary(
                         id = track.id,
@@ -344,13 +438,10 @@ class TrackRepository(
                         routeDestinationMarkerId = track.routeDestinationMarkerId,
                         demo = track.demo
                     )
-                } catch (e: Exception) {
-                    file.delete()
-                    null
                 }
             } ?: emptyList()
 
-        writeIndex(summaries)
+        writeIndexLocked(summaries)
         summaries
     }
 
@@ -422,43 +513,70 @@ class TrackRepository(
             )
         }
         positionPassDone = true
-        if (changed) writeIndex(updated)
+        if (changed) writeIndexLocked(updated)
         updated
     }
 
     /** Write the index from a summary list, stamped with the schema it was written with. */
-    private suspend fun writeIndex(summaries: List<TrackSummary>) = withContext(Dispatchers.IO) {
+    private suspend fun writeIndexLocked(summaries: List<TrackSummary>) = withContext(Dispatchers.IO) {
         val indexData = proto.encodeToByteArray(
             TrackSummaryList.serializer(),
             TrackSummaryList(summaries, SUMMARY_INDEX_VERSION)
         )
-        indexFile().writeBytes(indexData)
+        writeAtomically(indexFile(), indexData)
     }
 
-    /** Write the index from current track files. */
-    private suspend fun updateIndex() = withContext(Dispatchers.IO) {
-        rebuildIndex()
+    /**
+     * Write [bytes] to [dest] through a same-directory temp file and an atomic replace, so a crash
+     * at any instant leaves either the old file or the new one, never a truncated one.
+     */
+    private fun writeAtomically(dest: File, bytes: ByteArray) {
+        val tmp = File(dest.parentFile, "${dest.name}.${java.util.UUID.randomUUID()}.tmp")
+        try {
+            tmp.writeBytes(bytes)
+            atomicReplace(tmp, dest)
+        } finally {
+            if (tmp.exists()) tmp.delete()
+        }
     }
 
-    /** Atomically replace [dest] with [src] (same-directory temp file). */
+    /**
+     * Replace [dest] with [src]. An atomic move is tried first; a filesystem that cannot do one gets a
+     * plain replacing move. Any other failure propagates as an [IOException] — a replace that did not
+     * land must never read as a success to the caller.
+     */
+    @Throws(IOException::class)
     private fun atomicReplace(src: File, dest: File) {
         try {
             Files.move(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        } catch (_: Exception) {
-            // ATOMIC_MOVE unsupported on some filesystems — fall back to plain replace.
-            try {
-                src.copyTo(dest, overwrite = true)
-                src.delete()
-            } catch (_: Exception) {
-                // Source temp file already consumed by a concurrent save — dest write
-                // has already been done by the other coroutine.
-            }
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
     companion object {
-        private const val TRACKS_DIR_NAME = "tracks"
+        internal const val TRACKS_DIR_NAME = "tracks"
         private const val INDEX_FILE_NAME = "index.bin"
+        private const val QUARANTINE_DIR_NAME = "quarantine"
+        private const val CHECKPOINT_SUFFIX = "_checkpoint"
+
+        /** The one shape a track id may take to name a file here: one plain path segment. */
+        private val SAFE_ID = Regex("[A-Za-z0-9._-]{1,128}")
+
+        /**
+         * Whether [id] may name a file in the tracks directory: a single segment of `[A-Za-z0-9._-]`,
+         * 1 to 128 long, not hidden (no leading `.`), and not one of the directory's own reserved
+         * names. An id that arrives from outside — a decoded import blob — is checked here before it
+         * reaches a path; every file accessor refuses one that fails.
+         */
+        fun isSafeId(id: String): Boolean =
+            SAFE_ID.matches(id) &&
+                !id.startsWith(".") &&
+                // `<id>_checkpoint.bin` is a checkpoint's name: a track id ending that way would share
+                // a file with another track's checkpoint.
+                !id.endsWith(CHECKPOINT_SUFFIX) &&
+                id != INDEX_FILE_NAME.removeSuffix(".bin") &&
+                id != QUARANTINE_DIR_NAME
     }
 }
 

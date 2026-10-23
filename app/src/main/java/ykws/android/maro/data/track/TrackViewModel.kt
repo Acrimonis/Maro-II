@@ -8,7 +8,6 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ykws.android.maro.MaroApp
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
@@ -39,8 +39,10 @@ import ykws.android.maro.data.settings.AppSettings
  */
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = TrackRepository(application)
-    private val markerRepository = UserMarkerRepository(application)
+    // The process's one instance of each store ([MaroApp]), shared with the service-owned recorder, so
+    // every writer serialises on the same mutex; the fallback only serves a stub-application test.
+    private val repository = MaroApp.of(application)?.trackRepository ?: TrackRepository(application)
+    private val markerRepository = MaroApp.of(application)?.userMarkerRepository ?: UserMarkerRepository(application)
 
     // ── Settings injection (set via observeSettings from MapScreen) ──
 
@@ -141,6 +143,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
                 // A finalized recording is a "freshly touched" track — boost it into the map set.
                 if (event is TrackEvent.Finalized) renderFocus.markTouched(event.trackId)
                 _events.emit(event)
+                // The library changed on disk exactly when the recorder says so — a finalize landed,
+                // a discard deleted, a resume began — so the lists refresh on the event, not on a
+                // timer guessing when the write finished.
+                when (event) {
+                    is TrackEvent.Finalized, TrackEvent.Stopped, TrackEvent.Started -> refreshSummaries()
+                    else -> Unit
+                }
             }
         }
         viewModelScope.launch {
@@ -169,15 +178,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         startService(TrackRecordingService.ACTION_START_RECORDING)
     }
 
-    /** Manually stop recording (finalizes current track). */
+    /** Manually stop recording (finalizes current track); the list refreshes on the recorder's own event. */
     fun stopRecording() {
         val trackId = _uiState.value.currentTrackId
         startService(TrackRecordingService.ACTION_STOP_RECORDING)
         if (trackId != null) invalidateTrackCache(trackId)
-        viewModelScope.launch {
-            delay(500)
-            refreshSummaries()
-        }
     }
 
     /** Discard the in-progress recording without finalizing (deletes track + checkpoint). */
@@ -185,10 +190,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val trackId = _uiState.value.currentTrackId
         startService(TrackRecordingService.ACTION_DISCARD_RECORDING)
         if (trackId != null) invalidateTrackCache(trackId)
-        viewModelScope.launch {
-            delay(500)
-            refreshSummaries()
-        }
     }
 
     /** Add manual BoatMarker snapshots to the current track. */
@@ -221,10 +222,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         startService(TrackRecordingService.ACTION_RESUME_ORPHANED_CHECKPOINT) {
             putExtra(TrackRecordingService.EXTRA_TRACK_ID, track.id)
         }
-        viewModelScope.launch {
-            delay(500)
-            refreshSummaries()
-        }
     }
 
     /**
@@ -254,8 +251,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             startService(TrackRecordingService.ACTION_RESUME_TRACK) {
                 putExtra(TrackRecordingService.EXTRA_TRACK_ID, trackId)
             }
-            delay(500)
-            refreshSummaries()
         }
     }
 
@@ -506,12 +501,14 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Import tracks from a GPX file or ZIP archive.
      * Saves each imported track via [TrackRepository.saveOrReplace]: UPDATE keeps the
-     * matched id (replacing in place), NEW/foreign imports get fresh ids.
+     * matched id (replacing in place), NEW/foreign imports get fresh ids — and a NEW import's
+     * bundled markers arrive under fresh ids too, so the `update` branch below only ever fires for
+     * a SKIP or matched UPDATE import, the two paths that deliberately keep a marker's id.
      *
      * @param input     File bytes from the file picker URI (read once).
      * @param extension "gpx" or "zip".
      * @param mode      How to treat matches. ZIP input is always SKIP_EXISTING.
-     * @return Aggregate counts: tracks imported vs. duplicates ignored.
+     * @return Aggregate counts: tracks imported, duplicates ignored, files or entries refused.
      */
     suspend fun importTracks(input: ByteArray, extension: String, mode: ImportMode): ImportResult {
         val summaries = _allSummaries.value

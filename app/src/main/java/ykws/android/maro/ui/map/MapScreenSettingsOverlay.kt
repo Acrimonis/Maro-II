@@ -1509,9 +1509,9 @@ private fun NavigationSettings(
     Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
     CardArea {
-        // GPS mode toggle
+        // The offset's own GPS-mode switch — it never turns GPS on; the map square does that.
         ToggleRow(
-            label = stringResource(R.string.settings_gps_mode_label),
+            label = stringResource(R.string.settings_map_offset_gps_label),
             description = stringResource(R.string.settings_map_offset_gps_desc),
             checked = settings.mapOffsetGps,
             onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } }

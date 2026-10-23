@@ -98,6 +98,9 @@ private const val SWEEP_WINDOW_MAX_SPAN = 4
  */
 private const val SWEEP_WINDOW_MAX_TURN_DEG = 45.0
 
+/** The pull's cancel cadence: a walk reads `checkCancelled` once every this many chord decisions. */
+private const val CANCEL_CADENCE = 64
+
 /**
  * **The marks of one sampled walk, on a fixed step from the chord's own anchor.** A walk's marks stand
  * at `anchor + (j + 0.5) × step`, one per whole step along the chord, and the **last interval is sized
@@ -452,13 +455,17 @@ object MultipassPull {
      *   an attempt walks the chord that retraces it, while the clearance walk never re-visits a point. A
      *   fresh memo is made here, at the walk's own start, and **no call at the seam passes one**. A
      *   caller passing `null` walks as before.
+     * @param checkCancelled read once every [CANCEL_CADENCE] chord decisions — a plain lambda, so a
+     *   coroutine hands in its own `ensureActive` and an abandoned lookup stops inside the walk rather
+     *   than after it. The default does nothing.
      */
     internal fun pull(
         setup: PullSetup,
         path: List<LatLng>,
         refusals: PullRefusals? = null,
         timing: PullTiming? = null,
-        memo: MarkMemo? = MarkMemo()
+        memo: MarkMemo? = MarkMemo(),
+        checkCancelled: () -> Unit = {}
     ): List<LatLng> {
         val ctx = setup.context(refusals, timing, memo)
         if (path.size <= 2) {
@@ -472,7 +479,9 @@ object MultipassPull {
         ctx.timing?.addPrice(System.nanoTime() - prefixStartNs)
         var anchor = 0
         var probe = 1
+        var decisions = 0
         while (probe < path.size) {
+            if (++decisions % CANCEL_CADENCE == 0) checkCancelled()
             val decision = chordDecision(pathTotalSec, path, anchor, probe, ctx)
             val refused = decision.refusal
             when {
@@ -525,12 +534,13 @@ object MultipassPull {
         refusals: PullRefusals? = null,
         timing: PullTiming? = null,
         memo: MarkMemo? = MarkMemo(),
-        split: PullSplit? = null
+        split: PullSplit? = null,
+        checkCancelled: () -> Unit = {}
     ): List<LatLng> {
-        val forward = split.read(timing, memo) { pull(setup, path, refusals, timing, memo) }
+        val forward = split.read(timing, memo) { pull(setup, path, refusals, timing, memo, checkCancelled) }
         if (path.size <= 2) return forward
         val backward = split.read(timing, memo, forward = false) {
-            pull(setup.reversed(), path.asReversed(), refusals, timing, memo).asReversed()
+            pull(setup.reversed(), path.asReversed(), refusals, timing, memo, checkCancelled).asReversed()
         }
         if (forward == backward) {
             split?.settle(PullSplit.Kept.SAME, 0.0, null, null)
@@ -746,6 +756,7 @@ object MultipassPull {
      * @param trace the report's own line channel, carried exactly as [RoutePassRunner.runPass] carries its
      *   own, so the engine's `MaroRoute` sink reaches it and nothing else is needed; the default sink
      *   discards every line and the walk is then read exactly as before.
+     * @param checkCancelled read once every [CANCEL_CADENCE] vertex steps, as [pull] reads it.
      */
     internal fun sweep(
         setup: PullSetup,
@@ -754,7 +765,8 @@ object MultipassPull {
         timing: PullTiming? = null,
         memo: MarkMemo? = MarkMemo(),
         trace: (() -> String) -> Unit = {},
-        allowanceShare: Double = AppConfig.routeAvoidPullAllowanceShare
+        allowanceShare: Double = AppConfig.routeAvoidPullAllowanceShare,
+        checkCancelled: () -> Unit = {}
     ): List<LatLng> {
         if (line.size < 3) {
             trace { "SWEEP skipped=short" }
@@ -774,11 +786,13 @@ object MultipassPull {
         var refusedClear = 0
         var refusedPrice = 0
         var changed = true
+        var steps = 0
         while (changed) {
             passes++
             changed = false
             var i = 1
             while (i < work.size - 1) {
+                if (++steps % CANCEL_CADENCE == 0) checkCancelled()
                 // The fixed ends are never candidates: only an interior `B` at `i` is tested, so the raw
                 // start and aim the walk must reach are left where they are.
                 val a = work[i - 1]
