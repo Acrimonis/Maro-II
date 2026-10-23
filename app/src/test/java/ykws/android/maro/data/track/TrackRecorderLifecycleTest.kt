@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -25,22 +26,28 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * The recorder's lifecycle under the conditions the review named: a Stop whose persistence is slow,
- * commands that overlap it, a final save that fails, and the retry that follows. The repository is
- * the real one over a temp directory, with its `save` gated or failed by the test.
+ * commands that overlap it while it is parked inside the save, a final save that fails, and the
+ * retry that follows. The repository is the real one over a temp directory, with its `save` gated
+ * or failed by the test; every wait is on a signal, never on a sleep.
  */
 class TrackRecorderLifecycleTest {
 
     @get:Rule
     val temp = TemporaryFolder()
 
-    /** The real repository with a gate on `save`: closed, a finalize parks inside its IO hop. */
+    /**
+     * The real repository with a gate on `save`: closed, a finalize parks inside its IO hop, and
+     * [saveEntered] says when it has — the moment a competing command is guaranteed to overlap it.
+     */
     private class GatedRepository(dir: File) : TrackRepository(dir) {
         val gate = CompletableDeferred<Unit>()
+        val saveEntered = CompletableDeferred<Unit>()
         @Volatile var failSaves = false
         @Volatile var saves = 0
 
         override suspend fun save(track: Track) {
             if (failSaves) throw IOException("disk full (test)")
+            saveEntered.complete(Unit)
             gate.await()
             saves++
             super.save(track)
@@ -56,33 +63,62 @@ class TrackRecorderLifecycleTest {
             dispatcher = Dispatchers.Default
         )
         val events = CopyOnWriteArrayList<TrackEvent>()
+        private val eventsSubscribed = CompletableDeferred<Unit>()
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         init {
-            scope.launch { recorder.events.collect { events += it } }
+            scope.launch {
+                recorder.events
+                    .onSubscription { eventsSubscribed.complete(Unit) }
+                    .collect { events += it }
+            }
             recorder.start(samples)
         }
 
+        /** Both collectors stand before anything is emitted: a SharedFlow keeps nothing for a late one. */
+        suspend fun awaitSubscribed() {
+            withTimeout(5_000) {
+                eventsSubscribed.await()
+                samples.subscriptionCount.first { it > 0 }
+            }
+        }
+
         suspend fun startAndRecord(points: Int): String {
+            awaitSubscribed()
             recorder.startManual()
             awaitState(TrackRecorderState.ON)
-            repeat(points) { i ->
+            emitPoints(from = 0, count = points)
+            return checkNotNull(recorder.uiState.value.currentTrackId)
+        }
+
+        suspend fun emitPoints(from: Int, count: Int) {
+            repeat(count) { i ->
+                val n = from + i
                 samples.emit(
                     TrackSample(
-                        position = LatLng(43.50 + i * 0.001, 7.00 + i * 0.001),
+                        position = LatLng(43.50 + n * 0.001, 7.00 + n * 0.001),
                         speedMps = 3f,
                         bearingDeg = 90f,
                         hasLock = true,
-                        timestampEpochMs = 1_700_000_000_000L + i * 1_000L
+                        timestampEpochMs = 1_700_000_000_000L + n * 1_000L
                     )
                 )
             }
-            withTimeout(5_000) { recorder.uiState.first { it.pointCount >= points } }
-            return checkNotNull(recorder.uiState.value.currentTrackId)
+            withTimeout(5_000) { recorder.uiState.first { it.pointCount >= from + count } }
         }
 
         suspend fun awaitState(state: TrackRecorderState) {
             withTimeout(5_000) { recorder.uiState.first { it.state == state } }
+        }
+
+        /** The save is parked inside the gate: from here a competing command overlaps the finalize. */
+        suspend fun awaitSaveParked() {
+            withTimeout(5_000) { repo.saveEntered.await() }
+        }
+
+        /** Wait for the events collector to have appended what [predicate] expects. */
+        suspend fun awaitEvents(predicate: (List<TrackEvent>) -> Boolean) {
+            withTimeout(5_000) { while (!predicate(events)) delay(10) }
         }
 
         fun close() {
@@ -100,15 +136,15 @@ class TrackRecorderLifecycleTest {
         try {
             val id = h.startAndRecord(3)
             h.recorder.stop()
-            delay(300)
-            assertEquals("still ON while the save is parked", TrackRecorderState.ON, h.recorder.uiState.value.state)
+            h.awaitSaveParked()
+            assertEquals("ON while the save is parked", TrackRecorderState.ON, h.recorder.uiState.value.state)
             assertFalse(finalFile(id).exists())
 
             h.repo.gate.complete(Unit)
             h.awaitState(TrackRecorderState.OFF)
+            h.awaitEvents { list -> list.count { it is TrackEvent.Finalized } == 1 && list.any { it === TrackEvent.Stopped } }
             assertTrue(finalFile(id).exists())
             assertFalse(checkpointFile(id).exists())
-            assertEquals(1, h.events.count { it is TrackEvent.Finalized })
         } finally {
             h.close()
         }
@@ -120,13 +156,21 @@ class TrackRecorderLifecycleTest {
         try {
             val id = h.startAndRecord(3)
             h.recorder.stop()
+            h.awaitSaveParked()
             h.recorder.discard()
+            // The discard is queued behind the parked finalize: nothing moves while the gate holds.
+            delay(300)
+            assertEquals(TrackRecorderState.ON, h.recorder.uiState.value.state)
+            assertEquals(0, h.events.count { it === TrackEvent.Stopped })
+
             h.repo.gate.complete(Unit)
             h.awaitState(TrackRecorderState.OFF)
+            h.awaitEvents { list -> list.count { it is TrackEvent.Finalized } == 1 && list.count { it === TrackEvent.Stopped } == 1 }
+            // Give a stray second Stopped (a discard that did not find OFF) every chance to appear.
             delay(200)
             assertTrue("the finalize's file survives the discard that waited on it", finalFile(id).exists())
-            assertEquals(1, h.events.count { it is TrackEvent.Finalized })
             assertEquals(1, h.events.count { it === TrackEvent.Stopped })
+            assertEquals(1, h.repo.saves)
         } finally {
             h.close()
         }
@@ -138,9 +182,14 @@ class TrackRecorderLifecycleTest {
         try {
             val id = h.startAndRecord(2)
             h.recorder.stop()
+            h.awaitSaveParked()
             h.recorder.stop()
+            delay(300)
+            assertEquals(TrackRecorderState.ON, h.recorder.uiState.value.state)
+
             h.repo.gate.complete(Unit)
             h.awaitState(TrackRecorderState.OFF)
+            h.awaitEvents { list -> list.count { it is TrackEvent.Finalized } == 1 }
             delay(200)
             assertEquals(1, h.repo.saves)
             assertEquals(1, h.events.count { it is TrackEvent.Finalized })
@@ -172,9 +221,9 @@ class TrackRecorderLifecycleTest {
             h.repo.failSaves = false
             h.recorder.stop()
             h.awaitState(TrackRecorderState.OFF)
+            h.awaitEvents { list -> list.count { it is TrackEvent.Finalized } == 1 }
             assertTrue(finalFile(id).exists())
             assertFalse(checkpointFile(id).exists())
-            assertEquals(1, h.events.count { it is TrackEvent.Finalized })
             assertNotNull(h.repo.load(id))
         } finally {
             h.close()
@@ -189,7 +238,7 @@ class TrackRecorderLifecycleTest {
             // A meta update writes a checkpoint: the stale one, two points old.
             h.recorder.updateCurrentTrackMeta(name = "renamed")
             withTimeout(5_000) { while (!checkpointFile(id).exists()) delay(20) }
-            h.startMore(id, from = 2, count = 3)
+            h.emitPoints(from = 2, count = 3)
 
             h.repo.failSaves = true
             h.repo.gate.complete(Unit)
@@ -201,21 +250,5 @@ class TrackRecorderLifecycleTest {
         } finally {
             h.close()
         }
-    }
-
-    private suspend fun Harness.startMore(id: String, from: Int, count: Int) {
-        repeat(count) { i ->
-            val n = from + i
-            samples.emit(
-                TrackSample(
-                    position = LatLng(43.50 + n * 0.001, 7.00 + n * 0.001),
-                    speedMps = 3f,
-                    bearingDeg = 90f,
-                    hasLock = true,
-                    timestampEpochMs = 1_700_000_000_000L + n * 1_000L
-                )
-            )
-        }
-        withTimeout(5_000) { recorder.uiState.first { it.currentTrackId == id && it.pointCount >= from + count } }
     }
 }

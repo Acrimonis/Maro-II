@@ -21,6 +21,17 @@
   timing assertions, so they should be stable on a shared runner.
 - How many tests skip for want of the baked assets (expected: the regional harness tier).
 
+## 2a. The first run (2026-10-23)
+
+The workflow ran on the first push: **the debug APK built**, so every edit since the review compiles,
+and the unit suite ran 1 466 tests with 18 skipped (the regional harness tier, as expected) and 3
+failures — all three in the new lifecycle tests, all three timing out in the harness before any
+recorder scenario, because samples were emitted before the recorder's collector had subscribed to a
+replay-less `SharedFlow`. The two lifecycle tests whose samples happened to land (Stop reads ON until
+the save lands; a failed save retains the recording) passed. The harness now waits for both
+subscriptions, waits for the save to be parked inside the gate before sending a competing command,
+and waits on events rather than sleeping.
+
 ## 3. Still outside any machine's reach
 
 - The clean-install launch with no grants on Android 14+ (the H1 fix).
