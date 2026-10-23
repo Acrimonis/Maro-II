@@ -1,13 +1,19 @@
 package ykws.android.maro.ui.map
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.osmdroid.views.MapView
@@ -69,9 +75,13 @@ internal fun MapLockLayer(
                 )
         ) {
             if (screenLocked) {
-                LockScreenButton(
-                    locked = true,
-                    onClick = onToggleScreenLock,
+                // Unlocking is a hold, never a tap (U04): the zoom pair below already asks for a double
+                // tap, and a single tap on the lock square — a splash, a sleeve — would otherwise undo
+                // the lock. The square's own clickable stays inert; the gesture box drawn over it takes
+                // every pointer first, flashes the lock banner on a tap and unlocks on a long press.
+                val currentToggle by rememberUpdatedState(onToggleScreenLock)
+                val currentIntercepted by rememberUpdatedState(onInterceptedTap)
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(
@@ -83,7 +93,23 @@ internal fun MapLockLayer(
                                 TopToggleControl.row(appSettings).indexOf(TopToggleControl.LOCK)
                             )
                         )
-                )
+                ) {
+                    LockScreenButton(
+                        locked = true,
+                        onClick = {}
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .semantics { onLongClick { currentToggle(); true } }
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onTap = { currentIntercepted() },
+                                    onLongPress = { currentToggle() }
+                                )
+                            }
+                    )
+                }
                 ZoomControls(
                     onZoomIn = {
                         mapView?.let { mv ->

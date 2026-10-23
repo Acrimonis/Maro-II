@@ -21,7 +21,7 @@ import ykws.android.maro.ui.icons.AddLocationAlt
 import ykws.android.maro.ui.map.ButtonColors
 
 /**
- * The create-marker action a markers surface's header opens on: a 40 dp icon-only button, then the
+ * The create-marker action a markers surface's header opens on: an icon-only button at the touch minimum, then the
  * vertical rule that divides it from the chrome group.
  *
  * **The order rule lives here, stated once:** a header's controls read
@@ -55,7 +55,7 @@ internal fun MarkerCreateAction(
     ) {
         IconButton(
             onClick = onClick,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
         ) {
             Icon(
                 imageVector = AddLocationAlt,

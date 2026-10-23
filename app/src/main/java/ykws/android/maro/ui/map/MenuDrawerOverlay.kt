@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -251,11 +252,11 @@ fun MenuDrawerOverlay(
             if (routeFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleRouteLink,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = if (routeFilterLinked) Link else LinkOff,
-                        contentDescription = null,
+                        contentDescription = filterLinkDescription(R.string.cd_filter_link_routes, routeFilterLinked),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
@@ -268,7 +269,7 @@ fun MenuDrawerOverlay(
                 val hasActiveRouteFilter = routeFilterState.axes.isNotEmpty()
                 IconButton(
                     onClick = onRouteReset,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = Refresh,
@@ -309,11 +310,11 @@ fun MenuDrawerOverlay(
             if (trackFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleTrackLink,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = if (trackFilterLinked) Link else LinkOff,
-                        contentDescription = null,
+                        contentDescription = filterLinkDescription(R.string.cd_filter_link_tracks, trackFilterLinked),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
@@ -326,7 +327,7 @@ fun MenuDrawerOverlay(
                 val hasActiveTrackFilter = trackFilterState.axes.isNotEmpty()
                 IconButton(
                     onClick = onTrackReset,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = Refresh,
@@ -368,7 +369,7 @@ fun MenuDrawerOverlay(
                     IconButton(
                         onClick = { onOpenFirstTrack?.invoke() },
                         enabled = onOpenFirstTrack != null,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -493,11 +494,11 @@ fun MenuDrawerOverlay(
             if (markerFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleMarkerLink,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = if (markerFilterLinked) Link else LinkOff,
-                        contentDescription = null,
+                        contentDescription = filterLinkDescription(R.string.cd_filter_link_markers, markerFilterLinked),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
@@ -510,7 +511,7 @@ fun MenuDrawerOverlay(
                 val hasActiveMarkerFilter = markerFilterState.axes.isNotEmpty()
                 IconButton(
                     onClick = onMarkerReset,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = Refresh,
@@ -552,7 +553,7 @@ fun MenuDrawerOverlay(
                     IconButton(
                         onClick = { onOpenFirstMarker?.invoke() },
                         enabled = onOpenFirstMarker != null,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -903,7 +904,7 @@ private fun RoutesRow(
             IconButton(
                 onClick = { onOpenFirstRoute?.invoke() },
                 enabled = onOpenFirstRoute != null,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(AppConfig.uiTouchMin.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -915,6 +916,11 @@ private fun RoutesRow(
         }
     }
 }
+
+/** A section header's link toggle, for TalkBack: the kind's own line, then whether the link is on. */
+@Composable
+private fun filterLinkDescription(@StringRes kind: Int, linked: Boolean): String =
+    stringResource(kind, stringResource(if (linked) R.string.cd_state_on else R.string.cd_state_off))
 
 /**
  * One kind's **map-visibility eye** (2026-10-05): the leftmost control of a section header's trailing
@@ -936,7 +942,7 @@ private fun KindVisibilityToggle(
 ) {
     IconButton(
         onClick = onToggle,
-        modifier = Modifier.size(40.dp)
+        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
     ) {
         Icon(
             imageVector = if (visible) Visibility else VisibilityOff,

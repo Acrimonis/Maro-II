@@ -164,7 +164,7 @@ private fun SortControl(
     Box {
         IconButton(
             onClick = { expanded = true },
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
         ) {
             Icon(
                 imageVector = FilterList,
@@ -262,7 +262,7 @@ internal fun FilterControl(
     Box {
         IconButton(
             onClick = { expanded = true },
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
         ) {
             Icon(
                 imageVector = FilterAlt,
@@ -707,9 +707,15 @@ internal fun <T : ListableItem> ListOverlayScaffold(
                 ) {
                     IconButton(
                         onClick = { exitMultiselect() },
-                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
+                        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                     ) {
-                        Icon(Icons.Filled.Close, stringResource(R.string.cd_close_multiselect), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
+                        // The 32 dp disc is the visual; the button around it is the touch floor.
+                        Box(
+                            modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Close, stringResource(R.string.cd_close_multiselect), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
+                        }
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(
@@ -753,9 +759,15 @@ internal fun <T : ListableItem> ListOverlayScaffold(
                 ) {
                     IconButton(
                         onClick = { pendingDeletes.forEach { entry -> onAction(ListAction.PermanentDelete(entry.key)) }; pendingDeletes.clear(); onDismiss() },
-                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
+                        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.settings_back), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
+                        // The 32 dp disc is the visual; the button around it is the touch floor.
+                        Box(
+                            modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.settings_back), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
+                        }
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(title, color = Color(AppConfig.uiTextPrimary), fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -771,14 +783,16 @@ internal fun <T : ListableItem> ListOverlayScaffold(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(sectionLabel, color = Color(AppConfig.uiAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    // The label yields to the action cluster: at the touch floor five buttons can outgrow a
+                    // narrow portrait row, and a weighted label wraps rather than pushing them off the edge.
+                    Text(sectionLabel, color = Color(AppConfig.uiAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         headerActions()
                         // Link toggle (list referential vs map referential), left of the filter icon
                         if (filterAxes.isNotEmpty()) {
                             IconButton(
                                 onClick = onToggleLink,
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                             ) {
                                 Icon(
                                     imageVector = if (filterLinked) ykws.android.maro.ui.icons.Link else ykws.android.maro.ui.icons.LinkOff,
@@ -800,7 +814,7 @@ internal fun <T : ListableItem> ListOverlayScaffold(
                         val hasActive = hasActiveFilter || !isSortDefault
                         IconButton(
                             onClick = onReset,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                         ) {
                             Icon(
                                 imageVector = Refresh,

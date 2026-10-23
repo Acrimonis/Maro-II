@@ -50,5 +50,7 @@ class RouteEvolutiveEngine(
 
     override fun cancelLookup(id: RouteId) = delegate.cancelLookup(id)
 
+    override fun close() = delegate.close()
+
     override val updates: Flow<RouteUpdate> get() = delegate.updates
 }

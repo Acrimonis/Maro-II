@@ -143,6 +143,13 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        // `android.util.Log` and the other framework statics answer their defaults in a plain JVM test
+        // instead of throwing "not mocked": the repositories log on their failure paths, and the tests
+        // that exercise those paths (quarantine, backup recovery) must be able to reach them.
+        unitTests.isReturnDefaultValues = true
+    }
+
     androidResources {
         // Don't package the GDAL/OSM bake intermediates that ride along in data/app-assets/depth/
         // (a corridor-wide Litto3D .asc is ~1 GB); the app only reads the cooked .bin. Keeps the APK lean.

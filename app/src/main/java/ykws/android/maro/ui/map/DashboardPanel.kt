@@ -93,12 +93,16 @@ private object DashboardColors {
  * map overlay area, never in the dashboard.
  */
 @Composable
-fun DashboardPanel(
+internal fun DashboardPanel(
     state: CoastlineState,
     isWater: Boolean,
     distanceToShore: Double?,
     depthSample: DepthSample?,
     speedKnots: Float?,
+    /** The GPS square's own state, so an empty speed reads why it is empty rather than "demo mode". */
+    gpsIconState: GpsIconState = GpsIconState.DEMO,
+    /** The fix's reported accuracy in metres, read by the weak-signal line alone. */
+    gpsAccuracyM: Float? = null,
     zoneSituation: ZoneSituation? = null,
     autoRevealDistanceM: Float = 100f,
     autoRevealTimeS: Float = 10f,
@@ -139,6 +143,8 @@ fun DashboardPanel(
             distanceToShore = distanceToShore,
             depthSample = depthSample,
             speedKnots = speedKnots,
+            gpsIconState = gpsIconState,
+            gpsAccuracyM = gpsAccuracyM,
             zoneSituation = zoneSituation,
             autoRevealDistanceM = autoRevealDistanceM,
             autoRevealTimeS = autoRevealTimeS,
@@ -202,6 +208,8 @@ private fun DashboardIndicatorGrid(
     distanceToShore: Double?,
     depthSample: DepthSample?,
     speedKnots: Float?,
+    gpsIconState: GpsIconState,
+    gpsAccuracyM: Float?,
     zoneSituation: ZoneSituation?,
     autoRevealDistanceM: Float,
     autoRevealTimeS: Float,
@@ -258,6 +266,8 @@ private fun DashboardIndicatorGrid(
             SpeedCard(
                 speedKnots = speedKnots,
                 isWater = isWater,
+                gpsIconState = gpsIconState,
+                gpsAccuracyM = gpsAccuracyM,
                 activeSpeedLimitKn = zoneSituation?.currentZone?.speedLimitKn,
                 modifier = Modifier
                     .weight(1f)
@@ -973,15 +983,26 @@ private fun DepthCard(
 private fun SpeedCard(
     speedKnots: Float?,
     isWater: Boolean,
+    gpsIconState: GpsIconState,
+    gpsAccuracyM: Float?,
     activeSpeedLimitKn: Double? = null,
     modifier: Modifier = Modifier
 ) {
-    // Null = demo mode (or no fix yet) → show a dash, default background.
+    // Null = demo mode or no usable fix → show a dash, default background, and the GPS square's own
+    // reason as the subtitle: "demo mode" is said only when the app is in demo mode.
     if (speedKnots == null) {
+        val reason = when {
+            gpsIconState == GpsIconState.DEMO -> stringResource(R.string.dash_demo_mode)
+            gpsIconState == GpsIconState.STALE -> stringResource(R.string.dash_gps_stale)
+            gpsIconState == GpsIconState.ESTIMATING -> stringResource(R.string.dash_gps_estimating)
+            gpsIconState == GpsIconState.WEAK && gpsAccuracyM != null ->
+                stringResource(R.string.dash_gps_weak, gpsAccuracyM.roundToInt())
+            else -> stringResource(R.string.dash_gps_no_fix)
+        }
         DashboardCard(
             title = stringResource(R.string.dash_speed_title),
             value = stringResource(R.string.dash_empty),
-            subtitle = stringResource(R.string.dash_demo_mode),
+            subtitle = reason,
             isEmpty = true,
             modifier = modifier
         )

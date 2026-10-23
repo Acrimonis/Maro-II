@@ -1509,9 +1509,9 @@ private fun NavigationSettings(
     Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
     CardArea {
-        // GPS mode toggle
+        // The offset's own GPS-mode switch — it never turns GPS on; the map square does that.
         ToggleRow(
-            label = stringResource(R.string.settings_gps_mode_label),
+            label = stringResource(R.string.settings_map_offset_gps_label),
             description = stringResource(R.string.settings_map_offset_gps_desc),
             checked = settings.mapOffsetGps,
             onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } }
@@ -2119,17 +2119,26 @@ private fun SingleColorSubSection(
     }
 }
 
-/** 24dp rounded colour swatch button that opens the colour picker via [onClick]. */
+/**
+ * 24dp rounded colour swatch that opens the colour picker via [onClick]. The disc keeps its size; the
+ * tap lands on the [AppConfig.uiTouchMin] box it is centred in.
+ */
 @Composable
 private fun ColorSwatchButton(color: Int, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(24.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(ComposeColor(color))
-            .clickable(onClick = onClick)
-            .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(6.dp))
-    )
+            .size(AppConfig.uiTouchMin.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(ComposeColor(color))
+                .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(6.dp))
+        )
+    }
 }
 
 
