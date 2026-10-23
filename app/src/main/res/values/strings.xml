@@ -784,10 +784,6 @@
     <string name="settings_route_slow_water_value_fmt">%1$sx</string>
     <string name="settings_route_slow_water_fastest">Fastest</string>
     <string name="settings_route_slow_water_ignore_time">Ignore time</string>
-    <string name="settings_section_route_marker">Marker pricing</string>
-    <string name="settings_route_marker_strength_label">Marker strength</string>
-    <string name="settings_route_marker_strength_desc">How strongly a costed marker pushes the route away from its zone. A blocked marker is a wall and ignores this.</string>
-    <string name="settings_route_marker_strength_value_fmt">%1$.1f\u00d7</string>
     <!-- The algorithm harness: the System-tab section, its description and the three shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
