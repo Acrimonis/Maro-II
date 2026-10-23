@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-23 16:27
+modified: 2026-10-23 17:41
 ---
 
 # Feature: Markers
@@ -15,6 +15,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [ ] `ShowMarkerColorPicker` raises a `ConfirmRequest` with no dispose path: if the raising surface leaves composition while the panel is open — the settings overlay dismissed, the wizard step advanced — the request outlives its owner and the panel stays up. A `DisposableEffect` calling `host.dismiss()` on dispose closes it; also open, the wizard swatch announces only its caption and never the current colour name.
 
 ## Implemented
+
+- **marker-edit-form-rebuild (2026-10-23, `feature/mrk-lst-edit`)** — a menu-opened marker card's Edit no longer opens the first marker's data after a Prev/Next move: [`startWizard`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:819) always rebuilds `_createForm` from the marker being edited, dropping the name-match gate that let a same-named neighbour inherit the first marker's form, position and colour. `apk-build.bat` BUILD SUCCESSFUL; the review hop approved, with one non-blocking finding — the form-building block is duplicated between [`openEditDrawer`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:493) and `startWizard` and merits a shared factory.
 
 - **marker-auto-naming (2026-10-23, `feature/marker-color`)** — one pure [`markerAutoName`](../../app/src/main/java/ykws/android/maro/data/markers/MarkerAutoName.kt:1) names every marker: the marker's own geometry is asked of the where-am-i — a corridor's midpoint first, its two endpoints only when the midpoint is silent — and the fallback is the tracks' [`trackAutoName`](../../app/src/main/java/ykws/android/maro/data/track/Track.kt:86), the caller-supplied type glyph leading the string. `CreateFormState` gains `nameIsAuto` (false default) and `createdAtEpochMs`; the wizard default stops naming a colour, [`saveMarker`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:971)/[`updateMarker`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:1046) read one [`formGeometry`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:215), a shape-step exit or Finish re-names while the name is still the machine's, and the `"Marker"` / `"New Marker"` literals are deleted. Build `:app:compileDebugKotlin` SUCCESSFUL; the review hop's one blocker — a create followed by an edit could re-name a stored marker — is fixed by clearing the form after a create and forcing `nameIsAuto = false` on the edit entry; `MarkerAutoNameTest` and the 🕐 alignment stay owed → `xTrack/Markers/261023_FEAT_PLN_Markers_auto-naming.md`
 
