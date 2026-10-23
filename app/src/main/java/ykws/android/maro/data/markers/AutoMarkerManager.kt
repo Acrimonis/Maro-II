@@ -15,13 +15,13 @@ import java.util.UUID
 /**
  * Data-layer owner of the 🕐 IDLE_AUTO marker lifecycle.
  *
- * Backed by [UserMarkerRepository] (Context constructor — same pattern as the
- * track repository) so the service-owned recorder can create/confirm/delete
- * auto-markers with no UI dependency.
+ * Backed by a [UserMarkerRepository] — the process's shared one when built from
+ * [ykws.android.maro.MaroApp], so its mutex orders these writes against the UI's —
+ * and usable by the service-owned recorder with no UI dependency.
  */
-class AutoMarkerManager(context: Context) {
+class AutoMarkerManager(private val repo: UserMarkerRepository) {
 
-    private val repo = UserMarkerRepository(context)
+    constructor(context: Context) : this(UserMarkerRepository(context))
 
     /**
      * Create a temporary 🕐 auto-marker at the idle position, preserving the

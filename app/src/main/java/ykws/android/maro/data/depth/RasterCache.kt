@@ -41,33 +41,55 @@ object RasterCache {
      * [colorsHash] is the hash of the colours **this step** is painted from, so a change to one
      * raster's palette leaves the other's cache file alone. Build a key through [keyFor] rather
      * than by hand, and keep a new colour on the step it belongs to in `AppConfig`.
+     *
+     * [coastStamp] identifies the coastline the warning overlay classified water with (its fetch
+     * timestamp), so a replaced coastline over an unchanged grid misses the stale overlay. It is `0`
+     * on the colour map, whose pixels never consult the coastline.
      */
     data class Key(
         val gridTimestampMs: Long,
         val emodnetCutoffM: Float,
         val lowDepthCrashDepthM: Float,
         val lowDepthStartWarningM: Float,
-        val colorsHash: Int
-    )
+        val colorsHash: Int,
+        val coastStamp: Long = 0L
+    ) {
+        /**
+         * The file name is this hash. The five original fields fold as the generated data-class hash
+         * did, and [coastStamp] folds in only when set, so a key without one — every colour-map key —
+         * still names the file it named before the stamp existed.
+         */
+        override fun hashCode(): Int {
+            var h = gridTimestampMs.hashCode()
+            h = 31 * h + emodnetCutoffM.hashCode()
+            h = 31 * h + lowDepthCrashDepthM.hashCode()
+            h = 31 * h + lowDepthStartWarningM.hashCode()
+            h = 31 * h + colorsHash
+            return if (coastStamp == 0L) h else 31 * h + coastStamp.hashCode()
+        }
+    }
 
     /**
      * The key for one raster [step] over [grid]. The two depth thresholds are fields because the
      * warning overlay grades its alpha by them — inert for the colour map, carried for both so the
-     * two steps keep one shape.
+     * two steps keep one shape. [coastStamp] (0 when no coastline is loaded) reaches the key of the
+     * warning overlay only.
      */
     fun keyFor(
         step: Step,
         grid: DepthGrid,
         emodnetCutoffM: Float,
         lowDepthCrashDepthM: Float,
-        lowDepthStartWarningM: Float
+        lowDepthStartWarningM: Float,
+        coastStamp: Long
     ): Key = Key(
         gridTimestampMs = grid.metadata.fetchTimestampMs,
         emodnetCutoffM = emodnetCutoffM,
         lowDepthCrashDepthM = lowDepthCrashDepthM,
         lowDepthStartWarningM = lowDepthStartWarningM,
         colorsHash = if (step == Step.DEPTH_COLOUR) AppConfig.depthRasterColorsHash
-        else AppConfig.lowDepthRasterColorsHash
+        else AppConfig.lowDepthRasterColorsHash,
+        coastStamp = if (step == Step.LOW_DEPTH_WARNING) coastStamp else 0L
     )
 
     // ── Public API ──────────────────────────────────────────────────────────

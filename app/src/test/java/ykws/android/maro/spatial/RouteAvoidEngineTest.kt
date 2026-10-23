@@ -997,14 +997,15 @@ class RouteAvoidEngineTest {
      *
      * A non-cancellation exception inside the arm's one build fails the shared `Deferred`, which every
      * awaiting rung rethrows from `await()`. Before the fix no rung reached its terminal, so the mode
-     * waited out its own timeout rather than being told; the lookup now answers the same
-     * [RouteReason.NO_PATH] surface an unanswered search shows. The sink is the build's own trace hook —
-     * throwing on `HARVEST`, emitted only inside `buildGrid`, fails the build deterministically with no
-     * fixture change — and the arm's three rungs share that one failed build, so all three are answered.
-     * A `CancellationException` is deliberately untouched by the handler, so cancellation stays silent.
+     * waited out its own timeout rather than being told; the lookup now answers [RouteReason.FAILED] —
+     * its own reason, so a crash is never read as the empty sea [RouteReason.NO_PATH] names. The sink is
+     * the build's own trace hook — throwing on `HARVEST`, emitted only inside `buildGrid`, fails the build
+     * deterministically with no fixture change — and the arm's three rungs share that one failed build, so
+     * all three are answered. A `CancellationException` is deliberately untouched by the handler, so
+     * cancellation stays silent.
      */
     @Test
-    fun aFailedBuildAnswersEveryAwaitingRungWithNoPath() = runBlocking {
+    fun aFailedBuildAnswersEveryAwaitingRungWithFailed() = runBlocking {
         val engine = RouteAvoidEngine(
             paceKn = { paceKn },
             verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
@@ -1041,11 +1042,88 @@ class RouteAvoidEngineTest {
             assertNull("a failed build answers no line", terminal.result)
             assertTrue("and no line rides the terminal", terminal.line.isEmpty())
             assertEquals(
-                "the failure is answered with the existing no-path reason, the surface a failed search shows",
-                RouteReason.NO_PATH,
+                "the failure is answered by its own reason, never conflated with an exhausted search",
+                RouteReason.FAILED,
                 terminal.reason
             )
         }
+    }
+
+    // ── The engine's own end ───────────────────────────────────────────────────
+
+    /**
+     * **`close()` cancels the lane, and the lookups on it with it.** The build thread is parked at
+     * `CORRIDOR` — the same hook the D28 gate uses — so the lookup is provably in flight when the engine
+     * is closed; the lookup's job is then cancelled by construction (the lane's `SupervisorJob` is its
+     * parent), and a lookup started after the close runs nothing at all. No timing is asserted: the
+     * job's state is read before and after the one call.
+     */
+    @Test
+    fun closeCancelsTheRunningLookupAndStartsNothingAfterwards() = runBlocking {
+        val buildStarted = CompletableDeferred<Unit>()
+        val released = CountDownLatch(1)
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { FakeWorld() },
+            traceSink = { line ->
+                if (line.startsWith("CORRIDOR")) {
+                    buildStarted.complete(Unit)
+                    // Bounded, so a misfire cannot strand the worker; the bound is a guard, never a measure.
+                    if (!released.await(120_000, TimeUnit.MILLISECONDS)) {
+                        throw IllegalStateException("the close was not delivered within 120 s")
+                    }
+                }
+            }
+        )
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the fixture pair declares its three rungs", declared)
+        val computations = declared!!.computations
+
+        val running = engine.startLookup(computations[0].id)
+        withTimeout(120_000) { buildStarted.await() }
+        assertTrue("the lookup is in flight while its build is parked", engine.isLookupActive(running))
+
+        engine.close()
+        released.countDown()
+
+        assertFalse("the close cancelled the running lookup's job", engine.isLookupActive(running))
+        val late = engine.startLookup(computations[1].id)
+        assertFalse("a lookup started after the close runs nothing", engine.isLookupActive(late))
+    }
+
+    // ── An end off the covered region ─────────────────────────────────────────
+
+    /**
+     * **An end outside the region is answered [RouteReason.OFF_WATER], never clamped.** The fake world
+     * names a region the aim stands outside of; the repair passes (open water everywhere), so the refusal
+     * is the build's own, and the lookup's terminal carries the reason by name instead of a line searched
+     * to the grid's edge.
+     */
+    @Test
+    fun anEndOutsideTheRegionIsAnsweredOffWater() = runBlocking {
+        val region = BBox(43.49, 43.51, 6.99, 7.03)
+        val engine = newEngine { FakeWorld(region = region) }
+        val declared = engine.routesToCompute(origin, aim) as? RouteDeclarations.Available
+        assertNotNull("the repair passes on open water, so the pair is declared", declared)
+
+        val subscribed = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<RouteUpdate>()
+        var mainId: RouteId? = null
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null && update.routeId == mainId) done.complete(update)
+                }
+        }
+        subscribed.await()
+        mainId = engine.startLookup(declared!!.computations[0].id)
+        val terminal = withTimeout(30_000) { done.await() }
+        collector.cancel()
+
+        assertNull("no line is drawn to the region's edge", terminal.result)
+        assertEquals("the pair is refused by name", RouteReason.OFF_WATER, terminal.reason)
     }
 
     // ── The healthy terminal's throwing sink (D39) ─────────────────────────────
@@ -1273,14 +1351,16 @@ class RouteAvoidEngineTest {
         /** The sounding (m) the depth layer answers, or `NaN` for an unsurveyed point. */
         private val depth: (Double, Double) -> Double = { _, _ -> Double.NaN },
         /** The speed zones the world answers, priced only while the engine's switch is armed. */
-        private val zones: List<SpeedZone> = emptyList()
+        private val zones: List<SpeedZone> = emptyList(),
+        /** The region the world covers, or `null` (the default) for a world that bounds nothing. */
+        private val region: BBox? = null
     ) : MultipassWorld {
         val boxes = mutableListOf<BBox>()
 
         override val coastlineReady: Boolean get() = ready
         override val depthReady: Boolean get() = depthLoaded
         override val bandWidthM: Double get() = band
-        override val regionBounds: BBox? get() = null
+        override val regionBounds: BBox? get() = region
 
         override fun segmentsIn(box: BBox): List<MultipassEdge> {
             boxes.add(box)

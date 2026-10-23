@@ -29,6 +29,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -163,7 +165,23 @@ internal fun GpsStatusIcon(
     modifier: Modifier = Modifier
 ) {
     val face = gpsFace(state)
-    MapToggleSquare(face = face.toSurfaceFace(), onClick = onClick, modifier = modifier) {
+    // The square's own state word, read by TalkBack after the action's name.
+    val stateWord = stringResource(
+        when (state) {
+            GpsIconState.DEMO -> R.string.cd_gps_demo
+            GpsIconState.ACQUIRING -> R.string.cd_gps_acquiring
+            GpsIconState.HEALTHY, GpsIconState.IDLE -> R.string.cd_gps_active
+            GpsIconState.STALE -> R.string.cd_gps_stale
+            GpsIconState.ESTIMATING -> R.string.cd_gps_estimating
+            GpsIconState.WEAK -> R.string.cd_gps_weak
+        }
+    )
+    MapToggleSquare(
+        face = face.toSurfaceFace(),
+        onClick = onClick,
+        modifier = modifier,
+        contentDescription = stringResource(R.string.cd_gps_state, stateWord)
+    ) {
         Text(text = "📡", fontSize = TOP_TOGGLE_ICON_SIZE)
     }
 }
@@ -186,7 +204,8 @@ internal fun RecenterButton(
     MapToggleSquare(
         face = recenterFace().toSurfaceFace(),
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
+        contentDescription = stringResource(R.string.cd_recenter)
     ) {
         Text(
             text = "📍",
@@ -269,20 +288,31 @@ internal fun ZoomControls(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ZoomButton(onClick = onZoomIn, doubleTap = doubleTap) { PlusIcon() }
-        ZoomButton(onClick = onZoomOut, doubleTap = doubleTap) { MinusIcon() }
+        ZoomButton(
+            onClick = onZoomIn,
+            doubleTap = doubleTap,
+            contentDescription = stringResource(R.string.cd_zoom_in)
+        ) { PlusIcon() }
+        ZoomButton(
+            onClick = onZoomOut,
+            doubleTap = doubleTap,
+            contentDescription = stringResource(R.string.cd_zoom_out)
+        ) { MinusIcon() }
     }
 }
 
+/** One zoom button; [contentDescription] names it for TalkBack, the icon inside staying decorative. */
 @Composable
 internal fun ZoomButton(
     onClick: () -> Unit,
     doubleTap: Boolean,
+    contentDescription: String,
     icon: @Composable () -> Unit
 ) {
+    val label = Modifier.semantics { this.contentDescription = contentDescription }
     if (doubleTap) {
         Box(
-            modifier = Modifier
+            modifier = label
                 .size(64.dp)
                 .clip(CircleShape)
                 .background(ButtonColors.bg)
@@ -294,7 +324,7 @@ internal fun ZoomButton(
             icon()
         }
     } else {
-        MapControlButton(onClick = onClick) { icon() }
+        MapControlButton(onClick = onClick, modifier = label) { icon() }
     }
 }
 

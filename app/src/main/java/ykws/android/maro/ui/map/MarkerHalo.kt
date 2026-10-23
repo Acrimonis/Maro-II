@@ -10,8 +10,9 @@ import android.graphics.Paint
  * from a [MarkerHaloSpec] and builds a halo [Bitmap] (inner fill disc + outer border
  * ring) sized to its anchor — the small centre dot or the larger emoji icon.
  *
- * Pure logic, no map coupling. Bitmaps are created fresh per rebuild (marker counts
- * are low); bitmap caching is a possible future evolution.
+ * Pure logic, no map coupling. The caller pools what [createBitmap] returns per distinct
+ * spec, anchor, size, zoom and dim (MarkerOverlay's bitmap pool), so one ring is drawn
+ * once per shape rather than once per marker.
  */
 object MarkerHalo {
 

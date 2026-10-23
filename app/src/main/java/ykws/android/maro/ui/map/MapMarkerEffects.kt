@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 import android.graphics.Color
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -92,6 +93,15 @@ internal fun MapMarkerEffects(
         WhereAmIProvider.whereAmI = markersViewModel::whereAmISync
         WhereAmIProvider.idleCapture = { pos -> idleCallback.onIdleThresholdReached(pos) }
         markerChangeFlow.collect { WhereAmIProvider.markerChanges.tryEmit(Unit) }
+    }
+    // The bridge is process-scoped and the ViewModel is not: when this composition leaves, the
+    // registrations are cleared, so the service never holds a dead ViewModel's closures and the
+    // recorder reads "no answer" rather than a stale one until the next composition re-registers.
+    DisposableEffect(Unit) {
+        onDispose {
+            WhereAmIProvider.whereAmI = null
+            WhereAmIProvider.idleCapture = null
+        }
     }
 }
 

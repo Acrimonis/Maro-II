@@ -355,10 +355,10 @@ internal fun MarkerCardContent(
                         modifier = Modifier.weight(1f)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        // The icon/pick door leads the cluster, at the cluster's own 36 dp.
+                        // The icon/pick door leads the cluster, at the shared touch floor (`ui.touch.min`).
                         IconButton(
                             onClick = { showIconPicker = true },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                         ) {
                             if (marker.icon != null) {
                                 Text(marker.icon!!, fontSize = 20.sp, maxLines = 1)
@@ -374,7 +374,7 @@ internal fun MarkerCardContent(
                         onShare?.let { share ->
                             IconButton(
                                 onClick = share,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Upload,
@@ -386,7 +386,7 @@ internal fun MarkerCardContent(
                         }
                         IconButton(
                             onClick = { onSetPin(marker.id, !marker.pinned) },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                         ) {
                             Icon(
                                 imageVector = if (marker.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
@@ -397,7 +397,7 @@ internal fun MarkerCardContent(
                         }
                         IconButton(
                             onClick = onEdit,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Edit,
