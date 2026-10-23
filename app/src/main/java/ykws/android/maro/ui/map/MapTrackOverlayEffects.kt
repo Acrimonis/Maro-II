@@ -23,7 +23,6 @@ import ykws.android.maro.data.track.TrackSummary
 internal fun MapTrackOverlayHistoryDiff(
     mapView: MapView?,
     showSettings: Boolean,
-    highlightedTrackId: String?,
     /**
      * The arrows axis (D1, D3): the menu's twin box is its only writer and this effect only reads it.
      * It decides the chevrons alone — a stored track's *fill* is [trackColours]' business.
@@ -34,14 +33,6 @@ internal fun MapTrackOverlayHistoryDiff(
      * stored default colours. Same single writer as [trackArrows].
      */
     trackColours: Boolean,
-    /**
-     * The selected-item speed toggle, one persisted boolean per kind (2026-10-23): [trackEyeOverride] for
-     * a recorded track, [routeEyeOverride] for a route, each off by default. On bands the selected item's
-     * fill, off paints its gold highlight; non-selected items never read these, and the chevrons follow
-     * the arrows axis alone (see [lineRenderPlan]).
-     */
-    trackEyeOverride: Boolean,
-    routeEyeOverride: Boolean,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
     /**
      * The stored items a card's deferred delete is hiding while it waits (2026-10-10), prefix already
@@ -77,11 +68,8 @@ internal fun MapTrackOverlayHistoryDiff(
     val rebuildKeys: List<Any?> = buildList {
         add(mapView)
         add(showSettings)
-        add(highlightedTrackId)
         add(trackArrows)
         add(trackColours)
-        add(trackEyeOverride)
-        add(routeEyeOverride)
         add(appSettings.routeTracksVisible)
         add(appSettings.tracksVisible)
         add(appSettings.routesVisible)
@@ -189,7 +177,9 @@ internal fun MapTrackOverlayHistoryDiff(
         // The route role's own count, bounding the route set alone (R35): the not-pinned count above
         // goes on limiting recorded tracks.
         val routeNb = appSettings.routeRenderNb.coerceIn(0, AppConfig.PATH_COUNT_ALL)
-        focus.highlight(highlightedTrackId)
+        // The selected line is painted by MapTrackSelectionOverlay; the bulk pass keeps the render focus
+        // clear so the policy never escapes a highlighted id past the filter or the caps.
+        focus.highlight(null)
         // The three sets one pass draws — the recorded half, the route half and the pinned escape — from
         // one entry point, so the two counts and the pin's exemption cannot drift (see
         // [storedTrackSelection]).
@@ -205,8 +195,9 @@ internal fun MapTrackOverlayHistoryDiff(
             todayMidnightMs = midnightMs,
             recordingNb = nbToRender,
             routeNb = routeNb,
-            // The open dashboard's own item, drawn whatever the gates say.
-            selectedId = highlightedTrackId
+            // The open dashboard's own item is painted by MapTrackSelectionOverlay, so the bulk pass
+            // claims no escape of its own.
+            selectedId = null
         )
         val historyList = selection.recorded
         val routeList = selection.routes
@@ -233,7 +224,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val selected = summary.id == highlightedTrackId
+            val selected = false
             val width = storedTrackWidth(
                 selected = selected,
                 route = false,
@@ -246,7 +237,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val rendering = storedTrackRendering(
                 points = track.trackPoints.toRenderPoints(),
                 title = "track_hist_${summary.id}",
-                plan = lineRenderPlan(trackArrows, trackColours, selected, trackEyeOverride),
+                plan = lineRenderPlan(trackArrows, trackColours, selected, null),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
                 density = densityScale,
@@ -298,7 +289,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val selected = summary.id == highlightedTrackId
+            val selected = false
             val width = storedTrackWidth(selected = selected, route = true, pinned = false, newest = false)
             val rendering = storedTrackRendering(
                 points = track.trackPoints.toRenderPoints(),
@@ -306,8 +297,7 @@ internal fun MapTrackOverlayHistoryDiff(
                 plan = routeLineRenderPlan(
                     routeArrows = appSettings.routeSpeedArrows,
                     routeColours = appSettings.routeSpeedColor,
-                    selected = selected,
-                    eyeOverride = routeEyeOverride
+                    selected = selected
                 ),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
@@ -368,7 +358,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val selected = summary.id == highlightedTrackId
+            val selected = false
             // D5: every pinned item runs the **one pinned path** — the pinned stroke and the pinned render
             // plan — and only its **values** are selected per kind, on this single branch. A pinned route
             // is still drawn whatever the route count says (R34, R35): the pin buys the escape from the
@@ -397,8 +387,8 @@ internal fun MapTrackOverlayHistoryDiff(
                     routeArrows = appSettings.routeSpeedArrows,
                     routeColours = appSettings.routeSpeedColor,
                     selected = selected,
-                    trackEyeOverride = trackEyeOverride,
-                    routeEyeOverride = routeEyeOverride
+                    trackEyeOverride = false,
+                    routeEyeOverride = false
                 ),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
@@ -453,21 +443,6 @@ internal fun MapTrackOverlayHistoryDiff(
             mv.overlays.add(activePolyline)
         }
 
-        // Move the highlighted track above the other stored tracks (z-order: history → pinned →
-        // highlighted). It stays in the TRACK tier — the route and the live recording keep painting
-        // above it, never cleared by a selection.
-        if (highlightedTrackId != null) {
-            val highlightedOverlays = mv.overlays.filter { overlay ->
-                val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
-                val arrowTitle = (overlay as? TrackDirectionOverlay)?.title
-                polyTitle == "track_hist_$highlightedTrackId" ||
-                polyTitle == "track_pin_$highlightedTrackId" ||
-                arrowTitle == "track_arrow_$highlightedTrackId"
-            }
-            mv.overlays.removeAll(highlightedOverlays)
-            mv.overlays.addAll(highlightedOverlays)
-        }
-
         paintedTrackIds.value = painted.toSet()
         OverlayZOrder.reorder(mv)
         mv.invalidate()
@@ -475,6 +450,114 @@ internal fun MapTrackOverlayHistoryDiff(
         rebuildGeneration.value = rebuildGeneration.value + 1
     }
 }
+
+/**
+ * The selected item's own top overlay (2026-10-23): one line, painted by the same [storedTrackRendering]
+ * the bulk pass uses, but keyed on the selection alone, so a selection change swaps this one overlay
+ * instead of rebuilding every stored line — which is what removes the flicker. It owns the
+ * `track_selected_*` titles and re-stacks on each bulk rebuild ([rebuildGeneration]), exactly as inspect
+ * mode's candidate line does.
+ */
+@Composable
+internal fun MapTrackSelectionOverlay(
+    mapView: MapView?,
+    highlightedTrackId: String?,
+    trackArrows: Boolean,
+    trackColours: Boolean,
+    trackEyeOverride: Boolean,
+    routeEyeOverride: Boolean,
+    allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
+    appSettings: AppSettings,
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel,
+    rebuildGeneration: Int
+) {
+    val selectionKeys: List<Any?> = listOf(
+        mapView,
+        highlightedTrackId,
+        trackArrows,
+        trackColours,
+        trackEyeOverride,
+        routeEyeOverride,
+        appSettings.routeSpeedArrows,
+        appSettings.routeSpeedColor,
+        allTrackSummaries,
+        rebuildGeneration
+    )
+
+    LaunchedEffect(*selectionKeys.toTypedArray()) {
+        val mv = mapView ?: return@LaunchedEffect
+        val owned = mv.overlays.filter { overlay ->
+            when (overlay) {
+                is org.osmdroid.views.overlay.Polyline -> overlay.title?.startsWith(SELECTED_TITLE_PREFIX) == true
+                is TrackDirectionOverlay -> overlay.title?.startsWith(SELECTED_TITLE_PREFIX) == true
+                else -> false
+            }
+        }
+        val id = highlightedTrackId
+        if (id == null) {
+            if (owned.isNotEmpty()) {
+                mv.overlays.removeAll(owned)
+                mv.invalidate()
+            }
+            return@LaunchedEffect
+        }
+        val summary = allTrackSummaries.firstOrNull { it.id == id }
+        val track = trackViewModel.loadTrackDetailCached(id)
+        if (summary == null || track == null || track.trackPoints.isEmpty()) {
+            if (owned.isNotEmpty()) {
+                mv.overlays.removeAll(owned)
+                mv.invalidate()
+            }
+            return@LaunchedEffect
+        }
+        val isRoute = summary.route
+        val plan = if (isRoute) {
+            routeLineRenderPlan(
+                routeArrows = appSettings.routeSpeedArrows,
+                routeColours = appSettings.routeSpeedColor,
+                selected = true,
+                eyeOverride = routeEyeOverride
+            )
+        } else {
+            lineRenderPlan(
+                arrowAxis = trackArrows,
+                coloursAxis = trackColours,
+                selected = true,
+                eyeOverride = trackEyeOverride
+            )
+        }
+        val rendering = storedTrackRendering(
+            points = track.trackPoints.toRenderPoints(),
+            title = "$SELECTED_TITLE_PREFIX$id",
+            plan = plan,
+            ramp = AppConfig.trackHeatmapRamp,
+            strokeWidth = AppConfig.trackWidthSelectedDp,
+            density = mv.paintDensity,
+            fade = 1f,
+            // The gold path never reads this — it is built on demand for the plain path alone, and a
+            // selected line with a boolean eye never takes the plain path.
+            plainAppearance = { selectedTrackCasing() }
+        )
+        val fresh = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+        fresh.addAll(rendering.overlays)
+        if (rendering.drawArrows) {
+            fresh.add(
+                rendering.directionOverlay(
+                    track.trackPoints.toRenderPoints(),
+                    directionSpacingProvider(mv.paintDensity, appSettings),
+                    "$SELECTED_TITLE_PREFIX" + "arrow_" + id,
+                    mv.paintDensity
+                )
+            )
+        }
+        mv.overlays.removeAll(owned)
+        mv.overlays.addAll(fresh)
+        OverlayZOrder.reorder(mv)
+        mv.invalidate()
+    }
+}
+
+private const val SELECTED_TITLE_PREFIX = "track_selected_"
 
 /**
  * The width one stored track earns, read from `maro.properties` by track type rather than by the

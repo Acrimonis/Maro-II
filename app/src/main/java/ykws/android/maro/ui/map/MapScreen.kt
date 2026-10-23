@@ -1805,11 +1805,8 @@ fun MapScreen(
     MapTrackOverlayHistoryDiff(
         mapView = mapView,
         showSettings = chrome.showSettings,
-        highlightedTrackId = highlightedTrackId,
         trackArrows = appSettings.trackArrows,
         trackColours = appSettings.trackColours,
-        trackEyeOverride = trackEyeOverride,
-        routeEyeOverride = routeEyeOverride,
         allTrackSummaries = allTrackSummaries,
         // The card doors' deferred deletes, hidden from the drawn set while the snackbar waits.
         hiddenTrackIds = hiddenTrackIds,
@@ -1818,6 +1815,22 @@ fun MapScreen(
         paintedTrackIds = paintedTrackIds,
         trackViewModel = trackViewModel,
         rebuildGeneration = trackRebuildGeneration
+    )
+
+    // ── The selected item's own line (2026-10-23) ────────────────────────
+    // Keyed on the selection alone, so a selection change swaps this one overlay instead of rebuilding
+    // every stored line — that is what removes the flicker. It re-stacks on each bulk rebuild.
+    MapTrackSelectionOverlay(
+        mapView = mapView,
+        highlightedTrackId = highlightedTrackId,
+        trackArrows = appSettings.trackArrows,
+        trackColours = appSettings.trackColours,
+        trackEyeOverride = trackEyeOverride,
+        routeEyeOverride = routeEyeOverride,
+        allTrackSummaries = allTrackSummaries,
+        appSettings = appSettings,
+        trackViewModel = trackViewModel,
+        rebuildGeneration = trackRebuildGeneration.value
     )
 
     // ── Live-recording overlay effects (extracted to MapTrackOverlayEffects) ──

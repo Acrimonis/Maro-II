@@ -1,25 +1,23 @@
 # Context Hydration — Tracks — 2026-10-23
 
-**Last Bake:** 2026-10-23 19:03 UTC — written by `#bake` on `feature/route-toggle-color-like-track` (cut from `origin/develop` by the user's `#new route-toggle-color-like-track`).
+**Last Bake:** 2026-10-23 19:19 UTC — written by `#bake` on `feature/route-toggle-color-like-track` (cut from `origin/develop` by the user's `#new route-toggle-color-like-track`).
 
-**Directive trace:** one covered action class was met and none stopped. Authorisation held — implementation ran only on the user's `#impl`, the design settled through `assess`, `eli` and `discuss` first, and `#bake` / `#commit` are their own invocations. No dependency was added; no machine-shaped data file was opened; the device was not touched, so no device pass was taken; every claim about the code came from a file read.
+**Directive trace:** one covered action class was met and none stopped. Authorisation held — implementation ran only on the user's `#impl`, the design settled through `assess` and `discuss` first, and `#bake` / `#commit` / `#archive` are their own invocations. No dependency was added; no machine-shaped data file was opened; the device was not touched, so no device pass was taken; every claim about the code came from a file read.
 
 ## State
 
-**The selected-item speed toggle is two disk-persisted per-kind booleans, off by default (2026-10-23).** [`SelectionEyeStore`](../../app/src/main/java/ykws/android/maro/data/settings/SelectionEyeStore.kt) holds `track_eye` and `route_eye` in their own prefs file, outside `AppSettings` and `maro.properties`. On bands the open item's fill, off paints its gold highlight, and the kind's stored axes (`trackColours` / `routeSpeedColor`) are never touched by the toggle.
+**The selected item paints on its own top overlay (2026-10-23).** [`MapTrackSelectionOverlay`](../../app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt) owns the `track_selected_*` titles and is keyed on the selected id, the two persisted eyes, the kind axes and the bulk `rebuildGeneration`, so a selection change swaps one line instead of rebuilding every stored line — the flicker's cause. [`OverlayZOrder`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt) slots `track_selected_` in the track tier, above history/pinned and below the route and live recording.
 
-**`MapScreen` owns the values and the flip.** `trackEyeOverride` / `routeEyeOverride` seed from the store and persist on tap; the header's `bandedOn` reads the open kind's boolean, and the history/route/pinned loops plus the legend helpers read the open kind's own eye. `lineRenderPlan` keeps the one banded/gold decision, and `selectionColoursAxis` / `selectionBandedAfterTap` are gone, the tap being a plain flip.
+**The bulk pass no longer knows the selection.** [`MapTrackOverlayHistoryDiff`](../../app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt) drops `highlightedTrackId` and the two eyes from its keys and draws every line unselected, clears the render focus, passes no selected-id escape and no longer lifts the highlighted line.
 
-**Gate.** `.\gradlew.bat testDebugUnitTest --tests TrackRouteRoleTest --tests TrackRenderFlagsPathTest` green. `TrackRouteRoleTest.aSelectedRouteTakesTheTrackGoldFace` pins the route's gold face; `TrackRenderFlagsPathTest.theLegendSeesARouteOnItsOwnAxisAndEyeAlone` pins that the open route's fill is its own eye.
+**Gate.** `.\gradlew.bat testDebugUnitTest --tests TrackRouteRoleTest --tests TrackRenderFlagsPathTest` green.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/settings/SelectionEyeStore.kt` — the two persisted booleans
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the two states, the tap, the header readout
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — two-eye signature, unified `lineRenderPlan`, the legend helpers
-- `app/src/test/java/ykws/android/maro/ui/map/TrackRouteRoleTest.kt` — the route gold face
-- `app/src/test/java/ykws/android/maro/ui/map/TrackRenderFlagsPathTest.kt` — the per-kind legend gates
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — `MapTrackSelectionOverlay`, the bulk pass's selection-free keys and loops
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — the `track_selected_` prefix
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the overlay's wiring and the bulk call
 
 ## Next Step
 
-Device pass owed: the user deploys and verifies the toggle on a selected track and a selected route across an app restart.
+Device pass owed: the user deploys and verifies a selection change no longer flickers, for a recorded track and a saved route.

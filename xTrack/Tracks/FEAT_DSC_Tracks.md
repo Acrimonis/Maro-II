@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-23 19:03
+modified: 2026-10-23 19:19
 ---
 
 # Feature: Tracks
@@ -335,6 +335,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **selection-overlay (2026-10-23, `feature/route-toggle-color-like-track`)** — the selected item now paints on its own `track_selected_*` overlay ([`MapTrackSelectionOverlay`](../../app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt)), keyed on the selection alone, so a selection change swaps one line instead of rebuilding every stored line and the flicker goes; the bulk pass no longer keys on the selected id or the two eyes, draws every line unselected, clears the render focus and claims no selected-id escape, and its highlighted z-lift is gone; [`OverlayZOrder`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt) slots `track_selected_` into the track tier. `compileDebugKotlin` plus `TrackRouteRoleTest` and `TrackRenderFlagsPathTest` green; the device pass is owed
 
 - **selection-eye-persisted-per-kind (2026-10-23, `feature/route-toggle-color-like-track`)** — the selected-item speed toggle became two disk-persisted per-kind booleans, off by default, reversing the 2026-10-07 card-local non-persisted eye: [`SelectionEyeStore`](../../app/src/main/java/ykws/android/maro/data/settings/SelectionEyeStore.kt) holds them in their own prefs file outside `AppSettings` and `maro.properties`; on bands the selected item's fill, off paints its gold highlight, and the kind's stored axes are never touched. `MapScreen` seeds `trackEyeOverride` / `routeEyeOverride` from the store and persists each flip, the history/route/pinned loops and the legend helpers read the open kind's own boolean, `lineRenderPlan` keeps the one banded/gold decision, and `selectionColoursAxis` / `selectionBandedAfterTap` retire with the axis fallback. `compileDebugKotlin` plus `TrackRouteRoleTest` and `TrackRenderFlagsPathTest` green; the device pass is owed
 
