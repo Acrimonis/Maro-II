@@ -102,8 +102,18 @@ class DepthViewModel(
     /** A raster held for display, with the key it was built or read for. */
     private class ProducedRaster(val key: RasterCache.Key, val bitmap: Bitmap)
 
-    /** A build in flight, with the key it will produce — none while the grid it keys on is not loaded. */
-    private class RasterJob(val key: RasterCache.Key?, val job: Job)
+    /**
+     * A build in flight: the key the step will produce (none while the grid it keys on is not
+     * loaded), the coroutine carrying it, whether it is the Settings path (which owns the progress
+     * overlay and the hidden layer), and how to requeue the steps that shared the coroutine when one
+     * of them is superseded.
+     */
+    private class RasterJob(
+        val key: RasterCache.Key?,
+        val job: Job,
+        val forced: Boolean,
+        val requeue: (List<RasterCache.Step>) -> Unit
+    )
 
     // Single-flight bookkeeping, touched on the main thread only: every entry point runs there and
     // every job returns there before it reads or writes these maps.
@@ -159,7 +169,7 @@ class DepthViewModel(
         for (step in steps) {
             val key = keyFor(step, grid, settings)
             if (produced[step]?.key == key || running[step]?.key == key) continue
-            launchSingleFlight(listOf(step), key) {
+            launchSingleFlight(mapOf(step to key), forced = false, requeue = {}) {
                 produceStep(context, step, key, grid, settings, isWater, forced = false)
             }
         }
@@ -182,13 +192,16 @@ class DepthViewModel(
         isWater: (Double, Double) -> Boolean
     ) {
         if (steps.isEmpty()) return
-        // One job carries every step; it registers under the colour map's key, so a lazy request for
-        // the same colour key waits on it rather than starting a second build.
-        val key = repository.getGrid()?.let { keyFor(RasterCache.Step.DEPTH_COLOUR, it, settings) }
-        launchSingleFlight(steps, key, onRelease = {
-            _rasterProgress.value = null
-            _generatingStep.value = null
-        }) {
+        // One job carries every step, each registered under its own key, so a lazy request for a
+        // step's current key waits on it and a request for another key supersedes that step alone.
+        val grid = repository.getGrid()
+        val keys = steps.associateWith { step -> grid?.let { keyFor(step, it, settings) } }
+        launchSingleFlight(
+            keys,
+            forced = true,
+            // The steps that shared this coroutine and were not superseded run again on their own.
+            requeue = { rest -> generateRasterLayers(context, rest, settings, isWater) }
+        ) {
             totalSteps = steps.size
             stepIndex = 0
             _rasterProgress.value = RasterProgress("", 0, 0)
@@ -201,18 +214,21 @@ class DepthViewModel(
     }
 
     /**
-     * Single flight per step: cancels whatever is running for any of [steps], registers one job
-     * under all of them, runs [body], and on completion releases the entries that are still its own.
-     * [onRelease] runs only when the job finished as owner — a superseded job leaves the shared
-     * progress to its successor. Lazily started so the entries exist before the body runs.
+     * Single flight per step: supersedes whatever is running for any step in [keys], registers one
+     * job under all of them, runs [body], and on completion releases the entries that are still its
+     * own and — for the Settings path — the progress overlay. Superseding is explicit about what the
+     * replaced job owned: the hidden layer and the progress are cleared or handed to the requeued
+     * siblings, so a silent replacement can never leave a layer hidden behind a stale step mark.
+     * Lazily started so the entries exist before the body runs.
      */
     private fun launchSingleFlight(
-        steps: List<RasterCache.Step>,
-        key: RasterCache.Key?,
-        onRelease: () -> Unit = {},
+        keys: Map<RasterCache.Step, RasterCache.Key?>,
+        forced: Boolean,
+        requeue: (List<RasterCache.Step>) -> Unit,
         body: suspend () -> Unit
     ) {
-        steps.forEach { running.remove(it)?.job?.cancel() }
+        val steps = keys.keys.toList()
+        supersede(steps)
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {
@@ -220,11 +236,35 @@ class DepthViewModel(
             } finally {
                 val owned = steps.filter { running[it]?.job === self }
                 owned.forEach { running.remove(it) }
-                if (owned.isNotEmpty()) onRelease()
+                if (forced && owned.isNotEmpty()) {
+                    _rasterProgress.value = null
+                    _generatingStep.value = null
+                }
             }
         }
-        steps.forEach { running[it] = RasterJob(key, job) }
+        steps.forEach { running[it] = RasterJob(keys[it], job, forced, requeue) }
         job.start()
+    }
+
+    /**
+     * Take [steps] away from whatever jobs hold them. A job that loses a step is cancelled whole; the
+     * steps it still held and that are not being taken are requeued through the job's own
+     * [RasterJob.requeue]; and what the job owned on screen is released here, not in its `finally`
+     * (which no longer owns anything): the hidden-layer mark for a taken step, and the progress
+     * overlay when nothing of the job survives.
+     */
+    private fun supersede(steps: List<RasterCache.Step>) {
+        val taken = steps.mapNotNull { running.remove(it) }.distinctBy { it.job }
+        for (previous in taken) {
+            previous.job.cancel()
+            val survivors = running.filterValues { it.job === previous.job }.keys.toList()
+            survivors.forEach { running.remove(it) }
+            if (previous.forced) {
+                if (_generatingStep.value?.let { it in steps } == true) _generatingStep.value = null
+                if (survivors.isEmpty()) _rasterProgress.value = null
+            }
+            if (survivors.isNotEmpty()) previous.requeue(survivors)
+        }
     }
 
     /**

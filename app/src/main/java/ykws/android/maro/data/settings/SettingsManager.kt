@@ -858,6 +858,29 @@ class SettingsManager(
      * second while the map moves; the viewport is read only once, by [load] at start, so it needs
      * no emission and no company. Absent values keep what is stored.
      */
+    /**
+     * The viewport as last persisted — read fresh from the store, so a ViewModel created while the
+     * process lives (the app reopened after an exit) seeds from the latest save rather than from the
+     * snapshot [settings] took at start. NaN centre or shore distance, and a zoom of 0, mean "never
+     * saved", exactly as the [AppSettings] fields read them.
+     */
+    fun loadViewport(): Viewport = Viewport(
+        centerLat = prefs.getFloat(KEY_MAP_CENTER_LAT, Float.NaN).toDouble(),
+        centerLon = prefs.getFloat(KEY_MAP_CENTER_LON, Float.NaN).toDouble(),
+        zoom = prefs.getFloat(KEY_ZOOM_LEVEL, 0f).toDouble(),
+        isWater = prefs.getBoolean(KEY_IS_WATER, true),
+        distanceToShoreM = prefs.getFloat(KEY_DISTANCE_TO_SHORE, Float.NaN).toDouble()
+    )
+
+    /** The persisted map viewport — see [loadViewport] and [persistViewport]. */
+    data class Viewport(
+        val centerLat: Double,
+        val centerLon: Double,
+        val zoom: Double,
+        val isWater: Boolean,
+        val distanceToShoreM: Double
+    )
+
     fun persistViewport(
         centerLat: Double? = null,
         centerLon: Double? = null,

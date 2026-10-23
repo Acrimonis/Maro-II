@@ -219,8 +219,11 @@ fun MarkerOverlay(
                 if (key !in moved) continue
                 val fresh = buildMarkerEntry(mv, cache.bitmaps, marker, wanted.getValue(key), settings)
                 val old = cache.built[key]
-                splice(mv, old?.shapes.orEmpty(), fresh.shapes)
-                splice(mv, old?.icons.orEmpty(), fresh.icons)
+                // A marker that had no shapes (zones hidden, an icon alone) and gains them on selection
+                // has nothing to stand on: its shapes then go below the band's first icon, never after
+                // the icons, so the structural order — every shape under every icon — survives.
+                splice(mv, old?.shapes.orEmpty(), fresh.shapes, fallbackAt = firstIconIndex(mv, cache))
+                splice(mv, old?.icons.orEmpty(), fresh.icons, fallbackAt = mv.overlays.size)
                 cache.built[key] = fresh
             }
             OverlayZOrder.reorder(mv)
@@ -327,13 +330,23 @@ private fun removeAllMarkerOverlays(mv: MapView) {
 
 /**
  * Swap one marker's [old] overlays for its [fresh] ones where the old ones stood, so the band's intra-order
- * — unconfirmed under confirmed, pinned on top — survives the swap; with nothing to stand on, they go last.
+ * — unconfirmed under confirmed, pinned on top — survives the swap; with nothing to stand on, they go at
+ * [fallbackAt], the caller's answer to where the group belongs (below the icons for shapes, last for icons).
  */
-private fun splice(mv: MapView, old: List<Overlay>, fresh: List<Overlay>) {
-    val at = old.firstOrNull()?.let { mv.overlays.indexOf(it) }?.takeIf { it >= 0 } ?: mv.overlays.size
+private fun splice(mv: MapView, old: List<Overlay>, fresh: List<Overlay>, fallbackAt: Int) {
+    val at = old.firstOrNull()?.let { mv.overlays.indexOf(it) }?.takeIf { it >= 0 }
+        ?: fallbackAt.coerceIn(0, mv.overlays.size)
     if (old.isNotEmpty()) mv.overlays.removeAll(old.toSet())
     fresh.forEachIndexed { i, overlay -> mv.overlays.add(at + i, overlay) }
 }
+
+/** The index of the band's first icon overlay as it stands on the map, or the end when no icon is drawn. */
+private fun firstIconIndex(mv: MapView, cache: MarkerOverlayCache): Int =
+    cache.built.values.asSequence()
+        .flatMap { it.icons.asSequence() }
+        .map { mv.overlays.indexOf(it) }
+        .filter { it >= 0 }
+        .minOrNull() ?: mv.overlays.size
 
 // ── Per-marker build ──────────────────────────────────────────────────────────
 

@@ -42,7 +42,21 @@ New test: `MarkerPaintDiffTest` (which markers a selection change touches).
 - The marker overlay's in-place splice relies on osmdroid's overlay manager honouring indexed `add`;
   it does in 6.1.18, and a device pass should confirm the z-order after a selection.
 
-## 4. Strongest objection
+## 4. Review round one (PR noahb/Maro-II#2)
+
+Four findings, all accepted and fixed.
+
+| Finding | Fix |
+|---|---|
+| P1 A silent raster request taking over a Settings regeneration left the layer hidden behind a stale step mark | Superseding is explicit (`supersede`): the replaced job is cancelled whole, its hidden-layer mark for a taken step is cleared, its progress overlay is cleared when nothing of it survives, and the steps it still held are requeued through the job's own `requeue`. The `finally` releases only what the job still owns. |
+| P2 One job registered every step under the colour key, so superseding one step silently dropped its siblings | Each step registers under its own key; a superseded multi-step Settings job requeues its surviving steps as a new Settings job. |
+| P2 A ViewModel created while the process lived seeded the viewport from the start-of-process settings snapshot | `SettingsManager.loadViewport()` reads the five keys fresh; `NavigationViewModel` seeds centre, zoom, water flag and shore distance from it. |
+| P2 A marker that gained shapes on selection (zones hidden, icon alone) had them appended above every icon | `splice` takes a fallback index: shapes with nothing to stand on go below the band's first icon (`firstIconIndex`), icons go last, so every shape stays under every icon. |
+
+Not added: a suspended-build takeover test for the raster owner — `DepthViewModel` needs a `Context`
+and `Bitmap`, which a plain JVM test does not have; the single-flight bookkeeping is read-verified.
+
+## 5. Strongest objection
 
 The marker overlay rewrite is the largest unverified change in the batch; if a device pass shows any
 marker drawn out of band after a selection, the structural effect alone (which still rebuilds

@@ -123,6 +123,12 @@ class NavigationViewModel(
     /** Initial settings snapshot — used to seed StateFlow initial values. */
     private val initialAppSettings: AppSettings = settingsManager.settings.value
 
+    /**
+     * The viewport as last persisted, read fresh: the settings store outlives an Activity, so a
+     * ViewModel built for a reopened app must not seed from the snapshot taken at process start.
+     */
+    private val initialViewport: SettingsManager.Viewport = settingsManager.loadViewport()
+
     /** Reactive settings StateFlow — seeded from the snapshot above, so the first composition already
      *  reads the persisted values, then bridged to [SettingsManager.settings] after init. */
     val settings: StateFlow<AppSettings> = MutableStateFlow(initialAppSettings)
@@ -145,7 +151,7 @@ class NavigationViewModel(
             repository.loadCoastline()
 
             // Only fall back to coastline centroid if no persisted position was ever saved
-            if (initialAppSettings.mapCenterLat.isNaN()) {
+            if (initialViewport.centerLat.isNaN()) {
                 val data = repository.getCoastlineData()
                 if (data != null) {
                     val allPoints = data.allSegments.flatMap { it.points }
@@ -182,8 +188,8 @@ class NavigationViewModel(
 
     /** Center point of the map — seeded from persisted settings or default (Cannes). */
     private val _mapCenter: MutableStateFlow<LatLng> = MutableStateFlow(
-        if (initialAppSettings.mapCenterLat.isNaN().not())
-            LatLng(initialAppSettings.mapCenterLat, initialAppSettings.mapCenterLon)
+        if (initialViewport.centerLat.isNaN().not())
+            LatLng(initialViewport.centerLat, initialViewport.centerLon)
         else
             LatLng(43.55, 7.00)
     )
@@ -197,26 +203,26 @@ class NavigationViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), _mapCenter.value)
 
     /** True if the current map center is on the water side of the coastline. */
-    private val _isWater: MutableStateFlow<Boolean> = MutableStateFlow(initialAppSettings.isWater)
+    private val _isWater: MutableStateFlow<Boolean> = MutableStateFlow(initialViewport.isWater)
     val isWater: StateFlow<Boolean> = _isWater.asStateFlow()
 
     /** True when the boat's GPS fix position is on water (land/water test against the
      * boat's actual position, not the map centre). Exposed for Tasker integration.
      * Seeded from persisted settings so the notification is correct before first GPS fix. */
-    private val _boatIsWater = MutableStateFlow(initialAppSettings.isWater)
+    private val _boatIsWater = MutableStateFlow(initialViewport.isWater)
     val boatIsWater: StateFlow<Boolean> = _boatIsWater.asStateFlow()
 
     /** Distance (meters) from the current map center to the nearest coastline point.
      * `null` when no coastline is loaded or distance cannot be computed. */
     private val _distanceToShore: MutableStateFlow<Double?> = MutableStateFlow(
-        if (initialAppSettings.distanceToShore.isNaN()) null
-        else initialAppSettings.distanceToShore
+        if (initialViewport.distanceToShoreM.isNaN()) null
+        else initialViewport.distanceToShoreM
     )
     val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
 
     /** Current map zoom level (the shipped 11.0–20.0 range) — seeded from persisted settings or default 11.0. */
     private val _zoomLevel: MutableStateFlow<Double> = MutableStateFlow(
-        if (initialAppSettings.zoomLevel > 0.0) initialAppSettings.zoomLevel else 11.0
+        if (initialViewport.zoom > 0.0) initialViewport.zoom else 11.0
     )
     val zoomLevel: StateFlow<Double> = _zoomLevel.asStateFlow()
 
