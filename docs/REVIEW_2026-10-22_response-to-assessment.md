@@ -8,6 +8,47 @@
 
 ---
 
+## Status as of 2026-10-23
+
+Everything below this section is the review as written on 2026-10-22. This section says what has
+happened since. All work is on [noahb/Maro-II#1](https://github.com/noahb/Maro-II/pull/1), four fix
+commits (`299cfdb8`, `fa561bb4`, `84f185c0`, `4ded8c30`), reviewed twice with every reported code
+defect resolved; the full change record is `FIXES_2026-10-22_high-findings.md`.
+
+**Done**
+
+- Fifteen of the sixteen Highs (§5): H1 startup, H2–H9 recording durability and the importer, H10–H11
+  composition root and live settings, H12 raster read, H13 tests begun, H15 GPS text, H16 labels.
+- The next tier (§6 steps 1–7 and 9, plus the maintenance items that were cheap): importer safety and
+  budgets (N06–N08, U17), compass remap and declination (O1, O2), engine cancellation, lifecycle,
+  failure reporting and dropped updates (S04, S05, S07, S10, A14), the where-am-I bridge leak (A09),
+  restored armed flags (A11), the mislabelled GPS row (U07), dead parameters (C02), hot-path logging
+  (E03), the architecture doc (A04, A05), and the adjacent N10, N11, D06 and O5.
+- Two review rounds on the PR: eight findings, all accepted and fixed (exit awaits the finalize, a
+  lifecycle lock, a retained failed save, corrupt-cache fallback, a trailing-parameter compile
+  defect, the checkpoint-suffix namespace, a bounded picker read, forwarded unreadable counts).
+
+**Remaining, and what blocks the merge**
+
+- Validation, which the reviewer rightly holds the merge on and which needs a machine with a JDK and a
+  device: `:app:assembleDebug`, `:app:testDebugUnitTest`, a clean-install launch with no grants on
+  Android 14+, recorder regression tests (delayed persistence at exit, overlapping Stop and Discard,
+  a failed save with no or a stale checkpoint then retry, the corrupt-raster fallback), a landscape
+  compass check, and one cancelled large raster on a device.
+- Two decisions: a `kxml2` test dependency so the ignored standard-GPX test can run, and whether the
+  alarm channel (H14, §3) is in scope.
+- Medium findings not taken up, by area. UI: the marker overlay's wholesale rebuild on selection
+  (C05), the Back-handler ladder (C07), the full settings rewrite on every pan (A15), the god
+  composable and ViewModel split (C01, A13), theming and component duplication (C08, C09). Engine:
+  memory at the cell ceiling and the boxed heap, to be measured before touched (S02, S03), geometry
+  duplication (S11, S12), the single-flight raster owner (N09). Service: the always-on GPS
+  subscription (A10), the wall-clock time base (O3), the exported water-state receiver (O4), the
+  cleartext whitelist (O6). UX: the settings diet (U08), route planning's three homes (U09), the
+  recording permission storm and onboarding (U13), glare and a daylight theme (U02), touch targets
+  (U03), the single-tap unlock (U04), colour-only warnings (U20, U27), terminology and hard-coded
+  English (U23–U25), font scale (U28). Engineering: CI, lint and release keep rules (E01), root-file
+  hygiene (E02), decision history in KDoc (A17).
+
 ## 0. Outcome
 
 - **The assessment is largely right, and it is right about the things that matter.** Of its ten
