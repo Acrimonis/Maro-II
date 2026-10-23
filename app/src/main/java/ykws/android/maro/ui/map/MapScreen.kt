@@ -2164,6 +2164,7 @@ fun MapScreen(
                     // and a hand-off left standing here would swallow every close and hold the centre
                     // until the toggle (plan §5).
                     if (inspectHandoff != null) abandonInspectOpen()
+                    Log.d(INSPECT_LOG_TAG, "marker not found id=${id}")
                     return
                 }
                 // R1: one selected item at a time — opening a marker detail closes the track detail
@@ -2708,7 +2709,7 @@ fun MapScreen(
                         id = id,
                         walkWorld = cursor?.ladderIds,
                         closeTrackCard = held == null,
-                        markerLookup = cursor?.resolveMarker,
+                        markerLookup = cursor?.resolveMarker ?: { lookupId -> markersViewModel.mapMarkers.value.find { it.id == lookupId } },
                         walkWorldSource = DrawerSource.INSPECT,
                         frame = frame
                     )
@@ -2734,6 +2735,7 @@ fun MapScreen(
                 inspectCursor = cursor
                 inspectCandidate = null
                 openInspectCard(next.id, next.kind, cursor, frame = true)
+                Log.d(INSPECT_LOG_TAG, "step idx=${cursor.index} ${next.kind}:${next.id.take(8)} dist=${next.distanceM.toInt()}")
             }
 
             /**
@@ -3732,6 +3734,7 @@ fun MapScreen(
             inspectCursor = InspectCursor.at(ladder, target.id) { id ->
                 markersViewModel.mapMarkers.value.find { it.id == id }
             }
+            Log.d(INSPECT_LOG_TAG, "recentre target=${target.kind}:${target.id.take(8)} idx=${inspectCursor?.index} head=${ladder.take(8).joinToString { "${it.kind}:${it.id.take(8)}:${it.distanceM.toInt()}" }}")
             inspectRecentring = true
             when (target.kind) {
                 InspectKind.MARKER -> markersViewModel.mapMarkers.value
