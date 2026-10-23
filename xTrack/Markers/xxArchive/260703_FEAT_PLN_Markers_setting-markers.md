@@ -190,3 +190,6 @@ Bump `CURRENT_VERSION` to 5.
 - `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — MarkerLayerState enum
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — drawGeometry simplification
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — migration, version bump
+
+## Outcome
+Shipped 2026-07-03: the grouped Markers settings card, the collapsible Appearance, SHOW_PINNED removed and settings migration v5.

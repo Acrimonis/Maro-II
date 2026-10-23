@@ -61,7 +61,10 @@ internal object OverlayZOrder {
         "track_arrow_",
         // Inspect mode's own candidate line: it belongs in the band, or its unrecognised title would
         // drop it below every track. It sits in the **track** tier, so a followed route paints over it.
-        "track_inspect_"
+        "track_inspect_",
+        // The selected item's own overlay (2026-10-23): the track tier, so the route and live recording
+        // keep painting above it while it stays above history and pinned.
+        "track_selected_"
     )
 
     /**

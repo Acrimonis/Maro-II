@@ -171,14 +171,15 @@ class TrackRenderFlagsPathTest {
             colours: Boolean,
             paintedIds: List<String>,
             selectedId: String?,
-            eye: Boolean?,
+            eye: Boolean,
             tracksVisible: Boolean = true
         ): Boolean = legendVisibleForState(
             paintedIds = paintedIds.toSet(),
             arrowAxis = arrows,
             coloursAxis = colours,
             highlightedTrackId = selectedId,
-            eyeOverride = eye,
+            trackEyeOverride = eye,
+            routeEyeOverride = false,
             tracksVisible = tracksVisible
         )
 
@@ -192,7 +193,7 @@ class TrackRenderFlagsPathTest {
             )
             assertTrue(
                 "Colours on (arrows=$arrows) with nothing selected",
-                gate(arrows, true, listOf("a", "b"), selectedId = null, eye = null)
+                gate(arrows, true, listOf("a", "b"), selectedId = null, eye = false)
             )
             assertFalse(
                 "Colours on (arrows=$arrows), the eye's gold selection alone",
@@ -200,7 +201,7 @@ class TrackRenderFlagsPathTest {
             )
             assertFalse(
                 "Colours on (arrows=$arrows) with the tracks layer off",
-                gate(arrows, true, listOf("a"), selectedId = "a", eye = null, tracksVisible = false)
+                gate(arrows, true, listOf("a"), selectedId = "a", eye = true, tracksVisible = false)
             )
         }
 
@@ -209,7 +210,7 @@ class TrackRenderFlagsPathTest {
         // the eye bands a stroke that exists, and an empty painted set holds none.
         assertFalse(
             "Colours on with nothing painted",
-            gate(false, true, emptyList(), selectedId = "a", eye = null)
+            gate(false, true, emptyList(), selectedId = "a", eye = false)
         )
         assertFalse(
             "Colours off, the eye banding a selection that never landed a stroke",
@@ -232,21 +233,21 @@ class TrackRenderFlagsPathTest {
     }
 
     @Test
-    fun theLegendSeesARouteOnItsOwnAxisAlone() {
-        // 2026-10-07: a route bands on its own colours axis alone — no chip is master above it — so the
-        // ramp is on the map while that axis is on, whatever the tracks kind's chip says. Read through the
-        // same entry point the composition calls, with the painted id named as the route it is — without
-        // that the gate asks the planner about it as a recorded track and misreads the role. The track
-        // chip is held off throughout, which is what shows it no longer reaches a route.
+    fun theLegendSeesARouteOnItsOwnAxisAndEyeAlone() {
+        // 2026-10-23: a route bands on its own colours axis while it is not selected, and on its own
+        // persisted eye while it is — the track chip reaches neither. The open route's fill is the eye,
+        // so the axis no longer decides the selection's fill.
         fun gate(
             routeSpeedColour: Boolean,
+            routeEye: Boolean,
             selectedId: String? = null
         ): Boolean = legendVisibleForState(
             paintedIds = setOf("route"),
             arrowAxis = false,
             coloursAxis = false,
             highlightedTrackId = selectedId,
-            eyeOverride = null,
+            trackEyeOverride = false,
+            routeEyeOverride = routeEye,
             tracksVisible = true,
             routeIds = setOf("route"),
             routeSpeedColour = routeSpeedColour
@@ -254,42 +255,17 @@ class TrackRenderFlagsPathTest {
 
         assertTrue(
             "the route's own axis on — the ramp is on the map",
-            gate(routeSpeedColour = true)
+            gate(routeSpeedColour = true, routeEye = false)
         )
         assertFalse(
             "the route's own axis off — the route paints from its pair",
-            gate(routeSpeedColour = false)
+            gate(routeSpeedColour = false, routeEye = false)
         )
-        // The open route's fill decides the same way, the track chip still not reaching it.
-        assertTrue(gate(routeSpeedColour = true, selectedId = "route"))
-        assertFalse(gate(routeSpeedColour = false, selectedId = "route"))
+        // The open route's fill is its own eye: on raises the scale, off paints gold and hides it.
+        assertTrue(gate(routeSpeedColour = false, routeEye = true, selectedId = "route"))
+        assertFalse(gate(routeSpeedColour = true, routeEye = false, selectedId = "route"))
     }
 
-    // ── The eye's persisted value: what a tap writes ─────────────────────
-
-    @Test
-    fun theFirstTapTurnsTheFlagsOwnReadingAround() {
-        // Null is the untouched eye — the selection mirrors the colours flag — so the tap reverses that
-        // rather than flipping a value nobody wrote. Its answer is never null, which is what persists
-        // the key.
-        assertFalse(
-            "Colours on: the selection is already banded, so the first tap turns the ramp off",
-            selectionBandedAfterTap(null, true)
-        )
-        assertTrue(
-            "Colours off: the selection is gold there, so the first tap bands it",
-            selectionBandedAfterTap(null, false)
-        )
-    }
-
-    @Test
-    fun afterTheFirstTapTheFlagStopsReachingTheEye() {
-        // A written value flips its own value, whatever the stored flag has become in the meantime.
-        listOf(true, false).forEach { colours ->
-            assertTrue("false under colours=$colours", selectionBandedAfterTap(false, colours))
-            assertFalse("true under colours=$colours", selectionBandedAfterTap(true, colours))
-        }
-    }
 
     // ── D8's fade, read the way the appearance factory reads it ──────────
 
@@ -340,7 +316,8 @@ class TrackRenderFlagsPathTest {
             arrowAxis = false,
             coloursAxis = true,
             highlightedTrackId = null,
-            eyeOverride = null,
+            trackEyeOverride = false,
+            routeEyeOverride = false,
             tracksVisible = tracksVisible,
             routesVisible = routesVisible,
             routeIds = routeIds,

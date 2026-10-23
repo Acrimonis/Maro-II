@@ -190,7 +190,7 @@ fun MarkerOverlay(
         cache.built.clear()
         for (marker in allMarkers) {
             val paint = paintStateOf(marker, selectedMarkerId, matchActive, matchedIds)
-            cache.built[entryKeyOf(marker)] = buildMarkerEntry(mv, cache.bitmaps, marker, paint, settings)
+            cache.built[entryKeyOf(marker)] = buildMarkerEntry(mv, cache.bitmaps, marker, paint, settings, isPreview = marker === unconfirmedMarker)
         }
         // Every marker's shapes first, then every icon group, so an icon sits above all zone shapes.
         cache.built.values.forEach { mv.overlays.addAll(it.shapes) }
@@ -217,7 +217,7 @@ fun MarkerOverlay(
             for (marker in allMarkers) {
                 val key = entryKeyOf(marker)
                 if (key !in moved) continue
-                val fresh = buildMarkerEntry(mv, cache.bitmaps, marker, wanted.getValue(key), settings)
+                val fresh = buildMarkerEntry(mv, cache.bitmaps, marker, wanted.getValue(key), settings, isPreview = marker === unconfirmedMarker)
                 val old = cache.built[key]
                 // A marker that had no shapes (zones hidden, an icon alone) and gains them on selection
                 // has nothing to stand on: its shapes then go below the band's first icon, never after
@@ -356,7 +356,9 @@ private fun buildMarkerEntry(
     bitmaps: MarkerBitmaps,
     marker: UserMarker,
     paint: MarkerPaintState,
-    settings: MarkerDrawSettings
+    settings: MarkerDrawSettings,
+    /** True for the wizard's synthetic placement marker, which draws the form's own colour (upstream). */
+    isPreview: Boolean = false
 ): MarkerEntry {
     val shapes = mutableListOf<Overlay>()
     val icons = mutableListOf<Overlay>()
@@ -370,6 +372,7 @@ private fun buildMarkerEntry(
     val appearance = MarkerAppearance.of(
         marker = marker,
         markerColor = markerColor,
+        isPreview = isPreview,
         isMatched = paint.isMatched,
         matchActive = paint.matchActive,
         // `of` derives the selection from the id; the paint state already holds the answer.

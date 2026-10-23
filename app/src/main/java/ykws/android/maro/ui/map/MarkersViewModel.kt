@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.markers.UserMarkerRepository
+import ykws.android.maro.data.markers.markerAutoName
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.MapRenderFocus
@@ -196,8 +197,30 @@ data class CreateFormState(
     // The marker's origin — an auto (🕐) marker carries **no route step at all**, so the wizard drops
     // the Routing cost step for one and no role or cost can be set on it.
     val origin: ykws.android.maro.data.model.markers.MarkerOrigin =
-        ykws.android.maro.data.model.markers.MarkerOrigin.USER
+        ykws.android.maro.data.model.markers.MarkerOrigin.USER,
+    // Auto-name ownership: true while the title is still the machine's, so a position or type change may
+    // re-name the marker; the Title step clears it the moment the user types. False by default so no path
+    // can re-name a stored marker by omission.
+    val nameIsAuto: Boolean = false,
+    // Captured once at creation, and the value [saveMarker] writes into UserMarker.createdAtEpochMs, so
+    // the stamp inside the name and the record's own creation time cannot disagree. 0 = not a create path.
+    val createdAtEpochMs: Long = 0L
 )
+
+/**
+ * The geometry a [CreateFormState] describes, or null while the shape is incomplete — a corridor without
+ * its p2 has no geometry yet. The one construction the create save, the edit save and the auto-name read,
+ * so the shape written and the shape named cannot drift apart.
+ */
+internal fun formGeometry(form: CreateFormState): MarkerGeometry? = when (form.type) {
+    MarkerType.PIN -> form.position?.let { MarkerGeometry.Pin(it) }
+    MarkerType.CIRCLE -> form.position?.let { MarkerGeometry.Circle(it, form.radiusM.coerceAtLeast(1.0)) }
+    MarkerType.CORRIDOR -> {
+        val p1 = form.position ?: return null
+        val p2 = form.corridorP2 ?: return null
+        MarkerGeometry.Corridor(p1, p2, form.widthM.coerceAtLeast(1.0))
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ViewModel
@@ -357,9 +380,6 @@ class MarkersViewModel(
     }
     private val dateTimeFormat = ThreadLocal.withInitial {
         SimpleDateFormat("EEE, dd MMM yy 'at' HH:mm", Locale.US)
-    }
-    private val shortDateFormat = ThreadLocal.withInitial {
-        SimpleDateFormat("dd MMM yy", Locale.US)
     }
 
     // ── Coastline index (injected by the screen) ──────────────────────────
@@ -763,45 +783,25 @@ class MarkersViewModel(
         }
     )
 
-    /** Human-readable name for a color index (0-15). */
-    private fun colorName(index: Int): String = when (index) {
-        0 -> "Black"
-        1 -> "Gold"
-        2 -> "Green"
-        3 -> "Light Violet"
-        4 -> "Orange"
-        5 -> "Grey"
-        6 -> "Dark Violet"
-        7 -> "Red"
-        8 -> "Olive"
-        9 -> "Purple"
-        10 -> "Light Green"
-        11 -> "Amber"
-        12 -> "Pink"
-        13 -> "Cyan"
-        14 -> "Maroon"
-        15 -> "White"
-        else -> "Grey"
-    }
-
     /** Begin wizard in creation mode with optional [initialType] and [initialPos]. */
     fun startWizard(initialType: MarkerType = MarkerType.PIN, initialPos: LatLng? = null) {
         showLayer()
         editingMarkerId = null
         val now = Date()
         val colorIdx = MarkerColors.randomIndex()
-        val defaultName = "(${shortDateFormat.get()!!.format(now)}) ${typeIcon(initialType)} ${colorName(colorIdx)}"
-        _createForm.value = CreateFormState(
+        val startForm = CreateFormState(
             type = initialType,
             position = initialPos,
-            name = defaultName,
             description = dateTimeFormat.get()!!.format(now),
             colorIndex = colorIdx,
             routingCost = null,
             routeOrigin = false,
             routeDestination = false,
-            routingOnly = false
+            routingOnly = false,
+            nameIsAuto = true,
+            createdAtEpochMs = System.currentTimeMillis()
         )
+        _createForm.value = startForm.copy(name = autoNameOf(startForm))
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
         wizardDoor = WizardDoor.LIST
@@ -824,39 +824,42 @@ class MarkersViewModel(
             else _markers.value.find { it.id == markerId }) ?: return
         wizardDoor = door
         editingMarkerId = markerId
-        // Populate form from marker if not already populated by Viewing → Edit flow
-        if (_createForm.value.position == null || _createForm.value.name != marker.name) {
-            val pos = when (val g = marker.geometry) {
-                is MarkerGeometry.Pin -> g.position
-                is MarkerGeometry.Circle -> g.center
-                is MarkerGeometry.Corridor -> g.p1
-            }
-            val type = when (marker.geometry) {
-                is MarkerGeometry.Pin -> MarkerType.PIN
-                is MarkerGeometry.Circle -> MarkerType.CIRCLE
-                is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
-            }
-            val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 100.0
-            val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 100.0
-            val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
-            _createForm.value = CreateFormState(
-                name = marker.name,
-                type = type,
-                position = pos,
-                radiusM = radiusM,
-                widthM = widthM,
-                proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
-                description = marker.description,
-                colorIndex = marker.colorIndex ?: 0,
-                icon = marker.icon,
-                corridorP2 = corridorP2,
-                routingCost = validRoutingCost(marker.routingCost),
-                routeOrigin = marker.routeOrigin,
-                routeDestination = marker.routeDestination,
-                routingOnly = marker.routingOnly,
-                origin = marker.origin
-            )
+        // The form is always rebuilt from the marker being edited: the Viewing card may have moved
+        // Prev/Next since [openEditDrawer] populated it, and the old name-based reuse gate let a
+        // same-named neighbour carry the first marker's form into the edit (2026-10-23).
+        val pos = when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> g.position
+            is MarkerGeometry.Circle -> g.center
+            is MarkerGeometry.Corridor -> g.p1
         }
+        val type = when (marker.geometry) {
+            is MarkerGeometry.Pin -> MarkerType.PIN
+            is MarkerGeometry.Circle -> MarkerType.CIRCLE
+            is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
+        }
+        val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 100.0
+        val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 100.0
+        val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
+        _createForm.value = CreateFormState(
+            name = marker.name,
+            type = type,
+            position = pos,
+            radiusM = radiusM,
+            widthM = widthM,
+            proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
+            description = marker.description,
+            colorIndex = marker.colorIndex ?: 0,
+            icon = marker.icon,
+            corridorP2 = corridorP2,
+            routingCost = validRoutingCost(marker.routingCost),
+            routeOrigin = marker.routeOrigin,
+            routeDestination = marker.routeDestination,
+            routingOnly = marker.routingOnly,
+            origin = marker.origin
+        )
+        // An edit never re-names its marker: whichever form the Viewing→Edit flow prepared, the stored
+        // name is the user's. This also strips a stale nameIsAuto left by a create that was not reset.
+        _createForm.value = _createForm.value.copy(nameIsAuto = false)
         wizardForward = true
         val seq = stepSequenceFor(_createForm.value.type)
         // Skip TypeSelect — edit already knows the type; jump to Position step
@@ -872,6 +875,7 @@ class MarkersViewModel(
         val seq = stepSequenceFor(_createForm.value.type)
         val idx = seq.indexOf(current)
         if (idx < 0 || idx >= seq.lastIndex) return
+        recomputeAutoNameIfAuto(current)
         wizardForward = true
         _wizardStep.value = seq[idx + 1]
         recenterMapOnStep(seq[idx + 1])
@@ -926,6 +930,7 @@ class MarkersViewModel(
         val form = _createForm.value
         // Corridor requires P2; block finish if P2 not set
         if (form.type == MarkerType.CORRIDOR && form.corridorP2 == null) return
+        recomputeAutoNameIfAuto(_wizardStep.value)
 
         if (editingMarkerId != null) {
             updateMarker(editingMarkerId!!)
@@ -946,21 +951,43 @@ class MarkersViewModel(
         _createForm.value = transform(_createForm.value)
     }
 
+    /** The marker's own name for [form]: the place its geometry names, else the tracks' stamp. */
+    private fun autoNameOf(form: CreateFormState): String =
+        markerAutoName(form.createdAtEpochMs, typeIcon(form.type), formGeometry(form)) { pos ->
+            whereAmISync(pos).allMatches
+        }
+
+    /** The Title step writes through this, so a real edit hands the name back to the user. */
+    fun updateFormName(value: String) {
+        val current = _createForm.value
+        _createForm.value = current.copy(
+            name = value,
+            nameIsAuto = current.nameIsAuto && value == current.name
+        )
+    }
+
+    /** Re-name the marker when a step that settles its shape is left, while the name is still the machine's. */
+    private fun recomputeAutoNameIfAuto(leaving: WizardStep?) {
+        if (leaving !is WizardStep.TypeSelect && leaving !is WizardStep.Position && leaving !is WizardStep.PositionP2) return
+        val form = _createForm.value
+        if (!form.nameIsAuto) return
+        _createForm.value = form.copy(name = autoNameOf(form))
+    }
+
     // ── CRUD ──────────────────────────────────────────────────────────────
 
     /** Save a new marker from the current form state. */
     fun saveMarker() {
-        val form = _createForm.value
-        val pos = form.position ?: return
+        val base = _createForm.value
+        // A save opened straight from a shape step never passed a step exit: settle the auto name here,
+        // stamping the creation time once if a legacy path left it at zero.
+        val form = when {
+            base.createdAtEpochMs == 0L -> base.copy(createdAtEpochMs = System.currentTimeMillis())
+            else -> base
+        }.let { if (it.nameIsAuto) it.copy(name = autoNameOf(it)) else it }
+        if (form.nameIsAuto) _createForm.value = form
 
-        val geometry = when (form.type) {
-            MarkerType.PIN -> MarkerGeometry.Pin(pos)
-            MarkerType.CIRCLE -> MarkerGeometry.Circle(pos, form.radiusM.coerceAtLeast(1.0))
-            MarkerType.CORRIDOR -> {
-                val p2 = form.corridorP2 ?: return // corridor needs p2
-                MarkerGeometry.Corridor(pos, p2, form.widthM.coerceAtLeast(1.0))
-            }
-        }
+        val geometry = formGeometry(form) ?: return
 
         val proximityOverride = form.proximityOverrideM.toDoubleOrNull()?.coerceAtLeast(0.0)
             ?: when (form.type) {
@@ -971,14 +998,14 @@ class MarkersViewModel(
 
         val marker = UserMarker(
             id = UUID.randomUUID().toString(),
-            name = form.name.ifBlank { "Marker" },
+            name = form.name.ifBlank { autoNameOf(form) },
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
             confirmed = true,
             colorIndex = form.colorIndex,
             icon = form.icon,
-            createdAtEpochMs = System.currentTimeMillis(),
+            createdAtEpochMs = form.createdAtEpochMs,
             // A Pin carries a cost like any other marker — a well from its centre — so only an auto
             // marker is dropped, and the Pin's own cost is capped at the top price (see [formCostForSave]).
             routingCost = formCostForSave(form),
@@ -999,6 +1026,7 @@ class MarkersViewModel(
             _lastSavedMarkerId.value = marker.id
             _wizardStep.value = null
             editingMarkerId = null
+            _createForm.value = CreateFormState()
             _selectedMarkerId.value = null
             wizardDoor = WizardDoor.LIST
         }
@@ -1027,16 +1055,7 @@ class MarkersViewModel(
     fun updateMarker(markerId: String) {
         val existing = _allMarkers.value.find { it.id == markerId } ?: return
         val form = _createForm.value
-        val pos = form.position ?: return
-
-        val geometry = when (form.type) {
-            MarkerType.PIN -> MarkerGeometry.Pin(pos)
-            MarkerType.CIRCLE -> MarkerGeometry.Circle(pos, form.radiusM.coerceAtLeast(1.0))
-            MarkerType.CORRIDOR -> {
-                val p2 = form.corridorP2 ?: return
-                MarkerGeometry.Corridor(pos, p2, form.widthM.coerceAtLeast(1.0))
-            }
-        }
+        val geometry = formGeometry(form) ?: return
 
         val proximityOverride = form.proximityOverrideM.toDoubleOrNull()?.coerceAtLeast(0.0)
             ?: when (form.type) {
@@ -1052,6 +1071,9 @@ class MarkersViewModel(
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
+            // The palette slot the wizard's colour step set — without it a colour picked during an
+            // edit died in the form and the marker kept the one it was opened with.
+            colorIndex = form.colorIndex,
             icon = form.icon,
             // The same guard as the create (see [formCostForSave]).
             routingCost = formCostForSave(form),

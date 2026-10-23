@@ -237,3 +237,6 @@ Boat near P1 (50m), P2 (120m), C5 corridor (300m). Nothing contains boat.
 | [`MarkerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) | `matchedIds` via `mapNotNull` over `allMatches`. |
 
 **Build:** `assembleDebug` ✅. **Deferred:** Sentence format, recursive children UI, auto-refresh.
+
+## Outcome
+Shipped 2026-06-25: WhereAmIMatch and WhereAmIResult replaced the tiered model, with depth-first leaves-first traversal, a 1 km BBox fence and the coastline-index injection; sentence format and recursive UI deferred, later superseded by the whereami-zone-los rewrite.

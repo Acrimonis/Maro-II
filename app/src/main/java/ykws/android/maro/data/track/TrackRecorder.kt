@@ -639,6 +639,7 @@ class TrackRecorder(
 
             TrackRecorderState.ON -> {
                 Log.v(TAG, "processSample(ON): speed=${sample.speedMps} pos=(${sample.position.latitude},${sample.position.longitude})")
+                markDemoIfSimulated(sample)
                 addPoint(sample)
 
                 // Auto-stop: inside geofence with 15s debounce
@@ -656,6 +657,11 @@ class TrackRecorder(
                 }
             }
         }
+    }
+
+    /** A trip that ever takes a simulated sample is a demo trip, for good: a pure GPS trip never is. */
+    private fun markDemoIfSimulated(sample: TrackSample) {
+        currentTrack = currentTrack?.markedFor(sample)
     }
 
     private fun beginRecording(isManual: Boolean, startSample: TrackSample? = null) {
@@ -718,7 +724,11 @@ class TrackRecorder(
         startCheckpointJob()
         startPolling()
 
-        startSample?.let { addPoint(it) }
+        startSample?.let {
+            // The auto-start's own sample reaches the track here rather than through the ON branch.
+            markDemoIfSimulated(it)
+            addPoint(it)
+        }
     }
 
     /**

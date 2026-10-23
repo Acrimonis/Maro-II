@@ -74,3 +74,6 @@ Sample candidate points on the zone boundary at evenly-spaced bearings. For each
 5. Circle in open water → direct-line fast path → match
 6. Corridor in open water → samples clear → match
 7. Boat inside zone → 16 samples around full circle → some clear → match
+
+## Outcome
+Shipped 2026-06-30: boundary sampling plus segmentIntersectsLand replaced roughly 400 lines of angular-shadow code, keeping the direct-line fast path.

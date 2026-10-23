@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -23,6 +24,9 @@ import android.graphics.Color as AndroidColor
 
 /** Log tag for the route mode's own host — its two edges, kept for the device pass. */
 private const val TAG = "MaroRoute"
+
+/** How often (ms) the pace is re-read with no new reading, so the window ages on the clock (GPS mode only). */
+private const val PACE_REFRESH_MS = 1_000L
 
 /**
  * The route lines' own overlay title prefix. `OverlayZOrder` reads it to keep every line inside the
@@ -106,7 +110,7 @@ private const val ROUTE_PIN_SIZE_DP = 18f
  * @param provisionalLine the main lookup's partial line, drawn while the search runs.
  * @param speedKn    speed over ground (kn), fed to the pace window; null when nothing is moving.
  * @param positionRestricted true when the current position sits in a regulated zone or the band, so
- *                   the reading measures the limit rather than the boat and is dropped by [RoutePace].
+ *                   the reading measures the limit rather than the boat and is ignored by the pace.
  * @param routeLineColor the followed line's own colour, read from Settings and seeded by
  *                   `path.line.color.live` — the same value the toggle's acquiring face wears (R51).
  * @param boatPosition the boat's own fix — the shell's `routeStart`, the value the trip cell already
@@ -125,7 +129,6 @@ internal fun RouteHost(
     gpsMode: Boolean,
     speedKn: Float?,
     positionRestricted: Boolean,
-    setPaceKn: Float,
     routeLineColor: Int,
     boatPosition: RoutePoint,
     /**
@@ -153,13 +156,21 @@ internal fun RouteHost(
     }
 
     // ── The pace window: the boat's own pace, in GPS mode only ─────────────────
-    LaunchedEffect(gpsMode, speedKn, positionRestricted, setPaceKn) {
+    LaunchedEffect(gpsMode, speedKn, positionRestricted) {
         viewModel.observePace(
             speedKn = if (gpsMode) speedKn?.toDouble() else null,
             restricted = positionRestricted,
-            nowMs = System.currentTimeMillis(),
-            setPaceKn = setPaceKn.toDouble()
+            nowMs = System.currentTimeMillis()
         )
+    }
+    // The feed speaks only when the speed value changes, so a value that holds still would freeze the pace
+    // and its Live word; a once-a-second re-read adds no reading and lets the window age on the clock.
+    LaunchedEffect(gpsMode) {
+        if (!gpsMode) return@LaunchedEffect
+        while (true) {
+            delay(PACE_REFRESH_MS)
+            viewModel.refreshPace(System.currentTimeMillis())
+        }
     }
 
     // ── The map objects: the pin alone is attached once and mutated in place (D10) ─────────
