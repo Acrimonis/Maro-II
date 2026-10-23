@@ -269,6 +269,27 @@ All drawer headers share these tokens, canonically implemented in [`DrawerHeader
 > cross-type swap cannot lift the row or the card by the few dp a taller button costs. Hand-rolled pills
 > are not to be used in a dash footer.
 >
+> **Route table readings carry their unit (2026-10-22):** the route search table's third column prints
+> each speed-limit reading as `label : mm:ss min` — the unit is part of the value, never dropped, and the
+> column is sized to its content so `min` never clips. The format reads `m:ss min` (e.g. `5:27 min`) and a
+> sub-minute reading prints `0:mm min`, only a zero-second reading dropped.
+>
+> **Route table settings live in `ui.properties` (2026-10-22):** the table's UI-specific values —
+> cell line height, crown size, column padding, the value box width and unit gap, the reading slack and
+> the 50/25/25 column shares — are read through `AppConfig` from `ui.route.table.*`, never hardcoded in
+> the composable.
+>
+> **Route table column 2 (2026-10-22):** the figures column is vertically centered in its row; each of its
+> time · speed · distance lines prints the numeric value right-aligned in the fixed value box and the unit
+> label left-aligned on the same line, so the value column never shifts as the unit width changes.
+>
+> **Route panel resize (2026-10-22):** the route panel's body animates its height with
+> `animateContentSize(tween(250))`, and the map band only ever grows while the route search runs, settling
+> once when the search ends. While the pager scrolls the body is floored at its rest height so the panel can
+> grow but never shrink mid-swipe, the floor releasing at settle so the body eases to the settled page, and
+> the pager is recreated on the seat so a row tap lands as one size change. A small bounce on selection
+> change still remains (open).
+>
 > **Post-header gap (uniform):** the header→first-content gap is the header's own bottom `verticalPadding`
 > (`ui.padding.header.vertical`, 6dp). Drawers add **no extra** spacer/padding after the header — Menu, Marker,
 > Track (landscape + portrait), and Settings all share this single 6dp gap. The `DrawerHeader`/`DrawerScaffold`

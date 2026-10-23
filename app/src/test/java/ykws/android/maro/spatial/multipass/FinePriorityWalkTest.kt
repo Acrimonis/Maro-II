@@ -299,6 +299,43 @@ class FinePriorityWalkTest {
         assertTrue("and the open water is still read coarse", coarseReads > 0)
     }
 
+    /**
+     * **An aim beyond the fine ribbon anchors on the coarse layer.** The fine layer is the coastal ribbon
+     * only: an end standing past it has no fine water, so the fine cell must stay land and `endCellAt` must
+     * fall back to the coarse cell — never a manufactured one-cell fine island that hides the coarse water.
+     */
+    @Test
+    fun anAimBeyondTheRibbonAnchorsOnTheCoarseLayer() = runBlocking {
+        val world = CoastalWorld(coastLat = 43.4800, bandWidthM = 300.0)
+        val from = RoutePoint(43.4700, 6.9800)
+        val to = RoutePoint(43.4700, 7.0200) // ~1.1 km off the coast, beyond the ribbon
+        val ctx = RouteGridBuilder(EvolutiveGridPlan).buildGrid(
+            world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn, 1.0
+        )!!
+        val walk = ctx.windows!!
+        val coarseAim = walk.latticeCell(ctx.grid, ctx.aimCell.row, ctx.aimCell.col)
+        val anchored = walk.endCellAt(to.toLatLng(), coarseAim)
+        assertEquals("an aim beyond the ribbon anchors on the coarse layer", 0, anchored.layer)
+    }
+
+    /**
+     * **An aim inside the ribbon keeps the fine layer.** The fix is scoped to cells the ribbon has no water
+     * for; an end in the ribbon still anchors on its fine cell.
+     */
+    @Test
+    fun anAimInsideTheRibbonKeepsTheFineLayer() = runBlocking {
+        val world = CoastalWorld(coastLat = 43.4800, bandWidthM = 300.0)
+        val from = RoutePoint(43.4700, 6.9800)
+        val to = RoutePoint(43.4790, 7.0200) // ~111 m off the coast, inside the ribbon
+        val ctx = RouteGridBuilder(EvolutiveGridPlan).buildGrid(
+            world, from, to, AppConfig.routeAvoidCorridorReachM, paceKn, 1.0
+        )!!
+        val walk = ctx.windows!!
+        val coarseAim = walk.latticeCell(ctx.grid, ctx.aimCell.row, ctx.aimCell.col)
+        val anchored = walk.endCellAt(to.toLatLng(), coarseAim)
+        assertEquals("an aim in the ribbon keeps the fine layer", 1, anchored.layer)
+    }
+
     /** A world with one straight coast and the priced band — `evolutive`'s own ribbon input. */
     private class CoastalWorld(
         private val coastLat: Double,
