@@ -49,7 +49,10 @@ val ICON_SET = listOf(
 
 /**
  * Icon picker dialog — 4×4 grid of POI icons + "None" option.
- * Same pattern as [MarkerColorPickerDialog].
+ *
+ * A platform dialog of its own; the colour picker does not share this shape any more — it rides the
+ * overlay ladder's confirmation panel through [ShowMarkerColorPicker], so it is never clipped by the
+ * drawer that opens it.
  */
 @Composable
 fun IconPickerDialog(

@@ -203,17 +203,19 @@ reserved for **multi-colour** groups under one heading (e.g. Marker halo `Colors
 `SingleColorSubSection`: the tappable swatch is the whole control, and its `contentDescription` carries the row's own
 label so assistive readers still name it.
 
-**Tapping a swatch opens the shared preset grid, and the presets are one list.** The dialog is a 4-column
+**Tapping a swatch opens the one picker, and it is raised rather than drawn in place.** The dialog is a
 `LazyVerticalGrid` of 48dp swatches read from
-[`MarkerColors.all`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt) — the same list the marker colour
-dialog offers — so no picker carries presets of its own and the hues change in one place, the current colour marked
-by a 3dp accent border. The two dialogs return different things on purpose: the settings picker
-([`ColorPickerDialog`](../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt)) emits an ARGB int,
-because `ColorRow` and `ColorPairRow` persist ARGB, while the marker picker
-([`MarkerColorPickerDialog`](../app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt)) emits a palette index,
-because a marker persists `colorIndex`. Since the settings rows keep raw ARGB, a stored colour that is not a palette
-member draws no selected swatch — expected, never patched with a fallback index. **The presets are not a free
-choice:** no surface adds a swatch or a hue of its own, because the sixteen satisfy constraints stated once with the
+[`MarkerColors.all`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt), so no caller carries presets of
+its own and the hues change in one place, the current colour marked by a 3dp accent border and announced as a radio
+selection. [`ShowMarkerColorPicker`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColorPicker.kt) paints
+nothing itself: it hands the grid to the overlay ladder's confirmation panel, so the picker opened from the settings
+overlay or from the marker wizard is never clipped by the drawer that raised it. The grid re-flows with the screen —
+4 columns by 5 rows in portrait, 5 by 4 in landscape, its height derived from the row count — so twenty swatches fit
+with no scroll in either orientation, and the landscape panel turns `dense` to clear its height cap. The picker
+returns a palette index; the settings rows map it back to ARGB because `ColorRow` and `ColorPairRow` persist ARGB,
+while a marker persists `colorIndex` directly. Since the settings rows keep raw ARGB, a stored colour that is not a
+palette member draws no selected swatch — expected, never patched with a fallback index. **The presets are not a free
+choice:** no surface adds a swatch or a hue of its own, because the twenty satisfy constraints stated once with the
 palette in [`docs/color-scheme.md`](color-scheme.md) — map contrast, no hue near the water, and pair separation.
 
 **Expander state:** open state lives in `SettingsViewModel.expanderStates` — a `mutableStateMapOf<String, Boolean>` keyed by a stable per-expander id. Shared across the four tabs and preserved across rotation and settings reopen for the whole app session; cleared when the app exits, so every expander is collapsed on fresh launch. Never use local `remember`/`rememberSaveable` state for an expander.

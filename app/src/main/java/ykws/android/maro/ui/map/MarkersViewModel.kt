@@ -760,26 +760,12 @@ class MarkersViewModel(
         }
     )
 
-    /** Human-readable name for a color index (0-15). */
-    private fun colorName(index: Int): String = when (index) {
-        0 -> "Black"
-        1 -> "Gold"
-        2 -> "Green"
-        3 -> "Light Violet"
-        4 -> "Orange"
-        5 -> "Grey"
-        6 -> "Dark Violet"
-        7 -> "Red"
-        8 -> "Olive"
-        9 -> "Purple"
-        10 -> "Light Green"
-        11 -> "Amber"
-        12 -> "Pink"
-        13 -> "Cyan"
-        14 -> "Maroon"
-        15 -> "White"
-        else -> "Grey"
-    }
+    /**
+     * Human-readable name for a colour index (0-19) — the palette's own resource ids, so both locales
+     * carry it and no marker name is spelled in code.
+     */
+    private fun colorName(index: Int): String =
+        getApplication<Application>().getString(MarkerColors.nameResOf(index))
 
     /** Begin wizard in creation mode with optional [initialType] and [initialPos]. */
     fun startWizard(initialType: MarkerType = MarkerType.PIN, initialPos: LatLng? = null) {
