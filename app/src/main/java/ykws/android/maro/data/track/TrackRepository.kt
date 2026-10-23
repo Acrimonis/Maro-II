@@ -361,7 +361,7 @@ class TrackRepository(
 
     private fun checkpointFile(id: String): File {
         require(isSafeId(id)) { "track id is not a safe file name: '$id'" }
-        return File(tracksDir, "${id}_checkpoint.bin")
+        return File(tracksDir, "${id}${CHECKPOINT_SUFFIX}.bin")
     }
 
     private fun indexFile(): File = File(tracksDir, INDEX_FILE_NAME)
@@ -557,6 +557,7 @@ class TrackRepository(
         internal const val TRACKS_DIR_NAME = "tracks"
         private const val INDEX_FILE_NAME = "index.bin"
         private const val QUARANTINE_DIR_NAME = "quarantine"
+        private const val CHECKPOINT_SUFFIX = "_checkpoint"
 
         /** The one shape a track id may take to name a file here: one plain path segment. */
         private val SAFE_ID = Regex("[A-Za-z0-9._-]{1,128}")
@@ -570,6 +571,9 @@ class TrackRepository(
         fun isSafeId(id: String): Boolean =
             SAFE_ID.matches(id) &&
                 !id.startsWith(".") &&
+                // `<id>_checkpoint.bin` is a checkpoint's name: a track id ending that way would share
+                // a file with another track's checkpoint.
+                !id.endsWith(CHECKPOINT_SUFFIX) &&
                 id != INDEX_FILE_NAME.removeSuffix(".bin") &&
                 id != QUARANTINE_DIR_NAME
     }

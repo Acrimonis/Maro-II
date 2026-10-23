@@ -1401,9 +1401,20 @@ fun MapScreen(
             chrome.trackOpStatus = context.getString(R.string.importing_tracks)
             trackScope.launch(Dispatchers.IO) {
                 try {
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    // Read no more than the importer would accept: an oversized document is refused
+                    // at the stream, before any copy of it exists in memory.
+                    val bytes = context.contentResolver.openInputStream(uri)?.use {
+                        readBounded(it, ykws.android.maro.data.track.GpxImporter.MAX_INPUT_BYTES)
+                    }
                     if (bytes == null) {
                         withContext(Dispatchers.Main) { chrome.trackOpStatus = null }
+                        return@launch
+                    }
+                    if (bytes.isEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            chrome.trackOpStatus = null
+                            showImportBanner(ImportBannerState.Result(0, 0, invalid = 1))
+                        }
                         return@launch
                     }
                     val isZip = bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
@@ -1412,7 +1423,7 @@ fun MapScreen(
                         val result = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
                         withContext(Dispatchers.Main) {
                             chrome.trackOpStatus = null
-                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored, invalid = result.invalid))
                         }
                     } else {
                         val match = trackViewModel.peekImportMatch(bytes, extension)
@@ -1425,7 +1436,7 @@ fun MapScreen(
                             val result = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
                             withContext(Dispatchers.Main) {
                                 chrome.trackOpStatus = null
-                                showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                                showImportBanner(ImportBannerState.Result(result.imported, result.ignored, invalid = result.invalid))
                             }
                         }
                     }
@@ -4827,6 +4838,24 @@ private const val EXIT_FINALIZE_TIMEOUT_MS = 20_000L
  * the recorder is still ON (a save that failed and was retained, or a write that is taking too long),
  * in which case the caller must not tear the service down.
  */
+/**
+ * Read a picked document up to [limitBytes]: the bytes when it fits, an empty array when it does not
+ * (the caller reports one unreadable file), so an oversized pick never has a full copy in memory.
+ */
+private fun readBounded(input: java.io.InputStream, limitBytes: Long): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    var total = 0L
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) break
+        total += n
+        if (total > limitBytes) return ByteArray(0)
+        out.write(buffer, 0, n)
+    }
+    return out.toByteArray()
+}
+
 private suspend fun awaitRecorderOff(): Boolean {
     withTimeoutOrNull(EXIT_FINALIZE_TIMEOUT_MS) {
         ykws.android.maro.data.track.TrackRecordingService.isRecording.first { !it }

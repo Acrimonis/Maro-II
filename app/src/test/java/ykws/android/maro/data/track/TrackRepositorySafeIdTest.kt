@@ -39,6 +39,7 @@ class TrackRepositorySafeIdTest {
         assertFalse("nothing at all", TrackRepository.isSafeId(""))
         assertFalse("a space", TrackRepository.isSafeId("my trip"))
         assertFalse("past the length cap", TrackRepository.isSafeId("a".repeat(129)))
+        assertFalse("a checkpoint's own name", TrackRepository.isSafeId("trip_checkpoint"))
     }
 
     @Test

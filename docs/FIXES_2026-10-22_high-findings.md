@@ -126,7 +126,22 @@ Left for a later round, deliberately: the alarm channel (product design), the ma
 wholesale rebuild on selection, the Back-handler ladder, the full-settings rewrite on every pan, the
 service's always-on GPS subscription, and the god-composable split.
 
-## 7. Strongest objection
+## 7. Review round two (PR noahb/Maro-II#1, after 84f185c0)
+
+Four findings, all accepted and fixed.
+
+| Finding | Fix |
+|---|---|
+| P1 The cancellation hook broke a test's trailing-lambda `trace` call | `finePass` and `solveCrossing` take `checkCancelled` before `trace`, so `trace` stays the last parameter; the two positional callers were swapped. The other extended signatures were audited: `buildGrid`/`buildLayeredGrid` have no trailing-lambda caller (main passes `trace` positionally and the hook by name; tests stop before it), and `runPass`/`sweep` never had `trace` last. |
+| P2 A track id ending in `_checkpoint` shares a file with another track's checkpoint | `isSafeId` rejects the suffix; the importer then mints a fresh id; a test case covers it. |
+| P2 The input limit applied after the whole document was buffered | The picker reads the stream through a bounded copy (`readBounded`) and refuses an oversized pick as one unreadable file before any full copy exists; `peekImportMatch` applies the same ceiling before parsing. |
+| P2 The ZIP and unmatched-GPX paths dropped the unreadable count | Both banner sites now forward `invalid`. |
+
+The validation hold from the first round stands: nothing on this branch has been compiled, and the
+recorder's asynchronous paths (delayed persistence at exit, overlapping Stop/Discard, a failed save
+with no or a stale checkpoint, the corrupt-raster fallback) have no regression tests yet.
+
+## 8. Strongest objection
 
 The recorder and service changes are the riskiest edits in the set and they were made without a
 compiler or a device. The serial-lane design is simple on purpose, but a recorder characterisation

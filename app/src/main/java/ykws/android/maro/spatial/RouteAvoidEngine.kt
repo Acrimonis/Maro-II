@@ -739,7 +739,7 @@ class RouteAvoidEngine(
         // closed at SNAP and the word must name the refinement rather than a pull already done.
         publish(lookupId, RouteStage.FINE)
         val fineStartNs = System.nanoTime()
-        val refined = finePass.finePass(ctx, waypoints, lambda, seatTrace, checkCancelled)
+        val refined = finePass.finePass(ctx, waypoints, lambda, checkCancelled, seatTrace)
         val fineMs = msSince(fineStartNs)
 
         // **The device reading** — the coarse walk's own A* cost and duration, with the fine stage's

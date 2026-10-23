@@ -98,6 +98,8 @@ object GpxImporter {
         existingIdByName: Map<String, String>
     ): ImportMatch? {
         if (extension.lowercase() == "zip") return null
+        // The same ceiling as [import]: the preflight parses nothing an import would refuse.
+        if (input.size > MAX_INPUT_BYTES) return null
         return try {
             val xml = String(input, Charsets.UTF_8)
             val maroBlob = extractMaroBlob(xml)

@@ -44,9 +44,10 @@ internal class RouteFinePass {
         ctx: GridContext,
         line: List<LatLng>,
         lambda: Double,
-        trace: (() -> String) -> Unit = {},
         /** The calling job's own cancel read, handed to the plain loops — the rasters, the pulls, the sweep. */
-        checkCancelled: () -> Unit = {}
+        checkCancelled: () -> Unit = {},
+        // Last on purpose: a caller may pass the trace as a trailing lambda.
+        trace: (() -> String) -> Unit = {}
     ): List<LatLng> {
         val world = ctx.world
         val corridor = ctx.box
@@ -78,7 +79,7 @@ internal class RouteFinePass {
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
                 lambda, edges, openCoast, capLatNorth, priced, zones, sets, refusals,
-                ctx.markerStrength, ctx.plan, ctx.gate, trace, checkCancelled
+                ctx.markerStrength, ctx.plan, ctx.gate, checkCancelled, trace
             ) ?: out
         }
         val fineGuard =
@@ -168,8 +169,8 @@ internal class RouteFinePass {
         plan: RouteGridPlan = UniformGridPlan,
         /** The arm's depth-gate rule — the same measured edge the coarse answer kept off. */
         gate: GateRule? = null,
-        trace: (() -> String) -> Unit = {},
-        checkCancelled: () -> Unit = {}
+        checkCancelled: () -> Unit = {},
+        trace: (() -> String) -> Unit = {}
     ): List<LatLng>? {
         val zoneStartNs = System.nanoTime()
         val inflated = inflateBox(zone.bbox(), outsideMarginM + cellM)
