@@ -2837,10 +2837,14 @@ fun MapScreen(
                         }
                         UserMarker(
                             id = "__unconfirmed__",
-                            name = createForm.name.ifBlank { "New Marker" },
+                            name = createForm.name,
                             geometry = geometry,
                             description = createForm.description,
                             proximityOverrideM = createForm.proximityOverrideM.toDoubleOrNull(),
+                            // The form's colour rides on the preview: the overlay draws it as the
+                            // marker's own colour (MarkerAppearance.isPreview), so a swatch picked in
+                            // the wizard shows on the map before Finish.
+                            colorIndex = createForm.colorIndex,
                             confirmed = false
                         )
                     } else null
