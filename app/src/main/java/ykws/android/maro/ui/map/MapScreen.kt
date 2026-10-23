@@ -3930,6 +3930,37 @@ fun MapScreen(
             pendingDeletions = pendingDeleteIds
         )
 
+        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
+        // Composed before OverlayLayer so the menu drawer and its scrim paint above it: a toast can
+        // never display over the open menu.
+        MapSnackbarHost(
+            activeSnacks = activeSnacks,
+            isLandscape = isLandscape,
+            dashboardBandHeight = dashboardBandHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            tagsDrawn = bandTagsDrawn,
+            // The route ending's toast is answered here, inside the route block where the disposal
+            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
+            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
+            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
+            // of disposing a restored route. Every other snack keeps its own handler.
+            onUndo = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
+                } else onSnackUndo(snack)
+            },
+            onTimeout = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
+                } else onSnackTimeout(snack)
+            },
+            onSecondAction = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
+                }
+            }
+        )
+
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
         OverlayLayer(
             chrome = OverlayChrome(
@@ -4293,35 +4324,6 @@ fun MapScreen(
             val savedMarker = userMarkers.find { it.id == id }
             enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: "Unknown"))
         }
-
-        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
-        MapSnackbarHost(
-            activeSnacks = activeSnacks,
-            isLandscape = isLandscape,
-            dashboardBandHeight = dashboardBandHeight,
-            landscapeDashboardWidth = landscapeDashboardWidth,
-            tagsDrawn = bandTagsDrawn,
-            // The route ending's toast is answered here, inside the route block where the disposal
-            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
-            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
-            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
-            // of disposing a restored route. Every other snack keeps its own handler.
-            onUndo = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
-                } else onSnackUndo(snack)
-            },
-            onTimeout = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
-                } else onSnackTimeout(snack)
-            },
-            onSecondAction = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
-                }
-            }
-        )
 
         // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
         MapDialogHost(
