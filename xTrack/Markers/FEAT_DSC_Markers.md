@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-10-23 16:27
+modified: 2026-10-23 17:41
 ---
 
 # Feature: Markers
@@ -15,6 +15,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [ ] `ShowMarkerColorPicker` raises a `ConfirmRequest` with no dispose path: if the raising surface leaves composition while the panel is open — the settings overlay dismissed, the wizard step advanced — the request outlives its owner and the panel stays up. A `DisposableEffect` calling `host.dismiss()` on dispose closes it; also open, the wizard swatch announces only its caption and never the current colour name.
 
 ## Implemented
+
+- **marker-edit-form-rebuild (2026-10-23, `feature/mrk-lst-edit`)** — a menu-opened marker card's Edit no longer opens the first marker's data after a Prev/Next move: [`startWizard`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:819) always rebuilds `_createForm` from the marker being edited, dropping the name-match gate that let a same-named neighbour inherit the first marker's form, position and colour. `apk-build.bat` BUILD SUCCESSFUL; the review hop approved, with one non-blocking finding — the form-building block is duplicated between [`openEditDrawer`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:493) and `startWizard` and merits a shared factory.
 
 - **marker-auto-naming (2026-10-23, `feature/marker-color`)** — one pure [`markerAutoName`](../../app/src/main/java/ykws/android/maro/data/markers/MarkerAutoName.kt:1) names every marker: the marker's own geometry is asked of the where-am-i — a corridor's midpoint first, its two endpoints only when the midpoint is silent — and the fallback is the tracks' [`trackAutoName`](../../app/src/main/java/ykws/android/maro/data/track/Track.kt:86), the caller-supplied type glyph leading the string. `CreateFormState` gains `nameIsAuto` (false default) and `createdAtEpochMs`; the wizard default stops naming a colour, [`saveMarker`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:971)/[`updateMarker`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:1046) read one [`formGeometry`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:215), a shape-step exit or Finish re-names while the name is still the machine's, and the `"Marker"` / `"New Marker"` literals are deleted. Build `:app:compileDebugKotlin` SUCCESSFUL; the review hop's one blocker — a create followed by an edit could re-name a stored marker — is fixed by clearing the form after a create and forcing `nameIsAuto = false` on the edit entry; `MarkerAutoNameTest` and the 🕐 alignment stay owed → `xTrack/Markers/261023_FEAT_PLN_Markers_auto-naming.md`
 
@@ -79,7 +81,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - **whereami-tap-zone-and-flash (2026-09-18)** — the boat's touch box replaced by a fixed radial zone on the sprite's visual centre, its diameter, the pulse's, the beat and its peak all read from the `map.marker.tap.*` keys (sprite and its `centerOffsetYDp` unmoved, so the bow stays on the GPS point), consuming only inside the circle and reaching assistive tech as the same accepted action; an accepted tap beats one gold disc beneath the sprite — `map.marker.tap.flash.color` at `map.marker.tap.flash.alpha`, twice the zone's diameter — never while inspect is armed and never for a drag. Shipped with the ray-clear items through the `#implement` pipeline → `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md`
 - **pin-halo-rendering (2026-09-05)** — static halo ring (pinned white / unpinned light-blue, absolute size 18-60px, opacity pairs); pin dimming removed (search dimming kept); corridor always-on colored line + pinned under-line halo; selected-marker gold driven by `selectedMarkerId` (forces zones, folds `navigationZonesVisible`, removes `highlightedMarkerId`); corridor/circle focus zoom-to-fit; icon centered on halo; code split into `MarkerAppearance`/`MarkerHalo`.
 - **icon-pin-decoupling (2026-09-04)** — icon fully decoupled from pin (pure POI emoji, no pin semantics); pin re-implemented as real persisted `UserMarker.pinned` mirroring tracks (repo/VM/card/drawer/multi-select/filter/rendering); removed obsolete `migratePinnedToIcon`; settings v7 migration.
-- **multi-select-merge (2026-07-18)** — multi-select delete/pin/merge on marker list → `xTrack/Markers/260718_FEAT_PLN_Markers_multi-select-and-merge.md`
+- **multi-select-merge (2026-07-18)** — multi-select delete/pin/merge on marker list
 - **marker-card (2026-07-03)** — normalized list/viewing/match cards, removed `markerFormatText()`
 - **wizard-cleanup-race (2026-07-02)** — moved wizard-state cleanup into save/update coroutines
 - **auto-marker-proximity (2026-07-02)** — 🕐 auto markers use `boatMarkerAutoMarkerProximityM` (300m).
@@ -156,8 +158,3 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ## Docs
 - `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — architectural decisions with rationale and source references
 - `xTrack/Markers/FEAT_HYD_Markers.md` — hydration snapshot + known issues (single source of truth)
-- `xTrack/Markers/260625_FEAT_PLN_Markers_whereami-rework.md` — whereAmI rework design (implemented)
-- `xTrack/Markers/260625_FEAT_PLN_Markers_debug-wia.md` — debug instrumentation design (implemented)
-- `xTrack/Markers/260626_FEAT_PLN_Markers_icon.md` — POI icon system design (implemented)
-- `xTrack/Markers/260626_FEAT_PLN_Markers_marker-pin.md` — pin toggle design (implemented)
-- `xTrack/Markers/260626_FEAT_PLN_Markers_marker-pin-tri-state.md` — tri-state layer toggle design (implemented)

@@ -13,3 +13,6 @@ Replace binary marker layer toggle with tri-state cycle: HIDDEN → SHOW_ALL →
 - Filter `userMarkers.filter { it.pinned }` when SHOW_PINNED
 - `where_to_vote` Material Symbol icon for SHOW_PINNED state
 - Pin IconButtons in list card + drawer (marker-pin prerequisite)
+
+## Outcome
+Shipped then superseded: the HIDDEN to SHOW_ALL to SHOW_PINNED cycle was reverted to binary HIDDEN/SHOW_ALL by the setting-markers rework.

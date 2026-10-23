@@ -81,3 +81,6 @@ Use `SpatialOperations.haversine()` — already available in `MarkersViewModel` 
 - No post-hoc merge of existing duplicates (user can manually delete)
 - No hysteresis/debounce on `isStopped` transitions (unnecessary blast radius)
 - No cross-session dedup (markers from different recording sessions at same anchorage are intentionally distinct)
+
+## Outcome
+Shipped: proximity dedup in addTempAutoMarker with track.boatMarker.autoMarker.dedupRadiusM at 50 m.

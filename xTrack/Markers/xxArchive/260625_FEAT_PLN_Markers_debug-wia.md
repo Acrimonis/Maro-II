@@ -204,3 +204,6 @@ adb logcat -s WiaDebug
 | [`MarkerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) | MapEventsOverlay — debug tap intercept |
 | [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | Screen — wire debug callbacks, viewport, crosshair |
 | [`CoastlineSpatialIndex.kt`](app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt) | Land-blocking index (read-only, no changes) |
+
+## Outcome
+Shipped: the per-call debugger choice (VisualWhereAmIDebugger / NoOpWhereAmIDebugger) with ray segments, folding the WiaDebug logcat design into the whereami-tap work.
