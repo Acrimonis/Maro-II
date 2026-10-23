@@ -36,8 +36,11 @@ private const val TAG = "MaroII_TrackRepo"
  * atomic replace, and every public mutator holds [writeMutex] for its whole read-modify-write, so
  * two writers — the service-owned recorder and a ViewModel — can never interleave on one file. A
  * replace that fails throws: a caller is never told a save succeeded when no file landed.
+ *
+ * Open, with its four writes overridable, for one reason: a recorder test gates or fails them to
+ * exercise the lifecycle while persistence is slow or broken.
  */
-class TrackRepository(
+open class TrackRepository(
     private val tracksDir: File,
     private val markerRepo: UserMarkerRepository? = null
 ) {
@@ -83,12 +86,13 @@ class TrackRepository(
      * Save a completed track. Throws [IOException] when the file could not be written or replaced —
      * the caller decides what a failed save means (the recorder keeps its checkpoint).
      */
-    suspend fun save(track: Track) = withContext(Dispatchers.IO) {
+    open suspend fun save(track: Track): Unit = withContext(Dispatchers.IO) {
         writeMutex.withLock {
             val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
             writeAtomically(trackFile(stamped.id), proto.encodeToByteArray(Track.serializer(), stamped))
             rebuildIndexLocked()
         }
+        Unit
     }
 
     /**
@@ -146,7 +150,7 @@ class TrackRepository(
      * markers — when it equals [id], the cascade is skipped (never touch the active
      * recording track's temp marker).
      */
-    suspend fun delete(id: String, excludeActiveTrackId: String? = null) = withContext(Dispatchers.IO) {
+    open suspend fun delete(id: String, excludeActiveTrackId: String? = null): Unit = withContext(Dispatchers.IO) {
         if (!isSafeId(id)) return@withContext
         markerRepo?.let { repo ->
             if (id != excludeActiveTrackId) {
@@ -162,6 +166,7 @@ class TrackRepository(
             checkpointFile(id).delete()
             rebuildIndexLocked()
         }
+        Unit
     }
 
     /** Update track metadata (name, comment). */
@@ -185,15 +190,16 @@ class TrackRepository(
      * under the mutex, so a crash mid-write can never leave a truncated checkpoint and two
      * checkpoint writers can never interleave on one file. Throws [IOException] on failure.
      */
-    suspend fun saveCheckpoint(track: Track) = withContext(Dispatchers.IO) {
+    open suspend fun saveCheckpoint(track: Track): Unit = withContext(Dispatchers.IO) {
         writeMutex.withLock {
             writeAtomically(checkpointFile(track.id), proto.encodeToByteArray(Track.serializer(), track))
         }
     }
 
     /** Delete a checkpoint file — ordered after any checkpoint write in flight by the mutex. */
-    suspend fun deleteCheckpoint(id: String) = withContext(Dispatchers.IO) {
+    open suspend fun deleteCheckpoint(id: String): Unit = withContext(Dispatchers.IO) {
         writeMutex.withLock { checkpointFile(id).delete() }
+        Unit
     }
 
     /**

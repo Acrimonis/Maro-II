@@ -143,6 +143,15 @@ android {
         buildConfig = true
     }
 
+    buildTypes {
+        release {
+            // Shrinking stays off until a release build has been exercised on a device: the keep
+            // rules in proguard-rules.pro (serialization, protobuf-lite, osmdroid) are ready for it.
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
     testOptions {
         // `android.util.Log` and the other framework statics answer their defaults in a plain JVM test
         // instead of throwing "not mocked": the repositories log on their failure paths, and the tests

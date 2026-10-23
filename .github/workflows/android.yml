@@ -1,0 +1,56 @@
+name: Android
+
+# Builds the debug APK and runs the JVM unit suite on every pull request and on every push to a
+# feature branch, so a change is compiled by a machine that has a JDK before anyone reviews it. The
+# baked spatial assets (`data/app-assets/`) are not in the repository: the tests that need them skip
+# themselves, and the `skipped` count in the uploaded report is where that shows.
+on:
+  pull_request:
+  push:
+    branches:
+      - 'feature/**'
+      - 'claude/**'
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Accept the SDK licences so the Android Gradle plugin may fetch a platform or build-tools
+      # version the runner image does not carry yet.
+      - name: Accept Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Build debug APK and run unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload unit test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: ignore
