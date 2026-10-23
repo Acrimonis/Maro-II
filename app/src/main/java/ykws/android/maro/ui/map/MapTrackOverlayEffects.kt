@@ -451,7 +451,9 @@ internal fun MapTrackOverlayHistoryDiff(
             mv.overlays.add(activePolyline)
         }
 
-        // Move highlighted track above active (z-order: ... → active → highlighted)
+        // Move the highlighted track above the other stored tracks (z-order: history → pinned →
+        // highlighted). It stays in the TRACK tier — the route and the live recording keep painting
+        // above it, never cleared by a selection.
         if (highlightedTrackId != null) {
             val highlightedOverlays = mv.overlays.filter { overlay ->
                 val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
