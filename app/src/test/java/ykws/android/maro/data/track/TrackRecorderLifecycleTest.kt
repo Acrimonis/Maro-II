@@ -60,7 +60,9 @@ class TrackRecorderLifecycleTest {
         val recorder = TrackRecorder(
             repository = repo,
             config = TrackRecorderConfig(gpsMode = false, geofenceEnabled = false, simplifyEnabled = false),
-            dispatcher = Dispatchers.Default
+            dispatcher = Dispatchers.Default,
+            // The platform's monotonic clock answers 0 in a plain JVM test; a real one drives the intervals.
+            monotonicNowMs = { System.nanoTime() / 1_000_000 }
         )
         val events = CopyOnWriteArrayList<TrackEvent>()
         private val eventsSubscribed = CompletableDeferred<Unit>()

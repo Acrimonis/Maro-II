@@ -855,14 +855,15 @@ private fun RouteSummaryBlock(summary: RouteSummaryData) {
     }
 }
 
+@Composable
 private fun formatDuration(totalSeconds: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (hours > 0) {
-        "${hours}h ${minutes}m ${seconds}s"
+        stringResource(R.string.duration_h_m_s_fmt, hours, minutes, seconds)
     } else {
-        "${minutes}m ${seconds}s"
+        stringResource(R.string.duration_m_s_fmt, minutes, seconds)
     }
 }
 

@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- No cleartext anywhere: the osmdroid Mapnik tile source and the Overpass fallback both speak
+     HTTPS, so the former per-domain cleartext allowance for tile.openstreetmap.org and three
+     Overpass mirrors protected nothing and opened a downgrade path on a shared marina network. -->
 <network-security-config>
-    <!-- Allow cleartext traffic for OSMdroid tile servers and Overpass API -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">tile.openstreetmap.org</domain>
-        <domain includeSubdomains="true">overpass-api.de</domain>
-        <domain includeSubdomains="true">overpass.openstreetmap.ru</domain>
-        <domain includeSubdomains="true">overpass.kumi.systems</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

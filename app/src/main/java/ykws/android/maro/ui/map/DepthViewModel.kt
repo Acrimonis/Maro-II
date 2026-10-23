@@ -394,10 +394,12 @@ class DepthViewModel(
         _rasterLayers.value = produced.mapValues { it.value.bitmap }
     }
 
-    /** Progress title: "Generating Layer" (1 step) or "Generating Layers (x/y)" (multiple). */
-    fun progressTitle(): String =
-        if (totalSteps <= 1) "Generating Layer"
-        else "Generating Layers ($stepIndex/$totalSteps)"
+    /**
+     * The generation's step counter — the current step and the total — for a displayer to word in
+     * its own locale; a total of one or less means a single layer is being generated.
+     */
+    val progressCounts: Pair<Int, Int>
+        get() = stepIndex to totalSteps
 
     private fun report(step: RasterStep, phase: String, stepProgress: Int) {
         _rasterProgress.value = RasterProgress(

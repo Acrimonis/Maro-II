@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.LatLng
@@ -971,7 +972,7 @@ class MarkersViewModel(
 
         val marker = UserMarker(
             id = UUID.randomUUID().toString(),
-            name = form.name.ifBlank { "Marker" },
+            name = form.name.ifBlank { getApplication<Application>().getString(R.string.marker_default_name) },
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,

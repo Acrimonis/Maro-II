@@ -408,7 +408,7 @@ internal fun TrackHistoryOverlay(
                         else "${nameById.first()} ... ${nameById.last()}"
                     val state = MergeDialogState(defaultName)
                     ConfirmRequest(
-                        title = context.getString(R.string.track_merge_title, candidates.size),
+                        title = context.resources.getQuantityString(R.plurals.track_merge_title, candidates.size, candidates.size),
                         message = mergeNameHint,
                         options = {
                             MergeDialogOptions(

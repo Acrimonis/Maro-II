@@ -16,6 +16,19 @@
     <string name="side_land">Land</string>
     <string name="marker_position_water">Position (water)</string>
     <string name="marker_position_land">Position (land)</string>
+    <!-- The regulated-zone legend: the synthetic 300 m line's own name, a speed limit's reading, and the
+         nine category toggles' labels. -->
+    <string name="regulated_zone300_name">300 m zone</string>
+    <string name="regulated_speed_kn_fmt">%1$d kn</string>
+    <string name="zone_category_speed_limit">Speed limit</string>
+    <string name="zone_category_no_access">No access</string>
+    <string name="zone_category_no_anchor">No anchor</string>
+    <string name="zone_category_no_diving">No diving</string>
+    <string name="zone_category_fishing_prohibited">Fishing prohibited</string>
+    <string name="zone_category_mooring">Mooring</string>
+    <string name="zone_category_seaplane">Seaplane</string>
+    <string name="zone_category_environmental">Environmental</string>
+    <string name="zone_category_information">Information</string>
     <string name="exit_press_back_again">Press back again to exit</string>
     <string name="exit_press_back_again_recording">⚠ Recording active — press back again to stop and exit</string>
 
@@ -80,16 +93,16 @@
     <string name="settings_land_water_icon_label">Show Land/Water Icon</string>
     <string name="settings_section_land_water_icon">Show Land/Water Icon</string>
     <string name="settings_land_water_icon_desc">The square shows whether the boat is over water or land, and is hidden when off</string>
-    <string name="settings_section_zone300">300m Zone</string>
-    <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
+    <string name="settings_section_zone300">300 m zone</string>
+    <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m zone</string>
     <string name="settings_zone300_color_label">Zone color</string>
-    <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
+    <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m zone</string>
     <string name="settings_zone300_opacity_desc" formatted="false">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
-    <string name="settings_zone300_appearance_label">300m Zone Appearance</string>
-    <string name="settings_zone300_boundary_width_desc">Width of the 300 m band boundary line (dp)</string>
+    <string name="settings_zone300_appearance_label">300 m zone appearance</string>
+    <string name="settings_zone300_boundary_width_desc">Width of the 300 m zone boundary line (dp)</string>
     <string name="settings_regulated_zones_outline_width_desc">Width of the regulated zone outlines (dp)</string>
     <string name="settings_width_label">Stroke width</string>
-    <string name="settings_auto_markers_label">Marker Auto Creation management</string>
+    <string name="settings_auto_markers_label">Marker auto-creation management</string>
     <string name="settings_section_regulated_zones">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
     <string name="settings_regulated_zones_appearance_label">Regulated Zones Appearance</string>
@@ -126,7 +139,7 @@
     <string name="settings_section_screen">Screen</string>
     <string name="settings_keep_screen_on_desc">Don\'t lock the phone while the app is open</string>
     <string name="settings_keep_screen_on_label">Keep phone on</string>
-    <string name="settings_screen_gate_label">Idle exclusion Settings</string>
+    <string name="settings_screen_gate_label">Idle exclusion settings</string>
     <string name="settings_hold_screen_moving_desc">Do not lock while moving</string>
     <string name="settings_hold_screen_moving_label">Allow lock on Idle</string>
     <string name="settings_screen_speed_threshold_label">Movement threshold</string>
@@ -183,12 +196,12 @@
     <string name="dash_distance_from_shore">from shore</string>
     <string name="dash_distance_from_sea">from sea</string>
     <string name="dash_empty">—</string>
-    <string name="dash_zone_title">300m zone</string>
+    <string name="dash_zone_title">300 m zone</string>
     <string name="dash_not_at_sea">On land</string>
     <string name="dash_in_zone">IN ZONE!</string>
     <string name="dash_zone_speed_limit">5 kn max — %1$s</string>
     <string name="dash_speed_suffix_warn">" · ⚠ %.1f kn"</string>
-    <string name="dash_to_zone">to the 300m zone</string>
+    <string name="dash_to_zone">to the 300 m zone</string>
     <string name="dash_depth_title">Depth</string>
     <string name="dash_value_km">%.1f km</string>
     <string name="dash_value_m">%4.0f m</string>
@@ -216,6 +229,14 @@
     <string name="dash_libre_value">--</string>
     <string name="dash_no_limit">No limit</string>
     <string name="dash_speed_zone_limit">Limit %.0f kn</string>
+    <!-- The speed card's subtitle once the reading is over the zone limit: the limit line, then the
+         breach said in a word so it never rides on the colour alone. -->
+    <string name="dash_speed_over_limit_fmt">%1$s · over limit</string>
+    <!-- The distance cell's zone cues: what lies beyond the zone being left, and the inward heading
+         inside the 300 m zone. -->
+    <string name="dash_beyond_open_water">open water</string>
+    <string name="dash_beyond_land">land</string>
+    <string name="dash_toward_shore">→ shore</string>
     <string name="dash_eta_sec">ETA %d s</string>
     <string name="dash_eta_min_sec">ETA %1$d:%2$02d min</string>
 
@@ -229,6 +250,9 @@
     <string name="track_stat_total_estimated">Total (est.)</string>
     <string name="track_stat_avg_estimated">Avg (est.)</string>
     <string name="track_stat_max">Max</string>
+    <!-- A recording's elapsed and idle durations: hours when there are any, else minutes and seconds. -->
+    <string name="duration_h_m_s_fmt">%1$dh %2$dm %3$ds</string>
+    <string name="duration_m_s_fmt">%1$dm %2$ds</string>
 
     <!-- Sort dropdown -->
     <string name="sort_common_title">Title</string>
@@ -280,7 +304,10 @@
 
     <!-- Track merge dialog -->
     <string name="action_merge">Merge</string>
-    <string name="track_merge_title">Merge %1$d tracks</string>
+    <plurals name="track_merge_title">
+        <item quantity="one">Merge %1$d track</item>
+        <item quantity="other">Merge %1$d tracks</item>
+    </plurals>
     <string name="track_merge_name_hint">Enter a name for the merged track:</string>
     <string name="track_merge_keep_originals">Keep original tracks</string>
     <string name="track_merge_default_name">Merged Track</string>
@@ -353,13 +380,15 @@
     <string name="track_stat_distance">Distance</string>
     <string name="track_stat_max_speed">Max Speed</string>
     <string name="track_stat_avg_speed">Avg Speed</string>
-    <string name="menu_stat_distance_nm">%.2f nm</string>
+    <string name="menu_stat_distance_nm">%.2f NM</string>
     <string name="menu_stat_speed_kn">%.1f kn</string>
 
     <!-- Marker drawer & dialogs -->
     <string name="marker_delete_title">Delete Marker</string>
     <string name="marker_delete_confirm">Delete \"%1$s\"? This cannot be undone.</string>
     <string name="marker_unnamed">this marker</string>
+    <!-- The name a marker is saved under when its form left the name blank. -->
+    <string name="marker_default_name">Marker</string>
     <string name="action_delete">Delete</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_resume">Resume</string>
@@ -385,9 +414,9 @@
     <string name="filter_option_last_week">Last week</string>
     <string name="filter_option_last_2_weeks">Last 2 weeks</string>
     <string name="filter_option_last_month">Last month</string>
-    <string name="filter_option_last_2_months">Last 2 month</string>
-    <string name="filter_option_last_3_months">Last 3 month</string>
-    <string name="filter_option_last_6_months">Last 6 month</string>
+    <string name="filter_option_last_2_months">Last 2 months</string>
+    <string name="filter_option_last_3_months">Last 3 months</string>
+    <string name="filter_option_last_6_months">Last 6 months</string>
     <string name="filter_option_all">All</string>
     <string name="filter_option_unpinned">Unpinned</string>
     <string name="filter_option_on_water">On water</string>
@@ -493,6 +522,7 @@
     <string name="cd_set_icon">Set icon</string>
     <string name="cd_edit">Edit</string>
     <string name="cd_delete">Delete</string>
+    <string name="cd_track_rendering">Track rendering</string>
     <string name="cd_view_marker">View marker</string>
     <string name="cd_export_gpx">Export GPX</string>
     <string name="cd_view_track">View track</string>
@@ -541,7 +571,10 @@
     <string name="cd_filter_link_routes">Link route list and map filters: %1$s</string>
 
     <!-- Multiselect -->
-    <string name="multiselect_count">%d selected</string>
+    <plurals name="multiselect_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
     <string name="multiselect_select_all">Select all</string>
     <string name="multiselect_clear">Clear</string>
     <string name="multiselect_invert">Invert</string>
@@ -659,6 +692,8 @@
     <!-- Misc -->
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">\"%s\" deleted</string>
+    <!-- A toast's name slot when the item it names has no name to give. -->
+    <string name="name_unknown">Unknown</string>
     <string name="action_undo">Undo</string>
 
     <!-- Route destination mode -->
@@ -851,9 +886,9 @@
     <string name="route_comparison_less">less</string>
     <string name="route_comparison_more">more</string>
     <!-- The acquisition panel's Speed limits table: the time the route spends slowed, one short reading per
-         regulated limit — the 300 m zone labelled "300M", a limit as its speed in knots — the ramp into and
+         regulated limit — the 300 m zone labelled "300 m", a limit as its speed in knots — the ramp into and
          out of each counted in, and each value reading as "1:05 min", rounded to the second. -->
-    <string name="route_slow_band_label">300M</string>
+    <string name="route_slow_band_label">300 m</string>
     <string name="route_slow_limit_label_fmt">%1$.0f kn</string>
     <!-- One page row in the panel: which route it is, its description and its own duration. -->
     <string name="route_page_fmt">Route #%1$d · %2$s · %3$s</string>

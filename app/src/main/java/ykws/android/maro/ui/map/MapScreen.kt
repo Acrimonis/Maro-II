@@ -4235,7 +4235,7 @@ fun MapScreen(
             onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope, onProgress = { chrome.trackOpStatus = it }) },
             onDeleteTrack = { id ->
                 val track = trackDrawerState.track
-                enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
+                enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: context.getString(R.string.name_unknown)))
                 pendingDeleteIds.add(PendingDeletion("t:$id", hideFromMap = true))
                 // Advance to the adjacent track through the one ordering rule the marker path uses too
                 // (plan §4): next, else previous, else none. The exclusions are the pending track
@@ -4274,7 +4274,7 @@ fun MapScreen(
         LaunchedEffect(lastSavedId) {
             val id = lastSavedId ?: return@LaunchedEffect
             val savedMarker = userMarkers.find { it.id == id }
-            enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: "Unknown"))
+            enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: context.getString(R.string.name_unknown)))
         }
 
         // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──

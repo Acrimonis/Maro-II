@@ -1,5 +1,6 @@
 package ykws.android.maro.data.track
 
+import android.os.SystemClock
 import android.util.Log
 
 import kotlinx.coroutines.CoroutineDispatcher
@@ -198,6 +199,13 @@ class TrackRecorder(
     config: TrackRecorderConfig = TrackRecorderConfig(),
     val isStopped: StateFlow<Boolean> = MutableStateFlow(false),
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /**
+     * The clock every *interval* is measured on — debounces, the stale-fix timeout, the dedup window,
+     * idle durations, the elapsed ticker. Monotonic, so a wall-clock step (a GPS or network time
+     * resync at sea) cannot stretch or collapse a decision; the wall clock is kept for the timestamps
+     * a track stores. Injectable so a test can drive it.
+     */
+    private val monotonicNowMs: () -> Long = { SystemClock.elapsedRealtime() },
     private val idleThresholdCallback: IdleThresholdCallback? = null,
     private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
     private val markerChangeNotifier: Flow<Unit>? = null,
@@ -276,7 +284,7 @@ class TrackRecorder(
     private var isOnLand: Boolean = false
     /** Previous fix's lock state — used to detect GPS recovery transitions. */
     private var lastHadLock: Boolean = true
-    /** Timestamp of the last accepted fix (ms) — used for stale-fix timeout reset. */
+    /** Monotonic time (ms) of the last accepted fix — the stale-fix timeout reset reads it. */
     private var lastAcceptedTimeMs: Long = 0L
     /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
     private var lastTimeOffsetMs: Long = 0L
@@ -293,8 +301,8 @@ class TrackRecorder(
     private var lastAcceptedLat: Double? = null
     /** Longitude of last accepted point — for same-position dedup (Fix D). */
     private var lastAcceptedLon: Double? = null
-    /** Wall-clock time (ms) of last accepted point — for dedup window (Fix D). */
-    private var lastAcceptedTimeWallMs: Long = 0L
+    /** Monotonic time (ms) of the last accepted point — the dedup window reads it (Fix D). */
+    private var lastAcceptedTimeMonoMs: Long = 0L
 
     // ── Idle duration accumulator ──
     private var idleDurationSec: Long = 0L
@@ -447,12 +455,12 @@ class TrackRecorder(
         landModeAcceptCounter = 0
         isOnLand = false
         lastHadLock = true
-        lastAcceptedTimeMs = System.currentTimeMillis()
+        lastAcceptedTimeMs = monotonicNowMs()
         lastTimeOffsetMs = lastPoint?.timeOffsetMs ?: 0L
         // Fix D: reset dedup fields
         lastAcceptedLat = null
         lastAcceptedLon = null
-        lastAcceptedTimeWallMs = 0L
+        lastAcceptedTimeMonoMs = 0L
         // Still-spike fix reset
         lastGenuineLat = null
         lastGenuineLon = null
@@ -624,7 +632,7 @@ class TrackRecorder(
                 // Auto-start only on geofence exit (inside→outside transition).
                 // Manual toggle is the other start trigger (via startManual()).
                 if (geofenceEnabled && wasInsideGeofence && !insideGeofence) {
-                    val now = System.currentTimeMillis()
+                    val now = monotonicNowMs()
                     if (debounceStartTime == null) {
                         debounceStartTime = now
                     } else if (now - debounceStartTime!! >= DEBOUNCE_MS) {
@@ -643,7 +651,7 @@ class TrackRecorder(
 
                 // Auto-stop: inside geofence with 15s debounce
                 if (geofenceEnabled && insideGeofence) {
-                    val now = System.currentTimeMillis()
+                    val now = monotonicNowMs()
                     if (stopDebounceStartTime == null) {
                         stopDebounceStartTime = now
                     } else if (now - stopDebounceStartTime!! >= STOP_DEBOUNCE_MS) {
@@ -684,12 +692,12 @@ class TrackRecorder(
         landModeAcceptCounter = 0
         isOnLand = false
         lastHadLock = true
-        lastAcceptedTimeMs = System.currentTimeMillis()
+        lastAcceptedTimeMs = monotonicNowMs()
         lastTimeOffsetMs = 0L
         // Fix D: reset dedup fields
         lastAcceptedLat = null
         lastAcceptedLon = null
-        lastAcceptedTimeWallMs = 0L
+        lastAcceptedTimeMonoMs = 0L
         // Still-spike fix reset
         lastGenuineLat = null
         lastGenuineLon = null
@@ -779,7 +787,7 @@ class TrackRecorder(
         }
 
         // ── Fix D: dedup identical positions — dynamic window ──
-        val nowWall = System.currentTimeMillis()
+        val nowMono = monotonicNowMs()
         val dedupWindowMs = if (sample.speedMps != null && sample.speedMps < GpsLocationSource.MIN_SPEED_MPS) {
             STATIONARY_DEDUP_WINDOW_MS
         } else {
@@ -788,13 +796,13 @@ class TrackRecorder(
         if (lastAcceptedLat != null && lastAcceptedLon != null &&
             sample.position.latitude == lastAcceptedLat &&
             sample.position.longitude == lastAcceptedLon &&
-            nowWall - lastAcceptedTimeWallMs < dedupWindowMs) {
-            Log.v(TAG, "Dedup: skipped identical position within ${nowWall - lastAcceptedTimeWallMs}ms")
+            nowMono - lastAcceptedTimeMonoMs < dedupWindowMs) {
+            Log.v(TAG, "Dedup: skipped identical position within ${nowMono - lastAcceptedTimeMonoMs}ms")
             return
         }
         lastAcceptedLat = sample.position.latitude
         lastAcceptedLon = sample.position.longitude
-        lastAcceptedTimeWallMs = nowWall
+        lastAcceptedTimeMonoMs = nowMono
 
         val stopped = isStopped.value
         _uiState.update { it.copy(isMoving = !stopped) }
@@ -803,10 +811,12 @@ class TrackRecorder(
         Log.d(TAG, "addPoint: speed=${speedKn} kn isStopped=$stopped state=$state")
 
         // ── Idle duration accumulation + BoatMarker session lifecycle ──
+        // `now` stamps what the track stores (wall clock); the idle clock below is monotonic.
         val now = System.currentTimeMillis()
+        val nowMonoIdle = monotonicNowMs()
         if (stopped && !wasStopped) {
             // Transition: moving → idle
-            idleStartMs = now
+            idleStartMs = nowMonoIdle
             val lat = sample.position.latitude
             val lon = sample.position.longitude
             val session = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
@@ -822,7 +832,7 @@ class TrackRecorder(
             cancelIdleTimer()
             val session = activeSession
             if (idleStartMs > 0) {
-                val delta = (now - idleStartMs) / 1000
+                val delta = (nowMonoIdle - idleStartMs) / 1000
                 idleDurationSec += delta
                 idleStartMs = 0L
                 _uiState.update { it.copy(idleDurationSec = idleDurationSec) }
@@ -844,7 +854,7 @@ class TrackRecorder(
         wasStopped = stopped
 
         if (stopped && idleStartMs > 0) {
-            _uiState.update { it.copy(idleDurationSec = idleDurationSec + (now - idleStartMs) / 1000) }
+            _uiState.update { it.copy(idleDurationSec = idleDurationSec + (nowMonoIdle - idleStartMs) / 1000) }
         }
 
         // Skip point capture when stationary (same gate for GPS and demo mode)
@@ -894,8 +904,8 @@ class TrackRecorder(
                 }
             }
             // Timeout reset: if no sample accepted for >STALE_FIX_TIMEOUT_MS, accept with relaxed check.
-            if (!stopped && lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
-                Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted sample")
+            if (!stopped && lastAcceptedTimeMs > 0L && monotonicNowMs() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
+                Log.w(TAG, "Spike reset: ${(monotonicNowMs() - lastAcceptedTimeMs) / 1000}s since last accepted sample")
                 lastHadLock = sample.hasLock
                 // Fix C: stationary drift check — reject implausible position jumps while stationary
                 if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
@@ -1073,7 +1083,7 @@ class TrackRecorder(
         lastValidPointLat = point.lat
         lastValidPointLon = point.lon
         lastValidPointTimeMs = sample.timestampEpochMs
-        lastAcceptedTimeMs = System.currentTimeMillis()
+        lastAcceptedTimeMs = monotonicNowMs()
 
         // Rebuild track with new point appended (immutable list)
         currentTrack = track.copy(
@@ -1155,10 +1165,10 @@ class TrackRecorder(
     private fun startElapsedTimer() {
         elapsedTimerJob?.cancel()
         elapsedTimerJob = scope.launch {
-            var lastTick = System.currentTimeMillis()
+            var lastTick = monotonicNowMs()
             while (true) {
                 delay(1_000L)
-                val now = System.currentTimeMillis()
+                val now = monotonicNowMs()
                 val elapsed = (now - lastTick) / 1000
                 lastTick = now
                 if (state == TrackRecorderState.ON) {
@@ -1202,7 +1212,7 @@ class TrackRecorder(
         // Flush idle session — close open BoatMarker (final open idle is kept, §9)
         val session = activeSession
         if (wasStopped && idleStartMs > 0) {
-            val delta = (System.currentTimeMillis() - idleStartMs) / 1000
+            val delta = (monotonicNowMs() - idleStartMs) / 1000
             idleDurationSec += delta
             if (session != null) {
                 closeOpenBoatMarker(System.currentTimeMillis())
@@ -1298,7 +1308,7 @@ class TrackRecorder(
             // next Stop finalizes again from this snapshot; only a successful save or an explicit
             // Discard ever clears it. The idle clock restarts so a retry does not count the same
             // idle time twice.
-            idleStartMs = if (wasStopped) System.currentTimeMillis() else 0L
+            idleStartMs = if (wasStopped) monotonicNowMs() else 0L
             isFinalizing = false
             startCheckpointJob()
             _uiState.update { it.copy(infoError = saveError) }

@@ -89,6 +89,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -719,7 +720,7 @@ internal fun <T : ListableItem> ListOverlayScaffold(
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(
-                        stringResource(R.string.multiselect_count, selectedCount),
+                        pluralStringResource(R.plurals.multiselect_count, selectedCount, selectedCount),
                         color = Color(AppConfig.uiTextPrimary),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
