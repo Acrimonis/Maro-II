@@ -81,7 +81,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - **whereami-tap-zone-and-flash (2026-09-18)** — the boat's touch box replaced by a fixed radial zone on the sprite's visual centre, its diameter, the pulse's, the beat and its peak all read from the `map.marker.tap.*` keys (sprite and its `centerOffsetYDp` unmoved, so the bow stays on the GPS point), consuming only inside the circle and reaching assistive tech as the same accepted action; an accepted tap beats one gold disc beneath the sprite — `map.marker.tap.flash.color` at `map.marker.tap.flash.alpha`, twice the zone's diameter — never while inspect is armed and never for a drag. Shipped with the ray-clear items through the `#implement` pipeline → `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md`
 - **pin-halo-rendering (2026-09-05)** — static halo ring (pinned white / unpinned light-blue, absolute size 18-60px, opacity pairs); pin dimming removed (search dimming kept); corridor always-on colored line + pinned under-line halo; selected-marker gold driven by `selectedMarkerId` (forces zones, folds `navigationZonesVisible`, removes `highlightedMarkerId`); corridor/circle focus zoom-to-fit; icon centered on halo; code split into `MarkerAppearance`/`MarkerHalo`.
 - **icon-pin-decoupling (2026-09-04)** — icon fully decoupled from pin (pure POI emoji, no pin semantics); pin re-implemented as real persisted `UserMarker.pinned` mirroring tracks (repo/VM/card/drawer/multi-select/filter/rendering); removed obsolete `migratePinnedToIcon`; settings v7 migration.
-- **multi-select-merge (2026-07-18)** — multi-select delete/pin/merge on marker list → `xTrack/Markers/260718_FEAT_PLN_Markers_multi-select-and-merge.md`
+- **multi-select-merge (2026-07-18)** — multi-select delete/pin/merge on marker list
 - **marker-card (2026-07-03)** — normalized list/viewing/match cards, removed `markerFormatText()`
 - **wizard-cleanup-race (2026-07-02)** — moved wizard-state cleanup into save/update coroutines
 - **auto-marker-proximity (2026-07-02)** — 🕐 auto markers use `boatMarkerAutoMarkerProximityM` (300m).
@@ -158,8 +158,3 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ## Docs
 - `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — architectural decisions with rationale and source references
 - `xTrack/Markers/FEAT_HYD_Markers.md` — hydration snapshot + known issues (single source of truth)
-- `xTrack/Markers/260625_FEAT_PLN_Markers_whereami-rework.md` — whereAmI rework design (implemented)
-- `xTrack/Markers/260625_FEAT_PLN_Markers_debug-wia.md` — debug instrumentation design (implemented)
-- `xTrack/Markers/260626_FEAT_PLN_Markers_icon.md` — POI icon system design (implemented)
-- `xTrack/Markers/260626_FEAT_PLN_Markers_marker-pin.md` — pin toggle design (implemented)
-- `xTrack/Markers/260626_FEAT_PLN_Markers_marker-pin-tri-state.md` — tri-state layer toggle design (implemented)

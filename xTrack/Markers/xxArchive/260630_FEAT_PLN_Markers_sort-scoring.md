@@ -169,3 +169,6 @@ private fun sortScore(match: WhereAmIMatch): Double {
 ```
 
 Replace `sortedBy { sizeOf(it) }` with `sortedBy { sortScore(it) }` in `depthFirstLeavesFirst()`.
+
+## Outcome
+Superseded before shipping by sort-scoring-v2, the percentage-based formula.
