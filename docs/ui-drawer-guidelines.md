@@ -17,7 +17,8 @@ Layer 0 (permanent, always rendered):
 ├── DashboardPanel (4-card dashboard)
 ├── Right-edge controls (fan, add zone, zoom)
 ├── GPS / Track / EarthWater status icons (EarthWater hidden when the Layers tab setting is off)
-└── Regulated zone warning strip
+├── Regulated zone warning strip
+└── Bottom-band snackbar/toast stack (`MapSnackbarHost` + the `MapStatusBanner` toasts) — composed before `OverlayLayer`, so drawers paint above it
 
 Layer 1 (transient, self-contained):
 ├── Scrim

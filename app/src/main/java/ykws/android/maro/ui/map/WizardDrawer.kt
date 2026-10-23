@@ -213,7 +213,7 @@ private fun WizardStepContent(
                 label = stringResource(R.string.wizard_field_name),
                 value = form.name,
                 singleLine = true,
-                onValueChange = { v -> viewModel.updateForm { it.copy(name = v) } },
+                onValueChange = { v -> viewModel.updateFormName(v) },
                 isLandscape = isLandscape
             )
         }

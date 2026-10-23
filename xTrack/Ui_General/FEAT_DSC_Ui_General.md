@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-10-21 16:30
+modified: 2026-10-23 15:22
 ---
 
 # Feature: Ui_General
@@ -29,7 +29,7 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 
 ### bottom banner
 
-The pills the map shows at the bottom of the band — the exit-press-back banner, the lock toggle's banner and the import/export status banner — and the space they occupy between the bottom-left regulated-zone tag column and the right control column. One control serves every instance and one guideline entry holds its rules; no instance is exempt, the two legacy progress and error cards included. The action and undo rows of the snackbar stack are the family's third full-width face, message left and commands right — the message riding the row's centre and the commands anchored to its bottom edge, Undo drawn first.
+The pills the map shows at the bottom of the band — the exit-press-back banner, the lock toggle's banner and the import/export status banner — and the space they occupy between the bottom-left regulated-zone tag column and the right control column. One control serves every instance and one guideline entry holds its rules; no instance is exempt, the two legacy progress and error cards included. The action and undo rows of the snackbar stack are the family's third full-width face, message left and commands right — the message riding the row's centre and the commands anchored to its bottom edge, Undo drawn first. **The whole stack composes before the drawer ladder** — `MapSnackbarHost` sits ahead of `OverlayLayer` in `MapScreen.kt`, so an open drawer and its scrim paint above a visible toast while the dialogs still paint above the drawer (2026-10-23).
 
 #### Docs
 - `xTrack/Ui_General/261004_FEAT_PLN_Ui_General_action-toasts.md` — the action and undo rows onto the family's skin
@@ -72,6 +72,8 @@ The app's dropdown is the row family's own box: the row is the anchor, the list 
 - `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the popup surface the wheel sits on; §2.15 the rule of entry
 
 ## Implemented
+
+- **toast-menu-z-order (2026-10-23, `feature/toats-life-cycle`)** — the map's bottom-band snackbar/toast stack now composes **before** the drawer ladder: `MapSnackbarHost` moved ahead of `OverlayLayer` in `MapScreen.kt`, so an open drawer and its scrim paint above a visible toast while the dialogs stay above the drawer — the `MapStatusBanner` toasts already sat inside `MapContent`, below the menu. `docs/ui-drawer-guidelines.md` §1 lists the stack in Layer 0. `:app:compileDebugKotlin` and `:app:assembleDebug` green; no dependency added, the device pass the user's.
 
 - **wheel-flick-stays-open (2026-10-21, `feature/wheel-launch`)** — the dropdown's wheel no longer commits on every lift, so a long list can be browsed: `WheelPolicy.wheelFlingKeepsOpen(velocityYPx, minFlingVelocityPx)` is the one comparison (abs velocity at or above the platform's figure), and both gesture paths feed a `VelocityTracker` and **return on a flick** — `DropdownWheel`'s Final-pass observer consumes nothing so the `LazyColumn`'s own `flingBehavior = snap` carries the band while the popup stays open, and the box's `detectVerticalDragGestures` was replaced by an `awaitEachGesture` that keeps the popup open on a flick and commits on a slow lift. A dragged non-flick lift writes the band and closes, a tap stays the row's own `clickable`, an outside tap commits the band, **back now cancels a browse**, and a cancelled drag writes nothing. The previously-inert snap (S-2) is live again; §2.10, §2.12, §2.15 and this epic's `### dropdown row` were restated, and the 2026-10-17 plan is marked superseded where it states the commit rule. `:app:compileDebugKotlin`, the scoped `ui.components` suite and `:app:assembleDebug` green; the flick was confirmed on device (`keepsOpen=true` at 2.5–5.4k px/s, `false` near 0) — no new dependency, no push by the agent
 

@@ -12,3 +12,6 @@ Add pinned/unpinned toggle to all markers using same IconButton pattern as track
 - Pin IconButton in MarkerCardContent header (left of Edit)
 - Pin IconButton in MarkerDrawer ViewingContent header (before Edit)
 - Callback chain: MapScreen → OverlayLayer → MarkerManagementOverlay → SwipeToDeleteMarkerCard → MarkerCardContent
+
+## Outcome
+Shipped: UserMarker.pinned as a persisted boolean and the pin toggle, later folded into setMarkerPinned and the icon-pin-decoupling rework.

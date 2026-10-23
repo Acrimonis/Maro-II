@@ -57,7 +57,7 @@ internal fun MapRouteEngineEffect(
                     { paceProvider() },
                     { settingsProvider().verdictWeight },
                     avoidWorldProvider,
-                    { settingsProvider().routeMarkerStrength.toDouble() }
+                    { AppConfig.routeMarkerCostPerStep }
                 )
     }
 }

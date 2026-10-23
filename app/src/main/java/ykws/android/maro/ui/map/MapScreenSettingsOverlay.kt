@@ -55,9 +55,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
@@ -88,6 +85,8 @@ import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.ConfirmAction
 import ykws.android.maro.ui.components.ConfirmActionButton
 import ykws.android.maro.ui.components.ConfirmActionRole
+import ykws.android.maro.data.route.PaceReading
+import ykws.android.maro.data.route.speedHistoryProfileKn
 
 /**
  * The two render-count sliders' shared value label: the All word at the sentinel, the plain count
@@ -115,6 +114,9 @@ internal fun SettingsOverlay(
     navigationScrollState: ScrollState,
     routingScrollState: ScrollState,
     systemScrollState: ScrollState,
+    onCalculateSpeedHistory: () -> Unit = {},
+    speedHistoryCalculating: Boolean = false,
+    paceNow: PaceReading,
 ) {
     val pagerState = rememberPagerState(pageCount = { SettingsTab.entries.size })
 
@@ -200,7 +202,10 @@ internal fun SettingsOverlay(
                             onExportAllMarkers = onExportAllMarkers,
                             scrollState = layersScrollState
                         )
-                        SettingsTab.ROUTING -> RoutingSettings(settings, onUpdateSettings, routingScrollState)
+                        SettingsTab.ROUTING -> RoutingSettings(
+                        settings, onUpdateSettings, routingScrollState, onCalculateSpeedHistory,
+                        speedHistoryCalculating, paceNow
+                    )
                         SettingsTab.NAVIGATION -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
                         SettingsTab.SYSTEM -> SystemSettings(
                             settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState
@@ -1545,7 +1550,10 @@ private fun NavigationSettings(
 private fun RoutingSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    scrollState: ScrollState
+    scrollState: ScrollState,
+    onCalculateSpeedHistory: () -> Unit,
+    speedHistoryCalculating: Boolean,
+    paceNow: PaceReading
 ) {
     Column(
         modifier = Modifier
@@ -1618,30 +1626,101 @@ private fun RoutingSettings(
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
-        // ── Marker strength ──────────────────────────────────────────────────
-        // How strongly a **costed marker** pushes the line: the linear factor the marker law scales the
-        // base per-metre cost by (`base × step × strength`). Seeded from `route.marker.costPerStep` and
-        // read live by the engine's provider. A Blocked marker is a wall and is never scaled by this.
-        SectionHeader(title = stringResource(R.string.settings_section_route_marker))
+        // ── Speed History ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_speed_history))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-
         CardArea {
+            // The pace in force and where it comes from, whatever stop the Cruising speed row holds.
+            CardDescription(
+                stringResource(
+                    R.string.settings_speed_history_pace_now_fmt,
+                    stringResource(R.string.settings_route_pace_value_fmt, paceNow.kn.toFloat()),
+                    stringResource(paceNow.source.labelRes())
+                )
+            )
             SliderRow(
-                label = stringResource(R.string.settings_route_marker_strength_label),
-                description = stringResource(R.string.settings_route_marker_strength_desc),
+                label = stringResource(R.string.settings_speed_history_window_label),
+                description = stringResource(R.string.settings_speed_history_window_desc),
                 valueLabel = stringResource(
-                    R.string.settings_route_marker_strength_value_fmt, settings.routeMarkerStrength
+                    R.string.settings_speed_history_window_value_fmt, settings.routePaceWindowMin
                 ),
-                value = settings.routeMarkerStrength,
-                valueRange = AppConfig.ROUTE_MARKER_STRENGTH_MIN.toFloat()..
-                    AppConfig.ROUTE_MARKER_STRENGTH_MAX.toFloat(),
-                // Half-steps across 0–5 — ten intervals on the slider's own track.
-                steps = 9,
+                value = settings.routePaceWindowMin.toFloat(),
+                valueRange = AppConfig.ROUTE_PACE_WINDOW_MIN_MIN.toFloat()..
+                    AppConfig.ROUTE_PACE_WINDOW_MIN_MAX.toFloat(),
+                steps = AppConfig.ROUTE_PACE_WINDOW_MIN_MAX - AppConfig.ROUTE_PACE_WINDOW_MIN_MIN - 1,
                 onValueChange = { v ->
-                    onUpdateSettings { it.copy(routeMarkerStrength = (v * 2f).roundToInt() / 2f) }
+                    onUpdateSettings { it.copy(routePaceWindowMin = v.roundToInt()) }
                 }
             )
+
+            SectionDivider()
+
+            SliderRow(
+                label = stringResource(R.string.settings_speed_history_track_count_label),
+                description = stringResource(R.string.settings_speed_history_track_count_desc),
+                valueLabel = settings.routeSpeedHistoryTrackCount.toString(),
+                value = settings.routeSpeedHistoryTrackCount.toFloat(),
+                valueRange = AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN.toFloat()..
+                    AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX.toFloat(),
+                steps = AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MAX - AppConfig.ROUTE_SPEED_HISTORY_TRACKS_MIN - 1,
+                onValueChange = { v ->
+                    onUpdateSettings { it.copy(routeSpeedHistoryTrackCount = v.roundToInt()) }
+                }
+            )
+            ToggleRow(
+                label = stringResource(R.string.settings_speed_history_demo_label),
+                description = stringResource(R.string.settings_speed_history_demo_desc),
+                checked = settings.routeSpeedHistoryIncludeDemo,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(routeSpeedHistoryIncludeDemo = on) } }
+            )
+
+            SectionDivider()
+
+            // Two lines: the last Calculate's snapshot, and the profile today — that plus every trip folded
+            // since, derived from the store at once whenever N or the demo switch moves.
+            val snapshotKn = settings.routeSpeedHistoryComputedKn
+            val todayKn = settings.speedHistoryProfileKn()
+            if (todayKn == null && snapshotKn <= 0f) {
+                CardDescription(stringResource(R.string.settings_speed_history_none))
+            } else {
+                if (snapshotKn > 0f) {
+                    CardDescription(
+                        stringResource(
+                            R.string.settings_speed_history_reset_fmt,
+                            java.text.DateFormat.getDateInstance()
+                                .format(settings.routeSpeedHistoryComputedAtEpochMs),
+                            stringResource(R.string.settings_route_pace_value_fmt, snapshotKn)
+                        )
+                    )
+                }
+                if (todayKn != null) {
+                    CardDescription(
+                        stringResource(
+                            R.string.settings_speed_history_today_fmt,
+                            stringResource(R.string.settings_route_pace_value_fmt, todayKn.toFloat())
+                        )
+                    )
+                }
+            }
+
+            SectionDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                ConfirmActionButton(
+                    action = ConfirmAction(
+                        label = stringResource(R.string.settings_speed_history_calculate),
+                        role = ConfirmActionRole.SECONDARY,
+                        // Off from the press until the rebuild is done, so one Calculate runs at a time.
+                        enabled = !speedHistoryCalculating,
+                        onClick = onCalculateSpeedHistory
+                    )
+                )
+            }
         }
+
     }
 }
 
@@ -2103,7 +2182,9 @@ private fun ColorRow(
 }
 
 /**
- * A reusable color picker dialog showing a grid of preset colors.
+ * The settings rows' door onto the one colour picker: a raw ARGB in and out, mapped to the palette
+ * index the grid works in. A stored colour that is not a palette member maps to null, so no swatch
+ * reads as selected — the picker's own documented behaviour.
  */
 @Composable
 private fun ColorPickerDialog(
@@ -2111,42 +2192,11 @@ private fun ColorPickerDialog(
     onColorSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.color_picker_title)) },
-        text = {
-            Column {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier.height(216.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(MarkerColors.all) { presetColor ->
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ComposeColor(presetColor))
-                                .border(
-                                    width = if (presetColor == currentColor) 3.dp else 1.dp,
-                                    color = if (presetColor == currentColor) ComposeColor(AppConfig.uiAccent)
-                                        else ComposeColor(AppConfig.uiDividerColor),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .clickable {
-                                    onColorSelected(presetColor)
-                                }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
-            }
-        }
+    ShowMarkerColorPicker(
+        visible = true,
+        currentColorIndex = MarkerColors.indexOf(currentColor),
+        onColorSelected = { index -> onColorSelected(MarkerColors.all[index]) },
+        onDismiss = onDismiss
     )
 }
 

@@ -85,6 +85,8 @@ data class SettingsOverlayData(
     val navigationScrollState: ScrollState,
     val routingScrollState: ScrollState,
     val systemScrollState: ScrollState,
+    /** The pace `Now` plans at and its source, for the Speed History section's "Pace now" line. */
+    val paceNow: ykws.android.maro.data.route.PaceReading,
 )
 
 /**
@@ -102,21 +104,12 @@ data class TrackInfoOverlayData(
     val trackListIds: List<String>,
     val currentTrackIndex: Int,
     /**
-     * The colours axis, which the drawer header's eye mirrors while it has never been tapped. It rides
-     * the track-info bundle because the control lives in that drawer's header — the alternative was
-     * widening an already wide `OverlayLayer` (B17).
+     * The eye readout, resolved for the open item's own kind before it rides the bundle (2026-10-23):
+     * the header lights the speedometer from this alone, so neither the axes nor the eye's raw value
+     * cross the layer — the alternative was widening an already wide `OverlayLayer` (B17).
      */
-    val trackColours: Boolean = true,
-    /**
-     * The drawer header's eye (D10): the open track's own override, **local to the card since
-     * 2026-10-07** — null means "follow [trackColours]", which is where a freshly opened card starts,
-     * and the value is cleared when the card closes, nothing being written to disk. It rides the
-     * selection, so it applies to whichever track the drawer has open, and it moves that track's fill
-     * alone: the chevrons follow the arrows axis whatever the eye says. It never moves any axis — the
-     * tracks kind's own switches stay their only writers.
-     */
-    val eyeOverride: Boolean? = null,
-    /** Drawer-header eye toggle: flips [eyeOverride] for the selected track alone. */
+    val bandedOn: Boolean = true,
+    /** Drawer-header eye toggle: flips the one open-card override for the selected item alone. */
     val onToggleEyeOverride: () -> Unit = {},
     /**
      * True while an inspect open is in flight, so this card is the predecessor being held for its

@@ -19,6 +19,11 @@ import ykws.android.maro.data.model.markers.UserMarker
  * like pinned ones; the halo is the only pinned-vs-unpinned differentiator.
  * Search dimming is kept (non-matching markers fade during a whereAmI result).
  *
+ * The **wizard's synthetic preview** ([isPreview]) is the one unconfirmed marker that keeps its palette
+ * colour: it stands for a marker the user is still describing, so a swatch picked in the wizard has to
+ * read on the map at once. A stored unconfirmed marker — the 🕐 idle pin — keeps the caution colour,
+ * and no unconfirmed marker draws a halo either way.
+ *
  * A **routing-weight-only** marker (`routingOnly`) is a *variant*, not a state: it keeps its place in the
  * precedence above, and only its rings and its fill change — every ring dashes and the fill hatches. That
  * decision is made here, once, so the two painters ([MarkerHalo]'s bitmap and [MarkerOverlay]'s zone)
@@ -71,6 +76,8 @@ data class MarkerAppearance(
          * @param pinnedBorderPct Pinned halo border transparency %.
          * @param unpinnedFillPct Unpinned halo fill transparency %.
          * @param unpinnedBorderPct Unpinned halo border transparency %.
+         * @param isPreview       True for the wizard's synthetic placement marker, which draws its own
+         *                        palette colour instead of the caution colour.
          */
         fun of(
             marker: UserMarker,
@@ -83,7 +90,8 @@ data class MarkerAppearance(
             pinnedFillPct: Int,
             pinnedBorderPct: Int,
             unpinnedFillPct: Int,
-            unpinnedBorderPct: Int
+            unpinnedBorderPct: Int,
+            isPreview: Boolean = false
         ): MarkerAppearance {
             val isSelected = marker.id == selectedMarkerId
             val confirmed = marker.confirmed
@@ -91,7 +99,7 @@ data class MarkerAppearance(
             val baseColor = if (isSelected) {
                 COLOR_SELECTED
             } else when {
-                !confirmed -> COLOR_UNCONFIRMED
+                !confirmed && !isPreview -> COLOR_UNCONFIRMED
                 matchActive && !isMatched -> dimColor(markerColor, DIMMED_ALPHA_FRACTION)
                 matchActive -> markerColor
                 else -> markerColor   // pinned and unpinned both render full colour (no pin dimming)

@@ -39,7 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -99,7 +99,11 @@ data class ConfirmRequest(
     val title: String,
     val message: String? = null,
     val options: (@Composable ColumnScope.() -> Unit)? = null,
-    val actions: List<ConfirmAction>
+    val actions: List<ConfirmAction>,
+    /** Drops the title block, its divider and the top padding — the picker's landscape fit. */
+    val dense: Boolean = false,
+    /** Runs on every dismissal door, so a raiser can clear the state that made it visible. */
+    val onDismiss: (() -> Unit)? = null
 )
 
 /**
@@ -138,10 +142,14 @@ fun ConfirmRequestHost(state: ConfirmDialogHostState) {
         ConfirmDialog(
             title = request.title,
             visible = target != null,
-            onDismiss = { state.dismiss() },
+            onDismiss = {
+                state.dismiss()
+                request.onDismiss?.invoke()
+            },
             message = request.message,
             options = request.options,
-            actions = request.actions
+            actions = request.actions,
+            dense = request.dense
         )
     }
 }
@@ -185,7 +193,9 @@ fun ConfirmDialog(
     onDismiss: () -> Unit,
     message: String? = null,
     options: (@Composable ColumnScope.() -> Unit)? = null,
-    actions: List<ConfirmAction>
+    actions: List<ConfirmAction>,
+    /** Dense chrome: no title line, no divider, a shorter top inset. Default off keeps every caller. */
+    dense: Boolean = false
 ) {
     val density = LocalDensity.current
     val imeHeightDp = with(density) { WindowInsets.ime.getBottom(density).toDp() }
@@ -238,25 +248,45 @@ fun ConfirmDialog(
                         // the panel is flush with the screen bottom and must keep reading as
                         // a pull-up drawer (`Surface(border = …)` would trace all four sides
                         // and close the shape at the bottom).
-                        .drawBehind {
+                        // Drawn **above** the panel, never behind it (2026-10-23): as a `drawBehind` path it
+                        // sat under the Surface's own opaque background, so only the two top arcs showed
+                        // through the corner cut-outs and every straight edge — both sides included — was
+                        // covered. Drawing after the content puts the frame on top of the panel it frames.
+                        .drawWithContent {
+                            drawContent()
+                            // Half a stroke in from every edge (2026-10-23): in portrait the panel is
+                            // as wide as the screen, so a path on x = 0 and x = width loses half of its
+                            // 1 dp stroke to the window edge and the two sides read as missing while
+                            // the top survives on its arcs. The inset keeps every stroke whole.
+                            val inset = 0.5.dp.toPx()
                             val radius = 16.dp.toPx()
                             val outline = Path().apply {
-                                moveTo(0f, size.height)
-                                lineTo(0f, radius)
-                                arcTo(Rect(0f, 0f, 2 * radius, 2 * radius), 180f, 90f, false)
-                                lineTo(size.width - radius, 0f)
+                                moveTo(inset, size.height)
+                                lineTo(inset, inset + radius)
                                 arcTo(
-                                    Rect(size.width - 2 * radius, 0f, size.width, 2 * radius),
+                                    Rect(inset, inset, inset + 2 * radius, inset + 2 * radius),
+                                    180f,
+                                    90f,
+                                    false
+                                )
+                                lineTo(size.width - inset - radius, inset)
+                                arcTo(
+                                    Rect(
+                                        size.width - inset - 2 * radius,
+                                        inset,
+                                        size.width - inset,
+                                        inset + 2 * radius
+                                    ),
                                     270f,
                                     90f,
                                     false
                                 )
-                                lineTo(size.width, size.height)
+                                lineTo(size.width - inset, size.height)
                             }
                             drawPath(
                                 path = outline,
-                                color = Color(AppConfig.uiAccent),
-                                style = Stroke(width = 1.dp.toPx())
+                                color = Color(AppConfig.uiHighlight),
+                                style = Stroke(width = 2.dp.toPx())
                             )
                         }
                 ) {
@@ -266,17 +296,24 @@ fun ConfirmDialog(
                             .heightIn(max = maxPanelHeight)
                             .verticalScroll(rememberScrollState())
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 16.dp)
+                            .padding(
+                                top = if (dense) 12.dp else 24.dp,
+                                start = 24.dp,
+                                end = 24.dp,
+                                bottom = 16.dp
+                            )
                     ) {
-                        Text(
-                            text = title,
-                            color = Color(AppConfig.uiTextPrimary),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .semantics { heading() }
-                        )
+                        if (!dense) {
+                            Text(
+                                text = title,
+                                color = Color(AppConfig.uiTextPrimary),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { heading() }
+                            )
+                        }
                         if (message != null) {
                             Spacer(Modifier.height(12.dp))
                             Text(
@@ -286,17 +323,19 @@ fun ConfirmDialog(
                             )
                         }
                         if (options != null) {
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(if (dense) 8.dp else 12.dp))
                             options()
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(if (dense) 12.dp else 4.dp))
                         } else {
                             Spacer(Modifier.height(16.dp))
                         }
-                        HorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = Color(AppConfig.uiDividerColor)
-                        )
-                        Spacer(Modifier.height(12.dp))
+                        if (!dense) {
+                            HorizontalDivider(
+                                thickness = 0.5.dp,
+                                color = Color(AppConfig.uiDividerColor)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
                         actions.forEachIndexed { index, action ->
                             if (index > 0) Spacer(Modifier.height(8.dp))
                             ConfirmActionButton(action)

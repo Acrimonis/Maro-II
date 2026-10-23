@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.map
 
+import android.util.Log
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,6 +48,9 @@ import ykws.android.maro.data.track.TrackViewModel
 
 /** Title prefix of the mode's own candidate overlay. Registered in [OverlayZOrder]'s track band. */
 internal const val INSPECT_TRACK_TITLE_PREFIX = "track_inspect_"
+
+/** Log tag for the inspect-flow instrumentation points. */
+internal const val INSPECT_LOG_TAG = "InspectFlow"
 
 /**
  * The toggle's glyph: U+1F575 U+1F3FD — the sleuth, which reads as "what is under here", the very
@@ -585,6 +589,7 @@ internal fun MapInspectEffects(
             // Capture the acquire point once, at arming, then run the first sweep: the gold is live on
             // the first frame and the point stands for the rest of the session.
             reference.value = inspectAnchor(mv, offsetState.value())
+            reference.value?.let { Log.d(INSPECT_LOG_TAG, "anchor lat=${it.latitude} lon=${it.longitude}") }
             refreshMotion()
             onDispose { mv.removeMapListener(listener) }
         }
@@ -663,6 +668,7 @@ internal fun MapInspectEffects(
                     val ref = reference.value ?: return@withContext emptyList()
                     InspectRanking.rank(ref, warm)
                 }
+                Log.d(INSPECT_LOG_TAG, "ladder n=${ladder.size} head=${ladder.take(12).joinToString { "${it.kind}:${it.id.take(8)}:${it.distanceM.toInt()}" }}")
                 onRecentre(candidate, ladder)
             }
     }

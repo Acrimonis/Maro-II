@@ -83,7 +83,8 @@ internal fun MapServiceEffects(
                 bearingDeg = bearing,
                 hasLock = isGps,
                 timestampEpochMs = System.currentTimeMillis(),
-                accuracyM = if (isGps) viewModel.gpsAccuracy.value else null
+                accuracyM = if (isGps) viewModel.gpsAccuracy.value else null,
+                isDemo = !isGps
             )
         }.filterNotNull()
 
