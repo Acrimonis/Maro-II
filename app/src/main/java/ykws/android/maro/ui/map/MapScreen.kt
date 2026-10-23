@@ -778,7 +778,7 @@ fun MapScreen(
                     { routeSearchPaceKn.value },
                     { viewModel.settings.value.verdictWeight },
                     avoidWorldProvider,
-                    { viewModel.settings.value.routeMarkerStrength.toDouble() }
+                    { AppConfig.routeMarkerCostPerStep }
                 )
         )
     }
@@ -1193,7 +1193,7 @@ fun MapScreen(
         heavyJob = depthRasterGenerating != null,
         position = gpsPosition,
         avoidWorldProvider = avoidWorldProvider,
-        markerStrength = { appSettings.routeMarkerStrength.toDouble() }
+        markerStrength = { AppConfig.routeMarkerCostPerStep }
     )
     /**
      * The position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — and
@@ -2216,6 +2216,7 @@ fun MapScreen(
                     // and a hand-off left standing here would swallow every close and hold the centre
                     // until the toggle (plan §5).
                     if (inspectHandoff != null) abandonInspectOpen()
+                    Log.d(INSPECT_LOG_TAG, "marker not found id=${id}")
                     return
                 }
                 // R1: one selected item at a time — opening a marker detail closes the track detail
@@ -2760,7 +2761,7 @@ fun MapScreen(
                         id = id,
                         walkWorld = cursor?.ladderIds,
                         closeTrackCard = held == null,
-                        markerLookup = cursor?.resolveMarker,
+                        markerLookup = cursor?.resolveMarker ?: { lookupId -> markersViewModel.mapMarkers.value.find { it.id == lookupId } },
                         walkWorldSource = DrawerSource.INSPECT,
                         frame = frame
                     )
@@ -2786,6 +2787,7 @@ fun MapScreen(
                 inspectCursor = cursor
                 inspectCandidate = null
                 openInspectCard(next.id, next.kind, cursor, frame = true)
+                Log.d(INSPECT_LOG_TAG, "step idx=${cursor.index} ${next.kind}:${next.id.take(8)} dist=${next.distanceM.toInt()}")
             }
 
             /**
@@ -2887,10 +2889,14 @@ fun MapScreen(
                         }
                         UserMarker(
                             id = "__unconfirmed__",
-                            name = createForm.name.ifBlank { "New Marker" },
+                            name = createForm.name,
                             geometry = geometry,
                             description = createForm.description,
                             proximityOverrideM = createForm.proximityOverrideM.toDoubleOrNull(),
+                            // The form's colour rides on the preview: the overlay draws it as the
+                            // marker's own colour (MarkerAppearance.isPreview), so a swatch picked in
+                            // the wizard shows on the map before Finish.
+                            colorIndex = createForm.colorIndex,
                             confirmed = false
                         )
                     } else null
@@ -3785,6 +3791,7 @@ fun MapScreen(
             inspectCursor = InspectCursor.at(ladder, target.id) { id ->
                 markersViewModel.mapMarkers.value.find { it.id == id }
             }
+            Log.d(INSPECT_LOG_TAG, "recentre target=${target.kind}:${target.id.take(8)} idx=${inspectCursor?.index} head=${ladder.take(8).joinToString { "${it.kind}:${it.id.take(8)}:${it.distanceM.toInt()}" }}")
             inspectRecentring = true
             when (target.kind) {
                 InspectKind.MARKER -> markersViewModel.mapMarkers.value
@@ -3981,6 +3988,37 @@ fun MapScreen(
             trackSummaries = trackSummaries,
             routeSummaries = routeSummaries,
             pendingDeletions = pendingDeleteIds
+        )
+
+        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
+        // Composed before OverlayLayer so the menu drawer and its scrim paint above it: a toast can
+        // never display over the open menu.
+        MapSnackbarHost(
+            activeSnacks = activeSnacks,
+            isLandscape = isLandscape,
+            dashboardBandHeight = dashboardBandHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            tagsDrawn = bandTagsDrawn,
+            // The route ending's toast is answered here, inside the route block where the disposal
+            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
+            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
+            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
+            // of disposing a restored route. Every other snack keeps its own handler.
+            onUndo = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
+                } else onSnackUndo(snack)
+            },
+            onTimeout = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
+                } else onSnackTimeout(snack)
+            },
+            onSecondAction = { snack ->
+                if (snack is ActiveSnack.RouteEnd) {
+                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
+                }
+            }
         )
 
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
@@ -4348,35 +4386,6 @@ fun MapScreen(
             val savedMarker = userMarkers.find { it.id == id }
             enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: "Unknown"))
         }
-
-        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
-        MapSnackbarHost(
-            activeSnacks = activeSnacks,
-            isLandscape = isLandscape,
-            dashboardBandHeight = dashboardBandHeight,
-            landscapeDashboardWidth = landscapeDashboardWidth,
-            tagsDrawn = bandTagsDrawn,
-            // The route ending's toast is answered here, inside the route block where the disposal
-            // lives: Undo cancels the window, the timeout (and the swipe) commits it, and the second
-            // action re-arms. Each handler acts only on the window's **own** snack — a 4 s continuation
-            // dispatched alongside an Undo or a New acquisition finds its uid stale and no-ops instead
-            // of disposing a restored route. Every other snack keeps its own handler.
-            onUndo = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) cancelPendingDiscard()
-                } else onSnackUndo(snack)
-            },
-            onTimeout = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) commitPendingDiscard()
-                } else onSnackTimeout(snack)
-            },
-            onSecondAction = { snack ->
-                if (snack is ActiveSnack.RouteEnd) {
-                    if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
-                }
-            }
-        )
 
         // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
         MapDialogHost(

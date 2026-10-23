@@ -360,6 +360,27 @@
     <string name="cd_resume_recording">Reprendre l\'enregistrement</string>
     <string name="cd_follow_route">Suivre la route</string>
     <string name="marker_color_title">Couleur du repère</string>
+    <string name="color_picker_title">Choisir une couleur</string>
+    <string name="marker_color_name_black">Noir</string>
+    <string name="marker_color_name_gold">Or</string>
+    <string name="marker_color_name_green">Vert</string>
+    <string name="marker_color_name_lime">Citron vert</string>
+    <string name="marker_color_name_orange">Orange</string>
+    <string name="marker_color_name_grey">Gris</string>
+    <string name="marker_color_name_vivid_violet">Violet vif</string>
+    <string name="marker_color_name_red">Rouge</string>
+    <string name="marker_color_name_spring_green">Vert printemps</string>
+    <string name="marker_color_name_purple">Violet</string>
+    <string name="marker_color_name_light_green">Vert clair</string>
+    <string name="marker_color_name_amber">Ambre</string>
+    <string name="marker_color_name_azure">Azur</string>
+    <string name="marker_color_name_cyan">Cyan</string>
+    <string name="marker_color_name_hot_magenta">Magenta vif</string>
+    <string name="marker_color_name_white">Blanc</string>
+    <string name="marker_color_name_pale_yellow">Jaune pâle</string>
+    <string name="marker_color_name_coral">Corail</string>
+    <string name="marker_color_name_silver">Argent</string>
+    <string name="marker_color_name_heavy_blue">Bleu intense</string>
     <string name="marker_icon_title">Icône du repère</string>
     <string name="marker_icon_none">Aucune (✕)</string>
     <string name="marker_empty">Aucun repère</string>
@@ -391,7 +412,6 @@
     <string name="filter_option_no_route_role">Aucun</string>
     <string name="filter_option_routing_only">Routage seul</string>
     <string name="filter_option_normal">Normal</string>
-    <string name="color_picker_title">Choisir une couleur</string>
     <string name="settings_section_depth_map">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
     <string name="action_regenerate">Régénérer</string>
@@ -814,10 +834,6 @@
     <string name="settings_route_slow_water_value_fmt">%1$sx</string>
     <string name="settings_route_slow_water_fastest">Plus rapide</string>
     <string name="settings_route_slow_water_ignore_time">Ignorer le temps</string>
-    <string name="settings_section_route_marker">Tarification des repères</string>
-    <string name="settings_route_marker_strength_label">Force des repères</string>
-    <string name="settings_route_marker_strength_desc">L\'intensité avec laquelle un repère à coût écarte la route de sa zone. Un repère bloqué est un mur et l\'ignore.</string>
-    <string name="settings_route_marker_strength_value_fmt">%1$.1f\u00d7</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les trois lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
     <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>

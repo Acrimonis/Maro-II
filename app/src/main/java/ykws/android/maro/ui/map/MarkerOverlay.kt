@@ -192,6 +192,9 @@ fun MarkerOverlay(
             val appearance = MarkerAppearance.of(
                 marker = marker,
                 markerColor = markerColor,
+                // The wizard's synthetic preview draws the form's own colour, so a picked swatch
+                // reads on the map before the marker is saved (see MarkerAppearance.isPreview).
+                isPreview = marker === unconfirmedMarker,
                 isMatched = isMatched,
                 matchActive = matchResult != null,
                 selectedMarkerId = selectedMarkerId,
@@ -398,6 +401,7 @@ fun MarkerOverlay(
             val appearance = MarkerAppearance.of(
                 marker = marker,
                 markerColor = markerColor,
+                isPreview = marker === unconfirmedMarker,
                 isMatched = isMatched,
                 matchActive = matchResult != null,
                 selectedMarkerId = selectedMarkerId,

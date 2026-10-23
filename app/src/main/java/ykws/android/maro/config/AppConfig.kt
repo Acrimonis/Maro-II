@@ -72,8 +72,8 @@ object AppConfig {
 
     /**
      * **The marker price's linear strength** — the per-step factor the marker law scales the base
-     * per-metre cost by (`base × step × this`). The Routing row seeds from it and raises it live. Set
-     * via `route.marker.costPerStep`.
+     * per-metre cost by (`base × step × this`). Set via `route.marker.costPerStep`, which is its only
+     * home: no screen exposes it, so a marker's own rating is the whole of the user's say.
      */
     var routeMarkerCostPerStep = 1.0
         private set
@@ -764,12 +764,6 @@ object AppConfig {
      */
     var routeTurnReachFraction: Double = 1.0
         private set
-
-    /** Lowest marker price strength the Routing row accepts — one home for that end. */
-    const val ROUTE_MARKER_STRENGTH_MIN = 0.0
-
-    /** Highest marker price strength the Routing row accepts — one home for that end. */
-    const val ROUTE_MARKER_STRENGTH_MAX = 5.0
 
     /**
      * The speed zone's outside-margin price as a fraction of the interior's —
@@ -1584,6 +1578,9 @@ object AppConfig {
     /** Settings panel accent colour. Default #FF1565C0. Set via `ui.accent` in colors.properties. */
     var uiAccent: Int = 0xFF1565C0.toInt()
         private set
+    /** Dialog frame highlight. Default #FF48A7F5. Set via `ui.highlight` in colors.properties. */
+    var uiHighlight: Int = 0xFF48A7F5.toInt()
+        private set
     /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.value.text` in colors.properties. */
     var uiValueText: Int = 0xFF48a7f5.toInt()
         private set
@@ -2377,6 +2374,7 @@ object AppConfig {
             props.getProperty("ui.text.muted")?.let { parseColorOrNull(it) }?.let { uiTextMuted = it }
             props.getProperty("ui.text.secondary")?.let { parseColorOrNull(it) }?.let { uiTextSecondary = it }
             props.getProperty("ui.accent")?.let { parseColorOrNull(it) }?.let { uiAccent = it }
+            props.getProperty("ui.highlight")?.let { parseColorOrNull(it) }?.let { uiHighlight = it }
             // ── The route line and pin, and the whole family's seeds (path.*) ───
             // The followed line's colour and transparency, its width and casing, the dimming beside
             // the plan, the pin, the two stored pairs and their fades, the count and the two route

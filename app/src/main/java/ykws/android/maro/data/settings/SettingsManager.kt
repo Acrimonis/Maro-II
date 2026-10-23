@@ -165,13 +165,6 @@ data class AppSettings(
         ykws.android.maro.config.AppConfig.routeAvoidSlowWaterWeight
     ).index,
     /**
-     * The **marker price's strength** — the linear factor the marker law scales the base per-metre cost
-     * by (`base × step × strength`), seeded from `route.marker.costPerStep` so the property stays the
-     * value's one home. A Routing row raises it live.
-     */
-    val routeMarkerStrength: Float =
-        ykws.android.maro.config.AppConfig.routeMarkerCostPerStep.toFloat(),
-    /**
      * The route algorithm the harness arms with — the id the registry resolves, seeded from
      * `route.engine.id`, so the property stays the value's one home and the user's choice persists
      * here. An id nothing claims falls back to the registry's default and is reported at startup.
@@ -699,13 +692,6 @@ class SettingsManager(
         },
         // The dial's one stored value, clamped on read — and the one place a pre-dial store is mapped.
         routeSlowWaterStop = resolveSlowWaterStop(),
-        routeMarkerStrength = prefs.getFloat(
-            KEY_ROUTE_MARKER_STRENGTH,
-            ykws.android.maro.config.AppConfig.routeMarkerCostPerStep.toFloat()
-        ).coerceIn(
-            ykws.android.maro.config.AppConfig.ROUTE_MARKER_STRENGTH_MIN.toFloat(),
-            ykws.android.maro.config.AppConfig.ROUTE_MARKER_STRENGTH_MAX.toFloat()
-        ),
         routeEngineId = prefs.getString(
             KEY_ROUTE_ENGINE_ID,
             ykws.android.maro.config.AppConfig.routeEngineId
@@ -948,7 +934,6 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
             .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
             .putInt(KEY_ROUTE_SLOW_WATER_STOP, updated.routeSlowWaterStop)
-            .putFloat(KEY_ROUTE_MARKER_STRENGTH, updated.routeMarkerStrength)
             .putString(KEY_ROUTE_ENGINE_ID, updated.routeEngineId)
             .putInt(KEY_ROUTE_PACE_WINDOW_MIN, updated.routePaceWindowMin)
             .putInt(KEY_ROUTE_SPEED_HISTORY_TRACK_COUNT, updated.routeSpeedHistoryTrackCount)
@@ -1167,8 +1152,6 @@ class SettingsManager(
         private const val LEGACY_AVERSION_SPAN = 5f
         /** The retired stop table's own last index — the sentinel counting as a stop, as it did then. */
         private const val LEGACY_VERDICT_LAST_INDEX = 4
-        /** The persisted marker price strength, seeded from `route.marker.costPerStep`. */
-        private const val KEY_ROUTE_MARKER_STRENGTH = "route_marker_strength"
         /** The persisted route algorithm id — the user's choice, seeded from `route.engine.id`. */
         private const val KEY_ROUTE_ENGINE_ID = "route_engine_id"
         /** The persisted pace window (min, 2–10). */

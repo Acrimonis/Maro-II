@@ -10,14 +10,16 @@
 > 🎨 <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;margin:0 2px;border:1px solid rgba(255,255,255,0.2);"></span> Swatches show the actual colour.
 >
 > The **picker presets** are the one colour list that lives in code rather than a properties file:
-> [`MarkerColors.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt) holds the 16 hues that
-> both pickers offer — the marker colour dialog and the settings colour rows — so its values are deliberately
+> [`MarkerColors.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt) holds the 20 hues the one
+> picker offers — the settings colour rows and the marker wizard's colour swatch — so its values are deliberately
 > not restated here, and the list's own order is its index order.
 >
-> The palette is chosen for contrast over the sea and land of the MAPNIK tiles, and it holds no blue
-> because the depth overlay already owns the blues and a hue near the water reads as water. Its hues
-> stay vivid rather than muted and are spread across a wide lightness range, so two entries sharing a
-> hue sit a tier apart and any pair clears 40 degrees of hue or 0.10 of lightness.
+> The palette is chosen for contrast over the sea, the land and the depth overlay alike: it admits no
+> colour that reads as water, which is why its two blues are a heavy navy and an azure rather than
+> anything inside the ramp's pale-to-mid band. Its hues stay vivid rather than muted, and no two
+> swatches may look alike — the criterion is perceived difference, every pair clearing ΔE ≥ 25 in
+> CIELAB (CIE76), with `MarkerColorsTest` as its one numeric gate while the palette's KDoc carries the
+> named tiers, the water clause and the eye rule that overrules both.
 >
 > A value taken from the grid is fully opaque, whereas a stored colour may carry its own alpha; since
 > the picker compares by equality, an alpha-bearing value matches no swatch and shows no selection.
@@ -409,6 +411,7 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
 | `ui.accent` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Switch thumb/track, slider, buttons, selected tab indicator — the **action's** fill (one per surface, §5.6) |
+| `ui.highlight` | `#FF48A7F5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#48a7f5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | The dialogue frame — a `ConfirmDialog` panel's own **2 dp** outline. Brighter than `ui.accent` on purpose: the accent is a fill, and a 1 dp line of it on the dark panel read as faint |
 | `ui.select.container` | `#4D1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.3;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Selected-state container for a connected group of choices — a `SegmentedRow` segment and a `MultiSelectRow` on half (§2.7 / §2.7b), with the check glyph in `ui.value.text` and a 1dp `ui.accent` border on the selected cell. The accent fill stays the action's |
 | `ui.action.neutral.background` | `#801565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | The **middle action's background** — the accent's own RGB at 50 %, worn by a full action button that carries a **2 dp `ui.accent` rim at full opacity** and the primary's white bold label (§5.6 / §5.9, tier 1). The body's weight states the rank; the rim states that the control can be taken |
 | `ui.value.text` | `#FF48a7f5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#48a7f5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Slider value readouts (small bold value text) |

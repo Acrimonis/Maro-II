@@ -361,6 +361,27 @@
     <string name="cd_resume_recording">Resume recording</string>
     <string name="cd_follow_route">Follow route</string>
     <string name="marker_color_title">Marker Color</string>
+    <string name="color_picker_title">Pick color</string>
+    <string name="marker_color_name_black">Black</string>
+    <string name="marker_color_name_gold">Gold</string>
+    <string name="marker_color_name_green">Green</string>
+    <string name="marker_color_name_lime">Lime</string>
+    <string name="marker_color_name_orange">Orange</string>
+    <string name="marker_color_name_grey">Grey</string>
+    <string name="marker_color_name_vivid_violet">Vivid Violet</string>
+    <string name="marker_color_name_red">Red</string>
+    <string name="marker_color_name_spring_green">Spring Green</string>
+    <string name="marker_color_name_purple">Purple</string>
+    <string name="marker_color_name_light_green">Light Green</string>
+    <string name="marker_color_name_amber">Amber</string>
+    <string name="marker_color_name_azure">Azure</string>
+    <string name="marker_color_name_cyan">Cyan</string>
+    <string name="marker_color_name_hot_magenta">Hot Magenta</string>
+    <string name="marker_color_name_white">White</string>
+    <string name="marker_color_name_pale_yellow">Pale Yellow</string>
+    <string name="marker_color_name_coral">Coral</string>
+    <string name="marker_color_name_silver">Silver</string>
+    <string name="marker_color_name_heavy_blue">Heavy Blue</string>
     <string name="marker_icon_title">Marker Icon</string>
     <string name="marker_icon_none">None (✕)</string>
     <string name="marker_empty">No markers yet</string>
@@ -392,7 +413,6 @@
     <string name="filter_option_no_route_role">None</string>
     <string name="filter_option_routing_only">Route Only</string>
     <string name="filter_option_normal">Normal</string>
-    <string name="color_picker_title">Pick color</string>
     <string name="settings_section_depth_map">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
     <string name="action_regenerate">Regenerate</string>
@@ -810,10 +830,6 @@
     <string name="settings_route_slow_water_value_fmt">%1$sx</string>
     <string name="settings_route_slow_water_fastest">Fastest</string>
     <string name="settings_route_slow_water_ignore_time">Ignore time</string>
-    <string name="settings_section_route_marker">Marker pricing</string>
-    <string name="settings_route_marker_strength_label">Marker strength</string>
-    <string name="settings_route_marker_strength_desc">How strongly a costed marker pushes the route away from its zone. A blocked marker is a wall and ignores this.</string>
-    <string name="settings_route_marker_strength_value_fmt">%1$.1f\u00d7</string>
     <!-- The algorithm harness: the System-tab section, its description and the three shipped rows. -->
     <string name="settings_section_route_algorithm">Route algorithm</string>
     <string name="settings_route_algorithm_desc">The algorithm that plans a route; it applies the next time you arm the destination.</string>
