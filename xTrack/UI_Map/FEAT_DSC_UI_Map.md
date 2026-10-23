@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-10-17 13:06
+modified: 2026-10-23 16:20
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -76,6 +76,7 @@ explicit values/ViewModels + inline callbacks).
 
 ## Implemented
 
+- **inspect mode — live-acquire marker resolves in the map world, and the anchor chain instrumented (2026-10-23, `feature/inspect-mode-fix`)** — the live acquire now resolves the marker through `markersViewModel.mapMarkers`, the very world the sweep ranked, so a marker on the map but absent from the list still opens its dashboard; `InspectFlow` logs the arming anchor, the frozen ladder, the recentre seat and each step to settle the recentre-anchor question on the device. → `xTrack/UI_Map/261023_FEAT_PLN_UI_Map_inspect-mode-fix.md`
 - **inspect mode — the walk covers the whole filtered list (2026-10-17, `feature/inspect`)** — the viewport cut is withdrawn: `InspectBounds` and the candidate bbox leave `InspectRanking`, `rank()` and `nearest()` take just the anchor and the candidates, and both `boundingBox` reads leave the inspect effects, so the sweep's nearest and the walk cover every item the map holds while the filters and layer buttons still gate the set and the live track stays out.
 - **inspect mode — one anchor at arming and a frozen walk owning the card (2026-10-17, `feature/inspect`)** — the acquire point is captured once at arming and never re-established, so each sweep ranks from where the mode was armed, while the pause's freeze stops the sweep publishing, stops the quiet clock re-arming and paints the cursor's item gold, a live open or close refused.
 - **inspect mode — quiet at 1499 ms, its viewport ladder withdrawn the same day (2026-10-17, `feature/inspect`)** — `map.inspect.dwellMs` ships at 1499 with `AppConfig.uiMapInspectDwellMs` mirroring it and `InspectModePropertiesTest` pinning both homes; the viewport-only ladder it introduced was withdrawn by the entry above, so the walk again covers the map's full filtered set.

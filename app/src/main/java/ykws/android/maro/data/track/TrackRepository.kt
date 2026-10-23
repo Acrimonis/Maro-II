@@ -435,7 +435,8 @@ class TrackRepository(
                         // The two ends ride the same pass: the acquisition's stored-route match reads
                         // them off the summaries, so it never has to open a track file to find one.
                         routeStartMarkerId = track.routeStartMarkerId,
-                        routeDestinationMarkerId = track.routeDestinationMarkerId
+                        routeDestinationMarkerId = track.routeDestinationMarkerId,
+                        demo = track.demo
                     )
                 }
             } ?: emptyList()

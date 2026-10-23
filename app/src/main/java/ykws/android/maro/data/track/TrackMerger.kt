@@ -144,6 +144,7 @@ class TrackMerger {
             idleDurationSec = tracks.sumOf { it.idleDurationSec } + gapIdleSec,
             trackColorArgb = tracks.first().trackColorArgb,
             pinned = tracks.all { it.pinned },
+            demo = tracks.any { it.demo },
             updatedAtEpochMs = System.currentTimeMillis()
         )
     }

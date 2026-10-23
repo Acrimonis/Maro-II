@@ -1,82 +1,53 @@
 package ykws.android.maro.data.route
 
-import ykws.android.maro.config.AppConfig
+/** Where the pace `Now` plans at comes from — the word the panel's header and the Speed History section print. */
+enum class PaceSource { LIVE, TODAY, HISTORY, DEFAULT }
+
+/** The pace `Now` plans at, with the source it comes from. */
+data class PaceReading(val kn: Double, val source: PaceSource)
 
 /**
- * The pace a route's trip figure plans at.
+ * The pace's pure rules around [PacePlateau]: which pace a trip starts on and which source names the number.
  *
- * A route's ETA starts on the set free-water pace, because a boat that has not moved yet has no
- * evidence to offer. Once it has been under way, the boat's own speed over ground is the better
- * answer — but only where that speed means something: taken inside a regulated zone or inside the
- * 300 m band, the reading is the speed the *limit* allowed, not the speed the boat will hold, so
- * those samples are dropped by the caller's [Sample.restricted] flag rather than averaged in.
+ * The starting pace is the day's saved live pace while its date is the trip's, else the learned history, else
+ * the shipped default. The source is **Live** once the trip's eligible readings fill a quarter of the window —
+ * the point from which they can move the number — and otherwise the starting pace's own.
  *
- * The window is reduced by a **high quantile, not a mean**: a boat's average is dragged down by
- * every swell, turn and idle minute, and a mean-paced ETA that promises more than the boat delivers
- * is the one error a navigator notices. A quantile near the top of the window is the pace the boat
- * actually holds when it is going well, which is the honest number to promise.
- *
- * Thin windows fall back to the set pace: below [MIN_SAMPLES] there is no pace to speak of, and a
- * guess dressed as a measurement is worse than the setting the user chose.
- *
- * Pure Kotlin, no Android dependency, so the reduction is a unit test rather than a device run.
+ * Pure Kotlin, no Android dependency.
  */
 object RoutePace {
 
-    /** How far back the window reaches (ms): the last ten minutes of sailing. */
-    const val WINDOW_MS: Long = 10 * 60 * 1_000L
-
     /**
-     * The quantile the window is reduced by — 0.75, the pace held for three quarters of the window
-     * or better. High enough to be the boat's real pace, low enough not to be its best moment.
-     */
-    const val QUANTILE: Double = 0.75
-
-    /** Below this many eligible samples the window is too thin to trust and the set pace stands. */
-    const val MIN_SAMPLES: Int = 5
-
-    /**
-     * One speed reading.
+     * The pace a trip starts on.
      *
-     * @property speedKn    speed over ground (kn).
-     * @property atMs       when it was taken (epoch millis).
-     * @property restricted true when the reading was taken inside a regulated zone or the 300 m
-     *                      band, where it measures the limit rather than the boat.
+     * @param dayKn      the saved live pace of the day, null or non-positive when none was saved.
+     * @param dayDate    the local date that pace was saved under.
+     * @param tripDate   the local date the trip started on — checked once, so a trip past midnight keeps it.
+     * @param historyKn  the learned history's value, null when the history is empty.
+     * @param defaultKn  the shipped pace, the floor beneath both.
      */
-    data class Sample(
-        val speedKn: Double,
-        val atMs: Long,
-        val restricted: Boolean = false
-    )
-
-    /**
-     * @param samples   the recent readings, oldest first or in any order.
-     * @param nowMs     the moment the pace is asked for.
-     * @param setPaceKn the pace the user set, used whenever the window has nothing to say.
-     * @return the pace to plan with (kn), always inside the setting's own span.
-     */
-    fun paceKn(samples: List<Sample>, nowMs: Long, setPaceKn: Double): Double {
-        val eligible = samples
-            .filter { !it.restricted && it.speedKn.isFinite() && it.speedKn > 0.0 }
-            .filter { it.atMs <= nowMs && it.atMs >= nowMs - WINDOW_MS }
-            .map { it.speedKn }
-            .sorted()
-        if (eligible.size < MIN_SAMPLES) return clamp(setPaceKn)
-        return clamp(quantile(eligible))
+    fun starting(
+        dayKn: Double?,
+        dayDate: String,
+        tripDate: String,
+        historyKn: Double?,
+        defaultKn: Double
+    ): PaceReading = when {
+        dayKn != null && dayKn > 0.0 && dayDate == tripDate -> PaceReading(dayKn, PaceSource.TODAY)
+        historyKn != null && historyKn > 0.0 -> PaceReading(historyKn, PaceSource.HISTORY)
+        else -> PaceReading(defaultKn, PaceSource.DEFAULT)
     }
 
     /**
-     * The nearest-rank quantile: the smallest sample at or above which [QUANTILE] of the window
-     * sits. Sorting has already happened, so this is one index, not a second pass.
+     * Whether the trip's own readings fill enough of the window to be named **Live**: a quarter of it, the
+     * point from which they can move the number, not the first reading.
      */
-    private fun quantile(sorted: List<Double>): Double {
-        val rank = Math.ceil(sorted.size * QUANTILE).toInt().coerceIn(1, sorted.size)
-        return sorted[rank - 1]
-    }
+    fun isLive(readingMs: Long, windowMs: Long): Boolean = readingMs * 4 >= windowMs
 
-    /** A pace outside the setting's span is a bad sample, not a new range. */
-    private fun clamp(paceKn: Double): Double = paceKn.coerceIn(
-        AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN.toDouble(),
-        AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN.toDouble()
-    )
+    /**
+     * Whether a speed reading is the boat cruising: a real, positive speed at or above [stopKn]. The one rule
+     * the live pace and a stored trip's reduction both read; the zone and band exclusion is the caller's.
+     */
+    fun isCruising(speedKn: Double, stopKn: Double): Boolean =
+        speedKn.isFinite() && speedKn > 0.0 && speedKn >= stopKn
 }

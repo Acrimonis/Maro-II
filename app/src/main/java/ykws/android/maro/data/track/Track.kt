@@ -74,7 +74,17 @@ data class Track(
      */
     @ProtoNumber(20) val routeStartMarkerId: String = "",
     /** **The flagged marker at the route's destination end**, or `""` when that end was not a marker. */
-    @ProtoNumber(21) val routeDestinationMarkerId: String = ""
+    @ProtoNumber(21) val routeDestinationMarkerId: String = "",
+    /**
+     * True when the trip **ever ran on the simulated demo boat**: the recorder sets it the moment it takes a
+     * demo-mode sample, so a pure GPS trip never carries it. Whether a trip counts toward the learned speed
+     * history reads it.
+     *
+     * A fresh number with a default, so an old blob reads `false` — an old demo track, which the data cannot
+     * tell apart, counts as GPS — and an older build still reads a new one. The GPX export carries it with no
+     * exporter change, the blob being the whole track, and a foreign GPX builds a track with the default.
+     */
+    @ProtoNumber(22) val demo: Boolean = false
 )
 
 /**
@@ -93,6 +103,9 @@ fun trackAutoName(epochMs: Long): String =
  */
 fun Track.lastRealPointTimeMsOrNull(): Long? =
     trackPoints.lastOrNull { it.type != PointType.GAP }?.let { startTimeMs + it.timeOffsetMs }
+
+/** The track after taking [sample]: a simulated sample marks it demo for good, a GPS sample never does. */
+fun Track.markedFor(sample: TrackSample): Track = if (sample.isDemo && !demo) copy(demo = true) else this
 
 /**
  * Lightweight summary of a [Track] for list display — no polyline points.
@@ -154,7 +167,9 @@ data class TrackSummary(
      */
     @ProtoNumber(20) val routeStartMarkerId: String = "",
     /** [Track.routeDestinationMarkerId] projected beside [routeStartMarkerId], the same way and for the same reader. */
-    @ProtoNumber(21) val routeDestinationMarkerId: String = ""
+    @ProtoNumber(21) val routeDestinationMarkerId: String = "",
+    /** [Track.demo] projected in the index pass, so the speed history picks the trips of each kind without loading a track. */
+    @ProtoNumber(22) val demo: Boolean = false
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment

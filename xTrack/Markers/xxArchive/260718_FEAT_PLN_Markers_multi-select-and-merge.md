@@ -97,3 +97,6 @@ onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, nam
 - Track multi-select: `TrackHistoryOverlay.kt:231-358` — reference implementation
 - Multiselect framework: `docs/ui-lists-guidelines.md` §Multiselect Framework
 - `MultiActionSpec`: `data/model/MultiActionSpec.kt`
+
+## Outcome
+Shipped 2026-07-18: multi-select delete and pin, plus auto-marker merge with keep-originals.
