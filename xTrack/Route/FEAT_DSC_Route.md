@@ -11,6 +11,10 @@ State doc — what the mode is, what the code does today, and what is left. Pres
 `## Implemented` log, the closed walk levels and the struck requirements were removed on the user's word
 of 2026-10-07, so this file states the current code and nothing else.
 
+## Summary
+- Set a destination and the app draws the route from the boat to it through one `RouteEngine` seam (dummy · avoid · evolutive) arming a Detour · Balanced · Coastal ladder, then saves the line as an ordinary track; the depth gate, corner pass, pull lookback and the coarse-anchored ends stand as shipped.
+- Owed: the `Any` pace's device pass (a drive, a stop, a second trip the same day, Calculate), the measured gate's device pass (the Bacon – La Grenille pair among it), the choice of whether `avoid` — the default row, now strict at 20 m on 100 m cells — takes the berth's floor and ramp, the inner ramp's rate on the device's `innerM`, and the straightener's epsilon on device.
+
 ## Concept
 
 Set a destination and have the app draw the route from the boat's position to it, then save that line as

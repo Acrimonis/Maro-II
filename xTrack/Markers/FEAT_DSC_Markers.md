@@ -10,6 +10,19 @@ modified: 2026-10-23 17:41
 **Description:**
 User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-of-sight matching with proximity-zone pre-filter (land-blocking via coastline spatial index + 10m grazing tolerance). On-demand "where am I?" query via boat marker tap. Step-by-step wizard for creation/editing. Viewing drawer (card layout) + match result display. Management page with swipe-to-delete. OSMdroid native overlays. Binary layer toggle (HIDDEN/SHOW_ALL). POI emoji icons on markers; pin is a real persisted flag.
 
+## Summary
+- User markers (Pin/Circle/Corridor) with a wizard shell, where-am-I and a management list, all drawn on osmdroid overlays.
+- A marker card's Edit always rebuilds its form from the marker being edited, so a Prev/Next move cannot open the first marker's data in the wizard.
+- A marker's auto-name is one pure `markerAutoName`: its own geometry is asked of the where-am-i — a corridor's midpoint first, its endpoints only when the midpoint is silent — and the fallback is the tracks' `trackAutoName` stamp, the caller-supplied type glyph leading the string.
+- The wizard's default title no longer names a colour: it opens as `📍 yyyy-MM-dd HH:mm`, re-names at shape-step exits and Finish while the name is still the machine's, freezes on the first keystroke, and `saveMarker`/`updateMarker` read one `formGeometry`; an edit never re-names a stored marker.
+- The colour picker's choice now persists end to end: the edit save copies `colorIndex`, the map preview carries it, and the wizard's synthetic marker draws its own palette colour through a preview-only `MarkerAppearance.isPreview` while the stored 🕐 pin keeps the caution amber.
+- A marker may exist for its routing weight alone — `routingOnly` is additive, excluded from where-am-i by one pure predicate, set by the wizard's Only row and drawn dashed-and-hatched under one `MarkerAppearance.isRoutingOnly` flag.
+- The marker import/export transfer writes one GPX per marker with a base64 protobuf payload and a readable JSON mirror, a ZIP batch that always skips, and the three doors (card share, list export and a Settings transfer card).
+- A marker's dashboard open frames its body plus the proximity collar (the pin's zoom-in-only rule dropped), and a plain marker tap no longer opens the card.
+- The card header's route-role marks are the 🚩 / 🏁 emoji beside the 💲 cost mark, and the marker filter's three routing axes stand under one `Routing` title.
+- The colour palette holds **twenty hues** under the perceptual rule that every pair clears ΔE ≥ 25 (CIE76), its named tiers recorded with it and its blues bounded to a heavy navy and an azure; the names are string resources behind `MarkerColors.nameResOf`, and `MarkerColorsTest` computes Lab from the shipped hexes.
+- One colour picker serves the settings rows and the wizard: raised through `LocalConfirmDialogHost` onto `ConfirmDialog`, 4×5 portrait and 5×4 landscape, radio semantics, a two-tone selection ring and the app's own check disc on the picked swatch.
+
 ## Todos
 - [ ] The debug overlay marks no difference between a date point that matched and one the range gate rejected: both segments carry `blocked = false`, which `MapMarkerEffects` paints green — the colour `MarkersViewModel` documents as "clear". Decide whether a rejected point keeps that green, takes the blocked red, or is given a third state.
 - [ ] `ShowMarkerColorPicker` raises a `ConfirmRequest` with no dispose path: if the raising surface leaves composition while the panel is open — the settings overlay dismissed, the wizard step advanced — the request outlives its owner and the panel stays up. A `DisposableEffect` calling `host.dismiss()` on dispose closes it; also open, the wizard swatch announces only its caption and never the current colour name.

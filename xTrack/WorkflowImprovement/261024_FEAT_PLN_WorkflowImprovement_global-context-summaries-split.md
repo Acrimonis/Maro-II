@@ -39,3 +39,4 @@ The block is read and written by more than one command, so the move is a change 
 - OP4 · `#bake` stays the writer; the one-off migration prunes each card by hand first, keeping the current-state one-liner and the open owes, and dropping a dated bullet only after confirming it exists in `## Implemented` or the Focus History.
 
 ## Implemented
+- Shipped 2026-10-24 on `feature/workflow`: the `## Feature Summaries` block became a 25-row `## Features` index (name · status · created · modified · link); each `FEAT_DSC_` gained a `## Summary`; Route was pruned to a current-state one-liner plus the owed list; the templates, the §7a/§7b rows and the eight cmd_help pages were re-pointed. Deviations: none — the index keeps the block's pre-existing row order rather than Modified-desc, which `#list` sorts at display.

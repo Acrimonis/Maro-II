@@ -10,6 +10,10 @@ modified: 2026-09-16 06:31
 **Description:**
 Zone information tiles and map overlay rendering — zone-ahead cone/line, zone information cards, speed zone display, ETA calculations, and zone state management on the map.
 
+## Summary
+- Zone information tiles and map overlay rendering — the zone-ahead cone/line, the information cards, speed-zone display and ETA.
+- The zone-info line now reads the `ui.map.overlay.*` family over the shared `ui.map.surface.inactive`, so both bottom-left cards share one surface.
+
 ## Sections
 
 ## Todos
