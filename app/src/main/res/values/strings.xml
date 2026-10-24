@@ -722,6 +722,10 @@
     <!-- The comment a saved route carries: the second line names the date and the search's own seconds. -->
     <string name="route_comment_routed_fmt">Routed on %1$s in %2$s s</string>
     <string name="route_comment_routed_no_sec_fmt">Routed on %1$s</string>
+    <!-- The per-zone line's open-water entry — the time not spent under any limit. -->
+    <string name="route_comment_open_water">Open water</string>
+    <!-- One per-zone comment entry: the label and its time, joined by a fixed colon. -->
+    <string name="route_comment_zone_entry_fmt">%1$s: %2$s</string>
     <!-- Where the pace `Now` plans at comes from: this trip's own readings, the day's saved pace, the learned
          history, or the shipped default. -->
     <string name="route_pace_source_live">Live</string>

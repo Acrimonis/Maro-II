@@ -72,6 +72,24 @@ Example: `#1 • Balanced • Now (24 kn, History) • 3x` over `Routed on 2026-
   duration (arm → finalise) for `[s.s] sec`.
 - Both locales gain the scaffold keys, read at save time.
 
+## Second line — time per zone
+
+A third fact joins the comment, read at save time: a `•`-separated list of the time spent in each water,
+`Open water: m:ss min • 300M: m:ss min • 10 kn: m:ss min`.
+
+- Placement: it is the comment's **second line**, between the rank line and `Routed on …`.
+- Labels reuse the panel's own keys — [`route_slow_band_label`](../../app/src/main/res/values/strings.xml:863),
+  [`route_slow_limit_label_fmt`](../../app/src/main/res/values/strings.xml:864) and the ETA pair
+  ([`route_summary_eta_value_fmt`](../../app/src/main/res/values/strings.xml:784) +
+  [`route_summary_eta_unit`](../../app/src/main/res/values/strings.xml:785)); the one new key is
+  `route_comment_open_water` (`Open water` / `Eau libre`).
+- **Open water** is the remainder `durationSec − slowLimitSeconds.sum()`, the bend/ramp seconds on open
+  water landing there naturally; a zero entry is dropped like the panel's
+  [`routeSlowLimitEntries`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt:130).
+- Composed in [`routeCommentFor()`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2596) from the
+  live plan's [`slowLimitSeconds`](../../app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt:101), which
+  is empty on read-back plans — moot, the comment being written once at save.
+
 ## Implemented
 
 Shipped on `feature/route-comment` (2026-10-24): a saved route's track now carries the two-line comment
@@ -94,11 +112,17 @@ word read from the locale active at that instant.
   same words at save time; [`routeCommentFor()`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2596)
   composes the two lines and [`writeRouteTrack`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2631)
   passes them.
-- Both locales gained `route_comment_routed_fmt` / `route_comment_routed_no_sec_fmt`.
+- Both locales gained `route_comment_routed_fmt` / `route_comment_routed_no_sec_fmt`, plus
+  `route_comment_open_water` and `route_comment_zone_entry_fmt` for the per-zone second line
+  (`Open water: m:ss min • 300M: m:ss min • …`), composed from `slowLimitSeconds` with open water as the
+  remainder and the line gated on `searchDurationSec != null` so a read-back plan never mislabels its full
+  duration as open water.
 
 Deviations from plan: the search-duration stamp uses wall-clock `System.currentTimeMillis()` rather than
 monotonic `SystemClock.elapsedRealtime()`, which throws "not mocked" in local JVM unit tests; the seconds
 decimal and date stay `Locale.US`, so `3.2 s` keeps a dot in French while the scaffold words follow the
 active locale. Review hop: no blocking findings; the flagged pace-header duplication was folded into
-`paceHeaderWord`. Build: `:app:compileDebugKotlin` and the scoped `TrackFromCourseTest`, `RoutePlanTest`,
-`PartialPlanOfTest`, `PerPointSpeedInvariantTest`, `RouteAcquisitionTest` green (79 tests).
+`paceHeaderWord`; the second-line review's two should-fix were folded in — the `label: time` colon became the
+locale `route_comment_zone_entry_fmt`, and the zone line is gated on `searchDurationSec != null`. Build:
+`:app:compileDebugKotlin` and the scoped `TrackFromCourseTest`, `RoutePlanTest`, `PartialPlanOfTest`,
+`PerPointSpeedInvariantTest`, `RouteAcquisitionTest` green (79 tests).
