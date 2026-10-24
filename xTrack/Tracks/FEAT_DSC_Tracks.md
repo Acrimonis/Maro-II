@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-23 19:19
+modified: 2026-10-24 06:50
 ---
 
 # Feature: Tracks
@@ -97,6 +97,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/ColorManagement/260916_FEAT_PLN_ColorManagement_map-surface-normalization.md` — owned by ColorManagement: one painting path and one property block for every map surface, the legend card and the collapsed square included (D1–D6)
 - `xTrack/Tracks/261014_FEAT_PLN_Tracks_render-count-30-all.md` — the render count's band: 0..30 plus the All sentinel, the bound's one home and the fade denominator the drawn set supplies (shipped 2026-10-14)
 - `xTrack/TracksImport/260921_FEAT_PLN_TracksImport_render-focus-vs-map-filter.md` — owned by TracksImport: the map filter against the render focus, which is why tracks kept drawing under an active position filter (shipped 2026-09-21)
+- `xTrack/Tracks/261024_FEAT_PLN_Tracks_home-port-comment-entry-exit.md` — the home-port entry/exit comment line: departure → return times instead of time-spent (settled 2026-10-24)
 
 ## Walk
 **Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 14 · **Closed:** 2026-09-14
@@ -335,6 +336,8 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **home-port-comment-entry-exit (2026-10-24, `feature/track-comment-ignore-time-spend-at-la-salis`)** — the recorded comment's home-port entry no longer logs time spent: [`TrackNaming.homePortCommentLine()`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) builds `la Salis: departure → return` from the track's own start/end times, [`recomputeDescription()`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) prepends that line and drops home-port `IDLE` stop lines so a `for Xmin` duration never prints, and the departure side is the new persisted [`Track.startedAtHomePort`](../../app/src/main/java/ykws/android/maro/data/track/Track.kt) (`@ProtoNumber(23)`; a geofence exit, or a manual start inside it) while the arrival side is a recorder `endedAtHomePort` set at finalize from the latest geofence reading. The display name probes the geofence origin on departure and the last point on arrival, falling back to `la Salis`. `compileDebugKotlin` and the `data.track` suite green with four new [`TrackNamingTest`](../../app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt) cases; the device pass stays owed → [`261024_FEAT_PLN_Tracks_home-port-comment-entry-exit.md`](261024_FEAT_PLN_Tracks_home-port-comment-entry-exit.md)
 
 - **selection-overlay (2026-10-23, `feature/route-toggle-color-like-track`)** — the selected item now paints on its own `track_selected_*` overlay ([`MapTrackSelectionOverlay`](../../app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt)), keyed on the selection alone, so a selection change swaps one line instead of rebuilding every stored line and the flicker goes; the bulk pass no longer keys on the selected id or the two eyes, draws every line unselected, clears the render focus and claims no selected-id escape, and its highlighted z-lift is gone; [`OverlayZOrder`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt) slots `track_selected_` into the track tier. `compileDebugKotlin` plus `TrackRouteRoleTest` and `TrackRenderFlagsPathTest` green; the device pass is owed
 

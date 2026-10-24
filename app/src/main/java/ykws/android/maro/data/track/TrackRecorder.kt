@@ -45,6 +45,9 @@ private const val DEBOUNCE_MS = 10_000L
 /** Duration (ms) inside geofence before auto-stop. */
 private const val STOP_DEBOUNCE_MS = 15_000L
 
+/** Display name of the home port when no marker names it (settled 2026-10-24). */
+private const val HOME_PORT_DISPLAY_NAME = "la Salis"
+
 /** Interval (ms) between checkpoint saves during recording. */
 private const val CHECKPOINT_INTERVAL_MS = 30_000L
 /** Timeout (ms) after last accepted fix before spike rejection resets — prevents lock-in on sharp turns and silent GPS recovery. */
@@ -193,6 +196,10 @@ class TrackRecorder(
     private var stopDebounceStartTime: Long? = null
     /** Tracks whether the previous fix was inside the geofence, for exit detection. */
     private var wasInsideGeofence: Boolean = false
+    /** The boat's latest inside-geofence reading, across both recorder states (home-port line). */
+    private var lastInsideGeofence: Boolean = false
+    /** Whether the trip ended at the home port — geofence entrance, or a manual stop inside it. */
+    private var endedAtHomePort: Boolean = false
 
     // ── Spike rejection v2 fields ──
     /** Course over ground computed from last 2–3 accepted positions (degrees). */
@@ -359,6 +366,7 @@ class TrackRecorder(
         idleDurationSec = track.idleDurationSec
         idleStartMs = 0L
         wasStopped = false
+        endedAtHomePort = false
         cancelIdleTimer()
         activeSession = null
         isResuming = lastPoint != null
@@ -480,6 +488,7 @@ class TrackRecorder(
             originLon = geofenceOriginLon,
             radiusM = geofenceRadiusM
         )
+        lastInsideGeofence = insideGeofence
 
         when (state) {
             TrackRecorderState.OFF -> {
@@ -534,7 +543,8 @@ class TrackRecorder(
             id = id,
             name = name,
             startTimeMs = now,
-            trackPoints = mutableListOf()
+            trackPoints = mutableListOf(),
+            startedAtHomePort = if (isManual) lastInsideGeofence else true
         )
         recordingStartTimeMs = now
         cumulativeDistanceNm = 0f
@@ -571,6 +581,7 @@ class TrackRecorder(
         activeSession = null
         isResuming = false
         checkpointFileDeleted = false
+        endedAtHomePort = false
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
@@ -1042,6 +1053,7 @@ class TrackRecorder(
         stopDebounceStartTime = null
 
         val finalizeTimeMs = System.currentTimeMillis()
+        endedAtHomePort = lastInsideGeofence
 
         val avgMps = if (speedCount > 0) speedSumMps / speedCount else 0f
         val totalElapsedSec = if (recordingStartTimeMs > 0) {
@@ -1424,9 +1436,13 @@ class TrackRecorder(
         }
     }
 
+    /** Wall-clock "HH:mm" for a comment line. */
+    private fun formatClock(epochMs: Long): String =
+        SimpleDateFormat("HH:mm", Locale.US).format(Date(epochMs))
+
     /** Format a single description line for one BoatMarker: "HH:mm: Zone for Xmin". */
     private fun formatStopLine(bm: BoatMarker, zoneNames: List<String>): String {
-        val time = SimpleDateFormat("HH:mm", Locale.US).format(Date(bm.startTimeMs))
+        val time = formatClock(bm.startTimeMs)
         val zones = zoneNames.joinToString(", ")
         val durSuffix = if (bm.endTimeMs != null) {
             val dur = (bm.endTimeMs - bm.startTimeMs) / 1000
@@ -1440,6 +1456,39 @@ class TrackRecorder(
         }
     }
 
+    /** Whether the given position stands inside the home-port geofence (settled 2026-10-24). */
+    private fun isHomePortPosition(lat: Double, lon: Double): Boolean =
+        TrackNaming.namesHomePort(
+            lat, lon,
+            label = "",
+            homeLat = geofenceOriginLat,
+            homeLon = geofenceOriginLon,
+            homeRadiusM = geofenceRadiusM
+        )
+
+    /** The marker name the home-port line prints, falling back to [HOME_PORT_DISPLAY_NAME]. */
+    private fun portDisplayName(track: Track): String {
+        val wia = whereAmI ?: return HOME_PORT_DISPLAY_NAME
+        // The departure side leaves no in-track point at the port (auto-start records the first
+        // point after the geofence exit), so it probes the geofence origin; the arrival side probes
+        // the last point, where the boat stands.
+        val probe = if (endedAtHomePort) track.trackPoints.lastOrNull() else null
+        val lat = probe?.lat ?: geofenceOriginLat
+        val lon = probe?.lon ?: geofenceOriginLon
+        return topLocationName(wia(LatLng(lat, lon))) ?: HOME_PORT_DISPLAY_NAME
+    }
+
+    /** The comment's home-port line, or null when neither end is the port — the shape owned by
+     *  [TrackNaming.homePortCommentLine], the recorder supplying the times and the name. */
+    private fun homePortLine(track: Track): String? =
+        TrackNaming.homePortCommentLine(
+            startedAtHomePort = track.startedAtHomePort,
+            endedAtHomePort = endedAtHomePort,
+            startTimeMs = track.startTimeMs,
+            endTimeMs = track.endTimeMs,
+            displayName = portDisplayName(track)
+        ) { formatClock(it) }
+
     /**
      * Rebuild the track description from the full BoatMarker history.
      * Called on every trigger: idle start, idle end, manual marker, title poll, marker change.
@@ -1450,18 +1499,24 @@ class TrackRecorder(
             val wia = whereAmI ?: return
             val track = currentTrack ?: return
 
-            val lines = track.boatMarkers.map { bm ->
-                val zones = when (bm.trigger) {
-                    BoatMarkerTrigger.IDLE -> {
-                        val result = wia(LatLng(bm.boatLat, bm.boatLon))
-                        topZoneNames(result)
+            val portLine = homePortLine(track)
+            val stopLines = track.boatMarkers.mapNotNull { bm ->
+                // The port's own line carries its entry/exit times; an idle stop there would print
+                // the time-spent duration the user does not need (settled 2026-10-24).
+                if (bm.trigger == BoatMarkerTrigger.IDLE && isHomePortPosition(bm.boatLat, bm.boatLon)) {
+                    null
+                } else {
+                    val zones = when (bm.trigger) {
+                        BoatMarkerTrigger.IDLE -> {
+                            val result = wia(LatLng(bm.boatLat, bm.boatLon))
+                            topZoneNames(result)
+                        }
+                        BoatMarkerTrigger.MANUAL -> topSnapshotNames(bm.markers)
                     }
-                    BoatMarkerTrigger.MANUAL -> {
-                        topSnapshotNames(bm.markers)
-                    }
+                    formatStopLine(bm, zones)
                 }
-                formatStopLine(bm, zones)
             }
+            val lines = if (portLine != null) listOf(portLine) + stopLines else stopLines
 
             // No marker strong enough to name the trip: the list of markers traversed is written
             // into the comment instead, so the journey is still described (settled 2026-10-10).
