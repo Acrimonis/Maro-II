@@ -7,7 +7,7 @@ import org.junit.Test
 import ykws.android.maro.data.track.TrackSummary
 
 /**
- * The retired **Kind** axis (S3, D2): the shared track axes keep `dateRange`, `pinned` and `position`,
+ * The retired **Kind** axis (S3, D2): the shared track axes keep `dateRange`, `pinned`, `position` and `source`,
  * the `route` axis is gone from the spec, and `matchesFilter` no longer reads it — so a persisted
  * `route=…` entry cannot keep filtering a kind whose list is now kind-locked by construction.
  */
@@ -26,7 +26,7 @@ class ListFilterKindRetirementTest {
     fun theTrackAxesCarryNoKindAxis() {
         val keys = trackFilterAxes().map { it.key }
 
-        assertEquals(listOf("dateRange", "pinned", "position"), keys)
+        assertEquals(listOf("dateRange", "pinned", "position", "source"), keys)
         assertFalse("the Kind axis is retired", keys.contains("route"))
     }
 

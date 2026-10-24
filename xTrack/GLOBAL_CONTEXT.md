@@ -3,6 +3,7 @@
 > State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-24 12:51 UTC] Tracks — on `feature/list-filters`, the track list gained a Source filter (All · GPS · Demo) that calls a track GPS when any point carries an accuracy and demo when none does, routes and the live recording always passing, and the route lists dropped the Source and On water / On land axes; the scoped suites and `apk-build.bat` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 07:32 UTC] Tracks — on feature/track-comment-ignore-time-spend-at-la-salis, the home port, its arrival prompt, the port-zone naming exclusion and the route-comment rung removal shipped; the home port is now `tracking.homePort.*` in maro.properties read from the file rather than stored settings, fixing the stale-prefs shadow; compileDebugKotlin and the scoped data.track + RouteCommentHeadTest suites green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 07:24 UTC] WorkflowImprovement — the GLOBAL_CONTEXT feature-summaries split shipped: a 25-row `## Features` index replaced the prose block, each `FEAT_DSC_` gained a `## Summary` (Route pruned), and the templates, §7a/§7b rows and eight cmd_help pages were re-pointed; the Ask hop returned clean → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-10-24 06:50 UTC] Tracks — on `feature/track-comment-ignore-time-spend-at-la-salis`, the recorded comment's home-port line now reads departure → return times instead of a time-spent duration, the departure side persisted on the track; `compileDebugKotlin` and the `data.track` suite green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
@@ -12,7 +13,6 @@
 - [2026-10-23 19:03 UTC] Tracks — on `feature/route-toggle-color-like-track`, the selected-item speed toggle became two disk-persisted per-kind booleans (off by default) in a private store outside settings and properties, so a route and a track each keep their own on/off across restarts without touching either kind's axes; `compileDebugKotlin` and the scoped `TrackRouteRoleTest` / `TrackRenderFlagsPathTest` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-23 16:37 UTC] Markers — on `feature/mrk-lst-edit`, a marker card's Edit now always rebuilds `_createForm` from the marker being edited, so a Prev/Next move no longer opens the first marker's data in the wizard; `apk-build.bat` green and the review hop approved with one non-blocking finding → xTrack/Markers/FEAT_HYD_Markers.md
 - [2026-10-23 16:20 UTC] UI_Map — on `feature/inspect-mode-fix`: the live acquire resolves a marker in the map-filtered world the sweep ranked so a map-visible marker opens its dashboard even when the list filter drops it, and `InspectFlow` logs the anchor→ladder→recentre→step chain; `apk-build.bat` green and the device logcat read the anchor preserved with the walk stepping closest-out → xTrack/UI_Map/FEAT_HYD_UI_Map.md
-- [2026-10-23 15:22 UTC] Ui_General — on `feature/toats-life-cycle`, the map's bottom-band snackbar/toast stack now composes before the drawer ladder, so the menu drawer and its scrim paint above a visible toast while dialogs stay above the menu; `MapSnackbarHost` moved ahead of `OverlayLayer` in `MapScreen.kt`, and `docs/ui-drawer-guidelines.md` §1 lists the stack in Layer 0; `compileDebugKotlin` and `assembleDebug` green, the device pass the user's → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -53,7 +53,7 @@
 | Ui_Dashboard | active | 2026-06-06 00:00 | 2026-10-12 08:58 | [FEAT_DSC_Ui_Dashboard.md](Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) |
 | Ui_General | active | 2026-06-08 16:43 | 2026-10-23 15:22 | [FEAT_DSC_Ui_General.md](Ui_General/FEAT_DSC_Ui_General.md) |
 | Markers | active | 2026-06-22 11:52 | 2026-10-23 17:41 | [FEAT_DSC_Markers.md](Markers/FEAT_DSC_Markers.md) |
-| Tracks | active | 2026-06-15 21:43 | 2026-10-24 11:52 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
+| Tracks | active | 2026-06-15 21:43 | 2026-10-24 12:51 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
 | Performance | active | 2026-06-07 00:00 | 2026-09-20 13:50 | [FEAT_DSC_Performance.md](Performance/FEAT_DSC_Performance.md) |
 | Ui_Settings | active | 2026-06-09 15:28 | 2026-10-20 19:40 | [FEAT_DSC_Ui_Settings.md](Ui_Settings/FEAT_DSC_Ui_Settings.md) |
 | UI_Map | active | 2026-06-07 00:00 | 2026-10-23 16:20 | [FEAT_DSC_UI_Map.md](UI_Map/FEAT_DSC_UI_Map.md) |

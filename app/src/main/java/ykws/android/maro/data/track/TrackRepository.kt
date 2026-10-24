@@ -342,7 +342,8 @@ class TrackRepository(
                         // them off the summaries, so it never has to open a track file to find one.
                         routeStartMarkerId = track.routeStartMarkerId,
                         routeDestinationMarkerId = track.routeDestinationMarkerId,
-                        demo = track.demo
+                        demo = track.demo,
+                        gpsSourced = track.hasGpsFix()
                     )
                 } catch (e: Exception) {
                     file.delete()

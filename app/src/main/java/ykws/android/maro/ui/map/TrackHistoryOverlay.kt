@@ -111,6 +111,7 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.MultiActionSpec
 import ykws.android.maro.data.model.MultiActionSubSpec
+import ykws.android.maro.data.model.routeFilterAxes
 import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -446,7 +447,7 @@ internal fun TrackHistoryOverlay(
         onSortStateChange = onSortStateChange,
         customSortFields = trackCustomSortFields,
         customSortLabelResId = if (isRoutes) R.string.menu_manage_routes else R.string.menu_manage_tracks,
-        filterAxes = trackFilterAxes(),
+        filterAxes = if (isRoutes) routeFilterAxes() else trackFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,
         onReset = onReset,

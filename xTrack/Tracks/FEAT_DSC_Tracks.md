@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-24 11:52
+modified: 2026-10-24 12:51
 ---
 
 # Feature: Tracks
@@ -19,6 +19,7 @@ Track the boat's movement (position, speed) during active navigation. One record
 - A route and a recorded trip are named from their ends and idle stops: an end resolves to the smallest zone it stands inside — or, only when strictly smaller, one it stands near, a pin first — the body carries only markers an idle stop stood in (dive-first, then longest-idle), and a distinct marked destination closes the name.
 - The two render axes per kind run on a global → kind → class `enabled` leaf, one painter serves both kinds over the `path.*` family, and the render count runs 0–30 plus an **All** value.
 - A trip's GPX carries the markers that own it, re-pointed at the landed track id on import.
+- The track list's **Source** filter (All · GPS · Demo) reads `TrackSummary.gpsSourced` — any point with an accuracy makes a track GPS, none makes it demo — not the sticky `Track.demo` flag; routes and the live recording always pass, and the route lists carry neither Source nor the On water / On land axis. `GpxImporter` never reads `<accuracy>`, so a foreign or re-imported GPX reads as demo.
 
 ## Sections
 
@@ -38,6 +39,7 @@ Track the boat's movement (position, speed) during active navigation. One record
 - [ ] E2E resume-confirm-backup: sheet appears from list + both dashboard cards; checkbox checked by default; backup written only when ticked (new card, hidden on map, unpinned, no marker links); recording continues on the original; Cancel changes nothing
 - [ ] E2E ramp-step-recut: the 4–13 kn range holds its shade on a jittering fix; the 13–40 kn gradation reads smooth on a fast run; and family 9 paints above 32 kn, where the ramp used to stop
 - [ ] E2E track-position-filter: a mixed track under each of the three values; the tie reads as water; an offshore track beyond the baked region reads water; the live recording shows under every value
+- [ ] E2E list-source-filter: the track list under All · GPS · Demo on a GPS track, a demo track and a mixed trip; the first launch rebuilds the index once; the route list shows neither Source nor On water / On land; a live recording shows under every value
 - [ ] E2E trace-flag-and-display: a route's look on the map beside a recording; the card's three cells and its header; the filter's All · Tracks · Routes; the count's effect on how many routes are drawn
 
 ### track-list
@@ -338,6 +340,8 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- The track list gains a **Source** filter (All · GPS · Demo) on whether any point carries an accuracy (some = GPS, none = demo; `TrackSummary.gpsSourced`, index version 2 forces the one rebuild) rather than the sticky `demo` flag; routes and the live recording always pass, and the route list and menu offer neither it nor the On water / On land axis, a stored route position value being stripped on load (shipped 2026-10-24 on `feature/list-filters`, uncommitted)
 
 - **home-port-properties-source (2026-10-24, `feature/track-comment-ignore-time-spend-at-la-salis`)** — the home port is `maro.properties` alone now: its five keys are renamed to `tracking.homePort.*` (position `43.5696, 7.1313`, radius `100`, `La Salis`), and [`SettingsManager`](../../app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt) reads the origin/radius from `BuildConfig` instead of persisted prefs — the stored `track_origin_lat/lon` and `track_geofence_radius_m` were shadowing the file with stale placeholders (`43.55, 7.0, 500`), which is why the arrival prompt never fired and "La Salis" still named the track; the old pref keys are removed on save. `compileDebugKotlin` and the scoped `data.track` suite green; the device pass is owed → [`261024_FEAT_PLN_Tracks_home-port-normalization.md`](261024_FEAT_PLN_Tracks_home-port-normalization.md)
 
