@@ -406,7 +406,8 @@ Box {                                    // outer Box: hosts the door overlay
     ) {
         // Leading selection door (visual half) — a 6dp accent bar, the item's own colour, full
         // height, inside the 14dp visual zone that folds in the content's former 8dp leading padding.
-        ListSelectionRail(accentColor = accentColor)
+        // A route card dashes the bar (dashed = summary.route); a track card keeps it solid.
+        ListSelectionRail(accentColor = accentColor, dashed = summary.route)
 
         // Content column — the 14dp door owns the leading inset; 8dp end, 4dp vertical
         Column(Modifier.weight(1f).padding(end = 8.dp, top = 2.dp, bottom = 6.dp)) {
@@ -453,7 +454,7 @@ Box {                                    // outer Box: hosts the door overlay
 | Token | Value | Applies to |
 |-------|-------|------------|
 | Card radius | 12dp | Both |
-| Selection door | [`ListSelectionRail`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 6dp accent bar (item's colour) in a 14dp visual zone | Both |
+| Selection door | [`ListSelectionRail`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 6dp accent bar (item's colour) in a 14dp visual zone; **dashed at the saved-route rhythm on a route card, solid on a track card** | Both |
 | Door touch band | [`ListSelectionTouchZone`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt) — 24dp, overlay; last 10dp overlaps the card body | Both |
 | Selection check | [`ListSelectionCheck`](../app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) — 24dp `uiAccent` disc, white 16dp `Check`, head of the first line (selected only) | Both |
 | Content padding | vertical + 8dp end; the 8dp leading inset is folded into the 14dp door | Both |
@@ -474,6 +475,7 @@ Box {                                    // outer Box: hosts the door overlay
 | Detail text | 3-col × 2-row stats grid, each cell the shared `StatCell` (`ui/components/StatCell.kt`) | `markerFormatText()`: `📌 - 200m prox` / `⭕ - 200m r - 200m prox` / `📏 - 100m w - 200m prox` |
 | Action icons | Pin toggle + Export GPX | Icon/pick (36dp, leading the cluster) + Pin toggle + Edit |
 | Accent bar when hidden | Always real color | Always marker color |
+| Bar shape | Solid; **dashed at the saved-route rhythm on a route card** (`summary.route`) | Solid |
 
 > **The marker card's icon/pick button moved out of the header's leading edge** (2026-10-06): it now leads the
 > trailing action cluster at the cluster's own 36 dp, ahead of pin and edit, and the coordinate text loses its
