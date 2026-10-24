@@ -719,6 +719,9 @@
          evaluated, in brackets — then the preference; `settings_route_pace_value_fmt` renders the pace. -->
     <string name="route_header_landed_fmt">Landed %1$d/%2$d</string>
     <string name="route_header_pace_any_fmt">Now (%1$s, %2$s)</string>
+    <!-- The comment a saved route carries: the second line names the date and the search's own seconds. -->
+    <string name="route_comment_routed_fmt">Routed on %1$s in %2$s s</string>
+    <string name="route_comment_routed_no_sec_fmt">Routed on %1$s</string>
     <!-- Where the pace `Now` plans at comes from: this trip's own readings, the day's saved pace, the learned
          history, or the shipped default. -->
     <string name="route_pace_source_live">Live</string>

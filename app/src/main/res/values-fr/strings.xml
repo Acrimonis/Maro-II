@@ -726,6 +726,9 @@
          rend le pas. -->
     <string name="route_header_landed_fmt">Calculées %1$d/%2$d</string>
     <string name="route_header_pace_any_fmt">Live (%1$s, %2$s)</string>
+    <!-- Le commentaire que porte une route enregistrée : la seconde ligne nomme la date et les secondes de la recherche. -->
+    <string name="route_comment_routed_fmt">Route calculée le %1$s en %2$s s</string>
+    <string name="route_comment_routed_no_sec_fmt">Route calculée le %1$s</string>
     <!-- D\'où vient la vitesse que « Live » planifie : les relevés de ce trajet, la vitesse enregistrée du jour,
          l\'historique appris, ou la valeur livrée par défaut. -->
     <string name="route_pace_source_live">Direct</string>

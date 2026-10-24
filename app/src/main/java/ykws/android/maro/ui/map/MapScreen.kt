@@ -2590,6 +2590,41 @@ fun MapScreen(
             }
 
             /**
+             * The comment a saved route carries, composed at save time: `#rank • type • speed • pref`
+             * over `Routed on date in s sec`, every word read from the locale active at that instant.
+             */
+            fun routeCommentFor(plan: RoutePlan): String {
+                val facts = routeViewModel.commentFacts()
+                val rung = facts.rungResIds.joinToString(
+                    context.getString(R.string.route_rung_names_sep)
+                ) { context.getString(it) }
+                val paceText = paceHeaderWord(
+                    context,
+                    appSettings.routeFreeWaterPaceKn,
+                    routePaceKn,
+                    routeNowPace.source
+                )
+                val dial = verdictDialWord(context, VerdictDial.ofIndex(appSettings.routeSlowWaterStop))
+                val head = listOfNotNull(
+                    facts.rank?.let { "#$it" },
+                    rung.takeIf { it.isNotBlank() },
+                    paceText,
+                    dial
+                ).joinToString(" • ")
+                val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    .format(java.util.Date(plan.computedAtMs))
+                val seconds = plan.searchDurationSec?.let {
+                    java.lang.String.format(java.util.Locale.US, "%.1f", it)
+                }
+                val tail = if (seconds != null) {
+                    context.getString(R.string.route_comment_routed_fmt, date, seconds)
+                } else {
+                    context.getString(R.string.route_comment_routed_no_sec_fmt, date)
+                }
+                return if (head.isBlank()) "" else "$head\n$tail"
+            }
+
+            /**
              * Writes **one** route as an ordinary track. [id], [createdAtMs] and [name] override the
              * plan's own figures when a draft re-save must keep the track's identity while its points
              * grow; the ordinary save leaves them null and takes the plan's.
@@ -2621,7 +2656,8 @@ fun MapScreen(
                     createdAtMs = createdAtMs ?: plan.computedAtMs,
                     name = name ?: composeRouteName(plan),
                     routeStartMarkerId = startMarkerId ?: "",
-                    routeDestinationMarkerId = destinationMarkerId ?: ""
+                    routeDestinationMarkerId = destinationMarkerId ?: "",
+                    comment = routeCommentFor(plan)
                 )
                 val savedId = trackViewModel.saveBuiltTrack(track)
                 toastSaved(track.name)

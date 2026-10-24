@@ -65,6 +65,7 @@ object TrackFromCourse {
      *                   that end was the boat's position or the standing marker position (R82).
      * @param routeDestinationMarkerId the flagged marker id the route's destination end stood on, or
      *                   `""` when it was not a marker.
+     * @param comment              the comment the saved route carries; empty by default.
      */
     fun build(
         start: RoutePoint,
@@ -74,7 +75,8 @@ object TrackFromCourse {
         createdAtMs: Long = System.currentTimeMillis(),
         name: String? = null,
         routeStartMarkerId: String = "",
-        routeDestinationMarkerId: String = ""
+        routeDestinationMarkerId: String = "",
+        comment: String = ""
     ): Track {
         val distanceM = legs.sumOf { it.distanceM }
         val durationSec = legs.sumOf { it.durationSec }
@@ -107,6 +109,7 @@ object TrackFromCourse {
         return Track(
             id = id,
             name = name ?: trackAutoName(createdAtMs),
+            comment = comment,
             startTimeMs = createdAtMs,
             endTimeMs = createdAtMs + durationMs,
             trackPoints = points,
