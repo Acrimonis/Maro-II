@@ -71,6 +71,35 @@ object TrackNaming {
         TrackGeofenceChecker.isInsideGeofence(lat, lon, homeLat, homeLon, homeRadiusM)
 
     /**
+     * The comment's home-port line — `name: departure → return` — or null when neither end is the
+     * port (settled 2026-10-24). The home port is treated differently: its line reads the trip's
+     * own start/end times rather than a time-spent duration, for every trip, manual or automatic.
+     *
+     * Pure and unit-tested: [clock] supplies the wall-clock text so the shape is pinned without a
+     * date formatter, and the caller owns which ends count.
+     */
+    fun homePortCommentLine(
+        startedAtHomePort: Boolean,
+        endedAtHomePort: Boolean,
+        startTimeMs: Long,
+        endTimeMs: Long?,
+        displayName: String,
+        clock: (Long) -> String
+    ): String? {
+        if (!startedAtHomePort && !endedAtHomePort) return null
+        val departure = clock(startTimeMs)
+        val arrival = if (endedAtHomePort) endTimeMs?.let { clock(it) } else null
+        return buildString {
+            append(displayName).append(": ")
+            when {
+                startedAtHomePort && arrival != null -> append(departure).append(" → ").append(arrival)
+                startedAtHomePort -> append(departure)
+                else -> arrival?.let { append(it) }
+            }
+        }
+    }
+
+    /**
      * The timed score of every marker the trip met: for each marker, the sum over the trip's
      * intervals of the interval's seconds times the score that marker carried then, counted only
      * over the intervals in which it matched. **Lower wins**, so the deepest or closest match leads

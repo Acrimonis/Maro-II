@@ -84,7 +84,16 @@ data class Track(
      * tell apart, counts as GPS — and an older build still reads a new one. The GPX export carries it with no
      * exporter change, the blob being the whole track, and a foreign GPX builds a track with the default.
      */
-    @ProtoNumber(22) val demo: Boolean = false
+    @ProtoNumber(22) val demo: Boolean = false,
+    /**
+     * True when the trip began at the home port — a geofence exit, or a manual start inside it —
+     * which is what the comment's home-port line keys its departure side on (settled 2026-10-24).
+     *
+     * A fresh number with a default, so an old blob reads `false` and an older build still reads a
+     * new one. It lives on the track rather than a recorder field because a checkpoint resume must
+     * keep the departure side, and the checkpoint is the track itself.
+     */
+    @ProtoNumber(23) val startedAtHomePort: Boolean = false
 )
 
 /**
