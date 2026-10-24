@@ -53,7 +53,7 @@ class RouteListSettingsTest {
             descending = false
         )
         val listFilter = ListFilter(mapOf("pinned" to "PINNED"))
-        val mapFilter = ListFilter(mapOf("position" to "WATER"))
+        val mapFilter = ListFilter(mapOf("dateRange" to "LAST_7_DAYS"))
 
         SettingsManager(ctx).update {
             it.copy(
@@ -93,6 +93,21 @@ class RouteListSettingsTest {
         assertFalse(s.trackListFilter.axes.containsKey("route"))
         assertEquals("PINNED", s.trackListFilter.axes["pinned"])
         assertTrue(s.trackMapFilter.axes.isEmpty())
+    }
+
+    @Test
+    fun aPersistedPositionAxisIsStrippedOnLoadFromBothRouteFilters() {
+        // The route lists no longer offer the position axis, so a stored value would filter invisibly.
+        val s = settingsFrom(
+            mapOf(
+                "route_list_filter" to "position=WATER;pinned=PINNED",
+                "route_map_filter" to "position=LAND"
+            )
+        )
+
+        assertFalse(s.routeListFilter.axes.containsKey("position"))
+        assertEquals("PINNED", s.routeListFilter.axes["pinned"])
+        assertTrue(s.routeMapFilter.axes.isEmpty())
     }
 
     @Test

@@ -394,6 +394,7 @@
     <!-- Filter axes and options -->
     <string name="filter_axis_date_range">Date Range</string>
     <string name="filter_axis_position">Position</string>
+    <string name="filter_axis_source">Source</string>
     <string name="filter_option_last_week">Last week</string>
     <string name="filter_option_last_2_weeks">Last 2 weeks</string>
     <string name="filter_option_last_month">Last month</string>

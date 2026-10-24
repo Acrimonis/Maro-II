@@ -876,8 +876,10 @@ class SettingsManager(
         trackFilterLinked = prefs.getBoolean(KEY_TRACK_FILTER_LINKED, true),
         markerFilterLinked = prefs.getBoolean(KEY_MARKER_FILTER_LINKED, true),
         routeListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_ROUTE_LIST_SORT, null)),
-        routeListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_LIST_FILTER, null)),
-        routeMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_MAP_FILTER, null)),
+        // The route lists no longer offer the position axis: an install that persisted one must not keep
+        // filtering routes on an axis it can no longer see or clear.
+        routeListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_LIST_FILTER, null)).withoutAxis("position"),
+        routeMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_MAP_FILTER, null)).withoutAxis("position"),
         routeFilterLinked = prefs.getBoolean(KEY_ROUTE_FILTER_LINKED, true),
         mapOffsetGps = prefs.getBoolean(KEY_MAP_OFFSET_GPS, true),
         mapOffsetDemo = prefs.getBoolean(KEY_MAP_OFFSET_DEMO, false),
