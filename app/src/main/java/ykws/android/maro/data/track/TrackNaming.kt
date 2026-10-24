@@ -52,23 +52,19 @@ object TrackNaming {
     /** The separator between body markers. */
     private const val SEPARATOR = ", "
 
-    /** The fragment marking the boat's own home port in a label (settled 2026-10-11). */
-    private const val HOME_PORT_LABEL = "salis"
-
     /**
-     * True when an end must not name a route or a trip: the boat's own home port, told either by
-     * the place — [lat]/[lon] inside the Port Salis geofence — or by the label itself naming Salis
-     * (settled 2026-10-11).
+     * True when an end must not name a route or a trip: the boat's own home port, told by the
+     * place alone — [lat]/[lon] inside the home-port geofence. The label no longer counts: the
+     * home port is one position, radius and display name in `maro.properties` (settled
+     * 2026-10-24).
      */
     fun namesHomePort(
         lat: Double,
         lon: Double,
-        label: String,
         homeLat: Double,
         homeLon: Double,
         homeRadiusM: Double
-    ): Boolean = label.contains(HOME_PORT_LABEL, ignoreCase = true) ||
-        TrackGeofenceChecker.isInsideGeofence(lat, lon, homeLat, homeLon, homeRadiusM)
+    ): Boolean = TrackGeofenceChecker.isInsideGeofence(lat, lon, homeLat, homeLon, homeRadiusM)
 
     /**
      * The comment's home-port line — `name: departure → return` — or null when neither end is the

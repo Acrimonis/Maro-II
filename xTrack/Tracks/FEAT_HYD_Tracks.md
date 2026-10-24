@@ -1,20 +1,23 @@
 # Context Hydration — Tracks — 2026-10-24
 
-**Last Bake:** 2026-10-24 06:50 UTC — written by `#bake` on `feature/track-comment-ignore-time-spend-at-la-salis`.
+**Last Bake:** 2026-10-24 11:52 UTC — written by `#bake` on `feature/track-comment-ignore-time-spend-at-la-salis`.
 
-**Directive trace:** one covered action class was met and none stopped — implementation ran on the user's `#impl` after `assess`/`discuss`, and `#bake` / `#commit` / `#merge` were invoked by the user; no dependency was added, no machine-shaped data file was opened, the device was not touched, and every claim about the code came from a file read.
+**Directive trace:** one covered action class was met and none stopped — implementation ran on the user's `#impl` / `#impl fix`, the design settled through `discuss`, and `#bake` / `#commit` were invoked; no dependency was added, no machine-shaped data file was opened, the device was read only for the logcat and its stored settings the user pointed at, and every claim about the code came from a file read.
 
 ## State
 
-The recorded comment's home-port line reads `la Salis: departure → return` instead of a time-spent duration: [`TrackNaming.homePortCommentLine()`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) builds the pure shape, [`recomputeDescription()`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) prepends it and drops home-port `IDLE` stop lines, the departure side is the persisted [`Track.startedAtHomePort`](../../app/src/main/java/ykws/android/maro/data/track/Track.kt), and the arrival side is a recorder `endedAtHomePort` set at finalize. `compileDebugKotlin` and the `data.track` unit suite are green with four new `TrackNamingTest` cases; the device pass is owed.
+The home port, its arrival prompt, the port-zone naming exclusion and the route-comment rung removal all shipped and compile green. The home port is one `maro.properties` block (`tracking.homePort.*`: `43.5696, 7.1313`, 100 m, `La Salis`), and `SettingsManager` now reads it from the file rather than from persisted prefs — stale stored coordinates (`43.55, 7.0, 500`) had been shadowing it, which is why the arrival prompt never fired in demo. A marker inside the circle no longer names a trip or route, and the saved route comment head is `#rank • pace • pref`. `compileDebugKotlin` and the scoped `data.track` + `RouteCommentHeadTest` suites green; the device pass is owed.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — `recomputeDescription`, `portDisplayName`, `homePortLine`, `formatClock`, the geofence fields
-- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — `homePortCommentLine`
-- `app/src/main/java/ykws/android/maro/data/track/Track.kt` — `startedAtHomePort` (`@ProtoNumber(23)`)
-- `app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt` — the line-shape cases
+- `app/src/main/assets/maro.properties` — the one home-port block (`tracking.homePort.*`)
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — home port read from BuildConfig, not prefs
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — port-zone filters, arrival prompt, title fallback
+- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — positional-only `namesHomePort`
+- `app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt` — `routeCommentHead()`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `routeCommentFor()`
+- `app/src/main/java/ykws/android/maro/ui/map/RouteViewModel.kt` — rung state retired
 
 ## Next Step
 
-Device pass owed: the user deploys and verifies a recorded trip's comment shows the port departure → return line.
+Device pass: confirm the arrival prompt now fires on idle-in-zone with the properties-sourced port, and that no "La Salis" marker names a trip or route.

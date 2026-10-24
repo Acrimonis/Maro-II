@@ -379,6 +379,15 @@ internal fun verdictDialWord(context: Context, stop: VerdictDial): String = when
 }
 
 /**
+ * The saved route comment's head line: the rank, the pace and the slow-water preference joined by
+ * the one bullet. The preference rung that once sat between rank and pace is gone (settled
+ * 2026-10-24), so the head reads `#rank • pace • pref` — a null rank (Idle) simply leaves the pace
+ * first, the join dropping the leading bullet with it.
+ */
+internal fun routeCommentHead(rank: Int?, paceText: String, dial: String): String =
+    listOfNotNull(rank?.let { "#$it" }, paceText, dial).joinToString(" • ")
+
+/**
  * The pace segment the panel header and a saved route's comment both print — `Now (pace, source)` under
  * the `Any` stop, else the plain pace reading. One home, so the two surfaces name the same speed the
  * same way, the comment reading the locale active at save time.
