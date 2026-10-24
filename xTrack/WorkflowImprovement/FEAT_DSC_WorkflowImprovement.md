@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-10-14 07:59
+modified: 2026-10-24 06:31
 ---
 
 # Feature: WorkflowImprovement
@@ -79,6 +79,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `xTrack/WorkflowImprovement/260911_FEAT_PLN_WorkflowImprovement_global-context-rules-migration.md` — Global Context rules migrated into `AGENTS.md`
 - `xTrack/WorkflowImprovement/260917_FEAT_PLN_WorkflowImprovement_session-review-fixes.md` — session-review fixes: the bake refresh, the git gate wording, one hydration shape
 - `xTrack/WorkflowImprovement/260919_FEAT_PLN_WorkflowImprovement_archive-sweep.md` — `#archive sweep`: enumeration, recommendation and disposition, in design
+- `xTrack/WorkflowImprovement/261024_FEAT_PLN_WorkflowImprovement_global-context-summaries-split.md` — the GLOBAL_CONTEXT feature-summaries split: prose to `FEAT_DSC_`, index row + Routing Map kept, four points settled
 
 ## Walk
 **Level 1 — Date:** 2026-09-17 · **Source:** the contentious points left by the `#rule` redesign — six questions of scope, granularity and cost · **Closed:** 2026-09-17 — exhausted, all six taken
