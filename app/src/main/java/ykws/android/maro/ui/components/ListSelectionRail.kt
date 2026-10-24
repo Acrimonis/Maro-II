@@ -9,13 +9,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ykws.android.maro.R
+import ykws.android.maro.config.AppConfig
 
 /**
  * The width of the list card's leading **selection door** visuals: the 6 dp accent bar plus the 8 dp
@@ -49,7 +53,8 @@ private val RAIL_BAR_WIDTH = 6.dp
 @Composable
 fun ListSelectionRail(
     accentColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    dashed: Boolean = false
 ) {
     Box(
         modifier = modifier
@@ -57,12 +62,30 @@ fun ListSelectionRail(
             .fillMaxHeight(),
         contentAlignment = Alignment.TopStart
     ) {
-        // The 6 dp accent bar — the item's own colour, full height, at the door's leading edge.
+        // The 6 dp accent bar — the item's own colour, full height, at the door's leading edge. A
+        // route's bar is dashed at the saved-route rhythm, mirroring the map's own route-dashed /
+        // track-solid language; every other card keeps the solid strip.
         Box(
             modifier = Modifier
                 .width(RAIL_BAR_WIDTH)
                 .fillMaxHeight()
-                .background(accentColor)
+                .then(
+                    if (dashed) {
+                        Modifier.drawBehind {
+                            val dashOn = AppConfig.trackRouteDashOnDp.dp.toPx()
+                            val dashOff = AppConfig.trackRouteDashOffDp.dp.toPx()
+                            drawLine(
+                                color = accentColor,
+                                start = Offset(size.width / 2f, 0f),
+                                end = Offset(size.width / 2f, size.height),
+                                strokeWidth = size.width,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(dashOn, dashOff))
+                            )
+                        }
+                    } else {
+                        Modifier.background(accentColor)
+                    }
+                )
         )
     }
 }

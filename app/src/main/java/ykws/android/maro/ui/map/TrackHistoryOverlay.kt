@@ -602,11 +602,13 @@ internal fun TrackCardContent(
                     onLongClick = onLongPress
                 )
         ) {
-            // The leading selection door's bar — the 6 dp accent strip on the track's own colour,
-            // reserving the 14 dp the card's folded leading padding used to take. The door's pointer
-            // handling is the touch zone below, drawn over this row.
+            // The leading selection door's bar — the 6 dp accent strip on the item's own colour, dashed
+            // for a route so the card mirrors the map's route-dashed / track-solid language. It reserves
+            // the 14 dp the card's folded leading padding used to take; the door's pointer handling is
+            // the touch zone below, drawn over this row.
             ListSelectionRail(
-                accentColor = accentColor
+                accentColor = accentColor,
+                dashed = summary.route
             )
             Column(
                 modifier = Modifier
