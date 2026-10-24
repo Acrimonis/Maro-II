@@ -16,6 +16,11 @@ applier (user-set refresh ceiling), and registers the compass only when there's 
 It also **owns power management**: the screen-hold policy (`PowerPolicy`), its Android keeper
 (`PowerKeeper`), and the battery-optimization prompt trigger.
 
+## Summary
+- Battery/performance pass over the GPS plugin — tunable acquisition via presets and sliders, movement-adaptive idle, a capped map-refresh applier and compass gating.
+- Power management is centralised in `data/power/`: `PowerPolicy` (framework-free) plus `PowerKeeper` hold the screen flag through a single mutation point, and a pushed speed is never read as a fresh one.
+- The map layer cost pass removed the per-layer zoom rebuilds and attaches the contour polylines once, switched by their own `enabled` flag.
+
 ## Sections
 
 ### gps-refreshing

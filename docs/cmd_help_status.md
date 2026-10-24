@@ -4,7 +4,7 @@
 Show a detailed single-feature dashboard, or diff since last bake.
 
   [no param]      Full dashboard of the active feature (top Focus History entry): front-matter,
-                  one-liner (from the Feature Summaries block), status/dates, plus the feature's
+                  one-liner (from the feature's ## Summary), status/dates, plus the feature's
                   sections with completion status and all parent-level todos, rules, and docs.
                   If all sections, todos, and rules are complete, appends:
                   "All clear. #bake to snapshot."

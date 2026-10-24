@@ -12,6 +12,10 @@ Map seafloor depth within the scoped zone across the 0–60 m range at the best 
 
 > **DepthMapping ≡ BARO** (prior research codename). Source-of-truth for data sourcing: `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-*.md`.
 
+## Summary
+- Bathymetry and depth mapping across 0–60 m from Litto3D, SHOM and EMODnet, with shoalest-wins precision tiers and per-cell source and confidence.
+- Rendering is a hypsometric `DepthColorRamp` plus isobaths, and an EMODnet shallow gate applies to the colour map, the warning overlay and the isobaths, while the cold-start heap work stays in design.
+
 ## Sections
 
 ### DataGathering

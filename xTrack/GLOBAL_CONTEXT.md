@@ -1,9 +1,11 @@
 # Global Context — Routing Table
   
-> State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
+> State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-10-24 07:24 UTC] WorkflowImprovement — the GLOBAL_CONTEXT feature-summaries split shipped: a 25-row `## Features` index replaced the prose block, each `FEAT_DSC_` gained a `## Summary` (Route pruned), and the templates, §7a/§7b rows and eight cmd_help pages were re-pointed; the Ask hop returned clean → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-10-24 06:50 UTC] Tracks — on `feature/track-comment-ignore-time-spend-at-la-salis`, the recorded comment's home-port line now reads departure → return times instead of a time-spent duration, the departure side persisted on the track; `compileDebugKotlin` and the `data.track` suite green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
+- [2026-10-24 06:31 UTC] WorkflowImprovement — the GLOBAL_CONTEXT feature-summaries split was designed into a plan with its four points settled (prose to `FEAT_DSC_`, index row + Routing Map kept, `#bake` stays the writer), nothing implemented → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-10-24 05:24 UTC] Route — on `feature/route-comment`, a saved route's track now carries a comment composed at save time: `#rank • rung • pace • pref`, a per-zone time line (`Open water • 300M • limit`, each `m:ss min`) and `Routed on date in s sec`, the rank read at the time of save and every word in the locale active then; `compileDebugKotlin` and the scoped route/track suites green, two review should-fix folded in → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-23 19:19 UTC] Tracks — on `feature/route-toggle-color-like-track`, the selected item now paints on its own `track_selected_*` overlay so a selection change swaps one line instead of rebuilding every stored line, removing the flicker; `compileDebugKotlin` and the scoped `TrackRouteRoleTest` / `TrackRenderFlagsPathTest` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-23 19:03 UTC] Tracks — on `feature/route-toggle-color-like-track`, the selected-item speed toggle became two disk-persisted per-kind booleans (off by default) in a private store outside settings and properties, so a route and a track each keep their own on/off across restarts without touching either kind's axes; `compileDebugKotlin` and the scoped `TrackRouteRoleTest` / `TrackRenderFlagsPathTest` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
@@ -11,8 +13,6 @@
 - [2026-10-23 16:20 UTC] UI_Map — on `feature/inspect-mode-fix`: the live acquire resolves a marker in the map-filtered world the sweep ranked so a map-visible marker opens its dashboard even when the list filter drops it, and `InspectFlow` logs the anchor→ladder→recentre→step chain; `apk-build.bat` green and the device logcat read the anchor preserved with the walk stepping closest-out → xTrack/UI_Map/FEAT_HYD_UI_Map.md
 - [2026-10-23 15:22 UTC] Ui_General — on `feature/toats-life-cycle`, the map's bottom-band snackbar/toast stack now composes before the drawer ladder, so the menu drawer and its scrim paint above a visible toast while dialogs stay above the menu; `MapSnackbarHost` moved ahead of `OverlayLayer` in `MapScreen.kt`, and `docs/ui-drawer-guidelines.md` §1 lists the stack in Layer 0; `compileDebugKotlin` and `assembleDebug` green, the device pass the user's → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-10-23 15:13 UTC] Markers — the marker colour palette grew to twenty hues under a **perceptual** rule (every pair clears ΔE ≥ 25 in CIELAB, with the named tiers and the water clause relaxed to admit a heavy navy and an azure), Charcoal and Pale Pink giving way to Heavy Blue and Azure while Coral and Silver were re-hexed to meet the floor; the two colour pickers collapsed into one, raised through `LocalConfirmDialogHost` onto `ConfirmDialog` so no drawer can clip it, 4×5 portrait and 5×4 landscape with radio semantics and a generic title; the wizard gained a `Marker color` row writing the `colorIndex` no control had ever set, the orphan `MarkerColorPickerDialog` and its imports went, the panel's frame moved from behind the background to a 2 dp `ui.highlight` outline, and the selection now wears a white-edged ring plus the app's own check disc; full `:app:testDebugUnitTest` and `apk-build.bat` green, the device pass the user's → xTrack/Markers/FEAT_HYD_Markers.md
-- [2026-10-23 13:54 UTC] Route — on `feature/route-tweeks`: the **Marker pricing** section, its four strings in both locales and the persisted strength are removed, the price's strength now ships only in `maro.properties` (`route.marker.costPerStep` = .2), the engines read that value, and `compileDebugKotlin` plus the scoped marker and tile suites are green → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-22 17:05 UTC] Route — the `Any` pace rebuilt on `feature/speed-history-2` from the fifteen decisions: a middle-half average over a 2–10 min window (gaps held at the pace shown, or at the readings' own average once Live), a trip store of 15 per kind weighted by open-water minutes, a demo flag and Include-demo switch, the day's pace, the pace's source, and a Calculate that disables itself and toasts — reviewed once, 1496 unit tests and `assembleDebug` green, the device pass the user's → xTrack/Route/FEAT_HYD_Route.md
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -45,166 +45,35 @@
 | tasker, water state, intent broadcast, query receiver, automation | xTrack/Tasker/FEAT_DSC_Tasker.md |
 | route, routing, destination, waypoint, cruise speed, fastest path, straight line, route placeholder, route dummy | xTrack/Route/FEAT_DSC_Route.md |
 
-## Feature Summaries
+## Features
 
-**Route** · **status:** active · **created:** 2026-08-16 10:44 · **modified:** 2026-10-24 06:34
-- A saved route's track carries a **comment composed at save time**: `#rank • rung • pace • pref` over a per-zone time line (`Open water • 300M • limit`, each `m:ss min`) and `Routed on date in s sec` — the rank read at the time of save, every word from the locale active then, and the zone line gated on a live search so a read-back route never mislabels its duration (2026-10-24).
-- The routes-list card's leading accent bar is dashed at the map's own saved-route rhythm, so a route card reads apart from a track card at a glance (2026-10-24).
-- The `Any` pace was **rebuilt on 2026-10-22** from the fifteen decisions of a code review: the live pace is a middle-half average over a 4-minute window (`PacePlateau`, a 2–10 min slider), readings under 4 kn ignored, time with no reading held at the pace shown — or, once a quarter of the window is read, at the readings' own average — the pace held for the day (saved while Live, read when a recorded trip starts), each trip kept as its cruising speed with its open-water minutes (15 of each kind, GPS and demo, the profile a capped weighted median of the last N), a demo flag on tracks behind an **Include demo tracks** switch, and the pace's source shown (Live · Today · History · Default); **Calculate** disables itself and toasts its count.
-- The route search table's three columns split 50/25/25: column 2 is vertically centered with its time, all-inclusive average speed and distance lines (value right-aligned, unit left-aligned), and column 3 grows past its share to print one speed-limit reading per line as `300M : 1:05 min`, rounded to the second with a sub-minute reading kept and only a zero dropped — the table's settings living in `ui.properties` under `ui.route.table.*`.
-- The selection-resize jump is fixed: the old height freeze is removed, the panel body animates its height over 250 ms (`animateContentSize`), the map band only grows while the search runs, a swipe floors the body at its rest height so the panel can grow but never shrink mid-turn, and the pager is recreated on the seat so a row tap lands as one size change; a small bounce on selection change remains open.
-- The fan's *Route (auto)* child is live while a search runs: a press keeps the search, closes the fan, raises a toast and follows the winner when the last route lands; the menu drawer shows no summary card during a search, *Save to track* waits for a landed line, and the snack action reads *New*.
-- Each route in the search panel reports its own stage (bold italic) until it lands, then its live rank — a merged route counted once — under a `Landed x/n · speed · preference` header; the rows reorder only when a route lands, is refused or is merged away, a hand pick holds until the last landing selects the top row with a toast, and the crown's check waits for the end.
-- A saved route's two ends resolve through the smallest-zone rule shared with tracks, the home port excluded, so the name reads `A to B`, `To B` or `From A`, falling back to `Route <instant>` when neither end is named.
-- The drawer's Go is a true restart from any state (R101): an unwritten followed line asks first through the exit dialog's `RESTART` reason, and the user-facing word is *route search*, French saying *route* throughout.
-- Set a destination and the app draws the route from the boat to it, then saves that line as an ordinary track.
-- Three engines stand on one `RouteEngine` seam — `dummy` (a straight line), `avoid` (the corridor A\* pipeline) and `evolutive` (the two-layer adaptive grid), the `selective` row and its depth price retired on 2026-10-16 — each arming a three-rung ladder named **Detour · Balanced · Coastal**, whose λ live in `route.avoid.ladder.around|best|fast.lambda`, while the `Slow water` dial states one weight on the seconds a line spends under a limit — each second weighted by its own limit's shortfall — and the crown is the lowest sum of its trip time and that weight times those weighted seconds, the panel ranking the landed rows `1..k` live and checking the crowned one once the last has landed.
-- A costed marker prices the sea as a well — full inside its body and falling to nothing at its proximity edge — while a Blocked marker is a body-only wall and a Pin is costable and never a wall; the price's report names the **marker arm** beside the ring, band and depth arms, and since the **Marker pricing** Settings row and its persisted value were removed the strength ships only in `maro.properties` (`route.marker.costPerStep` = .2), the wall never scaled.
-- The fine layer is a pace-free, on-disk tile store behind a **soft** 96 MiB `route.fineTile.maxBytes` ceiling that never reclaims the home area (`route.prewarm.box`), whose entry names the app edge derives from the seed ring and protects before the warm walk starts; its reclaim walks one access-ordered index rather than listing and sorting the directory, `list()` still reads the directory because the warm-up treats a name as proof a file stands, its first reclamation is both toasted and pushed as a notification behind one `POST_NOTIFICATIONS` ask at startup, and a startup pre-warm grows the area outward in rings until the `route.prewarm.targetPct` share or the map stops it — the rest standing as a reserve for water the seed area does not cover — owning the routing square's white dot on the app's one shared pulse.
-- The corner pass rounds a line's bends from what the line gives it — the fit's reach takes the whole significant leg, a close same-way pair reads as one turn, two bends on one leg share the room by their own angles, the corner floor is a target the room may draw under, the coast test is relative to the corner it replaces, and the overlap guard measures bow to bow.
-- The followed route mirrors its two ends in place when the time-to-go loses ground (R99) and raises the exit dialog under an arrival cue (R100).
-- A zone's `regulatedZone.speedRoute` override is a **price only**: the search keeps its advantage while every reported figure — the clock, the attribution and the line's colour — times the **displayed** limit, through one lambda (`limitAtFor`) whose zone arm is `MultipassWorld.zoneDisplayLimitKnAt`; the report now carries **two facts** — the crossings the price forced, and the slow water the line entered, read off that same displayed limit on one shared entry walk — both records, neither reaching a proto, and no composable prints either of them yet.
-- **The depth gate's standoff is measured on the traced 3 m line** (2026-10-20): every guard reads one `GateRule` — a 10 m wall on `evolutive` with the berth's steep 10–20 m inner ramp and its 20–50 m outer ramp, the 20 m margin itself the wall on `avoid` — so no line comes within the wall of water under 3 m except within 20 m of its own ends, a 50 m passage always holds a legal line on `evolutive`, and the medial nudge moves a passage's line onto its middle; each end's own first step keeps the wall past the waiver unless the shallows box that end in, every straight the corner pass draws is measured, and the sweep's allowance never trades the berth; the fine 20 m layer still follows shallow water to `depthCollarM` 170 m, a **Douglas–Peucker** pass still drops the settled line's surplus points, and the pull's guard still compares **total time**.
-- The pull's settled lookback now carries a **window and an allowance** (`route.avoid.pull.allowanceShare`, a flat-run gate, a bounded span) so a flat wiggle falls to one chord where the shortcut is barely dearer, and the replay over that capture measures it at **three of forty-eight** refusals flipped, the plan's own ordered floor being the half that mattered and the half that was dropped.
-- The cruising-speed scale opens on **`Any`**, the absence of a preference: the search then plans at the boat's own pace, the shipped `route.freeWaterPaceKn` standing in until the boat has evidence, while a numbered stop plans exactly as set — the Settings row says `Now` and the drawer wheel `--Now--` (French `Live`).
-- The map's route fan now reads **Route auto · Route · Follow · Save · Discard** — the unused save-and-exit child is gone, Route arms the acquisition alone, and a new Follow child below it takes the settled or partial line (2026-10-17).
-- **The route search ignores what the chart ignores** (2026-10-20): an EMODnet reading under the cutoff (shipped default `depth.emodnetShallowCutoffM` = 3.0) and a node with no data enter the router's blend at the gate depth, so they never wall a route nor drag a real sounding beside them under the gate — the Bacon – La Grenille channel, closed by such readings, opens; route ends stand 25 m clear of shore and shallows (`route.repair.clearanceM`), and the fine-tile store keeps one installed build's entries, with no format version.
-- **A route's ends carry no escape hop** (2026-10-20): the berth carve is retired, so the depth gate waives only its 20 m disc round each end and every leg past it is measured — the device's Closest line had crossed 0.6 m water on the carve's unchecked hop; a gate-boxed end keeps its allowance as its only exit, while an end the 50 m coast margin hems in now fails as no path, and the route table carries no moved-end note.
-- **A pair arms as one line from either end** (2026-10-21): the search leaves the end that sorts first, the two pulls run both ways and keep the cheaper line, and a coarse block's fine copy has its step back out, so the gated 24-pair survey's bar misses (same crown, 100 m, 30 s) went 5 → 0; on the phone the two-sided pull is 24–36 % of a search and overlapping its walks would save 0.83–0.87 s an attempt, unbuilt (`261021_FEAT_PLN_Route_pull-cost.md`), and one `evolutive` pair still crowns a different rung each way on equal lines.
-- **A zone a route end stands in is no forced crossing** (2026-10-21): the forced-crossing probe leaves that zone's water open and never names it, so the corridor growth fires only on a crossing forced elsewhere — it had retried every rung for nothing, ~10 s of a 19–21 s search with an end in a zone; the `PULL2` / `FINAL2` / `RUNG` device lines stay in the build and the device pass is owed.
-- Smooth driving waits on the user's call: half the bends stand as angles because a bow's floor is anchored at its corner while the legs beside it already come nearer the wall, and the plan proposes reading it off the stretch the bow replaces.
-- Owed: the `Any` pace's device pass (a drive, a stop, a second trip the same day, Calculate), the measured gate's device pass (the Bacon – La Grenille pair among it), the choice of whether `avoid` — the default row, now strict at 20 m on 100 m cells — takes the berth's floor and ramp, the inner ramp's rate on the device's `innerM`, and the straightener's epsilon on device.
-- **An end beyond the fine ribbon anchors on the coarse layer** (2026-10-21): the fine grid is the coastal ribbon only (`gateDistanceM <= depthCollarM`), so an end standing past it keeps its fine cell land and anchors on the coarse cell — a destination in open water beyond the ribbon is no longer walled by a manufactured one-cell fine island, and the `PASS … NO PATH` line prints `aimLayer`/`aimOpen`.
-
-**Ui_Dashboard** · **status:** active · **created:** 2026-06-06 00:00 · **modified:** 2026-10-12 08:58
-- The bottom panel is a HUD for quick reading — distance from the coast, distance to the 300 m zone with a speed warning, depth under the boat with its source, and speed.
-- Every portrait dashboard rides one auto-resizing frame with one base size and one map ceiling, a taller one pushing the map rather than covering it, with square corners at every size.
-- On 2026-10-12 the Speed tile reads whole km/h while the dashboard position is on land and knots at sea, on one `KMH_PER_KNOT` / `knotsToKmh` home and a `dash_value_kmh_int` key in both locales.
-
-**Ui_General** · **status:** active · **created:** 2026-06-08 16:43 · **modified:** 2026-10-23 15:22
-- App-lifecycle UX — the back-exit guard, edge-to-edge insets, list normalization, the drawer framework and menu-drawer UX.
-- Every settings slider renders through one row — the two render-count rows and the boat size included — with the value bottom-aligned against its track and a unit suffix read from a `*_fmt` key rather than formatted in code.
-- The popup takes one drag to open, carries no arrow and centres its wheel on the box; the band is the value committed on a slow release by any door, while a flick keeps the popup open so a long list can be browsed and back cancels a browse without a write; the popup fades and rises 120 ms each way with its fading window refusing every touch.
-- Each list card is entered by a leading selection door, the picked card wearing a 2 dp accent border, the 15 % shift and a 24 dp check disc at the head of the first line.
-- The delete family runs on one pending set with one hiding rule — a card's deferred delete hides its item on the map while a list swipe never does.
-- The selected-item dashboard closes on exactly two conditions: a surface wanting its slot, or a change of the world its Prev/Next walks.
-- The bottom-band snackbar/toast stack composes before the drawer ladder, so an open drawer and its scrim cover it while dialogs stay above the drawer.
-
-**Markers** · **status:** active · **created:** 2026-06-22 11:52 · **modified:** 2026-10-23 17:41
-- User markers (Pin/Circle/Corridor) with a wizard shell, where-am-I and a management list, all drawn on osmdroid overlays.
-- A marker card's Edit always rebuilds its form from the marker being edited, so a Prev/Next move cannot open the first marker's data in the wizard.
-- A marker's auto-name is one pure `markerAutoName`: its own geometry is asked of the where-am-i — a corridor's midpoint first, its endpoints only when the midpoint is silent — and the fallback is the tracks' `trackAutoName` stamp, the caller-supplied type glyph leading the string.
-- The wizard's default title no longer names a colour: it opens as `📍 yyyy-MM-dd HH:mm`, re-names at shape-step exits and Finish while the name is still the machine's, freezes on the first keystroke, and `saveMarker`/`updateMarker` read one `formGeometry`; an edit never re-names a stored marker.
-- The colour picker's choice now persists end to end: the edit save copies `colorIndex`, the map preview carries it, and the wizard's synthetic marker draws its own palette colour through a preview-only `MarkerAppearance.isPreview` while the stored 🕐 pin keeps the caution amber.
-- A marker may exist for its routing weight alone — `routingOnly` is additive, excluded from where-am-i by one pure predicate, set by the wizard's Only row and drawn dashed-and-hatched under one `MarkerAppearance.isRoutingOnly` flag.
-- The marker import/export transfer writes one GPX per marker with a base64 protobuf payload and a readable JSON mirror, a ZIP batch that always skips, and the three doors (card share, list export and a Settings transfer card).
-- A marker's dashboard open frames its body plus the proximity collar (the pin's zoom-in-only rule dropped), and a plain marker tap no longer opens the card.
-- The card header's route-role marks are the 🚩 / 🏁 emoji beside the 💲 cost mark, and the marker filter's three routing axes stand under one `Routing` title.
-- The colour palette holds **twenty hues** under the perceptual rule that every pair clears ΔE ≥ 25 (CIE76), its named tiers recorded with it and its blues bounded to a heavy navy and an azure; the names are string resources behind `MarkerColors.nameResOf`, and `MarkerColorsTest` computes Lab from the shipped hexes.
-- One colour picker serves the settings rows and the wizard: raised through `LocalConfirmDialogHost` onto `ConfirmDialog`, 4×5 portrait and 5×4 landscape, radio semantics, a two-tone selection ring and the app's own check disc on the picked swatch.
-
-**Tracks** · **status:** active · **created:** 2026-06-15 21:43 · **modified:** 2026-10-24 06:50
-- Track the boat's movement during navigation: one recording per trip, points captured only while moving, persisted as protobuf and recallable on the map.
-- A recorded trip's home-port comment line reads `la Salis: departure → return` instead of a time-spent duration, for every trip.
-- The selected-item speed toggle is two disk-persisted per-kind booleans, off by default: on bands the open item's fill, off paints its gold highlight, and the kind's stored axes are never touched.
-- The selected item paints on its own top overlay, so a selection change swaps one line instead of rebuilding every stored line.
-- A route and a recorded trip are named from their ends and idle stops: an end resolves to the smallest zone it stands inside — or, only when strictly smaller, one it stands near, a pin first — the body carries only markers an idle stop stood in (dive-first, then longest-idle), a distinct marked destination closes the name, and an end at the home port never names either kind.
-- The two render axes per kind run on a global → kind → class `enabled` leaf, and the path render engine is one painter for both kinds' lines over the `path.*` family.
-- The render count of either kind runs 0–30 plus an **All** value that drops the cap, pinned items having always escaped it, and the newest→oldest fade spans the not-pinned set actually drawn.
-- A trip's GPX carries the markers that own it (their payloads in the track's extensions plus one `wpt` each), re-pointed at the landed track id on import.
-
-**Performance** · **status:** active · **created:** 2026-06-07 00:00 · **modified:** 2026-09-20 13:50
-- Battery/performance pass over the GPS plugin — tunable acquisition via presets and sliders, movement-adaptive idle, a capped map-refresh applier and compass gating.
-- Power management is centralised in `data/power/`: `PowerPolicy` (framework-free) plus `PowerKeeper` hold the screen flag through a single mutation point, and a pushed speed is never read as a fresh one.
-- The map layer cost pass removed the per-layer zoom rebuilds and attaches the contour polylines once, switched by their own `enabled` flag.
-
-**Ui_Settings** · **status:** active · **created:** 2026-06-09 15:28 · **modified:** 2026-10-20 19:40
-- Settings page UI, SharedPreferences persistence and the settings widgets, with all rendering rules deferred to `docs/ui-component-guidelines.md`.
-- The four tabs derive their order, labels and pager from one ordered `SettingsTab` enum, and Position was renamed Routing and took the Route section.
-- The Layers card is titled **Routes and Tracks** and reads Routes Appearance → Tracks Appearance → Speed Arrows Settings → export/import, each Appearance block opening on its own two-chip Speed Display row.
-- The Tracks/Routes appearance settings seed from the unified `path.*` family, and `maro.properties` was taxonomised into eight subject domains.
-- `maro.properties` carries a `# tldr;` line under every technical comment, stating in plain words what the value changes for the user.
-
-**UI_Map** · **status:** active · **created:** 2026-06-07 00:00 · **modified:** 2026-10-23 16:20
-- Map display layer management — the depth and colour-depth layers, overlays, inspect mode, the toggle squares and the drawer ladder, with the shipped calls grouped by subject in `FEAT_DOC_UI_Map_decisions.md`.
-- Inspect mode measures from the point captured at arming, opens the nearest item at once, and after a 1499 ms pause recentres and freezes the ladder over every filtered item the map holds — the live acquire resolves a marker in the map-filtered world the sweep ranked, so a map-visible marker opens its dashboard even when the list filter drops it.
-- The layer fan is the master display gate for routes and tracks, the open dashboard's own item its one exception, and the two header eyes stay dimmed but tappable beneath it.
-- The map dash family rides one frame (one header, one dissolve, square corners, one walk row) and the toggle squares resolve through one pure `MapToggleFace`.
-- The bottom band ends on the map gutter in both orientations, so the bottom-left tag column and the zoom stack share one bottom line and landscape adds no navigation-bar inset.
-
-**WorkflowImprovement** · **status:** active · **created:** 2026-06-03 00:00 · **modified:** 2026-10-14 07:59
-- The xTrack `#`-command system and rulebook governance, with the Claude Code agent adapters in `.claude/agents/`.
-- The rulebook gained a five-tier legend (🛑 · ⛔ · 💬 · 🧹 · 🟢), and `#rule` was rebuilt around it — bare prints the legend, a tier reloads it with a fingerprint, and `all` reports staleness.
-- `#new` cuts `feature/[branch]` with `--no-track` so the first `#push` writes its own upstream, and `#rename` carries a published rename to the origin on one question.
-
-**Navigation** · **status:** active · **created:** 2026-06-10 08:40 · **modified:** 2026-09-16 17:10
-- Navigation aids on the map overlay — the heading/speed cap arrow and the dashed direction line from the boat marker, plus auto-show of zones on approach.
-- The arrow hides below 2.5 kn, draws straight up (heading-up rotation aligns heading with screen-up), and scales its length with speed and zoom from `maro.properties` keys.
-- Auto-show drives memory-only overlay flows and never the user's persisted visibility setting, and the dashboard's shore pipeline reads `dashboardPositionFor(marker, boat, gpsMode)` so a dragged map cannot move it.
-
-**RegulatedZones** · **status:** active · **created:** 2026-06-11 18:00 · **modified:** 2026-10-13 19:47
-- French coastal regulated zones (Nice–Fréjus corridor) — speed limits, anchoring and access restrictions — gathered offline, aggregated into a baked asset and drawn as a map overlay.
-- The INSPIRE bake parses the real shapes: the whole `restrn` list with speed-wins typing, `ACHARE` anchorages, `Point` buffering and `MultiPolygon` splitting, with a server-side bbox.
-- The set is app-controlled by the `zones.properties` asset — `regulatedZone.speedOverride.<key>` replaces a limit (or makes a zone a speed zone), `regulatedZone.speedRoute.<key>` steers only the route engine, and `regulatedZone.ignore.<key>=true` drops a zone.
-- The warning strip sits bottom-left, fed by the zones containing the marker rather than the boat and never gated by the layer's visibility.
-
-**ColorManagement** · **status:** active · **created:** 2026-06-16 14:05 · **modified:** 2026-09-16 15:00
-- All colour tokens live in `colors.properties` with `${key}` alias interpolation, and every change is reflected in `docs/color-scheme.md`.
-- One painting path and one property block (`ui.map.surface.*`) now own every map surface, the toggle squares and both overlay cards included.
-
-**ZoneTile** · **status:** active · **created:** 2026-06-17 09:45 · **modified:** 2026-09-16 06:31
-- Zone information tiles and map overlay rendering — the zone-ahead cone/line, the information cards, speed-zone display and ETA.
-- The zone-info line now reads the `ui.map.overlay.*` family over the shared `ui.map.surface.inactive`, so both bottom-left cards share one surface.
-
-**Tasker** · **status:** active · **created:** 2026-09-12 08:50 · **modified:** 2026-09-12 08:50
-- An external automation bridge publishing the boat's water state — architecture approved, not implemented.
-
-**TracksImport** · **status:** active · **created:** 2026-09-11 20:28 · **modified:** 2026-10-10 07:19
-- Map track visibility is derived rather than persisted — the `visibleOnMap` flag replaced by a shared, unit-tested `MapSelectionPolicy` driven by `MapRenderFocus`.
-- The open card's item is drawn past the map filter and past the render cap, one id and only while its card stands (reversing 2026-09-28 in part).
-- The GAP-split polyline rendering was extracted into `MapTrackSegments`, and an on-demand GPX off-route cleanup harness ships with four test classes.
-
-**Ui_Menu** · **status:** active · **created:** 2026-07-05 06:57 · **modified:** 2026-10-20 19:40
-- The hamburger menu drawer — the Routing card (ends, quick access and live summary), a Routes list, a Tracks list and marker management.
-- The Routing card's quick-access pair gained a Go button on its right, arming a fresh acquisition on the standing pair through the same trigger the map square and fan child share.
-- The ROUTES and TRACKS headers each carry a map-visibility eye outside the filter gate, and the two lists are hard-separated by a `ListScope` over the one `TrackHistoryOverlay`.
-- The route Speed/Direction switches are subordinate to the master Speed Colors and Arrows chips, and a pinned route stays dashed by its own route identity.
-- The routes list carries no inline pin filter — its All/Pinned/Not pinned choice lives only in the filter popup.
-
-**ArcLayout** · **status:** active · **created:** 2026-06-13 07:34 · **modified:** 2026-09-29 11:35
-- The map's layer toggle is one anchor button fanning out into a pure-Compose arc menu holding the layer toggles.
-- Fan geometry is θ-parameterised with the parent at centre and equal radii, and a momentary mode (`toggleChildren = false`) makes a fan whose children are actions, as the Route fan uses.
-
-**Documentation** · **status:** active · **created:** 2026-06-11 06:42 · **modified:** 2026-10-10 11:53
-- Cross-cutting project documentation — the README as orientation only, machine onboarding and troubleshooting, the git detail, the feature-to-code map and the maintenance of `docs/`.
-- `docs/maro-code.md` is the single source of truth for feature-to-code mapping and was re-verified against the tree on 2026-10-10, and no doc restates a version or an inventory the build files hold.
-
-**DepthMapping** · **status:** active · **created:** 2026-06-04 00:00 · **modified:** 2026-06-10 12:13
-- Bathymetry and depth mapping across 0–60 m from Litto3D, SHOM and EMODnet, with shoalest-wins precision tiers and per-cell source and confidence.
-- Rendering is a hypsometric `DepthColorRamp` plus isobaths, and an EMODnet shallow gate applies to the colour map, the warning overlay and the isobaths, while the cold-start heap work stays in design.
-
-**GPS** · **status:** active · **created:** 2026-06-07 00:00 · **modified:** 2026-08-15 15:21
-- A position-source toggle between Démo (free-pan, north-up) and GPS mode, where the device GPS drives the map centre and heading-up rotation with a compass fallback when stationary.
-- Location uses the framework `LocationManager` / `SensorManager` (no Play Services), and dead-reckoning extrapolation is display-only, gated out of persistent track recording.
-
-**BakeNormalization** · **status:** active · **created:** 2026-06-08 00:00 · **modified:** 2026-06-08 17:10
-- The asset pipeline is split into granular `bake-[type].bat` scripts behind a single interactive `apk-bake.bat`, an `apk-build.bat` that only packages and an `apk-deploy.bat` that installs and relaunches.
-- One region bounding box source of truth (the W/E gradle props), the depth envelope derived as coastline bbox plus 6 NM, and no baked data in git.
-- Litto3D coverage is fetched west only, so the east (Antibes→Nice) shallow tier is still missing.
-
-**DepthSafety** · **status:** active · **created:** 2026-06-08 18:25 · **modified:** 2026-06-09 12:01
-- Four gaps of the depth map as a safety surface, delivered as four branches — water-only colour, isobath precision by source, the magenta low-depth display, and the shallow-water alarm (B4, still owed).
-- Isobath colour states the data source (EMODnet dark blue, Litto3D forest green), and a coarse-EMODnet shallow gate covers the readout, the colour map, the overlay and the isobaths.
-
-**Coastline** · **status:** active · **created:** 2026-06-05 00:00 · **modified:** 2026-06-23 07:08
-- The coastline pipeline ingests continuous land polygons (OSM `natural=coastline`) and now also buffers isolated point hazards into micro-circle rings merged into the land set.
-- Hazard rings come from the Shom Aton WFS with hard-coded seed fallbacks (Fourmigue, Batéguier, Tradelière, Chrétienne), and the region extends east to Menton.
-
-**CheckDev** · **status:** active · **created:** 2026-06-20 11:42 · **modified:** 2026-06-20 11:42
-- Dev-branch health monitoring — remote branch state, ahead/behind analysis and workflow hygiene, scoped with its todos still open.
-
-**Health** · **status:** active · **created:** 2026-06-20 11:42 · **modified:** 2026-06-20 11:42
-- Application health monitoring — diagnostics, crash reporting and telemetry — scoped, with no work landed yet.
+| Feature | Status | Created | Modified | Link |
+|---|---|---|---|---|
+| Route | active | 2026-08-16 10:44 | 2026-10-24 06:34 | [FEAT_DSC_Route.md](Route/FEAT_DSC_Route.md) |
+| Ui_Dashboard | active | 2026-06-06 00:00 | 2026-10-12 08:58 | [FEAT_DSC_Ui_Dashboard.md](Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) |
+| Ui_General | active | 2026-06-08 16:43 | 2026-10-23 15:22 | [FEAT_DSC_Ui_General.md](Ui_General/FEAT_DSC_Ui_General.md) |
+| Markers | active | 2026-06-22 11:52 | 2026-10-23 17:41 | [FEAT_DSC_Markers.md](Markers/FEAT_DSC_Markers.md) |
+| Tracks | active | 2026-06-15 21:43 | 2026-10-24 06:50 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
+| Performance | active | 2026-06-07 00:00 | 2026-09-20 13:50 | [FEAT_DSC_Performance.md](Performance/FEAT_DSC_Performance.md) |
+| Ui_Settings | active | 2026-06-09 15:28 | 2026-10-20 19:40 | [FEAT_DSC_Ui_Settings.md](Ui_Settings/FEAT_DSC_Ui_Settings.md) |
+| UI_Map | active | 2026-06-07 00:00 | 2026-10-23 16:20 | [FEAT_DSC_UI_Map.md](UI_Map/FEAT_DSC_UI_Map.md) |
+| WorkflowImprovement | active | 2026-06-03 00:00 | 2026-10-24 07:24 | [FEAT_DSC_WorkflowImprovement.md](WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) |
+| Navigation | active | 2026-06-10 08:40 | 2026-09-16 17:10 | [FEAT_DSC_Navigation.md](Navigation/FEAT_DSC_Navigation.md) |
+| RegulatedZones | active | 2026-06-11 18:00 | 2026-10-14 10:35 | [FEAT_DSC_RegulatedZones.md](RegulatedZones/FEAT_DSC_RegulatedZones.md) |
+| ColorManagement | active | 2026-06-16 14:05 | 2026-09-16 15:00 | [FEAT_DSC_ColorManagement.md](ColorManagement/FEAT_DSC_ColorManagement.md) |
+| ZoneTile | active | 2026-06-17 09:45 | 2026-09-16 06:31 | [FEAT_DSC_ZoneTile.md](ZoneTile/FEAT_DSC_ZoneTile.md) |
+| Tasker | active | 2026-09-12 08:50 | 2026-09-12 08:50 | [FEAT_DSC_Tasker.md](Tasker/FEAT_DSC_Tasker.md) |
+| TracksImport | active | 2026-09-11 20:28 | 2026-10-10 07:19 | [FEAT_DSC_TracksImport.md](TracksImport/FEAT_DSC_TracksImport.md) |
+| Ui_Menu | active | 2026-07-05 06:57 | 2026-10-20 19:40 | [FEAT_DSC_Ui_Menu.md](Ui_Menu/FEAT_DSC_Ui_Menu.md) |
+| ArcLayout | active | 2026-06-13 07:34 | 2026-09-29 11:35 | [FEAT_DSC_ArcLayout.md](ArcLayout/FEAT_DSC_ArcLayout.md) |
+| Documentation | active | 2026-06-11 06:42 | 2026-10-10 11:53 | [FEAT_DSC_Documentation.md](Documentation/FEAT_DSC_Documentation.md) |
+| DepthMapping | active | 2026-06-04 00:00 | 2026-06-10 12:13 | [FEAT_DSC_DepthMapping.md](DepthMapping/FEAT_DSC_DepthMapping.md) |
+| GPS | active | 2026-06-07 00:00 | 2026-08-15 15:21 | [FEAT_DSC_GPS.md](GPS/FEAT_DSC_GPS.md) |
+| BakeNormalization | active | 2026-06-08 00:00 | 2026-06-08 17:10 | [FEAT_DSC_BakeNormalization.md](BakeNormalization/FEAT_DSC_BakeNormalization.md) |
+| DepthSafety | active | 2026-06-08 18:25 | 2026-06-09 12:01 | [FEAT_DSC_DepthSafety.md](DepthSafety/FEAT_DSC_DepthSafety.md) |
+| Coastline | active | 2026-06-05 00:00 | 2026-06-23 07:08 | [FEAT_DSC_Coastline.md](Coastline/FEAT_DSC_Coastline.md) |
+| CheckDev | active | 2026-06-20 11:42 | 2026-06-20 11:42 | [FEAT_DSC_CheckDev.md](CheckDev/FEAT_DSC_CheckDev.md) |
+| Health | active | 2026-06-20 11:42 | 2026-06-20 11:42 | [FEAT_DSC_Health.md](Health/FEAT_DSC_Health.md) |
 
 ## Global Todos
 

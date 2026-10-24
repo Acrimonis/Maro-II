@@ -7,8 +7,8 @@ Create a new tracked feature.
                   1. Create xTrack/name/ directory and xTrack/name/FEAT_DSC_name.md with
                      YAML front-matter (name, status: active, created/modified = now)
                   2. Append a keyword-to-path row to the Routing Map in GLOBAL_CONTEXT.md
-                  3. Add the feature's block to ## Feature Summaries in GLOBAL_CONTEXT.md (shape
-                     docs/xtrack-templates.md holds) with a derived one_liner
+                  3. Add the feature's ## Features row in GLOBAL_CONTEXT.md and a derived
+                     one-liner in its ## Summary (shape docs/xtrack-templates.md holds)
                   If input is a descriptive phrase rather than PascalCase, derive
                   a clean feature name and confirm before creating.
 

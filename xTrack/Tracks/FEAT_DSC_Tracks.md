@@ -10,6 +10,16 @@ modified: 2026-10-24 06:50
 **Description:**
 Track the boat's movement (position, speed) during active navigation. One recording = one track (Port Salis → Port Salis). Point capture suspends when stationary via `isStill()` gate, but the recording state stays ON. Tracks persisted as protobuf binary and recallable — their polylines display on the map overlay.
 
+## Summary
+- Track the boat's movement during navigation: one recording per trip, points captured only while moving, persisted as protobuf and recallable on the map.
+- A recorded trip's home-port comment line reads `la Salis: departure → return` instead of a time-spent duration, for every trip.
+- The selected-item speed toggle is two disk-persisted per-kind booleans, off by default: on bands the open item's fill, off paints its gold highlight, and the kind's stored axes are never touched.
+- The selected item paints on its own top overlay, so a selection change swaps one line instead of rebuilding every stored line.
+- A route and a recorded trip are named from their ends and idle stops: an end resolves to the smallest zone it stands inside — or, only when strictly smaller, one it stands near, a pin first — the body carries only markers an idle stop stood in (dive-first, then longest-idle), a distinct marked destination closes the name, and an end at the home port never names either kind.
+- The two render axes per kind run on a global → kind → class `enabled` leaf, and the path render engine is one painter for both kinds' lines over the `path.*` family.
+- The render count of either kind runs 0–30 plus an **All** value that drops the cap, pinned items having always escaped it, and the newest→oldest fade spans the not-pinned set actually drawn.
+- A trip's GPX carries the markers that own it (their payloads in the track's extensions plus one `wpt` each), re-pointed at the landed track id on import.
+
 ## Sections
 
 ### verification
