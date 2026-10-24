@@ -2590,6 +2590,84 @@ fun MapScreen(
             }
 
             /**
+             * The comment a saved route carries, composed at save time: `#rank • type • speed • pref`
+             * over the per-zone times, then `Routed on date in s sec` — every word read from the locale
+             * active at that instant.
+             */
+            fun routeCommentFor(plan: RoutePlan): String {
+                fun timeWord(sec: Int): String =
+                    context.getString(R.string.route_summary_eta_value_fmt, sec / 60, sec % 60) +
+                        " " + context.getString(R.string.route_summary_eta_unit)
+
+                val facts = routeViewModel.commentFacts()
+                val rung = facts.rungResIds.joinToString(
+                    context.getString(R.string.route_rung_names_sep)
+                ) { context.getString(it) }
+                val paceText = paceHeaderWord(
+                    context,
+                    appSettings.routeFreeWaterPaceKn,
+                    routePaceKn,
+                    routeNowPace.source
+                )
+                val dial = verdictDialWord(context, VerdictDial.ofIndex(appSettings.routeSlowWaterStop))
+                val head = listOfNotNull(
+                    facts.rank?.let { "#$it" },
+                    rung.takeIf { it.isNotBlank() },
+                    paceText,
+                    dial
+                ).joinToString(" • ")
+                // The zone line reads a live plan's attribution alone: a read-back plan lost it and a
+                // draft has none — `searchDurationSec` is the marker that this plan is a settled search.
+                val zoneLine = if (plan.searchDurationSec != null) {
+                    buildList {
+                        val openWaterSec =
+                            (plan.durationSec - plan.slowLimitSeconds.sumOf { it.seconds }).roundToInt()
+                        if (openWaterSec >= 1) {
+                            add(
+                                context.getString(
+                                    R.string.route_comment_zone_entry_fmt,
+                                    context.getString(R.string.route_comment_open_water),
+                                    timeWord(openWaterSec)
+                                )
+                            )
+                        }
+                        for (entry in routeSlowLimitEntries(plan)) {
+                            val label = if (entry.isBand) {
+                                context.getString(R.string.route_slow_band_label)
+                            } else {
+                                context.getString(R.string.route_slow_limit_label_fmt, entry.limitKn)
+                            }
+                            add(
+                                context.getString(
+                                    R.string.route_comment_zone_entry_fmt,
+                                    label,
+                                    timeWord(entry.seconds)
+                                )
+                            )
+                        }
+                    }.joinToString(" • ")
+                } else {
+                    ""
+                }
+                val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    .format(java.util.Date(plan.computedAtMs))
+                val seconds = plan.searchDurationSec?.let {
+                    java.lang.String.format(java.util.Locale.US, "%.1f", it)
+                }
+                val tail = if (seconds != null) {
+                    context.getString(R.string.route_comment_routed_fmt, date, seconds)
+                } else {
+                    context.getString(R.string.route_comment_routed_no_sec_fmt, date)
+                }
+                val lines = listOfNotNull(
+                    head.takeIf { it.isNotBlank() },
+                    zoneLine.takeIf { it.isNotBlank() },
+                    tail
+                )
+                return if (head.isBlank()) "" else lines.joinToString("\n")
+            }
+
+            /**
              * Writes **one** route as an ordinary track. [id], [createdAtMs] and [name] override the
              * plan's own figures when a draft re-save must keep the track's identity while its points
              * grow; the ordinary save leaves them null and takes the plan's.
@@ -2621,7 +2699,8 @@ fun MapScreen(
                     createdAtMs = createdAtMs ?: plan.computedAtMs,
                     name = name ?: composeRouteName(plan),
                     routeStartMarkerId = startMarkerId ?: "",
-                    routeDestinationMarkerId = destinationMarkerId ?: ""
+                    routeDestinationMarkerId = destinationMarkerId ?: "",
+                    comment = routeCommentFor(plan)
                 )
                 val savedId = trackViewModel.saveBuiltTrack(track)
                 toastSaved(track.name)

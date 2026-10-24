@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-24 05:45
+modified: 2026-10-24 06:34
 ---
 
 # Feature: Route
@@ -182,6 +182,7 @@ The live numbered requirements — added after the master book was retired; the 
 
 ## Docs
 
+- [`261024_FEAT_PLN_Route_route-comment.md`](261024_FEAT_PLN_Route_route-comment.md) — **the comment a saved route carries**: `#rank • rung • pace • pref`, a per-zone time line (`Open water • 300M • limit`) and `Routed on date in s sec`, composed at save time with the rank read at save time and the words in the active locale (implemented, device pass owed)
 - [`261021_FEAT_PLN_Route_end-fine-island.md`](261021_FEAT_PLN_Route_end-fine-island.md) — **an end beyond the fine ribbon**: the destination anchored on a manufactured one-cell fine island (the fine layer is the coastal ribbon only), and the fix that leaves a no-water fine cell land so the end anchors on the coarse cell (implemented, device pass owed)
 
 - [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) — **the central reference for the acquisition engines as they stand**: the seam, the three shipped rows, the ladder and its ranking, the pipeline, the plan seam, the shared `multipass` layer, the water they price, the readings and the known gaps — present tense, no history

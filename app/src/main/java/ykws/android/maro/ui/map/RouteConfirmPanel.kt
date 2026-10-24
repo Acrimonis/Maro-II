@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -188,15 +189,7 @@ internal fun RouteConfirmationPanel(
     // search evaluated) and the preference the ranks were read against. The stage words moved to the
     // rows, each rung printing its own.
     val landedCount = pages.count { it.plan != null || it.reason != null }
-    val paceText = if (AppConfig.isFreeWaterPaceAny(paceSetKn)) {
-        stringResource(
-            R.string.route_header_pace_any_fmt,
-            stringResource(R.string.settings_route_pace_value_fmt, paceKn),
-            stringResource(paceSource.labelRes())
-        )
-    } else {
-        stringResource(R.string.settings_route_pace_value_fmt, paceSetKn)
-    }
+    val paceText = paceHeaderWord(LocalContext.current, paceSetKn, paceKn, paceSource)
     val status = if (committed) {
         stringResource(R.string.route_status_selected)
     } else {
