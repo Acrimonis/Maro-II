@@ -1666,6 +1666,9 @@ fun MapScreen(
         ) { kn, date -> viewModel.updateSettings { it.withDayPace(kn, date) } }
     }
 
+    // Home-port arrival prompt (idle-in-zone 60 s) — the recording's three doors, Save accent.
+    var showArrivalPrompt by remember { mutableStateOf(false) }
+
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
@@ -1685,6 +1688,9 @@ fun MapScreen(
                     if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
                         markersViewModel.closeDrawer()
                     }
+                }
+                is ykws.android.maro.data.track.TrackEvent.HomePortArrivalPrompt -> {
+                    showArrivalPrompt = true
                 }
                 is ykws.android.maro.data.track.TrackEvent.Finalized -> {
                     toastSaved(event.name)
@@ -1903,7 +1909,7 @@ fun MapScreen(
     // exit guard must stand down while one is offered. Covers the exit, stop-recording, recovery,
     // import-conflict, GPS source-switch and resume dialogs; the hoisted list-drawer
     // confirmations (batch delete, merge) stay behind their open drawer, which the guard excludes.
-    val anyConfirmDialogOpen = showExitDialog || showStopRecordingSheet ||
+    val anyConfirmDialogOpen = showExitDialog || showStopRecordingSheet || showArrivalPrompt ||
         pendingGpsModeToggle != null || recoveryTrack != null ||
         pendingTrackImport != null || chrome.pendingResume != null
 
@@ -2590,7 +2596,7 @@ fun MapScreen(
             }
 
             /**
-             * The comment a saved route carries, composed at save time: `#rank • type • speed • pref`
+             * The comment a saved route carries, composed at save time: `#rank • pace • pref`
              * over the per-zone times, then `Routed on date in s sec` — every word read from the locale
              * active at that instant.
              */
@@ -2600,9 +2606,6 @@ fun MapScreen(
                         " " + context.getString(R.string.route_summary_eta_unit)
 
                 val facts = routeViewModel.commentFacts()
-                val rung = facts.rungResIds.joinToString(
-                    context.getString(R.string.route_rung_names_sep)
-                ) { context.getString(it) }
                 val paceText = paceHeaderWord(
                     context,
                     appSettings.routeFreeWaterPaceKn,
@@ -2610,12 +2613,7 @@ fun MapScreen(
                     routeNowPace.source
                 )
                 val dial = verdictDialWord(context, VerdictDial.ofIndex(appSettings.routeSlowWaterStop))
-                val head = listOfNotNull(
-                    facts.rank?.let { "#$it" },
-                    rung.takeIf { it.isNotBlank() },
-                    paceText,
-                    dial
-                ).joinToString(" • ")
+                val head = routeCommentHead(facts.rank, paceText, dial)
                 // The zone line reads a live plan's attribution alone: a read-back plan lost it and a
                 // draft has none — `searchDurationSec` is the marker that this plan is a settled search.
                 val zoneLine = if (plan.searchDurationSec != null) {
@@ -4531,6 +4529,18 @@ fun MapScreen(
                 trackViewModel.discardRecording()
             },
             onStopSheetDismiss = { showStopRecordingSheet = false },
+            // ── Home-port arrival prompt ──
+            showArrivalPrompt = showArrivalPrompt,
+            onArrivalSave = {
+                showArrivalPrompt = false
+                trackViewModel.stopRecording()
+            },
+            onArrivalContinue = { showArrivalPrompt = false },
+            onArrivalDiscard = {
+                showArrivalPrompt = false
+                trackViewModel.discardRecording()
+            },
+            onArrivalDismiss = { showArrivalPrompt = false },
             // ── Process-death recovery ──
             recoveryTrack = recoveryTrack,
             // ── Background location permission (A2) ──
@@ -5695,7 +5705,7 @@ private fun MapContent(
  * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder. A
  * routing-weight-only marker names nothing either: flagged or not, it leaves the end its fixed or dated
  * name rather than lending it its own — and `null` again when the end is the boat's own home port,
- * told by the place or by the name itself (settled 2026-10-11).
+ * told by the place alone (settled 2026-10-24).
  */
 private fun routeEndName(
     selection: RouteEndSelection,
@@ -5722,7 +5732,7 @@ private fun routeEndName(
     val label = named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) } ?: return null
     val homePort = endPoint?.let { point ->
         ykws.android.maro.data.track.TrackNaming.namesHomePort(
-            point.latitude, point.longitude, label,
+            point.latitude, point.longitude,
             homePortLat, homePortLon, homePortRadiusM
         )
     } ?: false

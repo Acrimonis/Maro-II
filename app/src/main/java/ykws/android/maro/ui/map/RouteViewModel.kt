@@ -453,9 +453,8 @@ class RouteViewModel(
     /** The wall-clock instant the standing arm began — the search duration's start. */
     private var armedStartMs = 0L
 
-    /** The rank and rung labels the followed route carried when the acquisition closed — read at save time. */
+    /** The rank the followed route carried when the acquisition closed — read at save time. */
     private var followedRank: Int? = null
-    private var followedRungResIds: List<Int> = emptyList()
 
     /**
      * **Whether the followed plan currently reads reversed** (R99) — the loss mirror's own orientation
@@ -603,7 +602,6 @@ class RouteViewModel(
         resetOrder()
         armedStartMs = System.currentTimeMillis()
         followedRank = null
-        followedRungResIds = emptyList()
         seatFrozen = false
         mirrored = false
         armedStartMarkerId = ends.startMarkerId
@@ -935,11 +933,10 @@ class RouteViewModel(
         _selectedIndex.value = 0
     }
 
-    /** Remembers the rank and rung labels the chosen line carried, so a later save still reads them. */
+    /** Remembers the rank the chosen line carried, so a later save still reads it. */
     private fun captureFollowedFacts(page: RoutePage) {
         val view = routeRankView(_pages.value, _verdict.value, _folded.value)
         followedRank = page.lookupId?.let { view.ranks[it] }
-        followedRungResIds = page.foldedDescriptionResIds.ifEmpty { listOfNotNull(page.descriptionResId) }
     }
 
     /** The arm-to-now seconds, or null when no arm stands. */
@@ -1012,22 +1009,18 @@ class RouteViewModel(
     /** The selected page's plan, or null while it has none. */
     fun selectedPlan(): RoutePlan? = selectedPage()?.plan
 
-    /** The rank and rung labels the standing save writes into its comment — read at save time. */
-    data class RouteCommentFacts(val rank: Int?, val rungResIds: List<Int>)
+    /** The rank the standing save writes into its comment — read at save time. */
+    data class RouteCommentFacts(val rank: Int?)
 
     /** The comment facts for the line being saved: the live rank while choosing, the captured rank while following. */
     fun commentFacts(): RouteCommentFacts = when (val s = _state.value) {
         is RouteState.Choosing -> {
             val page = selectedPage()
             val view = routeRankView(_pages.value, _verdict.value, _folded.value)
-            RouteCommentFacts(
-                rank = page?.lookupId?.let { view.ranks[it] },
-                rungResIds = page?.let { it.foldedDescriptionResIds.ifEmpty { listOfNotNull(it.descriptionResId) } }
-                    ?: emptyList()
-            )
+            RouteCommentFacts(rank = page?.lookupId?.let { view.ranks[it] })
         }
-        is RouteState.Following -> RouteCommentFacts(followedRank, followedRungResIds)
-        RouteState.Idle -> RouteCommentFacts(null, emptyList())
+        is RouteState.Following -> RouteCommentFacts(followedRank)
+        RouteState.Idle -> RouteCommentFacts(null)
     }
 
     /** The two marker ids the armed line stood between, or nulls when an end was not a marker (R82). */
@@ -1057,7 +1050,6 @@ class RouteViewModel(
         etaState = RouteEtaState()
         armedStartMs = 0L
         followedRank = null
-        followedRungResIds = emptyList()
     }
 
     /** **The one disposal function** — the only thing that calls `cancelLookup`, for every in-flight id. */

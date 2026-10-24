@@ -270,6 +270,7 @@
     <string name="recording_exit_save">Enregistrer le parcours</string>
     <string name="recording_exit_continue">Continuer l\'enregistrement</string>
     <string name="recording_exit_discard">Supprimer le parcours</string>
+    <string name="home_port_arrival_title">Nous sommes arrivés au port d\'attache</string>
 
     <!-- Track merge dialog -->
     <string name="action_merge">Fusionner</string>

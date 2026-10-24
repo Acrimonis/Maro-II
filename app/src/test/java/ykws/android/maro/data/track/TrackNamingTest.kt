@@ -129,17 +129,16 @@ class TrackNamingTest {
     }
 
     @Test
-    fun `a label naming Salis is the home port wherever it stands`() {
-        assertTrue(TrackNaming.namesHomePort(0.0, 0.0, "Port de La Salis", 43.55, 7.00, 500.0))
-        assertTrue(
-            TrackNaming.namesHomePort(0.0, 0.0, "\uD83E\uDD3F Anse de la salis", 43.55, 7.00, 500.0)
-        )
+    fun `a place inside the Port Salis geofence is the home port`() {
+        assertTrue(TrackNaming.namesHomePort(43.55, 7.00, 43.55, 7.00, 500.0))
+        assertFalse(TrackNaming.namesHomePort(43.60, 7.10, 43.55, 7.00, 500.0))
     }
 
     @Test
-    fun `a place inside the Port Salis geofence is the home port without the name`() {
-        assertTrue(TrackNaming.namesHomePort(43.55, 7.00, "Cap d'Antibes", 43.55, 7.00, 500.0))
-        assertFalse(TrackNaming.namesHomePort(43.60, 7.10, "Cap d'Antibes", 43.55, 7.00, 500.0))
+    fun `a label naming Salis no longer counts as the home port`() {
+        // Positional-only: the label arm is gone, so a Salis name outside the circle names the end.
+        assertFalse(TrackNaming.namesHomePort(0.0, 0.0, 43.5696, 7.1312, 50.0))
+        assertTrue(TrackNaming.namesHomePort(43.5696, 7.1312, 43.5696, 7.1312, 50.0))
     }
 
     @Test

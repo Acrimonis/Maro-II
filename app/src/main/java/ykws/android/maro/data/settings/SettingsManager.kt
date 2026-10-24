@@ -778,9 +778,11 @@ class SettingsManager(
         demoHeadingUp = prefs.getBoolean(KEY_DEMO_HEADING_UP, false),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
         trackEnabled = prefs.getBoolean(KEY_TRACK_ENABLED, BuildConfig.TRACK_ENABLED_DEFAULT),
-        trackOriginLat = prefs.getFloat(KEY_TRACK_ORIGIN_LAT, BuildConfig.TRACK_ORIGIN_LAT.toFloat()).toDouble(),
-        trackOriginLon = prefs.getFloat(KEY_TRACK_ORIGIN_LON, BuildConfig.TRACK_ORIGIN_LON.toFloat()).toDouble(),
-        trackGeofenceRadiusM = prefs.getFloat(KEY_TRACK_GEOFENCE_RADIUS_M, BuildConfig.TRACK_GEOFENCE_RADIUS_M.toFloat()).toDouble(),
+        // The home port is `maro.properties` alone — never a stored setting — so the file is the
+        // one source of truth and no persisted value can shadow it.
+        trackOriginLat = BuildConfig.TRACK_ORIGIN_LAT,
+        trackOriginLon = BuildConfig.TRACK_ORIGIN_LON,
+        trackGeofenceRadiusM = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
         trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true),
         markerLayerState = try {
             ykws.android.maro.ui.map.MarkerLayerState.valueOf(
@@ -995,9 +997,10 @@ class SettingsManager(
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .putBoolean(KEY_TRACK_ENABLED, updated.trackEnabled)
-            .putFloat(KEY_TRACK_ORIGIN_LAT, updated.trackOriginLat.toFloat())
-            .putFloat(KEY_TRACK_ORIGIN_LON, updated.trackOriginLon.toFloat())
-            .putFloat(KEY_TRACK_GEOFENCE_RADIUS_M, updated.trackGeofenceRadiusM.toFloat())
+            // The home port lives in maro.properties alone now: drop whatever an older build wrote here.
+            .remove(KEY_TRACK_ORIGIN_LAT)
+            .remove(KEY_TRACK_ORIGIN_LON)
+            .remove(KEY_TRACK_GEOFENCE_RADIUS_M)
             .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
             .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)

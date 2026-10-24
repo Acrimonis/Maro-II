@@ -271,6 +271,7 @@
     <string name="recording_exit_save">Save track</string>
     <string name="recording_exit_continue">Continue recording</string>
     <string name="recording_exit_discard">Discard track</string>
+    <string name="home_port_arrival_title">We arrived to the home port</string>
 
     <!-- Track merge dialog -->
     <string name="action_merge">Merge</string>
