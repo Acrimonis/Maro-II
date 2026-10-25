@@ -8,16 +8,24 @@
 
 ---
 
-## Status as of 2026-10-23
+## Status as of 2026-10-25
 
 Everything below this section is the review as written on 2026-10-22. This section says what has
-happened since. All work is on [noahb/Maro-II#1](https://github.com/noahb/Maro-II/pull/1), four fix
-commits (`299cfdb8`, `fa561bb4`, `84f185c0`, `4ded8c30`), reviewed twice with every reported code
-defect resolved; the full change record is `FIXES_2026-10-22_high-findings.md`.
+happened since. The work is four stacked branches, each with a pull request on the fork and one on
+the upstream repository: `feature/review-fixes` ([noahb#5](https://github.com/noahb/Maro-II/pull/5),
+[Acrimonis#370](https://github.com/Acrimonis/Maro-II/pull/370)), `feature/on-water-battery` (#2,
+#371), `feature/validation-ci` (#4, #372) and `feature/clock-and-copy` (#6, #373). The change
+records are the four `FIXES_*.md` files beside this one.
 
-**Compiled and tested, 2026-10-23.** Two more pull requests stack on the first — #2 (battery and
-responsiveness on the water) and #4 (a GitHub Actions workflow, recorder lifecycle regression
-tests, release keep rules). The workflow's runs build the debug APK and pass the unit suite on every
+**Synced with upstream, 2026-10-25.** Upstream `develop` moved eighteen commits (the home-port
+arrival prompt replacing the silent auto-stop, list filters, route naming). Those were merged
+through the stack, the recorder keeping both the injected monotonic clock and upstream's home-port
+name, and the arrival prompt taking the place of the retired stop debounce. All four upstream pull
+requests read mergeable against `develop`.
+
+**Compiled and tested, 2026-10-23.** The second branch carries battery and responsiveness on the
+water, the third a GitHub Actions workflow, recorder lifecycle regression tests and release keep
+rules, the fourth the session clock and copy fixes. The workflow's runs build the debug APK and pass the unit suite on every
 branch of the stack: 1 469 tests, zero failures, 18 skipped (the regional harness tier, whose baked
 assets are not in the repository), the five recorder lifecycle tests among the passes. Every code
 finding from five review rounds is resolved; what remains unverified is what needs a device.
@@ -31,6 +39,11 @@ finding from five review rounds is resolved; what remains unverified is what nee
   failure reporting and dropped updates (S04, S05, S07, S10, A14), the where-am-I bridge leak (A09),
   restored armed flags (A11), the mislabelled GPS row (U07), dead parameters (C02), hot-path logging
   (E03), the architecture doc (A04, A05), and the adjacent N10, N11, D06 and O5.
+- Batches two to four: the standby GPS cadence (A10), the viewport write split from settings (A15),
+  the marker overlay's selection diff (C05), the single-flight raster owner (N09), the long-press
+  unlock (U04), the 48 dp touch token (U03), the CI workflow with release keep rules (E01, in part),
+  the recorder's monotonic clock and point offsets (O3), cleartext forbidden (O6), the copy pass
+  (U23–U25), the speed breach spelled out (U20, U27) and font-scale fitting (U28).
 - Two review rounds on the PR: eight findings, all accepted and fixed (exit awaits the finalize, a
   lifecycle lock, a retained failed save, corrupt-cache fallback, a trailing-parameter compile
   defect, the checkpoint-suffix namespace, a bounded picker read, forwarded unreadable counts).
@@ -43,17 +56,13 @@ finding from five review rounds is resolved; what remains unverified is what nee
   The build, the unit suite and the recorder regression tests are done (see above).
 - Two decisions: a `kxml2` test dependency so the ignored standard-GPX test can run, and whether the
   alarm channel (H14, §3) is in scope.
-- Medium findings not taken up, by area. UI: the marker overlay's wholesale rebuild on selection
-  (C05), the Back-handler ladder (C07), the full settings rewrite on every pan (A15), the god
-  composable and ViewModel split (C01, A13), theming and component duplication (C08, C09). Engine:
-  memory at the cell ceiling and the boxed heap, to be measured before touched (S02, S03), geometry
-  duplication (S11, S12), the single-flight raster owner (N09). Service: the always-on GPS
-  subscription (A10), the wall-clock time base (O3), the exported water-state receiver (O4), the
-  cleartext whitelist (O6). UX: the settings diet (U08), route planning's three homes (U09), the
-  recording permission storm and onboarding (U13), glare and a daylight theme (U02), touch targets
-  (U03), the single-tap unlock (U04), colour-only warnings (U20, U27), terminology and hard-coded
-  English (U23–U25), font scale (U28). Engineering: CI, lint and release keep rules (E01), root-file
-  hygiene (E02), decision history in KDoc (A17).
+- Medium findings not taken up, by area. UI: the Back-handler ladder (C07), the god composable and
+  ViewModel split (C01, A13), theming and component duplication (C08, C09). Engine: memory at the
+  cell ceiling and the boxed heap, to be measured before touched (S02, S03), geometry duplication
+  (S11, S12). Service: the exported water-state receiver (O4). UX: the settings diet (U08), route
+  planning's three homes (U09), the recording permission storm and onboarding (U13), glare and a
+  daylight theme (U02). Engineering: lint (the rest of E01), root-file hygiene (E02), decision
+  history in KDoc (A17).
 
 ## 0. Outcome
 
