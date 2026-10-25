@@ -11,6 +11,13 @@ modified: 2026-10-20 19:40
 > selectors, anti-patterns) live in [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md) —
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
+## Summary
+- Settings page UI, SharedPreferences persistence and the settings widgets, with all rendering rules deferred to `docs/ui-component-guidelines.md`.
+- The four tabs derive their order, labels and pager from one ordered `SettingsTab` enum, and Position was renamed Routing and took the Route section.
+- The Layers card is titled **Routes and Tracks** and reads Routes Appearance → Tracks Appearance → Speed Arrows Settings → export/import, each Appearance block opening on its own two-chip Speed Display row.
+- The Tracks/Routes appearance settings seed from the unified `path.*` family, and `maro.properties` was taxonomised into eight subject domains.
+- `maro.properties` carries a `# tldr;` line under every technical comment, stating in plain words what the value changes for the user.
+
 ## Implemented
 
 - **layers-section-routes-and-tracks (2026-10-20, `feature/route-list-remove-crap`)** — the Layers tab's section title reads **Routes and Tracks** (EN; FR "Routes et traces") and its two appearance collapsibles are swapped so Routes Appearance leads and Tracks Appearance follows, adjacent with no divider. The key was renamed `settings_section_tracks_and_routes` → `settings_section_routes_and_tracks` in both locales, its one reader and the `TrackRenderStringsTest` expected/retired lists moving together; the expand-state keys `routes_appearance` and `track_rendering` are unchanged, so persisted open/closed state survives the swap. The description key `settings_tracks_and_routes_desc` was left untouched on the title-only request. `:app:compileDebugKotlin` and `TrackRenderStringsTest` pass; the Ask hop found no code blocker, only prose drift in one KDoc and two doc lines.

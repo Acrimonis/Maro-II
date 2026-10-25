@@ -10,6 +10,11 @@ modified: 2026-09-16 17:10
 **Description:**
 Navigation aids on the map overlay — heading/speed indicator and direction line projecting from the boat marker.
 
+## Summary
+- Navigation aids on the map overlay — the heading/speed cap arrow and the dashed direction line from the boat marker, plus auto-show of zones on approach.
+- The arrow hides below 2.5 kn, draws straight up (heading-up rotation aligns heading with screen-up), and scales its length with speed and zoom from `maro.properties` keys.
+- Auto-show drives memory-only overlay flows and never the user's persisted visibility setting, and the dashboard's shore pipeline reads `dashboardPositionFor(marker, boat, gpsMode)` so a dragged map cannot move it.
+
 ## Sections
 
 ### cap

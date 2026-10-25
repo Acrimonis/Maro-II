@@ -129,17 +129,16 @@ class TrackNamingTest {
     }
 
     @Test
-    fun `a label naming Salis is the home port wherever it stands`() {
-        assertTrue(TrackNaming.namesHomePort(0.0, 0.0, "Port de La Salis", 43.55, 7.00, 500.0))
-        assertTrue(
-            TrackNaming.namesHomePort(0.0, 0.0, "\uD83E\uDD3F Anse de la salis", 43.55, 7.00, 500.0)
-        )
+    fun `a place inside the Port Salis geofence is the home port`() {
+        assertTrue(TrackNaming.namesHomePort(43.55, 7.00, 43.55, 7.00, 500.0))
+        assertFalse(TrackNaming.namesHomePort(43.60, 7.10, 43.55, 7.00, 500.0))
     }
 
     @Test
-    fun `a place inside the Port Salis geofence is the home port without the name`() {
-        assertTrue(TrackNaming.namesHomePort(43.55, 7.00, "Cap d'Antibes", 43.55, 7.00, 500.0))
-        assertFalse(TrackNaming.namesHomePort(43.60, 7.10, "Cap d'Antibes", 43.55, 7.00, 500.0))
+    fun `a label naming Salis no longer counts as the home port`() {
+        // Positional-only: the label arm is gone, so a Salis name outside the circle names the end.
+        assertFalse(TrackNaming.namesHomePort(0.0, 0.0, 43.5696, 7.1312, 50.0))
+        assertTrue(TrackNaming.namesHomePort(43.5696, 7.1312, 43.5696, 7.1312, 50.0))
     }
 
     @Test
@@ -147,5 +146,53 @@ class TrackNamingTest {
         assertEquals("Cap d'Antibes", markerLabel("Cap d'Antibes", null))
         assertEquals("Cap d'Antibes", markerLabel("Cap d'Antibes", ""))
         assertEquals("\uD83E\uDD3F Cap d'Antibes", markerLabel("Cap d'Antibes", "\uD83E\uDD3F"))
+    }
+
+    @Test
+    fun `a round trip at the port reads departure to return`() {
+        assertEquals(
+            "la Salis: 09:12 → 17:45",
+            TrackNaming.homePortCommentLine(
+                startedAtHomePort = true, endedAtHomePort = true,
+                startTimeMs = 0L, endTimeMs = 1L, displayName = "la Salis",
+                clock = { if (it == 0L) "09:12" else "17:45" }
+            )
+        )
+    }
+
+    @Test
+    fun `a live trip shows the departure only`() {
+        assertEquals(
+            "la Salis: 09:12",
+            TrackNaming.homePortCommentLine(
+                startedAtHomePort = true, endedAtHomePort = false,
+                startTimeMs = 0L, endTimeMs = null, displayName = "la Salis",
+                clock = { "09:12" }
+            )
+        )
+    }
+
+    @Test
+    fun `a one-way trip ending at the port shows the return only`() {
+        assertEquals(
+            "la Salis: 17:45",
+            TrackNaming.homePortCommentLine(
+                startedAtHomePort = false, endedAtHomePort = true,
+                startTimeMs = 0L, endTimeMs = 1L, displayName = "la Salis",
+                clock = { if (it == 0L) "09:12" else "17:45" }
+            )
+        )
+    }
+
+    @Test
+    fun `a trip never touching the port prints no home-port line`() {
+        assertEquals(
+            null,
+            TrackNaming.homePortCommentLine(
+                startedAtHomePort = false, endedAtHomePort = false,
+                startTimeMs = 0L, endTimeMs = 1L, displayName = "la Salis",
+                clock = { "09:12" }
+            )
+        )
     }
 }

@@ -10,6 +10,9 @@ modified: 2026-06-20 11:42
 **Description:**
 Application health monitoring — diagnostics, crash reporting, memory/performance telemetry, and overall app vitality tracking.
 
+## Summary
+- Application health monitoring — diagnostics, crash reporting and telemetry — scoped, with no work landed yet.
+
 ## Sections
 
 ### (none yet)

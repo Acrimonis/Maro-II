@@ -10,6 +10,11 @@ modified: 2026-10-10 07:19
 **Description:**
 Map track visibility is derived rather than persisted: the `visibleOnMap` flag is dropped from `Track`/`TrackSummary` and replaced by a shared, unit-testable selection policy (`MapSelectionPolicy` — tracks ranked + capped, markers filter-only plus the open card's one id) driven by `MapRenderFocus` (highlight + session boost). The GAP-split polyline rendering is extracted into `MapTrackSegments`, and an on-demand GPX off-route cleanup harness ships with four test classes. Landed via the Mergitur three-branch integration.
 
+## Summary
+- Map track visibility is derived rather than persisted — the `visibleOnMap` flag replaced by a shared, unit-tested `MapSelectionPolicy` driven by `MapRenderFocus`.
+- The open card's item is drawn past the map filter and past the render cap, one id and only while its card stands (reversing 2026-09-28 in part).
+- The GAP-split polyline rendering was extracted into `MapTrackSegments`, and an on-demand GPX off-route cleanup harness ships with four test classes.
+
 ## Sections
 
 ## Todos

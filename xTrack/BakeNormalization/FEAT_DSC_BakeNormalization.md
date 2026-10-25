@@ -16,6 +16,11 @@ made depth-bake depend on `coastline.bin`. Goal: split the pipeline into indepen
 `bake-[type].bat` scripts + a single interactive selector (`apk-bake.bat`), a build that only
 packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches (`apk-deploy.bat`).
 
+## Summary
+- The asset pipeline is split into granular `bake-[type].bat` scripts behind a single interactive `apk-bake.bat`, an `apk-build.bat` that only packages and an `apk-deploy.bat` that installs and relaunches.
+- One region bounding box source of truth (the W/E gradle props), the depth envelope derived as coastline bbox plus 6 NM, and no baked data in git.
+- Litto3D coverage is fetched west only, so the east (Antibes→Nice) shallow tier is still missing.
+
 ## Sections
 
 ### depth source
