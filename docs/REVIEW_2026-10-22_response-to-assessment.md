@@ -23,6 +23,13 @@ through the stack, the recorder keeping both the injected monotonic clock and up
 name, and the arrival prompt taking the place of the retired stop debounce. All four upstream pull
 requests read mergeable against `develop`.
 
+**CI after the sync, 2026-10-25.** The first runs failed five tests. Four shared one cause: the
+sync's conflict resolution had left the quiet checkpoint helper calling itself, so a failed final
+save never reported, a meta update never checkpointed, and upstream's new arrival prompt never
+fired (its checkpoint runs before the emit). The fifth was a session's first point landing at
+1 ms instead of 0, the strictly-increasing guard measuring it against a zero sentinel. Both are
+fixed and merged through the stack; the workflow is green again on every branch that carries it.
+
 **Compiled and tested, 2026-10-23.** The second branch carries battery and responsiveness on the
 water, the third a GitHub Actions workflow, recorder lifecycle regression tests and release keep
 rules, the fourth the session clock and copy fixes. The workflow's runs build the debug APK and pass the unit suite on every
