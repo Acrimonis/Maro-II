@@ -2,13 +2,19 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-10-14 07:59
+modified: 2026-10-24 07:24
 ---
 
 # Feature: WorkflowImprovement
 
 **Description:**
 Improving the xTrack workflow and command system (canonicalized in AGENTS.md) — trigger syntax, templates, lifecycle protocols, and bootstrap logic.
+
+## Summary
+- The xTrack `#`-command system and rulebook governance, with the Claude Code agent adapters in `.claude/agents/`.
+- The rulebook gained a five-tier legend (🛑 · ⛔ · 💬 · 🧹 · 🟢), and `#rule` was rebuilt around it — bare prints the legend, a tier reloads it with a fingerprint, and `all` reports staleness.
+- `#new` cuts `feature/[branch]` with `--no-track` so the first `#push` writes its own upstream, and `#rename` carries a published rename to the origin on one question.
+- The feature summaries were split out of `GLOBAL_CONTEXT.md` into a 25-row `## Features` index plus a per-feature `## Summary` (2026-10-24).
 
 ## Sections
 ### gitting-it
@@ -37,7 +43,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `AGENTS.md` — canonical rules incl. § 7a/7b xTrack; `.clinerules/`/`CLAUDE.md` are adapters
 - `docs/cmd_help.md` — command reference summary + per-command sections
 - `docs/cmd_help_git.md` — git workflow shortcuts
-- `xTrack/GLOBAL_CONTEXT.md` — state only: routing map, feature summaries, focus history, global todos, doc index (rules live in `AGENTS.md`)
+- `xTrack/GLOBAL_CONTEXT.md` — state only: routing map, feature index, focus history, global todos, doc index (rules live in `AGENTS.md`)
 - `docs/xtrack-templates.md` — file templates (sub-truth pointed from `AGENTS.md`'s Lazy-Load Index)
 
 ## Docs
@@ -79,6 +85,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `xTrack/WorkflowImprovement/260911_FEAT_PLN_WorkflowImprovement_global-context-rules-migration.md` — Global Context rules migrated into `AGENTS.md`
 - `xTrack/WorkflowImprovement/260917_FEAT_PLN_WorkflowImprovement_session-review-fixes.md` — session-review fixes: the bake refresh, the git gate wording, one hydration shape
 - `xTrack/WorkflowImprovement/260919_FEAT_PLN_WorkflowImprovement_archive-sweep.md` — `#archive sweep`: enumeration, recommendation and disposition, in design
+- `xTrack/WorkflowImprovement/261024_FEAT_PLN_WorkflowImprovement_global-context-summaries-split.md` — the GLOBAL_CONTEXT feature-summaries split: prose to `FEAT_DSC_`, index row + Routing Map kept, four points settled
 
 ## Walk
 **Level 1 — Date:** 2026-09-17 · **Source:** the contentious points left by the `#rule` redesign — six questions of scope, granularity and cost · **Closed:** 2026-09-17 — exhausted, all six taken
@@ -155,6 +162,8 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - Resolutions: all three taken by the user's decision — a leave writes nothing and D9 with D10 stand unchanged; the one nudge stays in `#doctor` and the bake keeps a cross-reference; the INDEX gains `dropped` for a plan closed without ever shipping, which also fixes how the page's abandoned-material clause reads. Dropped: nothing — the level exhausted with every item ticked.
 
 ## Implemented
+
+- **feature-summaries split out of GLOBAL_CONTEXT (2026-10-24, `feature/workflow`)** — the `## Feature Summaries` block became a 25-row `## Features` index (name · status · created · modified · link), the per-feature prose moved into each `FEAT_DSC_`'s own `## Summary`, Route's card was pruned to its current state plus the owed list, and `docs/xtrack-templates.md`, the §7a/§7b rows and the eight cmd_help pages were re-pointed; the Ask hop returned clean → [`261024_FEAT_PLN_WorkflowImprovement_global-context-summaries-split.md`](261024_FEAT_PLN_WorkflowImprovement_global-context-summaries-split.md)
 
 - **Claude Code agent adapters (2026-10-04)** — five subagent files in `.claude/agents/` — architect, orchestrator, code, debug and ask — each a YAML frontmatter block plus a thin pointer to `AGENTS.md` §8, transposing the mode handoff for Claude Code; the role framing around each pointer is a deliberate, user-ordered carve-out from §8a's pointer-only adapter rule, flagged rather than hidden
 

@@ -39,6 +39,9 @@ sealed class TrackEvent {
         val durationSec: Long         // delta for this period, NOT cumulative
     ) : TrackEvent()
 
+    /** The boat idled inside the home-port circle for the threshold — the arrival prompt is due. */
+    data object HomePortArrivalPrompt : TrackEvent()
+
     /** Tracks were successfully merged into a single new track. */
     data class TracksMerged(val mergedId: String, val mergedName: String) : TrackEvent()
 

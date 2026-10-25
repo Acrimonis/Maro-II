@@ -12,6 +12,10 @@ paint on land; isobaths are drawn uniformly so coarse EMODnet contours look as p
 there is no standout "you can ground here" mark; and there is no shallow-water alarm. Delivered as four
 branches off `feature/litto3d-shallow` — B1, B2, B3 from the base, **B4 from B3** — one subfeature each.
 
+## Summary
+- Four gaps of the depth map as a safety surface, delivered as four branches — water-only colour, isobath precision by source, the magenta low-depth display, and the shallow-water alarm (B4, still owed).
+- Isobath colour states the data source (EMODnet dark blue, Litto3D forest green), and a coarse-EMODnet shallow gate covers the readout, the colour map, the overlay and the isobaths.
+
 ## Sections
 
 ### water-only

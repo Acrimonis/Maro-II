@@ -471,7 +471,7 @@ internal fun OverlayLayer(
                 onToggleTrackVisible = onToggleTrackVisible,
                 onToggleRouteVisible = onToggleRouteVisible,
                 masterVisible = menu.routeTracksVisible,
-                routeFilterAxes = ykws.android.maro.data.model.trackFilterAxes(),
+                routeFilterAxes = ykws.android.maro.data.model.routeFilterAxes(),
                 onManageMarkers = {
                     onDismissMenu()
                     onOpenMarkerManagementFromMenu()

@@ -52,23 +52,48 @@ object TrackNaming {
     /** The separator between body markers. */
     private const val SEPARATOR = ", "
 
-    /** The fragment marking the boat's own home port in a label (settled 2026-10-11). */
-    private const val HOME_PORT_LABEL = "salis"
-
     /**
-     * True when an end must not name a route or a trip: the boat's own home port, told either by
-     * the place — [lat]/[lon] inside the Port Salis geofence — or by the label itself naming Salis
-     * (settled 2026-10-11).
+     * True when an end must not name a route or a trip: the boat's own home port, told by the
+     * place alone — [lat]/[lon] inside the home-port geofence. The label no longer counts: the
+     * home port is one position, radius and display name in `maro.properties` (settled
+     * 2026-10-24).
      */
     fun namesHomePort(
         lat: Double,
         lon: Double,
-        label: String,
         homeLat: Double,
         homeLon: Double,
         homeRadiusM: Double
-    ): Boolean = label.contains(HOME_PORT_LABEL, ignoreCase = true) ||
-        TrackGeofenceChecker.isInsideGeofence(lat, lon, homeLat, homeLon, homeRadiusM)
+    ): Boolean = TrackGeofenceChecker.isInsideGeofence(lat, lon, homeLat, homeLon, homeRadiusM)
+
+    /**
+     * The comment's home-port line — `name: departure → return` — or null when neither end is the
+     * port (settled 2026-10-24). The home port is treated differently: its line reads the trip's
+     * own start/end times rather than a time-spent duration, for every trip, manual or automatic.
+     *
+     * Pure and unit-tested: [clock] supplies the wall-clock text so the shape is pinned without a
+     * date formatter, and the caller owns which ends count.
+     */
+    fun homePortCommentLine(
+        startedAtHomePort: Boolean,
+        endedAtHomePort: Boolean,
+        startTimeMs: Long,
+        endTimeMs: Long?,
+        displayName: String,
+        clock: (Long) -> String
+    ): String? {
+        if (!startedAtHomePort && !endedAtHomePort) return null
+        val departure = clock(startTimeMs)
+        val arrival = if (endedAtHomePort) endTimeMs?.let { clock(it) } else null
+        return buildString {
+            append(displayName).append(": ")
+            when {
+                startedAtHomePort && arrival != null -> append(departure).append(" → ").append(arrival)
+                startedAtHomePort -> append(departure)
+                else -> arrival?.let { append(it) }
+            }
+        }
+    }
 
     /**
      * The timed score of every marker the trip met: for each marker, the sum over the trip's
@@ -133,6 +158,9 @@ object TrackNaming {
             destination = destination?.label?.takeIf { it.isNotBlank() }
         )
     }
+
+    /** A route's connector: it has no direction, so the symbol is the same in every language. */
+    const val ROUTE_CONNECTOR = "<->"
 
     /**
      * The name the shape composes, as a chain of segments — the origin, the ranked body and the

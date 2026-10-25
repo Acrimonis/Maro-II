@@ -111,6 +111,7 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.MultiActionSpec
 import ykws.android.maro.data.model.MultiActionSubSpec
+import ykws.android.maro.data.model.routeFilterAxes
 import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -446,7 +447,7 @@ internal fun TrackHistoryOverlay(
         onSortStateChange = onSortStateChange,
         customSortFields = trackCustomSortFields,
         customSortLabelResId = if (isRoutes) R.string.menu_manage_routes else R.string.menu_manage_tracks,
-        filterAxes = trackFilterAxes(),
+        filterAxes = if (isRoutes) routeFilterAxes() else trackFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,
         onReset = onReset,
@@ -602,11 +603,13 @@ internal fun TrackCardContent(
                     onLongClick = onLongPress
                 )
         ) {
-            // The leading selection door's bar — the 6 dp accent strip on the track's own colour,
-            // reserving the 14 dp the card's folded leading padding used to take. The door's pointer
-            // handling is the touch zone below, drawn over this row.
+            // The leading selection door's bar — the 6 dp accent strip on the item's own colour, dashed
+            // for a route so the card mirrors the map's route-dashed / track-solid language. It reserves
+            // the 14 dp the card's folded leading padding used to take; the door's pointer handling is
+            // the touch zone below, drawn over this row.
             ListSelectionRail(
-                accentColor = accentColor
+                accentColor = accentColor,
+                dashed = summary.route
             )
             Column(
                 modifier = Modifier

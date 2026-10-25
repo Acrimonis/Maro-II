@@ -1,10 +1,12 @@
 package ykws.android.maro.ui.map
 
+import android.content.Context
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -13,6 +15,7 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.config.VerdictDial
 import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.data.route.PaceSource
 import ykws.android.maro.data.track.Track
 import ykws.android.maro.spatial.RouteId
 import ykws.android.maro.spatial.RouteProvisional
@@ -359,18 +362,46 @@ internal const val ROUTE_LADDER_RUNG_COUNT = 3
 /**
  * **The verdict's dial read as its own word** — the chip the Settings row, the drawer's quick access and
  * the followed trip line all print: `Fastest` at the weight 0 end, `1x … 4x` through the middle and
- * `Ignore time` at the top. Every word is a `@StringRes` id read here, so both locales carry it and no
- * model holds a literal — and the three surfaces cannot name the same stop differently.
+ * `Ignore time` at the top. Every word is a `@StringRes` id read through [verdictDialWord], so both
+ * locales carry it and no model holds a literal — and no surface names the same stop differently.
  */
 @Composable
-internal fun verdictDialLabel(stop: VerdictDial): String = when (stop) {
-    VerdictDial.FASTEST -> stringResource(R.string.settings_route_slow_water_fastest)
-    VerdictDial.IGNORE_TIME -> stringResource(R.string.settings_route_slow_water_ignore_time)
-    else -> stringResource(
-        R.string.settings_route_slow_water_value_fmt,
-        stop.weight!!.roundToInt().toString()
-    )
+internal fun verdictDialLabel(stop: VerdictDial): String = verdictDialWord(LocalContext.current, stop)
+
+/**
+ * The verdict dial's word read from [context] — the non-composable core [verdictDialLabel] prints, so a
+ * saved route's comment reads the very chip at save time without a composable.
+ */
+internal fun verdictDialWord(context: Context, stop: VerdictDial): String = when (stop) {
+    VerdictDial.FASTEST -> context.getString(R.string.settings_route_slow_water_fastest)
+    VerdictDial.IGNORE_TIME -> context.getString(R.string.settings_route_slow_water_ignore_time)
+    else -> context.getString(R.string.settings_route_slow_water_value_fmt, stop.weight!!.roundToInt().toString())
 }
+
+/**
+ * The saved route comment's head line: the rank, the pace and the slow-water preference joined by
+ * the one bullet. The preference rung that once sat between rank and pace is gone (settled
+ * 2026-10-24), so the head reads `#rank • pace • pref` — a null rank (Idle) simply leaves the pace
+ * first, the join dropping the leading bullet with it.
+ */
+internal fun routeCommentHead(rank: Int?, paceText: String, dial: String): String =
+    listOfNotNull(rank?.let { "#$it" }, paceText, dial).joinToString(" • ")
+
+/**
+ * The pace segment the panel header and a saved route's comment both print — `Now (pace, source)` under
+ * the `Any` stop, else the plain pace reading. One home, so the two surfaces name the same speed the
+ * same way, the comment reading the locale active at save time.
+ */
+internal fun paceHeaderWord(context: Context, paceSetKn: Float, paceKn: Double, source: PaceSource): String =
+    if (AppConfig.isFreeWaterPaceAny(paceSetKn)) {
+        context.getString(
+            R.string.route_header_pace_any_fmt,
+            context.getString(R.string.settings_route_pace_value_fmt, paceKn),
+            context.getString(source.labelRes())
+        )
+    } else {
+        context.getString(R.string.settings_route_pace_value_fmt, paceSetKn)
+    }
 
 /**
  * **The page the seat stands on** — the preferred page when it holds a plan, otherwise the page

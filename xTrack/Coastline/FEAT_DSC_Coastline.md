@@ -21,6 +21,10 @@ WFS, or OSM `seamark:*` / `man_made=lighthouse`), buffer each into a small circl
 land/obstruction by every downstream consumer (spatial index, isOnWater,
 Zone300Builder).
 
+## Summary
+- The coastline pipeline ingests continuous land polygons (OSM `natural=coastline`) and now also buffers isolated point hazards into micro-circle rings merged into the land set.
+- Hazard rings come from the Shom Aton WFS with hard-coded seed fallbacks (Fourmigue, Batéguier, Tradelière, Chrétienne), and the region extends east to Menton.
+
 ## Implemented
 
 - **extend-to-menton (2026-06-23)** — eastern bound 7.31°→7.55°E, region id `nice-menton` via `BuildConfig.REGION_ID`, downloads → `D:\.src\.data\`, OOM fix, 17 bat LF→CRLF, ~8 tests updated, "Côte"/"Bande" labels

@@ -280,9 +280,6 @@
     <string name="track_name_connector">to</string>
     <!-- The save toast: the track or route just written, named (2026-10-10). -->
     <string name="snackbar_saved">\"%s\" saved</string>
-    <!-- The single-named-end route forms: "From Port de La Salis", "To Cap d'Antibes". -->
-    <string name="route_name_from_fmt">From %1$s</string>
-    <string name="route_name_to_fmt">To %1$s</string>
     <string name="marker_description_placeholder">Add description...</string>
 
     <!-- Recovery dialog — its three doors reuse the recording-exit keys below (one home per word) -->
@@ -301,6 +298,7 @@
     <string name="recording_exit_save">Save track</string>
     <string name="recording_exit_continue">Continue recording</string>
     <string name="recording_exit_discard">Discard track</string>
+    <string name="home_port_arrival_title">We arrived to the home port</string>
 
     <!-- Track merge dialog -->
     <string name="action_merge">Merge</string>
@@ -431,6 +429,7 @@
     <!-- Filter axes and options -->
     <string name="filter_axis_date_range">Date Range</string>
     <string name="filter_axis_position">Position</string>
+    <string name="filter_axis_source">Source</string>
     <string name="filter_option_last_week">Last week</string>
     <string name="filter_option_last_2_weeks">Last 2 weeks</string>
     <string name="filter_option_last_month">Last month</string>
@@ -791,6 +790,13 @@
          evaluated, in brackets — then the preference; `settings_route_pace_value_fmt` renders the pace. -->
     <string name="route_header_landed_fmt">Landed %1$d/%2$d</string>
     <string name="route_header_pace_any_fmt">Now (%1$s, %2$s)</string>
+    <!-- The comment a saved route carries: the second line names the date and the search's own seconds. -->
+    <string name="route_comment_routed_fmt">Routed on %1$s in %2$s s</string>
+    <string name="route_comment_routed_no_sec_fmt">Routed on %1$s</string>
+    <!-- The per-zone line's open-water entry — the time not spent under any limit. -->
+    <string name="route_comment_open_water">OW</string>
+    <!-- One per-zone comment entry: the label and its time, joined by a fixed colon. -->
+    <string name="route_comment_zone_entry_fmt">%1$s: %2$s</string>
     <!-- Where the pace `Now` plans at comes from: this trip's own readings, the day's saved pace, the learned
          history, or the shipped default. -->
     <string name="route_pace_source_live">Live</string>

@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-23 14:47
+modified: 2026-10-24 06:34
 ---
 
 # Feature: Route
@@ -10,6 +10,10 @@ modified: 2026-10-23 14:47
 State doc — what the mode is, what the code does today, and what is left. Present tense only: the
 `## Implemented` log, the closed walk levels and the struck requirements were removed on the user's word
 of 2026-10-07, so this file states the current code and nothing else.
+
+## Summary
+- Set a destination and the app draws the route from the boat to it through one `RouteEngine` seam (dummy · avoid · evolutive) arming a Detour · Balanced · Coastal ladder, then saves the line as an ordinary track; the depth gate, corner pass, pull lookback and the coarse-anchored ends stand as shipped.
+- Owed: the `Any` pace's device pass (a drive, a stop, a second trip the same day, Calculate), the measured gate's device pass (the Bacon – La Grenille pair among it), the choice of whether `avoid` — the default row, now strict at 20 m on 100 m cells — takes the berth's floor and ramp, the inner ramp's rate on the device's `innerM`, and the straightener's epsilon on device.
 
 ## Concept
 
@@ -28,6 +32,8 @@ an ordinary track.
 - **While a route is followed the distance tile becomes the route's own** — its **main figure is the time left**, the bare ETA in force, over one bottom line carrying the distance left, the `Slow water` dial's own word and the cruising pace (`route_trip_line_fmt`). The plan's age is not shown, and neither is a forced-crossing note: this cell reads the trip and nothing else. The two are **one cell the boat can flip**: a tap on the trip tile returns it to the shore reading and a tap there brings the trip back, a freshly armed route opening on the trip face — and with no route the cell is the ordinary distance tile, untappable. The cell wears a **border pulsing in the route toggle's own blue** (`AppConfig.routeNavigateColor`), beating on the app's single pulse home; the border marks the followed route rather than one face, so the trip reading and the shore reading alike wear it and one beat spans the flip. The trip cell and the drawer band alike read `remainingFrom(boat)` off **whatever orientation the plan stands in** (R99), so the loss mirror's ETA and distance face the new destination with no second arithmetic.
 
 ## Current state of the code
+
+- **The routes-list card's leading bar is dashed** (2026-10-24) — [`TrackCardContent`](../../app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:542) hands `dashed = summary.route` to [`ListSelectionRail`](../../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt:54), whose bar then draws the saved-route rhythm (`AppConfig.trackRouteDashOnDp` / `trackRouteDashOffDp`) instead of the solid strip, so a route card reads apart from a track card exactly as the map's dashed route and solid track do; the marker card's rail keeps the solid strip.
 
 - **The seam** — [`RouteEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:37) declares the computations, the two ids and the declarations a refusal carries; [`RouteUpdate`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:167) carries the finished-then-next stage pair, the line so far, the settled result, the reason, a stage's own readings, a rung's provisional pair and the ladder's **running best** (R98), and [`RouteRunningBest`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:150) is that running best's own value.
 - **Three engine rows ship** — the `dummy` is one straight segment at its own fixed 15 kn, ready on construction, judging nothing and answering a null progress flow ([`RouteDummyEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt:65)); the `avoid` crosses five boundaries — corridor · grid · search · pull · snap — publishing each one's stage and geometry, the raw cell chain at pull and the pulled line at snap ([`RouteAvoidEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt)); and `evolutive` shares that whole pipeline, differing by its plan alone — 100 m coarse, 20 m fine, and **no second pass** ([`RouteEvolutiveEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt:30)). A third row, `selective`, was **retired on 2026-10-16** with its four collars, its depth price and its keys ([`261016_FEAT_PLN_Route_selective-retirement.md`](xxArchive/261016_FEAT_PLN_Route_selective-retirement.md)), so the depth wall and the margin stay the shared layer's for both rows that remain. `route.engine.id` names the shipped one and an unclaimed id falls back to it.
@@ -180,6 +186,7 @@ The live numbered requirements — added after the master book was retired; the 
 
 ## Docs
 
+- [`261024_FEAT_PLN_Route_route-comment.md`](261024_FEAT_PLN_Route_route-comment.md) — **the comment a saved route carries**: `#rank • rung • pace • pref`, a per-zone time line (`Open water • 300M • limit`) and `Routed on date in s sec`, composed at save time with the rank read at save time and the words in the active locale (implemented, device pass owed)
 - [`261021_FEAT_PLN_Route_end-fine-island.md`](261021_FEAT_PLN_Route_end-fine-island.md) — **an end beyond the fine ribbon**: the destination anchored on a manufactured one-cell fine island (the fine layer is the coastal ribbon only), and the fix that leaves a no-water fine cell land so the end anchors on the coarse cell (implemented, device pass owed)
 
 - [`FEAT_DOC_Route_engines.md`](FEAT_DOC_Route_engines.md) — **the central reference for the acquisition engines as they stand**: the seam, the three shipped rows, the ladder and its ranking, the pipeline, the plan seam, the shared `multipass` layer, the water they price, the readings and the known gaps — present tense, no history

@@ -14,5 +14,8 @@ holds `lastKnownOnWater` and publishes it two ways — a push broadcast on every
 (`WATER_STATE_CHANGED`) and an on-demand query/response pair (`QUERY_WATER_STATE` →
 `WATER_STATE_RESULT`). Architecture approved; implementation not started.
 
+## Summary
+- An external automation bridge publishing the boat's water state — architecture approved, not implemented.
+
 ## Docs
 - `xTrack/Tasker/260628_FEAT_PLN_Tasker_tasker-water-state-integration.md` — architecture and implementation plan

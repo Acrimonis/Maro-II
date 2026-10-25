@@ -7,6 +7,13 @@ modified: 2026-10-23 16:20
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
 
+## Summary
+- Map display layer management — the depth and colour-depth layers, overlays, inspect mode, the toggle squares and the drawer ladder, with the shipped calls grouped by subject in `FEAT_DOC_UI_Map_decisions.md`.
+- Inspect mode measures from the point captured at arming, opens the nearest item at once, and after a 1499 ms pause recentres and freezes the ladder over every filtered item the map holds — the live acquire resolves a marker in the map-filtered world the sweep ranked, so a map-visible marker opens its dashboard even when the list filter drops it.
+- The layer fan is the master display gate for routes and tracks, the open dashboard's own item its one exception, and the two header eyes stay dimmed but tappable beneath it.
+- The map dash family rides one frame (one header, one dissolve, square corners, one walk row) and the toggle squares resolve through one pure `MapToggleFace`.
+- The bottom band ends on the map gutter in both orientations, so the bottom-left tag column and the zoom stack share one bottom line and landscape adds no navigation-bar inset.
+
 ## Sections
 
 ### map refresh

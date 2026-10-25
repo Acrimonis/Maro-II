@@ -19,7 +19,7 @@ on first `#bake` of a feature.
 ```markdown
 # Global Context — Routing Table
 
-> State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
+> State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
 - [YYYY-MM-DD HH:mm UTC] [Feature] — [one-liner] → xTrack/[Feature]/FEAT_HYD_[Feature].md
@@ -30,14 +30,11 @@ on first `#bake` of a feature.
 |---------|--------------|
 | [keyword], [keyword] | FEAT_DSC_[Name].md |
 
-## Feature Summaries
+## Features
 
-**[Name]** · **status:** active · **created:** [YYYY-MM-DD HH:mm] · **modified:** [YYYY-MM-DD HH:mm]
-- [one sentence: only what the next reader would otherwise have to go and find]
-- [one sentence]
-
-**[Name]** · **status:** active · **created:** [YYYY-MM-DD HH:mm] · **modified:** [YYYY-MM-DD HH:mm]
-- [one sentence]
+| Feature | Status | Created | Modified | Link |
+|---|---|---|---|---|
+| [Name] | active | [YYYY-MM-DD HH:mm] | [YYYY-MM-DD HH:mm] | [FEAT_DSC_[Name].md]([Feature]/FEAT_DSC_[Name].md) |
 
 ## Global Todos
 
@@ -51,20 +48,20 @@ Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches t
 | `[doc-name].md` | [Feature] | [one-liner] |
 ```
 
-The `## Feature Summaries` block — a metadata line then one-sentence bullets — is this file's shape and its
-only statement: `#bake` step 3, `#list` and `AGENTS.md` §7a/§7b point here rather than restating it. The
-metadata line carries name, status, created and modified so a bake moves a date without touching prose, and
-the discipline is **relevance, not a count** — a bullet is kept only while it changes what the next reader
-does, tested when the card is rewritten and applied to what is already there, with no bullet budget and no
-padding for a feature that has little to say.
+The `## Features` block — one row per feature: name, status, created, modified and a link to the feature's
+`FEAT_DSC_[Name].md` — is this file's shape and its only statement: `#list`, `#bake` step 3 and `AGENTS.md`
+§7a/§7b point here rather than restating it. The row's dates are the dashboard's metadata; the feature's
+prose lives in its own `FEAT_DSC_[Name].md` under `## Summary`, where `#bake` rewrites it from the feature's
+sections and `## Implemented`, applying the **relevance, not a count** test — a bullet is kept only while it
+changes what the next reader does, with no bullet budget and no padding for a feature that has little to say.
 
 ---
 
 ## `xTrack/[Feature]/FEAT_DSC_[Name].md`
 
 A YAML front-matter header (machine-readable: status, dates) followed by
-the prose body. The `one_liner` lives in the
-`## Feature Summaries` block in `GLOBAL_CONTEXT.md`.
+the prose body. The feature's one-liner summary lives in its own
+`## Summary` block below; the dashboard row lives in `GLOBAL_CONTEXT.md`.
 
 ```markdown
 ---
@@ -78,6 +75,9 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 
 **Description:**
 [Fuller description of the feature epic.]
+
+## Summary
+- [one sentence: only what the next reader would otherwise have to go and find]
 
 ## Sections
 
@@ -125,8 +125,9 @@ trimmed, kept while any level is open — the fold and `#archive`'s retirement b
 - [planless one-liner, no pointer]
 ```
 
-`#bake` rewrites each feature's `## Feature Summaries` block in `GLOBAL_CONTEXT.md`
-from that feature's sections and `## Implemented`, applying the relevance test above when it does.
+`#bake` rewrites the feature's `## Summary` in `FEAT_DSC_[Name].md`
+from that feature's sections and `## Implemented`, applying the relevance test above when it does,
+and bumps the feature's `## Features` row dates in `GLOBAL_CONTEXT.md`.
 `## Docs` holds attached documentation (managed by `#doc attach`/`detach`);
 `## Key Files` holds source file paths.
 
