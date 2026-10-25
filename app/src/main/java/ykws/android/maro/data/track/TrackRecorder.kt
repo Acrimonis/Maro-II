@@ -310,7 +310,8 @@ class TrackRecorder(
     /** Monotonic time (ms) of the last accepted fix — the stale-fix timeout reset reads it. */
     private var lastAcceptedTimeMs: Long = 0L
     /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
-    private var lastTimeOffsetMs: Long = 0L
+    /** The last point's offset; -1 before the first, so a session's first point may sit at 0. */
+    private var lastTimeOffsetMs: Long = -1L
 
     // ── Still-spike fix fields ──
     /** Last position confirmed by GPS speed ≥ 2kn — anchor for drift detection. */
@@ -485,7 +486,7 @@ class TrackRecorder(
         isOnLand = false
         lastHadLock = true
         lastAcceptedTimeMs = monotonicNowMs()
-        lastTimeOffsetMs = lastPoint?.timeOffsetMs ?: 0L
+        lastTimeOffsetMs = lastPoint?.timeOffsetMs ?: -1L
         // Fix D: reset dedup fields
         lastAcceptedLat = null
         lastAcceptedLon = null
@@ -724,7 +725,7 @@ class TrackRecorder(
         isOnLand = false
         lastHadLock = true
         lastAcceptedTimeMs = monotonicNowMs()
-        lastTimeOffsetMs = 0L
+        lastTimeOffsetMs = -1L
         // Fix D: reset dedup fields
         lastAcceptedLat = null
         lastAcceptedLon = null
