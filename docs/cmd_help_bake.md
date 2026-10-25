@@ -6,9 +6,10 @@ Snapshot + consolidation into per-feature hydration memory.
   [no param]  1. Update section checkmarks in the current feature file.
               2. Consolidate sections (criteria C1–C13 below): fold-done, trim-empty,
                  split, merge, rename-normalize.
-              3. Rewrite the feature's block in ## Feature Summaries in GLOBAL_CONTEXT.md
-                 in the shape docs/xtrack-templates.md holds (its only statement), applying
-                 that shape's relevance test as it goes; bump the modified date.
+              3. Rewrite the feature's `## Summary` in `FEAT_DSC_[Feature].md` in the shape
+                 docs/xtrack-templates.md holds (its only statement), applying that shape's
+                 relevance test as it goes; bump the feature's `## Features` row dates in
+                 GLOBAL_CONTEXT.md.
               4. Set modified in front-matter to current YYYY-MM-DD HH:mm (UTC)
                  — only if the feature was actually modified this session.
               5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md in the shape

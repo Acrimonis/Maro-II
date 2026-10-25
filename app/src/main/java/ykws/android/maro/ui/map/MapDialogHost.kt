@@ -98,7 +98,13 @@ internal fun MapDialogHost(
     // ── Resume confirmation (optional backup) ──
     resumeTarget: PendingTrackResume?,
     onClearResume: () -> Unit,
-    onResumed: (fromList: Boolean) -> Unit
+    onResumed: (fromList: Boolean) -> Unit,
+    // ── Home-port arrival prompt ──
+    showArrivalPrompt: Boolean,
+    onArrivalSave: () -> Unit,
+    onArrivalContinue: () -> Unit,
+    onArrivalDiscard: () -> Unit,
+    onArrivalDismiss: () -> Unit
 ) {
     // ── Recording-aware exit sheet (shown on double-back while recording) ──
     val exitSaveLabel = stringResource(R.string.recording_exit_save)
@@ -157,6 +163,18 @@ internal fun MapDialogHost(
             )
         )
     }
+
+    // ── Home-port arrival prompt ─────────────────────────────
+    // The recording's own arrival doors, reusing the exit sheet's three labels; Save is the
+    // trip's natural forward outcome at the port, so it keeps the accent. Dismissal means
+    // Continue — the checkpoint was already persisted when the prompt fired.
+    ConfirmDialog(
+        title = stringResource(R.string.home_port_arrival_title),
+        visible = showArrivalPrompt,
+        onDismiss = onArrivalDismiss,
+        message = stringResource(R.string.recording_exit_message),
+        actions = recordingExitActions(onArrivalSave, onArrivalContinue, onArrivalDiscard)
+    )
 
     // ── Background location permission dialog (A2) ──────────────────
     if (showBgLocationDialog) {

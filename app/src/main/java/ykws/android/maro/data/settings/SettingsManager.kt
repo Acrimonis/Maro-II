@@ -778,9 +778,11 @@ class SettingsManager(
         demoHeadingUp = prefs.getBoolean(KEY_DEMO_HEADING_UP, false),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
         trackEnabled = prefs.getBoolean(KEY_TRACK_ENABLED, BuildConfig.TRACK_ENABLED_DEFAULT),
-        trackOriginLat = prefs.getFloat(KEY_TRACK_ORIGIN_LAT, BuildConfig.TRACK_ORIGIN_LAT.toFloat()).toDouble(),
-        trackOriginLon = prefs.getFloat(KEY_TRACK_ORIGIN_LON, BuildConfig.TRACK_ORIGIN_LON.toFloat()).toDouble(),
-        trackGeofenceRadiusM = prefs.getFloat(KEY_TRACK_GEOFENCE_RADIUS_M, BuildConfig.TRACK_GEOFENCE_RADIUS_M.toFloat()).toDouble(),
+        // The home port is `maro.properties` alone — never a stored setting — so the file is the
+        // one source of truth and no persisted value can shadow it.
+        trackOriginLat = BuildConfig.TRACK_ORIGIN_LAT,
+        trackOriginLon = BuildConfig.TRACK_ORIGIN_LON,
+        trackGeofenceRadiusM = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
         trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true),
         markerLayerState = try {
             ykws.android.maro.ui.map.MarkerLayerState.valueOf(
@@ -874,8 +876,10 @@ class SettingsManager(
         trackFilterLinked = prefs.getBoolean(KEY_TRACK_FILTER_LINKED, true),
         markerFilterLinked = prefs.getBoolean(KEY_MARKER_FILTER_LINKED, true),
         routeListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_ROUTE_LIST_SORT, null)),
-        routeListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_LIST_FILTER, null)),
-        routeMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_MAP_FILTER, null)),
+        // The route lists no longer offer the position axis: an install that persisted one must not keep
+        // filtering routes on an axis it can no longer see or clear.
+        routeListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_LIST_FILTER, null)).withoutAxis("position"),
+        routeMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_ROUTE_MAP_FILTER, null)).withoutAxis("position"),
         routeFilterLinked = prefs.getBoolean(KEY_ROUTE_FILTER_LINKED, true),
         mapOffsetGps = prefs.getBoolean(KEY_MAP_OFFSET_GPS, true),
         mapOffsetDemo = prefs.getBoolean(KEY_MAP_OFFSET_DEMO, false),
@@ -995,9 +999,10 @@ class SettingsManager(
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .putBoolean(KEY_TRACK_ENABLED, updated.trackEnabled)
-            .putFloat(KEY_TRACK_ORIGIN_LAT, updated.trackOriginLat.toFloat())
-            .putFloat(KEY_TRACK_ORIGIN_LON, updated.trackOriginLon.toFloat())
-            .putFloat(KEY_TRACK_GEOFENCE_RADIUS_M, updated.trackGeofenceRadiusM.toFloat())
+            // The home port lives in maro.properties alone now: drop whatever an older build wrote here.
+            .remove(KEY_TRACK_ORIGIN_LAT)
+            .remove(KEY_TRACK_ORIGIN_LON)
+            .remove(KEY_TRACK_GEOFENCE_RADIUS_M)
             .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
             .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)

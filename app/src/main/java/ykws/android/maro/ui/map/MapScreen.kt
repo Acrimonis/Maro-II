@@ -1268,9 +1268,6 @@ fun MapScreen(
         RouteEndSelection.End.DESTINATION,
         routeDestinationEligible
     )
-    // The route name's own connector, resolved once here so the save site can stay non-composable.
-    val routeNameConnector = stringResource(R.string.track_name_connector)
-
     /** Writes one end's selection back to the store, keyed on the mode the drawer already carries. */
     fun storeRouteEnd(end: RouteEndSelection.End, selection: RouteEndSelection) {
         val token = RouteEndSelection.encode(selection)
@@ -1681,6 +1678,9 @@ fun MapScreen(
         ) { kn, date -> viewModel.updateSettings { it.withDayPace(kn, date) } }
     }
 
+    // Home-port arrival prompt (idle-in-zone 60 s) — the recording's three doors, Save accent.
+    var showArrivalPrompt by remember { mutableStateOf(false) }
+
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
@@ -1700,6 +1700,9 @@ fun MapScreen(
                     if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
                         markersViewModel.closeDrawer()
                     }
+                }
+                is ykws.android.maro.data.track.TrackEvent.HomePortArrivalPrompt -> {
+                    showArrivalPrompt = true
                 }
                 is ykws.android.maro.data.track.TrackEvent.Finalized -> {
                     toastSaved(event.name)
@@ -1918,7 +1921,7 @@ fun MapScreen(
     // exit guard must stand down while one is offered. Covers the exit, stop-recording, recovery,
     // import-conflict, GPS source-switch and resume dialogs; the hoisted list-drawer
     // confirmations (batch delete, merge) stay behind their open drawer, which the guard excludes.
-    val anyConfirmDialogOpen = showExitDialog || showStopRecordingSheet ||
+    val anyConfirmDialogOpen = showExitDialog || showStopRecordingSheet || showArrivalPrompt ||
         pendingGpsModeToggle != null || recoveryTrack != null ||
         pendingTrackImport != null || chrome.pendingResume != null
 
@@ -2582,26 +2585,91 @@ fun MapScreen(
                     homePortRadiusM = appSettings.trackGeofenceRadiusM,
                     whereAmI = markersViewModel::whereAmISync
                 )
-                // Both ends named read "A to B"; one named end reads From or To alone; neither
-                // named leaves the route to its own dated name rather than an unnamed pair
-                // (settled 2026-10-10; the origin joins the naming 2026-10-11).
-                val raw = when {
-                    origin != null && destination != null ->
-                        ykws.android.maro.data.track.TrackNaming.compose(
-                            origin = origin,
-                            body = emptyList(),
-                            destination = destination,
-                            connector = routeNameConnector,
-                            maxLength = AppConfig.trackNameMaxLength
-                        )
-                    origin != null -> context.getString(R.string.route_name_from_fmt, origin)
-                    destination != null -> context.getString(R.string.route_name_to_fmt, destination)
-                    else -> ""
-                }
+                // A route has no direction: both ends named read "A <-> B", one named end reads
+                // alone, neither named leaves the route to its own dated name rather than an
+                // unnamed pair (settled 2026-10-10; the origin joins the naming 2026-10-11; the
+                // direction goes 2026-10-25).
+                val raw = ykws.android.maro.data.track.TrackNaming.compose(
+                    origin = origin,
+                    body = emptyList(),
+                    destination = destination,
+                    connector = ykws.android.maro.data.track.TrackNaming.ROUTE_CONNECTOR,
+                    maxLength = AppConfig.trackNameMaxLength
+                )
                 if (raw.isBlank()) return plan.trackName()
                 return ykws.android.maro.data.track.TrackNaming
                     .trimProportionally(listOf(raw), AppConfig.trackNameMaxLength)
                     .first()
+            }
+
+            /**
+             * The comment a saved route carries, composed at save time: `#rank • pace • pref`
+             * over the per-zone times, then `Routed on date in s sec` — every word read from the locale
+             * active at that instant.
+             */
+            fun routeCommentFor(plan: RoutePlan): String {
+                fun timeWord(sec: Int): String =
+                    context.getString(R.string.route_summary_eta_value_fmt, sec / 60, sec % 60) +
+                        " " + context.getString(R.string.route_summary_eta_unit)
+
+                val facts = routeViewModel.commentFacts()
+                val paceText = paceHeaderWord(
+                    context,
+                    appSettings.routeFreeWaterPaceKn,
+                    routePaceKn,
+                    routeNowPace.source
+                )
+                val dial = verdictDialWord(context, VerdictDial.ofIndex(appSettings.routeSlowWaterStop))
+                val head = routeCommentHead(facts.rank, paceText, dial)
+                // The zone line reads a live plan's attribution alone: a read-back plan lost it and a
+                // draft has none — `searchDurationSec` is the marker that this plan is a settled search.
+                val zoneLine = if (plan.searchDurationSec != null) {
+                    buildList {
+                        val openWaterSec =
+                            (plan.durationSec - plan.slowLimitSeconds.sumOf { it.seconds }).roundToInt()
+                        if (openWaterSec >= 1) {
+                            add(
+                                context.getString(
+                                    R.string.route_comment_zone_entry_fmt,
+                                    context.getString(R.string.route_comment_open_water),
+                                    timeWord(openWaterSec)
+                                )
+                            )
+                        }
+                        for (entry in routeSlowLimitEntries(plan)) {
+                            val label = if (entry.isBand) {
+                                context.getString(R.string.route_slow_band_label)
+                            } else {
+                                context.getString(R.string.route_slow_limit_label_fmt, entry.limitKn)
+                            }
+                            add(
+                                context.getString(
+                                    R.string.route_comment_zone_entry_fmt,
+                                    label,
+                                    timeWord(entry.seconds)
+                                )
+                            )
+                        }
+                    }.joinToString(" • ")
+                } else {
+                    ""
+                }
+                val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    .format(java.util.Date(plan.computedAtMs))
+                val seconds = plan.searchDurationSec?.let {
+                    java.lang.String.format(java.util.Locale.US, "%.1f", it)
+                }
+                val tail = if (seconds != null) {
+                    context.getString(R.string.route_comment_routed_fmt, date, seconds)
+                } else {
+                    context.getString(R.string.route_comment_routed_no_sec_fmt, date)
+                }
+                val lines = listOfNotNull(
+                    head.takeIf { it.isNotBlank() },
+                    zoneLine.takeIf { it.isNotBlank() },
+                    tail
+                )
+                return if (head.isBlank()) "" else lines.joinToString("\n")
             }
 
             /**
@@ -2636,7 +2704,8 @@ fun MapScreen(
                     createdAtMs = createdAtMs ?: plan.computedAtMs,
                     name = name ?: composeRouteName(plan),
                     routeStartMarkerId = startMarkerId ?: "",
-                    routeDestinationMarkerId = destinationMarkerId ?: ""
+                    routeDestinationMarkerId = destinationMarkerId ?: "",
+                    comment = routeCommentFor(plan)
                 )
                 val savedId = trackViewModel.saveBuiltTrack(track)
                 toastSaved(track.name)
@@ -4442,6 +4511,18 @@ fun MapScreen(
                 trackViewModel.discardRecording()
             },
             onStopSheetDismiss = { showStopRecordingSheet = false },
+            // ── Home-port arrival prompt ──
+            showArrivalPrompt = showArrivalPrompt,
+            onArrivalSave = {
+                showArrivalPrompt = false
+                trackViewModel.stopRecording()
+            },
+            onArrivalContinue = { showArrivalPrompt = false },
+            onArrivalDiscard = {
+                showArrivalPrompt = false
+                trackViewModel.discardRecording()
+            },
+            onArrivalDismiss = { showArrivalPrompt = false },
             // ── Process-death recovery ──
             recoveryTrack = recoveryTrack,
             // ── Background location permission (A2) ──
@@ -5634,7 +5715,7 @@ private fun MapContent(
  * entries are entries, not names, so an unnamed end contributes nothing rather than a placeholder. A
  * routing-weight-only marker names nothing either: flagged or not, it leaves the end its fixed or dated
  * name rather than lending it its own — and `null` again when the end is the boat's own home port,
- * told by the place or by the name itself (settled 2026-10-11).
+ * told by the place alone (settled 2026-10-24).
  */
 private fun routeEndName(
     selection: RouteEndSelection,
@@ -5661,7 +5742,7 @@ private fun routeEndName(
     val label = named?.let { ykws.android.maro.data.track.markerLabel(it.name, it.icon) } ?: return null
     val homePort = endPoint?.let { point ->
         ykws.android.maro.data.track.TrackNaming.namesHomePort(
-            point.latitude, point.longitude, label,
+            point.latitude, point.longitude,
             homePortLat, homePortLon, homePortRadiusM
         )
     } ?: false

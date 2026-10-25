@@ -10,6 +10,12 @@ modified: 2026-10-14 10:35
 **Description:**
 French coastal waters (Nice–Fréjus corridor) have numerous regulated zones: speed limitations, anchoring restrictions, access prohibitions, environmental protection areas. Published by SHOM via REST/WFS and by DIRM Méditerranée / data.gouv.fr. Goal: gather, aggregate, and model these zones into a structured, serialized dataset prebaked as a bundled asset and rendered as a map overlay. The app is a pure consumer — all gathering at build time. Key constraint: the boat is <6 m, so vessel-size restrictions must be captured and filterable.
 
+## Summary
+- French coastal regulated zones (Nice–Fréjus corridor) — speed limits, anchoring and access restrictions — gathered offline, aggregated into a baked asset and drawn as a map overlay.
+- The INSPIRE bake parses the real shapes: the whole `restrn` list with speed-wins typing, `ACHARE` anchorages, `Point` buffering and `MultiPolygon` splitting, with a server-side bbox.
+- The set is app-controlled by the `zones.properties` asset — `regulatedZone.speedOverride.<key>` replaces a limit (or makes a zone a speed zone), `regulatedZone.speedRoute.<key>` steers only the route engine, and `regulatedZone.ignore.<key>=true` drops a zone.
+- The warning strip sits bottom-left, fed by the zones containing the marker rather than the boat and never gated by the layer's visibility.
+
 ## Sections
 
 ### trouble-shoot-reg-layers

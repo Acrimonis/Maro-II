@@ -7,8 +7,8 @@ Lint the xTrack stack and the rulebook for structural drift.
 
               Structure (a-e): routing row duplicates · duplicate rules · deprecated
               active_subfeature/#sub remnants · date format · status vs completion.
-              Shape (f-h): malformed sections · missing routing rows · Feature Summaries
-              ↔ FEAT_DSC_ mismatch.
+              Shape (f-h): malformed sections · missing routing rows · `## Features` index
+              ↔ FEAT_DSC_ front-matter mismatch.
               Ownership (i-j): rule sections in GLOBAL_CONTEXT.md (rules belong in AGENTS.md) ·
               orphan docs inside xTrack (the docs/ footprint is `#doc audit`'s job; archives are
               excluded from both).
@@ -28,7 +28,7 @@ Lint the xTrack stack and the rulebook for structural drift.
               appears in that feature's ## Implemented — a retirement candidate for #archive.
 
   fix         Auto-repair safe classes: dedupe routing rows, normalize dates,
-              strip active_subfeature/#sub remnants, sync Feature Summaries ↔ FEAT_DSC_ files.
+              strip active_subfeature/#sub remnants, sync `## Features` ↔ FEAT_DSC_ front-matter.
               Everything from shape, ownership, registry integrity, doc drift, archive and legend
               onward is report-only — printed, never auto-fixed.
               #bake runs the auto-fix subset first.

@@ -98,7 +98,12 @@ data class RoutePlan(
      * The time spent per speed limit, the 300 m band standing apart — the panel's Speed limits line.
      * Empty on a partial line and on a saved route read back, neither of which carries the attribution.
      */
-    val slowLimitSeconds: List<RouteSlowLimit> = emptyList()
+    val slowLimitSeconds: List<RouteSlowLimit> = emptyList(),
+    /**
+     * How long the search took to land this line, in seconds — read by the comment a saved route
+     * carries. Null on a plan read back from a stored track, which recorded no search.
+     */
+    val searchDurationSec: Double? = null
 ) {
     /** The plan's length in nautical miles — the trip figure's own unit. */
     val distanceNm: Double get() = Units.metresToNauticalMiles(distanceM)
@@ -200,7 +205,7 @@ data class RoutePlan(
 
     companion object {
         /** The plan a successful search answers with, dated the moment it landed. */
-        fun of(start: RoutePoint, result: RouteResult.Success, nowMs: Long): RoutePlan {
+        fun of(start: RoutePoint, result: RouteResult.Success, nowMs: Long, searchDurationSec: Double? = null): RoutePlan {
             val destination = result.points.lastOrNull() ?: start
             return RoutePlan(
                 start = start,
@@ -213,7 +218,8 @@ data class RoutePlan(
                 forcedCrossingZoneNames = result.forcedCrossingZoneNames,
                 crossedSlowZoneNames = result.crossedSlowZoneNames,
                 computedAtMs = nowMs,
-                slowLimitSeconds = result.slowLimitSeconds
+                slowLimitSeconds = result.slowLimitSeconds,
+                searchDurationSec = searchDurationSec
             )
         }
     }
@@ -451,6 +457,12 @@ class RouteViewModel(
     private var armedStartMarkerId: String? = null
     private var armedDestinationMarkerId: String? = null
 
+    /** The wall-clock instant the standing arm began — the search duration's start. */
+    private var armedStartMs = 0L
+
+    /** The rank the followed route carried when the acquisition closed — read at save time. */
+    private var followedRank: Int? = null
+
     /**
      * **Whether the followed plan currently reads reversed** (R99) — the loss mirror's own orientation
      * flag. False from every entry into `Following` (the plan handed in is the route *as armed*) and
@@ -614,6 +626,8 @@ class RouteViewModel(
         _runningBest.value = null
         _verdict.value = null
         resetOrder()
+        armedStartMs = System.currentTimeMillis()
+        followedRank = null
         seatFrozen = false
         mirrored = false
         armedStartMarkerId = ends.startMarkerId
@@ -678,7 +692,7 @@ class RouteViewModel(
         if (index !in current.indices) return
         val nowMs = System.currentTimeMillis()
         if (update.result != null) {
-            val plan = RoutePlan.of(update.result.points.first(), update.result, nowMs)
+            val plan = RoutePlan.of(update.result.points.first(), update.result, nowMs, searchDurationSec())
             // D14: a rung within the collapse tolerance of one already landed folds into it — the
             // duplicate page is dropped and the survivor is marked as the collapse's own result.
             val tolerance = AppConfig.routeAvoidLadderCollapseToleranceM
@@ -772,6 +786,7 @@ class RouteViewModel(
                 if (choosing.committed) {
                     val landed = updated.plan
                     if (landed != null) {
+                        captureFollowedFacts(updated)
                         _pages.value = emptyList()
                         _selectedIndex.value = 0
                         enterFollowing(landed)
@@ -817,6 +832,7 @@ class RouteViewModel(
             if (choosing.committed) {
                 val landed = updated.plan
                 if (landed != null) {
+                    captureFollowedFacts(updated)
                     _pages.value = emptyList()
                     _selectedIndex.value = 0
                     enterFollowing(landed)
@@ -907,10 +923,11 @@ class RouteViewModel(
      */
     private fun followPage(pageIndex: Int) {
         val choosing = _state.value as? RouteState.Choosing ?: return
-        val selected = _pages.value
+        val page = _pages.value
             .getOrNull(pageIndex.coerceIn(0, (_pages.value.size - 1).coerceAtLeast(0)))
-            ?.plan
+        val selected = page?.plan
         if (selected != null) {
+            captureFollowedFacts(page)
             disposeLookups()
             _pages.value = emptyList()
             _selectedIndex.value = 0
@@ -941,6 +958,16 @@ class RouteViewModel(
         _pages.value = _pages.value.take(1)
         _selectedIndex.value = 0
     }
+
+    /** Remembers the rank the chosen line carried, so a later save still reads it. */
+    private fun captureFollowedFacts(page: RoutePage) {
+        val view = routeRankView(_pages.value, _verdict.value, _folded.value)
+        followedRank = page.lookupId?.let { view.ranks[it] }
+    }
+
+    /** The arm-to-now seconds, or null when no arm stands. */
+    private fun searchDurationSec(): Double? =
+        if (armedStartMs > 0L) (System.currentTimeMillis() - armedStartMs) / 1000.0 else null
 
     /**
      * **Follow a saved route** — the track card's door: the stored line becomes the followed route
@@ -1008,6 +1035,20 @@ class RouteViewModel(
     /** The selected page's plan, or null while it has none. */
     fun selectedPlan(): RoutePlan? = selectedPage()?.plan
 
+    /** The rank the standing save writes into its comment — read at save time. */
+    data class RouteCommentFacts(val rank: Int?)
+
+    /** The comment facts for the line being saved: the live rank while choosing, the captured rank while following. */
+    fun commentFacts(): RouteCommentFacts = when (val s = _state.value) {
+        is RouteState.Choosing -> {
+            val page = selectedPage()
+            val view = routeRankView(_pages.value, _verdict.value, _folded.value)
+            RouteCommentFacts(rank = page?.lookupId?.let { view.ranks[it] })
+        }
+        is RouteState.Following -> RouteCommentFacts(followedRank)
+        RouteState.Idle -> RouteCommentFacts(null)
+    }
+
     /** The two marker ids the armed line stood between, or nulls when an end was not a marker (R82). */
     fun armedMarkerIds(): Pair<String?, String?> = armedStartMarkerId to armedDestinationMarkerId
 
@@ -1037,6 +1078,8 @@ class RouteViewModel(
         seatFrozen = false
         mirrored = false
         etaState = RouteEtaState()
+        armedStartMs = 0L
+        followedRank = null
     }
 
     /** **The one disposal function** — the only thing that calls `cancelLookup`, for every in-flight id. */
