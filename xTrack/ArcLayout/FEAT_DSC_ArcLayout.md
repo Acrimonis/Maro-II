@@ -9,6 +9,10 @@ modified: 2026-09-29 11:35
 
 **Reference:** [`260613_FEAT_PLN_ArcLayout_feature-plan.md`](260613_FEAT_PLN_ArcLayout_feature-plan.md)
 
+## Summary
+- The map's layer toggle is one anchor button fanning out into a pure-Compose arc menu holding the layer toggles.
+- Fan geometry is θ-parameterised with the parent at centre and equal radii, and a momentary mode (`toggleChildren = false`) makes a fan whose children are actions, as the Route fan uses.
+
 ## Sections
 
 ### fan-migration

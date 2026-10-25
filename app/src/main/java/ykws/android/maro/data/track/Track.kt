@@ -84,7 +84,16 @@ data class Track(
      * tell apart, counts as GPS — and an older build still reads a new one. The GPX export carries it with no
      * exporter change, the blob being the whole track, and a foreign GPX builds a track with the default.
      */
-    @ProtoNumber(22) val demo: Boolean = false
+    @ProtoNumber(22) val demo: Boolean = false,
+    /**
+     * True when the trip began at the home port — a geofence exit, or a manual start inside it —
+     * which is what the comment's home-port line keys its departure side on (settled 2026-10-24).
+     *
+     * A fresh number with a default, so an old blob reads `false` and an older build still reads a
+     * new one. It lives on the track rather than a recorder field because a checkpoint resume must
+     * keep the departure side, and the checkpoint is the track itself.
+     */
+    @ProtoNumber(23) val startedAtHomePort: Boolean = false
 )
 
 /**
@@ -106,6 +115,12 @@ fun Track.lastRealPointTimeMsOrNull(): Long? =
 
 /** The track after taking [sample]: a simulated sample marks it demo for good, a GPS sample never does. */
 fun Track.markedFor(sample: TrackSample): Track = if (sample.isDemo && !demo) copy(demo = true) else this
+
+/**
+ * Whether any point of the track carries an accuracy. A real GPS fix reports one and a simulated demo
+ * sample never does, so one such point is proof the track was driven by GPS, at least in part.
+ */
+fun Track.hasGpsFix(): Boolean = trackPoints.any { it.accuracyM != null }
 
 /**
  * Lightweight summary of a [Track] for list display — no polyline points.
@@ -169,7 +184,17 @@ data class TrackSummary(
     /** [Track.routeDestinationMarkerId] projected beside [routeStartMarkerId], the same way and for the same reader. */
     @ProtoNumber(21) val routeDestinationMarkerId: String = "",
     /** [Track.demo] projected in the index pass, so the speed history picks the trips of each kind without loading a track. */
-    @ProtoNumber(22) val demo: Boolean = false
+    @ProtoNumber(22) val demo: Boolean = false,
+    /**
+     * [Track.hasGpsFix] projected in the index pass: true when at least one point carries an accuracy,
+     * which only a real GPS fix does. It is what the list's **Source** filter reads — a track with no
+     * accuracy anywhere counts as demo — so a mostly-GPS trip with a short simulated stretch stays GPS,
+     * which the sticky [demo] flag cannot say.
+     *
+     * An index written before the field existed decodes `false` — every track would read as demo — which
+     * is why its introduction bumped [SUMMARY_INDEX_VERSION]: the stale stamp rebuilds the index once.
+     */
+    @ProtoNumber(23) val gpsSourced: Boolean = false
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment
@@ -235,7 +260,7 @@ fun mergeCandidates(summaries: List<TrackSummary>, selectedIds: Set<String>): Se
  * **forced rather than hoped for**: an index whose stamp is not this one predates a field the summary
  * now carries, so the next read rebuilds it once instead of serving a missing bool as `false`.
  */
-const val SUMMARY_INDEX_VERSION = 1
+const val SUMMARY_INDEX_VERSION = 2
 
 /**
  * Wrapper for the index file — a list of [TrackSummary] entries and the schema they were written with.

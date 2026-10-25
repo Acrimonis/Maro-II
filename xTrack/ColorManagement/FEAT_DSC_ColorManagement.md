@@ -12,6 +12,10 @@ Centralised management of all colour tokens in the Maro-II app. Colours live in
 `colors.properties` with `${key}` alias interpolation supported by `AppConfig`.
 Every colour change must be reflected in `docs/color-scheme.md`.
 
+## Summary
+- All colour tokens live in `colors.properties` with `${key}` alias interpolation, and every change is reflected in `docs/color-scheme.md`.
+- One painting path and one property block (`ui.map.surface.*`) now own every map surface, the toggle squares and both overlay cards included.
+
 ## Sections
 
 ### Colour Taxonomy & Structure

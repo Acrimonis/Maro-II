@@ -91,10 +91,11 @@ android {
                 .coerceAtLeast(10.0).toString())
 
         // ── Track recording defaults from maro.properties ──────────
-        buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("tracking.originLat", 43.55).toString())
-        buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("tracking.originLon", 7.00).toString())
-        buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("tracking.geofenceRadiusM", 500.0).toString())
-        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("tracking.enabled", false).toString())
+        buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("tracking.homePort.originLat", 43.5696).toString())
+        buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("tracking.homePort.originLon", 7.1313).toString())
+        buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("tracking.homePort.geofenceRadiusM", 100.0).toString())
+        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("tracking.homePort.enabled", false).toString())
+        buildConfigField("String", "TRACK_DISPLAY_NAME", "\"${propString("tracking.homePort.displayName", "La Salis")}\"")
 
         // ── The path family is read at RUNTIME (D6) ────────────────────────
         //
@@ -168,6 +169,14 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDir(rootProject.file("data/app-assets"))
+        }
+    }
+
+    testOptions {
+        unitTests {
+            // android.util.Log and the other android.jar methods return defaults in unit tests
+            // instead of throwing "not mocked" — the recorder's Log.d/v paths run here.
+            isReturnDefaultValues = true
         }
     }
 

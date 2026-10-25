@@ -18,6 +18,13 @@ scrollable body, and renders its four sections with the shared Settings stencils
 (`SectionHeader` / `CardArea` / `SectionDivider` / `ToggleRow` in `ui/components`).
 
 
+## Summary
+- The hamburger menu drawer — the Routing card (ends, quick access and live summary), a Routes list, a Tracks list and marker management.
+- The Routing card's quick-access pair gained a Go button on its right, arming a fresh acquisition on the standing pair through the same trigger the map square and fan child share.
+- The ROUTES and TRACKS headers each carry a map-visibility eye outside the filter gate, and the two lists are hard-separated by a `ListScope` over the one `TrackHistoryOverlay`.
+- The route Speed/Direction switches are subordinate to the master Speed Colors and Arrows chips, and a pinned route stays dashed by its own route identity.
+- The routes list carries no inline pin filter — its All/Pinned/Not pinned choice lives only in the filter popup.
+
 ## Implemented
 
 - **route-list-inline-filter-removed (2026-10-20, `feature/route-list-remove-crap`)** — the routes list dropped its inline **All · Pinned · Not pinned** row so that choice lives only in the filter popup: `RoutesPinnedFilterRow` and its `quickFilterSlot` wiring left `TrackHistoryOverlay.kt`, and the scaffold's now-callerless `quickFilterSlot` hook and render block left `ListOverlayScaffold.kt`. The `pinned` axis stays in `ListFilter`; `:app:compileDebugKotlin` passes and the change is committed `71beb9f7`.

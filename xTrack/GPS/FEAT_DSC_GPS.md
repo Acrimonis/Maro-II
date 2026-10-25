@@ -15,6 +15,10 @@ heading-up from GPS course over ground, falling back to the device compass when 
 Location uses the Android framework LocationManager + SensorManager (no Google Play Services);
 ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
+## Summary
+- A position-source toggle between Démo (free-pan, north-up) and GPS mode, where the device GPS drives the map centre and heading-up rotation with a compass fallback when stationary.
+- Location uses the framework `LocationManager` / `SensorManager` (no Play Services), and dead-reckoning extrapolation is display-only, gated out of persistent track recording.
+
 ## Sections
 
 ### settings

@@ -10,6 +10,15 @@ modified: 2026-10-23 15:22
 **Description:**
 App-lifecycle UX for the Maro-II app: back-exit guard, edge-to-edge rendering, WindowInsets management, list normalization, drawer framework, and menu-drawer UX. (Keep-screen-on moved to the Performance feature 2026-09-12.)
 
+## Summary
+- App-lifecycle UX — the back-exit guard, edge-to-edge insets, list normalization, the drawer framework and menu-drawer UX.
+- Every settings slider renders through one row — the two render-count rows and the boat size included — with the value bottom-aligned against its track and a unit suffix read from a `*_fmt` key rather than formatted in code.
+- The popup takes one drag to open, carries no arrow and centres its wheel on the box; the band is the value committed on a slow release by any door, while a flick keeps the popup open so a long list can be browsed and back cancels a browse without a write; the popup fades and rises 120 ms each way with its fading window refusing every touch.
+- Each list card is entered by a leading selection door, the picked card wearing a 2 dp accent border, the 15 % shift and a 24 dp check disc at the head of the first line.
+- The delete family runs on one pending set with one hiding rule — a card's deferred delete hides its item on the map while a list swipe never does.
+- The selected-item dashboard closes on exactly two conditions: a surface wanting its slot, or a change of the world its Prev/Next walks.
+- The bottom-band snackbar/toast stack composes before the drawer ladder, so an open drawer and its scrim cover it while dialogs stay above the drawer.
+
 ## Sections
 
 ### track list colors

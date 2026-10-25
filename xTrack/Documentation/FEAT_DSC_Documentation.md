@@ -11,6 +11,10 @@ modified: 2026-10-10 11:53
 Cross-cutting project documentation — the README, machine onboarding and troubleshooting, the git detail, the
 feature-to-code map, and the maintenance of `docs/`.
 
+## Summary
+- Cross-cutting project documentation — the README as orientation only, machine onboarding and troubleshooting, the git detail, the feature-to-code map and the maintenance of `docs/`.
+- `docs/maro-code.md` is the single source of truth for feature-to-code mapping and was re-verified against the tree on 2026-10-10, and no doc restates a version or an inventory the build files hold.
+
 ## Implemented
 
 - **maro-code map re-verified against the tree (2026-10-10)** — `docs/maro-code.md` checked row by row against `app/src/main/java/ykws/android/maro`: the Package Layout rows for `data/model`, `data/depth` (plus a new `data/depth/validation/` row), `data/track`, `data/regulation`, `data/markers`, `data/power`, `spatial`, `spatial/multipass`, `ui/components`, `ui/markers/wizard`, `ui/icons` and `config` corrected, a `data/route/` row added, the `RouteEngine.kt` anchor updated to its four engines and `RouteEngineChoice.kt`, the volatile MapScreen line-range and OverlayLayer param-count anchors dropped, and three dead names removed — the tree overruling two brief claims → [`260717_FEAT_PLN_Documentation_maro-code-map.md`](260717_FEAT_PLN_Documentation_maro-code-map.md)

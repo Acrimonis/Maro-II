@@ -519,6 +519,8 @@ Consumers use `combinedClickable(onClick, onLongClick)` on their card `Row`. A t
 
 The check is a separate face, not the door: [`ListSelectionCheck`](app/src/main/java/ykws/android/maro/ui/components/ListSelectionCheck.kt) draws the **24 dp `uiAccent` disc bearing the white 16 dp `Check`** at the head of the card's first line, and only while the card is selected — an unselected card reserves no slot, so the header text shifts right by the disc plus its 6 dp gap when selection arrives.
 
+The bar's shape follows the item's kind: **solid on a track card, dashed at the saved-route rhythm on a route card** (`dashed = summary.route` in [`TrackCardContent`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt)), mirroring the map's route-dashed / track-solid language; the marker card's bar stays solid.
+
 ### Swipe Gate
 
 `SwipeableItemCard`'s horizontal drag gesture is gated on `!isMultiSelectMode`.

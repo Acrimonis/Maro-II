@@ -71,8 +71,8 @@ fun dateInRange(startTimeMs: Long, range: String, todayMidnightMs: Long): Boolea
 
 /**
  * Live tracks are exempt from the axes whose subject a recording cannot answer for: the date range,
- * whose `isLive` arm is the original case, and the position, whose classification would otherwise
- * move under the user's eyes as the track grows.
+ * whose `isLive` arm is the original case, the position, whose classification would otherwise
+ * move under the user's eyes as the track grows, and the source, whose flag can still flip.
  */
 fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
     f.axes.all { (key, value) ->
@@ -86,6 +86,14 @@ fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
             "position" -> isLive || when (value) {
                 "WATER" -> positionIsWater
                 "LAND" -> !positionIsWater
+                else -> true
+            }
+            // A route is a plan, not a recording: it has no source, so it passes whatever the value.
+            // The live recording is exempt too — its first fix may not have arrived yet. Any point with
+            // an accuracy makes a track GPS; none at all makes it demo.
+            "source" -> route || isLive || when (value) {
+                "GPS" -> gpsSourced
+                "DEMO" -> !gpsSourced
                 else -> true
             }
             else -> true
@@ -182,8 +190,25 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("WATER", R.string.filter_option_on_water),
             FilterOptionSpec("LAND", R.string.dash_not_at_sea)
         )
+    ),
+    FilterAxisSpec(
+        key = "source",
+        labelResId = R.string.filter_axis_source,
+        options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("GPS", R.string.state_gps),
+            FilterOptionSpec("DEMO", R.string.state_demo)
+        )
     )
 )
+
+/**
+ * The route list's axes: the track axes less `source` and `position` — a route is a plan, not a
+ * recording, so it has no source, and a line drawn between two chosen points has no water-or-land
+ * reading worth cutting on.
+ */
+fun routeFilterAxes(): List<FilterAxisSpec> =
+    trackFilterAxes().filter { it.key != "source" && it.key != "position" }
 
 /**
  * Marker filter axes. The three routing axes — `routeRole`, `routeCost` and `routingOnly` — share one
