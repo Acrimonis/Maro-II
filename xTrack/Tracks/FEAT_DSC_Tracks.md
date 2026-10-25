@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-24 12:51
+modified: 2026-10-25 08:15
 ---
 
 # Feature: Tracks
@@ -12,11 +12,12 @@ Track the boat's movement (position, speed) during active navigation. One record
 
 ## Summary
 - Track the boat's movement during navigation: one recording per trip, points captured only while moving, persisted as protobuf and recallable on the map.
-- The home port is one `maro.properties` block (`tracking.homePort.*`: `43.5696, 7.1313`, radius 100 m, `La Salis`), read from the file rather than stored settings, and arriving while recording idles 30 s inside the circle, persists a checkpoint and asks Save / Discard / Continue instead of auto-stopping.
+- The home port is one `maro.properties` block (`tracking.homePort.*`: position, radius, `La Salis`; the radius is the one circle the arrival prompt, auto-start and the route and trip naming exclusion all test), read from the file rather than stored settings, and arriving while recording idles 30 s inside the circle, persists a checkpoint and asks Save / Discard / Continue instead of auto-stopping.
 - A marker whose point stands inside the home-port circle never names a trip or route — the ends, the name body, the comment fallback and the title fallback all exclude it.
 - A saved route's comment head is `#rank • pace • pref`; the preference rung is gone.
 - The selected-item speed toggle is two disk-persisted per-kind booleans, off by default, and the selected item paints on its own top overlay.
 - A route and a recorded trip are named from their ends and idle stops: an end resolves to the smallest zone it stands inside — or, only when strictly smaller, one it stands near, a pin first — the body carries only markers an idle stop stood in (dive-first, then longest-idle), and a distinct marked destination closes the name.
+- A route has no direction: its name reads `A <-> B` (`TrackNaming.ROUTE_CONNECTOR`, the same in both locales) and a route with one named end reads that name alone; a recorded trip keeps `A to B`.
 - The two render axes per kind run on a global → kind → class `enabled` leaf, one painter serves both kinds over the `path.*` family, and the render count runs 0–30 plus an **All** value.
 - A trip's GPX carries the markers that own it, re-pointed at the landed track id on import.
 - The track list's **Source** filter (All · GPS · Demo) reads `TrackSummary.gpsSourced` — any point with an accuracy makes a track GPS, none makes it demo — not the sticky `Track.demo` flag; routes and the live recording always pass, and the route lists carry neither Source nor the On water / On land axis. `GpxImporter` never reads `<accuracy>`, so a foreign or re-imported GPX reads as demo.
@@ -90,6 +91,7 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - Rejection compares on the GPS epoch timestamp, and the stillness policy still sees every fix — only point *recording* is gated.
 - The recording foreground service runs `START_STICKY` with a persistent, ongoing, low-importance notification ("Ready", or "Recording • speed • elapsed • distance", suffixed "(Demo)" outside GPS mode); update intents are throttled to 5 s.
 - A route and a recorded trip are named from their ends and idle stops: an end resolves to the smallest zone it stands inside — or, only when that zone is strictly smaller, one it stands near, a pin outranking any zone — the body carries only markers an idle stop stood in (dive-first, then longest-idle), a distinct marked destination closes the name, and an end or marker that stands inside the home-port geofence never names either kind.
+- A route's name joins its two ends with `<->` and prints a single named end alone, never `From` or `To`; a recorded trip's name keeps the language's own `to` / `à` ([`TrackNaming.compose`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) takes the connector, the route's save in [`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) passing `ROUTE_CONNECTOR`).
 
 ## Docs
 - `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its markers: the payloads in a track's extensions and their `wpt` companions, the `trackId` remap on import, the transient filter and the skip-consistency rule (shipped 2026-10-11)
@@ -340,6 +342,8 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- A route's auto name drops the direction: both ends read `A <-> B`, one named end reads alone, and the `route_name_from_fmt` / `route_name_to_fmt` strings are gone from both locales; a recorded trip keeps `A to B` and the home-port radius widened to 150 m after the device log put a route's destination 106–113 m from the port, outside the old circle, so the port's marker still named it (shipped 2026-10-25 on `feature/route-mono`, `compileDebugKotlin` green, device pass owed)
 
 - The track list gains a **Source** filter (All · GPS · Demo) on whether any point carries an accuracy (some = GPS, none = demo; `TrackSummary.gpsSourced`, index version 2 forces the one rebuild) rather than the sticky `demo` flag; routes and the live recording always pass, and the route list and menu offer neither it nor the On water / On land axis, a stored route position value being stripped on load (shipped 2026-10-24 on `feature/list-filters`, uncommitted)
 

@@ -1264,9 +1264,6 @@ fun MapScreen(
         RouteEndSelection.End.DESTINATION,
         routeDestinationEligible
     )
-    // The route name's own connector, resolved once here so the save site can stay non-composable.
-    val routeNameConnector = stringResource(R.string.track_name_connector)
-
     /** Writes one end's selection back to the store, keyed on the mode the drawer already carries. */
     fun storeRouteEnd(end: RouteEndSelection.End, selection: RouteEndSelection) {
         val token = RouteEndSelection.encode(selection)
@@ -2573,22 +2570,17 @@ fun MapScreen(
                     homePortRadiusM = appSettings.trackGeofenceRadiusM,
                     whereAmI = markersViewModel::whereAmISync
                 )
-                // Both ends named read "A to B"; one named end reads From or To alone; neither
-                // named leaves the route to its own dated name rather than an unnamed pair
-                // (settled 2026-10-10; the origin joins the naming 2026-10-11).
-                val raw = when {
-                    origin != null && destination != null ->
-                        ykws.android.maro.data.track.TrackNaming.compose(
-                            origin = origin,
-                            body = emptyList(),
-                            destination = destination,
-                            connector = routeNameConnector,
-                            maxLength = AppConfig.trackNameMaxLength
-                        )
-                    origin != null -> context.getString(R.string.route_name_from_fmt, origin)
-                    destination != null -> context.getString(R.string.route_name_to_fmt, destination)
-                    else -> ""
-                }
+                // A route has no direction: both ends named read "A <-> B", one named end reads
+                // alone, neither named leaves the route to its own dated name rather than an
+                // unnamed pair (settled 2026-10-10; the origin joins the naming 2026-10-11; the
+                // direction goes 2026-10-25).
+                val raw = ykws.android.maro.data.track.TrackNaming.compose(
+                    origin = origin,
+                    body = emptyList(),
+                    destination = destination,
+                    connector = ykws.android.maro.data.track.TrackNaming.ROUTE_CONNECTOR,
+                    maxLength = AppConfig.trackNameMaxLength
+                )
                 if (raw.isBlank()) return plan.trackName()
                 return ykws.android.maro.data.track.TrackNaming
                     .trimProportionally(listOf(raw), AppConfig.trackNameMaxLength)

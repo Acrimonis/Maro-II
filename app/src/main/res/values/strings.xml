@@ -250,9 +250,6 @@
     <string name="track_name_connector">to</string>
     <!-- The save toast: the track or route just written, named (2026-10-10). -->
     <string name="snackbar_saved">\"%s\" saved</string>
-    <!-- The single-named-end route forms: "From Port de La Salis", "To Cap d'Antibes". -->
-    <string name="route_name_from_fmt">From %1$s</string>
-    <string name="route_name_to_fmt">To %1$s</string>
     <string name="marker_description_placeholder">Add description...</string>
 
     <!-- Recovery dialog — its three doors reuse the recording-exit keys below (one home per word) -->
@@ -725,7 +722,7 @@
     <string name="route_comment_routed_fmt">Routed on %1$s in %2$s s</string>
     <string name="route_comment_routed_no_sec_fmt">Routed on %1$s</string>
     <!-- The per-zone line's open-water entry — the time not spent under any limit. -->
-    <string name="route_comment_open_water">Open water</string>
+    <string name="route_comment_open_water">OW</string>
     <!-- One per-zone comment entry: the label and its time, joined by a fixed colon. -->
     <string name="route_comment_zone_entry_fmt">%1$s: %2$s</string>
     <!-- Where the pace `Now` plans at comes from: this trip's own readings, the day's saved pace, the learned
