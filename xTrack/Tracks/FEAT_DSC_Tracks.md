@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-25 08:05
+modified: 2026-10-25 08:15
 ---
 
 # Feature: Tracks
@@ -12,7 +12,7 @@ Track the boat's movement (position, speed) during active navigation. One record
 
 ## Summary
 - Track the boat's movement during navigation: one recording per trip, points captured only while moving, persisted as protobuf and recallable on the map.
-- The home port is one `maro.properties` block (`tracking.homePort.*`: `43.5696, 7.1313`, radius 100 m, `La Salis`), read from the file rather than stored settings, and arriving while recording idles 30 s inside the circle, persists a checkpoint and asks Save / Discard / Continue instead of auto-stopping.
+- The home port is one `maro.properties` block (`tracking.homePort.*`: position, radius, `La Salis`; the radius is the one circle the arrival prompt, auto-start and the route and trip naming exclusion all test), read from the file rather than stored settings, and arriving while recording idles 30 s inside the circle, persists a checkpoint and asks Save / Discard / Continue instead of auto-stopping.
 - A marker whose point stands inside the home-port circle never names a trip or route — the ends, the name body, the comment fallback and the title fallback all exclude it.
 - A saved route's comment head is `#rank • pace • pref`; the preference rung is gone.
 - The selected-item speed toggle is two disk-persisted per-kind booleans, off by default, and the selected item paints on its own top overlay.
@@ -343,7 +343,7 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 
 ## Implemented
 
-- A route's auto name drops the direction: both ends read `A <-> B`, one named end reads alone, and the `route_name_from_fmt` / `route_name_to_fmt` strings are gone from both locales; a recorded trip keeps `A to B` (shipped 2026-10-25 on `feature/route-mono`, `compileDebugKotlin` green, device pass owed)
+- A route's auto name drops the direction: both ends read `A <-> B`, one named end reads alone, and the `route_name_from_fmt` / `route_name_to_fmt` strings are gone from both locales; a recorded trip keeps `A to B` and the home-port radius widened to 150 m after the device log put a route's destination 106–113 m from the port, outside the old circle, so the port's marker still named it (shipped 2026-10-25 on `feature/route-mono`, `compileDebugKotlin` green, device pass owed)
 
 - The track list gains a **Source** filter (All · GPS · Demo) on whether any point carries an accuracy (some = GPS, none = demo; `TrackSummary.gpsSourced`, index version 2 forces the one rebuild) rather than the sticky `demo` flag; routes and the live recording always pass, and the route list and menu offer neither it nor the On water / On land axis, a stored route position value being stripped on load (shipped 2026-10-24 on `feature/list-filters`, uncommitted)
 

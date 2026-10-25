@@ -3,7 +3,7 @@
 > State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
-- [2026-10-25 08:05 UTC] Tracks — on `feature/route-mono`, a route's auto name lost its direction: both ends read `A <-> B` and a single named end reads alone, with the From / To strings removed from both locales and recorded trips keeping `A to B`; `compileDebugKotlin` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
+- [2026-10-25 08:05 UTC] Tracks — on `feature/route-mono`, a route's auto name lost its direction: both ends read `A <-> B` and a single named end reads alone, with the From / To strings removed from both locales and recorded trips keeping `A to B`, and the home-port radius widened to 150 m so a destination 106–113 m from the port no longer takes its marker's name; `compileDebugKotlin` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 12:51 UTC] Tracks — on `feature/list-filters`, the track list gained a Source filter (All · GPS · Demo) that calls a track GPS when any point carries an accuracy and demo when none does, routes and the live recording always passing, and the route lists dropped the Source and On water / On land axes; the scoped suites and `apk-build.bat` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 07:32 UTC] Tracks — on feature/track-comment-ignore-time-spend-at-la-salis, the home port, its arrival prompt, the port-zone naming exclusion and the route-comment rung removal shipped; the home port is now `tracking.homePort.*` in maro.properties read from the file rather than stored settings, fixing the stale-prefs shadow; compileDebugKotlin and the scoped data.track + RouteCommentHeadTest suites green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 07:24 UTC] WorkflowImprovement — the GLOBAL_CONTEXT feature-summaries split shipped: a 25-row `## Features` index replaced the prose block, each `FEAT_DSC_` gained a `## Summary` (Route pruned), and the templates, §7a/§7b rows and eight cmd_help pages were re-pointed; the Ask hop returned clean → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
@@ -53,7 +53,7 @@
 | Ui_Dashboard | active | 2026-06-06 00:00 | 2026-10-12 08:58 | [FEAT_DSC_Ui_Dashboard.md](Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) |
 | Ui_General | active | 2026-06-08 16:43 | 2026-10-23 15:22 | [FEAT_DSC_Ui_General.md](Ui_General/FEAT_DSC_Ui_General.md) |
 | Markers | active | 2026-06-22 11:52 | 2026-10-23 17:41 | [FEAT_DSC_Markers.md](Markers/FEAT_DSC_Markers.md) |
-| Tracks | active | 2026-06-15 21:43 | 2026-10-25 08:05 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
+| Tracks | active | 2026-06-15 21:43 | 2026-10-25 08:15 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
 | Performance | active | 2026-06-07 00:00 | 2026-09-20 13:50 | [FEAT_DSC_Performance.md](Performance/FEAT_DSC_Performance.md) |
 | Ui_Settings | active | 2026-06-09 15:28 | 2026-10-20 19:40 | [FEAT_DSC_Ui_Settings.md](Ui_Settings/FEAT_DSC_Ui_Settings.md) |
 | UI_Map | active | 2026-06-07 00:00 | 2026-10-23 16:20 | [FEAT_DSC_UI_Map.md](UI_Map/FEAT_DSC_UI_Map.md) |
