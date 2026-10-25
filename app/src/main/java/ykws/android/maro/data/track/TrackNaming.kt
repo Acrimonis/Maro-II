@@ -159,6 +159,9 @@ object TrackNaming {
         )
     }
 
+    /** A route's connector: it has no direction, so the symbol is the same in every language. */
+    const val ROUTE_CONNECTOR = "<->"
+
     /**
      * The name the shape composes, as a chain of segments — the origin, the ranked body and the
      * destination, each dropped when empty and the survivors joined by [connector] (settled

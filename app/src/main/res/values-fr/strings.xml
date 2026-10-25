@@ -249,9 +249,6 @@
     <string name="track_name_connector">à</string>
     <!-- Le toast d\'enregistrement : la trace ou l\'itinéraire qui vient d\'être écrit, nommé. -->
     <string name="snackbar_saved">\"%s\" enregistré</string>
-    <!-- Les formes à une seule extrémité nommée : « De Port de La Salis », « À Cap d\'Antibes ». -->
-    <string name="route_name_from_fmt">De %1$s</string>
-    <string name="route_name_to_fmt">À %1$s</string>
     <string name="marker_description_placeholder">Ajouter une description…</string>
 
     <!-- Recovery dialog — ses trois portes reprennent les clés du dialogue de sortie d'enregistrement -->
@@ -732,7 +729,7 @@
     <string name="route_comment_routed_fmt">Route calculée le %1$s en %2$s s</string>
     <string name="route_comment_routed_no_sec_fmt">Route calculée le %1$s</string>
     <!-- L\'entrée eau libre de la ligne par zone — le temps passé hors de toute limite. -->
-    <string name="route_comment_open_water">Eau libre</string>
+    <string name="route_comment_open_water">EL</string>
     <!-- Une entrée de la ligne par zone du commentaire : l\'étiquette et son temps, reliés par un deux-points fixe. -->
     <string name="route_comment_zone_entry_fmt">%1$s : %2$s</string>
     <!-- D\'où vient la vitesse que « Live » planifie : les relevés de ce trajet, la vitesse enregistrée du jour,
