@@ -360,7 +360,7 @@ class TrackRecorder(
     /** A checkpoint write that cannot fail the caller: the next one retries, and the finalize reports. */
     private suspend fun checkpointQuietly(track: Track) {
         try {
-            checkpointQuietly(track)
+            repository.saveCheckpoint(track)
         } catch (e: IOException) {
             Log.w(TAG, "checkpoint write failed for ${track.id}", e)
         }
