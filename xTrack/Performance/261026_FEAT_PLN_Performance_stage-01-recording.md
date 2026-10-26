@@ -39,7 +39,7 @@ Acceptance: the allocation reduction is repeatable and well above noise; long-re
 
 ## Tests and reproduction
 
-Debug APK build passed. Recorder/repository selection: 28 tests passed, no failures/errors/skips. The opt-in performance test passed in both runs.
+Debug APK build passed. Recorder/repository selection: 28 tests passed, no failures/errors/skips. The opt-in performance test passed in both runs. Full local suite after the CI follow-up: 1594 tests, 0 failures, 0 errors, 19 skipped; skipped asset/tool/performance gates remain unverified.
 
 - `RecordingPointsTest`: original-list differential comparison, bounds, resumed-input isolation, retained snapshots across chunk boundaries, exact protobuf bytes including GAP points.
 - `RecordingCheckpointTest`: unchanged/older revisions, metadata changes, overlapping persistence, failures, cancellation, deletion invalidation.
@@ -56,6 +56,10 @@ MARO_RECORDING_PERF=1 ./gradlew :app:testDebugUnitTest \
 ```
 
 The first test compilation exposed Android's missing compile-time JDK management classes; the benchmark accesses those JVM-only counters reflectively. Subsequent builds passed. No device was accessed or deployed. Device CPU/battery, flash latency, full application frame timing, peak retained heap, power-loss fault injection and bake-dependent evidence remain unmeasured. No whole-app performance claim follows from this stage.
+
+## CI follow-up
+
+The first full CI run found one failure in `TrackPortZoneNamingTest`: the fixture requested an asynchronous stop and immediately read the finalized file, racing persistence. Both naming cases now wait for the existing OFF signal before reading. Product stop behavior is unchanged. The full local suite then passed; this is a fixture synchronization correction, not a suppressed assertion.
 
 ## Warm paired elapsed readings
 
