@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -311,6 +312,9 @@ class DepthViewModel(
         if (forced || produced[step]?.key != key) dropProduced(step)
         val cutoffM = settings.emodnetShallowCutoffM
         val bitmap = withContext(Dispatchers.Default) {
+            val buildContext = coroutineContext
+            val checkActive = { buildContext.ensureActive() }
+            checkActive()
             when (step) {
                 RasterCache.Step.GRID -> {
                     // Loaded by the caller — the step only reports.
@@ -328,7 +332,7 @@ class DepthViewModel(
                     val onProgress = progressSink(forced, self, RasterStep.COLOUR_RASTER, "Depth colour map")
                     cachedOrBuilt(context, step, key, grid, forced) {
                         onProgress?.invoke(0)
-                        DepthBitmap.build(grid, cutoffM, AppConfig.mapDepthNodataColor, onProgress)
+                        DepthBitmap.build(grid, cutoffM, AppConfig.mapDepthNodataColor, onProgress, checkActive)
                     }
                 }
                 RasterCache.Step.LOW_DEPTH_WARNING -> {
@@ -337,12 +341,13 @@ class DepthViewModel(
                         onProgress?.invoke(0)
                         LowDepthWarningBitmap.build(
                             grid, settings.lowDepthCrashDepthM, settings.lowDepthStartWarningM,
-                            isWater, cutoffM, onProgress
+                            isWater, cutoffM, onProgress, checkActive
                         )
                     }
                 }
             }
         }
+        coroutineContext.ensureActive()
         if (bitmap != null) {
             produced[step] = ProducedRaster(key, bitmap)
             publishRasters()
@@ -359,20 +364,23 @@ class DepthViewModel(
         forced: Boolean,
         build: () -> Bitmap
     ): Bitmap {
+        val buildContext = coroutineContext
+        val checkActive = { buildContext.ensureActive() }
         val cached = withContext(Dispatchers.IO) {
-            if (forced) { RasterCache.evict(context, step); null } else RasterCache.read(context, step, key)
+            checkActive()
+            if (forced) { RasterCache.evict(context, step); null } else RasterCache.read(context, step, key, checkActive)
         }
         if (cached != null) return cached
+        checkActive()
         val bmp = build()
-        val pixels = IntArray(grid.cols * grid.rows)
-        bmp.getPixels(pixels, 0, grid.cols, 0, 0, grid.cols, grid.rows)
-        RasterCache.write(context, step, key, pixels, grid.cols, grid.rows)
+        checkActive()
+        withContext(Dispatchers.IO) { RasterCache.write(context, step, key, bmp, checkActive) }
         return bmp
     }
 
     /**
      * A builder's progress sink on the Settings path; none on the lazy path. It reports only while
-     * [owner] still owns the overlay, so a callback from a superseded build — its loop runs on after
+     * [owner] still owns the overlay, so a callback from a superseded build — its last callback can race
      * the cancel — cannot put back a progress the supersede cleared.
      */
     private fun progressSink(forced: Boolean, owner: Job?, step: RasterStep, phase: String): ((Int) -> Unit)? {
