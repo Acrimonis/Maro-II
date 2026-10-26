@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import ykws.android.maro.data.RevisionRefresh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -265,6 +267,8 @@ class MarkersViewModel(
     // ── Settings injection (set via observeSettings from NavigationViewModel) ──
 
     private var settingsFlow: StateFlow<AppSettings>? = null
+    private var settingsJob: Job? = null
+    private var mapSettingsJob: Job? = null
     private var updateSettings: (((AppSettings) -> AppSettings) -> Unit)? = null
 
     // ── StateFlows ────────────────────────────────────────────────────────
@@ -394,10 +398,13 @@ class MarkersViewModel(
      * Must be called once by MapScreen before the ViewModel is used.
      */
     fun observeSettings(flow: StateFlow<AppSettings>, updater: ((AppSettings) -> AppSettings) -> Unit) {
-        this.settingsFlow = flow
         this.updateSettings = updater
+        if (this.settingsFlow === flow && settingsJob?.isActive == true && mapSettingsJob?.isActive == true) return
+        settingsJob?.cancel()
+        mapSettingsJob?.cancel()
+        this.settingsFlow = flow
         _markerLayerState.value = flow.value.markerLayerState
-        viewModelScope.launch {
+        settingsJob = viewModelScope.launch {
             flow.collect { settings ->
                 if (_markersLoaded.value) {
                     applyFilterSort(settings.markerListFilter, settings.markerListSort)
@@ -408,7 +415,7 @@ class MarkersViewModel(
         // Map-referential stream: reactive to the MAP filter, any allMarkers reload, and the open
         // card's own selection — so a filter-excluded selected marker is drawn while its card stands
         // and drops back out the moment the selection clears.
-        viewModelScope.launch {
+        mapSettingsJob = viewModelScope.launch {
             kotlinx.coroutines.flow.combine(flow, _allMarkers, _selectedMarkerId) { settings, all, selectedId ->
                 markerMapFocus.highlight(selectedId)
                 markerSelectionPolicy.select(
@@ -422,32 +429,25 @@ class MarkersViewModel(
         }
     }
 
-    init {
-        viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) { repo.loadAll() }
-            _allMarkers.value = loaded
-            // Initial sort: no filter applied until observeSettings wires up the flow
-            _markers.value = sortMarkers(loaded, ykws.android.maro.data.model.ListSortState())
+    private val markerRefresh = RevisionRefresh(
+        revision = { repo.revision.value },
+        load = { repo.loadAll() },
+        publish = { all ->
+            val settings = settingsFlow?.value
+            _allMarkers.value = all
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
             _markersLoaded.value = true
         }
-        // Keep _allMarkers fresh after service-side writes (AutoMarkerManager).
-        //
-        // The open card is deliberately not re-tested here: the write paths own that one call (plan
-        // §4), because only a caller that made the write can order the test after the state that
-        // write left behind — the wizard's save hands its card back as `Viewing` first, and a test
-        // taken on this channel could run while the drawer still reads `Editing` and so see nothing
-        // to reconcile. What this reload is for is the write the ViewModel never sees: a card whose
-        // item that write removed draws nothing until the next write path's reconcile reaches it,
-        // there being no not-found branch left to fall back on.
+    )
+
+    // Publication is shared; the writer still owns card reconciliation after its drawer transition.
+    private suspend fun refreshMarkers() = markerRefresh.refresh()
+
+    init {
         viewModelScope.launch {
-            UserMarkerRepository.markerChanges.collect {
-                val all = withContext(Dispatchers.IO) { repo.loadAll() }
-                val settings = settingsFlow?.value
-                _allMarkers.value = all
-                val filter = settings?.markerListFilter ?: ListFilter()
-                val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-                _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            }
+            repo.revision.collect { refreshMarkers() }
         }
     }
 
@@ -1017,12 +1017,7 @@ class MarkersViewModel(
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.add(marker) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             setDrawerState(MarkerDrawerState.Hidden)
             _lastSavedMarkerId.value = marker.id
             _wizardStep.value = null
@@ -1085,12 +1080,7 @@ class MarkersViewModel(
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             val returnsToCard = wizardEditReturnsToCard(wizardDoor, isEdit = true)
             wizardDoor = WizardDoor.LIST
             _wizardStep.value = null
@@ -1121,12 +1111,7 @@ class MarkersViewModel(
         )
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             reconcileOpenCard()
         }
     }
@@ -1135,12 +1120,7 @@ class MarkersViewModel(
     fun deleteMarker(markerId: String, closeDrawer: Boolean = true) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.delete(markerId) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             if (closeDrawer) {
                 setDrawerState(MarkerDrawerState.Hidden)
             } else {
@@ -1175,12 +1155,7 @@ class MarkersViewModel(
                     val updated = nearest.copy(geometry = MarkerGeometry.Pin(newPos))
                     viewModelScope.launch {
                         withContext(Dispatchers.IO) { repo.update(updated) }
-                        val all = withContext(Dispatchers.IO) { repo.loadAll() }
-                        val settings = settingsFlow?.value
-                        _allMarkers.value = all
-                        val filter = settings?.markerListFilter ?: ListFilter()
-                        val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-                        _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+                        refreshMarkers()
                     }
                     return nearest.id
                 } else {
@@ -1209,12 +1184,7 @@ class MarkersViewModel(
         )
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.add(marker) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
         }
         return marker.id
     }
@@ -1281,12 +1251,7 @@ class MarkersViewModel(
         val updated = marker.copy(confirmed = true, keepable = true, name = name, description = description)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
         }
     }
 
@@ -1316,12 +1281,7 @@ class MarkersViewModel(
             withContext(Dispatchers.IO) {
                 ids.forEach { id -> repo.delete(id) }
             }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             reconcileOpenCard()
         }
     }
@@ -1336,12 +1296,7 @@ class MarkersViewModel(
         val updated = marker.copy(icon = icon)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             reconcileOpenCard()
         }
     }
@@ -1350,12 +1305,7 @@ class MarkersViewModel(
     fun setMarkerPinned(markerId: String, pinned: Boolean) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.setPinned(markerId, pinned) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            refreshMarkers()
             reconcileOpenCard()
         }
     }

@@ -153,8 +153,8 @@ class CoastlineRepository(
             (cached == null || bundled.metadata.fetchTimestampMs > cached.metadata.fetchTimestampMs)
         val preloaded = if (preferBundled) bundled else cached
         if (preloaded != null) {
+            val index = withContext(Dispatchers.Default) { CoastlineSpatialIndex(preloaded.allSegments) }
             coastlineData = preloaded
-            val index = CoastlineSpatialIndex(preloaded.allSegments)
             spatialIndex = index
             index.logGapStats()
             if (preferBundled) withContext(ioDispatcher) { writeToCache(regionId, preloaded) }
@@ -174,8 +174,8 @@ class CoastlineRepository(
                     _progress.value = GenerationProgress(phase, pct)
                 }
             }
+            val index = withContext(Dispatchers.Default) { CoastlineSpatialIndex(result.allSegments) }
             coastlineData = result
-            val index = CoastlineSpatialIndex(result.allSegments)
             spatialIndex = index
             // Progressive: cache + show the map immediately (no band yet)...
             withContext(ioDispatcher) { writeToCache(regionId, result) }

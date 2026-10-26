@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.RetryingInitializer
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -58,11 +59,14 @@ class DepthViewModel(
      * tracer's readiness rather than by this screen.
      */
     val depthRepository: DepthRepository get() = repository
+    private val initialization = RetryingInitializer()
 
     /** Initialise the cache dir and start the one-time lazy load (cache → else bake from assets). */
     fun initCache(context: Context) {
-        repository.setCacheDir(context)
-        viewModelScope.launch { repository.loadDepth() }
+        initialization.start(viewModelScope, ready = { repository.state.value is DepthState.Ready }) {
+            repository.setCacheDir(context)
+            repository.loadDepth()
+        }
     }
 
     val state: StateFlow<DepthState> = repository.state

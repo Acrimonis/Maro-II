@@ -188,7 +188,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
-import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.power.BatteryExemption
 import ykws.android.maro.data.route.MarkerRouteFlags
 import ykws.android.maro.data.route.RouteEndSelection
@@ -1557,10 +1556,8 @@ fun MapScreen(
         coastlineReady = coastlineReady
     )
 
-    // ── Regulated zones overlay: load prebaked asset (extracted) ──
-    // The repository is hoisted here so its one instance serves the zone reader.
-    val regulatedZonesRepository = remember { RegulatedZonesRepository() }
-    val regulatedZones = MapRegulatedZonesLoader(context, regulatedZonesRepository)
+    // Navigation and drawing observe the same loaded zone set.
+    val regulatedZones by viewModel.regulatedZones.collectAsState()
     // The routing square's loading dot follows the background warm-up's own building, not this load: an
     // app-cache clear leaves the zone asset untouched (it ships in the APK) but empties the tile store.
     val fineTilesBusy by FineTileCache.busy.collectAsState()
