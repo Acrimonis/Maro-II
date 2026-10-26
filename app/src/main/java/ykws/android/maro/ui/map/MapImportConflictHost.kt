@@ -52,7 +52,7 @@ internal fun MapImportConflictHost(
                     val result = trackViewModel.importTracks(pending.bytes, pending.extension, mode)
                     withContext(Dispatchers.Main) {
                         setTrackOpStatus(null)
-                        showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                        showImportBanner(ImportBannerState.Result(result.imported, result.ignored, invalid = result.invalid))
                     }
                 } catch (_: Exception) {
                     withContext(Dispatchers.Main) {

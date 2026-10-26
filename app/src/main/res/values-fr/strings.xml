@@ -15,6 +15,19 @@
     <string name="side_land">Terre</string>
     <string name="marker_position_water">Position (eau)</string>
     <string name="marker_position_land">Position (terre)</string>
+    <!-- La légende des zones réglementées : le nom de la ligne synthétique des 300 m, la lecture d\'une
+         limite de vitesse, et les libellés des neuf bascules de catégorie. -->
+    <string name="regulated_zone300_name">Zone des 300 m</string>
+    <string name="regulated_speed_kn_fmt">%1$d nd</string>
+    <string name="zone_category_speed_limit">Limite de vitesse</string>
+    <string name="zone_category_no_access">Accès interdit</string>
+    <string name="zone_category_no_anchor">Mouillage interdit</string>
+    <string name="zone_category_no_diving">Plongée interdite</string>
+    <string name="zone_category_fishing_prohibited">Pêche interdite</string>
+    <string name="zone_category_mooring">Mouillage</string>
+    <string name="zone_category_seaplane">Hydravion</string>
+    <string name="zone_category_environmental">Environnement</string>
+    <string name="zone_category_information">Information</string>
     <string name="exit_press_back_again">Appuyez à nouveau pour quitter</string>
     <string name="exit_press_back_again_recording">⚠ Enregistrement en cours — appuyez encore pour arrêter et quitter</string>
 
@@ -36,7 +49,7 @@
     <string name="settings_redisplay_dist_desc">À quelle distance la zone réapparaît</string>
     <string name="settings_redisplay_time_label">Délai de réaffichage</string>
     <string name="settings_redisplay_time_desc">Combien de secondes avant (à la vitesse actuelle) la zone réapparaît</string>
-    <string name="settings_gps_mode_label">Mode GPS</string>
+    <string name="settings_map_offset_gps_label">Décaler la carte en mode GPS</string>
     <string name="settings_recenter_label">Délai de recentrage</string>
     <string name="settings_recenter_desc">Temps avant recentrage GPS après un déplacement manuel</string>
     <string name="settings_tab_layers">Calques</string>
@@ -80,12 +93,12 @@
     <string name="settings_section_land_water_icon">Afficher l\'icône terre/eau</string>
     <string name="settings_land_water_icon_desc">L\'icône indique si le bateau se trouve sur l\'eau ou sur terre, et elle est masquée lorsqu\'elle est désactivée</string>
     <string name="settings_section_zone300">Zone des 300 m</string>
-    <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
+    <string name="settings_zone300_desc">Régler la couleur et la transparence de la zone des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
-    <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
+    <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la zone des 300 m</string>
     <string name="settings_zone300_opacity_desc" formatted="false">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone des 300 m</string>
-    <string name="settings_zone300_boundary_width_desc">Épaisseur du trait de limite de la bande des 300 m (dp)</string>
+    <string name="settings_zone300_boundary_width_desc">Épaisseur du trait de limite de la zone des 300 m (dp)</string>
     <string name="settings_regulated_zones_outline_width_desc">Épaisseur des contours des zones réglementées (dp)</string>
     <string name="settings_width_label">Épaisseur du trait</string>
     <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
@@ -182,17 +195,17 @@
     <string name="dash_distance_from_shore">de la côte</string>
     <string name="dash_distance_from_sea">de la mer</string>
     <string name="dash_empty">—</string>
-    <string name="dash_zone_title">Zone 300m</string>
+    <string name="dash_zone_title">Zone 300 m</string>
     <string name="dash_not_at_sea">À terre</string>
     <string name="dash_in_zone">EN ZONE !</string>
-    <string name="dash_zone_speed_limit">5 nœuds max — %1$s</string>
-    <string name="dash_speed_suffix_warn">" · ⚠ %.1f kn"</string>
-    <string name="dash_to_zone">de la zone 300m</string>
+    <string name="dash_zone_speed_limit">5 nd max — %1$s</string>
+    <string name="dash_speed_suffix_warn">" · ⚠ %.1f nd"</string>
+    <string name="dash_to_zone">de la zone 300 m</string>
     <string name="dash_depth_title">Profondeur</string>
     <string name="dash_value_km">%.1f km</string>
     <string name="dash_value_m">%4.0f m</string>
     <string name="dash_value_depth_m">%4.1f m</string>
-    <string name="dash_value_kn">%4.1f kn</string>
+    <string name="dash_value_kn">%4.1f nd</string>
     <string name="dash_value_kn_int">%d nd</string>
     <string name="dash_value_kmh_int">%d km/h</string>
     <string name="dash_value_km_int">%d km</string>
@@ -201,14 +214,28 @@
     <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
     <string name="dash_speed_title">Vitesse</string>
     <string name="dash_demo_mode">mode démo</string>
-    <string name="dash_5kn_in_zone">5 kn max en zone</string>
+    <!-- Le sous-titre de la carte vitesse quand la lecture est vide en mode GPS, une ligne par état
+         GPS ; `dash_demo_mode` ci-dessus garde le cas démo. -->
+    <string name="dash_gps_no_fix">Pas de position GPS</string>
+    <string name="dash_gps_stale">GPS obsolète</string>
+    <string name="dash_gps_weak">GPS faible (±%1$d m)</string>
+    <string name="dash_gps_estimating">Estimation</string>
+    <string name="dash_5kn_in_zone">5 nd max en zone</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolé</string>
-    <string name="dash_value_speed_limit">%.0f kn</string>
+    <string name="dash_value_speed_limit">%.0f nd</string>
     <string name="dash_libre_title">EAU LIBRE</string>
     <string name="dash_libre_value">--</string>
     <string name="dash_no_limit">Aucune limite</string>
-    <string name="dash_speed_zone_limit">Limite %.0f kn</string>
+    <string name="dash_speed_zone_limit">Limite %.0f nd</string>
+    <!-- Le sous-titre de la carte vitesse quand la lecture dépasse la limite de zone : la ligne de la
+         limite, puis le dépassement dit en mots pour ne jamais reposer sur la seule couleur. -->
+    <string name="dash_speed_over_limit_fmt">au-dessus de la limite · %1$s</string>
+    <!-- Les repères de zone de la case distance : ce qui s\'étend au-delà de la zone quittée, et le cap
+         vers la côte à l\'intérieur de la zone des 300 m. -->
+    <string name="dash_beyond_open_water">eau libre</string>
+    <string name="dash_beyond_land">terre</string>
+    <string name="dash_toward_shore">→ côte</string>
     <string name="dash_eta_sec">Arrivée dans %d s</string>
     <string name="dash_eta_min_sec">Arrivée dans %1$d:%2$02d min</string>
 
@@ -222,6 +249,9 @@
     <string name="track_stat_total_estimated">Total (est.)</string>
     <string name="track_stat_avg_estimated">Moy (est.)</string>
     <string name="track_stat_max">Max</string>
+    <!-- Les durées écoulée et d\'arrêt d\'un enregistrement : les heures s\'il y en a, sinon minutes et secondes. -->
+    <string name="duration_h_m_s_fmt">%1$d h %2$d min %3$d s</string>
+    <string name="duration_m_s_fmt">%1$d min %2$d s</string>
 
     <!-- Sort dropdown -->
     <string name="sort_common_title">Titre</string>
@@ -253,7 +283,7 @@
 
     <!-- Recovery dialog — ses trois portes reprennent les clés du dialogue de sortie d'enregistrement -->
     <string name="recovery_title">Enregistrement interrompu</string>
-    <string name="recovery_found">Un parcours était en cours d\'enregistrement à %1$s. Que voulez-vous faire ?</string>
+    <string name="recovery_found">Une trace était en cours d\'enregistrement à %1$s. Que voulez-vous faire ?</string>
 
     <!-- Track import match dialog / sheet -->
     <string name="import_match_title">Trace existante trouvée</string>
@@ -263,34 +293,41 @@
 
     <!-- Recording exit / stop-recording dialog -->
     <string name="recording_exit_title">Enregistrement en cours</string>
-    <string name="recording_exit_message">Un parcours est en cours d\'enregistrement. Que voulez-vous faire ?</string>
-    <string name="recording_exit_save">Enregistrer le parcours</string>
+    <string name="recording_exit_message">Une trace est en cours d\'enregistrement. Que voulez-vous faire ?</string>
+    <string name="recording_exit_save">Enregistrer la trace</string>
     <string name="recording_exit_continue">Continuer l\'enregistrement</string>
-    <string name="recording_exit_discard">Supprimer le parcours</string>
+    <string name="recording_exit_discard">Supprimer la trace</string>
     <string name="home_port_arrival_title">Nous sommes arrivés au port d\'attache</string>
 
     <!-- Track merge dialog -->
     <string name="action_merge">Fusionner</string>
-    <string name="track_merge_title">Fusionner %1$d parcours</string>
-    <string name="track_merge_name_hint">Saisissez un nom pour le parcours fusionné :</string>
-    <string name="track_merge_keep_originals">Conserver les parcours d\'origine</string>
-    <string name="track_merge_default_name">Parcours fusionné</string>
+    <plurals name="track_merge_title">
+        <item quantity="one">Fusionner %1$d trace</item>
+        <item quantity="other">Fusionner %1$d traces</item>
+    </plurals>
+    <string name="track_merge_name_hint">Saisissez un nom pour la trace fusionnée :</string>
+    <string name="track_merge_keep_originals">Conserver les traces d\'origine</string>
+    <string name="track_merge_default_name">Trace fusionnée</string>
 
     <!-- Track and marker import result feedback -->
     <string name="import_failed">Échec de l\'importation</string>
     <string name="import_result_format">%1$s, %2$s</string>
-    <string name="exporting_tracks">Exportation des pistes…</string>
-    <string name="importing_tracks">Importation des pistes…</string>
+    <string name="exporting_tracks">Exportation des traces…</string>
+    <string name="importing_tracks">Importation des traces…</string>
     <string name="exporting_markers">Exportation des repères…</string>
     <string name="importing_markers">Importation des repères…</string>
     <string name="import_marker_match_title">Repère existant trouvé</string>
     <plurals name="import_result_imported">
-        <item quantity="one">%d piste importée</item>
-        <item quantity="other">%d pistes importées</item>
+        <item quantity="one">%d trace importée</item>
+        <item quantity="other">%d traces importées</item>
     </plurals>
     <plurals name="import_result_ignored">
-        <item quantity="one">%d piste ignorée</item>
-        <item quantity="other">%d pistes ignorées</item>
+        <item quantity="one">%d trace ignorée</item>
+        <item quantity="other">%d traces ignorées</item>
+    </plurals>
+    <plurals name="import_result_invalid">
+        <item quantity="one">%d fichier illisible</item>
+        <item quantity="other">%d fichiers illisibles</item>
     </plurals>
     <plurals name="import_result_marker_imported">
         <item quantity="one">%d repère importé</item>
@@ -303,7 +340,7 @@
 
     <!-- Share sheet titles -->
     <string name="share_gpx_title">Partager le GPX</string>
-    <string name="share_tracks_title">Partager les pistes</string>
+    <string name="share_tracks_title">Partager les traces</string>
     <string name="share_marker_title">Partager le repère</string>
     <string name="share_markers_title">Partager les repères</string>
 
@@ -319,7 +356,7 @@
 
     <!-- GPS source-switch confirmation while recording -->
     <string name="gps_switch_confirm_title">Changer la source de position ?</string>
-    <string name="gps_switch_confirm_message">Un parcours est en cours d\'enregistrement. Changer la source de position modifiera la façon dont les points sont capturés.</string>
+    <string name="gps_switch_confirm_message">Une trace est en cours d\'enregistrement. Changer la source de position modifiera la façon dont les points sont capturés.</string>
     <string name="gps_switch_confirm_action">Changer</string>
 
     <!-- Battery optimization -->
@@ -340,20 +377,21 @@
     <string name="track_stat_distance">Distance</string>
     <string name="track_stat_max_speed">Vitesse max</string>
     <string name="track_stat_avg_speed">Vitesse moy</string>
-    <string name="menu_stat_distance_nm">%.2f nm</string>
-    <string name="menu_stat_speed_kn">%.1f kn</string>
+    <string name="menu_stat_distance_nm">%.2f NM</string>
+    <string name="menu_stat_speed_kn">%.1f nd</string>
 
     <!-- Marker drawer & dialogs -->
     <string name="marker_delete_title">Supprimer le repère</string>
     <string name="marker_delete_confirm">Supprimer \"%1$s\" ? Action irréversible.</string>
     <string name="marker_unnamed">ce repère</string>
+    <!-- Le nom sous lequel un repère est enregistré quand son formulaire a laissé le nom vide. -->
     <string name="action_delete">Supprimer</string>
     <string name="action_cancel">Annuler</string>
     <string name="action_resume">Reprendre</string>
     <!-- Resume confirmation sheet -->
     <string name="resume_confirm_title">Reprendre l\'enregistrement</string>
-    <string name="resume_confirm_message">Les nouveaux points seront ajoutés à ce trajet, qui restera ouvert jusqu\'à l\'arrêt de l\'enregistrement.</string>
-    <string name="resume_confirm_backup">Sauvegarder ce trajet avant de reprendre</string>
+    <string name="resume_confirm_message">Les nouveaux points seront ajoutés à cette trace, qui restera ouverte jusqu\'à l\'arrêt de l\'enregistrement.</string>
+    <string name="resume_confirm_backup">Sauvegarder cette trace avant de reprendre</string>
     <string name="track_backup_suffix">(sauvegarde)</string>
     <string name="cd_resume_recording">Reprendre l\'enregistrement</string>
     <string name="cd_follow_route">Suivre la route</string>
@@ -433,7 +471,7 @@
     <string name="settings_tracks_direction_gap_range_fmt">Min %1$d – Max %2$d dp</string>
     <string name="settings_tracks_direction_speed_range_label">Plage de vitesse</string>
     <string name="settings_tracks_direction_speed_range_desc">Sous la vitesse gauche : écart minimum · au-dessus de la droite : écart maximum</string>
-    <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
+    <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nd</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-30). Les épinglées s\'affichent toujours.</string>
     <string name="settings_track_appearance_desc">Comment les traces enregistrées sont dessinées sur la carte</string>
@@ -501,6 +539,7 @@
     <string name="cd_set_icon">Définir l\'icône</string>
     <string name="cd_edit">Modifier</string>
     <string name="cd_delete">Supprimer</string>
+    <string name="cd_track_rendering">Rendu de la trace</string>
     <string name="cd_view_marker">Voir le repère</string>
     <string name="cd_export_gpx">Exporter GPX</string>
     <string name="cd_view_track">Voir la trace</string>
@@ -512,17 +551,47 @@
     <string name="cd_pin">Épingler</string>
     <string name="cd_unpin">Désépingler</string>
     <string name="cd_lock_screen">Verrouiller l\'écran</string>
-    <string name="cd_unlock_screen">Déverrouiller l\'écran</string>
-    <string name="toast_screen_locked">Écran verrouillé</string>
+    <string name="cd_unlock_screen">Maintenir pour déverrouiller l\'écran</string>
+    <string name="toast_screen_locked">Écran verrouillé — maintenir pour déverrouiller</string>
     <string name="toast_screen_unlocked">Écran déverrouillé</string>
     <string name="cd_selected">Sélectionné</string>
     <string name="cd_select">Sélectionner</string>
     <string name="cd_collapse_speed_scale">Réduire l\'échelle de vitesse</string>
     <string name="cd_expand_speed_scale">Déplier l\'échelle de vitesse</string>
     <string name="cd_find_markers_at_position">Rechercher les repères à votre position</string>
+    <!-- Les commandes de la carte, pour TalkBack : l\'action, puis son état. Les trois mots d\'état
+         remplissent chaque `%1$s` ci-dessous ; le carré GPS lit son propre mot d\'état. -->
+    <string name="cd_state_on">activé</string>
+    <string name="cd_state_off">désactivé</string>
+    <string name="cd_state_standby">en attente</string>
+    <string name="cd_gps_state">GPS : %1$s</string>
+    <string name="cd_gps_demo">mode démo</string>
+    <string name="cd_gps_acquiring">acquisition</string>
+    <string name="cd_gps_active">actif</string>
+    <string name="cd_gps_stale">obsolète</string>
+    <string name="cd_gps_weak">signal faible</string>
+    <string name="cd_gps_estimating">estimation</string>
+    <string name="cd_recording_state">Enregistrement : %1$s</string>
+    <string name="cd_inspect_state">Mode inspection : %1$s</string>
+    <string name="cd_recenter">Recentrer sur la position</string>
+    <string name="cd_zoom_in">Zoom avant</string>
+    <string name="cd_zoom_out">Zoom arrière</string>
+    <string name="cd_layer_fan">Couches de la carte</string>
+    <string name="cd_layer_markers">Couche des repères : %1$s</string>
+    <string name="cd_layer_tracks">Couche des traces : %1$s</string>
+    <string name="cd_layer_depth">Couche de profondeur : %1$s</string>
+    <string name="cd_layer_regulated">Couche des zones réglementées : %1$s</string>
+    <string name="cd_layer_zone300">Couche de la zone des 300 m : %1$s</string>
+    <string name="cd_layer_low_depth">Alerte faible profondeur : %1$s</string>
+    <string name="cd_filter_link_tracks">Lier les filtres de la liste des traces et de la carte : %1$s</string>
+    <string name="cd_filter_link_markers">Lier les filtres de la liste des repères et de la carte : %1$s</string>
+    <string name="cd_filter_link_routes">Lier les filtres de la liste des routes et de la carte : %1$s</string>
 
     <!-- Multiselect -->
-    <string name="multiselect_count">%d sélectionnés</string>
+    <plurals name="multiselect_count">
+        <item quantity="one">%d sélectionné</item>
+        <item quantity="other">%d sélectionnés</item>
+    </plurals>
     <string name="multiselect_select_all">Tout sélectionner</string>
     <string name="multiselect_clear">Effacer</string>
     <string name="multiselect_invert">Inverser</string>
@@ -640,6 +709,8 @@
     <!-- Misc -->
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">« %s » supprimé</string>
+    <!-- La case du nom d\'un toast quand l\'élément nommé n\'a pas de nom à donner. -->
+    <string name="name_unknown">Inconnu</string>
     <!-- Les lignes d'action et d'annulation de la carte (`MapSnackbarHost`) : les trois messages de
          suppression et de création, chacun nommant son élément, à côté des deux de l'abandon de route. -->
     <string name="snack_track_deleted">Trace « %1$s » supprimée</string>
@@ -705,11 +776,12 @@
     <string name="route_pin_label">Épingler la trace</string>
     <!-- L\'ensemble fermé des raisons pour lesquelles une paire ou une recherche ne peut pas répondre,
          une phrase complète chacune : CANNOT_REPAIR et WORLD_NOT_READY répondent à routesToCompute,
-         NO_PATH et OFF_WATER sur le flux de mises à jour. -->
+         NO_PATH, OFF_WATER et FAILED sur le flux de mises à jour. -->
     <string name="route_reason_cannot_repair">Aucune eau valide à proximité de ce point</string>
     <string name="route_reason_world_not_ready">Les données d\'eau se chargent encore</string>
     <string name="route_reason_no_path">Aucune route trouvée</string>
     <string name="route_reason_off_water">Hors de la zone d\'eau couverte</string>
+    <string name="route_reason_failed">La recherche d\'itinéraire a échoué</string>
     <!-- Les mots propres à la phase de suivi : son titre, ses statuts et ses actions. -->
     <string name="route_following_active">Route active</string>
     <!-- Le statut du tiroir avec l'étape que le moteur publie pendant une recherche — « Trait #2 », le
@@ -792,7 +864,7 @@
     <string name="route_summary_eta_value_fmt">%1$d:%2$02d</string>
     <string name="route_summary_eta_unit">min</string>
     <string name="route_summary_speed_value_fmt">%1$.1f</string>
-    <string name="route_summary_speed_unit">kn</string>
+    <string name="route_summary_speed_unit">nd</string>
     <!-- La fin de bande du tiroir en routage : des minutes entières, ou des secondes sous la minute. -->
     <string name="route_band_eta_min_fmt">ETA : %1$d min</string>
     <string name="route_band_eta_sec_fmt">ETA : %1$d sec</string>
@@ -807,7 +879,7 @@
     <string name="route_age_min">%1$d min</string>
     <string name="settings_route_pace_label">Vitesse de croisière</string>
     <string name="settings_route_pace_desc">À quelle vitesse votre bateau avance en eau libre — elle fixe la durée du trajet et ce que la route compte comme lent. Sur Live, la route planifie à la vitesse de votre bateau.</string>
-    <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="settings_route_pace_value_fmt">%1$.0f nd</string>
     <string name="settings_route_pace_any">Live</string>
     <!-- Le mot propre au sélecteur rapide pour ce même arrêt : la roue liste des valeurs, la sentinelle -->
     <!-- s\'y lit donc entre tirets, alors que la ligne des réglages garde le mot simple. -->
@@ -865,11 +937,11 @@
     <string name="route_comparison_less">de moins</string>
     <string name="route_comparison_more">de plus</string>
     <!-- Le tableau Limites de vitesse du panneau : le temps passé ralenti, une lecture courte par limite
-         réglementée — la zone des 300 m étiquetée "300M", une limite comme sa vitesse en nœuds — le
+         réglementée — la zone des 300 m étiquetée "300 m", une limite comme sa vitesse en nœuds — le
          ralentissement d\'entrée et l\'accélération de sortie comptés, chaque valeur lue « 1:05 min »,
          arrondie à la seconde. -->
-    <string name="route_slow_band_label">300M</string>
-    <string name="route_slow_limit_label_fmt">%1$.0f kn</string>
+    <string name="route_slow_band_label">300 m</string>
+    <string name="route_slow_limit_label_fmt">%1$.0f nd</string>
     <!-- Une ligne de page dans le panneau : quelle route c\'est, sa description et sa propre durée. -->
     <string name="route_page_fmt">Route n°%1$d · %2$s · %3$s</string>
 </resources>

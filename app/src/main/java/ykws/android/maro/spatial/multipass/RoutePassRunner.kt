@@ -27,7 +27,9 @@ import ykws.android.maro.spatial.Units
  * pull's own field for a candidate that drops it — the grid's own limits were dropped by the caller —
  * so the dropped price is dropped from the search and the guard alike. One cursor prices both sources,
  * so a candidate never names a second λ. [publish] and [trace] are the engine's own, handed in so the
- * emission sequence never belongs to the seat.
+ * emission sequence never belongs to the seat, and so is [checkCancelled]: the search reads the calling
+ * job itself, but the two pulls are plain loops, so the engine hands them its job's `ensureActive` as a
+ * plain lambda and a cancelled lookup stops inside the pull rather than after it.
  *
  * **The provisional pair rides two boundaries on every pass.** At the [RouteStage.PULL] boundary it
  * carries the A* cell path's own length and limit-read clock, and between the first pull and the corner
@@ -45,7 +47,8 @@ internal class RoutePassRunner {
             { _, _, _, _ -> },
         trace: (() -> String) -> Unit = {},
         guardZones: Boolean = true,
-        guardBand: Boolean = true
+        guardBand: Boolean = true,
+        checkCancelled: () -> Unit = {}
     ): PassReading {
         val world = ctx.world
         val grid = walk.grid
@@ -146,7 +149,9 @@ internal class RoutePassRunner {
         // Both pulls read the path from both ends and keep the cheaper, so a pair armed from either end draws
         // one line from one cell chain (`261020_FEAT_PLN_Route_direction-symmetry.md`).
         val pullSplit = PullSplit()
-        val pulled = MultipassPull.pullBothWays(setup, full, refusals, pullTiming, split = pullSplit)
+        val pulled = MultipassPull.pullBothWays(
+            setup, full, refusals, pullTiming, split = pullSplit, checkCancelled = checkCancelled
+        )
         trace { splitText("PULL2", pullSplit) }
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
@@ -178,7 +183,9 @@ internal class RoutePassRunner {
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
         val finalSplit = PullSplit()
-        val final = MultipassPull.pullBothWays(setup, snapped, refusals, finalTiming, split = finalSplit)
+        val final = MultipassPull.pullBothWays(
+            setup, snapped, refusals, finalTiming, split = finalSplit, checkCancelled = checkCancelled
+        )
         trace { splitText("FINAL2", finalSplit) }
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +

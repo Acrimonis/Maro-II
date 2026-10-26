@@ -173,6 +173,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
@@ -414,7 +415,9 @@ internal sealed interface ImportBannerState {
     data class Result(
         val imported: Int,
         val ignored: Int,
-        val kind: TransferKind = TransferKind.TRACK
+        val kind: TransferKind = TransferKind.TRACK,
+        /** Files or archive entries that could not be read at all — said when non-zero, never hidden. */
+        val invalid: Int = 0
     ) : ImportBannerState
     data object Failed : ImportBannerState
 }
@@ -691,7 +694,7 @@ fun MapScreen(
     // mode's own — the acquired candidate the sweep publishes, the merged ladder's cursor (frozen at
     // the pause), the demo centre captured at arming, and the two marks that tell the mode's own
     // recentre from the user's own move.
-    var inspectArmed by rememberSaveable { mutableStateOf(false) }
+    var inspectArmed by remember { mutableStateOf(false) }
     var inspectCandidate by remember { mutableStateOf<InspectRank?>(null) }
     var inspectCursor by remember { mutableStateOf<InspectCursor?>(null) }
     // The cursor as it stood before a step, kept for the whole of that step's open: the cursor
@@ -800,7 +803,7 @@ fun MapScreen(
             routePaceKn
         )
     }
-    var routeArmed by rememberSaveable { mutableStateOf(false) }
+    var routeArmed by remember { mutableStateOf(false) }
     val routeSaveScope = rememberCoroutineScope()
     // The pin the saves start with and the one exit dialog's open flag. Held by the screen rather than
     // by the panel because the dialog's **three doors** — the toggle's off, the panel's own Exit and
@@ -1158,7 +1161,8 @@ fun MapScreen(
     }
     LaunchedEffect(importBannerAt) {
         if (importBanner != null) {
-            delay(2_000L)
+            // Long enough to read a count and a reason; the lock banner keeps its own 2 s.
+            delay(6_000L)
             importBanner = null
         }
     }
@@ -1400,9 +1404,20 @@ fun MapScreen(
             chrome.trackOpStatus = context.getString(R.string.importing_tracks)
             trackScope.launch(Dispatchers.IO) {
                 try {
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    // Read no more than the importer would accept: an oversized document is refused
+                    // at the stream, before any copy of it exists in memory.
+                    val bytes = context.contentResolver.openInputStream(uri)?.use {
+                        readBounded(it, ykws.android.maro.data.track.GpxImporter.MAX_INPUT_BYTES)
+                    }
                     if (bytes == null) {
                         withContext(Dispatchers.Main) { chrome.trackOpStatus = null }
+                        return@launch
+                    }
+                    if (bytes.isEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            chrome.trackOpStatus = null
+                            showImportBanner(ImportBannerState.Result(0, 0, invalid = 1))
+                        }
                         return@launch
                     }
                     val isZip = bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
@@ -1411,7 +1426,7 @@ fun MapScreen(
                         val result = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
                         withContext(Dispatchers.Main) {
                             chrome.trackOpStatus = null
-                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored, invalid = result.invalid))
                         }
                     } else {
                         val match = trackViewModel.peekImportMatch(bytes, extension)
@@ -1424,7 +1439,7 @@ fun MapScreen(
                             val result = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
                             withContext(Dispatchers.Main) {
                                 chrome.trackOpStatus = null
-                                showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                                showImportBanner(ImportBannerState.Result(result.imported, result.ignored, invalid = result.invalid))
                             }
                         }
                     }
@@ -3374,7 +3389,6 @@ fun MapScreen(
                 // The tag stack's marker point is the map centre (§5.6 of the tag-stack plan),
                 // and the band sign it shows is the marker's own band result.
                 markerInZone300 = markerInZone300,
-                headingDeg = effectiveHeadingDeg,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -3400,11 +3414,7 @@ fun MapScreen(
                 // selection survives it and returns when the menu closes (OverlayLayer stands the detail
                 // slots down while a panel is open).
                 onOpenTrackDrawer = { chrome.showTrackDrawer = !chrome.showTrackDrawer },
-                showTrackDrawer = chrome.showTrackDrawer,
-                showTrackHistory = chrome.showTrackHistory,
                 trackRecorderState = trackRecorderState,
-                trackSummaries = trackSummaries,
-                recoveryTrack = recoveryTrack,
                 onStartRecording = {
                     val startRecordingWithBatteryCheck: () -> Unit = {
                         if (BatteryExemption.shouldPrompt(context, appSettings)) {
@@ -3429,37 +3439,6 @@ fun MapScreen(
                     }
                 },
                 onStopRecording = { showStopRecordingSheet = true },
-                onDismissTrackHistory = { chrome.showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, pinned ->
-                    pinned?.let { trackViewModel.setPinned(id, it) }
-                    if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
-                },
-                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
-                onShareGpx = { id ->
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetail(id)
-                        if (track != null) {
-                            val gpx = track.toGpx(trackViewModel.ownedMarkers(track.id))
-                            val file = java.io.File(context.cacheDir, "${id}.gpx")
-                            file.writeText(gpx)
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/gpx+xml"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(
-                                android.content.Intent.createChooser(intent, context.getString(R.string.share_gpx_title))
-                            )
-                        }
-                    }
-                },
-                onDiscardRecovery = { recoveryTrack?.let { trackViewModel.discardOrphanedCheckpoint(it) } },
-                onSaveRecovery = { recoveryTrack?.let { trackViewModel.saveOrphanedCheckpoint(it) } },
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
@@ -3599,6 +3578,8 @@ fun MapScreen(
                         distanceToShore = distanceToShore,
                         depthSample = depthRaster.depthReadout,
                         speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        gpsIconState = gpsIconState,
+                        gpsAccuracyM = gpsAccuracy,
                         zoneSituation = zoneSituation,
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
@@ -3659,6 +3640,8 @@ fun MapScreen(
                         distanceToShore = distanceToShore,
                         depthSample = depthRaster.depthReadout,
                         speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        gpsIconState = gpsIconState,
+                        gpsAccuracyM = gpsAccuracy,
                         zoneSituation = zoneSituation,
                         autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
                         autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
@@ -4439,7 +4422,7 @@ fun MapScreen(
             onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope, onProgress = { chrome.trackOpStatus = it }) },
             onDeleteTrack = { id ->
                 val track = trackDrawerState.track
-                enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
+                enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: context.getString(R.string.name_unknown)))
                 pendingDeleteIds.add(PendingDeletion("t:$id", hideFromMap = true))
                 // Advance to the adjacent track through the one ordering rule the marker path uses too
                 // (plan §4): next, else previous, else none. The exclusions are the pending track
@@ -4478,7 +4461,7 @@ fun MapScreen(
         LaunchedEffect(lastSavedId) {
             val id = lastSavedId ?: return@LaunchedEffect
             val savedMarker = userMarkers.find { it.id == id }
-            enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: "Unknown"))
+            enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: context.getString(R.string.name_unknown)))
         }
 
         // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
@@ -4491,9 +4474,14 @@ fun MapScreen(
                 showExitDialog = false
                 trackViewModel.stopRecording()
                 kotlinx.coroutines.MainScope().launch {
-                    kotlinx.coroutines.delay(300)
-                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                    context.findActivity()?.finishAffinity()
+                    // The finalize runs asynchronously now and the service's destroy would cut it
+                    // short, so the exit waits for the recorder's own OFF. A save that failed leaves
+                    // the recorder ON with its error shown: then the app stays open and the recording
+                    // stays in hand, rather than being torn down with the service.
+                    if (awaitRecorderOff()) {
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
+                    }
                 }
             },
             onExitSheetContinue = {
@@ -4504,9 +4492,11 @@ fun MapScreen(
                 showExitDialog = false
                 trackViewModel.discardRecording()
                 kotlinx.coroutines.MainScope().launch {
-                    kotlinx.coroutines.delay(300)
-                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                    context.findActivity()?.finishAffinity()
+                    // Same wait as the save: the discard's delete lands before the service goes.
+                    if (awaitRecorderOff()) {
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
+                    }
                 }
             },
             onExitSheetDismiss = { showExitDialog = false },
@@ -5017,6 +5007,40 @@ private fun regenerateRasterLayers(
 }
 
 /** The marker drawer's close, held inert while an inspect open is in flight. */
+/** How long an exit waits for the recorder to finish writing before giving up on leaving. */
+private const val EXIT_FINALIZE_TIMEOUT_MS = 20_000L
+
+/**
+ * Wait for the service-owned recorder to read OFF — the one signal that a Stop's finalize or a
+ * Discard's delete has landed — bounded by [EXIT_FINALIZE_TIMEOUT_MS]. True when it did; false when
+ * the recorder is still ON (a save that failed and was retained, or a write that is taking too long),
+ * in which case the caller must not tear the service down.
+ */
+/**
+ * Read a picked document up to [limitBytes]: the bytes when it fits, an empty array when it does not
+ * (the caller reports one unreadable file), so an oversized pick never has a full copy in memory.
+ */
+private fun readBounded(input: java.io.InputStream, limitBytes: Long): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    var total = 0L
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) break
+        total += n
+        if (total > limitBytes) return ByteArray(0)
+        out.write(buffer, 0, n)
+    }
+    return out.toByteArray()
+}
+
+private suspend fun awaitRecorderOff(): Boolean {
+    withTimeoutOrNull(EXIT_FINALIZE_TIMEOUT_MS) {
+        ykws.android.maro.data.track.TrackRecordingService.isRecording.first { !it }
+    }
+    return !ykws.android.maro.data.track.TrackRecordingService.isRecording.value
+}
+
 private fun closeMarkerDrawerUnlessHandoff(
     inspectHandoff: InspectHandoff?,
     markersViewModel: MarkersViewModel
@@ -5064,7 +5088,6 @@ private fun MapContent(
     /** True while the last fix is considered stale — the cap arrow's colour-mode tell. */
     gpsStale: Boolean = false,
     markerInZone300: Boolean = false,
-    headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -5073,19 +5096,9 @@ private fun MapContent(
     onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
-    showTrackDrawer: Boolean = false,
-    showTrackHistory: Boolean = false,
     trackRecorderState: ykws.android.maro.data.track.TrackRecorderUiState = ykws.android.maro.data.track.TrackRecorderUiState(),
-    trackSummaries: List<ykws.android.maro.data.track.TrackSummary> = emptyList(),
-    recoveryTrack: ykws.android.maro.data.track.Track? = null,
     onStartRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
-    onDismissTrackHistory: () -> Unit = {},
-    onUpdateTrack: (String, String?, String?, Boolean?) -> Unit = { _, _, _, _ -> },
-    onDeleteTrack: (String) -> Unit = {},
-    onShareGpx: (String) -> Unit = {},
-    onDiscardRecovery: () -> Unit = {},
-    onSaveRecovery: () -> Unit = {},
     onToggleZone300: () -> Unit,
     zone300OverlayVisible: Boolean = false,
     regulatedZoneOverlayVisible: Boolean = false,
@@ -5567,12 +5580,12 @@ private fun MapContent(
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean, Boolean) -> Unit>(
-                                { isActive, _ -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive, _ -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive, _ -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) },
+                                { isActive, _ -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha, active = isActive) }
                             ),
                             activeStates = listOf(
                                 markerLayerState != MarkerLayerState.HIDDEN,
@@ -5634,7 +5647,7 @@ private fun MapContent(
         importBanner?.let { banner ->
             val message = when (banner) {
                 is ImportBannerState.Result ->
-                    if (banner.imported == 0 && banner.ignored == 0) {
+                    if (banner.imported == 0 && banner.ignored == 0 && banner.invalid == 0) {
                         stringResource(R.string.import_failed)
                     } else {
                         val (importedPlural, ignoredPlural) = when (banner.kind) {
@@ -5645,7 +5658,12 @@ private fun MapContent(
                         }
                         val importedText = pluralStringResource(importedPlural, banner.imported, banner.imported)
                         val ignoredText = pluralStringResource(ignoredPlural, banner.ignored, banner.ignored)
-                        stringResource(R.string.import_result_format, importedText, ignoredText)
+                        val counts = stringResource(R.string.import_result_format, importedText, ignoredText)
+                        // An unreadable file is a reason the user must see, not a count folded into "ignored".
+                        if (banner.invalid > 0) {
+                            val invalidText = pluralStringResource(R.plurals.import_result_invalid, banner.invalid, banner.invalid)
+                            stringResource(R.string.import_result_format, counts, invalidText)
+                        } else counts
                     }
                 ImportBannerState.Failed -> stringResource(R.string.import_failed)
             }

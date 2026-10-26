@@ -29,14 +29,16 @@ class TrackRecorderArrivalPromptTest {
 
     private fun recorder(stopped: MutableStateFlow<Boolean>) = TrackRecorder(
         repository = TrackRepository(temp.root),
-        geofenceOriginLat = homeLat,
-        geofenceOriginLon = homeLon,
-        geofenceRadiusM = 50.0,
-        geofenceEnabled = true,
-        gpsMode = false,
+        config = TrackRecorderConfig(
+            geofenceOriginLat = homeLat,
+            geofenceOriginLon = homeLon,
+            geofenceRadiusM = 50.0,
+            geofenceEnabled = true,
+            gpsMode = false,
+            idleThresholdSec = 1
+        ),
         isStopped = stopped,
-        dispatcher = Dispatchers.Unconfined,
-        idleThresholdSec = 1
+        dispatcher = Dispatchers.Unconfined
     )
 
     private fun sample(lat: Double, lon: Double) = TrackSample(

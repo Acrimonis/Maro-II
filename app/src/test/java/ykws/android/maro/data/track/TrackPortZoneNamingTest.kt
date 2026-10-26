@@ -45,14 +45,16 @@ class TrackPortZoneNamingTest {
     private fun recorder(repo: TrackRepository, stopped: MutableStateFlow<Boolean>, idle: Boolean = false) =
         TrackRecorder(
             repository = repo,
-            geofenceOriginLat = homeLat,
-            geofenceOriginLon = homeLon,
-            geofenceRadiusM = 50.0,
-            geofenceEnabled = false,
-            gpsMode = false,
+            config = TrackRecorderConfig(
+                geofenceOriginLat = homeLat,
+                geofenceOriginLon = homeLon,
+                geofenceRadiusM = 50.0,
+                geofenceEnabled = false,
+                gpsMode = false,
+                idleThresholdSec = if (idle) 1 else 60
+            ),
             isStopped = stopped,
             dispatcher = Dispatchers.Unconfined,
-            idleThresholdSec = if (idle) 1 else 60,
             idleThresholdCallback = if (idle) object : IdleThresholdCallback {
                 override suspend fun onIdleThresholdReached(position: LatLng): IdleCaptureResult =
                     IdleCaptureResult(

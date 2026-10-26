@@ -85,7 +85,8 @@ class TrackMarkerCarriageTest {
         assertNotEquals("t-1", importedTrack.id)
         assertEquals(1, batch.markers.size)
         assertEquals(importedTrack.id, batch.markers.single().trackId)
-        assertEquals("m-1", batch.markers.single().id)
+        // A copy of a trip is a new trip: its markers are minted too, never the original's (N07).
+        assertNotEquals("m-1", batch.markers.single().id)
     }
 
     @Test

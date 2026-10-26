@@ -1029,7 +1029,7 @@ private fun TrackDrawerHeaderActions(
         IconButton(onClick = onToggleEyeOverride, modifier = Modifier.size(36.dp)) {
             Icon(
                 Speed,
-                "Track rendering",
+                stringResource(R.string.cd_track_rendering),
                 tint = ButtonColors.icon.copy(
                     alpha = if (bandedOn) 1f else AppConfig.buttonActionIconInactiveAlpha
                 ),
@@ -1037,7 +1037,7 @@ private fun TrackDrawerHeaderActions(
             )
         }
         IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
+            Icon(Icons.Filled.Delete, stringResource(R.string.cd_delete), tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
         }
     }
 }

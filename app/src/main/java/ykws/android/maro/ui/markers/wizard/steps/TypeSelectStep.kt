@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -86,6 +87,7 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .heightIn(min = AppConfig.uiTouchMin.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (selected) accent else divider)
                             .clickable { viewModel.updateForm { it.copy(type = type) } }

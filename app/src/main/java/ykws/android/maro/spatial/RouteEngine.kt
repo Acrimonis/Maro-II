@@ -26,8 +26,10 @@ import ykws.android.maro.data.model.RouteResult
  * listener is rejected here on purpose: a listener would put unregister state in the flow, while a
  * `Flow` is collected and the correlation is the id alone.
  *
- * **Disposal.** [cancelLookup] is the only disposal an engine performs; every other disposal is the
- * flow asking. After a cancel, no further update for that id may arrive.
+ * **Disposal.** [cancelLookup] is the only per-lookup disposal an engine performs; every other disposal
+ * is the flow asking. After a cancel, no further update for that id may arrive. [close] is the engine's
+ * own end: whoever replaces an engine closes the one it supersedes, so a compute lane it owns does not
+ * outlive the selection that built it.
  *
  * **No engine holds a clock or a gate.** All three calls are plain, not `suspend` — [routesToCompute]
  * is the repair plus a local configuration read (the repair reads the coast and the depth line, so the
@@ -60,6 +62,13 @@ interface RouteEngine {
      * disposal an engine performs; every other disposal is the flow asking.
      */
     fun cancelLookup(id: RouteId)
+
+    /**
+     * **Ends the engine**: every running lookup is cancelled and whatever lane the engine owns is
+     * released, so a superseded engine holds no thread and no job. A no-op by default, because an
+     * engine that owns nothing has nothing to release; after it, no lookup may be started.
+     */
+    fun close() {}
 
     /** The one channel every lookup's updates ride on, correlated by [RouteUpdate.routeId]. */
     val updates: Flow<RouteUpdate>
@@ -101,8 +110,8 @@ sealed interface RouteDeclarations {
  *
  * Each entry carries the id of the line a user reads ([labelResId]), the `CustomSortField` shape, so
  * no engine holds user-facing text and both locales carry the key. [CANNOT_REPAIR] and
- * [WORLD_NOT_READY] answer at [RouteEngine.routesToCompute] — the repair's two — and [NO_PATH] and
- * [OFF_WATER] answer on the update flow — the lookup's two.
+ * [WORLD_NOT_READY] answer at [RouteEngine.routesToCompute] — the repair's two — and [NO_PATH],
+ * [OFF_WATER] and [FAILED] answer on the update flow — the lookup's three.
  */
 enum class RouteReason(val labelResId: Int) {
 
@@ -113,15 +122,21 @@ enum class RouteReason(val labelResId: Int) {
     WORLD_NOT_READY(R.string.route_reason_world_not_ready),
 
     /**
-     * **No line could be drawn for the pair (D38).** The search found no route between the repaired ends —
-     * and a lookup whose build failed is answered with this same surface, because a failed build has no line
-     * to report either. One label covers both: the reason names the **absence of a line**, never the
-     * mechanism behind it, and no separate variant exists for the build failure.
+     * **No line could be drawn for the pair.** The search ran to exhaustion and found no route between the
+     * repaired ends — the genuine no-route answer, and only that: a lookup whose build or search **threw**
+     * is answered with [FAILED], so a crash is never read as an empty sea.
      */
     NO_PATH(R.string.route_reason_no_path),
 
     /** The pair or the region the engine covers leaves no water to search. */
-    OFF_WATER(R.string.route_reason_off_water)
+    OFF_WATER(R.string.route_reason_off_water),
+
+    /**
+     * **The lookup broke** — a non-cancellation exception inside the build, the search or the fold. The
+     * engine logs the stack trace and answers this so the mode is told rather than left to its own timeout,
+     * and so a defect stays visible as a defect instead of hiding behind [NO_PATH].
+     */
+    FAILED(R.string.route_reason_failed)
 }
 
 /**

@@ -105,8 +105,8 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = false
         }
 
-        // Load zone gradient tunables from zone.properties before the UI composes.
-        AppConfig.init(this)
+        // The packaged tunables were loaded by MaroApp.onCreate, before any Activity or service in
+        // this process could read one.
 
         // The fine-tile store: the route engine's fine layer persisted beside the depth raster's own
         // cache, so the first arm after a cold start reuses the tiles a previous run already marked
@@ -159,6 +159,14 @@ class MainActivity : ComponentActivity() {
             )
             val depthViewModel: DepthViewModel = viewModel()
             val appSettings by viewModel.settings.collectAsState()
+
+            // The recording service's start follows the GPS mode: a foreground, location-typed start
+            // only once a location grant stands (the platform refuses it otherwise from Android 14),
+            // an ordinary start — alive while the app is in front — before that. Re-run on every
+            // change of the mode, so the first grant promotes the running service.
+            LaunchedEffect(appSettings.gpsMode) {
+                startRecordingService(appSettings.gpsMode)
+            }
 
             // D4's report: a persisted route-engine id nothing claims fell back to the registry's
             // default, and the app says so at start rather than leaving the fallback silent.
@@ -245,7 +253,7 @@ class MainActivity : ComponentActivity() {
                         }
                         LaunchedEffect(Unit) {
                             if (BatteryExemption.shouldPrompt(this@MainActivity, appSettings)) {
-                                val orphans = ykws.android.maro.data.track.TrackRepository(this@MainActivity)
+                                val orphans = (application as MaroApp).trackRepository
                                     .recoverOrphanedCheckpoints()
                                 if (orphans.isNotEmpty()) showBatteryDialog = true
                             }
@@ -278,9 +286,26 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Start the foreground service to keep the app alive when backgrounded.
-        // The service shows a persistent "Maro II — Ready" notification.
-        startForegroundService(Intent(this, ykws.android.maro.data.track.TrackRecordingService::class.java))
+    }
+
+    /**
+     * Start the recording service in the way the current state allows. With GPS mode on and a
+     * location grant standing, a foreground start, so the service survives the app leaving the
+     * screen and shows its notification; otherwise a plain start, which keeps the demo-mode recorder
+     * and the Tasker hook alive while the app is in front and asks the platform for nothing it would
+     * refuse. The service promotes itself the moment an eligible start reaches it.
+     */
+    private fun startRecordingService(gpsMode: Boolean) {
+        val intent = Intent(this, TrackRecordingService::class.java)
+        val located = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (gpsMode && located) {
+            ContextCompat.startForegroundService(this, intent)
+        } else {
+            startService(intent)
+        }
     }
 
     /**

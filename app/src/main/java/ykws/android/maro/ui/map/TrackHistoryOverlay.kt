@@ -409,7 +409,7 @@ internal fun TrackHistoryOverlay(
                         else "${nameById.first()} ... ${nameById.last()}"
                     val state = MergeDialogState(defaultName)
                     ConfirmRequest(
-                        title = context.getString(R.string.track_merge_title, candidates.size),
+                        title = context.resources.getQuantityString(R.plurals.track_merge_title, candidates.size, candidates.size),
                         message = mergeNameHint,
                         options = {
                             MergeDialogOptions(
@@ -656,7 +656,7 @@ internal fun TrackCardContent(
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(
                     onClick = { onUpdateTrack(summary.id, null, null, !pinned) },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
@@ -670,7 +670,7 @@ internal fun TrackCardContent(
                 if (summary.resumeAllowed && !isRecording && onResumeTrack != null) {
                     IconButton(
                         onClick = { onResumeTrack(summary.id) },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
@@ -685,7 +685,7 @@ internal fun TrackCardContent(
                 if (summary.route && !isRecording && onFollowRoute != null) {
                     IconButton(
                         onClick = { onFollowRoute(summary.id) },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                     ) {
                         Icon(
                             imageVector = route,
@@ -697,7 +697,7 @@ internal fun TrackCardContent(
                 }
                 IconButton(
                     onClick = { onShareGpx(summary.id) },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(AppConfig.uiTouchMin.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Upload,

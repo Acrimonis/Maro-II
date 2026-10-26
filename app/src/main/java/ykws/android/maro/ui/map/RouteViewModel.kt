@@ -330,6 +330,13 @@ data class RouteEnds(
  * **Disposal.** The one disposal function is the only thing that calls `cancelLookup`, and every
  * site that drops a route — the exit dialog's discard, the fan's unasked Discard, a new arming and a
  * selection — reaches it. An update for a cancelled id changes no page.
+ *
+ * **An engine is closed here, because this is the one seat that knows both facts.** The screen rebuilds
+ * the selection whenever the chosen algorithm moves, and the session pins the engine it was armed with;
+ * only this model sees both, so it closes a superseded selection unless an armed session still runs on
+ * it ([closeSuperseded]), closes the session's engine at [end] once it is no longer the selection, and
+ * closes it with the model itself ([onCleared]). The live selection is never closed: its owner is the
+ * screen.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RouteViewModel(
@@ -528,6 +535,16 @@ class RouteViewModel(
                 .flatMapLatest { it.updates }
                 .collect { onUpdate(it) }
         }
+        // A replaced selection is closed the moment it is replaced — unless the running session was armed
+        // on it, in which case `end` closes it once the session lets go.
+        viewModelScope.launch {
+            var previous: RouteEngine? = null
+            selection.collect { current ->
+                val superseded = previous
+                previous = current
+                if (superseded != null && superseded !== current) closeSuperseded(superseded)
+            }
+        }
         // The panel's row order moves only when a route lands, is refused or is merged away: the key below
         // is the pages' identities and whether each is settled, with the verdict and the folds, so a stage
         // word or a provisional figure (which change the pages but not the key) moves no row.
@@ -542,6 +559,15 @@ class RouteViewModel(
         viewModelScope.launch {
             settings.collect { recomputePace(lastFeedMs.takeIf { it > 0L } ?: System.currentTimeMillis()) }
         }
+    }
+
+    /**
+     * **Closes an engine the selection no longer names** — unless it is the one the armed session still
+     * runs on, which [end] closes instead once the session lets go of it. The one place both facts meet.
+     */
+    private fun closeSuperseded(engine: RouteEngine) {
+        if (engine === _sessionEngine.value) return
+        engine.close()
     }
 
     /** Writes the order the rows should now stand in, from the pages and the rank view as they are. */
@@ -1038,7 +1064,11 @@ class RouteViewModel(
         lookupPages.clear()
         cancelledLookups.clear()
         _state.value = RouteState.Idle
+        // The session lets go of its engine: one the selection has since replaced is closed here, the
+        // close `closeSuperseded` deferred while the session still ran on it.
+        val sessionEngine = _sessionEngine.value
         _sessionEngine.value = null
+        if (sessionEngine != null && sessionEngine !== selection.value) sessionEngine.close()
         armedStartMarkerId = null
         armedDestinationMarkerId = null
         preferredRungIndex = MAIN_INDEX
@@ -1059,6 +1089,13 @@ class RouteViewModel(
             active.cancelLookup(lookupId)
             cancelledLookups += lookupId
         }
+    }
+
+    /** The model's own end: the engine a session was armed on dies with it, never outliving the screen. */
+    override fun onCleared() {
+        _sessionEngine.value?.close()
+        _sessionEngine.value = null
+        super.onCleared()
     }
 
     /** **The session's routes, in creation order** (R25) — one per landed answer, oldest first. */
