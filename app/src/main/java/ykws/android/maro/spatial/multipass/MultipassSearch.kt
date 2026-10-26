@@ -3,7 +3,6 @@ package ykws.android.maro.spatial.multipass
 import kotlinx.coroutines.ensureActive
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
-import java.util.PriorityQueue
 import kotlin.coroutines.coroutineContext
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -19,9 +18,10 @@ import kotlin.math.sqrt
  * follows the pass's cursor exactly as a ring's. The price is the caller's because the unit's scaling is
  * the engine's: one multiplier over the time excess a slow cell carries, so re-pricing a whole grid is
  * one multiply per expansion and the search holds no scaling of its own.
- * The heuristic is a **time bound** — `haversine / paceMps` — admissible however dear a cell becomes,
- * since the base is one cell of water at that same pace. [LAND] is impassable; everything else is
- * priced.
+ * The heuristic is a **time bound** — `haversine / paceMps`, scaled by the walk's own
+ * [WalkWindows.heuristicScale] so a nominal cell sized at one reference latitude can never charge a step
+ * less than the heuristic reads for it — admissible however dear a cell becomes, since the base is one
+ * cell of water at that same pace. [LAND] is impassable; everything else is priced.
  *
  * **One loop, whatever the walk is**: the water arrives as a [WalkWindows], so a uniform pass's single
  * grid and the adaptive grid's chain of windows cross the same door. The single-window case is arithmetic
@@ -35,21 +35,101 @@ import kotlin.math.sqrt
  * after it. Exhaustion is a [SearchOutcome] whose `path` is `null`, and the reading beside it says how much
  * water the search walked before it gave up.
  */
+/**
+ * **The caller's own price of a cell carrying limits** — the seconds a cell of `cellM` costs over its
+ * open-water base for the strictest limit in force, the ring's collar limit and the band's collar limit.
+ * A `fun interface` rather than a function type on purpose: a `(Double, Double, Double, Double) -> Double`
+ * is a generic `Function4` whose every call boxes four arguments and the result, and the search asks it on
+ * most relaxations of a coastal corridor; this keeps the call a primitive JVM signature. A Kotlin lambda
+ * converts to it at the call site unchanged.
+ */
+fun interface ZonePrice {
+    fun secAt(cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double): Double
+
+    companion object {
+        /** A grid with no limit ever priced — the default that answers nothing. */
+        val NONE: ZonePrice = ZonePrice { _, _, _, _ -> 0.0 }
+    }
+}
+
 object MultipassSearch {
 
     private val SQRT2 = sqrt(2.0)
 
-    private data class Step(val dr: Int, val dc: Int, val multiplier: Double)
-
-    private val STEPS = listOf(
-        Step(-1, 0, 1.0), Step(-1, 1, SQRT2), Step(0, 1, 1.0), Step(1, 1, SQRT2),
-        Step(1, 0, 1.0), Step(1, -1, SQRT2), Step(0, -1, 1.0), Step(-1, -1, SQRT2)
-    )
-
-    private data class Node(val index: Int, val f: Double, val g: Double)
+    /** The eight steps, in the one order the tie-breaks rely on, as primitive arrays: no iterator per expansion. */
+    private val STEP_DR = intArrayOf(-1, -1, 0, 1, 1, 1, 0, -1)
+    private val STEP_DC = intArrayOf(0, 1, 1, 1, 0, -1, -1, -1)
+    private val STEP_MULTIPLIER = doubleArrayOf(1.0, SQRT2, 1.0, SQRT2, 1.0, SQRT2, 1.0, SQRT2)
 
     /** Cancellation cadence: [checkCancelled] runs once every [CADENCE] expansions. */
     private const val CADENCE = 256
+
+    /**
+     * **The open set, unboxed** — a binary min-heap over three primitive arrays ordered by `f`, then `g`,
+     * then slot index: exactly the `(f, g, index)` order the walk's tie-breaks have always used, so the
+     * same walk still yields the same path, without one `Node` object per push and two boxed doubles per
+     * comparison. Lazy deletion stays the caller's: a popped entry whose `g` is stale is skipped there.
+     */
+    private class OpenHeap(capacity: Int) {
+        private var f = DoubleArray(capacity)
+        private var g = DoubleArray(capacity)
+        private var slot = IntArray(capacity)
+        var size = 0
+            private set
+
+        /** The `g` of the entry the last [pop] answered. */
+        var poppedG = 0.0
+            private set
+
+        fun isNotEmpty(): Boolean = size > 0
+
+        private fun before(fa: Double, ga: Double, sa: Int, fb: Double, gb: Double, sb: Int): Boolean =
+            fa < fb || (fa == fb && (ga < gb || (ga == gb && sa < sb)))
+
+        fun push(f0: Double, g0: Double, s0: Int) {
+            if (size == f.size) {
+                f = f.copyOf(size * 2)
+                g = g.copyOf(size * 2)
+                slot = slot.copyOf(size * 2)
+            }
+            var i = size++
+            while (i > 0) {
+                val parent = (i - 1) shr 1
+                if (!before(f0, g0, s0, f[parent], g[parent], slot[parent])) break
+                f[i] = f[parent]
+                g[i] = g[parent]
+                slot[i] = slot[parent]
+                i = parent
+            }
+            f[i] = f0
+            g[i] = g0
+            slot[i] = s0
+        }
+
+        /** Removes the least entry and answers its slot; its `g` is left in [poppedG]. */
+        fun pop(): Int {
+            val top = slot[0]
+            poppedG = g[0]
+            val lastF = f[--size]
+            val lastG = g[size]
+            val lastSlot = slot[size]
+            var i = 0
+            while (true) {
+                var child = 2 * i + 1
+                if (child >= size) break
+                if (child + 1 < size && before(f[child + 1], g[child + 1], slot[child + 1], f[child], g[child], slot[child])) child++
+                if (!before(f[child], g[child], slot[child], lastF, lastG, lastSlot)) break
+                f[i] = f[child]
+                g[i] = g[child]
+                slot[i] = slot[child]
+                i = child
+            }
+            f[i] = lastF
+            g[i] = lastG
+            slot[i] = lastSlot
+            return top
+        }
+    }
 
     /**
      * The shortest passable path across [grid] from [start] to [aim] as an ordered list of cell indices,
@@ -86,8 +166,7 @@ object MultipassSearch {
         start: CellIndex,
         aim: CellIndex,
         paceMps: Double,
-        zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
-            { _, _, _, _ -> 0.0 },
+        zonePriceSec: ZonePrice = ZonePrice.NONE,
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
         berthK: Double = 0.0,
         berth: BerthLaw? = null,
@@ -131,8 +210,7 @@ object MultipassSearch {
         start: CellIndex,
         aim: CellIndex,
         paceMps: Double,
-        zonePriceSec: (cellM: Double, interiorLimitKn: Double, collarLimitKn: Double, bandCollarLimitKn: Double) -> Double =
-            { _, _, _, _ -> 0.0 },
+        zonePriceSec: ZonePrice = ZonePrice.NONE,
         checkCancelled: suspend () -> Unit = { coroutineContext.ensureActive() },
         berthK: Double = 0.0,
         berth: BerthLaw? = null,
@@ -143,12 +221,13 @@ object MultipassSearch {
         val aimIdx = walk.slotOfEnd(aim)
         if (startIdx < 0 || aimIdx < 0) return SearchOutcome(null, 0, 0, aimClosed = false)
         // The start's own reading, for the trace: its layer and how many of its steps lead to water.
+        val scratch = IntArray(walk.crossLayerCapacity)
         var startOpen = 0
-        forEachStep(walk, startIdx, { !walk.passable(it) }) { _, _ -> startOpen++ }
+        forEachStep(walk, startIdx, scratch, { !walk.passable(it) }) { _, _ -> startOpen++ }
         val startLayer = walk.layerOf(startIdx)
         val aimLayer = walk.layerOf(aimIdx)
         var aimOpen = 0
-        forEachStep(walk, aimIdx, { !walk.passable(it) }) { _, _ -> aimOpen++ }
+        forEachStep(walk, aimIdx, scratch, { !walk.passable(it) }) { _, _ -> aimOpen++ }
         // A local re-solve between two line vertices binds its ends like any other cell.
         if (stepGuard == null || !waiveEndSlots) {
             return walkOnce(
@@ -202,7 +281,8 @@ object MultipassSearch {
      */
     private fun hasExit(walk: WalkWindows, guard: StepGuard, ends: EndRule, endIdx: Int, leaving: Boolean): Boolean {
         var found = false
-        forEachStep(walk, endIdx, { found || !walk.passable(it) }) { other, edgeM ->
+        val scratch = IntArray(walk.crossLayerCapacity)
+        forEachStep(walk, endIdx, scratch, { found || !walk.passable(it) }) { other, edgeM ->
             if (!found) {
                 found = if (leaving) {
                     guard.allows(walk, endIdx, other, edgeM, ends)
@@ -223,39 +303,56 @@ object MultipassSearch {
     private inline fun forEachStep(
         walk: WalkWindows,
         idx: Int,
+        scratch: IntArray,
         skip: (toIdx: Int) -> Boolean,
         action: (toIdx: Int, edgeM: Double) -> Unit
     ) {
         val row = walk.rowOf(idx)
         val col = walk.colOf(idx)
         val layer = walk.layerOf(idx)
-        val here = walk.centerOf(idx)
-        val isCopy = walk.isFineCopyCell(layer, row, col)
-        for (step in STEPS) {
-            val tr = row + step.dr
-            val tc = col + step.dc
+        // The cell's own centre is read only by a crossing priced from two centres — never by a same-layer
+        // step — so a single-grid walk, which makes no crossing, allocates no point per expansion.
+        var here: LatLng? = null
+        val layered = walk.layerCount > 1
+        val isCopy = layered && walk.isFineCopyCell(layer, row, col)
+        val cellM = walk.cellSizeM(layer)
+        for (k in 0 until 8) {
+            val dr = STEP_DR[k]
+            val dc = STEP_DC[k]
+            val tr = row + dr
+            val tc = col + dc
             // The same layer's own neighbour: one cell of that layer's water, at that layer's cell
             // size — **unless a passable fine cell supersedes it.** On the coarse layer the fine copy
             // owns that water, so the coarse cell is not read and the superseding fine cell below
             // carries the crossing; where the fine grid is land the coarse neighbour keeps its role.
             val nIdx = walk.rawSlotOf(layer, tr, tc)
-            val over = walk.supersedingSlot(layer, tr, tc)
-            if (nIdx >= 0 && over < 0 && !skip(nIdx)) action(nIdx, step.multiplier * walk.cellSizeM(layer))
+            val over = if (layered) walk.supersedingSlot(layer, tr, tc) else -1
+            if (nIdx >= 0 && over < 0 && !skip(nIdx)) action(nIdx, STEP_MULTIPLIER[k] * cellM)
+            if (!layered) continue
             // The superseding fine cell over the same water — the crossing the coarse copy may not
             // make, priced from the two cell centres exactly as a seam crossing is.
-            if (over >= 0 && !skip(over)) action(over, SpatialOperations.haversine(here, walk.centerOf(over)))
+            if (over >= 0 && !skip(over)) {
+                val h = here ?: walk.centerOf(idx).also { here = it }
+                action(over, SpatialOperations.haversine(h, walk.centerOf(over)))
+            }
             // The seam: the other resolution's cells meeting this cell's face or corner, priced from
             // the two cell centres — the crossing no same-layer step can make.
-            val cross = walk.crossLayerSlots(layer, row, col, step.dr, step.dc)
-            for (t in 0 until cross.size) {
-                val cIdx = cross[t]
-                if (!skip(cIdx)) action(cIdx, SpatialOperations.haversine(here, walk.centerOf(cIdx)))
+            val crossed = walk.crossLayerSlotsInto(layer, row, col, dr, dc, scratch)
+            for (t in 0 until crossed) {
+                val cIdx = scratch[t]
+                if (!skip(cIdx)) {
+                    val h = here ?: walk.centerOf(idx).also { here = it }
+                    action(cIdx, SpatialOperations.haversine(h, walk.centerOf(cIdx)))
+                }
             }
             // The way back out of a block's fine copy: the coarse neighbour that steps into it is stepped to,
             // priced from the same two centres, so an end standing on a copy can be left as well as entered.
             if (isCopy) {
-                val back = walk.coarseNeighbourOfCopy(layer, row, col, step.dr, step.dc)
-                if (back >= 0 && !skip(back)) action(back, SpatialOperations.haversine(here, walk.centerOf(back)))
+                val back = walk.coarseNeighbourOfCopy(layer, row, col, dr, dc)
+                if (back >= 0 && !skip(back)) {
+                    val h = here ?: walk.centerOf(idx).also { here = it }
+                    action(back, SpatialOperations.haversine(h, walk.centerOf(back)))
+                }
             }
         }
     }
@@ -269,7 +366,7 @@ object MultipassSearch {
         startIdx: Int,
         aimIdx: Int,
         paceMps: Double,
-        zonePriceSec: (Double, Double, Double, Double) -> Double,
+        zonePriceSec: ZonePrice,
         checkCancelled: suspend () -> Unit,
         berthK: Double,
         berth: BerthLaw?,
@@ -279,6 +376,8 @@ object MultipassSearch {
     ): SearchOutcome {
         val n = walk.size
         val aimCenter = walk.centerOf(aimIdx)
+        // The heuristic's admissibility factor over this walk's latitude span ([WalkWindows.heuristicScale]).
+        val hScale = walk.heuristicScale
 
         val g = DoubleArray(n) { Double.POSITIVE_INFINITY }
         val h = DoubleArray(n) { Double.NaN }
@@ -286,33 +385,33 @@ object MultipassSearch {
         val closed = BooleanArray(n)
 
         g[startIdx] = 0.0
-        h[startIdx] = SpatialOperations.haversine(walk.centerOf(startIdx), aimCenter) / paceMps
+        h[startIdx] = SpatialOperations.haversine(walk.centerOf(startIdx), aimCenter) / paceMps * hScale
         h[aimIdx] = 0.0
 
-        val open = PriorityQueue<Node>(compareBy({ it.f }, { it.g }, { it.index }))
-        open.add(Node(startIdx, g[startIdx] + h[startIdx], 0.0))
+        val open = OpenHeap(1024)
+        open.push(g[startIdx] + h[startIdx], 0.0, startIdx)
+        val scratch = IntArray(walk.crossLayerCapacity)
 
         var expansions = 0
         while (open.isNotEmpty()) {
-            val node = open.poll() ?: break
-            val idx = node.index
+            val idx = open.pop()
             if (closed[idx]) continue
-            if (node.g != g[idx]) continue   // stale heap entry, superseded by a shorter g
+            if (open.poppedG != g[idx]) continue   // stale heap entry, superseded by a shorter g
             closed[idx] = true
             if (idx == aimIdx) break
 
             expansions++
             if (expansions % CADENCE == 0) checkCancelled()
 
-            forEachStep(walk, idx, { closed[it] }) { toIdx, edgeM ->
+            forEachStep(walk, idx, scratch, { closed[it] }) { toIdx, edgeM ->
                 relax(
                     walk, idx, toIdx, edgeM, g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec,
-                    berthK, berth, stepGuard, ends
+                    berthK, berth, stepGuard, ends, hScale
                 )
             }
         }
 
-        val passable = walk.passableCount()
+        val passable = walk.passableCells
         if (!closed[aimIdx]) {
             onExhausted?.invoke(closed)
             return SearchOutcome(null, expansions, passable, aimClosed = false)
@@ -336,7 +435,8 @@ object MultipassSearch {
      * `cellSec × multiplier` the uniform walk always paid — `avoid`'s answers cannot move. Across the seam
      * `edgeM` is the two centres' own distance, so a 100 m interior cell and a 20 m band cell meet at a cost
      * neither cell's size alone could name. The heuristic stays admissible because every edge costs at least
-     * its distance at the pace, layer by layer.
+     * its **scaled** distance at the pace, layer by layer — the scale ([WalkWindows.heuristicScale]) absorbing
+     * the nominal cell's east–west shortfall towards the equator.
      */
     private fun relax(
         walk: WalkWindows,
@@ -346,14 +446,15 @@ object MultipassSearch {
         g: DoubleArray,
         h: DoubleArray,
         cameFrom: IntArray,
-        open: PriorityQueue<Node>,
+        open: OpenHeap,
         aimCenter: LatLng,
         paceMps: Double,
-        zonePriceSec: (Double, Double, Double, Double) -> Double,
+        zonePriceSec: ZonePrice,
         berthK: Double,
         berth: BerthLaw?,
         stepGuard: StepGuard?,
-        ends: EndRule
+        ends: EndRule,
+        hScale: Double
     ) {
         if (!walk.passable(toIdx)) return
         val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
@@ -363,7 +464,7 @@ object MultipassSearch {
         val bandCollarLimitKn = walk.bandCollarLimitKn(toIdx)
         var cellSec = walk.sourceCostSec(toIdx)
         if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
-            cellSec += zonePriceSec(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
+            cellSec += zonePriceSec.secAt(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
         }
         // The berth's own read: the grid stores its distance, and the pass's cursor turns it into the
         // rung's seconds — the very law the pull's guard prices a point at.
@@ -379,9 +480,9 @@ object MultipassSearch {
             g[toIdx] = newG
             cameFrom[toIdx] = fromIdx
             if (h[toIdx].isNaN()) {
-                h[toIdx] = SpatialOperations.haversine(walk.centerOf(toIdx), aimCenter) / paceMps
+                h[toIdx] = SpatialOperations.haversine(walk.centerOf(toIdx), aimCenter) / paceMps * hScale
             }
-            open.add(Node(toIdx, newG + h[toIdx], newG))
+            open.push(newG + h[toIdx], newG, toIdx)
         }
     }
 }

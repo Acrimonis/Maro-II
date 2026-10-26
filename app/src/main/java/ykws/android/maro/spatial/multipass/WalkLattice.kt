@@ -284,12 +284,80 @@ internal data class WalkWindow(
 }
 
 /**
+ * **A primitive `Long` → `Int` map, open-addressed** — the slot index's own table, so a neighbour lookup
+ * boxes no key and no value: the A\* asks it eight to twenty-four times per expansion, and a `HashMap<Long,
+ * Int>` allocated a `java.lang.Long` for every ask. Linear probing over a power-of-two table kept under
+ * half full; `-1` is the absent value. Write-once at the build, read-only ever after.
+ */
+internal class LongIntMap(expected: Int) {
+    private var keys: LongArray
+    private var values: IntArray
+    private var mask: Int
+    var size: Int = 0
+        private set
+
+    init {
+        var capacity = 16
+        while (capacity < expected * 2) capacity = capacity shl 1
+        keys = LongArray(capacity)
+        values = IntArray(capacity) { -1 }
+        mask = capacity - 1
+    }
+
+    private fun slotFor(key: Long): Int {
+        var h = (key xor (key ushr 32)).toInt() * -0x61c88647
+        h = h xor (h ushr 16)
+        return h and mask
+    }
+
+    /** The value stored under [key], or `-1` where none is. */
+    operator fun get(key: Long): Int {
+        var i = slotFor(key)
+        while (true) {
+            val v = values[i]
+            if (v < 0) return -1
+            if (keys[i] == key) return v
+            i = (i + 1) and mask
+        }
+    }
+
+    fun containsKey(key: Long): Boolean = get(key) >= 0
+
+    /** Stores [value] under [key]; a key already held keeps its first value, as the index's build wants. */
+    fun putIfAbsent(key: Long, value: Int) {
+        if (size * 2 >= keys.size) grow()
+        var i = slotFor(key)
+        while (true) {
+            val v = values[i]
+            if (v < 0) {
+                keys[i] = key
+                values[i] = value
+                size++
+                return
+            }
+            if (keys[i] == key) return
+            i = (i + 1) and mask
+        }
+    }
+
+    private fun grow() {
+        val oldKeys = keys
+        val oldValues = values
+        keys = LongArray(oldKeys.size shl 1)
+        values = IntArray(oldKeys.size shl 1) { -1 }
+        mask = keys.size - 1
+        size = 0
+        for (i in oldKeys.indices) if (oldValues[i] >= 0) putIfAbsent(oldKeys[i], oldValues[i])
+    }
+}
+
+/**
  * **A walk's slot index — the three pieces `onLattice` derives**: the packed `(layer, row, col)` → slot map
  * and its two mirror reads, slot → window tile and slot → packed identity.
  */
 internal class WalkSlotIndex(
     /** `(layer, row, col)` → slot; shared across arms, so it must stay read-only. */
-    val slots: Map<Long, Int>,
+    val slots: LongIntMap,
     val tiles: IntArray,
     val ids: LongArray
 )
@@ -361,21 +429,24 @@ internal object WalkIndexCache {
      * the key so a coarse and a fine cell over the same water each keep their own.
      */
     private fun build(windows: List<WalkWindow>): WalkSlotIndex {
-        val slots = HashMap<Long, Int>()
-        val tiles = ArrayList<Int>()
-        val ids = ArrayList<Long>()
+        val cells = windows.sumOf { it.grid.rows * it.grid.cols }
+        val slots = LongIntMap(cells)
+        val tiles = IntArray(cells)
+        val ids = LongArray(cells)
+        var n = 0
         for ((index, window) in windows.withIndex()) {
             for (row in 0 until window.grid.rows) {
                 for (col in 0 until window.grid.cols) {
                     val id = packCell(window.layer, row + window.rowOffset, col + window.colOffset)
                     if (slots.containsKey(id)) continue
-                    slots[id] = tiles.size
-                    tiles.add(index)
-                    ids.add(id)
+                    slots.putIfAbsent(id, n)
+                    tiles[n] = index
+                    ids[n] = id
+                    n++
                 }
             }
         }
-        return WalkSlotIndex(slots, tiles.toIntArray(), ids.toLongArray())
+        return WalkSlotIndex(slots, if (n == cells) tiles else tiles.copyOf(n), if (n == cells) ids else ids.copyOf(n))
     }
 }
 
@@ -399,7 +470,7 @@ internal object WalkIndexCache {
 internal class WalkWindows private constructor(
     val windows: List<WalkWindow>,
     private val lattices: List<WalkLattice>?,
-    private val slots: Map<Long, Int>?,
+    private val slots: LongIntMap?,
     private val tiles: IntArray?,
     private val ids: LongArray?
 ) {
@@ -409,24 +480,57 @@ internal class WalkWindows private constructor(
     /** How many layers this walk spans — 1 for a uniform grid or a one-lattice chain. */
     val layerCount: Int get() = lattices?.size ?: 1
 
-    /** The **coarse** layer's index — the larger cell — or `-1` where the walk spans fewer than two lattices. */
-    private val coarseLayerIndex: Int
-        get() {
-            val l = lattices ?: return -1
-            if (l.size < 2) return -1
-            return if (l[0].cellM >= l[1].cellM) 0 else 1
-        }
+    /**
+     * The **coarse** layer's index — the larger cell — or `-1` where the walk spans fewer than two lattices.
+     * Settled once: the three layer facts below are read on every neighbour step, so they are values rather
+     * than getters re-deriving a division per read.
+     */
+    private val coarseLayerIndex: Int =
+        lattices?.let { l -> if (l.size < 2) -1 else if (l[0].cellM >= l[1].cellM) 0 else 1 } ?: -1
 
     /** The **fine** layer's index, or `-1` where the walk spans one lattice. */
-    private val fineLayerIndex: Int get() = if (coarseLayerIndex < 0) -1 else 1 - coarseLayerIndex
+    private val fineLayerIndex: Int = if (coarseLayerIndex < 0) -1 else 1 - coarseLayerIndex
 
     /** The exact `1 : ratio` nesting between the two layers, or `1` where the walk spans one lattice. */
-    private val layerRatio: Int
-        get() {
-            val coarse = coarseLayerIndex
-            if (coarse < 0) return 1
-            return latticeRatioOf(lattices!![coarse].cellM, lattices!![fineLayerIndex].cellM)
+    private val layerRatio: Int =
+        if (coarseLayerIndex < 0) 1 else latticeRatioOf(lattices!![coarseLayerIndex].cellM, lattices[fineLayerIndex].cellM)
+
+    /**
+     * **How many of the walk's unique cells are passable** — the search's own reading, counted once per walk
+     * and on first ask. The grids are written only by the build that precedes the first search, so one count
+     * serves every walk over this water; a per-walk `O(n)` decode was paid two to four times a pass before.
+     */
+    val passableCells: Int by lazy {
+        var count = 0
+        for (slot in 0 until size) if (passable(slot)) count++
+        count
+    }
+
+    /**
+     * **The factor that keeps the haversine heuristic admissible over this walk's latitude span.** A
+     * same-layer step is charged the lattice's **nominal** cell — its east–west degrees sized at one reference
+     * latitude — while the heuristic reads the true great-circle distance; south of the reference latitude
+     * (towards the equator) the true east–west spacing exceeds the nominal by `cos φ / cos φ_ref`, so an
+     * unscaled heuristic could overestimate an east–west run by that fraction and the A\* could close the aim
+     * on a chain dearer than the cheapest. The heuristic is scaled by `cos φ_ref / cos φ_nearest`, the
+     * nearest-to-equator latitude the walk reaches, never above one — so every step still costs at least its
+     * scaled distance at the pace and the bound holds. A walk standing on the far side of its reference reads
+     * exactly `1.0`, which is every fixture and every corridor-centred lattice's own south half.
+     */
+    val heuristicScale: Double by lazy {
+        var south = Double.MAX_VALUE
+        var north = -Double.MAX_VALUE
+        var cosRef = 1.0
+        for (window in windows) {
+            val grid = window.grid
+            south = minOf(south, grid.latSouth)
+            north = maxOf(north, grid.latSouth + grid.rows * grid.cellSizeDegLat)
+            cosRef = (grid.cellSizeDegLat / grid.cellSizeDegLon).coerceIn(0.0, 1.0)
         }
+        val nearestAbsLat = if (south <= 0.0 && north >= 0.0) 0.0 else minOf(kotlin.math.abs(south), kotlin.math.abs(north))
+        val cosNearest = cos(Math.toRadians(nearestAbsLat))
+        if (cosNearest <= 0.0) 1.0 else (cosRef / cosNearest).coerceAtMost(1.0)
+    }
 
     /**
      * **The fine copy of a coarse-layer cell** — the fine cell the rule reads over the coarse cell, named by
@@ -506,7 +610,7 @@ internal class WalkWindows private constructor(
             val grid = windows[0].grid
             return if (row in 0 until grid.rows && col in 0 until grid.cols) row * grid.cols + col else -1
         }
-        return map[packCell(layer, row, col)] ?: -1
+        return map[packCell(layer, row, col)]
     }
 
     /**
@@ -617,35 +721,55 @@ internal class WalkWindows private constructor(
      * block rather than on the face the step leaves by.
      */
     fun crossLayerSlots(layer: Int, row: Int, col: Int, dr: Int, dc: Int): IntArray {
-        val layers = lattices ?: return NO_SLOTS
-        if (layers.size != 2) return NO_SLOTS
-        val coarseLayer = if (layers[0].cellM >= layers[1].cellM) 0 else 1
-        val fineLayer = 1 - coarseLayer
-        val ratio = latticeRatioOf(layers[coarseLayer].cellM, layers[fineLayer].cellM)
+        val scratch = IntArray(maxOf(layerRatio, 1))
+        val n = crossLayerSlotsInto(layer, row, col, dr, dc, scratch)
+        return if (n == 0) NO_SLOTS else scratch.copyOf(n)
+    }
+
+    /** The most slots one seam crossing can answer — a coarse face meets `ratio` fine cells. */
+    val crossLayerCapacity: Int get() = maxOf(layerRatio, 1)
+
+    /**
+     * [crossLayerSlots] written into the caller's own [out] — at least [crossLayerCapacity] long — answering
+     * how many it filled, so the search's inner loop allocates nothing per step. The coordinates are derived
+     * arithmetically from the exact `1 : ratio` nesting rather than through a list of cells.
+     */
+    fun crossLayerSlotsInto(layer: Int, row: Int, col: Int, dr: Int, dc: Int, out: IntArray): Int {
+        if (layerCount != 2 || (dr == 0 && dc == 0)) return 0
+        val ratio = layerRatio
         // `latticeRatioOf` floors at one, so the only ratio that names no crossing is exactly one.
-        if (ratio == 1) return NO_SLOTS
-        val targets: List<CellIndex> = if (layer == coarseLayer) {
-            SeamNeighbours.acrossFromCoarse(row, col, dr, dc, ratio, fineLayer)
-        } else {
-            listOfNotNull(SeamNeighbours.acrossFromFine(row, col, dr, dc, ratio, coarseLayer))
-        }
-        if (targets.isEmpty()) return NO_SLOTS
-        val out = IntArray(targets.size)
+        if (ratio == 1) return 0
+        val coarseLayer = coarseLayerIndex
+        val fineLayer = fineLayerIndex
         var n = 0
-        for (t in targets) {
-            val slot = rawSlotOf(t.layer, t.row, t.col)
-            if (slot < 0) continue
-            // A coarse target a passable fine cell supersedes is not read — but its **fine copy** over the
-            // same water is, so the crossing lands there, exactly as the same-layer neighbour step redirects
-            // ([`MultipassSearch`]). Dropping it instead would lose every path whose only bridge is that
-            // crossing: a face fine cell whose neighbouring block is superseded on its central cell alone
-            // keeps no fine step into the block and no read coarse cell borders it, so the redirect is the
-            // only edge that reaches the block's water. `aSupersededCoarseSeamTargetRedirectsToItsFineCopy`
-            // in [`FinePriorityWalkTest`] pins that case, and the redirect never re-reads the coarse cell.
-            val copy = if (t.layer == coarseLayer) fineCopyOf(t.row, t.col) else -1
-            out[n++] = if (copy >= 0) copy else slot
+        if (layer == coarseLayer) {
+            val r0 = row * ratio
+            val c0 = col * ratio
+            val rFirst = when { dr < 0 -> r0 - 1; dr > 0 -> r0 + ratio; else -> r0 }
+            val rCount = if (dr == 0) ratio else 1
+            val cFirst = when { dc < 0 -> c0 - 1; dc > 0 -> c0 + ratio; else -> c0 }
+            val cCount = if (dc == 0) ratio else 1
+            for (ri in 0 until rCount) {
+                for (ci in 0 until cCount) {
+                    val slot = rawSlotOf(fineLayer, rFirst + ri, cFirst + ci)
+                    if (slot >= 0) out[n++] = slot
+                }
+            }
+            return n
         }
-        return if (n == out.size) out else out.copyOf(n)
+        val target = SeamNeighbours.acrossFromFine(row, col, dr, dc, ratio, coarseLayer) ?: return 0
+        val slot = rawSlotOf(target.layer, target.row, target.col)
+        if (slot < 0) return 0
+        // A coarse target a passable fine cell supersedes is not read — but its **fine copy** over the
+        // same water is, so the crossing lands there, exactly as the same-layer neighbour step redirects
+        // ([`MultipassSearch`]). Dropping it instead would lose every path whose only bridge is that
+        // crossing: a face fine cell whose neighbouring block is superseded on its central cell alone
+        // keeps no fine step into the block and no read coarse cell borders it, so the redirect is the
+        // only edge that reaches the block's water. `aSupersededCoarseSeamTargetRedirectsToItsFineCopy`
+        // in [`FinePriorityWalkTest`] pins that case, and the redirect never re-reads the coarse cell.
+        val copy = fineCopyOf(target.row, target.col)
+        out[n++] = if (copy >= 0) copy else slot
+        return n
     }
 
     /** The centre of a lattice coordinate on [layer] — the layer's own read, or the one grid's otherwise. */
@@ -712,12 +836,8 @@ internal class WalkWindows private constructor(
         return window.grid.bandCollarLimitKn(rowOf(slot) - window.rowOffset, colOf(slot) - window.colOffset)
     }
 
-    /** How many of the walk's unique cells are passable — the search's own reading, taken once. */
-    fun passableCount(): Int {
-        var count = 0
-        for (slot in 0 until size) if (passable(slot)) count++
-        return count
-    }
+    /** How many of the walk's unique cells are passable — [passableCells], the one count per walk. */
+    fun passableCount(): Int = passableCells
 
     /**
      * Whether this walk and [other] were built on the **same** index instance — the one reading

@@ -239,6 +239,11 @@ class MultipassGrid(
         cellState[index(row, col)] = LAND_ORDINAL
     }
 
+    /** Marks every cell land in one fill — the tile assembler's opening, before its members restore the water. */
+    internal fun markAllLand() {
+        cellState.fill(LAND_ORDINAL)
+    }
+
     /**
      * Writes one zone's **limit** onto a passable cell, keeping the strictest in force — the slowest
      * limit wins where zones overlap, and a cell already [MultipassCellState.LAND] stays land, never zoned.
@@ -832,11 +837,19 @@ private fun applyFineMask(
                 markCoast(MultipassEdge(polyline[i], polyline[i + 1], LandRingOrientation.OPEN_COAST))
             }
         }
+        // The bands as two primitive arrays: a `ClosedRange<Double>.contains` boxes the read per cell.
+        val bandLow = DoubleArray(mask.coastBandsM.size) { mask.coastBandsM[it].start }
+        val bandHigh = DoubleArray(mask.coastBandsM.size) { mask.coastBandsM[it].endInclusive }
         for (r in 0 until grid.rows) {
             for (c in 0 until grid.cols) {
                 val d = coastDist[grid.index(r, c)]
                 if (d == Double.MAX_VALUE) continue
-                if (mask.coastBandsM.any { d in it }) member[grid.index(r, c)] = true
+                for (b in bandLow.indices) {
+                    if (d >= bandLow[b] && d <= bandHigh[b]) {
+                        member[grid.index(r, c)] = true
+                        break
+                    }
+                }
             }
         }
     }

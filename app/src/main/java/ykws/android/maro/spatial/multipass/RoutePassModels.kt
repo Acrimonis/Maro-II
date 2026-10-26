@@ -4,6 +4,8 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * **One walk's grid, and the values that are its own.** A walk is the grid the A\* expands, the two
@@ -71,7 +73,6 @@ internal data class GridContext(
     val limitAt: (LatLng) -> Double?,
     val zones: List<SpeedZone>,
     val priced: List<ZoneRing>,
-    val refusals: PullRefusals,
     val depthGateActive: Boolean,
     val minDepthM: Double,
     val regionSaturated: Boolean,
@@ -92,8 +93,34 @@ internal data class GridContext(
      * rule; `null` where the gate is out of force. **Never defaulted**: a construction site that forgot it
      * would draw a line no guard measured.
      */
-    val gate: GateRule?
+    val gate: GateRule?,
+    /**
+     * **The forced-crossing probe's answer, shared by the rungs over this grid** — the probe reads nothing
+     * of a rung's λ, so one answer serves the three. Fresh per context by default; never part of the
+     * context's own identity.
+     */
+    val probe: ProbeMemo = ProbeMemo()
 )
+
+/**
+ * **One grid's forced-crossing probe, computed once** — keyed on the crossing zones it was asked for, so a
+ * rung whose set differs (a λ of zero, which prices no zone) still gets its own answer. The first asker
+ * computes under the lock; its siblings wait on the lock and read the answer.
+ */
+internal class ProbeMemo {
+    private val lock = Mutex()
+    private var key: List<String>? = null
+    private var avoiding: Boolean = false
+
+    suspend fun avoiding(crossingZoneIds: List<String>, compute: suspend () -> Boolean): Boolean =
+        lock.withLock {
+            if (key == crossingZoneIds) return@withLock avoiding
+            val answer = compute()
+            key = crossingZoneIds
+            avoiding = answer
+            answer
+        }
+}
 
 /**
  * One pass's own readings, returned rather than logged inside it: the caller that owns the decision
@@ -109,14 +136,13 @@ internal data class PassReading(
      * reads. `emptyList()` where the A\* answered nothing.
      */
     val line: List<LatLng>,
-    /** That same line already timed under the limits in force, or `null` where the A\* answered nothing. */
-    val timed: TimedLine?,
     /**
-     * The line's slow time split by what slowed it; the **zone** share is the ranking's own quantity —
-     * Best's gate — the band's and the ramps' read beside it so neither can decide the winner. Zeroes on a
-     * failing pass.
+     * **This pass's own refusal tally** — the chords its two pulls refused, counted by this pass alone. It
+     * was one object per arm before, shared by the three rungs' pulls on three threads, so a rung's count
+     * carried its siblings' refusals and the fine pass's sweep gate read a timing-dependent number; now a
+     * pass owns its tally, and the fine pass opens one of its own.
      */
-    val shares: SlowShares,
+    val refusals: PullRefusals,
     /** How many waypoints the first pull left — the pass's own pulled count. */
     val pulledCount: Int,
     /** How many the corner snap left. */

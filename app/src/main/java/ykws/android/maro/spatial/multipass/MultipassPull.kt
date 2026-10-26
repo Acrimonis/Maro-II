@@ -175,16 +175,16 @@ internal class MarkMemo {
     private var boundField: RouteCostField? = null
 
     /** The materialized walls' distance already read, by the point it was read at. */
-    private val hard = HashMap<LatLng, Double>()
+    private val hard = PointDoubleMap()
 
     /** The summed soft price already read, by the point it was read at. */
-    private val price = HashMap<LatLng, Double>()
+    private val price = PointDoubleMap()
 
     /** The depth gate's measured edge distance already read, by the point it was read at. */
-    private val edge = HashMap<LatLng, Double>()
+    private val edge = PointDoubleMap()
 
     /** The berth proof's own wider edge read, by the point it was read at. */
-    private val farEdge = HashMap<LatLng, Double>()
+    private val farEdge = PointDoubleMap()
 
     /** The hard reads answered from the table rather than the field — raised on [hardDistance]'s hit side. */
     var hardHits: Long = 0L
@@ -201,7 +201,7 @@ internal class MarkMemo {
     fun hardDistance(field: RouteCostField, p: LatLng): Double {
         bind(field)
         val held = hard[p]
-        if (held != null) {
+        if (!held.isNaN()) {
             hardHits++
             return held
         }
@@ -222,7 +222,7 @@ internal class MarkMemo {
     fun edgeDistance(field: RouteCostField, gate: GateRule, p: LatLng, reachM: Double): Double {
         bind(field)
         val held = edge[p]
-        if (held != null) {
+        if (!held.isNaN()) {
             edgeHits++
             return held
         }
@@ -235,7 +235,7 @@ internal class MarkMemo {
     fun farEdgeDistance(field: RouteCostField, gate: GateRule, p: LatLng, reachM: Double): Double {
         bind(field)
         val held = farEdge[p]
-        if (held != null) {
+        if (!held.isNaN()) {
             edgeHits++
             return held
         }
@@ -248,7 +248,7 @@ internal class MarkMemo {
     fun price(field: RouteCostField, p: LatLng): Double {
         bind(field)
         val held = price[p]
-        if (held != null) {
+        if (!held.isNaN()) {
             priceHits++
             return held
         }
@@ -265,7 +265,8 @@ internal class MarkMemo {
     fun priceOrNull(field: RouteCostField, p: LatLng): Double? {
         bind(field)
         val held = price[p]
-        if (held != null) priceHits++
+        if (held.isNaN()) return null
+        priceHits++
         return held
     }
 
@@ -283,6 +284,82 @@ internal class MarkMemo {
             edge.clear()
             farEdge.clear()
             boundField = field
+        }
+    }
+}
+
+/**
+ * **A point → double table with no boxing** — the memo's own shape. The key is the point's two coordinates
+ * compared bit for bit, exactly as a `HashMap<LatLng, Double>` compared them through `LatLng.equals`, so a
+ * mark on the fixed lattice answers with the very double the field gave it and a neighbouring mark never
+ * answers for it. Open addressing with linear probing, grown under half full; `NaN` is the absent value,
+ * which no field read ever answers. One table per memo, cleared with it.
+ */
+internal class PointDoubleMap {
+    private var lats = DoubleArray(64)
+    private var lons = DoubleArray(64)
+    private var values = DoubleArray(64) { Double.NaN }
+    private var mask = 63
+    private var size = 0
+
+    private fun slotFor(lat: Double, lon: Double): Int {
+        var h = lat.toBits() * 31 + lon.toBits()
+        h = h xor (h ushr 32)
+        var i = h.toInt() * -0x61c88647
+        i = i xor (i ushr 16)
+        return i and mask
+    }
+
+    /** The value held at [p], or `NaN` where none is. */
+    operator fun get(p: LatLng): Double {
+        val lat = p.latitude
+        val lon = p.longitude
+        var i = slotFor(lat, lon)
+        while (true) {
+            val v = values[i]
+            if (v.isNaN()) return Double.NaN
+            if (lats[i].toBits() == lat.toBits() && lons[i].toBits() == lon.toBits()) return v
+            i = (i + 1) and mask
+        }
+    }
+
+    operator fun set(p: LatLng, value: Double) {
+        if (size * 2 >= values.size) grow()
+        val lat = p.latitude
+        val lon = p.longitude
+        var i = slotFor(lat, lon)
+        while (true) {
+            if (values[i].isNaN()) {
+                lats[i] = lat
+                lons[i] = lon
+                values[i] = value
+                size++
+                return
+            }
+            if (lats[i].toBits() == lat.toBits() && lons[i].toBits() == lon.toBits()) {
+                values[i] = value
+                return
+            }
+            i = (i + 1) and mask
+        }
+    }
+
+    fun clear() {
+        values.fill(Double.NaN)
+        size = 0
+    }
+
+    private fun grow() {
+        val oldLats = lats
+        val oldLons = lons
+        val oldValues = values
+        lats = DoubleArray(oldLats.size shl 1)
+        lons = DoubleArray(oldLats.size shl 1)
+        values = DoubleArray(oldLats.size shl 1) { Double.NaN }
+        mask = values.size - 1
+        size = 0
+        for (i in oldValues.indices) {
+            if (!oldValues[i].isNaN()) set(LatLng(oldLats[i], oldLons[i]), oldValues[i])
         }
     }
 }
@@ -766,7 +843,13 @@ object MultipassPull {
         memo: MarkMemo? = MarkMemo(),
         trace: (() -> String) -> Unit = {},
         allowanceShare: Double = AppConfig.routeAvoidPullAllowanceShare,
-        checkCancelled: () -> Unit = {}
+        checkCancelled: () -> Unit = {},
+        /**
+         * Whether anything reads [trace] — the engine's own sink or the device's log level. The arm report
+         * of a kept-by-price vertex walks the chord at the fine step with a price decomposition and an edge
+         * read per mark, work that is worth paying only where a line will be read; `true` keeps every line.
+         */
+        traceLive: Boolean = true
     ): List<LatLng> {
         if (line.size < 3) {
             trace { "SWEEP skipped=short" }
@@ -846,8 +929,9 @@ object MultipassPull {
                         "why=PRICE chordSec=${fmt(chordSec, 3)} pathSec=${fmt(pathSec, 3)}"
                 }
                 // Only a kept-by-price vertex is worth the arm split: it is the one case a reader has to
-                // explain, and it is rare enough that the walk can afford to say which arm charged it.
-                traceArms(a, c, ctx, trace, i)
+                // explain, and it is rare enough that the walk can afford to say which arm charged it —
+                // where a reader stands at all.
+                if (traceLive) traceArms(a, c, ctx, trace, i)
                 refusedPrice++
                 i++
             }
@@ -1071,9 +1155,19 @@ object MultipassPull {
      * `marginM + coarseStepM / 2`, so a step at or under the fine one spares nothing at all.
      */
     internal fun legClearCause(a: LatLng, b: LatLng, ctx: PullContext): ChordRefusal? {
+        // **One chord, one reading, from either end.** Every lattice below is anchored at the chord's first
+        // point, so the chord read from `b` would stand its marks elsewhere and could answer a hair apart;
+        // the pair is turned to its canonical direction first, so `a → b` and `b → a` are one walk — the
+        // same marks, the same reads, the same verdict — and a walk over the reversed path meets the marks
+        // the forward walk already paid for.
+        if (!sortsFirst(a, b)) return legClearCause(b, a, ctx)
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(ctx.marginM)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
+        // Whether any sample of this chord can stand inside an end's disc at all — read once per chord off
+        // the ends' own distance to it, so a chord far from both ends pays no per-mark haversine pair. The
+        // bound is loose by a twentieth and a metre, which no sample can cross.
+        val endsNear = chordNearsDisc(a, b, ctx.start, ctx.marginM) || chordNearsDisc(a, b, ctx.aim, ctx.marginM)
         // The coarse marks, on a **fixed lattice from the chord's own start**: one per coarse step, its
         // last interval sized to the chord's remainder, each standing at its interval's own midpoint —
         // so every point of the chord, its two ends included, is within half a coarse step of one, no
@@ -1097,7 +1191,7 @@ object MultipassPull {
             val p = chordPointAt(a, b, t)
             // The end-disc: the margin binds the path, never the ends. The gate's own disc is narrower, so
             // the gate's interior still binds past it.
-            if (marginWaived(p, ctx.marginM, ctx.start, ctx.aim)) {
+            if (endsNear && marginWaived(p, ctx.marginM, ctx.start, ctx.aim)) {
                 if (gate != null && !gateWaived(p, ctx) && gate.isShallow(p)) return ChordRefusal.LAND
                 continue
             }
@@ -1139,6 +1233,14 @@ object MultipassPull {
         }
         return false
     }
+
+    /**
+     * Whether the chord `a → b` comes near enough to [end]'s disc of [marginM] for any of its samples to
+     * stand inside it — the segment's own distance to the end under the shared planar read, loosened by a
+     * twentieth and a metre so the great-circle read a sample makes can never contradict it.
+     */
+    private fun chordNearsDisc(a: LatLng, b: LatLng, end: LatLng, marginM: Double): Boolean =
+        SpatialOperations.pointToSegmentDistance(end, a, b) < marginM * 1.05 + 1.0
 
     /** Whether the gate waives itself at [p] — the gate's own one rule ([GateRule.waives]). */
     private fun gateWaived(p: LatLng, ctx: PullContext): Boolean {
@@ -1188,8 +1290,9 @@ object MultipassPull {
      * under the **floor** falls to the group path below. So the walk settles on the largest provable
      * spans and keeps the group and fine marks only where a boundary actually lives.
      *
-     * The proof's own read is not a price read and is never counted in [PullTiming.priceReads]: a proved
-     * span pays one price read whatever its length, beside the clearance read that proved it. Where the
+     * The proof's own clearance read is not a price read and is never counted in [PullTiming.priceReads]: a
+     * proved span pays one price read whatever its length — through the memo, so a retraced span pays none —
+     * beside the clearance read that proved it. Where the
      * walk cannot group at all — a price step at or under the fine one — the span proof is skipped and
      * the walk reads exactly as today, so only a coarse pass changes.
      *
@@ -1202,6 +1305,9 @@ object MultipassPull {
      * interior cell and never its fine one: a defaulted step would re-arm the collapse it exists to close.
      */
     internal fun softPriceSec(a: LatLng, b: LatLng, ctx: PullContext): Double {
+        // The pair is read in its canonical direction (see [legClearCause]): one lattice, one sum, bit for
+        // bit, whichever end the caller names first.
+        if (!sortsFirst(a, b)) return softPriceSec(b, a, ctx)
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(ctx.marginM)
         // The interval partition is a [MarkLattice] on the walk's own sampling step, its last interval
@@ -1275,8 +1381,9 @@ object MultipassPull {
         val mid = chordPointAt(a, b, marks.spanMidT(i0, i1))
         val clearance = ctx.softClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
-            val price = ctx.field.softPriceSecPerMAt(mid) + ctx.berthRate(mid)
-            ctx.timing?.addPriceReads(1)
+            // The span's one read goes through the memo like a group's, so a chord walked again — the
+            // reversed walk, the sweep's retrace — answers its spans from the marks already paid for.
+            val price = readPrice(ctx, mid)
             for (j in i0 until i1) acc[0] += price * marks.widthM(j)
             return
         }

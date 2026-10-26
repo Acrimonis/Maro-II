@@ -14,8 +14,8 @@ import kotlin.math.sqrt
  *
  * [timeLineWithLimits] is the **enforced per-point ETA** — the line re-vertexed where the limit in
  * force changes and timed leg by leg at that limit, capped by the pace. No ramp, no anticipation, no
- * corner-speed cap; a leg's made-good speed **is** the enforced limit. The ranking's shares and the
- * fine-splice comparison read this one.
+ * corner-speed cap; a leg's made-good speed **is** the enforced limit. The provisional pairs a rung
+ * publishes read this one; the fine splice compares the pull's own `totalSec`, never a clock.
  *
  * [timeLineWithProfile] is the **smooth profile** the final answer carries — the same enforced limit as
  * a hard ceiling, with the corner pass's curvature ceiling beside it and a comfortable acceleration
@@ -36,6 +36,13 @@ import kotlin.math.sqrt
  * carry a limit that was not its own the day the grid cell changed.
  */
 private const val MIN_BOUNDARY_SAMPLE_M = 1.0
+
+/**
+ * The slowest speed (m/s) a leg is ever timed at — a limit or a pace of 0 kn would otherwise divide a
+ * leg's length by zero and hand the ranking an infinite clock. The profile's own leg cap already stands
+ * on this floor; the enforced clock reads it too.
+ */
+private const val MIN_LEG_SPEED_MPS = 1e-6
 
 /**
  * **The clock's own sampling step (m)** for an engine whose cell is [cellM] and whose finest cell is
@@ -84,7 +91,8 @@ fun timeLineWithLimits(
     val speeds = ArrayList<Double>(legs)
     for (i in 0 until legs) {
         val limitKn = readLimit(limitKnAt, midpoint(points[i], points[i + 1]))
-        val speedMps = if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps
+        val speedMps = (if (limitKn != null) min(Units.knotsToMps(limitKn), paceMps) else paceMps)
+            .coerceAtLeast(MIN_LEG_SPEED_MPS)
         val dist = SpatialOperations.haversine(points[i], points[i + 1])
         times.add(dist / speedMps)
         speeds.add(speedMps)
@@ -116,13 +124,22 @@ private fun splitAtLimitChanges(
     return out
 }
 
-/** Splits one leg into `[a, ...crossings..., b]` by sampling at [sampleM] then bisecting each change. */
+/**
+ * Splits one leg into `[a, ...crossings..., b]` by sampling at [sampleM] then bisecting each change.
+ *
+ * **The split is read in the leg's canonical direction.** A boundary vertex is a bisected point on the
+ * chord, parameterised from the leg's first point, so the same leg walked the other way would land the
+ * vertex a last bit apart; the leg is turned so its first point [sortsFirst] and the answer turned back, so
+ * the vertices the clock inserts — and publishes on the answer — are the same coordinates from either end,
+ * while the timing that follows still runs along the real travel direction.
+ */
 private fun splitLeg(
     a: LatLng,
     b: LatLng,
     limitKnAt: (LatLng) -> Double?,
     sampleM: Double
 ): List<LatLng> {
+    if (!sortsFirst(a, b)) return splitLeg(b, a, limitKnAt, sampleM).asReversed()
     val dist = SpatialOperations.haversine(a, b)
     if (dist <= 1e-9) return listOf(a, b)
     val step = sampleM.coerceAtLeast(MIN_BOUNDARY_SAMPLE_M)
@@ -449,6 +466,7 @@ fun timeLineWithProfile(
     accelMps2: Double = AppConfig.routeSpeedAccelMps2
 ): TimedLine {
     if (waypoints.size < 2) return TimedLine(waypoints, emptyList())
+    require(accelMps2 > 0.0) { "the profile's acceleration is a positive rate" }
     val paceMps = Units.knotsToMps(paceKn)
     val points = splitAtLimitChanges(waypoints, limitKnAt, sampleM)
     val n = points.size - 1
@@ -494,7 +512,7 @@ fun timeLineWithProfile(
         val d = SpatialOperations.haversine(points[i], points[i + 1])
         val v0 = speed[i]
         val v1 = speed[i + 1]
-        val capLeg = legLimit[i].coerceAtLeast(1e-6)
+        val capLeg = legLimit[i].coerceAtLeast(MIN_LEG_SPEED_MPS)
         val dUp = (capLeg * capLeg - v0 * v0).coerceAtLeast(0.0) / (2.0 * accelMps2)
         val dDown = (capLeg * capLeg - v1 * v1).coerceAtLeast(0.0) / (2.0 * accelMps2)
         val t = when {
