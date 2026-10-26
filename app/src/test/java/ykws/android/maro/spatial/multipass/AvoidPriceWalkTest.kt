@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
@@ -99,6 +100,20 @@ class AvoidPriceWalkTest {
         )
     }
 
+    /**
+     * **Every pass counts its own refusals.** The tally was one object per arm, shared by the three rungs'
+     * pulls on three threads, and the fine pass's sweep gate read it; two passes over one context now carry
+     * two tallies, so a rung's count is its own and never a sibling's.
+     */
+    @Test
+    fun eachPassCountsItsOwnRefusals() = runBlocking {
+        val walk = twoLayerWalk()
+        val ctx = twoLayerContext(walk)
+        val first = RoutePassRunner().runPass(ctx, walk, lambda, publishStage = false)
+        val second = RoutePassRunner().runPass(ctx, walk, lambda, publishStage = false)
+        assertNotSame("two passes, two tallies", first.refusals, second.refusals)
+    }
+
     /** The two-layer walk: the interior at [interiorCellM] and the band at [bandCellM], one window each. */
     private fun twoLayerWalk(): GridWalk {
         val family = LatticeFamily.of(
@@ -135,7 +150,6 @@ class AvoidPriceWalkTest {
             zoneOutsideMarginM = 0.0, pace = paceKn, grid = walk.grid,
             startCell = walk.startCell, aimCell = walk.aimCell, start = start, aim = aim,
             sets = emptyList(), limitAt = { null }, zones = emptyList(), priced = emptyList(),
-            refusals = PullRefusals(),
             depthGateActive = false, minDepthM = 0.0, regionSaturated = false,
             windows = walk.windows, gate = null
         )

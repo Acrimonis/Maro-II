@@ -175,6 +175,125 @@ private fun ringArmClearanceM(ring: List<LatLng>, marginM: Double, p: LatLng): D
     return min(nearest, abs(nearest - marginM))
 }
 
+/**
+ * **A set of zones with their boxes settled once** — the per-point reads above, each asked thousands of
+ * times along one line by the clock, the price field and the share split, with a bounding-box reject
+ * ahead of every ring walk. [SpeedZone.bbox] rescans the ring, so a per-call box would cost what it
+ * saves; here each box is computed once per set, and the set lives as long as the arm that built it.
+ *
+ * **Every answer is the plain read's own, exactly.** A point outside a ring's box is outside the ring, so
+ * the containment reads skip it with the same answer; a distance read skips a zone only where a true
+ * lower bound on its distance ([bboxDistanceLowerBoundM]) already proves it cannot lower the result.
+ * The excluded ids are the caller's business — a set is built over zones already filtered.
+ */
+class ZoneSet(val zones: List<SpeedZone>) {
+
+    private val boxes: List<BBox> = zones.map { it.bbox() }
+
+    /** Whether the set holds nothing — every read then answers at once. */
+    val isEmpty: Boolean get() = zones.isEmpty()
+
+    /** [strictestLimitKnAt] over this set — the price law's read, boxes rejected first. */
+    fun strictestLimitKnAt(latitude: Double, longitude: Double): Double? {
+        var strictest: Double? = null
+        for (i in zones.indices) {
+            if (!inBox(boxes[i], latitude, longitude)) continue
+            val zone = zones[i]
+            if (zone.contains(latitude, longitude) && (strictest == null || zone.routeLimitKn < strictest)) {
+                strictest = zone.routeLimitKn
+            }
+        }
+        return strictest
+    }
+
+    /** [strictestDisplayLimitKnAt] over this set — the clock's read, boxes rejected first. */
+    fun strictestDisplayLimitKnAt(latitude: Double, longitude: Double): Double? {
+        var strictest: Double? = null
+        for (i in zones.indices) {
+            if (!inBox(boxes[i], latitude, longitude)) continue
+            val zone = zones[i]
+            if (zone.contains(latitude, longitude) && (strictest == null || zone.speedLimitKn < strictest)) {
+                strictest = zone.speedLimitKn
+            }
+        }
+        return strictest
+    }
+
+    /** Whether any zone of the set contains the point — the share split's own interior read. */
+    fun containsAny(latitude: Double, longitude: Double): Boolean {
+        for (i in zones.indices) {
+            if (inBox(boxes[i], latitude, longitude) && zones[i].contains(latitude, longitude)) return true
+        }
+        return false
+    }
+
+    /** [speedZoneCollarLimitKnAt] over this set — a zone further than [marginM] from the point is never walked. */
+    fun collarLimitKnAt(latitude: Double, longitude: Double, marginM: Double): Double? {
+        val p = LatLng(latitude, longitude)
+        var strictest: Double? = null
+        for (i in zones.indices) {
+            val zone = zones[i]
+            val outer = zone.outerRing
+            if (outer.size < 2) continue
+            if (strictest != null && zone.routeLimitKn >= strictest) continue
+            if (bboxDistanceLowerBoundM(boxes[i], latitude, longitude) > marginM) continue
+            var nearest = Double.MAX_VALUE
+            for (k in 0 until outer.size - 1) {
+                nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, outer[k], outer[k + 1]))
+            }
+            if (nearest <= marginM) strictest = zone.routeLimitKn
+        }
+        return strictest
+    }
+
+    /**
+     * [speedZonePriceClearanceM] over this set — a zone whose box already stands further than the running
+     * answer plus [marginM] cannot lower it (its edge is at least that far, and so is its collar's), so its
+     * rings are never walked.
+     */
+    fun priceClearanceM(latitude: Double, longitude: Double, marginM: Double): Double {
+        val p = LatLng(latitude, longitude)
+        var nearest = Double.MAX_VALUE
+        for (i in zones.indices) {
+            if (nearest < Double.MAX_VALUE && bboxDistanceLowerBoundM(boxes[i], latitude, longitude) - marginM >= nearest) continue
+            val zone = zones[i]
+            nearest = min(nearest, ringArmClearanceM(zone.outerRing, marginM, p))
+            for (hole in zone.holes) {
+                nearest = min(nearest, ringArmClearanceM(hole, marginM, p))
+            }
+        }
+        return nearest
+    }
+
+    private fun inBox(box: BBox, latitude: Double, longitude: Double): Boolean =
+        latitude >= box.latSouth && latitude <= box.latNorth && longitude >= box.lonWest && longitude <= box.lonEast
+
+    companion object {
+        /** The empty set — every read answers nothing at once. */
+        val EMPTY = ZoneSet(emptyList())
+    }
+}
+
+/**
+ * **A true lower bound (m) on the distance from a point to anything inside [box]**, under the same local
+ * projection [SpatialOperations.pointToSegmentDistance] measures with. That read scales longitude by the
+ * cosine of the mid-latitude of the three points it is handed, a latitude that lies between the lowest and
+ * highest of them; this bound scales by the cosine of the **highest** absolute latitude the point and the
+ * box reach, which is never larger, and trims a thousandth off for the arithmetic — so a segment inside the
+ * box can never measure nearer than this bound says.
+ */
+internal fun bboxDistanceLowerBoundM(box: BBox, latitude: Double, longitude: Double): Double {
+    val dLatDeg = max(0.0, max(box.latSouth - latitude, latitude - box.latNorth))
+    val dLonDeg = max(0.0, max(box.lonWest - longitude, longitude - box.lonEast))
+    if (dLatDeg == 0.0 && dLonDeg == 0.0) return 0.0
+    val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * Math.PI / 180.0
+    val farthestAbsLat = max(abs(latitude), max(abs(box.latSouth), abs(box.latNorth)))
+    val cosMin = Math.cos(Math.toRadians(farthestAbsLat)).coerceAtLeast(0.0)
+    val dy = dLatDeg * mPerDegLat
+    val dx = dLonDeg * mPerDegLat * cosMin
+    return Math.sqrt(dx * dx + dy * dy) * 0.999
+}
+
 /** Whether the emitted line enters [zone], sampled at [stepM] along every leg. */
 fun lineEntersZone(waypoints: List<LatLng>, zone: SpeedZone, stepM: Double = 25.0): Boolean {
     if (waypoints.any { zone.contains(it.latitude, it.longitude) }) return true

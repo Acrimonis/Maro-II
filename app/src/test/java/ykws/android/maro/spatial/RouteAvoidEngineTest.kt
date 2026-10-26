@@ -1294,6 +1294,64 @@ class RouteAvoidEngineTest {
         )
     }
 
+    // ── One pair, one line, from either end ─────────────────────────────────────
+
+    /**
+     * **A pair armed from either end draws one line per rung and one crown.** The search leaves the pair's
+     * canonical end, the pull keeps the cheaper of both walks, and every drawing stage after them — the corner
+     * snap, the fine pass, the corner pass — now runs in that same canonical direction, so the drawn points
+     * of A→B are exactly the drawn points of B→A reversed. The island fixture is the one the clearance test
+     * uses, so each rung has a real detour to draw; a fold that still read the landing order could crown
+     * two rungs on two armings, which the last assertion catches.
+     */
+    @Test
+    fun aPairArmedFromEitherEndDrawsOneLineAndOneCrown() = runBlocking {
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 400.0)
+        val world = FakeWorld(edges = island.toMutableList())
+        val there = solveLadder(newEngine { world }, origin, aim)
+        val back = solveLadder(newEngine { world }, aim, origin)
+        for (rung in 0 until 3) {
+            val a = there.results[rung]
+            val b = back.results[rung]
+            assertNotNull("rung $rung lands from A", a)
+            assertNotNull("rung $rung lands from B", b)
+            assertTrue("rung $rung draws a detour", a!!.points.size > 2)
+            assertEquals("rung $rung is one line from either end", a.points, b!!.points.reversed())
+        }
+        assertEquals("and the ladder crowns the same rung", there.crown, back.crown)
+    }
+
+    /** One arm's three rungs: each rung's result by ladder index, and the crowned rung's index. */
+    private class Ladder(val results: List<RouteResult.Success?>, val crown: Int?)
+
+    /** Arms [engine] on the pair, starts every rung and awaits every terminal. */
+    private suspend fun solveLadder(engine: RouteAvoidEngine, from: RoutePoint, to: RoutePoint): Ladder = coroutineScope {
+        val declared = engine.routesToCompute(from, to) as RouteDeclarations.Available
+        val computations = declared.computations
+        val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
+        val subscribed = CompletableDeferred<Unit>()
+        val armDone = CompletableDeferred<Unit>()
+        val collector = launch(Dispatchers.Default) {
+            engine.updates
+                .onStart { subscribed.complete(Unit) }
+                .collect { update ->
+                    if (update.nextStage == null) {
+                        terminals[update.routeId] = update
+                        if (terminals.size == computations.size) armDone.complete(Unit)
+                    }
+                }
+        }
+        subscribed.await()
+        val lookups = computations.map { engine.startLookup(it.id) }
+        withTimeout(120_000) { armDone.await() }
+        collector.cancel()
+        val verdict = terminals.values.mapNotNull { it.verdict }.maxByOrNull { it.best.compared }
+        Ladder(
+            results = lookups.map { terminals[it]?.result },
+            crown = verdict?.let { v -> lookups.indexOf(v.best.lookupId) }
+        )
+    }
+
     // ── The crossing's line-end re-solve (D3) ──────────────────────────────────
 
     @Test
