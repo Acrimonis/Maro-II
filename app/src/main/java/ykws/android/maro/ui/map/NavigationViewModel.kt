@@ -1070,6 +1070,12 @@ class NavigationViewModel(
                 } else {
                     displayPositionJob?.cancel()
                     displayPositionJob = null
+                    gpsSignalWatchdogJob?.cancel()
+                    gpsSignalWatchdogJob = null
+                    deadReckoningJob?.cancel()
+                    deadReckoningJob = null
+                    _isEstimating.value = false
+                    _forceReconnect.value = false
                     _displayPosition.value = null
                 }
             }
@@ -1184,7 +1190,7 @@ class NavigationViewModel(
      */
     private fun startDeadReckoning() {
         // Defense-in-depth: don't extrapolate when the adaptive policy says stationary.
-        if (_acquisitionMode.value == AcquisitionMode.IDLE) return
+        if (!_gpsActive.value || _acquisitionMode.value == AcquisitionMode.IDLE) return
         deadReckoningJob?.cancel()
         val state = deadReckoningState ?: return
         _isEstimating.value = true

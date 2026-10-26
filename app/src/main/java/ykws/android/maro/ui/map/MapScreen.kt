@@ -1889,16 +1889,18 @@ fun MapScreen(
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
                     viewModel.savePosition()
-                    if (trackRecorderState.state != ykws.android.maro.data.track.TrackRecorderState.ON) {
-                        viewModel.setGpsActive(false)
-                    }
+                    // Recording has its own service-owned GPS listener.
+                    viewModel.setGpsActive(false)
                 }
                 Lifecycle.Event.ON_RESUME -> viewModel.setGpsActive(true)
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.setGpsActive(false)
+        }
     }
 
     // ── (keepScreenOn moved to MainActivity — window flag, avoids compose toggle glitch) ──
