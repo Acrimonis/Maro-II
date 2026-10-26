@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.onStart
@@ -67,7 +68,7 @@ class GateEnforcementEngineTest {
             coroutineScope {
                 val subscribed = CompletableDeferred<Unit>()
                 val done = CompletableDeferred<RouteUpdate?>()
-                val collector = launch(Dispatchers.Default) {
+                val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
                     engine.updates
                         .onStart { subscribed.complete(Unit) }
                         .collect { update -> if (update.nextStage == null && !done.isCompleted) done.complete(update) }

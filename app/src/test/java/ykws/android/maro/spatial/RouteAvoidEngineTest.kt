@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -100,7 +101,7 @@ class RouteAvoidEngineTest {
         val computation = available.computations[rungIndex]
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate?>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -691,7 +692,7 @@ class RouteAvoidEngineTest {
         val reported = ArrayList<Pair<RouteStage?, List<RouteStepReading>>>()
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<Unit>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -746,7 +747,7 @@ class RouteAvoidEngineTest {
         val stages = ArrayList<RouteStage?>()
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<Unit>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -784,7 +785,7 @@ class RouteAvoidEngineTest {
         val updates = ArrayList<RouteUpdate>()
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<Unit>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -927,7 +928,7 @@ class RouteAvoidEngineTest {
         val subscribed = CompletableDeferred<Unit>()
         val armDone = CompletableDeferred<Unit>()
         val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -968,7 +969,7 @@ class RouteAvoidEngineTest {
         val secondSubscribed = CompletableDeferred<Unit>()
         val secondMainDone = CompletableDeferred<RouteUpdate>()
         var secondMainId: RouteId? = null
-        val secondCollector = launch(Dispatchers.Default) {
+        val secondCollector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { secondSubscribed.complete(Unit) }
                 .collect { update ->
@@ -1020,7 +1021,7 @@ class RouteAvoidEngineTest {
         val subscribed = CompletableDeferred<Unit>()
         val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
         val allDone = CompletableDeferred<Unit>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -1110,7 +1111,7 @@ class RouteAvoidEngineTest {
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate>()
         var mainId: RouteId? = null
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -1163,7 +1164,7 @@ class RouteAvoidEngineTest {
 
         val subscribed = CompletableDeferred<Unit>()
         val firstTerminal = CompletableDeferred<RouteUpdate>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -1237,7 +1238,7 @@ class RouteAvoidEngineTest {
         val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
         val subscribed = CompletableDeferred<Unit>()
         val armDone = CompletableDeferred<Unit>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
@@ -1321,6 +1322,34 @@ class RouteAvoidEngineTest {
         assertEquals("and the ladder crowns the same rung", there.crown, back.crown)
     }
 
+    /**
+     * **The clock's own vertices are symmetric too.** A line crossing a speed limit is re-vertexed where the
+     * limit changes, by a bisection the clock runs along the leg; split from the arming end it could land a
+     * boundary vertex a last bit apart in the two directions. The split now reads each leg in canonical
+     * direction, so the published points — boundary vertices included — are one list from either end. The
+     * zone lies across the straight line with the price switch armed, so the rungs round it and the lines
+     * cross its collar and interior at several boundaries.
+     */
+    @Test
+    fun aPairCrossingALimitBoundaryStillDrawsOneLineFromEitherEnd() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.478, 43.522, 7.020, 7.040))
+        val world = FakeWorld(zones = listOf(zone))
+        val there = solveLadder(newEngine { world }, origin, aim)
+        val back = solveLadder(newEngine { world }, aim, origin)
+        var crossings = 0
+        for (rung in 0 until 3) {
+            val a = there.results[rung]
+            val b = back.results[rung]
+            assertNotNull("rung $rung lands from A", a)
+            assertNotNull("rung $rung lands from B", b)
+            if (a!!.legSpeedsMps.any { it < Units.knotsToMps(paceKn) - 1e-9 }) crossings++
+            assertEquals("rung $rung is one line from either end, boundary vertices included", a.points, b!!.points.reversed())
+        }
+        assertTrue("the fixture's lines meet the limit", crossings > 0)
+        assertEquals("and the ladder crowns the same rung", there.crown, back.crown)
+    }
+
     /** One arm's three rungs: each rung's result by ladder index, and the crowned rung's index. */
     private class Ladder(val results: List<RouteResult.Success?>, val crown: Int?)
 
@@ -1331,7 +1360,7 @@ class RouteAvoidEngineTest {
         val terminals = ConcurrentHashMap<RouteId, RouteUpdate>()
         val subscribed = CompletableDeferred<Unit>()
         val armDone = CompletableDeferred<Unit>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->

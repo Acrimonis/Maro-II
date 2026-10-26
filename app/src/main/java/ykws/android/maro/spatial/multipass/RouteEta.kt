@@ -124,13 +124,22 @@ private fun splitAtLimitChanges(
     return out
 }
 
-/** Splits one leg into `[a, ...crossings..., b]` by sampling at [sampleM] then bisecting each change. */
+/**
+ * Splits one leg into `[a, ...crossings..., b]` by sampling at [sampleM] then bisecting each change.
+ *
+ * **The split is read in the leg's canonical direction.** A boundary vertex is a bisected point on the
+ * chord, parameterised from the leg's first point, so the same leg walked the other way would land the
+ * vertex a last bit apart; the leg is turned so its first point [sortsFirst] and the answer turned back, so
+ * the vertices the clock inserts — and publishes on the answer — are the same coordinates from either end,
+ * while the timing that follows still runs along the real travel direction.
+ */
 private fun splitLeg(
     a: LatLng,
     b: LatLng,
     limitKnAt: (LatLng) -> Double?,
     sampleM: Double
 ): List<LatLng> {
+    if (!sortsFirst(a, b)) return splitLeg(b, a, limitKnAt, sampleM).asReversed()
     val dist = SpatialOperations.haversine(a, b)
     if (dist <= 1e-9) return listOf(a, b)
     val step = sampleM.coerceAtLeast(MIN_BOUNDARY_SAMPLE_M)

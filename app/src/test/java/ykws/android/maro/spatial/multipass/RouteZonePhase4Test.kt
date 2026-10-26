@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collect
@@ -725,7 +726,7 @@ class RouteZonePhase4Test {
         val computation = available.computations[rungIndex]
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate?>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->

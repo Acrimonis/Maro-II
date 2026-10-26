@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onStart
@@ -42,7 +43,7 @@ class RouteDummyEngineTest {
     private fun terminal(engine: RouteDummyEngine, computationId: RouteId): RouteUpdate = runBlocking {
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate?>()
-        val collector = launch(Dispatchers.Default) {
+        val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { if (it.nextStage == null) { done.complete(it); return@collect } }

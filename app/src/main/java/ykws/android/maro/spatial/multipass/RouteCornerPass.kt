@@ -177,7 +177,8 @@ object RouteCornerPass {
         // same line reversed could be drawn a hair apart. Drawn with the first point sorting before the last
         // and turned back, a pair armed from either end carries one drawn line; the ceilings are keyed by
         // point and the verdicts are turned back with the points, so a reader meets the bends in the line's
-        // own order. The clock that follows still runs along the real travel direction.
+        // own order. The clock that follows still runs along the real travel direction, over boundary
+        // vertices it splits in the leg's canonical direction (`RouteEta`), so its points are symmetric too.
         if (!sortsFirst(line.first(), line.last())) {
             val drawn = roundOriented(line.asReversed(), paceKn, world, gate, marginM, checkCancelled)
             return RoundedLine(drawn.points.reversed(), drawn.ceilingKnAt, drawn.verdicts.reversed())
