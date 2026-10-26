@@ -172,8 +172,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             )
         }
         // The clock's limit read over the corridor's own zones — the world's whole region would answer the
-        // same for every point inside the box, at the cost of walking every ring of it per sample.
-        val limitAt = limitAtFor(world, ZoneSet(zones))
+        // same for every point inside the box, at the cost of walking every ring of it per sample. They are
+        // the world's zones in the box, **whatever the price switch says**: a switch prices water, it never
+        // suspends a limit, so the clock's set is read off the world and never off the grid's gated `zones`.
+        val limitAt = limitAtFor(world, ZoneSet(world.speedZonesIn(box)))
         // Named construction, never a positional 27th: the `windows` seam defaults to `null` here, which is
         // exactly this single-grid walk — `avoid`'s answer, cell for cell.
         return GridContext(
@@ -365,7 +367,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 )
             )
         }
-        val limitAt = limitAtFor(world, ZoneSet(zones))
+        val limitAt = limitAtFor(world, ZoneSet(world.speedZonesIn(box)))
         return GridContext(
             world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
             capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,

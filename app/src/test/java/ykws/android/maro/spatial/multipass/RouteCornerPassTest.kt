@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.LatLng
@@ -365,9 +366,11 @@ class RouteCornerPassTest {
     fun aBendAtTheHardBottomCurvesAndAHairLessStands() {
         val corner = LatLng(43.5, 7.0)
         val next = offset(corner, 50.0 * sin(Math.toRadians(140.0)), 50.0 * cos(Math.toRadians(140.0)))
-        // The drawn tangent a 140° curve needs at 1.02 kn (≈3.288 m) and at 0.98 kn (≈3.086 m).
-        val curvedRoom = 3.2878
-        val standingRoom = 3.0862
+        // The drawn tangent a 140° curve needs at 1.02 kn (≈2.666 m) and at 0.98 kn (≈2.469 m) — the
+        // mirror-symmetric bow's own reach, read off its end point (3.288 / 3.086 m while the exit was
+        // drawn as a second entry spiral).
+        val curvedRoom = 2.6655
+        val standingRoom = 2.4689
 
         val curved = RouteCornerPass.round(
             listOf(offset(corner, 0.0, -curvedRoom), corner, next),
@@ -409,7 +412,12 @@ class RouteCornerPassTest {
         val inM = SpatialOperations.haversine(corner, curve.first())
         val outM = SpatialOperations.haversine(corner, curve.last())
         assertTrue("the bow reaches tens of metres ($inM m)", inM > 20.0)
-        assertEquals("and the same distance along both legs", inM, outM, 0.02)
+        // The last drawn point is the bow's own end; the first drawn point stands one spiral step — a
+        // sixteenth of the clothoid, which at the pace is `v × transitionSec` long — past the bow's start.
+        // Equal reaches therefore read as that one step of difference, and no more: the asymmetric bow
+        // read half a metre less.
+        val spiralStepM = Units.knotsToMps(15.0) * AppConfig.routeTurnTransitionSec / 16.0
+        assertEquals("and the same distance along both legs", spiralStepM, outM - inM, 0.02)
     }
 
     /**

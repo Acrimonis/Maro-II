@@ -1290,8 +1290,9 @@ object MultipassPull {
      * under the **floor** falls to the group path below. So the walk settles on the largest provable
      * spans and keeps the group and fine marks only where a boundary actually lives.
      *
-     * The proof's own read is not a price read and is never counted in [PullTiming.priceReads]: a proved
-     * span pays one price read whatever its length, beside the clearance read that proved it. Where the
+     * The proof's own clearance read is not a price read and is never counted in [PullTiming.priceReads]: a
+     * proved span pays one price read whatever its length — through the memo, so a retraced span pays none —
+     * beside the clearance read that proved it. Where the
      * walk cannot group at all — a price step at or under the fine one — the span proof is skipped and
      * the walk reads exactly as today, so only a coarse pass changes.
      *
@@ -1380,8 +1381,9 @@ object MultipassPull {
         val mid = chordPointAt(a, b, marks.spanMidT(i0, i1))
         val clearance = ctx.softClearanceM(mid)
         if (clearance < Double.MAX_VALUE && clearance >= halfM) {
-            val price = ctx.field.softPriceSecPerMAt(mid) + ctx.berthRate(mid)
-            ctx.timing?.addPriceReads(1)
+            // The span's one read goes through the memo like a group's, so a chord walked again — the
+            // reversed walk, the sweep's retrace — answers its spans from the marks already paid for.
+            val price = readPrice(ctx, mid)
             for (j in i0 until i1) acc[0] += price * marks.widthM(j)
             return
         }

@@ -120,7 +120,7 @@ object RouteCornerPass {
      * [`RoundedLine.verdicts`]. It reports; it never decides, so the pass's own output is unmoved.
      */
     data class CornerVerdict(
-        /** The vertex's index in the line the pass drew — the compound line, in the pair's canonical direction. */
+        /** The vertex's index in the compound line the pass drew, counted in the pair's canonical direction. */
         val index: Int,
         val at: LatLng,
         val outcome: CornerOutcome,
@@ -176,11 +176,11 @@ object RouteCornerPass {
         // drawing tail each read the line from one end — a bow already drawn caps the one after it — so the
         // same line reversed could be drawn a hair apart. Drawn with the first point sorting before the last
         // and turned back, a pair armed from either end carries one drawn line; the ceilings are keyed by
-        // point and the verdicts stand in the drawn order, so nothing else moves. The clock that follows
-        // still runs along the real travel direction.
+        // point and the verdicts are turned back with the points, so a reader meets the bends in the line's
+        // own order. The clock that follows still runs along the real travel direction.
         if (!sortsFirst(line.first(), line.last())) {
             val drawn = roundOriented(line.asReversed(), paceKn, world, gate, marginM, checkCancelled)
-            return RoundedLine(drawn.points.reversed(), drawn.ceilingKnAt, drawn.verdicts)
+            return RoundedLine(drawn.points.reversed(), drawn.ceilingKnAt, drawn.verdicts.reversed())
         }
         return roundOriented(line, paceKn, world, gate, marginM, checkCancelled)
     }
