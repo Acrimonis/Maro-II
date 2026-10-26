@@ -63,8 +63,7 @@ internal fun costField(
         val bandReach = bandReachM(bandM, bandOutsideMarginM)
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
         val zoneFraction = AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction
-        // The zones with their boxes settled once per field, so each per-point read rejects by box first.
-        val scopedZones = ZoneSet(zones)
+        val scopedZones = zones
         sources.add(
             RouteCostSource.Soft(
                 // **The declaration.** The arm is `max(bandPrice, zonePrice)`, so it changes where
@@ -83,7 +82,9 @@ internal fun costField(
                     if (zonesPriced) {
                         nearest = minOf(
                             nearest,
-                            scopedZones.priceClearanceM(p.latitude, p.longitude, zoneOutsideMarginM)
+                            speedZonePriceClearanceM(
+                                scopedZones, emptySet(), p.latitude, p.longitude, zoneOutsideMarginM
+                            )
                         )
                     }
                     nearest
@@ -100,8 +101,11 @@ internal fun costField(
                         }
                     val zonePrice =
                         if (zonesPriced) {
-                            val interiorLimit = scopedZones.strictestLimitKnAt(p.latitude, p.longitude)
-                            val collarLimit = scopedZones.collarLimitKnAt(p.latitude, p.longitude, zoneOutsideMarginM)
+                            val interiorLimit =
+                                strictestLimitKnAt(scopedZones, emptySet(), p.latitude, p.longitude)
+                            val collarLimit = speedZoneCollarLimitKnAt(
+                                scopedZones, emptySet(), p.latitude, p.longitude, zoneOutsideMarginM
+                            )
                             zonePriceAtLimits(
                                 cellM, pace, interiorLimit ?: 0.0, collarLimit ?: 0.0, lambda, zoneFraction
                             )
@@ -127,8 +131,11 @@ internal fun costField(
                         }
                     val zonePrice =
                         if (zonesPriced) {
-                            val interiorLimit = scopedZones.strictestLimitKnAt(p.latitude, p.longitude)
-                            val collarLimit = scopedZones.collarLimitKnAt(p.latitude, p.longitude, zoneOutsideMarginM)
+                            val interiorLimit =
+                                strictestLimitKnAt(scopedZones, emptySet(), p.latitude, p.longitude)
+                            val collarLimit = speedZoneCollarLimitKnAt(
+                                scopedZones, emptySet(), p.latitude, p.longitude, zoneOutsideMarginM
+                            )
                             zonePriceAtLimits(
                                 cellM, pace, interiorLimit ?: 0.0, collarLimit ?: 0.0, lambda, zoneFraction
                             )
@@ -360,47 +367,6 @@ internal fun limitAtFor(world: MultipassWorld): (LatLng) -> Double? {
 }
 
 /**
- * [limitAtFor] over an arm's **own** zones — the corridor's harvested set, excluded ids already dropped —
- * rather than the world's whole region: a point inside the corridor can stand in no zone whose box misses
- * the corridor, so the answer is the world read's own, while each sample of the clock no longer asks the
- * provider for the whole list and walks every ring of the region. The band's read is unchanged.
- */
-internal fun limitAtFor(world: MultipassWorld, zones: ZoneSet): (LatLng) -> Double? {
-    val bandM = world.bandWidthM
-    val bandLimitKn = AppConfig.routeAvoidZone300LimitKn
-    return { p ->
-        val zoneLimit = zones.strictestDisplayLimitKnAt(p.latitude, p.longitude)
-        val bandLimit =
-            if (bandM > 0.0 &&
-                insideBandWidthM(world.distanceToCoastM(p.latitude, p.longitude), bandM)
-            ) bandLimitKn else null
-        when {
-            zoneLimit == null -> bandLimit
-            bandLimit == null -> zoneLimit
-            else -> min(zoneLimit, bandLimit)
-        }
-    }
-}
-
-/**
- * **A post-search stage run in the pair's canonical direction.** The pull's corner snap, the fine pass,
- * the sweep, the straightener, the medial nudge and the corner pass each read the line from one end — a
- * predecessor already settled, a successor not yet — so handed the same line reversed they can settle a
- * different point. Run on the line turned so its first point [sortsFirst] before its last, over the setup
- * mirrored to match (the two ends' discs are symmetric, so nothing but the direction moves), and turned
- * back, every such stage answers one line for a pair armed from either end — the rule
- * `261020_FEAT_PLN_Route_direction-symmetry.md` took for the search, extended to the drawing.
- */
-internal inline fun inCanonicalDirection(
-    line: List<LatLng>,
-    setup: PullSetup,
-    stage: (line: List<LatLng>, setup: PullSetup) -> List<LatLng>
-): List<LatLng> {
-    if (line.size < 2 || sortsFirst(line.first(), line.last())) return stage(line, setup)
-    return stage(line.asReversed(), setup.reversed()).reversed()
-}
-
-/**
  * Moves a bend onto its nearest tangent corner — the nearest corner whose own set radius contains it,
  * across all sets — only when both legs stay clear; open water keeps the bend.
  *
@@ -471,10 +437,8 @@ internal fun zoneMetres(zones: List<SpeedZone>, points: List<LatLng>): Double {
  * **The ring water, as the share split reads it** — a point inside any priced zone's own ring. It is
  * the world's own interior read, so a collar is a price and never a metre charged to a ring.
  */
-internal fun inZone(zones: List<SpeedZone>): (LatLng) -> Boolean {
-    val set = ZoneSet(zones)
-    return { p -> set.containsAny(p.latitude, p.longitude) }
-}
+internal fun inZone(zones: List<SpeedZone>): (LatLng) -> Boolean =
+    { p -> strictestLimitKnAt(zones, emptySet(), p.latitude, p.longitude) != null }
 
 /**
  * **The band's law water, as the share split reads it** — a point inside the band's own width. The

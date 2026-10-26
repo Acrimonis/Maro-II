@@ -300,23 +300,6 @@ the plan section above).
   frame without saying so; a failing pair now costs up to four exhaustive walks instead of two (eight with the
   engine's grown-corridor retry) — latency on failing pairs only.
 
-### The drawing in the canonical frame (2026-10-26, `feature/routing-review`)
-
-- **Every stage after the pull runs in the canonical direction and is turned back** — the corner snap
-  (`RoutePassRunner`, through `inCanonicalDirection`), the fine pass whole (`RouteFinePass.finePass`: its local
-  re-solves, both pulls, the sweep, the straightener, the nudge) and the corner pass (`RouteCornerPass.round`) —
-  so repairs 1, 2, 4 and 5 are closed by construction rather than measured away. The clock stays along travel.
-- **The pull's proofs read a chord in canonical direction** (`legClearCause`, `softPriceSec`): one lattice, one
-  double bit for bit, and the backward walk's prefix is answered from the forward walk's memo.
-- **The crown folds in ladder order** (`RoutePassRanking.settle`): the residue of 2026-10-21 — cannes-bay →
-  baie-des-anges crowning `fast` one way and `around` the other — was the landing order, not geometry.
-- **The corner bow is its own mirror**: its exit was drawn as a second entry spiral, which is where the 0.4 m /
-  2.3 m corner-pass gap lived.
-- **Pinned**: `RouteAvoidEngineTest.aPairArmedFromEitherEndDrawsOneLineAndOneCrown` (three rungs, point-for-point
-  reversal, one crown), `CanonicalChordProofsTest`, the two reversed-line tests in `RouteCornerPassTest`. The
-  instrument's survey is owed a re-run on a machine with the bake; the prediction is 0.0 m on every stage row.
-  Review and change record: `docs/REVIEW_2026-10-26_routing-algorithm.md`.
-
 ### What the symmetry costs (2026-10-21)
 
 Measured with a throw-away timing probe (engine API only, so it ran on both trees) over 12 pairs, both

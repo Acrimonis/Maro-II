@@ -79,9 +79,6 @@ internal object RouteMedialNudge {
         }
         val out = ArrayList<LatLng>(line.size + 8)
         var nextVertex = 0
-        // The first leg no moved stretch has consumed — advanced on acceptance alone, so a stretch the proofs
-        // refuse leaves its leg open to a later passage on the same leg rather than closing it in passing.
-        var consumedLeg = 0
         var stretches = 0
         var moved = 0
         var i = 0
@@ -96,13 +93,12 @@ internal object RouteMedialNudge {
             val last = samples[j]
             if (j > i) stretches++
             // A stretch starting on a leg the previous moved stretch already consumed is left alone.
-            if (j > i && first.leg >= consumedLeg) {
+            if (j > i && first.leg >= nextVertex) {
                 while (nextVertex <= first.leg) out.add(line[nextVertex++])
-                val vertices = stretchVertices(samples, i, j, gate, ctx)
+                val vertices = stretchVertices(samples, i, j, gate)
                 if (vertices != null && accepts(out.last(), vertices, line, first.leg, last.leg, ctx)) {
                     out.addAll(vertices)
                     nextVertex = last.leg + 1
-                    consumedLeg = last.leg + 1
                     moved++
                 }
             }
@@ -143,13 +139,7 @@ internal object RouteMedialNudge {
      * own leg's normal, so two legs' offsets are never averaged) — or `null` where none survives. A vertex
      * that would stand nearer the edge than its sample did, or inside the wall, is dropped on its own.
      */
-    private fun stretchVertices(
-        samples: List<Sample>,
-        from: Int,
-        to: Int,
-        gate: GateRule,
-        ctx: PullContext
-    ): List<LatLng>? {
+    private fun stretchVertices(samples: List<Sample>, from: Int, to: Int, gate: GateRule): List<LatLng>? {
         val out = ArrayList<LatLng>()
         var k = from
         while (k <= to) {
@@ -167,15 +157,8 @@ internal object RouteMedialNudge {
                 s.at.latitude + s.normalNorth * offsetM / M_PER_DEG_LAT,
                 s.at.longitude + s.normalEast * offsetM / mLon
             )
-            // A moved vertex is new water, and the chord proofs never read a chord's own ends: it is tested as
-            // a point here — not shallow, not inside a rastered wall, and clear of the coast margin outside
-            // the ends' discs — before its edge distance may stand for it, since that distance is unsigned and
-            // a point inside the bank reads as far from the edge as one outside it.
             val edge = gate.edgeM(moved, s.edgeM + gate.preferredM)
-            val standsOnWater = !gate.isShallow(moved) && !ctx.field.hardBlocked(moved) &&
-                (MultipassPull.marginWaived(moved, ctx.marginM, ctx.start, ctx.aim) ||
-                    ctx.field.hardDistanceM(moved) >= ctx.marginM)
-            if (standsOnWater && edge >= s.edgeM && edge >= gate.hardM) out.add(moved)
+            if (edge >= s.edgeM && edge >= gate.hardM) out.add(moved)
             k = if (k == to) to + 1 else minOf(k + VERTEX_EVERY, to)
         }
         return out.ifEmpty { null }

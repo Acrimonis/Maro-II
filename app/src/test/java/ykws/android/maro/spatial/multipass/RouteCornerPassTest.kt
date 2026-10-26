@@ -1,6 +1,5 @@
 package ykws.android.maro.spatial.multipass
 
-import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.LatLng
@@ -309,10 +308,8 @@ class RouteCornerPassTest {
         assertEquals("the room is the whole shorter leg", 10.0, verdict.reachAskM, 0.5)
         assertTrue("the corner vertex is replaced by the arc", corner !in rounded.points)
         // The fit is the drawn curve's own tangent, spirals included — not the shorter circular arc's —
-        // so the ceiling is the ~1.664 m/s that fitted radius allows, not the arc-only ≈ 1.817 m/s. (It
-        // read 1.6245 m/s while the exit was drawn as a second entry spiral, whose longer inbound reach was
-        // the one the fit measured; the mirror-symmetric bow reaches 10 m on both legs at 1.6642 m/s.)
-        val expectedKn = Units.mpsToKnots(1.6642)
+        // so the ceiling is the ~1.625 m/s that fitted radius allows, not the arc-only ≈ 1.817 m/s.
+        val expectedKn = Units.mpsToKnots(1.6245)
         val ceilings = rounded.points.mapNotNull { rounded.ceilingKnAt(it) }
         assertTrue("a ceiling is written across the arc", ceilings.isNotEmpty())
         for (c in ceilings) {
@@ -366,11 +363,9 @@ class RouteCornerPassTest {
     fun aBendAtTheHardBottomCurvesAndAHairLessStands() {
         val corner = LatLng(43.5, 7.0)
         val next = offset(corner, 50.0 * sin(Math.toRadians(140.0)), 50.0 * cos(Math.toRadians(140.0)))
-        // The drawn tangent a 140° curve needs at 1.02 kn (≈2.666 m) and at 0.98 kn (≈2.469 m) — the
-        // mirror-symmetric bow's own reach, read off its end point (3.288 / 3.086 m while the exit was
-        // drawn as a second entry spiral).
-        val curvedRoom = 2.6655
-        val standingRoom = 2.4689
+        // The drawn tangent a 140° curve needs at 1.02 kn (≈3.288 m) and at 0.98 kn (≈3.086 m).
+        val curvedRoom = 3.2878
+        val standingRoom = 3.0862
 
         val curved = RouteCornerPass.round(
             listOf(offset(corner, 0.0, -curvedRoom), corner, next),
@@ -393,52 +388,6 @@ class RouteCornerPassTest {
         )
         assertTrue("the bend stands as its bare vertex", corner in standing.points)
         assertEquals("and is taken at the turn floor", 5.0, standing.ceilingKnAt(corner)!!, 0.01)
-    }
-
-    /**
-     * **The bow is its own mirror.** Entry spiral, arc, then the entry spiral run backwards: the drawn curve
-     * reaches the same distance along both legs of the corner. Drawn with a second entry spiral, as it once
-     * was, the outbound reach fell short of the inbound — half a metre at the pace, a third of the tangent at
-     * a room-fitted bend — and the shape depended on which leg it was entered by.
-     */
-    @Test
-    fun theDrawnBowReachesEquallyAlongBothLegs() {
-        val corner = LatLng(43.5, 7.0)
-        val prev = offset(corner, 0.0, -600.0)
-        val next = offset(corner, 520.0, 300.0)
-        val rounded = RouteCornerPass.round(listOf(prev, corner, next), 15.0, CoastWorld(emptyList()), null, 50.0)
-        assertEquals(RouteCornerPass.CornerOutcome.ROUNDED, rounded.verdicts.single().outcome)
-        val curve = rounded.points.subList(1, rounded.points.size - 1)
-        val inM = SpatialOperations.haversine(corner, curve.first())
-        val outM = SpatialOperations.haversine(corner, curve.last())
-        assertTrue("the bow reaches tens of metres ($inM m)", inM > 20.0)
-        // The last drawn point is the bow's own end; the first drawn point stands one spiral step — a
-        // sixteenth of the clothoid, which at the pace is `v × transitionSec` long — past the bow's start.
-        // Equal reaches therefore read as that one step of difference, and no more: the asymmetric bow
-        // read half a metre less.
-        val spiralStepM = Units.knotsToMps(15.0) * AppConfig.routeTurnTransitionSec / 16.0
-        assertEquals("and the same distance along both legs", spiralStepM, outM - inM, 0.02)
-    }
-
-    /**
-     * **One line, drawn once, from either end.** The pass draws in the pair's canonical direction, so the
-     * same line handed reversed is drawn as the same points in reverse — the drawn geometry no longer depends
-     * on the direction of travel, only the clock does.
-     */
-    @Test
-    fun aLineReversedIsDrawnAsTheSamePointsReversed() {
-        val corner = LatLng(43.5, 7.0)
-        val line = listOf(
-            offset(corner, -700.0, -100.0), offset(corner, -300.0, 0.0), corner,
-            offset(corner, 150.0, 260.0), offset(corner, 500.0, 900.0)
-        )
-        val there = RouteCornerPass.round(line, 15.0, CoastWorld(emptyList()), null, 50.0)
-        val back = RouteCornerPass.round(line.reversed(), 15.0, CoastWorld(emptyList()), null, 50.0)
-        assertTrue("the fixture bends", there.points.size > line.size)
-        assertEquals("the reversed line is the same drawn line, reversed", there.points, back.points.reversed())
-        for (p in there.points) {
-            assertEquals("and carries the same ceiling at every point", there.ceilingKnAt(p), back.ceilingKnAt(p))
-        }
     }
 
     /** A point [eastM] metres east and [northM] metres north of [base], on the pass's own sphere. */

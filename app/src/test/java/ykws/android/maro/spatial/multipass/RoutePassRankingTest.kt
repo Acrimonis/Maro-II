@@ -289,42 +289,6 @@ class RoutePassRankingTest {
         )
     }
 
-    /**
-     * **The fold reads the ladder's order, never the landing order.** Three lines 25 and 20 score seconds
-     * apart, inside the 30 s tolerance pairwise but not end to end: folded as they were declared, the
-     * fastest clearly beats the around rung and takes the crown; folded in the order the threads finished
-     * — the balanced rung first — the balanced rung held it against both, and the crown was a matter of
-     * timing. [RoutePassRanking.settle] answers the same crown and the same ranks from either landing order.
-     */
-    @Test
-    fun theSettledFoldCrownsTheSameRungFromEitherLandingOrder() {
-        val around = line(durationSec = 1000.0, slowWaterSec = 0.0)
-        val balanced = line(durationSec = 975.0, slowWaterSec = 0.0)
-        val fast = line(durationSec = 955.0, slowWaterSec = 0.0)
-        // The fold this seat replaces: in landing order the balanced rung keeps the crown it took first.
-        assertEquals(
-            "the plain fold crowns the first to land when the rest stay inside the tolerance of it",
-            0,
-            RoutePassRanking.bestRungIndex(1.0, toleranceSec, listOf(balanced, around, fast))
-        )
-        assertEquals(
-            "and another rung when the landing order differs",
-            2,
-            RoutePassRanking.bestRungIndex(1.0, toleranceSec, listOf(around, balanced, fast))
-        )
-        val declared = RoutePassRanking.settle(1.0, toleranceSec, listOf(0, 1, 2), listOf(around, balanced, fast))
-        val landedOtherwise = RoutePassRanking.settle(1.0, toleranceSec, listOf(1, 0, 2), listOf(balanced, around, fast))
-        assertEquals("settled in ladder order, the fast rung takes the crown", 2, declared!!.winner)
-        assertEquals("from the other landing order too, as the position of that same rung", 2, landedOtherwise!!.winner)
-        assertEquals("with the ranks of the one fold", listOf(3, 2, 1), declared.ranks)
-        assertEquals(
-            "read back into the other order's positions",
-            listOf(2, 3, 1),
-            landedOtherwise.ranks
-        )
-        assertEquals("the crown is rank 1 either way", 1, landedOtherwise.ranks[landedOtherwise.winner])
-    }
-
     /** Nothing landed ranks nothing. */
     @Test
     fun anEmptySetHasNoRanks() {

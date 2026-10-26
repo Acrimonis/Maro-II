@@ -62,35 +62,6 @@ internal object RoutePassRanking {
         val durationSec: Double
     )
 
-    /** One settled set's crown and ranks, both as positions in the list the caller handed [settle]. */
-    internal data class Settled(val winner: Int, val ranks: List<Int>)
-
-    /**
-     * **The crown and the ranks of a landed set, folded in the ladder's own order.** [bestRungIndex] and
-     * [ranks] read a list in the order it is given, and keep an incumbent against a challenger inside the
-     * tolerance — so the order decides a near-tie. The rungs run concurrently and land in whichever order
-     * their threads finish, which made that order a matter of timing; this fold sorts the set by the stop
-     * each rung was declared at ([ladderIndices], the ladder's own index per entry of [costs]) before it
-     * reads, and answers both figures as positions in the **caller's** list, so the same three lines crown
-     * the same rung every time. `null` where nothing has landed.
-     */
-    internal fun settle(
-        weight: Double?,
-        toleranceSec: Double,
-        ladderIndices: List<Int>,
-        costs: List<PassCost>
-    ): Settled? {
-        if (costs.isEmpty()) return null
-        require(ladderIndices.size == costs.size) { "one ladder index per cost" }
-        val order = costs.indices.sortedBy { ladderIndices[it] }
-        val sortedCosts = order.map { costs[it] }
-        val winner = bestRungIndex(weight, toleranceSec, sortedCosts) ?: return null
-        val sortedRanks = ranks(weight, toleranceSec, sortedCosts)
-        val ranksOut = IntArray(costs.size)
-        for (k in order.indices) ranksOut[order[k]] = sortedRanks[k]
-        return Settled(order[winner], ranksOut.toList())
-    }
-
     /**
      * **The winner among the rungs that have landed**, as its position in [costs] — or `null` where
      * nothing has landed. The rungs arrive in the order they settled and the fold is one walk: a rung
@@ -172,8 +143,8 @@ internal object RoutePassRanking {
      *    the step below decides nothing of its own;
      * 2. **fewer seconds under a limit** ([PassCost.slowWaterSec]) — the cleaner line;
      * 3. **shorter trip time** ([PassCost.durationSec]);
-     * 4. **first in the list** — the rung's own position in [costs]: the ladder's order under [settle],
-     *    so a rung the chain can tell from its twin no other way keeps its stop's place, the earlier stop first.
+     * 4. **first landed** — the rung's own position in [costs], the engine's arrival order, so a rung the
+     *    chain can tell from its twin no other way keeps the place it settled in, the incumbent first.
      */
     private fun tieBreakChain(weight: Double?, costs: List<PassCost>): Comparator<Int> =
         compareBy<Int>(

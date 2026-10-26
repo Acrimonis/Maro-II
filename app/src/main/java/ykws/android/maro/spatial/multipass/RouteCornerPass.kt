@@ -120,7 +120,7 @@ object RouteCornerPass {
      * [`RoundedLine.verdicts`]. It reports; it never decides, so the pass's own output is unmoved.
      */
     data class CornerVerdict(
-        /** The vertex's index in the compound line the pass drew, counted in the pair's canonical direction. */
+        /** The vertex's own index in the line handed to [round]. */
         val index: Int,
         val at: LatLng,
         val outcome: CornerOutcome,
@@ -172,29 +172,6 @@ object RouteCornerPass {
         checkCancelled: () -> Unit = {}
     ): RoundedLine {
         if (line.size < 3) return RoundedLine(line, { null })
-        // **The pass draws in the pair's canonical direction.** The pair merge, the shared-leg split and the
-        // drawing tail each read the line from one end — a bow already drawn caps the one after it — so the
-        // same line reversed could be drawn a hair apart. Drawn with the first point sorting before the last
-        // and turned back, a pair armed from either end carries one drawn line; the ceilings are keyed by
-        // point and the verdicts are turned back with the points, so a reader meets the bends in the line's
-        // own order. The clock that follows still runs along the real travel direction, over boundary
-        // vertices it splits in the leg's canonical direction (`RouteEta`), so its points are symmetric too.
-        if (!sortsFirst(line.first(), line.last())) {
-            val drawn = roundOriented(line.asReversed(), paceKn, world, gate, marginM, checkCancelled)
-            return RoundedLine(drawn.points.reversed(), drawn.ceilingKnAt, drawn.verdicts.reversed())
-        }
-        return roundOriented(line, paceKn, world, gate, marginM, checkCancelled)
-    }
-
-    /** [round]'s body over a line whose first point sorts before its last. */
-    private fun roundOriented(
-        line: List<LatLng>,
-        paceKn: Double,
-        world: MultipassWorld,
-        gate: GateRule?,
-        marginM: Double,
-        checkCancelled: () -> Unit
-    ): RoundedLine {
         val paceMps = Units.knotsToMps(paceKn)
         val aLat = AppConfig.routeTurnLateralAccelMps2
         val vFloorMps = Units.knotsToMps(AppConfig.routeTurnMinSpeedKn)
@@ -755,11 +732,7 @@ object RouteCornerPass {
         }
     }
 
-    /**
-     * The single-bend curve in a canonical frame: start (0,0) heading 0, end heading [signedDelta]. The
-     * curve is the mirror of itself about the corner's bisector — entry spiral, arc, the entry spiral run
-     * backwards — so [tangent], read off its end point, is the reach on **both** legs.
-     */
+    /** The single-bend curve in a canonical frame: start (0,0) heading 0, end heading [signedDelta]. */
     private data class Composite(val points: List<Pair<Double, Double>>, val tangent: Double)
 
     private fun composite(r: Double, l: Double, signedDelta: Double): Composite {
@@ -812,41 +785,9 @@ object RouteCornerPass {
             h += sweep
         }
 
-        /**
-         * **The exit spiral: the entry spiral run backwards.** Its curvature falls from `1/r` to nothing, so
-         * it is the entry curve traversed from its far end — read as the entry spiral's own local points at
-         * `l − s`, placed from the exit's **end** `Q₁` and turned by the final heading plus a half turn. `Q₁`
-         * itself is one entry-spiral chord from the arc's end, turned by that final heading. Drawn as a
-         * second entry spiral, as it once was, the bow ended at full lateral G and its outbound reach fell
-         * short of the inbound one, so the shape was not the mirror its KDoc describes and the drawn curve
-         * depended on which leg it entered by.
-         */
-        fun appendExitSpiral(kEnd: Double, steps: Int) {
-            val a = sqrt(r * l)
-            val sgn = if (kEnd > 0.0) 1.0 else -1.0
-            val tauEnd = l / a
-            val hEnd = h + sgn * tauEnd * tauEnd / 2.0
-            val cosEnd = cos(hEnd)
-            val sinEnd = sin(hEnd)
-            val lxEnd = a * SQRT2 * fresnelC(tauEnd / SQRT2)
-            val lyEnd = -sgn * a * SQRT2 * fresnelS(tauEnd / SQRT2)
-            val q1x = x + lxEnd * cosEnd - lyEnd * sinEnd
-            val q1y = y + lxEnd * sinEnd + lyEnd * cosEnd
-            for (k in 1..steps) {
-                val s = l * k / steps
-                val tau = (l - s) / a
-                val lx = a * SQRT2 * fresnelC(tau / SQRT2)
-                val ly = -sgn * a * SQRT2 * fresnelS(tau / SQRT2)
-                pts.add((q1x - (lx * cosEnd - ly * sinEnd)) to (q1y - (lx * sinEnd + ly * cosEnd)))
-            }
-            x = q1x
-            y = q1y
-            h = hEnd
-        }
-
         appendSpiral(sign / r, 16)
         if (thetaArc > 0.0) appendArc(sign / r, sign * thetaArc, 16)
-        appendExitSpiral(sign / r, 16)
+        appendSpiral(sign / r, 16)
 
         val tangent = x - y * cos(signedDelta) / sin(signedDelta)
         return Composite(pts, tangent)

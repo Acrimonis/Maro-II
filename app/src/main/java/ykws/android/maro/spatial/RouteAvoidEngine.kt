@@ -250,11 +250,18 @@ class RouteAvoidEngine(
     @Volatile
     private var ladderHolder: LadderGridHolder? = null
 
+    /**
+     * **The rungs that have landed this arm, in landing order** — each with the lookup that owns it and
+     * its own ladder index, so the running best can be folded and reported without the engine ever
+     * holding a page. Small, per-arm and dropped with the arm, like the declarations and the shared grid.
+     */
+    private var landedRungs: MutableList<LandedRung> = mutableListOf()
+
     /** One lock for the fold: the rungs land concurrently, so add-and-rank is one critical step. */
     private val rankingLock = Mutex()
 
-    /** Whether anything reads a trace line — the injected sink, or the device's own tag level. */
-    private val traceLive: Boolean get() = traceSink != null || logEnabled
+    /** The pass the instrument is on, reset at each solve so `STAGE` can carry its index. */
+    private var passIndex = 0
 
     /**
      * **The stage each running lookup last published**, by lookup id, so a boundary's finished-then-next
@@ -288,6 +295,7 @@ class RouteAvoidEngine(
         // holder is published with one write, so the arm's rungs single-flight on its own lock. The
         // rungs are the three fixed aversions of [RoutePreference] — around, best and fast.
         ladderHolder = LadderGridHolder(destinationMoved = to.moved)
+        landedRungs = mutableListOf()
         val computations = listOf(
             Computation(RouteId(++nextComputationId), R.string.route_rung_around, RoutePreference.AROUND),
             Computation(RouteId(++nextComputationId), R.string.route_rung_balanced, RoutePreference.BEST),
@@ -337,10 +345,7 @@ class RouteAvoidEngine(
         // on the shipped path [inFlight]'s atomic already orders the last completer's read (D34).
         job.invokeOnCompletion {
             jobs.remove(lookupId)
-            if (holder.inFlight.decrementAndGet() == 0) {
-                holder.deferred?.cancel()
-                holder.grownDeferred?.cancel()
-            }
+            if (holder.inFlight.decrementAndGet() == 0) holder.deferred?.cancel()
         }
         return lookupId
     }
@@ -411,6 +416,7 @@ class RouteAvoidEngine(
         to: RoutePoint
     ) {
         val world = worldProvider()
+        passIndex = 0
         // Every rung narrates its own stages: the row prints the word of the rung it describes, and the
         // chain is kept per lookup.
         // The outer `try` exists only to clear this lookup's chain however it ends — **after** the
@@ -424,16 +430,14 @@ class RouteAvoidEngine(
                 publish(lookupId, RouteStage.GRID)
                 val grid = sharedGrid(holder, world, from, to).await()
                 rung = grid?.let {
-                    searchRung(it, holder, computation.lambda, lookupId = lookupId)
+                    searchRung(it, computation.lambda, lookupId = lookupId)
                 }
                 // The fold is one critical step: the rungs land concurrently, so a verdict reported beside
                 // a rival's landing must see that landing whole or not at all.
                 val landed = rung
                 verdict = rankingLock.withLock {
-                    if (landed != null) {
-                        holder.landedRungs += LandedRung(lookupId, computation.preference.ordinal, landed.cost)
-                    }
-                    settledVerdict(holder)
+                    if (landed != null) landedRungs += LandedRung(lookupId, landed.cost)
+                    settledVerdict()
                 }
             } catch (cancelled: CancellationException) {
                 // A cancel must stay silent — the seam says no update may arrive after one — so it is
@@ -482,9 +486,7 @@ class RouteAvoidEngine(
         from: RoutePoint,
         to: RoutePoint
     ): Deferred<GridContext?> = holder.lock.withLock {
-        // A build the arm's last disposal already cancelled is no build to await: a lookup started after that
-        // cancel would otherwise await a cancelled deferred, rethrow its cancellation and end with no terminal.
-        holder.deferred?.takeIf { !it.isCancelled }?.let { return@withLock it }
+        holder.deferred?.let { return@withLock it }
         // The deferred is published before the build can run (D33): created `LAZY`, assigned to the holder
         // under the lock, and only then started, so no reader — the disposal included — can ever see a
         // build beside a null field. The assignment happens-before `start()`, and `start()` before any
@@ -516,30 +518,22 @@ class RouteAvoidEngine(
      * dial stands at** (asked through [verdictWeight], `null` on its *Ignore time* stop) and
      * [AppConfig.routeAvoidLadderTieToleranceSec].
      */
-    private fun settledVerdict(holder: LadderGridHolder): RouteVerdict? {
-        if (holder.landedRungs.isEmpty()) return null
+    private fun settledVerdict(): RouteVerdict? {
+        if (landedRungs.isEmpty()) return null
         val weight = verdictWeight()
         val toleranceSec = AppConfig.routeAvoidLadderTieToleranceSec.coerceIn(
             AppConfig.ROUTE_LADDER_TIE_TOLERANCE_SEC_MIN,
             AppConfig.ROUTE_LADDER_TIE_TOLERANCE_SEC_MAX
         )
-        // **The fold reads the rungs in the ladder's own order, never the order they landed in.** The
-        // ranking keeps an incumbent against a challenger inside the tolerance, so the fold's order decides
-        // a near-tie; the rungs run concurrently and land in whichever order their threads finish, which made
-        // the crown of two near-equal lines a matter of timing — one answer on one arming, another on the
-        // next, and A→B against B→A. Sorted by the stop each rung was declared at — around, best, fast —
-        // the same three lines crown the same rung every time.
-        val landed = holder.landedRungs
-        val settled = RoutePassRanking.settle(
-            weight, toleranceSec, landed.map { it.ladderIndex }, landed.map { it.cost }
-        ) ?: return null
-        val ranks = settled.ranks
+        val costs = landedRungs.map { it.cost }
+        val winner = RoutePassRanking.bestRungIndex(weight, toleranceSec, costs) ?: return null
+        val ranks = RoutePassRanking.ranks(weight, toleranceSec, costs)
         // The order is read off the very ranks the fold just wrote: ascending, crown first, one rank each.
-        val order = landed.indices
+        val order = landedRungs.indices
             .sortedBy { ranks[it] }
-            .map { i -> RouteRankedRung(landed[i].lookupId, ranks[i]) }
+            .map { i -> RouteRankedRung(landedRungs[i].lookupId, ranks[i]) }
         return RouteVerdict(
-            best = RouteRunningBest(landed[settled.winner].lookupId, landed.size),
+            best = RouteRunningBest(landedRungs[winner].lookupId, landedRungs.size),
             order = order
         )
     }
@@ -551,7 +545,6 @@ class RouteAvoidEngine(
      */
     private suspend fun searchRung(
         grid: GridContext,
-        holder: LadderGridHolder,
         lambda: Double,
         lookupId: RouteId
     ): Rung? {
@@ -562,7 +555,7 @@ class RouteAvoidEngine(
         reading.first = first
         if (first == null) {
             if (grid.regionSaturated) return reading.settle(grid, lambda, null)
-            val grown = grownGrid(grid, holder, reading) ?: return reading.settle(grid, lambda, null)
+            val grown = grownGrid(grid, reading) ?: return reading.settle(grid, lambda, null)
             return reading.settle(grid, lambda, solveGrown(grown, lambda, lookupId, reading), grown = true)
         }
         // A rung that came back with a forced crossing gets one wider corridor to find the way around —
@@ -570,7 +563,7 @@ class RouteAvoidEngine(
         if (grid.regionSaturated || first.result.forcedCrossingZoneNames.isEmpty()) {
             return reading.settle(grid, lambda, first, grown = false)
         }
-        val grown = grownGrid(grid, holder, reading) ?: return reading.settle(grid, lambda, first, grown = false)
+        val grown = grownGrid(grid, reading) ?: return reading.settle(grid, lambda, first, grown = false)
         val grownRung = solveGrown(grown, lambda, lookupId, reading)
             ?: return reading.settle(grid, lambda, first, grown = false)
         val kept =
@@ -578,27 +571,13 @@ class RouteAvoidEngine(
         return reading.settle(grid, lambda, kept, grown = true)
     }
 
-    /**
-     * **The growth escalation's corridor — twice the shipped reach — built once per arm.** The build is
-     * λ-free and the trigger — no path, or a forced crossing — usually fires for all three rungs, so the arm
-     * paid three identical rasters over four times the area; it now single-flights the grown build on the
-     * holder exactly as the first build is, each rung awaiting the one `Deferred`. The clock a rung reads
-     * into [reading] is its own wait, the build's where it started it.
-     */
-    private suspend fun grownGrid(grid: GridContext, holder: LadderGridHolder, reading: RungReading): GridContext? {
+    /** The growth escalation's corridor — twice the shipped reach — with its rasterise timed into [reading]. */
+    private suspend fun grownGrid(grid: GridContext, reading: RungReading): GridContext? {
         val startNs = System.nanoTime()
-        val deferred = holder.lock.withLock {
-            holder.grownDeferred?.takeIf { !it.isCancelled } ?: computeScope.async(start = CoroutineStart.LAZY) {
-                gridBuilder.buildGrid(
-                    grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(),
-                    markerStrength(), seatTrace, checkCancelled = cancelRead()
-                )
-            }.also {
-                holder.grownDeferred = it
-                it.start()
-            }
-        }
-        val grown = deferred.await()
+        val grown = gridBuilder.buildGrid(
+            grid.world, grid.from, grid.to, AppConfig.routeAvoidCorridorReachM * 2.0, paceKn(), markerStrength(), seatTrace,
+            checkCancelled = cancelRead()
+        )
         reading.growBuildMs = msSince(startNs)
         return grown
     }
@@ -688,9 +667,7 @@ class RouteAvoidEngine(
         limitAt: (LatLng) -> Double?,
         inBand: (LatLng) -> Boolean
     ) {
-        // Report only, and paid only where a line is read: the tally and the per-corner limit and band
-        // reads below are the sink's, never the solve's.
-        if (verdicts.isEmpty() || !traceLive) return
+        if (verdicts.isEmpty()) return
         val tally = verdicts.groupingBy { it.outcome }.eachCount()
             .entries.joinToString(" ") { "${it.key}=${it.value}" }
         val slowed = verdicts.count { it.outcome == CornerOutcome.ROUNDED && it.speedKn < paceKn - 1e-9 }
@@ -740,7 +717,8 @@ class RouteAvoidEngine(
             checkCancelled = checkCancelled
         )
         val coarseMs = msSince(coarseStartNs)
-        if (passReading.search.path == null) {
+        val timed = passReading.timed
+        if (timed == null) {
             val walkAim = if (passReading.search.reversed) ctx.startCell else ctx.aimCell
             trace {
                 "PASS lambda=${fmt(lambda, 2)} NO PATH " +
@@ -762,7 +740,7 @@ class RouteAvoidEngine(
         // closed at SNAP and the word must name the refinement rather than a pull already done.
         publish(lookupId, RouteStage.FINE)
         val fineStartNs = System.nanoTime()
-        val refined = finePass.finePass(ctx, waypoints, lambda, checkCancelled, traceLive, seatTrace)
+        val refined = finePass.finePass(ctx, waypoints, lambda, checkCancelled, seatTrace)
         val fineMs = msSince(fineStartNs)
 
         // **The device reading** — the coarse walk's own A* cost and duration, with the fine stage's
@@ -784,25 +762,24 @@ class RouteAvoidEngine(
             rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt,
             clockSampleM(ctx.cellM, ctx.fineCellM)
         )
+        val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
         val forced = forcedCrossingNames(
-            ctx, lambda, refined
+            ctx.grid, ctx.zones, ctx.cellM, ctx.pace, lambda, ctx.from, ctx.to,
+            ctx.startCell, ctx.aimCell, refined, ctx.gate
         )
         // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
         // the price. The zones are the world's own, not the grid's switch-gated set, so a crossing the
         // search was charged nothing for — its `speedRoute` override at or above the pace, or the pricing
         // switch off — is still named where the clock has to pay the limit the chart signs.
         val crossed = crossedSlowZoneNames(refined, ctx.world.speedZonesIn(ctx.box), ctx.pace)
+        val bandLawM = bandMetres(ctx.world, timedLine.points)
+        val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
+        val slowM = slowMetres(timedLine, ctx.pace)
         trace {
-            // **The line's own readings, every one of them built inside the sink** — the band metres, the
-            // slow metres and the shares walk the whole line with a coast query per leg, and the depth
-            // gate's readings scan it again — so a solve with the tag off pays none of it.
-            val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
-            val bandLawM = bandMetres(ctx.world, timedLine.points)
-            val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
-            val slowM = slowMetres(timedLine, ctx.pace)
             // **The depth gate's own readings** — how shallow the drawn line gets and how close it comes
             // to the wall's edge, the closest point named, and the body separated from the ends by the
-            // gate's own waiver; then the traced line's own readings beside the independent scan.
+            // gate's own waiver; then the traced line's own readings beside the independent scan. Built
+            // inside the sink so a solve with the tag off pays none of it.
             val (lineMinDepthM, lineMinDepthAt) = RouteDepthReading.minDepthAt(ctx.world, timedLine.points)
             val edge = RouteDepthReading.edgeReading(
                 ctx.world, timedLine.points, ctx.depthGateActive, ctx.minDepthM,
@@ -1116,16 +1093,19 @@ class RouteAvoidEngine(
      * (`261021_FEAT_PLN_Route_pull-cost.md`). A zone the line must cross elsewhere still counts.
      */
     private suspend fun forcedCrossingNames(
-        ctx: GridContext,
+        grid: MultipassGrid,
+        zones: List<SpeedZone>,
+        cellM: Double,
+        pace: Double,
         lambda: Double,
-        waypoints: List<LatLng>
+        from: RoutePoint,
+        to: RoutePoint,
+        startCell: CellIndex,
+        aimCell: CellIndex,
+        waypoints: List<LatLng>,
+        gate: GateRule?
     ): List<String> {
-        val grid = ctx.grid
-        val zones = ctx.zones
-        val pace = ctx.pace
-        val from = ctx.from
-        val to = ctx.to
-        val restrictiveZones = zones.filter { zonePriceSec(ctx.cellM, pace, it.routeLimitKn, lambda) > 0.0 }
+        val restrictiveZones = zones.filter { zonePriceSec(cellM, pace, it.routeLimitKn, lambda) > 0.0 }
         val (endZones, crossingZones) = restrictiveZones.partition {
             it.contains(from.latitude, from.longitude) || it.contains(to.latitude, to.longitude)
         }
@@ -1136,36 +1116,29 @@ class RouteAvoidEngine(
             trace { probeText("avoiding=n/a expansions=0 forced=[]") }
             return emptyList()
         }
-        // **One probe per arm and grid, not one per rung.** The probe reads the grid, the pace, the ends and
-        // the gate — none of them the rung's λ — and the restrictive set is the same for every λ above zero,
-        // so the three rungs asked one question three times, each with its own copy of the grid and its own
-        // exhaustive A\*. The answer is memoised on the context under the crossing zones it was asked for,
-        // the first rung to ask paying it and its siblings reading it.
+        // A cell stays open when it lies in an end's zone and in no zone the line must keep out of.
+        fun stayOpenAt(p: LatLng): Boolean =
+            endZones.any { it.contains(p.latitude, p.longitude) } &&
+                crossingZones.none { it.contains(p.latitude, p.longitude) }
         val probeStartNs = System.nanoTime()
-        val avoiding = ctx.probe.avoiding(crossingZones.map { it.id }) {
-            // A cell stays open when it lies in an end's zone and in no zone the line must keep out of.
-            fun stayOpenAt(p: LatLng): Boolean =
-                endZones.any { it.contains(p.latitude, p.longitude) } &&
-                    crossingZones.none { it.contains(p.latitude, p.longitude) }
-            val blocked = grid.blockedCopy(pace, ::stayOpenAt.takeIf { endZones.isNotEmpty() })
-            blocked.forceFree(from.latitude, from.longitude)
-            blocked.forceFree(to.latitude, to.longitude)
-            // The probe walks the same wall the search does, so a gap the guarded search cannot use never
-            // makes a crossing look avoidable.
-            val probe = MultipassSearch.search(
-                blocked, ctx.startCell, ctx.aimCell, Units.knotsToMps(pace),
-                stepGuard = ctx.gate?.let { StepGuard(it, from.toLatLng(), to.toLatLng()) }
-            )
-            trace {
-                probeText(
-                    "avoiding=${probe.path != null} expansions=${probe.expansions} passable=${probe.passableCells} " +
-                        "aimClosed=${probe.aimClosed} probeMs=${fmt(msSince(probeStartNs))}"
-                )
-            }
-            probe.path != null
-        }
+        val blocked = grid.blockedCopy(pace, ::stayOpenAt.takeIf { endZones.isNotEmpty() })
+        blocked.forceFree(from.latitude, from.longitude)
+        blocked.forceFree(to.latitude, to.longitude)
+        // The probe walks the same wall the search does, so a gap the guarded search cannot use never
+        // makes a crossing look avoidable.
+        val probe = MultipassSearch.search(
+            blocked, startCell, aimCell, Units.knotsToMps(pace),
+            stepGuard = gate?.let { StepGuard(it, from.toLatLng(), to.toLatLng()) }
+        )
+        val probeMs = msSince(probeStartNs)
+        val avoiding = probe.path != null
         val names = forcedCrossingZoneNames(waypoints, crossingZones, avoiding)
-        trace { probeText("avoiding=$avoiding forced=[${names.joinToString(", ")}]") }
+        trace {
+            probeText(
+                "avoiding=$avoiding expansions=${probe.expansions} passable=${probe.passableCells} " +
+                    "aimClosed=${probe.aimClosed} probeMs=${fmt(probeMs)} forced=[${names.joinToString(", ")}]"
+            )
+        }
         return names
     }
 
@@ -1249,7 +1222,7 @@ class RouteAvoidEngine(
                 "cellsInterior=${ctx.grid.rows * ctx.grid.cols} passableUnique=${search.passableCells} " +
                 "expansions=${search.expansions} pathCells=${search.path?.size ?: 0} " +
                 "pulled=${pass.pulledCount} snapped=${pass.snappedCount} " +
-                "landRefusals=${pass.refusals.land} priceRefusals=${pass.refusals.price} " +
+                "landRefusals=${ctx.refusals.land} priceRefusals=${ctx.refusals.price} " +
                 "coarseM=${fmt(lineLengthM(coarse))}m " +
                 "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)}"
         }
@@ -1324,13 +1297,12 @@ private data class Computation(
 }
 
 /**
- * One landed rung this arm: the lookup that owns its line, the stop it was declared at and its own cost.
- * The ladder index is the fold's **order**, never a tie-break of its own: the rungs are ranked in the
- * ladder's order so a near-tie crowns the same rung whichever thread landed first.
+ * One landed rung this arm: the lookup that owns its line and its own cost. The rung's ladder index is
+ * no longer carried — it existed to settle a total tie in the rung nearest the preference, and the one
+ * sum decides the crown alone.
  */
 private data class LandedRung(
     val lookupId: RouteId,
-    val ladderIndex: Int,
     val cost: RoutePassRanking.PassCost
 )
 
@@ -1362,17 +1334,6 @@ private class LadderGridHolder(
      */
     @Volatile
     var deferred: Deferred<GridContext?>? = null
-
-    /** The arm's one grown-corridor build, single-flighted under [lock] exactly as [deferred] is. */
-    @Volatile
-    var grownDeferred: Deferred<GridContext?>? = null
-
-    /**
-     * **The rungs that have landed this arm** — each with the lookup that owns it, its ladder index and its
-     * cost, written under the engine's ranking lock. Per arm, so a rung of a superseded arm that lands late
-     * can never add its cost to a fresh arm's set.
-     */
-    val landedRungs: MutableList<LandedRung> = mutableListOf()
 
     /**
      * The arm's lookups still in flight — incremented as each is launched and decremented by that job's own
