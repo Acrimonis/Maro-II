@@ -1345,6 +1345,10 @@ object AppConfig {
     var trackNameMaxLength: Int = 254
         private set
 
+    /** Bound on the recorder's copied tail; configured by `tracking.pointChunkSize`. */
+    var trackingPointChunkSize: Int = 256
+        private set
+
     // ── Power management — screen hold ───────────────────────────────
     // Bounds, default and developer constants only. The value the user picks lives in
     // SettingsManager prefs; these define the slider range and the fallbacks.
@@ -2089,6 +2093,9 @@ object AppConfig {
             }
             props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
                 trackNameMaxLength = it.coerceIn(8, 254)
+            }
+            props.getProperty("tracking.pointChunkSize")?.toIntOrNull()?.let {
+                trackingPointChunkSize = it.coerceAtLeast(1)
             }
 
             // ── Power management — screen hold ──────────────────────────────
