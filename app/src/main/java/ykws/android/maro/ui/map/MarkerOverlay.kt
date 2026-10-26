@@ -103,14 +103,10 @@ private const val ICON_TEXT_PX = 48f
  * **Match result highlighting (P6):** When [matchResult] is non-null, matched
  * markers render brighter/thicker; non-matched markers render dimmed (lower alpha).
  *
- * Lifecycle — two passes (C05). The **structural pass** is keyed on the markers and the marker-wide
- * settings: it removes the overlays tagged with [OVERLAY_PREFIX], builds every marker's overlays and
- * records them per marker with the [MarkerPaintState] they were drawn with. The **selection pass** is
- * keyed on [selectedMarkerId] and [matchResult] alone: it rebuilds only the markers whose paint state
- * moved — the one unselected and the one selected, or the match's own set — and splices them where
- * their old overlays stood. A tap on one marker therefore no longer re-rasterises every marker. Both
- * passes end on [OverlayZOrder.reorder] and one [MapView.invalidate]; the bitmaps every pass draws from
- * are pooled ([MarkerBitmaps]), so a selection toggle swaps a dot or halo rather than drawing it.
+ * Confirmed markers have structural and selection passes. The moving preview owns a separate
+ * entry and bitmap pool, inserted under confirmed shapes/icons. Each owner removes only its own
+ * objects, preserving other owners and the route destination pin. Selection changes splice only
+ * affected entries; bitmap pools share the glyphs each owner still uses.
  *
  * @param markers                List of all confirmed user markers to render.
  * @param mapView                The OSMdroid [MapView]; null → nothing drawn.
@@ -167,17 +163,10 @@ fun MarkerOverlay(
     val matchedIds: Set<String> =
         matchResult?.allMatches?.map { it.matchedMarker().id }?.toSet() ?: emptySet()
 
-    // Build combined marker list: unconfirmed first (renders underneath)
-    // so the original confirmed marker stays visible on top during edit.
-    // Confirmed markers are ordered by pinned so pinned render last (top of the
-    // marker band; OverlayZOrder preserves intra-band order).
-    val allMarkers = remember(markers, unconfirmedMarker) {
-        if (unconfirmedMarker != null) {
-            listOf(unconfirmedMarker) + markers.sortedBy { it.pinned }
-        } else {
-            markers.sortedBy { it.pinned }
-        }
-    }
+    // Confirmed markers and the moving preview have separate owners and bitmap pools.
+    val allMarkers = remember(markers) { markers.sortedBy { it.pinned } }
+    val previewCache = remember(mv) { MarkerOverlayCache(mv) }
+    DisposableEffect(mv) { onDispose { removeOwnedMarkers(mv, previewCache); previewCache.clear() } }
 
     // What the structural pass built, kept across selection passes — per MapView, like the overlays.
     val cache = remember(mv) { MarkerOverlayCache(mv) }
@@ -186,11 +175,11 @@ fun MarkerOverlay(
     // Selection and the match result are read here but are not keys (C05): the pass below owns them.
     DisposableEffect(allMarkers, mv, settings) {
         Log.d("MaroMapRefresh", "MarkerOverlay structural pass: markers=${allMarkers.size} mv=${mv.hashCode()} zonesVisible=${settings.zonesVisible}")
-        removeAllMarkerOverlays(mv)
+        removeOwnedMarkers(mv, cache)
         cache.built.clear()
         for (marker in allMarkers) {
             val paint = paintStateOf(marker, selectedMarkerId, matchActive, matchedIds)
-            cache.built[entryKeyOf(marker)] = buildMarkerEntry(mv, cache.bitmaps, marker, paint, settings, isPreview = marker === unconfirmedMarker)
+            cache.built[entryKeyOf(marker)] = buildMarkerEntry(mv, cache.bitmaps, marker, paint, settings, isPreview = false)
         }
         // Every marker's shapes first, then every icon group, so an icon sits above all zone shapes.
         cache.built.values.forEach { mv.overlays.addAll(it.shapes) }
@@ -201,8 +190,31 @@ fun MarkerOverlay(
         mv.invalidate()
 
         onDispose {
-            removeAllMarkerOverlays(mv)
+            removeOwnedMarkers(mv, cache)
             cache.clear()
+            mv.invalidate()
+        }
+    }
+
+    // Preview placement changes rebuild only this entry; confirmed shapes and glyphs remain owned.
+    DisposableEffect(mv, unconfirmedMarker, settings, selectedMarkerId, matchResult, allMarkers) {
+        val marker = unconfirmedMarker
+        if (marker != null) {
+            val entry = buildMarkerEntry(mv, previewCache.bitmaps, marker,
+                paintStateOf(marker, selectedMarkerId, matchActive, matchedIds), settings, isPreview = true)
+            previewCache.built[entryKeyOf(marker)] = entry
+            val shapeAt = cache.built.values.flatMap { it.shapes }.map { mv.overlays.indexOf(it) }
+                .filter { it >= 0 }.minOrNull() ?: firstIconIndex(mv, cache)
+            entry.shapes.forEachIndexed { i, shape -> mv.overlays.add(shapeAt + i, shape) }
+            val iconAt = firstIconIndex(mv, cache)
+            entry.icons.forEachIndexed { i, icon -> mv.overlays.add(iconAt + i, icon) }
+            previewCache.bitmaps.prune()
+            OverlayZOrder.reorder(mv)
+            mv.invalidate()
+        }
+        onDispose {
+            removeOwnedMarkers(mv, previewCache)
+            previewCache.built.clear()
             mv.invalidate()
         }
     }
@@ -217,12 +229,12 @@ fun MarkerOverlay(
             for (marker in allMarkers) {
                 val key = entryKeyOf(marker)
                 if (key !in moved) continue
-                val fresh = buildMarkerEntry(mv, cache.bitmaps, marker, wanted.getValue(key), settings, isPreview = marker === unconfirmedMarker)
+                val fresh = buildMarkerEntry(mv, cache.bitmaps, marker, wanted.getValue(key), settings, isPreview = false)
                 val old = cache.built[key]
                 // A marker that had no shapes (zones hidden, an icon alone) and gains them on selection
                 // has nothing to stand on: its shapes then go below the band's first icon, never after
                 // the icons, so the structural order — every shape under every icon — survives.
-                splice(mv, old?.shapes.orEmpty(), fresh.shapes, fallbackAt = firstIconIndex(mv, cache))
+                splice(mv, old?.shapes.orEmpty(), fresh.shapes, fallbackAt = firstIconIndex(mv, cache, previewCache))
                 splice(mv, old?.icons.orEmpty(), fresh.icons, fallbackAt = mv.overlays.size)
                 cache.built[key] = fresh
             }
@@ -310,22 +322,10 @@ private class MarkerOverlayCache(mv: MapView) {
 private fun entryKeyOf(marker: UserMarker): String =
     if (marker.confirmed) marker.id else "unconfirmed:${marker.id}"
 
-/**
- * Remove every `marker_*` overlay — except the route's destination pin. That pin wears the prefix only to
- * ride the same band (`OverlayZOrder.isMarkerOverlay`) while its object belongs to `RouteHost`; sweeping
- * it left the route's lines undrawn, because the host's repaint asked for the pin and bailed once it was
- * gone (the device's own log, 2026-09-23). A title another home owns is not this pass's to remove.
- */
-private fun removeAllMarkerOverlays(mv: MapView) {
-    val toRemove = mv.overlays.filter { overlay ->
-        val ownedByThisPass = (overlay as? Marker)?.title != ROUTE_PIN_TITLE
-        ownedByThisPass && (
-            (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
-                (overlay as? Polygon)?.title?.startsWith(OVERLAY_PREFIX) == true ||
-                (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
-            )
-    }
-    mv.overlays.removeAll(toRemove)
+/** Remove only objects this cache owns, preserving the preview and route destination pin. */
+private fun removeOwnedMarkers(mv: MapView, cache: MarkerOverlayCache) {
+    val owned = cache.built.values.flatMap { it.shapes + it.icons }.toSet()
+    mv.overlays.removeAll(owned)
 }
 
 /**
@@ -341,8 +341,8 @@ private fun splice(mv: MapView, old: List<Overlay>, fresh: List<Overlay>, fallba
 }
 
 /** The index of the band's first icon overlay as it stands on the map, or the end when no icon is drawn. */
-private fun firstIconIndex(mv: MapView, cache: MarkerOverlayCache): Int =
-    cache.built.values.asSequence()
+private fun firstIconIndex(mv: MapView, vararg caches: MarkerOverlayCache): Int =
+    caches.asSequence().flatMap { it.built.values.asSequence() }
         .flatMap { it.icons.asSequence() }
         .map { mv.overlays.indexOf(it) }
         .filter { it >= 0 }

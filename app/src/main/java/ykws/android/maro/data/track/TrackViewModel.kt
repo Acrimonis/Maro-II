@@ -63,6 +63,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private val _events = MutableSharedFlow<TrackEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
 
+    /** A completed reload can replace geometry without changing its summary fields. */
+    private val _renderRevision = MutableStateFlow(0L)
+    val renderRevision: StateFlow<Long> = _renderRevision.asStateFlow()
+
     /** Unfiltered source of truth — reloaded from repository. */
     private val _allSummaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val allSummaries: StateFlow<List<TrackSummary>> = _allSummaries.asStateFlow()
@@ -141,7 +145,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             TrackRecordingService.events.collect { event ->
                 // A finalized recording is a "freshly touched" track — boost it into the map set.
-                if (event is TrackEvent.Finalized) renderFocus.markTouched(event.trackId)
+                if (event is TrackEvent.Finalized) {
+                    invalidateTrackCache(event.trackId)
+                    renderFocus.markTouched(event.trackId)
+                }
                 _events.emit(event)
                 // The library changed on disk exactly when the recorder says so — a finalize landed,
                 // a discard deleted, a resume began — so the lists refresh on the event, not on a
@@ -283,6 +290,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      */
     suspend fun saveBuiltTrack(track: Track): String {
         repository.save(track)
+        invalidateTrackCache(track.id)
         refreshSummaries()
         return track.id
     }
@@ -330,6 +338,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             // Mark the active track: most recent summary with no endTimeMs
             summaries.firstOrNull { it.endTimeMs == null }?.isLive = true
             _allSummaries.value = summaries
+            _renderRevision.value += 1
             isLoaded = true
             recomputeListViews(trackFilter, trackSort, routeFilter, routeSort, todayMidnightMs())
         }
@@ -451,6 +460,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         _recoveryTrack.value = null
         viewModelScope.launch {
             repository.finalizeOrphanedCheckpoint(track)
+            invalidateTrackCache(track.id)
             refreshSummaries()
         }
     }
@@ -518,6 +528,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val batch = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
         for (track in batch.tracks) {
             repository.saveOrReplace(track)
+            invalidateTrackCache(track.id)
             // Imported tracks join the session boost so they render without selecting or pinning.
             renderFocus.markTouched(track.id)
         }

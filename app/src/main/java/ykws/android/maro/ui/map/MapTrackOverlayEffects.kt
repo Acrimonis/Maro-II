@@ -1,6 +1,12 @@
 package ykws.android.maro.ui.map
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshotFlow
@@ -57,10 +63,18 @@ internal fun MapTrackOverlayHistoryDiff(
      */
     rebuildGeneration: MutableState<Int>
 ) {
-    // ── Track overlay: incremental diff for history tracks with fading opacity ──
-    // What the loops below actually paint, published at the end of the pass: the legend gate asks this
-    // set rather than the selection policy, which is stateful and runs once, here.
-    val painted = mutableSetOf<String>()
+    val dataRevision by trackViewModel.renderRevision.collectAsState()
+    val cache = remember(mapView) {
+        RetainedRenderCache<List<TrackPoint>, List<RenderPoint>, StoredOverlayStyle, StoredOverlayEntry>()
+    }
+    val ownership = remember(mapView) { StoredOverlayOwnership() }
+    DisposableEffect(mapView) {
+        onDispose {
+            mapView?.overlays?.removeAll(ownership.overlays.toSet())
+            ownership.overlays = emptyList()
+            cache.clear()
+        }
+    }
 
     // Axis-aware rebuild keys (§3b): values the current axes do not read must not trigger a rebuild, so
     // a default-colour edit cannot rebuild a ramp-painted map. The two counts and every transparency
@@ -80,6 +94,7 @@ internal fun MapTrackOverlayHistoryDiff(
         add(appSettings.trackFilterLinked)
         add(appSettings.routeFilterLinked)
         add(allTrackSummaries)
+        add(dataRevision)
         // The hiding set is a key in every combination: a card's deferred delete must repaint the map
         // the moment it enters or leaves, not on the next unrelated change.
         add(hiddenTrackIds)
@@ -202,237 +217,42 @@ internal fun MapTrackOverlayHistoryDiff(
         val historyList = selection.recorded
         val routeList = selection.routes
 
-        // Remove all existing track history overlays + direction arrows — rebuild from scratch
-        val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true ||
-            (overlay as? TrackDirectionOverlay)?.title?.startsWith("track_arrow_") == true
-        }
-        mv.overlays.removeAll(toRemove)
-
-        // The recorded fade's denominator is the drawn not-pinned set itself, never the configured cap
-        // (2026-10-14, settled): under All the ladder must span everything drawn, and the same span is
-        // wanted whenever fewer items exist than the count asks for. A raw uncapped denominator would
-        // collapse every line to the newest look, so the size of what was drawn is the only home.
-        val total = historyList.size
-
-        val historyOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
-        // The ranking above puts the focused track first, so position 0 is whoever the user selected
-        // rather than the newest track: the newest width is chosen by recency, not by loop position.
+        val wanted = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+        val painted = mutableSetOf<String>()
+        val retained = mutableSetOf<String>()
         val newestId = newestTrackId(historyList)
-        for ((index, summary) in historyList.withIndex()) {
-            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
-            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
-            if (track.trackPoints.isEmpty()) continue
 
-            val selected = false
-            val width = storedTrackWidth(
-                selected = selected,
-                route = false,
-                pinned = false,
-                newest = summary.id == newestId
-            )
-            // One dispatcher, three paths: the track's strokes and chevron inputs come from
-            // storedTrackRendering, so the history and pinned loops cannot drift apart. The seam's
-            // adapter resolves each point's speed once, here at the edge.
-            val rendering = storedTrackRendering(
-                points = track.trackPoints.toRenderPoints(),
-                title = "track_hist_${summary.id}",
-                plan = lineRenderPlan(trackArrows, trackColours, selected, null),
-                ramp = AppConfig.trackHeatmapRamp,
-                strokeWidth = width,
-                density = densityScale,
-                fade = trackFadeAlpha(
-                    index = index,
-                    total = total,
-                    transparencyNewest = appSettings.trackingTransparencyNewest,
-                    transparencyOldest = appSettings.trackingTransparencyOldest
-                ),
-                plainAppearance = {
-                    computeTrackPolylineAppearance(
-                        index = index,
-                        total = total,
-                        transparencyNewest = appSettings.trackingTransparencyNewest,
-                        transparencyOldest = appSettings.trackingTransparencyOldest,
-                        colorFrom = appSettings.trackingColorPastFrom,
-                        colorTo = appSettings.trackingColorPastTo,
-                        strokeWidth = width
-                    )
+
+        suspend fun renderBand(summaries: List<TrackSummary>, pinned: Boolean, route: Boolean) {
+            val band = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
+            for ((index, summary) in summaries.withIndex()) {
+                val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
+                if (track.trackPoints.isEmpty()) continue
+                val style = storedOverlayStyle(summary, index, summaries.size, pinned, route,
+                    !pinned && !route && summary.id == newestId, densityScale, trackArrows, trackColours, appSettings)
+                val entry = cache.render(summary.id, track.trackPoints, style, { it.toRenderPoints() }) { points ->
+                    val rendering = storedTrackRendering(points, style.title, style.plan, AppConfig.trackHeatmapRamp, style.width,
+                        densityScale, style.fade) { requireNotNull(style.appearance) }
+                    val overlays = rendering.overlays.toMutableList()
+                    if (rendering.drawArrows) overlays += rendering.directionOverlay(points,
+                        directionSpacingProvider, "track_arrow_${summary.id}", densityScale)
+                    StoredOverlayEntry(overlays, rendering.overlays.isNotEmpty())
                 }
-            )
-            trackOverlays.addAll(rendering.overlays)
-            if (rendering.drawArrows) {
-                trackOverlays.add(
-                    rendering.directionOverlay(
-                        track.trackPoints.toRenderPoints(),
-                        directionSpacingProvider,
-                        "track_arrow_${summary.id}",
-                        densityScale
-                    )
-                )
+                retained += summary.id
+                band += entry.overlays
+                if (entry.painted) painted += summary.id
             }
-
-            historyOverlays.add(trackOverlays)
-            // Only where a stroke actually landed: a single-point track emits no segment at all —
-            // splitTrackSegments returns none — so it must not count as a banded stroke on the map.
-            if (rendering.overlays.isNotEmpty()) painted.add(summary.id)
+            band.asReversed().forEach { wanted.addAll(it) }
         }
-        historyOverlays.reverse()
-        for (trackOverlays in historyOverlays) {
-            mv.overlays.addAll(trackOverlays)
-        }
-
-        // ── The routes: the route role's own pair, ladder, stroke and gates, above the recorded
-        // tracks. The fade is interpolated over the route set alone, never the history set's --.
-        val routeOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
-        for ((index, summary) in routeList.withIndex()) {
-            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
-            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
-            if (track.trackPoints.isEmpty()) continue
-
-            val selected = false
-            val width = storedTrackWidth(selected = selected, route = true, pinned = false, newest = false)
-            val rendering = storedTrackRendering(
-                points = track.trackPoints.toRenderPoints(),
-                title = "track_hist_${summary.id}",
-                plan = routeLineRenderPlan(
-                    routeArrows = appSettings.routeSpeedArrows,
-                    routeColours = appSettings.routeSpeedColor,
-                    selected = selected
-                ),
-                ramp = AppConfig.trackHeatmapRamp,
-                strokeWidth = width,
-                density = densityScale,
-                fade = trackFadeAlpha(
-                    index = index,
-                    total = routeList.size,
-                    transparencyNewest = appSettings.trackingTransparencyRouteNewest,
-                    transparencyOldest = appSettings.trackingTransparencyRouteOldest
-                ),
-                plainAppearance = {
-                    computeTrackPolylineAppearance(
-                        index = index,
-                        total = routeList.size,
-                        transparencyNewest = appSettings.trackingTransparencyRouteNewest,
-                        transparencyOldest = appSettings.trackingTransparencyRouteOldest,
-                        colorFrom = appSettings.trackingColorRouteFrom,
-                        colorTo = appSettings.trackingColorRouteTo,
-                        strokeWidth = width
-                    )
-                }
-            )
-            trackOverlays.addAll(rendering.overlays)
-            if (rendering.drawArrows) {
-                trackOverlays.add(
-                    rendering.directionOverlay(
-                        track.trackPoints.toRenderPoints(),
-                        directionSpacingProvider,
-                        "track_arrow_${summary.id}",
-                        densityScale
-                    )
-                )
-            }
-
-            routeOverlays.add(trackOverlays)
-            // Same rule as the recorded pass: no stroke, no paint to key the legend on.
-            if (rendering.overlays.isNotEmpty()) painted.add(summary.id)
-        }
-        routeOverlays.reverse()
-        for (trackOverlays in routeOverlays) {
-            mv.overlays.addAll(trackOverlays)
-        }
-
-        // ── Pinned tracks: always render all, separate colors/opacity ──
-        val toRemovePinned = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true
-        }
-        mv.overlays.removeAll(toRemovePinned)
-
-        // The pin's escape, from the same entry point as the two counted sets: a pinned route is drawn
-        // whatever the route count says (R34, R35).
-        val pinnedSummaries = selection.pinned
-
-        val pinnedTotal = pinnedSummaries.size
-        val pinnedOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
-        for ((index, summary) in pinnedSummaries.withIndex()) {
-            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
-            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
-            if (track.trackPoints.isEmpty()) continue
-
-            val selected = false
-            // D5: every pinned item runs the **one pinned path** — the pinned stroke and the pinned render
-            // plan — and only its **values** are selected per kind, on this single branch. A pinned route
-            // is still drawn whatever the route count says (R34, R35): the pin buys the escape from the
-            // count and nothing else.
-            val isRoute = summary.route
-            val pinnedTransparencyNewest =
-                if (isRoute) appSettings.trackingTransparencyPinnedRouteNewest
-                else appSettings.trackingTransparencyPinnedNewest
-            val pinnedTransparencyOldest =
-                if (isRoute) appSettings.trackingTransparencyPinnedRouteOldest
-                else appSettings.trackingTransparencyPinnedOldest
-            val pinnedColorFrom =
-                if (isRoute) appSettings.trackingColorPinnedRouteFrom
-                else appSettings.trackingColorPinnedFrom
-            val pinnedColorTo =
-                if (isRoute) appSettings.trackingColorPinnedRouteTo
-                else appSettings.trackingColorPinnedTo
-            val width = storedTrackWidth(selected = selected, route = false, pinned = true, newest = false)
-            val rendering = storedTrackRendering(
-                points = track.trackPoints.toRenderPoints(),
-                title = "track_pin_${summary.id}",
-                plan = pinnedLineRenderPlan(
-                    summary = summary,
-                    trackArrows = trackArrows,
-                    trackColours = trackColours,
-                    routeArrows = appSettings.routeSpeedArrows,
-                    routeColours = appSettings.routeSpeedColor,
-                    selected = selected,
-                    trackEyeOverride = false,
-                    routeEyeOverride = false
-                ),
-                ramp = AppConfig.trackHeatmapRamp,
-                strokeWidth = width,
-                density = densityScale,
-                // D8: a pinned track fades across its own range, exactly as it does today — a pinned route
-                // across the pinned-route ladder instead, so the pin changes nothing about its appearance.
-                fade = trackFadeAlpha(
-                    index = index,
-                    total = pinnedTotal,
-                    transparencyNewest = pinnedTransparencyNewest,
-                    transparencyOldest = pinnedTransparencyOldest
-                ),
-                plainAppearance = {
-                    computeTrackPolylineAppearance(
-                        index = index,
-                        total = pinnedTotal,
-                        transparencyNewest = pinnedTransparencyNewest,
-                        transparencyOldest = pinnedTransparencyOldest,
-                        colorFrom = pinnedColorFrom,
-                        colorTo = pinnedColorTo,
-                        strokeWidth = width
-                    )
-                }
-            )
-            trackOverlays.addAll(rendering.overlays)
-            if (rendering.drawArrows) {
-                trackOverlays.add(
-                    rendering.directionOverlay(
-                        track.trackPoints.toRenderPoints(),
-                        directionSpacingProvider,
-                        "track_arrow_${summary.id}",
-                        densityScale
-                    )
-                )
-            }
-
-            pinnedOverlays.add(trackOverlays)
-            // Same rule as the history loop: no stroke, no paint to key the legend on.
-            if (rendering.overlays.isNotEmpty()) painted.add(summary.id)
-        }
-        pinnedOverlays.reverse()
-        for (trackOverlays in pinnedOverlays) {
-            mv.overlays.addAll(trackOverlays)
-        }
+        renderBand(historyList, pinned = false, route = false)
+        renderBand(routeList, pinned = false, route = true)
+        renderBand(selection.pinned, pinned = true, route = false)
+        coroutineContext.ensureActive()
+        cache.retain(retained)
+        val changed = reconcileOwnedOverlays(mv.overlays, ownership.overlays, wanted)
+        ownership.overlays = wanted
+        paintedTrackIds.value = painted
+        if (!changed) return@LaunchedEffect
 
         // Ensure active track stays on top of pinned (z-order: history → pinned → active)
         val activePolyline = mv.overlays.firstOrNull {
@@ -443,13 +263,82 @@ internal fun MapTrackOverlayHistoryDiff(
             mv.overlays.add(activePolyline)
         }
 
-        paintedTrackIds.value = painted.toSet()
         OverlayZOrder.reorder(mv)
         mv.invalidate()
         // The pass is done: whoever paints a line of their own on top of the track band re-stacks now.
         rebuildGeneration.value = rebuildGeneration.value + 1
     }
 }
+
+internal fun storedOverlayStyle(
+    summary: TrackSummary, index: Int, total: Int, pinned: Boolean, route: Boolean, newest: Boolean,
+    density: Float, trackArrows: Boolean, trackColours: Boolean, appSettings: AppSettings
+): StoredOverlayStyle {
+    val arrowSettings = listOf(
+        appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp,
+        appSettings.trackDirectionMaxSpacingDp, appSettings.trackDirectionSpeedFloorKn,
+        appSettings.trackDirectionSpeedCeilingKn, AppConfig.trackArrowScaleKneeDp,
+        AppConfig.trackArrowTemper, widestStoredTrackWidth()
+    )
+    val isRoute = if (pinned) summary.route else route
+    val width = storedTrackWidth(false, route = route, pinned = pinned, newest = newest)
+    val transparencyNewest = when {
+        pinned && isRoute -> appSettings.trackingTransparencyPinnedRouteNewest
+        pinned -> appSettings.trackingTransparencyPinnedNewest
+        route -> appSettings.trackingTransparencyRouteNewest
+        else -> appSettings.trackingTransparencyNewest
+    }
+    val transparencyOldest = when {
+        pinned && isRoute -> appSettings.trackingTransparencyPinnedRouteOldest
+        pinned -> appSettings.trackingTransparencyPinnedOldest
+        route -> appSettings.trackingTransparencyRouteOldest
+        else -> appSettings.trackingTransparencyOldest
+    }
+    val colorFrom = when {
+        pinned && isRoute -> appSettings.trackingColorPinnedRouteFrom
+        pinned -> appSettings.trackingColorPinnedFrom
+        route -> appSettings.trackingColorRouteFrom
+        else -> appSettings.trackingColorPastFrom
+    }
+    val colorTo = when {
+        pinned && isRoute -> appSettings.trackingColorPinnedRouteTo
+        pinned -> appSettings.trackingColorPinnedTo
+        route -> appSettings.trackingColorRouteTo
+        else -> appSettings.trackingColorPastTo
+    }
+    val plan = when {
+        pinned -> pinnedLineRenderPlan(summary, trackArrows, trackColours,
+            appSettings.routeSpeedArrows, appSettings.routeSpeedColor, false, false, false)
+        route -> routeLineRenderPlan(appSettings.routeSpeedArrows, appSettings.routeSpeedColor, false)
+        else -> lineRenderPlan(trackArrows, trackColours, false, null)
+    }
+    val title = if (pinned) "track_pin_${summary.id}" else "track_hist_${summary.id}"
+    val appearance = computeTrackPolylineAppearance(index, total,
+        transparencyNewest, transparencyOldest, colorFrom, colorTo, width)
+    return StoredOverlayStyle(
+        title, plan, AppConfig.trackHeatmapRamp.takeIf { plan.path == LineRenderPath.BANDED }, width, density,
+        trackFadeAlpha(index, total, transparencyNewest, transparencyOldest),
+        appearance.takeIf { plan.path != LineRenderPath.BANDED },
+        if (plan.drawArrows) arrowSettings else emptyList(),
+        if (plan.dashed) AppConfig.trackRouteDashOnDp else 0f,
+        if (plan.dashed) AppConfig.trackRouteDashOffDp else 0f
+    )
+}
+
+internal data class StoredOverlayStyle(
+    val title: String,
+    val plan: LineRenderPlan,
+    val ramp: HeatmapRamp?,
+    val width: Float,
+    val density: Float,
+    val fade: Float,
+    val appearance: TrackPolylineAppearance?,
+    val arrows: List<Any>,
+    val dashOn: Float,
+    val dashOff: Float
+)
+private data class StoredOverlayEntry(val overlays: List<org.osmdroid.views.overlay.Overlay>, val painted: Boolean)
+private class StoredOverlayOwnership { var overlays: List<org.osmdroid.views.overlay.Overlay> = emptyList() }
 
 /**
  * The selected item's own top overlay (2026-10-23): one line, painted by the same [storedTrackRendering]

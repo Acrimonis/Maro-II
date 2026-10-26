@@ -298,20 +298,9 @@ internal class TrackDirectionOverlay(
     // very same point — the two policies the seam deliberately leaves to their two readers.
     private val points: List<RenderPoint> = points
 
+    private val geographicBounds = ArrowBounds.of(points)
     init {
-        if (this.points.isNotEmpty()) {
-            var minLat = this.points[0].lat
-            var maxLat = this.points[0].lat
-            var minLon = this.points[0].lon
-            var maxLon = this.points[0].lon
-            for (p in this.points) {
-                if (p.lat < minLat) minLat = p.lat
-                if (p.lat > maxLat) maxLat = p.lat
-                if (p.lon < minLon) minLon = p.lon
-                if (p.lon > maxLon) maxLon = p.lon
-            }
-            mBounds = org.osmdroid.util.BoundingBox(maxLat, maxLon, minLat, minLon)
-        }
+        geographicBounds?.let { mBounds = org.osmdroid.util.BoundingBox(it.north, it.east, it.south, it.west) }
     }
 
     private var anchors: List<ArrowAnchor> = emptyList()
@@ -324,6 +313,7 @@ internal class TrackDirectionOverlay(
     private val geoA = GeoPoint(0.0, 0.0)
     private val geoB = GeoPoint(0.0, 0.0)
     private val screen = android.graphics.Point()
+    private val cullMargin = 48f
 
     override fun draw(c: Canvas, osmv: MapView, shadow: Boolean) {
         if (shadow || points.size < 2) return
@@ -340,9 +330,19 @@ internal class TrackDirectionOverlay(
         }
         if (anchors.isEmpty()) return
 
+        // Only reject where the geographic rectangle is conservative for the existing screen test.
+        // Rotated and wrapped views retain the original path. One extra pixel covers rounding.
+        if (osmv.mapOrientation == 0f) {
+            val padding = cullMargin.toInt() + 1
+            val topLeft = projection.fromPixels(-padding, -padding)
+            val bottomRight = projection.fromPixels(c.width + padding, c.height + padding)
+            val window = ArrowBounds(bottomRight.latitude, topLeft.latitude, topLeft.longitude, bottomRight.longitude)
+            if (geographicBounds?.outside(window) == true) return
+        }
+
         val viewW = c.width.toFloat()
         val viewH = c.height.toFloat()
-        val margin = 48f
+        val margin = cullMargin
 
         val resolver = colorResolver
         if (resolver != null) {
@@ -451,7 +451,7 @@ internal class TrackDirectionOverlay(
         val projection = osmv.projection
         val viewW = c.width.toFloat()
         val viewH = c.height.toFloat()
-        val margin = 48f
+        val margin = cullMargin
 
         for (anchor in anchors) {
             val a = points[anchor.segmentIndex]
