@@ -1110,16 +1110,16 @@ class RouteAvoidEngineTest {
 
         val subscribed = CompletableDeferred<Unit>()
         val done = CompletableDeferred<RouteUpdate>()
-        var mainId: RouteId? = null
+        val mainId = CompletableDeferred<RouteId>()
         val collector = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
             engine.updates
                 .onStart { subscribed.complete(Unit) }
                 .collect { update ->
-                    if (update.nextStage == null && update.routeId == mainId) done.complete(update)
+                    if (update.nextStage == null && update.routeId == mainId.await()) done.complete(update)
                 }
         }
         subscribed.await()
-        mainId = engine.startLookup(declared!!.computations[0].id)
+        mainId.complete(engine.startLookup(declared!!.computations[0].id))
         val terminal = withTimeout(30_000) { done.await() }
         collector.cancel()
 

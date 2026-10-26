@@ -206,3 +206,6 @@ BOUNDS-PERF count=4000 offscreen=true candidate=true round=18 ns=2034 projection
 BOUNDS-PERF count=4000 offscreen=true candidate=true round=19 ns=1921 projections=0
 BOUNDS-PERF count=4000 offscreen=true candidate=false round=19 ns=100078 projections=7800
 ```
+
+## CI synchronization correction
+The first full CI run timed out in the existing outside-region refusal test: its terminal could arrive before `startLookup` returned the ID into a nullable variable, so the collector discarded it. The test now awaits publication of that ID before matching a terminal. No routing source or timeout is changed; this corrects the fixture race rather than relaxing its assertion.
