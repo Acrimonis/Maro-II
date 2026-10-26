@@ -33,6 +33,8 @@ an ordinary track.
 
 ## Current state of the code
 
+- **Corner snapping and bounded cleanup share the total-cost objective** — snapping compares travel time plus penalties; cleanup considers sharp bends as well as flat ones, preserving its segment cap, clearance proofs and field-price allowance. Implementation and checks: [`261026_FEAT_PLN_Route_snap-cost-and-sharp-windows.md`](261026_FEAT_PLN_Route_snap-cost-and-sharp-windows.md).
+
 - **The routes-list card's leading bar is dashed** (2026-10-24) — [`TrackCardContent`](../../app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:542) hands `dashed = summary.route` to [`ListSelectionRail`](../../app/src/main/java/ykws/android/maro/ui/components/ListSelectionRail.kt:54), whose bar then draws the saved-route rhythm (`AppConfig.trackRouteDashOnDp` / `trackRouteDashOffDp`) instead of the solid strip, so a route card reads apart from a track card exactly as the map's dashed route and solid track do; the marker card's rail keeps the solid strip.
 
 - **The seam** — [`RouteEngine.kt`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:37) declares the computations, the two ids and the declarations a refusal carries; [`RouteUpdate`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:167) carries the finished-then-next stage pair, the line so far, the settled result, the reason, a stage's own readings, a rung's provisional pair and the ladder's **running best** (R98), and [`RouteRunningBest`](../../app/src/main/java/ykws/android/maro/spatial/RouteEngine.kt:150) is that running best's own value.

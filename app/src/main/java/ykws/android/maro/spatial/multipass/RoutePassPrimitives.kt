@@ -402,7 +402,8 @@ internal inline fun inCanonicalDirection(
 
 /**
  * Moves a bend onto its nearest tangent corner — the nearest corner whose own set radius contains it,
- * across all sets — only when both legs stay clear; open water keeps the bend.
+ * across all sets — only when both legs stay clear and their travel time plus penalties does not
+ * increase; open water without a corner keeps the bend.
  *
  * It asks two clearances and four priced segments per candidate, so it is a clearance site in its own
  * right rather than a reader of the field it is handed: it takes the walk's own steps from [setup] —
@@ -436,11 +437,12 @@ internal fun snapToCorners(
         val hardClear =
             MultipassPull.legClear(out[i - 1], corner, ctx) &&
                 MultipassPull.legClear(corner, path[i + 1], ctx)
-        val replacedPrice = MultipassPull.softPriceSec(out[i - 1], path[i], ctx) +
-            MultipassPull.softPriceSec(path[i], path[i + 1], ctx)
-        val snappedPrice = MultipassPull.softPriceSec(out[i - 1], corner, ctx) +
-            MultipassPull.softPriceSec(corner, path[i + 1], ctx)
-        if (hardClear && snappedPrice <= replacedPrice) {
+        if (!hardClear) continue
+        val replacedSec = MultipassPull.totalSec(out[i - 1], path[i], ctx) +
+            MultipassPull.totalSec(path[i], path[i + 1], ctx)
+        val snappedSec = MultipassPull.totalSec(out[i - 1], corner, ctx) +
+            MultipassPull.totalSec(corner, path[i + 1], ctx)
+        if (snappedSec <= replacedSec) {
             out[i] = corner
         }
     }

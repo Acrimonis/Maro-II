@@ -85,18 +85,10 @@ private const val BERTH_PROOF_REACH_M = 150.0
 /**
  * **The settled lookback's window: the largest span (segments) one chord may replace.** A span of `k`
  * runs from an anchor over `k` segments, so `k = 2` is today's triple and `k = 3, 4` collapse a run of
- * two or three flat vertices into one chord. Small on purpose — the shape to try — so the added work is
- * proportional to the flat, jagged runs rather than to the line. A constant of the algorithm, not a key.
+ * two or three vertices into one chord. This bounds the candidates per anchor, not the number of field
+ * samples along their chords. A constant of the algorithm, not a key.
  */
 private const val SWEEP_WINDOW_MAX_SPAN = 4
-
-/**
- * **The window's geometry gate, in degrees** — the largest turn an intermediate vertex may carry and
- * still belong to a run a single longer chord may collapse. A run of flat vertices is what the triple
- * alone cannot see; a genuinely turned run keeps today's triple. It is tested as a bearing comparison
- * before any field read, and it is a constant of the algorithm, not a key.
- */
-private const val SWEEP_WINDOW_MAX_TURN_DEG = 45.0
 
 /** The pull's cancel cadence: a walk reads `checkCancelled` once every this many chord decisions. */
 private const val CANCEL_CADENCE = 64
@@ -770,8 +762,8 @@ object MultipassPull {
      *
      * **The two proofs, read from the walk's own context.** For each consecutive triple `A, B, C` the
      * interior `B` drops when the chord `A → C` is **clear** ([legClearCause] answers `null`) **and** it
-     * is **not dearer** than the two segments it replaces (`softPriceSec(A, C)` at most
-     * `softPriceSec(A, B) + softPriceSec(B, C)`). Both are the very tests the pull already trusts, so a
+     * is **not dearer** than the two segments it replaces (`totalSec(A, C)` at most
+     * `totalSec(A, B) + totalSec(B, C)`). Both are the very tests the pull already trusts, so a
      * swept line can no more stand nearer to land than the margin nor shortcut priced water than the line
      * it came from — the sweep is precision-**improving**, never a licence to bend the route.
      *
@@ -785,14 +777,11 @@ object MultipassPull {
      * absolute: clearance is still read first and short-circuits, so a chord refused by land pays no price
      * read at all.
      *
-     * **A window collapses a flat run the triple alone cannot see.** One interior vertex at a time is
-     * invisible to a run of three or more flat vertices — an open-water wiggle, a pocket-boundary
-     * oscillation. From each anchor the sweep tests chords over `k = 2 … [SWEEP_WINDOW_MAX_SPAN]` segments,
-     * but only where every intermediate turn is under [SWEEP_WINDOW_MAX_TURN_DEG] (a bearing comparison,
-     * read before any field read), taking the **longest acceptable** chord and never re-opening a closed
-     * window. `k = 2` is today's triple and is always tried, so a genuinely turned run keeps exactly
-     * today's behaviour, and the window's extra reads scale with the flat runs and are answered from the
-     * pull's own memo.
+     * **A window can remove bends that cannot be removed individually.** From each anchor the sweep
+     * tests chords over at most [SWEEP_WINDOW_MAX_SPAN] segments, regardless of intermediate turns,
+     * taking the **longest acceptable** chord. If no longer chord passes, the triple is tested.
+     * Clearance and total cost, including the allowance above, decide every removal. The pull's own
+     * memo answers retraced marks; the span cap bounds candidates, not chord lengths or sampling work.
      *
      * **One insertion point, gated on the line's own refusals.** The fine pass calls this on its settled
      * line alone: the runner's final pull is never swept, because the coarse line is re-refined here and
@@ -880,10 +869,8 @@ object MultipassPull {
                 // start and aim the walk must reach are left where they are.
                 val a = work[i - 1]
                 val b = work[i]
-                // ── The window: a flat run may collapse to one longer chord, ahead of today's triple ──
-                // The geometry gate is a bearing comparison, read before any field read, so only a run the
-                // triple cannot see is worth a longer chord; a turned run is left to the triple below.
-                val span = windowSpan(work, i)
+                // Try bounded windows before the triple, with clearance and cost deciding every turn.
+                val span = minOf(SWEEP_WINDOW_MAX_SPAN, work.size - i)
                 if (span > 2) {
                     val collapsed = longestWindowChord(work, i, span, ctx, fieldCtx, allowanceShare)
                     if (collapsed != null) {
@@ -894,7 +881,7 @@ object MultipassPull {
                         repeat(collapsed - 1) { work.removeAt(i) }
                         dropped += collapsed - 1
                         changed = true
-                        // The collapsed run now sits behind the new anchor `b`, never re-opened.
+                        // Reconsider the new adjacent points from the same anchor.
                         continue
                     }
                 }
@@ -960,26 +947,6 @@ object MultipassPull {
         val outBearing = SpatialOperations.initialBearing(at, next)
         val delta = ((outBearing - inBearing + 540.0) % 360.0) - 180.0
         return abs(delta)
-    }
-
-    /**
-     * **The longest flat run of interior vertices from the anchor at `i - 1`, in segments** — the largest
-     * span `k` (at most [SWEEP_WINDOW_MAX_SPAN]) whose **every** intermediate vertex turns by less than
-     * [SWEEP_WINDOW_MAX_TURN_DEG] and whose endpoint stands inside the line. `k = 2` is today's triple and
-     * carries no gate, so no turn blocks it; a window of three or more segments opens only where the first
-     * interior is flat **and** each further one is, so a genuinely turned run keeps exactly today's
-     * behaviour. Bearings alone — it reads no field value.
-     */
-    private fun windowSpan(work: List<LatLng>, i: Int): Int {
-        if (sweepTurnDeg(work[i - 1], work[i], work[i + 1]) >= SWEEP_WINDOW_MAX_TURN_DEG) return 2
-        var span = 2
-        while (span < SWEEP_WINDOW_MAX_SPAN) {
-            val at = i + span - 1
-            if (at + 1 >= work.size) break
-            if (sweepTurnDeg(work[at - 1], work[at], work[at + 1]) >= SWEEP_WINDOW_MAX_TURN_DEG) break
-            span++
-        }
-        return span
     }
 
     /**

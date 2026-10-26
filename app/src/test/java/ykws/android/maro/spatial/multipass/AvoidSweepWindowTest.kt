@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
@@ -18,8 +19,8 @@ import kotlin.math.cos
  *   chord, because a share of nothing is nothing. The price field is a **linear** law in north, so the two
  *   sides of the comparison are exact (the midpoint rule is exact for a linear price) and the difference
  *   between a bow and its chord is a number the fixture names rather than samples.
- * - **The window collapses a flat run**, one the triple alone cannot see, to a single chord; a **genuinely
- *   turned** run emits no window at all, because the geometry gate blocks it before any field read.
+ * - **The bounded window collapses flat or sharp runs**, including bends that cannot be removed
+ *   individually, while rejecting shortcuts that are too costly or need a span beyond the cap.
  * - **The clearance proof stays first and absolute** — a chord refused by land pays no price read, proven
  *   by the walk's own `priceReads` and `marks` counters standing at zero.
  *
@@ -141,9 +142,7 @@ class AvoidSweepWindowTest {
     }
 
     /**
-     * **A flat run collapses to one chord.** Four interior vertices in a gentle line, none turning past the
-     * gate, are welded into the single chord from the raw start to the raw aim — the run the triple alone
-     * would only eat one vertex a pass.
+     * **A flat run collapses to one chord.** Three interior vertices in a gentle line are removed together.
      */
     @Test
     fun aFlatRunCollapsesToOneChordAndTheWindowNamesIt() {
@@ -169,29 +168,64 @@ class AvoidSweepWindowTest {
         )
     }
 
-    /**
-     * **A genuinely turned run is left exactly as today.** A zig-zag whose every interior turn is past the
-     * gate emits no window at all — the gate blocks it before any field read — while the triple still
-     * straightens the line, so today's behaviour is carried unchanged.
-     */
     @Test
-    fun aTurnedRunEmitsNoWindow() {
-        val field = openWater()
+    fun sharpBendsCollapseTogetherWhenNeitherCanBeRemovedAlone() {
         val a = pt(0.0, 0.0)
-        val v1 = pt(200.0, 300.0)
-        val v2 = pt(400.0, 0.0)
-        val v3 = pt(600.0, 300.0)
-        val c = pt(800.0, 0.0)
-        val setup = PullSetup(marginM, stepM, stepM, field, a, c)
-
+        val b = pt(200.0, 300.0)
+        val c = pt(600.0, 300.0)
+        val d = pt(800.0, 0.0)
+        val setup = PullSetup(marginM, stepM, stepM, sharpDetourField(), a, d, paceMps = 10.0)
+        val ctx = setup.context()
+        assertFalse("removing only the first bend crosses a wall", MultipassPull.legClear(a, c, ctx))
+        assertFalse("removing only the second bend crosses a wall", MultipassPull.legClear(b, d, ctx))
+        assertTrue("removing both bends clears the walls", MultipassPull.legClear(a, d, ctx))
         val lines = mutableListOf<String>()
-        val swept = MultipassPull.sweep(setup, listOf(a, v1, v2, v3, c), refusals = null, trace = { lines += it() })
+        val swept = MultipassPull.sweep(setup, listOf(a, b, c, d), trace = { lines += it() })
 
-        assertTrue(
-            "the window never opens on a turned run",
-            lines.none { it.startsWith("SWEEP window") }
+        assertEquals(listOf(a, d), swept)
+        assertTrue(lines.any { it.startsWith("SWEEP window idx=1 span=3 ") })
+    }
+
+    @Test
+    fun aSharpWindowStillRejectsAnOverpricedChord() {
+        val path = listOf(pt(0.0, 0.0), pt(200.0, 300.0), pt(600.0, 300.0), pt(800.0, 0.0))
+        val setup = PullSetup(
+            marginM, stepM, stepM, sharpDetourField(pricedChord = true), path.first(), path.last(), paceMps = 10.0
         )
-        assertEquals("while the triple still straightens the line", listOf(a, c), swept)
+        val ctx = setup.context()
+        val pathSec = path.zipWithNext().sumOf { (a, b) -> MultipassPull.totalSec(a, b, ctx) }
+        assertTrue(MultipassPull.legClear(path.first(), path.last(), ctx))
+        assertTrue(MultipassPull.totalSec(path.first(), path.last(), ctx) > pathSec * (1.0 + share))
+
+        assertEquals(path, MultipassPull.sweep(setup, path, allowanceShare = share, traceLive = false))
+    }
+
+    @Test
+    fun aClearFiveSegmentShortcutCannotBypassTheCapOrBlockedShorterWindows() {
+        val path = listOf(
+            pt(0.0, 0.0), pt(200.0, 300.0), pt(400.0, 400.0),
+            pt(600.0, 400.0), pt(800.0, 300.0), pt(1000.0, 0.0)
+        )
+        val walls = path.indices.flatMap { from ->
+            (from + 2..minOf(from + 4, path.lastIndex)).map { to ->
+                chordPointAt(path[from], path[to], 0.5)
+            }
+        }
+        val field = RouteCostField(
+            listOf(
+                RouteCostSource.Hard(distanceAt = { p -> walls.minOf { dist(p, it) } }),
+                RouteCostSource.Soft(priceSec = { 1.0 }, tag = MultipassCellState.ZONE)
+            ),
+            cellM = 1.0
+        )
+        val setup = PullSetup(marginM, stepM, stepM, field, path.first(), path.last(), paceMps = 10.0)
+        assertTrue(path.zipWithNext().all { (a, b) -> MultipassPull.legClear(a, b, setup.context()) })
+        assertTrue("the forbidden longer shortcut is clear", MultipassPull.legClear(path.first(), path.last(), setup.context()))
+        val timing = PullTiming()
+
+        assertEquals(path, MultipassPull.sweep(setup, path, timing = timing))
+        assertEquals("blocked windows never pay for pricing", 0L, timing.priceReads)
+        assertEquals("blocked windows never build price partitions", 0L, timing.marks)
     }
 
     /**
@@ -267,6 +301,19 @@ class AvoidSweepWindowTest {
     /** Open water: a wall at `MAX_VALUE` and no price at all. */
     private fun openWater(): RouteCostField =
         RouteCostField.ofHard { Double.MAX_VALUE }
+
+    private fun sharpDetourField(pricedChord: Boolean = false): RouteCostField = RouteCostField(
+        listOf(
+            RouteCostSource.Hard(distanceAt = { p ->
+                minOf(dist(p, pt(300.0, 150.0)), dist(p, pt(500.0, 150.0)))
+            }),
+            RouteCostSource.Soft(
+                priceSec = { if (pricedChord && northMetres(it) < 25.0) 1.0 else 0.0 },
+                tag = MultipassCellState.ZONE
+            )
+        ),
+        cellM = 1.0
+    )
 
     /** A soft disc of price standing on the `a → c` chord's midpoint and off both legs. */
     private fun discPriceField(): RouteCostField = RouteCostField(
