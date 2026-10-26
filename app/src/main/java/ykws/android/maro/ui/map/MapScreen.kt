@@ -1810,10 +1810,7 @@ fun MapScreen(
     MapServiceEffects(
         context = context,
         viewModel = viewModel,
-        navigationState = navigationState,
-        appSettings = appSettings,
-        boatIsWater = boatIsWater,
-        trackRecorderState = trackRecorderState
+        appSettings = appSettings
     )
 
     // ── History/pinned track overlay diff (extracted to MapTrackOverlayEffects) ──

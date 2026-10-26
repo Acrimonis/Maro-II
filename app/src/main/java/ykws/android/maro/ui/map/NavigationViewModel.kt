@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
+import ykws.android.maro.data.track.TrackRecordingService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -907,6 +908,14 @@ class NavigationViewModel(
         // ── GPS mode collectors (rules 1–3) ─────────────────────────────────
         // enabled = GPS toggle AND app foreground. flatMapLatest tears down the
         // location/compass listeners the instant either turns off.
+        recordingFixesWhileDisplayPaused(
+            TrackRecordingService.recordingFixes,
+            settings.map { it.gpsMode }, _gpsActive, TrackRecordingService.isRecording
+        ).onEach { fix ->
+            // Preserve water broadcasts without another LocationManager listener.
+            _boatIsWater.value = repository.isOnWater(fix.position.latitude, fix.position.longitude)
+        }.launchIn(viewModelScope)
+
         val enabled = combine(
             settings.map { it.gpsMode }.distinctUntilChanged(),
             _gpsActive

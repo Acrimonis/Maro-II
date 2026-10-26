@@ -5,9 +5,10 @@ import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.getValue
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.settings.AppSettings
@@ -27,10 +28,7 @@ import ykws.android.maro.spatial.Units
 internal fun MapServiceEffects(
     context: Context,
     viewModel: NavigationViewModel,
-    navigationState: NavigationState,
-    appSettings: AppSettings,
-    boatIsWater: Boolean,
-    trackRecorderState: ykws.android.maro.data.track.TrackRecorderUiState
+    appSettings: AppSettings
 ) {
     // ── Demo-mode sample feed → service-owned recorder ───────────────────
     // GPS mode: TrackRecordingService owns its own LocationManager sampling,
@@ -113,24 +111,31 @@ internal fun MapServiceEffects(
         }
     }
 
-    // ── Foreground notification updates ────────────────────────────────────
-    // Sends recording stats to TrackRecordingService every ~5s while recording.
-    // When recording stops, sends one final update to revert to "Ready".
-    val latestRecorder by rememberUpdatedState(trackRecorderState)
-    val latestNavigation by rememberUpdatedState(navigationState)
-    LaunchedEffect(trackRecorderState.state, appSettings.gpsMode, boatIsWater) {
-        notificationTicker(trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
-            val state = latestRecorder
-            val nav = latestNavigation
+    // Read current flows even while the Activity's Compose frame clock is paused.
+    // Water/movement/mode/recording transitions send immediately; statistics keep the ticker stable.
+    LaunchedEffect(viewModel) {
+        val keys = combine(
+            TrackRecordingService.uiState.map { it.state == ykws.android.maro.data.track.TrackRecorderState.ON }.distinctUntilChanged(),
+            viewModel.settings.map { it.gpsMode }.distinctUntilChanged(),
+            viewModel.boatIsWater,
+            viewModel.isStopped,
+            TrackRecordingService.isStopped
+        ) { recording, gps, water, displayStopped, recordingStopped ->
+            NotificationTickerKey(recording, gps, water, if (recording && gps) !recordingStopped else !displayStopped)
+        }
+        notificationUpdates(keys) { key ->
+            val state = TrackRecordingService.uiState.value
+            val nav = viewModel.navigationState.value
             val intent = Intent(context, TrackRecordingService::class.java).apply {
                 action = TrackRecordingService.ACTION_UPDATE
-                putExtra(TrackRecordingService.EXTRA_IS_DEMO, !appSettings.gpsMode)
-                putExtra(TrackRecordingService.EXTRA_IS_MOVING, !viewModel.isStopped.value)
-                putExtra(TrackRecordingService.EXTRA_SPEED_KN, nav.speedKnots ?: nav.demoSpeedKnots)
-                putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
-                val recording = state.state == ykws.android.maro.data.track.TrackRecorderState.ON
-                putExtra(TrackRecordingService.EXTRA_RECORDING, recording)
-                if (recording) {
+                putExtra(TrackRecordingService.EXTRA_IS_DEMO, !key.gpsMode)
+                if (!key.recording || !key.gpsMode) {
+                    putExtra(TrackRecordingService.EXTRA_IS_MOVING, key.moving)
+                    putExtra(TrackRecordingService.EXTRA_SPEED_KN, nav.speedKnots ?: nav.demoSpeedKnots)
+                }
+                putExtra(TrackRecordingService.EXTRA_ON_WATER, key.onWater)
+                putExtra(TrackRecordingService.EXTRA_RECORDING, key.recording)
+                if (key.recording) {
                     putExtra(TrackRecordingService.EXTRA_DISTANCE_NM, state.distanceNm)
                     putExtra(TrackRecordingService.EXTRA_ELAPSED_SEC, state.elapsedSeconds)
                     putExtra(TrackRecordingService.EXTRA_IDLE_SEC, state.idleDurationSec)
@@ -139,19 +144,8 @@ internal fun MapServiceEffects(
                     putExtra(TrackRecordingService.EXTRA_POINT_COUNT, state.pointCount)
                 }
             }
+            // This also carries the immediate water toggle; the service owns its Tasker broadcast.
             context.startService(intent)
         }
-    }
-
-    // ── Water state push to TrackRecordingService ─────────────────────────
-    // Sends a one-shot intent every time boatIsWater toggles, so the service
-    // can fire the WATER_STATE_CHANGED broadcast to Tasker immediately.
-    LaunchedEffect(boatIsWater) {
-        val intent = Intent(context, TrackRecordingService::class.java).apply {
-            action = TrackRecordingService.ACTION_UPDATE
-            putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
-            putExtra(TrackRecordingService.EXTRA_IS_DEMO, !appSettings.gpsMode)
-        }
-        context.startService(intent)
     }
 }

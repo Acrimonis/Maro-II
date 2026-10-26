@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -60,4 +61,27 @@ class NotificationTickerTest {
         replacement.cancelAndJoin()
         assertEquals(listOf(0L, 1_200L, 6_200L), times)
     }
+    @Test fun meaningfulFlowTransitionsRemainImmediateWithoutRecomposition() = runTest {
+        val keys=MutableStateFlow(NotificationTickerKey(true,true,false,true))
+        var latestStat=0
+        val sent=mutableListOf<Triple<Long,NotificationTickerKey,Int>>()
+        val job=launch { notificationUpdates(keys) { sent+=Triple(testScheduler.currentTime,it,latestStat) } }
+        runCurrent()
+        advanceTimeBy(1_000); latestStat=1
+        keys.value=keys.value.copy() // A statistics update does not restart the ticker.
+        runCurrent(); assertEquals(1,sent.size)
+        advanceTimeBy(4_000); latestStat=5; runCurrent()
+        assertEquals(5,sent.last().third)
+        keys.value=keys.value.copy(onWater=true); runCurrent()
+        assertEquals(true,sent.last().second.onWater)
+        keys.value=keys.value.copy(moving=false); runCurrent()
+        assertEquals(false,sent.last().second.moving)
+        keys.value=keys.value.copy(recording=false); runCurrent()
+        assertEquals(false,sent.last().second.recording)
+        val stoppedCount=sent.size
+        advanceTimeBy(30_000); runCurrent()
+        assertEquals(stoppedCount,sent.size)
+        job.cancelAndJoin()
+    }
+
 }

@@ -52,6 +52,7 @@ import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.spatial.WhereAmIResult
+import ykws.android.maro.spatial.Units
 import java.io.File
 
 private const val TAG = "MaroII_TrackService"
@@ -83,6 +84,8 @@ class TrackRecordingService : Service() {
 
     /** Last known boat water state — persisted across Activity lifecycle for query support. */
     private var lastKnownOnWater: Boolean = false
+
+    private val gpsNotificationMotion = MutableStateFlow(NotificationMotion(false, 0f))
 
     /** True when orphaned checkpoint files exist in filesDir/tracks/ (lightweight scan, no protobuf I/O). */
     private var hasOrphans: Boolean = false
@@ -364,7 +367,13 @@ class TrackRecordingService : Service() {
                         fix.speedMps,
                         fix.accuracyM
                     )
+                    gpsNotificationMotion.value = NotificationMotion(
+                        moving = mode != AcquisitionMode.IDLE,
+                        speedKn = fix.speedMps?.let { (it.toDouble() * Units.KNOTS_PER_MPS).toFloat() } ?: 0f
+                    )
                     _stopped.value = mode == AcquisitionMode.IDLE
+                    // An advisory copy for background water/notification state; never delays recording.
+                    if (_isRecording.value) _recordingFixes.tryEmit(fix)
                     _sampleInput.tryEmit(
                         TrackSample(
                             position = fix.position,
@@ -412,8 +421,17 @@ class TrackRecordingService : Service() {
     private fun buildNotification(intent: Intent?, isOnWater: Boolean, recording: Boolean? = null): Notification {
         val isRecording = recording ?: (intent?.getBooleanExtra(EXTRA_RECORDING, false) ?: false)
         val isDemo = intent?.getBooleanExtra(EXTRA_IS_DEMO, false) ?: false
-        val isMoving = intent?.getBooleanExtra(EXTRA_IS_MOVING, false) ?: false
-        val speedKn = intent?.getFloatExtra(EXTRA_SPEED_KN, 0f) ?: 0f
+        val motion = notificationMotion(
+            recording = isRecording,
+            demo = demoMode.value,
+            service = gpsNotificationMotion.value,
+            display = NotificationMotion(
+                intent?.getBooleanExtra(EXTRA_IS_MOVING, false) ?: false,
+                intent?.getFloatExtra(EXTRA_SPEED_KN, 0f) ?: 0f
+            )
+        )
+        val isMoving = motion.moving
+        val speedKn = motion.speedKn
         val elapsedSec = intent?.getLongExtra(EXTRA_ELAPSED_SEC, 0L) ?: 0L
         val distanceNm = intent?.getFloatExtra(EXTRA_DISTANCE_NM, 0f) ?: 0f
         val idleSec = intent?.getLongExtra(EXTRA_IDLE_SEC, 0L) ?: 0L
@@ -548,6 +566,11 @@ class TrackRecordingService : Service() {
         val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
         private val _stopped = MutableStateFlow(false)
+        val isStopped: StateFlow<Boolean> = _stopped.asStateFlow()
+
+        // No replay: a resumed observer must not apply an older fix over the display's latest one.
+        private val _recordingFixes = MutableSharedFlow<GpsFix>(extraBufferCapacity = 64)
+        val recordingFixes: SharedFlow<GpsFix> = _recordingFixes.asSharedFlow()
 
         private val _gpsPermissionMissing = MutableStateFlow(false)
         val gpsPermissionMissing: StateFlow<Boolean> = _gpsPermissionMissing.asStateFlow()
