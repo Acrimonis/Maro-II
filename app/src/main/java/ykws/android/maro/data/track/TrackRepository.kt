@@ -61,6 +61,10 @@ open class TrackRepository(
      */
     private val writeMutex = Mutex()
 
+    /** Optional workload counters; null in production. */
+    internal var workObserver: ((Work) -> Unit)? = null
+    internal enum class Work { TRACK_DECODE, INDEX_WRITE }
+
     /**
      * The water test a position classification may use, and the region it can answer for. Both stay null
      * until the coastline is loaded, which is itself the gate: an unanswerable sample is never counted,
@@ -86,13 +90,24 @@ open class TrackRepository(
      * Save a completed track. Throws [IOException] when the file could not be written or replaced —
      * the caller decides what a failed save means (the recorder keeps its checkpoint).
      */
-    open suspend fun save(track: Track): Unit = withContext(Dispatchers.IO) {
-        writeMutex.withLock {
+    open suspend fun save(track: Track): Unit = saveAll(listOf(track))
+
+    /** Persist an import batch with one index update; each track still has its own atomic replace. */
+    suspend fun saveAll(tracks: List<Track>): Unit = withContext(Dispatchers.IO) {
+        if (tracks.isEmpty()) return@withContext
+        tracks.forEach { trackFile(it.id) } // Validate the complete batch before its first write.
+        writeMutex.withLock { saveAllLocked(tracks, readIndex(publishRebuild = false)) }
+    }
+
+    private suspend fun saveAllLocked(tracks: List<Track>, previous: List<TrackSummary>) {
+        invalidateIndexLocked()
+        val carried = previous.associateBy { it.id }.toMutableMap()
+        tracks.forEach { track ->
             val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
             writeAtomically(trackFile(stamped.id), proto.encodeToByteArray(Track.serializer(), stamped))
-            rebuildIndexLocked()
+            carried[stamped.id] = summarize(stamped, carried[stamped.id])
         }
-        Unit
+        updateIndexLocked(carried)
     }
 
     /**
@@ -127,17 +142,17 @@ open class TrackRepository(
      * stored — a missing bool reading `false` — and the filter reading it would answer nothing until
      * something else happened to mutate the library.
      */
-    private suspend fun readIndex(): List<TrackSummary> = withContext(Dispatchers.IO) {
+    private suspend fun readIndex(publishRebuild: Boolean = true): List<TrackSummary> = withContext(Dispatchers.IO) {
         val indexFile = indexFile()
-        if (!indexFile.exists()) return@withContext rebuildIndexLocked()
+        if (!indexFile.exists()) return@withContext rebuildIndexLocked(publishRebuild)
         try {
             val summaryList = proto.decodeFromByteArray(TrackSummaryList.serializer(), indexFile.readBytes())
-            if (summaryList.version != SUMMARY_INDEX_VERSION) return@withContext rebuildIndexLocked()
+            if (summaryList.version != SUMMARY_INDEX_VERSION) return@withContext rebuildIndexLocked(publishRebuild)
             summaryList.tracks
         } catch (e: Exception) {
             // The index is derived from the track files, so an unreadable one is simply rebuilt.
             indexFile.delete()
-            rebuildIndexLocked()
+            rebuildIndexLocked(publishRebuild)
         }
     }
 
@@ -150,39 +165,56 @@ open class TrackRepository(
      * markers — when it equals [id], the cascade is skipped (never touch the active
      * recording track's temp marker).
      */
-    open suspend fun delete(id: String, excludeActiveTrackId: String? = null): Unit = withContext(Dispatchers.IO) {
-        if (!isSafeId(id)) return@withContext
+    open suspend fun delete(id: String, excludeActiveTrackId: String? = null): Unit =
+        deleteAll(setOf(id), excludeActiveTrackId)
+
+    /** One marker cascade and index publication for a multi-track deletion. */
+    suspend fun deleteAll(ids: Set<String>, excludeActiveTrackId: String? = null): Unit = withContext(Dispatchers.IO) {
+        val safeIds = ids.filter(::isSafeId).toSet()
+        if (safeIds.isEmpty()) return@withContext
         markerRepo?.let { repo ->
-            if (id != excludeActiveTrackId) {
+            val cascadeIds = safeIds - excludeActiveTrackId
+            if (cascadeIds.isNotEmpty()) {
                 val markers = repo.loadAll()
                 val remaining = markers.filterNot { m ->
-                    m.origin == MarkerOrigin.IDLE_AUTO && m.trackId == id
+                    m.origin == MarkerOrigin.IDLE_AUTO && m.trackId in cascadeIds
                 }
                 if (remaining.size != markers.size) repo.saveAll(remaining)
             }
         }
         writeMutex.withLock {
-            trackFile(id).delete()
-            checkpointFile(id).delete()
-            rebuildIndexLocked()
+            val previous = readIndex(publishRebuild = false).associateBy { it.id }
+            invalidateIndexLocked()
+            safeIds.forEach { id ->
+                trackFile(id).delete()
+                checkpointFile(id).delete()
+            }
+            updateIndexLocked(previous)
         }
         Unit
     }
 
     /** Update track metadata (name, comment). */
     suspend fun updateMetadata(id: String, name: String? = null, comment: String? = null) {
-        val track = load(id) ?: return
-        val updated = track.copy(
-            name = name ?: track.name,
-            comment = comment ?: track.comment
-        )
-        save(updated)
+        updateTrack(id) { track ->
+            track.copy(name = name ?: track.name, comment = comment ?: track.comment)
+        }
     }
 
     /** Set the pinned flag on a track. */
     suspend fun setPinned(id: String, pinned: Boolean) {
-        val track = load(id) ?: return
-        save(track.copy(pinned = pinned))
+        updateTrack(id) { it.copy(pinned = pinned) }
+    }
+
+    /** Keep the read and write on the same lane so concurrent metadata edits cannot replace each other. */
+    private suspend fun updateTrack(id: String, update: (Track) -> Track): Unit = withContext(Dispatchers.IO) {
+        if (!isSafeId(id)) return@withContext
+        writeMutex.withLock {
+            val file = trackFile(id)
+            if (!file.exists()) return@withLock
+            val track = decodeTrackOrQuarantine(file) ?: return@withLock
+            saveAllLocked(listOf(update(track)), readIndex(publishRebuild = false))
+        }
     }
 
     /**
@@ -378,6 +410,7 @@ open class TrackRepository(
      * untouched.
      */
     private fun decodeTrackOrQuarantine(file: File): Track? {
+        workObserver?.invoke(Work.TRACK_DECODE)
         val bytes = try {
             file.readBytes()
         } catch (e: IOException) {
@@ -405,51 +438,71 @@ open class TrackRepository(
     }
 
     /** Rebuild the index by scanning all `.bin` files, position counts carried or sampled per track. */
-    private suspend fun rebuildIndexLocked(): List<TrackSummary> = withContext(Dispatchers.IO) {
+    private suspend fun rebuildIndexLocked(publish: Boolean = true): List<TrackSummary> = withContext(Dispatchers.IO) {
         val carried = carriedSummaries()
         val summaries = tracksDir.listFiles()
             ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
             ?.mapNotNull { file ->
                 val track = decodeTrackOrQuarantine(file) ?: return@mapNotNull null
-                run {
-                    val counts = classifyOrCarry(track, carried[track.id])
-                    TrackSummary(
-                        id = track.id,
-                        name = track.name,
-                        comment = track.comment,
-                        startTimeMs = track.startTimeMs,
-                        endTimeMs = track.endTimeMs,
-                        fastestSpeedMps = track.fastestSpeedMps,
-                        distanceNm = track.distanceNm,
-                        navigatingDurationSec = track.navigatingDurationSec,
-                        pausedDurationSec = track.pausedDurationSec,
-                        idleDurationSec = track.idleDurationSec,
-                        averageSpeedMps = track.averageSpeedMps,
-                        pinned = track.pinned,
-                        pointCount = track.trackPoints.size,
-                        updatedAtEpochMs = track.updatedAtEpochMs,
-                        lastPointTimeMs = track.lastPointTimeMs.takeIf { it != 0L }
-                            ?: (track.lastRealPointTimeMsOrNull() ?: 0L),
-                        // Both counts are stored biased by one (see TrackSummary), which makes an
-                        // unclassified sample — (-1, -1) — land on the sentinel (0, 0) by itself.
-                        waterPointCount = counts.water + 1,
-                        landPointCount = counts.land + 1,
-                        // The flag rides the pass that is already reading the whole track, so the lists
-                        // and the map's action rules never need to load a track to know a route from a
-                        // recording.
-                        route = track.route,
-                        // The two ends ride the same pass: the acquisition's stored-route match reads
-                        // them off the summaries, so it never has to open a track file to find one.
-                        routeStartMarkerId = track.routeStartMarkerId,
-                        routeDestinationMarkerId = track.routeDestinationMarkerId,
-                        demo = track.demo,
-                        gpsSourced = track.hasGpsFix()
-                    )
-                }
+                summarize(track, carried[track.id])
             } ?: emptyList()
 
-        writeIndexLocked(summaries)
+        if (publish) writeIndexLocked(summaries)
         summaries
+    }
+
+    /** The complete projection shared by incremental publication and the recovery/reference rebuild. */
+    private fun summarize(track: Track, previous: TrackSummary?): TrackSummary {
+        val counts = classifyOrCarry(track, previous)
+        return TrackSummary(
+            id = track.id,
+            name = track.name,
+            comment = track.comment,
+            startTimeMs = track.startTimeMs,
+            endTimeMs = track.endTimeMs,
+            fastestSpeedMps = track.fastestSpeedMps,
+            distanceNm = track.distanceNm,
+            navigatingDurationSec = track.navigatingDurationSec,
+            pausedDurationSec = track.pausedDurationSec,
+            idleDurationSec = track.idleDurationSec,
+            averageSpeedMps = track.averageSpeedMps,
+            pinned = track.pinned,
+            pointCount = track.trackPoints.size,
+            updatedAtEpochMs = track.updatedAtEpochMs,
+            lastPointTimeMs = track.lastPointTimeMs.takeIf { it != 0L }
+                ?: (track.lastRealPointTimeMsOrNull() ?: 0L),
+            // Both counts are stored biased by one (see TrackSummary), which makes an
+            // unclassified sample — (-1, -1) — land on the sentinel (0, 0) by itself.
+            waterPointCount = counts.water + 1,
+            landPointCount = counts.land + 1,
+            // The flag rides the pass that is already reading the whole track, so the lists
+            // and the map's action rules never need to load a track to know a route from a
+            // recording.
+            route = track.route,
+            // The two ends ride the same pass: the acquisition's stored-route match reads
+            // them off the summaries, so it never has to open a track file to find one.
+            routeStartMarkerId = track.routeStartMarkerId,
+            routeDestinationMarkerId = track.routeDestinationMarkerId,
+            demo = track.demo,
+            gpsSourced = track.hasGpsFix()
+        )
+    }
+
+    /** A crash after a track changes must leave a missing index, never a valid-looking stale one. */
+    private fun invalidateIndexLocked() {
+        val index = indexFile()
+        if (index.exists() && !index.delete()) throw IOException("could not invalidate track index")
+    }
+
+    /** Preserve the full rebuild's directory order without decoding unchanged tracks. */
+    private suspend fun updateIndexLocked(known: Map<String, TrackSummary>) {
+        val summaries = tracksDir.listFiles().orEmpty()
+            .filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
+            .mapNotNull { file ->
+                known[file.nameWithoutExtension]
+                    ?: decodeTrackOrQuarantine(file)?.let { summarize(it, null) }
+            }
+        writeIndexLocked(summaries)
     }
 
     /** The index currently on disk, by id — read before a rebuild so counts can survive it. */
@@ -469,8 +522,7 @@ open class TrackRepository(
      * The position counts for a freshly decoded track: the ones the index already carried when the track
      * has not been written since, or a fresh sample when the coastline can answer.
      *
-     * Carrying them is what keeps one save from re-sampling the whole library, the index being re-derived
-     * from the track files on every mutation; and a sample the coastline cannot answer for is never
+     * Carrying them keeps a recovery rebuild from re-sampling unchanged tracks; and a sample the coastline cannot answer for is never
      * cached, so a track keeps its flag clear rather than baking "no data yet" in as water.
      */
     private fun classifyOrCarry(track: Track, previous: TrackSummary?): TrackPositionCounts {
@@ -526,6 +578,7 @@ open class TrackRepository(
 
     /** Write the index from a summary list, stamped with the schema it was written with. */
     private suspend fun writeIndexLocked(summaries: List<TrackSummary>) = withContext(Dispatchers.IO) {
+        workObserver?.invoke(Work.INDEX_WRITE)
         val indexData = proto.encodeToByteArray(
             TrackSummaryList.serializer(),
             TrackSummaryList(summaries, SUMMARY_INDEX_VERSION)
